@@ -62,7 +62,8 @@ python scripts/docs_build.py
   floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
   and `docs/install.md`, `docs/api.md` against `__all__` and the generator,
   docs versions derived from `__version__`, no unowned importable package at the root, project
-  identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`,
+  identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
+  and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
   stack form, line-ending consistency, stack pointers that resolve, and the `docs/api.md` Type
   column against the runtime object. It fails on structure, not behaviour.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.

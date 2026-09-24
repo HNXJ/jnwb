@@ -109,10 +109,9 @@ def choose_code_column(table: dict) -> str | None:
 def continuous_series(info: dict) -> list[dict]:
     """Every continuous series in the file, acquisitions first.
 
-    05-42: the tutorial iterated `info["acquisitions"]` alone, so a file whose LFP lives
-    in a processing module -- which is where `LFP` containers usually live -- printed no
-    continuous line at all and then claimed it had aligned the layout. `inspect` reports
-    both lists with the same keys; a reader looking for their data has to look in both.
+    `inspect` reports acquisition series and processing-module series in two lists with the
+    same keys. An `LFP` container usually lives in a processing module, so reading
+    `info["acquisitions"]` alone finds no continuous series in most files.
     """
     return list(info["acquisitions"]) + list(info["processing_continuous"])
 

@@ -1285,6 +1285,40 @@ class TestGate14ProcessIdentifiersInLibrary:
         violations = check_no_process_identifiers_in_library(root)
         assert len(violations) == 1 and "docs/nested/page.md:3" in violations[0], violations
 
+    @staticmethod
+    def _site(tmp_path: Path, include: str, base_path: str = ".") -> Path:
+        """A page that pulls a source file into the published site through pymdownx.snippets."""
+        root = TestGate14ProcessIdentifiersInLibrary._library(tmp_path, "Module text.")
+        (root / "mkdocs.yml").write_text(
+            f"markdown_extensions:\n  - pymdownx.snippets:\n      base_path: [\"{base_path}\"]\n",
+            encoding="utf-8",
+        )
+        source = root / base_path / "examples" / "tut.py"
+        source.parent.mkdir(parents=True)
+        source.write_text("x = 1\n# 09-999: the loop read one list.\n", encoding="utf-8")
+        (root / "docs").mkdir()
+        (root / "docs" / "page.md").write_text(f"# Page\n\n```python\n{include}\n```\n", encoding="utf-8")
+        return root
+
+    @pytest.mark.parametrize(
+        "include",
+        ['--8<-- "examples/tut.py"', "--8<--\nexamples/tut.py\n--8<--", "-8<- 'examples/tut.py:1:2'"],
+    )
+    def test_a_seeded_identifier_in_an_included_file_fails(self, tmp_path: Path, include: str):
+        violations = check_no_process_identifiers_in_library(self._site(tmp_path, include))
+        assert len(violations) == 1 and "examples/tut.py:2" in violations[0], violations
+
+    def test_includes_resolve_against_the_configured_base_path(self, tmp_path: Path):
+        root = self._site(tmp_path, '--8<-- "examples/tut.py"', base_path="snippets")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "snippets/examples/tut.py:2" in violations[0], violations
+
+    def test_an_include_that_resolves_to_nothing_is_a_failure(self, tmp_path: Path):
+        violations = check_no_process_identifiers_in_library(
+            self._site(tmp_path, '--8<-- "examples/missing.py"')
+        )
+        assert len(violations) == 1 and "examples/missing.py" in violations[0], violations
+
 
 class TestGate6RecursiveCoverage:
     """Gate 6 must see nested user-facing surfaces, not only the top level.

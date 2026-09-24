@@ -1343,14 +1343,121 @@ PROCESS_IDENTIFIER = re.compile(
 )
 
 
+#: A pymdownx.snippets include on one line: `--8<-- "path"`, any run of dashes on either side,
+#: either quote. A leading `;` escapes it, and an escaped include is not followed.
+SNIPPET_INLINE = re.compile(r"""^[ \t]*(;*)-+8<-+[ \t]+(["'])(.+?)\2[ \t]*$""")
+#: A bare marker line, which opens and closes a block of one included path per line.
+SNIPPET_BLOCK = re.compile(r"^[ \t]*(;*)-+8<-+[ \t]*$")
+
+
+def _snippet_base_paths(root: Path) -> List[Path]:
+    """The directories pymdownx.snippets resolves includes against, from `mkdocs.yml`.
+
+    The extension's own default, the working directory, is the repository root when the site
+    is built from it; that is also the answer when `mkdocs.yml` is absent or does not configure
+    the extension.
+    """
+    mkdocs = root / "mkdocs.yml"
+    if mkdocs.is_file():
+        import yaml
+
+        config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+        for extension in config.get("markdown_extensions") or []:
+            if isinstance(extension, dict) and "pymdownx.snippets" in extension:
+                base = (extension["pymdownx.snippets"] or {}).get("base_path", ["."])
+                return [root / b for b in ([base] if isinstance(base, str) else base)]
+    return [root]
+
+
+def _snippet_names(text: str) -> List[str]:
+    """Every path a page includes through pymdownx.snippets, in order.
+
+    Fenced code is not masked: the extension is a preprocessor and expands an include inside a
+    code fence, which is where every tutorial page puts its script.
+    """
+    names, in_block = [], False
+    for line in text.splitlines():
+        block = SNIPPET_BLOCK.match(line)
+        if block:
+            if not block.group(1):
+                in_block = not in_block
+            continue
+        if in_block:
+            name = line.strip()
+            if name and not name.startswith(";"):
+                names.append(name)
+            continue
+        inline = SNIPPET_INLINE.match(line)
+        if inline and not inline.group(1):
+            names.append(inline.group(3))
+    return names
+
+
+def _resolve_snippet(name: str, bases: List[Path]) -> Optional[Path]:
+    """The file an include names, trying it whole and then without `:start:end` or `:section`."""
+    candidates = [name]
+    while ":" in candidates[-1]:
+        candidates.append(candidates[-1].rsplit(":", 1)[0])
+    for candidate in candidates:
+        for base in bases:
+            path = base / candidate
+            if path.is_file():
+                return path
+    return None
+
+
+def _included_sources(root: Path, pages: List[Path]) -> Tuple[List[Tuple[Path, Path]], List[str]]:
+    """``(included file, page that includes it)`` for every snippet the pages pull in, recursively.
+
+    A file is scanned whole even when a page includes only a line range or a section of it,
+    because a range moves when the file is edited. An include that resolves to no file is
+    returned as a violation: the extension drops it silently, and a sweep that cannot find a
+    file cannot say it is clean.
+    """
+    bases = _snippet_base_paths(root)
+    seen = set(pages)
+    included: List[Tuple[Path, Path]] = []
+    unresolved: List[str] = []
+    queue = list(pages)
+    while queue:
+        page = queue.pop(0)
+        for name in _snippet_names(page.read_text(encoding="utf-8")):
+            if "://" in name:
+                continue  # a remote include needs `url_download`, which the site does not enable
+            path = _resolve_snippet(name, bases)
+            if path is None:
+                unresolved.append(
+                    f"PROCESS_IDENTIFIER: {_rel(page, root)} includes {name!r}, which resolves to "
+                    "no file under the snippet base path; the sweep cannot scan it"
+                )
+            elif path not in seen:
+                seen.add(path)
+                included.append((path, page))
+                queue.append(path)
+    return included, unresolved
+
+
+def _rel(path: Path, root: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
-    """Part of gate 14: no item or problem identifier in `jnwb/**/*.py` or `docs/**/*.md`.
+    """Part of gate 14: no item or problem identifier in `jnwb/**/*.py`, `docs/**/*.md`, or any
+    file a page includes through pymdownx.snippets.
 
     The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
     comments and docstrings included, and out of the published pages. Identifiers were the form
     it took there: behaviour was explained by citing the stack row that changed it, which tells a
     reader nothing. The scan is textual, so comments, docstrings and string constants are all
     covered.
+
+    An included file is published as part of the page that includes it, so it is scanned too.
+    The tutorial pages are almost entirely `--8<--` includes of `examples/tutorials/*.py`, and a
+    scan of `docs/` alone saw none of that text. Includes resolve against the `base_path` that
+    `mkdocs.yml` gives the extension.
     """
     root = repo_root or REPO_ROOT
     modules = sorted(
@@ -1361,13 +1468,16 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
             f"PROCESS_IDENTIFIER: no library source found to scan under {root / 'jnwb'}; the "
             "sweep is broken, not the tree"
         ]
-    violations = []
-    for py in modules + sorted((root / "docs").rglob("*.md")):
-        rel = py.relative_to(root).as_posix()
-        for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
+    pages = sorted((root / "docs").rglob("*.md"))
+    included, violations = _included_sources(root, pages)
+    targets = [(path, "") for path in modules + pages]
+    targets += [(path, f" (published by {_rel(page, root)})") for path, page in included]
+    for path, via in targets:
+        rel = _rel(path, root)
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
                 violations.append(
-                    f"PROCESS_IDENTIFIER: {rel}:{lineno} cites {found.group(0)!r}. State the "
+                    f"PROCESS_IDENTIFIER: {rel}:{lineno}{via} cites {found.group(0)!r}. State the "
                     "behaviour it stands for instead; the identifier means nothing to a reader "
                     "of the library."
                 )
@@ -2528,7 +2638,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (14, _internal_vocabulary_checks,
      lambda: f"PASS: No internal process vocabulary in docs/ ({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
-             "among them), and no item or problem identifier in jnwb/ or docs/."),
+             "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "
+             "includes."),
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
