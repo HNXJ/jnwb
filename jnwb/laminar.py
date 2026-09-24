@@ -34,6 +34,7 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
+from ._spread import is_constant
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -1652,7 +1653,8 @@ class ZFlipResult(DictAccessMixin):
 
     Attributes:
         adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
-            Phase Lag Index between adjacent contacts; NaN when not computed.
+            Phase Lag Index between adjacent contacts; NaN when not computed, and for a
+            pair with a constant contact (all-zero included).
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
@@ -1662,7 +1664,8 @@ class ZFlipResult(DictAccessMixin):
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
             unwrapping unambiguous interval).
-        mean_wpli: Average wPLI across adjacent contacts; NaN when not computed.
+        mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
+            any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
             under the fitted linear model (v = pitch_m / tau_per_channel), or None if
             unidentifiable or pitch_um was not provided.
@@ -1676,7 +1679,7 @@ class ZFlipResult(DictAccessMixin):
         delay_identifiable: Boolean indicating whether the phase-frequency relationship
             satisfies the identifiability gate across contacts.
         p_value: Surrogate p-value against the per-channel phase-randomised null, or NaN
-            when the test was not performed (``n_surrogates=0``).
+            when the test was not performed (``n_surrogates=0``, or a contact is constant).
         accepted: True only if the surrogate test was performed and significant
             (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
             is identifiable.
@@ -1905,12 +1908,16 @@ def zflip(
     adj_delays = np.zeros(n_channels - 1, dtype=float)
     adj_r2 = np.zeros(n_channels - 1, dtype=float)
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
+    # A pair with a constant contact has no phase lag to weigh; its wPLI is NaN, as in
+    # jnwb.wpli, so it cannot enter mean_wpli as a zero or as rounding residue.
+    flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
 
     for i in range(n_channels - 1):
         # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
         Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
         w_f, _ = _wpli_from_cross_spectra(Sxy)
-        adj_wpli[i] = float(np.mean(w_f[mask]))
+        adj_wpli[i] = (np.nan if i in flat_contacts or i + 1 in flat_contacts
+                       else float(np.mean(w_f[mask])))
 
         # Phase slope from average cross-spectrum across segments
         Sxy_mean = np.mean(Sxy, axis=1)
@@ -1977,7 +1984,7 @@ def zflip(
     # Monte Carlo surrogate null test
     rng = np.random.default_rng(seed)
     p_val = float("nan")
-    if n_surrogates > 0:
+    if n_surrogates > 0 and not flat_contacts:
         exceed_count = 0
         for _ in range(n_surrogates):
             surr_lfp = _surrogate_phase_randomize(lfp, rng)
@@ -1998,11 +2005,14 @@ def zflip(
     accepted = bool(is_sig and has_coupling and delay_identifiable)
 
     reasons: List[str] = []
-    if n_surrogates == 0:
+    if flat_contacts:
+        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI undefined, "
+                       "surrogate test not performed")
+    elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0)")
     elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
-    if not has_coupling:
+    if not has_coupling and not flat_contacts:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
     if not delay_identifiable:
         reasons.append("Phase-frequency relation failed linear identifiability gate")

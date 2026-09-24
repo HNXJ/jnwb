@@ -109,6 +109,25 @@ def test_zflip_insufficient_freq_bins():
     assert "Insufficient frequency bins" in res.rejection_reason
 
 
+@pytest.mark.parametrize("level", [0.0, 0.3])
+def test_zflip_a_constant_contact_makes_its_pairs_nan_not_zero(level):
+    """A constant contact's two adjacent pairs report NaN wPLI, so the mean is NaN.
+
+    What would pass while the flat contact still counts: checking only ``accepted``, which
+    the delay gate already refuses. The inline wPLI gave an all-zero contact 0.0 and a 0.3
+    one rounding residue, and both entered ``mean_wpli`` as coupling measurements.
+    """
+    rng = np.random.default_rng(3)
+    t = np.arange(4000) / 1000.0
+    data = np.stack([np.sin(2 * np.pi * 25 * (t - 0.002 * k)) + 0.2 * rng.normal(size=t.size)
+                     for k in range(5)])
+    data[2] = level
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, n_surrogates=5, rng=0)
+    np.testing.assert_array_equal(np.isnan(res.adjacent_wpli), [False, True, True, False])
+    assert np.isnan(res.mean_wpli) and np.isnan(res.p_value) and not res.accepted
+    assert "Contact(s) [2] constant" in res.rejection_reason
+
+
 def test_zflip_clean_traveling_wave_recovery():
     """Verify recovery of signed direction and apparent velocity on clean traveling wave."""
     fs = 1000.0
