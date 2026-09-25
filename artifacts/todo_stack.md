@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-201 to 06-203, then 06-205 (the 0.2.6.1 patch) |
+| 0 | 06-201 to 06-203 and 06-206 to 06-208, then 06-205 (the 0.2.6.1 patch) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
@@ -94,10 +94,43 @@ actually used. Blocked by 06-202 because both edit one file in one lane.
 Accept: `None` differs between calls, the recorded seed reproduces p, a `Generator` is accepted and
 a float refused, each in a test; an independent verifier kills a mutant restoring seed 0.
 
+### 06-206 `jrsa` row metrics warn on an unnamed null
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: 06-201.
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
+Ruled 2026-09-25. Forming a null for a row metric without naming `null=` raises a `UserWarning`
+that says axis-0 time needs `'circular_shift'` or `'block'` and that 0.2.7 requires the argument;
+naming any scheme silences it and changes no number. Same lane as 06-201.
+Accept: the warning and its silencing are tested, and an independent verifier kills a mutant that
+drops the warning.
+
+### 06-207 `jrsa` refuses single-sample bootstrap on paired metrics
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: 06-201.
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
+Ruled 2026-09-25. A bootstrap on a paired metric raises unless `null='iid'` is named; with it, the
+numbers equal 0.2.6. Every caller moves. Same lane as 06-201.
+Accept: the refusal is tested, no document routes to the refused call, and an independent verifier
+kills a mutant that lets it through.
+
+### 06-208 Directed surrogates use a circular shift below 7 trials
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 06-203.
+Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `docs/08_directed_connectivity_and_information.md`, `skills/jnwb-connectivity/SKILL.md`.
+Ruled 2026-09-25. `granger`, `granger_spectral`, `transfer_entropy` and `phase_slope_index` take
+the circular-shift surrogate when there are fewer than 7 trials and record the scheme. Same lane as
+06-202 and 06-203.
+Accept: the false-positive rate at 3 trials on independent noise is at most about 0.08 in a test,
+7 trials and more are byte-identical to 0.2.6, and an independent verifier kills a mutant that
+restores the old threshold.
+
 ### 06-205 Release 0.2.6.1
 
 Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203, 06-206, 06-207, 06-208. AUTONOMY: none.
 Writes: none.
 The dispatcher sets the version and the changelog, records an independent closure pass over the
 patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
@@ -347,6 +380,12 @@ predicate if they reproduce, and go first.
 - IB-40: the `bound_status` statement on `docs/06` and `docs/quickstart.md` (a pure-noise PSTH usually reads `None`, with tau at a bound and r2 near 0) is backed by a scratch probe, not a test. Check: a noise-only PSTH test that pins it.
 - IB-41: `docs/10_operation_specifications.md:102` says `zflip` raises for zero imaginary coherency or ill-conditioned cross-spectra; it has neither check (`jnwb/laminar.py`, the validation block of `zflip`). Check: list the raises it has.
 - IB-42: `docs/01_architecture_and_philosophy.md` measures exactly its 1200-word ceiling after the 0.2.6.1 wording repair, so any addition fails the length test. Check: trim, or rule a new ceiling.
+- IB-43: ruled 2026-09-25, the `jrsa` row metrics require a named `null=` from 0.2.7; 0.2.6.1 only warns. Check: remove the default, and move every caller.
+- IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
+- IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
+- IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed.
+- IB-47: the `jrsa` circular-shift null applies one shift to every row, which keeps the cross-row covariance of x2; no test pins that. Check: a test that fails under a per-row shift.
+- IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.
 
 ### 07-04 The planned 0.2.7 sequence
 
