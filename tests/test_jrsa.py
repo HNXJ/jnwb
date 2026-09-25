@@ -24,6 +24,7 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 import pickle
 import re
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -54,7 +55,14 @@ def test_the_documented_quickstart_line_runs(quickstart_inputs):
     This is the discriminator for P-83. Before the repair it raised `TypeError`.
     """
     X, Y = quickstart_inputs
-    jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+    page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(encoding="utf-8")
+    calls = [ln for ln in page.splitlines() if ln.startswith("jrsa_res = jnwb.jrsa(")]
+    assert len(calls) == 1, calls
+    ns = {"jnwb": jnwb, "X": X, "Y": Y}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        exec(calls[0], ns)
+    jrsa_res = ns["jrsa_res"]
     line = f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}"
     assert line.startswith("jRSA alignment: ")
     assert 0.0 < float(jrsa_res.p) <= 1.0
