@@ -1,17 +1,18 @@
-# The agent surface, for whoever unpacks the tarball. `pip install` does not deliver it:
+# The skills, for whoever unpacks the tarball. `pip install` does not deliver them:
 # packages.find is `include = ["jnwb*"]`, so an install of this sdist writes jnwb/ into
-# site-packages and discards skills/ and AGENTS.md -- verified by installing the built
-# sdist into a clean environment, which yields jnwb/ and nothing else. The skill files'
-# links to docs/ dangle here too, because docs/ is not in the sdist: 11 of their 12
-# repository-relative links do not resolve inside the tarball.
+# site-packages and discards skills/ -- verified by installing the built sdist into a clean
+# environment, which yields jnwb/ and nothing else. The skill files' repository-relative
+# links dangle here, because docs/ and AGENTS.md are not in the sdist.
 #
 # That is the intended outcome, not an oversight. A skill is read by a harness pointed at
 # a directory, nothing in jnwb/ reads one (`grep -rn skills jnwb/ --include=*.py` is
 # empty), and copying the tree under jnwb/ to force it into the wheel would create the
 # second skill tree that harness gate 2 forbids. An installed copy finds them through
 # `jnwb.SKILLS_URL` instead.
+#
+# AGENTS.md is the repository's own working rules and stays out, as does everything under
+# artifacts/, including the skill about working on this repository.
 graft skills
-include AGENTS.md
 
 prune tests
 prune scripts

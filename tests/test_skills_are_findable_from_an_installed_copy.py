@@ -95,7 +95,9 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert "graft skills" in directives, "the sdist no longer carries the skills at all"
-    assert "include AGENTS.md" in directives, "the sdist no longer carries AGENTS.md"
+    assert not any("AGENTS.md" in line for line in directives), (
+        "the sdist carries the repository's working rules again"
+    )
     assert "SKILLS_URL" in manifest, (
         "the comment does not say how an installed copy finds the skills"
     )
@@ -169,4 +171,5 @@ def test_a_built_sdist_carries_every_skill() -> None:
         if name.endswith("SKILL.md") and name.count("/") >= 3
     }
     assert shipped == expected, f"sdist carries {sorted(shipped)}, repository has {sorted(expected)}"
-    assert any(name.endswith("/AGENTS.md") for name in names), "the sdist has no AGENTS.md"
+    assert not any(name.endswith("/AGENTS.md") for name in names), "the sdist has AGENTS.md"
+    assert not any("/artifacts/" in name for name in names), "the sdist has artifacts/"

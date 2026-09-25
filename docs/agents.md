@@ -12,7 +12,7 @@ the four outcomes a skill can end a task in.
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
 | MCP server | yes (needs the `mcp` extra) | File inspection only — three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
-| `AGENTS.md` | **no** (in the sdist) | Repository map, working rules, recipes |
+| `AGENTS.md` | **no** (source checkout only) | Repository map, working rules, recipes |
 
 An agent given only the installed package can discover the API from docstrings and
 [the public API page](api.md). What it will not discover is the part that stops it producing
@@ -75,8 +75,9 @@ import jnwb
 jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.6.1/skills'
 ```
 
-Inside an unpacked sdist the skill files are present but their links to `docs/` are not:
-`docs/` is pruned, so 11 of their 12 repository-relative links resolve only in a checkout.
+Inside an unpacked sdist the skill files are present but the pages they link to are not:
+`docs/` and `AGENTS.md` stay out of the sdist, so every repository-relative link in a skill
+resolves only in a checkout.
 The pointer above is the route that works from anywhere.
 
 | Skill | Covers |

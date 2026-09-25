@@ -72,12 +72,19 @@ def test_a_clean_manifest_is_accepted() -> None:
 
 
 def test_the_grafted_agent_surface_is_not_rejected() -> None:
-    """MANIFEST.in grafts `skills` and includes AGENTS.md on purpose; the gate must allow it."""
+    """MANIFEST.in grafts `skills` on purpose; the gate must allow it."""
     assert forbidden_entries([
-        "jnwb-0.2.5/AGENTS.md",
         "jnwb-0.2.5/skills/jnwb/SKILL.md",
         "jnwb-0.2.5/skills/jnwb-lfp-spectral/SKILL.md",
     ]) == []
+
+
+@pytest.mark.parametrize(
+    "entry", ["jnwb-0.2.5/AGENTS.md", "jnwb-0.2.5/skills/jnwb-fact-action/SKILL.md"]
+)
+def test_the_repositorys_own_working_rules_are_rejected(entry: str) -> None:
+    """The working rules and the process skill stay out of the sdist."""
+    assert forbidden_entries([entry]), entry
 
 
 def test_a_backslash_separated_entry_is_split_the_same_way() -> None:
