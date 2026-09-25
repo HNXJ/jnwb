@@ -876,12 +876,6 @@ def cross_area_coherence(
         out['peak_coherence_freq'] = float(frequencies[peak_idx])
         out['peak_coherence_value'] = float(coherency[peak_idx])
 
-        low_val, high_val = 1, len(lfp_area2) - 1
-        shifts = (
-            rng.integers(low_val, high_val, size=int(n_surrogates))
-            if low_val < high_val
-            else np.zeros(int(n_surrogates), dtype=int)
-        )
 
         # One surrogate spectrum per shift, computed once and reused across bands.
         #
@@ -915,6 +909,16 @@ def cross_area_coherence(
             out['band_significance'][band_name] = float(p_val)
 
         return out
+
+    # The shifts are drawn once, before any device attempt. Drawn inside `_compute_all`,
+    # a CUDA failure part-way through the null left `rng` advanced, so the CPU recompute
+    # drew different shifts and p differed from a CPU run under the same reported seed.
+    low_val, high_val = 1, len(lfp_area2) - 1
+    shifts = (
+        rng.integers(low_val, high_val, size=int(n_surrogates))
+        if low_val < high_val
+        else np.zeros(int(n_surrogates), dtype=int)
+    )
 
     # Resolve the device ONCE. The GPU path used to be attempted inside the surrogate
     # loop behind a per-iteration `except Exception`, so an intermittent failure (OOM

@@ -1827,3 +1827,46 @@ class TestBandPowerEstimandIsDocumented:
         assert "power spectral density" in doc.lower()
         assert "units^2/Hz" in doc
         assert "independent of the bandwidth" in doc
+
+
+class TestCoherenceGpuFallbackKeepsTheNull:
+    """A CUDA failure part-way through the surrogate null fell back to the CPU after the
+    generator had advanced, so the CPU recompute drew different shifts: p differed from
+    a CPU run under the same reported seed."""
+
+    @staticmethod
+    def _signals():
+        r = np.random.default_rng(0)
+        x = r.standard_normal(2000)
+        return x, 0.5 * x + r.standard_normal(2000)
+
+    KW = dict(fs=500.0, freq_bands={"a": (8.0, 12.0), "b": (20.0, 40.0)}, rng=7, n_surrogates=40)
+
+    @pytest.mark.parametrize("fail_after", [5, 20])
+    def test_a_mid_null_failure_reproduces_the_cpu_result(self, monkeypatch, fail_after):
+        import jnwb.spectral as sp
+        from scipy import signal
+
+        x, y = self._signals()
+        cpu = sp.cross_area_coherence(x, y, device="cpu", **self.KW)
+        calls = {"n": 0}
+
+        def flaky_gpu(a, b, fs, nperseg, noverlap=None, **_):
+            calls["n"] += 1
+            if calls["n"] > fail_after:
+                raise RuntimeError("injected CUDA failure")
+            f, pxx = signal.welch(a, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            _, pyy = signal.welch(b, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            _, pxy = signal.csd(a, b, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            return f, pxx, pyy, pxy
+
+        monkeypatch.setattr(sp, "resolve_device", lambda *a, **k: sp.CUDA)
+        monkeypatch.setattr(sp, "_welch_csd_gpu", flaky_gpu)
+        with pytest.warns(Warning):
+            fell_back = sp.cross_area_coherence(x, y, device="cuda", **self.KW)
+
+        assert calls["n"] == fail_after + 1
+        assert fell_back["device_used"] == "cpu"
+        assert fell_back["surrogate_seed_entropy"] == cpu["surrogate_seed_entropy"]
+        assert fell_back["band_significance"] == cpu["band_significance"]
+        np.testing.assert_allclose(fell_back["coherence_spectrum"], cpu["coherence_spectrum"], rtol=1e-12)
