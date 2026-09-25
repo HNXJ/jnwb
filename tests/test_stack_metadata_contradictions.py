@@ -33,6 +33,7 @@ if str(ROOT) not in sys.path:
 from scripts.harness_gate import (  # noqa: E402
     _ANY_BLOCK_ASSERTION,
     _BLOCK_ASSERTIONS,
+    _ITEM_ID,
     _blocked_by_none_contradictions,
     _miscounted_summaries,
     _stack_items,
@@ -450,10 +451,14 @@ class TestTheUnwrappingIsNotALineScan:
 
 
 class TestTheHelpersReadTheRealStack:
+    def test_an_item_id_is_read_in_any_cycle_and_a_date_is_not(self):
+        assert _ITEM_ID.findall("ruled 2026-09-19; after 07-02 (06-40), not 2026-09-25") == [
+            "07-02", "06-40"]
+
     def test_every_item_is_found(self):
         text = TODO_STACK.read_text(encoding="utf-8")
         items = _stack_items(text)
-        assert len(items) == len(re.findall(r"^### 06-\d+", text, re.MULTILINE))
+        assert len(items) == len(re.findall(r"^### \d{2}-\d+", text, re.MULTILINE))
         assert items, "the sweep found no item, which reads exactly like a clean stack"
 
     def test_item_ids_are_unique(self):

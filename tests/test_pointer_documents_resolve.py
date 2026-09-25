@@ -205,7 +205,10 @@ class TestTheTodoStackHoldsOnlyUnresolvedWork:
     def test_the_live_stack_records_no_finished_work(self):
         text = TODO_STACK.read_text(encoding="utf-8")
         headings = [ln for ln in text.splitlines() if ln.startswith("#")]
-        assert len(headings) >= 10, f"only {len(headings)} headings; the stack is not being parsed"
+        # Parsed means the version heading and at least one item were found; a count floor would
+        # tie the check to the size of one cycle's stack.
+        assert headings and re.match(r"# \d+\.\d+\.\d+$", headings[0]), headings[:1]
+        assert any(h.startswith("### ") for h in headings), "no item heading; the stack is not being parsed"
         assert completed_work_markers(text) == []
 
     def test_a_marked_heading_is_found(self):
