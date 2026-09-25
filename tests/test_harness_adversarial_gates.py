@@ -1086,7 +1086,28 @@ class TestGate14InternalProcessVocabulary:
         docs.mkdir()
         for name, body in pages.items():
             (docs / f"{name}.md").write_text(body, encoding="utf-8")
+        skill = tmp_path / "skills" / "jnwb"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("A clean skill.\n", encoding="utf-8")
         return tmp_path
+
+    def test_a_shipped_skill_is_scanned_and_the_process_skill_is_not(self, tmp_path: Path):
+        """The skills ship and are published; the repository's own process skill does not."""
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "SKILL.md").write_text(
+            "Queue it on the todo stack.\n", encoding="utf-8"
+        )
+        internal = root / "artifacts" / "skills" / "process"
+        internal.mkdir(parents=True)
+        (internal / "SKILL.md").write_text("Hand the packet over.\n", encoding="utf-8")
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "skills/jnwb/SKILL.md:1" in violations[0], violations
+
+    def test_an_empty_skills_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "SKILL.md").unlink()
+        violations = check_internal_process_vocabulary(root)
+        assert violations and "sweep is broken" in violations[0], violations
 
     def test_a_page_naming_a_delegation_packet_fails(self, tmp_path: Path):
         """06-68's stated discriminator, in its stated words.
@@ -1284,6 +1305,8 @@ class TestGate14ProcessIdentifiersInLibrary:
         root = self._library(tmp_path, "The anchors were missing (P-12).")
         (root / "docs").mkdir()
         (root / "docs" / "page.md").write_text("A public page.\n", encoding="utf-8")
+        (root / "skills" / "jnwb").mkdir(parents=True)
+        (root / "skills" / "jnwb" / "SKILL.md").write_text("A clean skill.\n", encoding="utf-8")
         monkeypatch.setattr(harness_gate, "REPO_ROOT", root)
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()

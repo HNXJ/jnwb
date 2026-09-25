@@ -64,7 +64,6 @@ tfr = jnwb.complex_tfr(data, fs=1000.0, freqs=freqs)
 
 ```bash
 python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
-python scripts/harness_gate.py
 python -m pytest tests/ -q
 python scripts/docs_build.py
 ```

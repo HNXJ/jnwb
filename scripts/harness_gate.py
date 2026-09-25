@@ -1237,7 +1237,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
 #:
 #:   "agent", "skill", "routing"  -- public capabilities; `docs/agents.md` is an entire page of them
 #:   "batch"                      -- `docs/02:11` "batch jobs", `docs/api.md` `batch_size=`
-#:   "authority"                  -- `docs/agents.md:85` "authority loading order"
+#:   "authority"                  -- ordinary English; its one published use left with the process skill
 #:   "actor", "critic", "verifier" -- ordinary English before they are role names here
 #:
 #: Four of the six stems under `artifacts/agents/` are ordinary English, so only the two that are
@@ -1313,20 +1313,25 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
     It was held out while it linked `artifacts/todo_stack.md` from its Contributing section; the
     2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
+
+    `skills/**/*.md` is scanned too: the skills ship in the sdist and are published at
+    `jnwb.SKILLS_URL`, so they are public. The skill about working on this repository lives
+    under `artifacts/skills/`, which is not scanned.
     """
     root = repo_root or REPO_ROOT
     violations = []
 
-    docs_dir = root / "docs"
-    pages = sorted(docs_dir.rglob("*.md")) if docs_dir.is_dir() else []
-
     # A sweep that finds no files reports no violations, which reads exactly like a clean tree.
     # Gate 8's three `if not path.exists()` blocks exist for the same reason.
-    if not pages:
-        return [
-            "INTERNAL_VOCABULARY: no public documentation found to scan under "
-            f"{docs_dir}; the sweep is broken, not the tree"
-        ]
+    pages: List[Path] = []
+    for surface in ("docs", "skills"):
+        found = sorted((root / surface).rglob("*.md")) if (root / surface).is_dir() else []
+        if not found:
+            return [
+                "INTERNAL_VOCABULARY: no public documentation found to scan under "
+                f"{root / surface}; the sweep is broken, not the tree"
+            ]
+        pages += found
     pages += [page for page in (root / "README.md",) if page.is_file()]
 
     patterns = [(term, _internal_term_pattern(term)) for term in INTERNAL_PROCESS_TERMS]
@@ -2787,7 +2792,7 @@ GATES: List[Tuple[int, Any, Any]] = [
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
     (14, _internal_vocabulary_checks,
-     lambda: "PASS: No internal process vocabulary in docs/ or README.md "
+     lambda: "PASS: No internal process vocabulary in docs/, skills/ or README.md "
              f"({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
              "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "
