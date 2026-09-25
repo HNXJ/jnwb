@@ -339,7 +339,7 @@ def test_granger_spectra_draws_the_inputs():
     freqs = np.linspace(1.0, 100.0, 7)
     gc_ff = np.array([0.013, 0.21, 0.37, 0.05, 0.11, 0.002, 0.3])
     gc_fb = gc_ff[::-1] / 3.0
-    null = np.column_stack([np.full(7, 0.01), np.full(7, 0.04)])
+    null = np.column_stack([np.linspace(0.01, 0.02, 7), np.linspace(0.04, 0.09, 7)])
     plot_granger_spectra(canvas, 0, 0, freqs, gc_ff, gc_fb, null_ribbon=null,
                          ff_label="X → Y", fb_label="Y → X")
     low, high, ff, fb = canvas.fig.data
@@ -362,6 +362,10 @@ def test_rsm_heatmap_draws_the_inputs():
     assert list(heatmap.x) == labels and list(heatmap.y) == labels
     assert heatmap.colorbar.title.text == "1 - r"
     assert canvas.fig.layout.yaxis.autorange == "reversed"
+    # An asymmetric matrix: row i is the y label, column j the x label.
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_rsm_heatmap(canvas, 0, 0, np.array([[0.0, 0.2], [0.7, 0.0]]), ["a", "b"])
+    assert canvas.fig.data[0].z[0][1] == 0.2
 
 
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():

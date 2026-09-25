@@ -65,7 +65,9 @@ def plot_spectrolaminar_map(
         title: Panel title.
         colorbar_title: Title for colorbar.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
-            1 = white matter). Required; it labels the depth axis.
+            1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
+            ``'relative'`` values outside [0, 1] are channels above the pia or below the
+            white matter.
 
     Raises:
         ValueError: ``depth_unit`` is not one of the three units.
@@ -202,7 +204,9 @@ def plot_opposing_gradients(
         alphabeta_color: Hex color for alpha/beta profile.
         title: Panel title.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
-            1 = white matter). Required; it labels the depth axis.
+            1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
+            ``'relative'`` values outside [0, 1] are channels above the pia or below the
+            white matter.
 
     Raises:
         ValueError: ``depth_unit`` is not one of the three units.
@@ -373,7 +377,9 @@ def plot_csd(
         title: Panel title.
         colorbar_title: Title for colorbar.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
-            1 = white matter). Required; it labels the depth axis.
+            1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
+            ``'relative'`` values outside [0, 1] are channels above the pia or below the
+            white matter.
 
     Raises:
         ValueError: ``depth_unit`` is not one of the three units.
