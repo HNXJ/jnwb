@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-206 to 06-208, then 06-205 (the 0.2.6.1 patch) |
+| 0 | 06-206 and 06-207, then 06-205 (the 0.2.6.1 patch) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
@@ -78,22 +78,10 @@ numbers equal 0.2.6. Every caller moves. Same lane as 06-206.
 Accept: the refusal is tested, no document routes to the refused call, and an independent verifier
 kills a mutant that lets it through.
 
-### 06-208 Directed surrogates use a circular shift below 7 trials
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `docs/08_directed_connectivity_and_information.md`, `skills/jnwb-connectivity/SKILL.md`.
-Ruled 2026-09-25. `granger`, `granger_spectral`, `transfer_entropy` and `phase_slope_index` take
-the circular-shift surrogate when there are fewer than 7 trials and record the scheme. Same lane as
-the `rng` repair.
-Accept: the false-positive rate at 3 trials on independent noise is at most about 0.08 in a test,
-7 trials and more are byte-identical to 0.2.6, and an independent verifier kills a mutant that
-restores the old threshold.
-
 ### 06-205 Release 0.2.6.1
 
 Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: 06-206, 06-207, 06-208. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: 06-206, 06-207. AUTONOMY: none.
 Writes: none.
 The dispatcher sets the version and the changelog, records an independent closure pass over the
 patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
