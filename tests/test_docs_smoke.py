@@ -253,6 +253,6 @@ class TestDocsSmokeFixtures:
 
         X = rng.normal(size=(6, 16, 50))
         Y = X + 0.3 * rng.normal(size=(6, 16, 50))
-        jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", random_state=0)
+        jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
         assert jrsa_res.p is not None
         assert jrsa_res.parameters["permutations"] == 100
