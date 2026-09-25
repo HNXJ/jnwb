@@ -569,6 +569,22 @@ class TestTimeAxisNullKeepsAutocorrelation:
         res = oa.jrsa(x, 2.0 * x + y, metric="pearson", permutations=199, rng=0)  # r = 0.73
         assert float(res.p) <= 0.01, float(res.p)
 
+    @pytest.mark.parametrize("metric", ["pearson", "cka"])
+    def test_the_block_null_detects_coupled_series(self, metric):
+        """The block false-positive test above also passes for a null that never rejects:
+        one that keeps the blocks in their original order returns the observed value on
+        every draw and p = 1. Ten 30-sample blocks of a coupled AR(1) pair must reject."""
+        if metric == "pearson":
+            x, y = self._ar1_pairs(1, n=300, seed=1)[0]
+            y = 2.0 * x + y                                   # r = 0.73
+        else:
+            a, b = self._ar1_pairs(4, n=300, seed=2).transpose(1, 2, 0)  # (time, units)
+            x, y = a, a + 0.5 * b                             # cka = 0.75
+        res = oa.jrsa(x, y, metric=metric, permutations=199, rng=0,
+                      null="block", block_len=30, return_null=True)
+        assert float(res.p) <= 0.01, float(res.p)
+        assert len(np.unique(np.round(res.null_distribution, 12))) > 50
+
     def test_a_short_axis_cannot_report_p_below_one_in_n(self):
         """x2 = x1 puts the observed value above every rotation, so the exact p is 1/6 on a
         6-sample axis. Drawing shifts from 1..n-1 left the identity out and reported
