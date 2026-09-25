@@ -19,7 +19,7 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
-| Directed coupling (Granger, PSI, transfer entropy) | `jnwb-connectivity` |
+| Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
 | Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
@@ -42,7 +42,7 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 3. **Logarithm last**: average raw power across trials, divide by baseline, and compute $10 \cdot \log_{10}$ once, at the final step.
 4. **Boundaries and leakage**: mask wavelet coefficients in the cone of influence (`coi_mask`). Use causal exponential smoothing (`causal_exp_smooth`) to prevent future leakage.
 5. **RNG**: pass an explicit `numpy.random.Generator` (`rng = np.random.default_rng(seed)`). Never call `np.random.seed()`.
-6. **Dataset-agnostic**: condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
+6. **Dataset-agnostic**: experiment-specific condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
 7. **Coupling vs direction vs delay**: unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction; direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
 8. **No volume-conduction immunity**: measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
 

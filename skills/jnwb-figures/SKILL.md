@@ -20,7 +20,7 @@ Matplotlib publication figures, raster and PSTH plots, visual QC suites, or vect
 ## 3. Invariants & Safeguards
 1. **Vector text**: never convert text to outlines or rasterize labels on export; `setup_vector_graphics` keeps text editable.
 2. **Color**: colorblind-safe palettes with one condition-to-color mapping across panels.
-3. **No synthetic visuals**: figures render from computed results. Synthetic scaffolding data displays an explicit placeholder banner.
+3. **No synthetic visuals**: figures must render from results a script computed from data. Synthetic scaffolding data displays an explicit placeholder banner.
 
 ## 4. Minimal Workflow
 ```python

@@ -32,7 +32,7 @@ Panels occupy disjoint normalized domain rectangles $[x_0, x_1] \times [y_0, y_1
 - **Error bars**: categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
 - **Units**: every axis declares its unit (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`).
 - **Anatomical markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is drawn as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
-- **Baseline references**: dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level`.
+- **Baseline references**: dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level`, whose default, 0.5, is the $1/K$ line for two classes.
 - **Significance**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and cluster-based permutation test bars.
 
 ## 4. Minimal Workflow
