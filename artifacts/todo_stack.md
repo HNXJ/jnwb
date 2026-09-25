@@ -245,7 +245,6 @@ one of documentation, skills and the release apparatus. Each bullet carries its 
 the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
 predicate if they reproduce, and go first.
 
-- IA-04 (blocker candidate): `jrsa` `lag` rolls the last axis, which holds features for the six metrics with observations on axis 0, so a lag sweep of cka, rv, rsa, procrustes, dcor or hsic returns one value under every label (`jnwb/jrsa.py:941-956`). Check: assert an axis-0 metric changes with lag on a delayed copy, or refuse `lag` for those metrics.
 - IA-05 (blocker candidate, weak): when CUDA fails part-way through the coherence surrogates, the CPU recompute draws new shifts from the advanced `rng`, so p differs from a CPU run under the same seed while the reported seed is unchanged (`jnwb/spectral.py:879-884`, `929-936`). Check: draw the shifts once before the device attempt; test an injected mid-null failure against the CPU result.
 - IA-06: the `jrsa` lag is circular (`xp.roll`), so the window recipe of `docs/03` wraps each window's end onto its start (lag 10 gives r 0.46 against 0.998 on the truncated overlap). Check: truncate to the overlap; test on a trended series.
 - IA-07: `verify_roundtrip` in `jnwb/compression.py:694` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
@@ -323,6 +322,8 @@ predicate if they reproduce, and go first.
 - IB-55: the sliding-window recipe on `docs/03` uses 20-sample windows under the circular-shift null, whose p cannot go below about 1/20, and tells readers to correct across windows. Check: state the floor at the recipe, or widen the windows.
 - IB-56: the `quickstart_inputs` fixture in `tests/test_docs_smoke.py` seeds a fresh `default_rng(0)`, so its arrays differ from the ones the quickstart page draws in sequence; a docs-smoke pass says the calls run, not that the page's numbers do. Check: build the inputs by executing the page's own setup lines.
 - IB-57: `tests/test_jrsa.py` reads the quickstart `jrsa` line from the page but still retypes the `print(...)` line after it, which matches the page today by eye only. Check: read both lines from the page.
+- IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics.
+- IB-59: `jrsa(lag=np.int64(3))` raises `TypeError` because `np.int64` is not an `int`; any integer lag read from an array fails. Check: accept `numbers.Integral`; a test with a NumPy integer.
 
 ### 07-04 The planned 0.2.7 sequence
 

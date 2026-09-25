@@ -80,8 +80,9 @@ Each permutation resamples x2 along one axis: the last axis for the paired metri
 (`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`, `"mutual_information"`,
 `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
 conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
-`"procrustes"`. The last axis is the aligned axis only at the default `adim=-1`: the null and
-`lag` act on axis -1 whatever `adim` names, so put time last.
+`"procrustes"`. For the paired metrics the null and `lag` act on axis -1 whatever `adim` names,
+so put time last; for the six axis-0 metrics both act on axis 0, the observations. `lag` is
+circular.
 
 | `null=` | Resampling | Valid when |
 |---|---|---|

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `jrsa`: `lag` now shifts the observation axis (axis 0), circularly, for `rsa`, `cka`, `rv`,
+  `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these
+  metrics are invariant to, so every lag returned the lag-0 value. Paired metrics are unchanged.
+
 ## [0.2.6.1] - 2026-09-25
 
 ### Changed
