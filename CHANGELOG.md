@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6.1] - 2026-09-25
+
 ### Changed
 
 - **`transfer_entropy(estimator="symbolic")` raises `ValueError` (breaking).** Its surrogate

@@ -1,229 +1,229 @@
 {
   "python": "3.14.3",
   "platform": "Windows-11-10.0.26200-SP0",
-  "version": "0.2.6",
+  "version": "0.2.6.1",
   "symbols": 160,
   "torch_loaded": false,
   "cold": {
-    "ms": 9547.462299997278,
-    "modules": 1354,
-    "version": "0.2.6",
+    "ms": 6784.761100017931,
+    "modules": 1355,
+    "version": "0.2.6.1",
     "symbols": 160,
     "torch_loaded": false,
-    "peak_mb": 102.95294094085693
+    "peak_mb": 102.41250133514404
   },
-  "warm_median_ms": 1875.0447000020358,
-  "warm_mean_ms": 1881.2569699999585,
-  "warm_stdev_ms": 19.30405084412947,
-  "warm_min_ms": 1858.5212999969372,
-  "warm_max_ms": 1932.3703999980353,
-  "warm_peak_mb": 86.73294162750244,
-  "modules": 1354,
+  "warm_median_ms": 1831.3899999920977,
+  "warm_mean_ms": 1829.6719999954803,
+  "warm_stdev_ms": 16.645376390143348,
+  "warm_min_ms": 1807.7888000116218,
+  "warm_max_ms": 1860.1954999903683,
+  "warm_peak_mb": 86.14844608306885,
+  "modules": 1355,
   "runs": 10,
   "breakdown": {
-    "jnwb_total_ms": 1902.91,
+    "jnwb_total_ms": 1851.929,
     "top_jnwb_modules": [
       {
         "name": "jnwb",
-        "self_ms": 1.307,
-        "cum_ms": 1902.91
+        "self_ms": 1.147,
+        "cum_ms": 1851.929
       },
       {
         "name": "jnwb.rsa",
-        "self_ms": 2.349,
-        "cum_ms": 972.272
+        "self_ms": 2.132,
+        "cum_ms": 954.084
       },
       {
         "name": "jnwb.nwb_io",
-        "self_ms": 0.78,
-        "cum_ms": 560.097
+        "self_ms": 0.754,
+        "cum_ms": 542.144
       },
       {
         "name": "jnwb.jrsa",
-        "self_ms": 1.958,
-        "cum_ms": 125.856
+        "self_ms": 2.135,
+        "cum_ms": 122.652
       },
       {
         "name": "jnwb.laminar",
-        "self_ms": 5.097,
-        "cum_ms": 112.052
+        "self_ms": 4.88,
+        "cum_ms": 111.622
       },
       {
         "name": "jnwb.compression",
-        "self_ms": 1.053,
-        "cum_ms": 76.528
+        "self_ms": 0.97,
+        "cum_ms": 69.367
       },
       {
         "name": "jnwb._rng",
-        "self_ms": 0.589,
-        "cum_ms": 18.581
-      },
-      {
-        "name": "jnwb.connectivity",
-        "self_ms": 2.085,
-        "cum_ms": 2.679
-      },
-      {
-        "name": "jnwb.paths",
-        "self_ms": 0.983,
-        "cum_ms": 2.555
+        "self_ms": 0.63,
+        "cum_ms": 18.301
       },
       {
         "name": "jnwb.spectral",
-        "self_ms": 1.735,
-        "cum_ms": 2.401
+        "self_ms": 4.133,
+        "cum_ms": 4.784
       },
       {
-        "name": "jnwb.addressing",
-        "self_ms": 2.213,
-        "cum_ms": 2.213
+        "name": "jnwb.connectivity",
+        "self_ms": 2.029,
+        "cum_ms": 2.683
       },
       {
-        "name": "jnwb.nwb_events",
-        "self_ms": 1.98,
-        "cum_ms": 1.98
+        "name": "jnwb.paths",
+        "self_ms": 0.99,
+        "cum_ms": 1.958
       },
       {
         "name": "jnwb.trajectory",
-        "self_ms": 0.741,
-        "cum_ms": 1.892
+        "self_ms": 0.797,
+        "cum_ms": 1.958
       },
       {
-        "name": "jnwb.tfr_accumulator",
-        "self_ms": 0.836,
-        "cum_ms": 1.455
+        "name": "jnwb.addressing",
+        "self_ms": 1.899,
+        "cum_ms": 1.899
+      },
+      {
+        "name": "jnwb.nwb_events",
+        "self_ms": 1.664,
+        "cum_ms": 1.664
       },
       {
         "name": "jnwb.tfr",
-        "self_ms": 1.402,
-        "cum_ms": 1.402
+        "self_ms": 1.435,
+        "cum_ms": 1.435
+      },
+      {
+        "name": "jnwb.tfr_accumulator",
+        "self_ms": 0.711,
+        "cum_ms": 1.253
       },
       {
         "name": "jnwb.nwb_inspect",
-        "self_ms": 1.171,
-        "cum_ms": 1.171
+        "self_ms": 1.004,
+        "cum_ms": 1.004
       },
       {
         "name": "jnwb._lazy_exports",
-        "self_ms": 0.866,
-        "cum_ms": 0.866
-      },
-      {
-        "name": "jnwb.spiking",
-        "self_ms": 0.773,
-        "cum_ms": 0.773
+        "self_ms": 0.921,
+        "cum_ms": 0.921
       },
       {
         "name": "jnwb.continuous",
-        "self_ms": 0.737,
-        "cum_ms": 0.737
+        "self_ms": 0.759,
+        "cum_ms": 0.759
       },
       {
-        "name": "jnwb._dictlike",
-        "self_ms": 0.702,
-        "cum_ms": 0.702
+        "name": "jnwb.artifact_detection",
+        "self_ms": 0.656,
+        "cum_ms": 0.656
+      },
+      {
+        "name": "jnwb._units",
+        "self_ms": 0.655,
+        "cum_ms": 0.655
       }
     ],
     "top_third_party": [
       {
         "name": "pynwb",
-        "self_ms": 12.476,
-        "cum_ms": 559.318
+        "self_ms": 11.968,
+        "cum_ms": 541.391
       },
       {
         "name": "scipy.spatial.distance",
-        "self_ms": 0.028,
-        "cum_ms": 422.376
+        "self_ms": 0.025,
+        "cum_ms": 407.128
       },
       {
         "name": "scipy.spatial",
-        "self_ms": 0.835,
-        "cum_ms": 422.348
-      },
-      {
-        "name": "hdmf",
-        "self_ms": 1.041,
-        "cum_ms": 397.044
-      },
-      {
-        "name": "hdmf.backends.hdf5.h5_utils",
-        "self_ms": 0.021,
-        "cum_ms": 391.464
-      },
-      {
-        "name": "hdmf.backends.hdf5",
-        "self_ms": 0.022,
-        "cum_ms": 391.443
-      },
-      {
-        "name": "hdmf.backends",
-        "self_ms": 0.655,
-        "cum_ms": 391.422
-      },
-      {
-        "name": "hdmf.backends.hdf5",
-        "self_ms": 0.869,
-        "cum_ms": 390.768
+        "self_ms": 1.346,
+        "cum_ms": 407.103
       },
       {
         "name": "scipy.stats._stats_py",
-        "self_ms": 44.561,
-        "cum_ms": 376.532
+        "self_ms": 43.113,
+        "cum_ms": 387.619
+      },
+      {
+        "name": "hdmf",
+        "self_ms": 1.061,
+        "cum_ms": 376.104
+      },
+      {
+        "name": "hdmf.backends.hdf5.h5_utils",
+        "self_ms": 0.023,
+        "cum_ms": 370.409
+      },
+      {
+        "name": "hdmf.backends.hdf5",
+        "self_ms": 0.019,
+        "cum_ms": 370.387
+      },
+      {
+        "name": "hdmf.backends",
+        "self_ms": 0.677,
+        "cum_ms": 370.368
+      },
+      {
+        "name": "hdmf.backends.hdf5",
+        "self_ms": 0.83,
+        "cum_ms": 369.691
       },
       {
         "name": "scipy.spatial._kdtree",
-        "self_ms": 1.627,
-        "cum_ms": 362.249
+        "self_ms": 2.378,
+        "cum_ms": 349.125
       },
       {
         "name": "hdmf.backends.hdf5.h5tools",
-        "self_ms": 1.687,
-        "cum_ms": 352.594
+        "self_ms": 1.685,
+        "cum_ms": 334.736
       },
       {
         "name": "hdmf.backends.io",
-        "self_ms": 0.831,
-        "cum_ms": 349.47
+        "self_ms": 0.807,
+        "cum_ms": 331.897
       },
       {
         "name": "hdmf.build",
-        "self_ms": 0.729,
-        "cum_ms": 348.061
+        "self_ms": 0.66,
+        "cum_ms": 330.546
       },
       {
         "name": "hdmf.build.classgenerator",
-        "self_ms": 0.888,
-        "cum_ms": 341.466
+        "self_ms": 0.818,
+        "cum_ms": 324.335
       },
       {
         "name": "hdmf.container",
-        "self_ms": 2.158,
-        "cum_ms": 340.578
+        "self_ms": 1.921,
+        "cum_ms": 323.518
       },
       {
         "name": "pandas",
-        "self_ms": 1.382,
-        "cum_ms": 335.535
+        "self_ms": 1.266,
+        "cum_ms": 318.763
       },
       {
         "name": "scipy.spatial._ckdtree",
-        "self_ms": 0.956,
-        "cum_ms": 257.234
+        "self_ms": 2.717,
+        "cum_ms": 250.31
       },
       {
         "name": "scipy.sparse",
-        "self_ms": 1.288,
-        "cum_ms": 256.278
+        "self_ms": 1.808,
+        "cum_ms": 247.594
       },
       {
         "name": "scipy.sparse._csr",
-        "self_ms": 0.808,
-        "cum_ms": 233.663
+        "self_ms": 0.738,
+        "cum_ms": 225.458
       },
       {
         "name": "scipy.sparse._compressed",
-        "self_ms": 1.003,
-        "cum_ms": 232.242
+        "self_ms": 1.038,
+        "cum_ms": 224.007
       }
     ],
     "heavy_third_party_roots": [
