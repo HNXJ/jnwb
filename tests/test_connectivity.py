@@ -383,15 +383,18 @@ class TestFewTrialSurrogates:
         assert granger(x, y, order=1).params["surrogate_scheme"] is None
 
     def test_seven_trials_keep_the_null_they_had(self):
-        """Pinned at bc04a791, before the threshold moved from 3 to 7."""
+        """Pinned before the threshold moved from 3 to 7. The means differ across BLAS builds
+        in the last bits, so they are compared to 1e-12; another null differs far more."""
         g = np.random.default_rng(11)
         x = g.normal(size=(7, 200))
         y = 0.3 * np.roll(x, 1, axis=1) + g.normal(size=(7, 200))
         res = granger(x, y, order=1, n_surrogates=19, rng=0)
         sur = res.diagnostics["surrogates"]
         assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.05)
-        assert sur["null_mean_x_to_y"] == 0.00035468224425054724
-        assert sur["null_mean_y_to_x"] == 0.0006370039765307248
+        np.testing.assert_allclose(
+            [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
+            [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,
+        )
 
     @pytest.mark.parametrize("n_trials", [1, 2, 3, 4, 5, 6])
     def test_below_seven_trials_each_surrogate_trial_is_its_own_trial_shifted(

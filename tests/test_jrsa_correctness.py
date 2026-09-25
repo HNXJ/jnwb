@@ -625,13 +625,15 @@ class TestTimeAxisNullKeepsAutocorrelation:
             oa.jrsa(x, y, metric="pearson", bootstrap=20, rng=0, null=null, block_len=block_len)
 
     def test_a_paired_metric_bootstrap_with_iid_named_keeps_the_0_2_6_numbers(self):
-        # Values computed by jnwb 0.2.6 with the same call minus `null`.
+        # Values computed by jnwb 0.2.6 with the same call minus `null`. The interval differs
+        # across BLAS builds in the last bits; a different resampling scheme differs far more.
         rng = np.random.default_rng(0)
         x = rng.normal(size=80)
         y = 0.5 * x + rng.normal(size=80)
         res = oa.jrsa(x, y, metric="pearson", permutations=99, bootstrap=200, rng=3, null="iid")
         assert float(res.p) == 0.01
-        np.testing.assert_array_equal(res.ci, [0.20568213024810308, 0.5753485564085722])
+        np.testing.assert_allclose(res.ci, [0.20568213024810308, 0.5753485564085722],
+                                   rtol=1e-12, atol=0)
 
     @pytest.mark.parametrize("metric, kwargs, recorded", [
         ("pearson", {}, "circular_shift"),
