@@ -58,7 +58,7 @@ def main() -> None:
     # Temporal response arrays: (n_conditions, n_features, n_timepoints)
     time_series_1 = rng.normal(size=(n_conditions, n_units, 10))
     time_series_2 = time_series_1 + 0.2 * rng.normal(size=(n_conditions, n_units, 10))
-    jrsa_res = jnwb.jrsa(time_series_1, time_series_2, metric="rsa")
+    jrsa_res = jnwb.jrsa(time_series_1, time_series_2, metric="rsa", null="iid")
     assert np.isfinite(jrsa_res.value)
     print(f"JRSA representational similarity: {float(jrsa_res.value):.3f}")
 

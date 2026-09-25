@@ -152,6 +152,6 @@ Compare multi-condition activity patterns across modalities, areas, or models:
 X = rng.normal(size=(6, 16, 50))
 Y = X + 0.3 * rng.normal(size=(6, 16, 50))
 
-jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
 print(f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}")
 ```

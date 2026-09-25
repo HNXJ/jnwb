@@ -7,7 +7,7 @@ CSD, filtering, QC/artifact handling, and visualization. Experiment-specific
 condition codes and hypotheses belong in downstream project code, not here.
 
     >>> import jnwb
-    >>> result = jnwb.jrsa(x1, x2, metric='rsa', stats=True)
+    >>> result = jnwb.jrsa(x1, x2, metric='rsa', stats=True, null='iid')
     >>> jnwb.paths.describe()
 """
 

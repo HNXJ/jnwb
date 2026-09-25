@@ -4,7 +4,7 @@ jnwb.jrsa – Unified Representational Similarity Analysis
 Public API: exactly one function.
 
     >>> import jnwb
-    >>> result = oa.jrsa(x1, x2, metric="rsa", stats=True)
+    >>> result = jnwb.jrsa(x1, x2, metric="rsa", stats=True, null="iid")
     >>> result.summary()
     >>> result.plot()
 
@@ -223,7 +223,12 @@ def jrsa(
     permutations : int
         Permutation count for null distribution.
     bootstrap : int
-        Bootstrap iterations for confidence intervals.
+        Bootstrap iterations for confidence intervals. The bootstrap resamples single
+        samples of the permuted axis (see `null`). For the paired metrics, ``bootstrap > 0``
+        raises unless ``null='iid'`` is named, declaring the samples exchangeable: on
+        autocorrelated data single-sample resampling undercovers, and on independent AR(1)
+        pairs with coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs.
+        A block bootstrap is planned for 0.2.7.
     correction : str
         Multiple-comparison correction: none | bonferroni | holm |
         holm-sidak | fdr_bh | fdr_by.
@@ -243,10 +248,12 @@ def jrsa(
         raises for a one-sided alternative without a permutation null.
     null : {None, 'circular_shift', 'block', 'iid'}
         How each permutation resamples x2 along the permuted axis; anything else raises.
-        The permuted axis is the last (aligned) axis for the paired metrics -- pearson,
-        spearman, kendall, cosine, mutual_information, granger_ssr_ftest,
+        The permuted axis is the last axis for the paired metrics -- pearson, spearman,
+        kendall, cosine, mutual_information, granger_ssr_ftest,
         transfer_entropy_histogram_nats and phase_slope -- and axis 0, the observations, for
-        rsa, cka, rv, hsic, distance_correlation and procrustes.
+        rsa, cka, rv, hsic, distance_correlation and procrustes. The last axis is the
+        aligned axis only at the default ``adim=-1``: the null and `lag` act on axis -1
+        whatever `adim` names, so put time last.
 
         - ``'circular_shift'`` rotates x2 by a shift drawn uniformly from 0 to n - 1, the
           same shift for every row. Each series keeps its autocorrelation, so the null
@@ -260,6 +267,10 @@ def jrsa(
           series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
         - ``None`` (default) is ``'circular_shift'`` for the paired metrics and ``'iid'``
           for the observation-axis metrics, whose rows are conditions or observations.
+          For those metrics the default warns (UserWarning) whenever a null is formed:
+          when axis 0 is time the i.i.d. row permutation is invalid -- cka and rv rejected
+          every one of 40 independent AR(1) pairs at p <= 0.05 -- and from 0.2.7 `null`
+          must be named for them. Naming any scheme, ``'iid'`` included, silences it.
 
         ``execution['null']`` records the scheme that ran, or None when no permutation null
         was formed. Before 0.2.6.1 every metric used ``'iid'``.
@@ -479,6 +490,24 @@ def jrsa(
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
     null_scheme = null if null is not None else ("iid" if perm_axis == 0 else "circular_shift")
+    if perm_axis == 0 and null is None and permutation_p:
+        warnings.warn(
+            f"jrsa(metric={metric!r}): the default null permutes the rows of axis 0 as "
+            "exchangeable. If axis 0 is time, name null='circular_shift' or null='block': on "
+            "independent AR(1) series the default rejected every pair for cka and rv. From "
+            "0.2.7 `null` must be named for this metric; null='iid' keeps the current result "
+            "and silences this warning.",
+            UserWarning,
+            stacklevel=2,
+        )
+    if bootstrap > 0 and perm_axis == -1 and null != "iid":
+        raise ValueError(
+            f"jrsa(metric={metric!r}): bootstrap resamples single samples of the last axis, "
+            "which undercovers on autocorrelated data: on independent AR(1) pairs with "
+            "coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs. Name "
+            "null='iid' to declare the samples exchangeable, or set bootstrap=0. A block "
+            "bootstrap is planned for 0.2.7."
+        )
 
     if verbose:
         print(f"[jrsa] computing {metric!r} …")

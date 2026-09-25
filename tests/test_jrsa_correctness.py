@@ -577,6 +577,56 @@ class TestTimeAxisNullKeepsAutocorrelation:
         p = float(oa.jrsa(x, x, metric="cosine", permutations=999, rng=0).p)
         assert 0.12 < p < 0.22, p
 
+    def test_the_default_rotates_the_time_axis_of_every_row(self):
+        """(trials, time): the shift runs along time, the same for every row. Rotating the
+        two-row trial axis instead leaves two distinct surrogates and p near 1/2."""
+        pairs = self._ar1_pairs(2, n=300, seed=1)
+        x, y = pairs[:, 0], pairs[:, 1]
+        res = oa.jrsa(x, 2.0 * x + y, metric="pearson", permutations=199, rng=0, return_null=True)
+        assert float(res.p) <= 0.01, float(res.p)
+        assert len(np.unique(np.round(res.null_distribution, 12))) > 50
+
+    def test_every_row_gets_the_same_shift(self):
+        """Two identical rows against themselves: under one shift per draw each surrogate
+        equals the 1-D correlation of the row with one rotation of itself. A shift drawn
+        per row pairs different rotations and lands off that set."""
+        a = np.random.default_rng(2).standard_normal(30)
+        rotations = np.array([np.corrcoef(a, np.roll(a, k))[0, 1] for k in range(30)])
+        x = np.vstack([a, a])
+        null = oa.jrsa(x, x, metric="pearson", permutations=99, rng=0,
+                       return_null=True).null_distribution
+        off = np.min(np.abs(null[:, None] - rotations[None, :]), axis=1)
+        assert np.max(off) < 1e-9, np.max(off)
+
+    def test_row_metrics_warn_on_the_default_null_and_iid_silences_it(self):
+        """cka and rv on (time, units) with the default axis-0 permutation rejected every
+        one of 40 independent AR(1) pairs; the default stays for 0.2.6.1 and warns."""
+        rng = np.random.default_rng(5)
+        a, b = rng.normal(size=(40, 6)), rng.normal(size=(40, 6))
+        with pytest.warns(UserWarning, match="null='circular_shift' or null='block'"):
+            default = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            named = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3, null="iid")
+            oa.jrsa(a, b, metric="cka", stats=False)          # no null formed, no warning
+        assert float(named.p) == float(default.p)
+        np.testing.assert_array_equal(named.ci, default.ci)
+
+    @pytest.mark.parametrize("null", [None, "circular_shift"])
+    def test_a_paired_metric_bootstrap_needs_iid_named(self, null):
+        x, y = self._ar1_pairs(1, n=60)[0]
+        with pytest.raises(ValueError, match="bootstrap.*null='iid'"):
+            oa.jrsa(x, y, metric="pearson", bootstrap=20, rng=0, null=null)
+
+    def test_a_paired_metric_bootstrap_with_iid_named_keeps_the_0_2_6_numbers(self):
+        # Values computed by jnwb 0.2.6 with the same call minus `null`.
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=80)
+        y = 0.5 * x + rng.normal(size=80)
+        res = oa.jrsa(x, y, metric="pearson", permutations=99, bootstrap=200, rng=3, null="iid")
+        assert float(res.p) == 0.01
+        np.testing.assert_array_equal(res.ci, [0.20568213024810308, 0.5753485564085722])
+
     @pytest.mark.parametrize("metric, kwargs, recorded", [
         ("pearson", {}, "circular_shift"),
         ("pearson", {"null": "iid"}, "iid"),

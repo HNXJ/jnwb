@@ -52,6 +52,7 @@ result = jnwb.jrsa(
     metric="rsa",       # "rsa", "pearson", "cosine", "spearman", etc.
     stats=True,         # Enable permutation hypothesis testing
     permutations=1000,
+    null="iid",         # conditions are exchangeable (see "The Permutation Null")
     bootstrap=500,
     correction="fdr_bh",
     alpha=0.05
@@ -75,15 +76,16 @@ fig = result.plot()
 
 ### The Permutation Null (`null=`)
 
-Each permutation resamples x2 along one axis: the last (aligned) axis for the paired metrics
+Each permutation resamples x2 along one axis: the last axis for the paired metrics
 (`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`, `"mutual_information"`,
 `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
 conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
-`"procrustes"`.
+`"procrustes"`. The last axis is the aligned axis only at the default `adim=-1`: the null and
+`lag` act on axis -1 whatever `adim` names, so put time last.
 
 | `null=` | Resampling | Valid when |
 |---|---|---|
-| `None` (default) | `"circular_shift"` for the paired metrics, `"iid"` for the rest | see those rows |
+| `None` (default) | `"circular_shift"` for the paired metrics, `"iid"` for the rest, with a warning | see those rows |
 | `"circular_shift"` | rotate x2 by a random shift of 0 to n - 1 samples | each series is stationary; autocorrelation is kept. p cannot fall below about 1/n |
 | `"block"` | permute consecutive blocks of `block_len` samples, which must be given | autocorrelation is shorter than `block_len` |
 | `"iid"` | permute single samples | samples are independent. On two independent AR(1) series with coefficient 0.9 it rejects at p ≤ 0.05 about half the time |
@@ -91,6 +93,17 @@ conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_c
 `result.execution["null"]` records the scheme that ran and `result.execution["null_block_len"]`
 the block length. Before 0.2.6.1 every metric used `"iid"`, so p-values of the paired metrics
 on autocorrelated data have changed.
+
+For the axis-0 metrics the default warns (`UserWarning`) whenever a null is formed. When axis 0
+is time, the row permutation is invalid: `"cka"` and `"rv"` on independent AR(1) series rejected
+every one of 40 pairs at p ≤ 0.05. Name `"circular_shift"` or `"block"` there, and `"iid"` when
+the rows are exchangeable conditions; naming any scheme silences the warning. From 0.2.7 `null=`
+must be named for these metrics.
+
+`bootstrap > 0` with a paired metric raises unless `null="iid"` is named. The bootstrap resamples
+single samples, which undercovers on autocorrelated data: on independent AR(1) pairs with
+coefficient 0.9 the 95% interval of `"pearson"` covered 0 for 0.475 of pairs. A block bootstrap
+is planned for 0.2.7. The axis-0 metrics' bootstrap is unchanged.
 
 ```python
 res = jnwb.jrsa(x1, x2, metric="pearson", null="block", block_len=50, rng=0)
