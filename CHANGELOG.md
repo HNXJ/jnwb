@@ -6,11 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
+  dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
+  its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
+  run on the shortened series; `execution['n_overlap']` records the samples used; |lag| >= n
+  raises. Values at a nonzero lag change.
+
 ### Fixed
 
-- `jrsa`: `lag` now shifts the observation axis (axis 0), circularly, for `rsa`, `cka`, `rv`,
+- `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
+- `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
   `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these
-  metrics are invariant to, so every lag returned the lag-0 value. Paired metrics are unchanged.
+  metrics are invariant to, so every lag returned the lag-0 value. The lag axis of the paired metrics is unchanged.
 - `cross_area_coherence`: when the CUDA path fails part-way through the surrogate null, the CPU
   fallback reuses the shifts already drawn, so p equals a CPU run under the same seed and a
   caller's generator advances once. Before, the fallback drew new shifts from the advanced

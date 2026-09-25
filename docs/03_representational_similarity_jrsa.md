@@ -81,8 +81,9 @@ Each permutation resamples x2 along one axis: the last axis for the paired metri
 `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
 conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
 `"procrustes"`. For the paired metrics the null and `lag` act on axis -1 whatever `adim` names,
-so put time last; for the six axis-0 metrics both act on axis 0, the observations. `lag` is
-circular.
+so put time last; for the six axis-0 metrics both act on axis 0, the observations. `lag`
+compares the overlap only: a lag of l pairs x1[t] with x2[t - l] and drops |l| samples, and
+`execution['n_overlap']` records how many were used.
 
 | `null=` | Resampling | Valid when |
 |---|---|---|
@@ -133,6 +134,9 @@ per_window = [
 ]
 values = np.array([float(r.value) for r in per_window])   # one value per window
 ```
+
+Within each window the lag drops 5 of the 20 samples, so each value uses 15, and the
+circular-shift null runs on those 15: its p is near 1/15 at best.
 
 Each call forms its own permutation null, so correct the per-window p-values together
 (for example with `jnwb.StatisticalAnalysis.fdr_correct`) before reading any one of them.

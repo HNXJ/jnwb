@@ -179,7 +179,8 @@ def jrsa(
         Aligned dimension(s). Default -1. It steers alignment, `reduction` (axes named
         here) and `window`. Nothing downstream follows it: the paired metrics pair samples
         and resample the last axis, the observation-axis metrics resample axis 0 (see
-        `null`), and `lag` rolls the axis the metric treats as observations.
+        `null`), and `lag` shifts the axis the metric treats as observations, comparing the
+        overlap only.
     labels : list[str] or None
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
@@ -524,8 +525,9 @@ def jrsa(
         print(f"[jrsa] computing {metric!r} …")
 
     # --- temporal lag iteration -----------------------------------------------
-    lags = [lag] if isinstance(lag, (int, float)) else list(lag)
-    
+    # np.ndim, not isinstance(int): a NumPy integer or 0-d array is one lag.
+    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
+
     if len(lags) <= 1:
         x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
         value, statistic, effect, p_raw, df = metric_fn(
@@ -1027,7 +1029,7 @@ def _apply_lag(x1, x2, axis_map, lag, axis=-1):
     """
     if x2 is None:
         return x1, x2
-    lags = [lag] if isinstance(lag, (int, float)) else list(lag)
+    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
     if len(lags) != 1:
         raise ValueError(f"_apply_lag takes one lag per call; got {len(lags)}.")
     shift = int(lags[0])
