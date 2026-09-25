@@ -112,6 +112,22 @@ class TestGate2SeesAnySecondSkillTree:
         (target / "SKILL.md").write_text("# canonical\n", encoding="utf-8")
         assert check_skill_tree_uniqueness(tmp_path) == []
 
+    def test_a_process_skill_under_artifacts_is_accepted(self, tmp_path: Path):
+        for where in ("skills/jnwb", "artifacts/skills/process"):
+            (tmp_path / where).mkdir(parents=True)
+            (tmp_path / where / "SKILL.md").write_text("# one home\n", encoding="utf-8")
+        assert check_skill_tree_uniqueness(tmp_path) == []
+
+    @pytest.mark.parametrize("where", ["artifacts/skills/jnwb", "artifacts/skills/nested/deeper"])
+    def test_a_shipped_skill_repeated_or_nested_under_artifacts_is_rejected(
+        self, tmp_path: Path, where: str
+    ):
+        for path in ("skills/jnwb", where):
+            (tmp_path / path).mkdir(parents=True)
+            (tmp_path / path / "SKILL.md").write_text("# copy\n", encoding="utf-8")
+        violations = check_skill_tree_uniqueness(tmp_path)
+        assert violations and "DUPLICATE_SKILL_TREE" in violations[0], where
+
     def test_another_packages_skills_inside_an_ephemeral_directory_are_ignored(self, tmp_path):
         target = tmp_path / ".venv" / "Lib" / "site-packages" / "other" / ".agents" / "skills"
         target.mkdir(parents=True)

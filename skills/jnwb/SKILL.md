@@ -12,7 +12,6 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 
 | Task | Skill |
 |---|---|
-| Multi-step or consequential repository work: features, defect investigation, API changes, refactoring, release gates | `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order and role/domain separation) |
 | NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
 | Spike trains: binning, PSTH, onset latency, response significance, spike-field locking | `jnwb-spiking` |
 | LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |

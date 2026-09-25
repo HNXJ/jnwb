@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+#: The contributor-process skill. It is not part of the shipped `skills/` tree.
+PROCESS_SKILL = REPO_ROOT / "artifacts" / "skills" / "jnwb-fact-action" / "SKILL.md"
 # Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
 # installed copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
@@ -618,25 +620,28 @@ class TestProjectIdentifierGate:
 class TestHarnessResetContracts:
     """Deterministic tests for generalized harness reset structure and invariants."""
 
-    def test_jnwb_fact_action_skill_exists_and_is_routable(self):
-        skill_path = REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md"
-        assert skill_path.exists(), "skills/jnwb-fact-action/SKILL.md must exist"
-        text = skill_path.read_text(encoding="utf-8")
+    def test_the_process_skill_exists_outside_the_shipped_tree(self):
+        assert PROCESS_SKILL.exists(), f"{PROCESS_SKILL} must exist"
+        text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "F -> R -> A -> V -> S" in text
         assert "High freedom in hypothesis generation; zero freedom in project-fact completion" in text
 
+        assert not (REPO_ROOT / "skills" / "jnwb-fact-action").exists(), (
+            "the process skill is back in the shipped skills/ tree"
+        )
         router_text = (REPO_ROOT / "skills" / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
-        assert "jnwb-fact-action" in router_text, "Router skills/jnwb/SKILL.md must route substantial work to jnwb-fact-action"
+        assert "jnwb-fact-action" not in router_text, (
+            "the shipped router routes to a skill that does not ship"
+        )
 
     def test_all_referenced_domain_skills_exist(self):
         skills_dir = REPO_ROOT / "skills"
         assert skills_dir.exists()
         skill_names = {d.name for d in skills_dir.iterdir() if d.is_dir()}
 
-        # Verify all 7 domain skills plus router and execution-control skill
+        # Verify the domain skills plus the router
         expected = {
             "jnwb",
-            "jnwb-fact-action",
             "jnwb-nwb-data",
             "jnwb-spiking",
             "jnwb-lfp-spectral",
@@ -656,7 +661,7 @@ class TestHarnessResetContracts:
         "these strings appear" was the proxy, "the skill delegates the order" is the invariant.
         Ruled 2026-09-19 (06-61, candidate C).
         """
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         section = self._loading_order_section(skill_text)
@@ -809,7 +814,7 @@ class TestHarnessResetContracts:
         reproduced it on the right tree, which is how P-28 survived three fan-outs with the
         contract already carrying that field. Both fields, and the procedure in exactly one place.
         """
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         assert "BASELINE COMMIT:" in skill_text, (
@@ -838,7 +843,7 @@ class TestHarnessResetContracts:
         Asserted on meaning rather than on a phrase: the rule must tie the whole-suite
         requirement to test-file scope, so a packet that cannot add a test file is not forced
         to run everything and the rule stays proportionate."""
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         assert "ACCEPTANCE:" in skill_text, "the packet contract lost its ACCEPTANCE field"
@@ -896,7 +901,7 @@ class TestHarnessResetContracts:
         assert "Human-authorized durable facts" in fact_stack
         assert "Hamm" in fact_stack
 
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "fact_stack.md` is strictly human-authorized" in skill_text
 
     @staticmethod
@@ -946,9 +951,9 @@ class TestHarnessResetContracts:
         # The ROLE enum in the delegation contract was a field name nothing read: a role
         # could be added here and never offered to a dispatcher, or listed there and have
         # no definition to load. Both halves now have to agree.
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         enum_line = re.search(r"^ROLE:\s*(.+)$", skill_text, re.MULTILINE)
-        assert enum_line, "skills/jnwb-fact-action/SKILL.md has no ROLE: enum to validate"
+        assert enum_line, "the process skill has no ROLE: enum to validate"
         enumerated = {r.strip() for r in enum_line.group(1).split("|")}
         assert enumerated == existing_role_files, (
             f"ROLE enum and artifacts/agents/ disagree: {enumerated ^ existing_role_files}"
@@ -1023,7 +1028,7 @@ class TestHarnessResetContracts:
             self._roles_agents_md_enumerates("| `skills/` | Task skills |")
 
     def test_actor_cannot_be_sole_verifier_contract(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "actor" in skill_text and "sole verifier" in skill_text
 
         actor_text = (REPO_ROOT / "artifacts" / "agents" / "actor.md").read_text(encoding="utf-8")
@@ -1045,7 +1050,7 @@ class TestHarnessResetContracts:
                 assert p not in text, f"Role {md.name} contains downstream project name {p!r}"
 
     def test_delegation_packet_and_return_contracts_exist(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         packet_fields = [
             "ROLE:", "DOMAIN SKILL:", "GOAL:", "TODO ITEM:", "AUTHORITIES:",
             "RELEVANT FACTS:", "OBSERVED BASELINE:", "INVARIANTS:",
@@ -1061,7 +1066,7 @@ class TestHarnessResetContracts:
             assert field in skill_text, f"Missing return contract field {field}"
 
     def test_conflicting_conclusions_require_evidence_reconciliation(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "Evidence Reconciliation" in skill_text
         assert "never through voting" in skill_text
 

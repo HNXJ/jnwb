@@ -57,7 +57,7 @@ to the real layout instead of an assumed one.
 
 ## The skills
 
-Ten skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
+Nine skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
 alongside an `agents/openai.yaml` manifest. The canonical tree is `skills/`, and a copy under
 `jnwb/` would be a second tree, which the repository's own gates forbid. To use them, clone the
@@ -82,7 +82,6 @@ The pointer above is the route that works from anywhere.
 | Skill | Covers |
 |---|---|
 | `jnwb` | Router, scientific safeguards, entry point |
-| `jnwb-fact-action` | Execution control, authority loading order, independent verification |
 | `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing |
 | `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, unit QC |
 | `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |

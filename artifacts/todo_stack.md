@@ -16,7 +16,7 @@ the 0.2.7 items as deferred; they return to `required-0.2.7` when the version be
 
 ## How this stack is executed
 
-Every item is a delegation packet in the contract of `skills/jnwb-fact-action` §5; the executing
+Every item is a delegation packet in the contract of `artifacts/skills/jnwb-fact-action` §5; the executing
 role is `jnwb-developer` (`artifacts/agents/jnwb-developer.md`) unless the item names another.
 Map the fields onto the packet: `Role` ROLE, `Skill` DOMAIN SKILL, heading GOAL, id TODO ITEM,
 `Reads` extra AUTHORITIES, `Reproduce` OBSERVED BASELINE, `Writes` ALLOWED SCOPE, `Accept`

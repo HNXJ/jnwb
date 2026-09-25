@@ -7,7 +7,8 @@ said twelve while the runner printed thirteen, and gate 2 had been rewritten fro
 protected paths to skill-tree uniqueness without the list noticing.
 
   1. Frozen jnwb boundary: no unauthorized imports from project folders.
-  2. Skill tree uniqueness: every SKILL.md in the tree lives under skills/.
+  2. Skill tree uniqueness: every SKILL.md lives under skills/, or under artifacts/skills/
+     with a name no shipped skill uses.
   3. Machine-local path exclusion: rejects hardcoded drive letters in test suites.
   4. Root allowlist: permits only tracked, authorized root files.
   5. Public symbols documented: every public export is written about by a person.
@@ -274,11 +275,17 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     This checked one hardcoded path, ``.agents/skills``, so a duplicate tree anywhere else
     passed: `jnwb/skills/` and `docs/skills/` were both accepted when constructed. The
     canonical tree is `skills/`, and a second one is the hazard whatever it is called.
+
+    One other location is allowed: ``artifacts/skills/``, which holds skills about working on
+    this repository rather than about using jnwb. ``artifacts/`` is pruned from the sdist, so
+    they never ship. The hazard is two copies of one skill drifting apart, so a skill there
+    whose name also exists under ``skills/`` is still a violation.
     """
     root = repo_root or REPO_ROOT
     violations = []
     identities: Dict[Any, Any] = {}
     git_unavailable: Optional[str] = None
+    shipped_names = {p.parent.name for p in (root / "skills").glob("*/SKILL.md")}
     for skill in sorted(root.rglob("SKILL.md")):
         relative = skill.relative_to(root)
         if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
@@ -289,6 +296,13 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
                     continue  # a worktree is this tree seen twice, not two trees
             except GitUnavailable as exc:
                 git_unavailable = str(exc)  # nothing is excused without git's answer
+        if relative.parts[:2] == ("artifacts", "skills") and len(relative.parts) == 4:
+            if relative.parts[2] in shipped_names:
+                violations.append(
+                    f"DUPLICATE_SKILL_TREE: {relative.as_posix()} repeats the shipped skill "
+                    f"skills/{relative.parts[2]}/. One skill has one home."
+                )
+            continue
         if relative.parts[0] != "skills":
             violations.append(
                 f"DUPLICATE_SKILL_TREE: {relative.as_posix()} is a SKILL.md outside skills/. "

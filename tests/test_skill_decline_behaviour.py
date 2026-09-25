@@ -34,11 +34,9 @@ _ROUTER = (
     "routes to the domain skills and runs no operation of its own; each outcome is tested at "
     "the skill it routes to"
 )
-_PROCESS = "governs how changes to this repository are made and routes to no jnwb operation"
 
 NOT_REQUIRED: dict[tuple[str, str], str] = {
     **{("jnwb", o): _ROUTER for o in OUTCOMES},
-    **{("jnwb-fact-action", o): _PROCESS for o in OUTCOMES},
     ("jnwb-figures", "request"): (
         "its routes draw arrays and axes the caller already holds; no scientific input can be "
         "missing"

@@ -115,8 +115,13 @@ def test_there_is_exactly_one_skill_tree() -> None:
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split()
     assert tracked, "git ls-files found no SKILL.md at all; this test would pass vacuously"
-    trees = {Path(name).parts[0] for name in tracked}
+    # `artifacts/skills/` holds the skills about working on this repository; `artifacts/` is
+    # pruned from the sdist, and no name may appear in both places.
+    trees = {Path(name).parts[0] for name in tracked if not name.startswith("artifacts/skills/")}
     assert trees == {"skills"}, f"tracked SKILL.md files live outside skills/: {sorted(trees)}"
+    shipped = {Path(name).parts[1] for name in tracked if name.startswith("skills/")}
+    internal = {Path(name).parts[2] for name in tracked if name.startswith("artifacts/skills/")}
+    assert not shipped & internal, f"one skill has two homes: {sorted(shipped & internal)}"
     assert not [name for name in tracked if name.startswith("jnwb/")], (
         "a second skill tree exists under jnwb/"
     )
