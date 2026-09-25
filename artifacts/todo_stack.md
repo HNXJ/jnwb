@@ -47,10 +47,11 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 | Order | Items |
 |---|---|
 | 0 | 06-205 (the 0.2.6.1 release) |
-| 1 | 07-03 blocker candidates, then the rest of 07-03 |
-| 2 | 07-01, triaged against the blocker predicate |
-| 3 | 07-02 |
-| 4 | 07-04 |
+| 1 | 07-03 blocker candidates |
+| 2 | 07-04 step 1 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
+| 3 | 07-04 step 2, then the rest of 07-03 |
+| 4 | 07-01, triaged against the blocker predicate |
+| 5 | 07-02 |
 
 ## 0.2.6.1 patch
 
@@ -284,8 +285,8 @@ predicate if they reproduce, and go first.
 - IB-14 (blocker candidate, weak): `skills/jnwb-landmark-viz/SKILL.md:60,71` pass millimetre depths, and `jnwb/vis/laminar.py:101,301,423` infer the unit from the maximum, so 0 to 1.55 mm is labelled "Relative Depth (0=Pia, 1=WM)". Check: a `depth_unit=` parameter with no default, or refusal of ambiguous ranges.
 - IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
 - IB-16: `docs/03:103` says `nan_policy="omit"` propagates NaN across the affected RDM pairs; one empty condition makes the whole result NaN, and one NaN sample moves the value 0.343 to 0.425. Check: correct the prose or omit pairwise; test one empty condition.
-- IB-17: `skills/jnwb-fact-action` is a contributor-process skill that ships (sdist, `SKILLS_URL`, `docs/agents.md`) with implicit invocation, internal ids and a trigger claiming all multi-step work, while the router scopes it to repository tasks. Check: a ruling on whether it ships; meanwhile scope its trigger.
-- IB-18: gate 14 scans `docs/` and `README.md` for process terms but not the shipped `skills/`, and checks only identifiers in `jnwb/`, where `jnwb/__init__.py:22` names a harness gate. Check: add `skills/` to gate 14, with a named exemption if IB-17 rules it stays.
+- IB-17: `skills/jnwb-fact-action` is a contributor-process skill that ships (sdist, `SKILLS_URL`, `docs/agents.md`). Ruled 2026-09-25: it stops shipping. Check: move it out of `skills/` to where this repository's own agents read it, and update the skill-set test, the router, `docs/agents.md` and the sdist manifest in one change.
+- IB-18: gate 14 scans `docs/` and `README.md` for process terms but not the shipped `skills/`, and checks only identifiers in `jnwb/`, where `jnwb/__init__.py:22` names a harness gate. Check: add `skills/` to gate 14, after IB-17 moves the process skill out.
 - IB-19: `skills/jnwb-landmark-viz/SKILL.md:35` mandates a chance line at 0.5 and `jnwb/vis/state_space.py:28` defaults `chance_level=0.5`, against the population skill's rule for unbalanced classes. Check: point to `majority_baseline` or make `chance_level` required.
 - IB-20: `skills/jnwb-statistics/SKILL.md:3-4` and its `agents/openai.yaml` say "family-wise FDR", conflating FWER with Benjamini-Hochberg. Check: "FDR (Benjamini-Hochberg)".
 - IB-21: the CSD and curvature row of `skills/jnwb-lfp-spectral/SKILL.md:28` omits that the output has two fewer channels, so output row k is input channel k+1 (`AGENTS.md` invariant 4). Check: state the shape and offset; a routing test on it.
@@ -332,6 +333,27 @@ The plan in `artifacts/planned_post_0.2.6.md` is authorized input to this cycle 
 each of its steps against this tree and turn each into its own item here, with fields, before any
 of it is implemented.
 Accept: every step of the plan is an item of this stack or is recorded as already done.
+
+### 07-05 A downstream paper agent can consume jnwb
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per skill. Blocked by: 07-04.
+Reads: `artifacts/direction.md` (the four outcomes, Boundary), `artifacts/planned_post_0.2.6.md`, `jnwb/ontology.py`, `jnwb/paths.py`.
+Writes: `jnwb/*.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
+Ruled 2026-09-25: a paper-reproduction agent lives downstream, pinned to a jnwb release, with its
+claim registry, decline tree, reference outputs and scorer. jnwb gains only what that agent cannot
+do without and every NWB consumer can use. It waits for the preflight step of 07-04.
+- a. The preflight is a public API that returns one of the four outcomes of `artifacts/direction.md`
+  with the reason and the missing inputs as data, so a script can score decline accuracy.
+- b. A result names the exact input it came from: the NWB file's sha256 (`paths.sha256_file`) and
+  the object path. Use `Provenance` or `Lineage` if they can carry it; add a field only if not.
+  IA-27's tests for `paths.resolve_nwb_path`, `sha256_file` and `require` land here.
+- c. `CONTRIBUTING.md` states the intake: a downstream miss classified as a jnwb defect enters the
+  problem stack as a generic row with a synthetic discriminator; a missing capability goes through
+  the capability gate.
+Accept: a test per outcome in (a); a round-trip test in (b) that writes a result's dict and
+re-opens the same file by path and hash; Gate 6 passes.
+Stop: anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/` or `docs/`.
 
 ## Out of 0.2.7 scope
 
