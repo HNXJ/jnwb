@@ -77,6 +77,9 @@ HISTORICAL_MENTIONS = {
      "`granger_causality` (dict return type) is deprecated in 0.1.7"),
     ("docs/install.md", "## Deferred imports (0.1.6+)"),
     ("docs/10_operation_specifications.md", "until 0.2.5 and named the minority"),
+    ("docs/03_representational_similarity_jrsa.md", "Before 0.2.6.1 every metric used"),
+    ("docs/03_representational_similarity_jrsa.md", "From 0.2.7 `null=`"),
+    ("docs/03_representational_similarity_jrsa.md", "is planned for 0.2.7."),
 }
 
 
