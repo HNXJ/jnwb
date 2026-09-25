@@ -293,6 +293,7 @@ predicate if they reproduce, and go first.
 - IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics.
 - IB-60: the coherence GPU-fallback test compares only p and the observed spectrum, so a device path that uses a different shift set with the same band counts passes it. Check: record the shift each estimator call receives and assert the fallback's list equals the CPU run's.
 - IB-61: the skill-coverage test excludes `PopulationAnalyzer`, `TFRAnalyzer` and `UnitAnalyzer` as class facades over routed functions, but they compute on their own (`UnitAnalyzer.psth` bins itself, `population_trajectory` runs its own SVD) and the test checks only the module they live in; the router's GPU table names two of their methods that have no routing row. Check: route the analyzers, or state a reason the test can verify.
+- IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only.
 
 ### 07-04 The planned 0.2.7 sequence
 
