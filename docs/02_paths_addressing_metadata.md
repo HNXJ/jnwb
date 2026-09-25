@@ -124,7 +124,7 @@ For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on dupl
 
 ### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
 
-Estimates cortical depth phase gradients, the per-contact delay, and an apparent velocity across ordered laminar contacts:
+Estimates phase gradients across ordered laminar contacts and, when the phase is linear in frequency at every adjacent pair, an apparent per-contact phase delay and velocity:
 
 ```python
 # lfp_matrix: (n_channels, n_samples) ordered along probe shaft
@@ -141,8 +141,10 @@ print("Delay gradient (s/contact):", z_res.tau_per_channel_s)
 print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
 ```
 
-**What these three numbers license.** `tau_per_channel_s` is a delay per contact in
-seconds, fitted to the phase gradient across depth; `apparent_velocity_m_s` is that
+**What these three numbers license.** `tau_per_channel_s` is an apparent phase delay per
+contact in seconds, fitted to the phase gradient across depth, and `NaN` with
+`delay_identifiable=False` when any adjacent pair or the fit across depth fails its
+linearity gate; `apparent_velocity_m_s` is that
 gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
 shape is produced by axonal conduction, but also by two sources with a fixed phase offset,

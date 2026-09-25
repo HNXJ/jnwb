@@ -113,19 +113,19 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 837, `quickstart` at 766 and `agents` at 876 sit under it |
+| Task (`install`, `quickstart`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 837, `quickstart` at 817 and `agents` at 876 sit under it |
 | Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 
-Measured 2026-09-24 with `wc -w`. Four pages sit over their ceiling, and each owes the one
+Measured 2026-09-25 with `wc -w`. Four pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2336 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1596 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
+| `common_mistakes` | 2421 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `02_paths_addressing_metadata` | 1625 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
 | `04_spectral_analysis_and_tfr` | 1863 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
 | `errors` | 1679 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
 

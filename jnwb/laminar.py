@@ -1746,7 +1746,7 @@ def zflip(
     rng: RNGLike = Default(0),
     seed: Any = Default(0),
 ) -> ZFlipResult:
-    r"""Estimate cortical depth phase gradients, propagation delay, and apparent velocity.
+    r"""Estimate depth phase gradients, and an apparent phase delay and velocity only where phase is linear in frequency.
 
     Evaluates phase slopes across ordered laminar contacts. For a true physical delay
     :math:`\Delta \tau` between contacts :math:`c` and :math:`c+1`, the phase difference

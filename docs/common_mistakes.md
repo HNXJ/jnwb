@@ -116,11 +116,16 @@ The mean and variance of held-out test trials leak into the training features, l
 Fit scalers and feature transformers strictly on training folds inside a `Pipeline`:
 
 ```python
-# CORRECT: jnwb.nested_cv_linear_svm handles inner & outer CV without leakage
+# CORRECT: jnwb.nested_cv_linear_svm fits the scaler inside each training fold
 res = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
-print("Unbiased Outer CV Accuracy:", res["accuracy"])
+print("Row-wise outer CV accuracy (upper bound):", res["accuracy"])
 print("Fold Majority Baseline:", res["majority_baseline_accuracy"])
 ```
+
+This removes scaler leakage only. The folds are drawn over rows with no `groups`, so trials
+from one block fall on both sides of a fold boundary and share its slow drift. Report
+`accuracy` as an upper bound on the block-held-out accuracy, as
+[Decoding & Visual QC](09_decoding_and_visual_qc.md) describes.
 
 ---
 
@@ -158,7 +163,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 | Metric | What it measures | What it cannot rule out |
 |---|---|---|
 | Granger causality | Whether past values of $X$ improve linear autoregressive prediction of $Y$ | Unobserved common inputs; differing signal-to-noise ratios |
-| Phase Slope Index | Whether phase differences between $X$ and $Y$ grow linearly with frequency, indicating a consistent time delay | A common driver with asymmetric conduction delays |
+| Phase Slope Index | The sum over adjacent frequency bins of $\mathrm{Im}(C^*_f\,C_{f+\delta f})$ on the coherency $C$; its sign is read as which signal leads. It tests neither linearity nor a delay | A common driver with asymmetric conduction delays |
 | Transfer Entropy | Information-theoretic reduction in uncertainty of $Y$ given $X$'s past. Non-parametric | Anything: it is still observational |
 
 ### The Correct Pattern
@@ -238,7 +243,7 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 ### The Correct Pattern
 1. Fix $\tau$ and $\Delta t$ uniformly across all conditions being compared.
 2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`), which fits $t_0$ to the whole rise rather than to one threshold crossing. On a graded rise the fitted $t_0$ still moves with `tau_ms`, which is why step 1 fixes it; no fixed filter-delay correction applies to it.
-3. Check `fit["bound_status"]` to confirm the estimate is not pinned to the outer parameter bounds.
+3. Check `fit["bound_status"]`, which says only whether $t_0$ sits at an end of `t0_bounds_ms`. A fit to noise can read `None` with `tau` at an end of `tau_bounds_ms` and `r2` near 0, so read those two as well.
 
 ---
 

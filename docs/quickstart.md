@@ -118,8 +118,13 @@ event_onsets = np.array([1.0, 3.0, 5.0, 7.0])
 
 time_bins, rate, sem = jnwb.raster_psth(spk_times, event_onsets, win_ms=(-100.0, 400.0), bin_ms=10.0)
 onset_fit = jnwb.fit_exponential_onset(time_bins, rate, t0_bounds_ms=(0.0, 250.0))
-print(f"Estimated latency t0: {onset_fit['t0']:.2f} ms (status: {onset_fit['bound_status']})")
+print(f"t0: {onset_fit['t0']:.2f} ms, tau: {onset_fit['tau']:.1f} ms, "
+      f"R2: {onset_fit['r2']:.3f}, bound_status: {onset_fit['bound_status']}")
 ```
+
+These spikes are uniform noise with no response, and `bound_status` usually still reads `None`:
+it says only that $t_0$ is inside `t0_bounds_ms`. Here `tau` sits at an end of its bounds and
+`R2` is near 0, which is what marks the fit as having found no onset.
 
 ### 5. Non-Parametric Statistical Testing
 
