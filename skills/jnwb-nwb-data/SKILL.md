@@ -7,12 +7,12 @@ description: NWB inspection, event/onset extraction, path addressing, anatomical
 # `jnwb-nwb-data` — NWB Data, Addressing & Metadata
 
 ## 1. Trigger
-Activate when inspecting NWB files, extracting event onsets, resolving paths, mapping
-electrode channels to areas/layers, auditing unit quality, or compressing arrays.
+Inspecting NWB files, extracting event onsets, resolving paths, mapping electrode channels to
+areas/layers, auditing unit quality, or compressing arrays.
 
-## 2. Task-to-Operation Routing Matrix
+## 2. Routing
 
-### Per-file discovery and events (canonical Python route)
+### Per-file discovery and events
 
 - `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,
   and **all** interval tables with column samples. Selects no event table on the caller's behalf.
@@ -28,6 +28,7 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   or a series wrapped in `FilteredEphys` or a behavior container -- `EyeTracking`, `PupilTracking`,
   `BehavioralTimeSeries`, `Position`, `CompassDirection` -- in acquisitions; calibrated by
   `conversion`, the channel's `channel_conversion` factor and `offset`).
+- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
 - `jnwb.read_nwb(path, allow_missing=None)`: Reads an NWB file through jnwb's repairs and closes
   it, so read data arrays through `nwb_read_io`. A file missing `session_description` raises
   `MissingRequiredNWBFieldError`; `allow_missing=("session_description",)` opens it with the field
@@ -39,50 +40,26 @@ electrode channels to areas/layers, auditing unit quality, or compressing arrays
   `pynwb.NWBHDF5IO`.
 - `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
   epochs from continuous signals aligned to event onsets.
+- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 
-**Event code semantics:** codes are opaque interval-table labels (default column `codes`). jnwb
-does not interpret scientific meaning. When `codes=None`, no code filtering is performed and
-the column `codes` may be absent (`events` then warns and records `code_column=None`); a
-`code_column` named explicitly must exist, with or without `codes`, or `ColumnNotFoundError` is
-raised. String and numeric codes compare without cross-type
-coercion (`"1"` ≠ `1`). Empty code selection returns an empty array; missing table/column raises
-specific errors.
+MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap these functions for agent hosts;
+Python workflows call the functions directly.
 
-**Table ambiguity:** several interval tables + omitted `table` → `AmbiguousIntervalTableError`.
-Several continuous series + omitted `name` in `acquisition_channel` → `AmbiguousAcquisitionError`.
+| Topic | Contract |
+|---|---|
+| Event codes | Codes are opaque interval-table labels (default column `codes`); jnwb does not interpret their meaning. With `codes=None` nothing is filtered and the column `codes` may be absent (`events` then warns and records `code_column=None`); a `code_column` named explicitly must exist, with or without `codes`, or `ColumnNotFoundError` is raised. String and numeric codes compare without cross-type coercion (`"1"` ≠ `1`). An empty code selection returns an empty array; a missing table or column raises a specific error. |
+| Ambiguity | Several interval tables and no `table` → `AmbiguousIntervalTableError`. Several continuous series and no `name` in `acquisition_channel` → `AmbiguousAcquisitionError`. |
+| One schema | `inspect(path)` and `inspect(nwb_object)` return the same dict for the same file. Every continuous entry always carries `name`, `path`, `neurodata_type`, `packaging`, `series`, `data_path`, `data_shape`, `data_dtype`, `layout`, `rate_hz` and `starting_time` (seconds, and None for a series stored with timestamps), `None` when unknown. |
+| Aligning events to a series | Event times in the interval tables are session times, and sample 0 of an `acquisition_channel` array is at the series' `starting_time`. Subtract it from the onsets before epoching: `epoch_continuous(data, onsets - entry["starting_time"], win_s=..., fs=rate_hz)`. `acquisition_channel` warns when `starting_time` is not 0. |
+| Several series in one container | An `LFP` wrapping more than one `ElectricalSeries` reports `series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and `acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series, bare (`name="series"`) or qualified (`name="container/series"`); a bare name held by two containers is refused, as is a name in both `/acquisition` and a processing module. A series stored with `timestamps` and no constant `rate` is refused rather than given a rate: read its timestamps and derive the rate against an independent clock. |
+| Array orientation | `inspect` reports `layout` per 2-D series, decided by the series' own electrode region rather than by which side is longer. `acquisition_channel` honors it, so `channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the electrode count matches neither dimension or both, `layout` is `"ambiguous"` and `acquisition_channel` raises `AmbiguousLayoutError`. |
 
-**One schema:** `inspect(path)` and `inspect(nwb_object)` return the same dict for the same
-file. Every continuous entry always carries `name`, `path`, `neurodata_type`, `packaging`,
-`series`, `data_path`, `data_shape`, `data_dtype`, `layout`, `rate_hz` and `starting_time`
-(seconds, and None for a series stored with timestamps), `None` when unknown.
+### Repository path roots
 
-**Aligning events to a series:** event times in the interval tables are session times, and
-sample 0 of an `acquisition_channel` array is at the series' `starting_time`. Add
-`starting_time` to the signal's time axis, which is the same as subtracting it from the onsets
-before `epoch_continuous`:
-`epoch_continuous(data, onsets - entry["starting_time"], win_s=..., fs=rate_hz)`.
-`acquisition_channel` warns when `starting_time` is not 0.
+- `jnwb.paths.describe()`: Configured data roots and resolution state for a **project**
+  checkout -- not a substitute for `jnwb.inspect(path_or_nwb)`.
 
-**Several series in one container:** an `LFP` wrapping more than one `ElectricalSeries` reports
-`series: [names]` with `rate_hz`/`data_path`/`data_shape`/`layout` `None`, and
-`acquisition_channel(name=<container>)` raises `AmbiguousAcquisitionError`. Name the series,
-bare (`name="series"`) or qualified (`name="container/series"`); a bare name held by two
-containers is refused. A name that exists in both `/acquisition` and a processing module is
-refused the same way. A series stored with `timestamps` and no constant `rate` is refused
-rather than given a rate: read its timestamps and derive the rate against an independent clock.
-
-**Array orientation:** `inspect` reports `layout` per 2-D series, decided by the series' own
-electrode region rather than by which side is longer. `acquisition_channel` honors it, so
-`channel=k` is the same channel whether the file is time-by-channel or channel-by-time. When the
-electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
-`acquisition_channel` raises `AmbiguousLayoutError`.
-
-### Repository path roots (not per-file inspection)
-
-- `jnwb.paths.describe()`: report configured data roots and resolution state for a **project**
-  checkout — not a substitute for `jnwb.inspect(path_or_nwb)`.
-
-### Addressing, metadata, compression
+### Addressing and metadata
 
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`
@@ -91,14 +68,6 @@ electrode count matches neither dimension or both, `layout` is `"ambiguous"` and
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
 - `jnwb.classify_unit_quality(units_df, thresholds=None)`
 - `jnwb.electrode_inventory(nwb_paths)`
-- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written. A regular `timestamps` array that another link also opens (pynwb's shared timestamps) is kept as it is, so the link stays valid. With `verify=True` a failed check raises `RuntimeError` naming it, and the written `dst` is left for inspection.
-
-MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap the public API for agent hosts;
-use the public functions above in normal Python workflows.
-
-- `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
-- `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
-- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 - `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
 - `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by `session_id`, `area` and `depth_class`, and warns when the frame has only the deprecated `layer`. It aggregates `firing_rate`, `waveform_duration` and `snr` and counts `unit_id` (or `cluster_id`), so it takes a frame as `get_all_units_metadata` builds it; a frame without those columns raises `KeyError`.
 - `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. Quality 0 is `'mua'`; quality 1 is `'stable'` only when presence and SNR both strictly exceed their thresholds; everything else, including a missing value or a quality code other than 0 or 1, is `'unstable'`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
@@ -106,16 +75,21 @@ use the public functions above in normal Python workflows.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
 - `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
 
+### Compression and storage
+
+- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written. A regular `timestamps` array that another link also opens (pynwb's shared timestamps) is kept as it is, so the link stays valid. With `verify=True` a failed check raises `RuntimeError` naming it, and the written `dst` is left for inspection.
+- `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
+
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.
-2. **Addressing robustness:** `map_peak_channel_to_area` reads only anatomical columns and
-   returns `None` when the table has none. It does **not** fall back to `group_name`, which is the
-   probe/shank label: an electrode table with no anatomical column used to return `'probeA'` as
-   the brain area of channel 0, a fabricated label indistinguishable from a real one.
-3. **NWB compression contract:** `compress_fp32` casts exactly the datasets named in `select=`
-   to fp32, irreversibly; name them rather than relying on the preset. Verify with
-   `verify=True` before deleting sources.
+2. **Addressing:** `map_peak_channel_to_area` reads only anatomical columns and returns `None`
+   when the table has none. It does **not** fall back to `group_name`, the probe/shank label,
+   which would report a label such as `'probeA'` as the brain area, indistinguishable from a
+   real one.
+3. **Compression:** `compress_fp32` casts exactly the datasets named in `select=` to fp32,
+   irreversibly; name them rather than relying on the preset, and verify with `verify=True`
+   before deleting sources.
 
 ## 4. Minimal Workflow
 ```python
@@ -132,7 +106,7 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 - Tutorials under `examples/tutorials/` execute in CI (`tests/test_tutorials.py`).
 - Event/onset acceptance matrix: `tests/test_nwb_events.py`.
 
-## 6. Canonical Documentation Links
+## 6. Documentation
 - [Tutorial: NWB Basics](../../docs/tutorials/01_nwb_basics.md)
 - [Tutorial: Addressing and metadata](../../docs/tutorials/02_addressing_and_metadata.md)
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)

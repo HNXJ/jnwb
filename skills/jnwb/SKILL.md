@@ -3,42 +3,51 @@ name: jnwb
 description: Top-level router and scientific safeguard kernel for jnwb NWB electrophysiology analysis.
 ---
 
-# jnwb — Neuroscience & Electrophysiology Analysis Kernel
+# jnwb — Router and Scientific Safeguards
 
 ## 1. Trigger
-Activate this skill when the user asks for generic electrophysiology analysis, time-frequency analysis, spike dynamics, NWB processing, neural statistics, decoding, artifact rejection, or directed connectivity.
+Electrophysiology analysis in general: NWB processing, spike dynamics, time-frequency analysis, laminar depth, statistics, decoding, artifact rejection, directed connectivity and figures.
 
-## 2. Task-to-Operation Routing Matrix
-- **Substantial, multi-step, or consequential repository tasks**: (feature implementation, defect investigation, API modification, refactoring, release gates) -> delegate to `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order, and role/domain separation).
-- **Simple, bounded domain queries**:
-  - **NWB inspection, paths, metadata, electrodes, addressing, compression**: delegate to `jnwb-nwb-data`
-  - **Spike raster/PSTH, latency estimation, causal smoothing, unit QC**: delegate to `jnwb-spiking`
-  - **LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact repair**: delegate to `jnwb-lfp-spectral`
-  - **Laminar depth: assigning cortical layers, crossover contacts, CSD, probe geometry**: delegate to `jnwb-lfp-spectral` (depth estimators consume the spectra and correlation matrices that skill produces) and `jnwb-nwb-data` for the electrode table
-  - **Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG safety**: delegate to `jnwb-statistics`
-  - **Linear SVM decoding, neural trajectories, jRSA, population geometry**: delegate to `jnwb-population`
-  - **Directional coupling (Granger, PSI, transfer entropy) with strict causal language**: delegate to `jnwb-connectivity`
-  - **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
-  - **Multi-panel Plotly publication figures through `jnwb.vis` (optional `vis` extra)**: delegate to `jnwb-landmark-viz`
+## 2. Routing
 
-## 3. High-Performance Acceleration (CuPy & Joblib)
-- **GPU**: Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. With a GPU present, `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory` compute on it and record the device that ran (`device` on `complex_tfr`'s result, `device_used` on the others). `granger_causality` recomputes the whole call on the CPU if any fit falls back. A request no GPU can serve warns and runs on the CPU. `band_power`, `relative_power`, `rdm`, `vflip` and `vflip_from_lfp` (whose warning names `vflip`) warn and run on the CPU even with a GPU present. `jrsa` computes every metric in NumPy on the CPU whatever its `backend` or `device`; an accelerator `backend` or `device='cuda'` warns and records `execution['device'] == 'cpu'`. `'metal'` runs only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been run on Metal hardware.
-- **Parallel CPU**: `n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process has a start-up cost of several seconds.
-- **Artifact Rejection & Repair**: Pre-filter LFP matrices using `bad_channels_from_correlation`, `consensus_bad_trials`, and `repair_lfp_trials`.
+| Task | Skill |
+|---|---|
+| Multi-step or consequential repository work: features, defect investigation, API changes, refactoring, release gates | `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order and role/domain separation) |
+| NWB inspection, paths, metadata, electrodes, addressing, compression | `jnwb-nwb-data` |
+| Spike raster/PSTH, latency, causal smoothing, unit QC | `jnwb-spiking` |
+| LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
+| Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
+| Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
+| Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
+| Directed coupling (Granger, PSI, transfer entropy) | `jnwb-connectivity` |
+| Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
+| Multi-panel Plotly publication figures through `jnwb.vis` (optional `vis` extra) | `jnwb-landmark-viz` |
 
-## 4. Core Scientific Safeguards & Invariants
-1. **Signal Class Independence**: Spikes (SUA/MUA) and continuous LFP represent distinct physical observables. Never pool across modalities.
-2. **Estimand & Causal Hierarchy**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Granger causality and phase slope index measure temporal-lag asymmetry (predictive directionality), not anatomical/physical causality.
-3. **Logarithm Last**: For spectral power or decibel changes: average raw power across trials first, normalize by baseline, and compute $10 \cdot \log_{10}(\text{power})$ at the final step.
-4. **Boundary & Filter Distortions**: Mask wavelet coefficients in the Cone of Influence (`coi_mask`). Use causal exponential smoothing (`causal_exp_smooth`) to prevent future leakage.
-5. **RNG Reproducibility**: Pass explicit `numpy.random.Generator` instances (e.g. `rng = np.random.default_rng(seed)`). Never mutate global `np.random.seed()`.
-6. **Dataset-Agnostic Invariant**: `jnwb` is dataset-agnostic. Experiment-specific condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
-7. **Phase Coupling vs Directionality vs Delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
-8. **No Volume Conduction Immunity**: Measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
+## 3. Execution: GPU and Parallel CPU
+Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. A request no GPU can serve warns and runs on the CPU.
 
-## 5. Agent Memory & Operational Guidance
-For detailed workflow recipes, memory conventions, and common AI agent pitfalls, see:
-- [AGENTS.md](../../AGENTS.md) — Repository map, working rules, and recipes.
+| Operations | With `device='cuda'` |
+|---|---|
+| `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`, `UnitAnalyzer.autocorrelogram`, `compute_population_trajectory` | Compute on the GPU when one is present and record the device that ran: `device` on `complex_tfr`'s result, `device_used` on the others. `granger_causality` recomputes the whole call on the CPU if any fit falls back. |
+| `band_power`, `relative_power`, `rdm`, `vflip`, `vflip_from_lfp` (whose warning names `vflip`) | Warn and run on the CPU even with a GPU present. |
+| `jrsa` | Computes every metric in NumPy on the CPU whatever its `backend` or `device`; an accelerator `backend` or `device='cuda'` warns and records `execution['device'] == 'cpu'`. |
+
+`'metal'` runs only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been run on Metal hardware.
+
+`n_jobs` is accepted by the operations whose signature lists it. The default is 1 everywhere, and results are identical for any `n_jobs`. Opt in only when serial work exceeds about five seconds; the first parallel call in a process costs several seconds of start-up.
+
+## 4. Scientific Safeguards
+1. **Signal classes**: spikes (SUA/MUA) and continuous LFP are distinct physical observables. Never pool across them.
+2. **Association $\ne$ directionality $\ne$ causality**: Granger causality and phase slope index measure temporal-lag asymmetry (predictive directionality), not anatomical or physical causality.
+3. **Logarithm last**: average raw power across trials, divide by baseline, and compute $10 \cdot \log_{10}$ once, at the final step.
+4. **Boundaries and leakage**: mask wavelet coefficients in the cone of influence (`coi_mask`). Use causal exponential smoothing (`causal_exp_smooth`) to prevent future leakage.
+5. **RNG**: pass an explicit `numpy.random.Generator` (`rng = np.random.default_rng(seed)`). Never call `np.random.seed()`.
+6. **Dataset-agnostic**: condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
+7. **Coupling vs direction vs delay**: unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction; direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
+8. **No volume-conduction immunity**: measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
+
+## 5. Repository Guide
+- [AGENTS.md](../../AGENTS.md) — repository map, working rules and recipes.
 
 ## 6. Minimal Workflow
 ```python
@@ -52,7 +61,7 @@ tfr = jnwb.complex_tfr(data, fs=1000.0, freqs=freqs)
 ```
 
 ## 7. Verification
-Run these rather than quoting counts; `jnwb.__all__` is the source of truth for the public surface.
+`jnwb.__all__` is the public surface; run these rather than quoting counts.
 
 ```bash
 python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
@@ -60,4 +69,3 @@ python scripts/harness_gate.py
 python -m pytest tests/ -q
 python scripts/docs_build.py
 ```
-

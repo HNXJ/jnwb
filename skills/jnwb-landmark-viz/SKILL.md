@@ -4,39 +4,38 @@ description: Multi-panel Plotly publication figures through jnwb.vis, with SVG, 
   export and an argument sidecar. Needs the vis extra.
 ---
 
-# `jnwb-landmark-viz` — Publication-Grade Electrophysiology Visualization Engine (Plotly)
+# `jnwb-landmark-viz` — Plotly Publication Figures (`jnwb.vis`)
 
 ## 1. Trigger
-Activate this skill when:
-- Generating multi-panel publication figures for electrophysiology, single units, LFPs, CSD, or population decoding.
-- Plotting 2D spectrolaminar power maps (radical-sign $\sqrt{\cdot}$ motif), opposing laminar gradients, or current source density profiles.
-- Rendering multi-condition spike rasters, trial-aligned PSTHs with confidence intervals, or sorted population heatmaps.
-- Performing anatomical hierarchy regressions, area-by-area forest plots, or multi-area time cascades.
-- Exporting triple-format publication bundles (`.svg` vector text, `.png` 300/600 DPI, `.html` interactive WebGL) with machine-readable epistemic sidecars (`_argument.json`).
+Multi-panel publication figures in Plotly: spectrolaminar maps, laminar gradients and CSD, multi-condition rasters and PSTHs, sorted population heatmaps, decoding timecourses, RSM heatmaps, spectral modulation and Granger spectra, and hierarchy regressions, exported as SVG, PNG and HTML with an argument sidecar (`_argument.json`). Needs the optional `vis` extra.
 
-## 2. Core Architecture & Standards
+## 2. Routing
 
-### 2.1 Pure Plotly Engine
-All figures are constructed using `plotly.graph_objects` (`go.Figure`, `go.Scatter`, `go.Scattergl`, `go.Heatmap`, `go.Contour`) and `plotly.subplots.make_subplots`.
-- **Interactive Web / HTML**: Full zoom, pan, hover inspection (unit ID, latency, $p$-value, firing rate), and trace toggles.
-- **Hardware-Accelerated WebGL**: High-density spike rasters and continuous LFPs use `go.Scattergl` for lag-free rendering of $>100{,}000$ points.
-- **Publication Vector Export**: Exports crisp vector SVG with editable `<text>` tags (via `kaleido`), 300/600 DPI PNG, and interactive HTML on every `save_and_seal` call. The HTML loads plotly.js from a CDN, so it needs a network connection to render. `save_and_seal` returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths.
+| Figure | `jnwb.vis` module |
+|---|---|
+| Canvas, panel layout, export and sidecar | `canvas` (`PlotlyPublicationCanvas`, `save_and_seal`), `sidecar` |
+| Spectrolaminar map, opposing laminar gradients, CSD | `laminar` |
+| Multi-condition raster/PSTH, sorted population heatmap | `spiking` |
+| Decoding timecourse, RSM heatmap | `state_space` |
+| Spectral modulation matrix, Granger spectra | `spectral` |
+| Hierarchy regression | `hierarchy` |
+| Publication theme and axis configuration | `theme` |
 
-### 2.2 Collision-Free Relative Coordinate Engine
-Subplots and elements use strict non-overlapping relative domain coordinates:
-- Subplot panels occupy disjoint normalized domain rectangles: $[x_0, x_1] \times [y_0, y_1] \subset [0, 1]^2$.
-- Panel tags (`A`, `B`, `C`, ...) are anchored to paper coordinates $(x_0 - 0.035, y_1 + 0.015)$ with `xanchor='right'`, `yanchor='bottom'`.
-- Colorbars are explicitly placed with `x = x_1 + 0.02`, `y = (y_0 + y_1)/2`, `len = (y_1 - y_0) * 0.85`, preventing collisions with neighboring panels.
+### Rendering and export
+Figures are built from `plotly.graph_objects` and `plotly.subplots.make_subplots`. Dense rasters and continuous LFPs use `go.Scattergl`. Every `save_and_seal` call writes SVG with editable `<text>` (through `kaleido`), 300/600 DPI PNG and interactive HTML, and returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths. The HTML loads plotly.js from a CDN, so it needs a network connection to render.
 
-### 2.3 Statistical Rigor & Scientific Standards
-- **Mandatory Confidence Intervals**: Every summary curve must feature a confidence envelope (e.g. 95% bootstrap CI, SEM) using Plotly's `fill='tonexty'` with translucent fills (`rgba(...)`).
-- **Explicit Error Bars**: Categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
-- **Physical Scales & Units**: Explicit unit declarations on every axis (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`).
-- **Anatomical Markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is displayed as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
-- **Baseline References**: Dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level`.
-- **Significance Thresholding**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and non-parametric cluster-based permutation test bars.
+### Layout
+Panels occupy disjoint normalized domain rectangles $[x_0, x_1] \times [y_0, y_1] \subset [0, 1]^2$. Panel tags (`A`, `B`, ...) sit at paper coordinates $(x_0 - 0.035, y_1 + 0.015)$ with `xanchor='right'`, `yanchor='bottom'`. Colorbars sit at `x = x_1 + 0.02`, `y = (y_0 + y_1)/2`, `len = (y_1 - y_0) * 0.85`, clear of neighboring panels.
 
-## 3. Minimal Workflow Example
+## 3. Invariants & Safeguards
+- **Confidence intervals**: every summary curve carries a confidence envelope (e.g. 95% bootstrap CI, SEM), drawn with `fill='tonexty'` and a translucent `rgba(...)` fill.
+- **Error bars**: categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
+- **Units**: every axis declares its unit (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`).
+- **Anatomical markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is drawn as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
+- **Baseline references**: dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level`.
+- **Significance**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and cluster-based permutation test bars.
+
+## 4. Minimal Workflow
 
 ```python
 import numpy as np
@@ -97,8 +96,8 @@ canvas.save_and_seal(
 # - outputs/figures/fig_spectrolaminar_argument.json
 ```
 
-## 4. Verification
-- Verify exported SVGs contain `<text>` elements rather than converted path geometries.
-- Verify `save_and_seal` generates all three files (`.svg`, `.png`, `.html`) plus `_argument.json`.
-- Verify no visual overlaps between panel titles, axis tick labels, and colorbars.
-- Verify confidence intervals accompany all summary curves.
+## 5. Verification
+- Exported SVGs contain `<text>` elements rather than converted path geometries.
+- `save_and_seal` writes `.svg`, `.png` and `.html` plus `_argument.json`.
+- Panel titles, axis tick labels and colorbars do not overlap.
+- Every summary curve has a confidence interval.
