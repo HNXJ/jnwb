@@ -513,6 +513,23 @@ surviving mutant; a repair that opens another defect; an environment bug CI expo
 item; a planned implementation that turns out unsupported; a new todo that must be created; a
 first attempt that fails.
 
+### Decision grades
+
+Ruled 2026-09-25. Grade each option by confidence that it is logical, valid and sensible, and act
+by grade. The stops above still bind at every grade.
+
+| Grade | Confidence | Action |
+|---|---|---|
+| obvious | 95 and above | do it |
+| highly recommended | 80 to 95 | do it; record the choice in `artifacts/rulings/<date>.md` |
+| recommended | 60 to 80 | build the minimal base now; the full option becomes a todo |
+| minimal expandable | 40 to 60 | build the smallest version that keeps later choices open; the rest becomes a todo |
+| skip | below 40 | a todo with its reason; build nothing |
+
+Build the skeleton first, then add. Two defensible options with a material trade-off grade no
+higher than recommended: build the base they share and ask, listing the options graded, highest
+first.
+
 ### Setting it
 
     AUTONOMY: none | mid | max

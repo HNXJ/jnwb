@@ -52,7 +52,8 @@ post. The integrator keeps a background watcher on the room so a message wakes i
 
 A packet is `{goal, baseline, reads, writes, accept, stop}`. `stop` names the conditions under
 which the worker reports instead of acting: a library change it was not given, a scientific or API
-choice, or evidence that conflicts with a higher authority (`AGENTS.md` §12).
+choice, or evidence that conflicts with a higher authority (`AGENTS.md` §12). Every agent grades its
+choices by the decision grades of `AGENTS.md` §12; a stop report lists the options graded.
 
 ## Standard tasks
 

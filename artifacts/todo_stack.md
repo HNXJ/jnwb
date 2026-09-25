@@ -46,28 +46,11 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-205 (the 0.2.6.1 release) |
-| 1 | 07-03 blocker candidates |
-| 2 | 07-04 step 1 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
-| 3 | 07-04 step 2, then the rest of 07-03 |
-| 4 | 07-01, triaged against the blocker predicate |
-| 5 | 07-02 |
-
-## 0.2.6.1 patch
-
-Ruled 2026-09-25: the silently wrong results and misleading documentation found in the shipped
-0.2.6 ship as 0.2.6.1, cut from `dev`. Each item reproduces its finding at `057957aa` first.
-
-### 06-205 Release 0.2.6.1
-
-Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: none. AUTONOMY: none.
-Writes: none.
-The dispatcher sets the version and the changelog, records an independent closure pass over the
-patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
-seven checks, the tag, the GitHub Release whose PyPI job waits for Hamm's approval, and Zenodo.
-Accept: PyPI serves 0.2.6.1 and its wheel's `jnwb/` equals the tag byte for byte; a clean install
-runs the circular-shift null and the symbolic refusal; Zenodo shows the version.
+| 0 | 07-03 blocker candidates |
+| 1 | 07-04 step 1 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
+| 2 | 07-04 step 2, then the rest of 07-03 |
+| 3 | 07-01, triaged against the blocker predicate |
+| 4 | 07-02 |
 
 ### 07-01 Findings carried from 0.2.6
 
@@ -116,7 +99,7 @@ a `deferred-0.2.8` item with the reason it waits.
 - P-227: The `phase_slope_index` jackknife leaves out one segment rather than one epoch, so its z is conservative under the null: 400 null draws give sd 0.669 and P(|z|>2) = 0.005 at the default overlap; the divergence is documented at the function. Deferred: conservative, so it cannot make evidence falsely pass; the repair is an epoch-level jackknife.
 - P-228: The name `vflip` collides with the published vFLIP of Mendoza-Halliday 2024, a different procedure; the `jnwb/laminar.py` module docstring states the difference. Deferred: a rename changes public API and needs a ruling.
 - P-229: The vflip calibration receipt hashes `inspect.getsource` of the estimator, docstrings included, so a documentation-only edit invalidates it. Deferred: it fails closed; the repair hashes code without docstrings.
-- P-230: `aperiodic_fit` fits without removing peaks first, unlike Donoghue 2020: a 10 Hz peak moves the exponent from 2.000 to 2.157; the function documents this and advises fitting a peak-free range. Deferred: documented use is correct, and changing the fit changes shipped values, which needs a ruling.
+- P-230: `aperiodic_fit` fits without removing peaks first, unlike Donoghue 2020: a 10 Hz peak moves the exponent from 2.000 to 2.157; the function documents this and advises fitting a peak-free range. Deferred: documented use is correct, and changing the fit changes shipped values, which needs a ruling. Graded 2026-09-25 recommended: keep; an opt-in `remove_peaks=` comes later.
 - P-231: The `phase_locking_index` Rayleigh p-value comment quotes the second-order formula while the code computes the first-order one; at n = 10 the two and a Monte Carlo reference differ by at most 0.0004. Deferred: the code is correct; the comment is to be aligned.
 - P-232: Gate 15 and gate 17 read only `### 06-` item headings while STEP 0a reads items at any heading depth and any id, so they disagree on an item under `####`, and neither gate reads this item. Deferred: STEP 0a is the wider reader, so the gates can only under-read; the repair shares one parser.
 - P-234: The `JRSAResult` 0-d shim warns under the name `JRSAResult.p` when a copied `q` is indexed, and `p[-1]` raises without a deprecation warning. Deferred: values, dtype and arithmetic are unaffected; carried with the shim's removal.
@@ -173,7 +156,7 @@ a `deferred-0.2.8` item with the reason it waits.
 - P-307: No CI leg or fresh environment compares the documentation figures: every venv and CI leg has Matplotlib 3.11.2 against figures written by 3.10.8, so all 20 comparisons skip there. Waits: a skip is reported, and the figures pass where they were generated.
 - P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Waits: 06-146 is verified on 3.12.0 by hand; the durable leg changes the CI matrix and Gate 8.
 - P-309: The distribution tests read only `<repo>/dist`, no variable points them at an external build, and `forbidden_entries` rejects no `examples` or `data` component, so keeping `examples/data` out of the wheel rests on a configuration check. Waits: 06-37's byte comparison held at `f657fce7`.
-- P-310: The sdist ships `AGENTS.md`, the repository's internal working rules, by `MANIFEST.in`. Waits: deliberate; whether it belongs in a distributed artifact needs a ruling.
+- P-310: The sdist ships `AGENTS.md`, the repository's internal working rules, by `MANIFEST.in`. Waits: deliberate; whether it belongs in a distributed artifact needs a ruling. Graded 2026-09-25 highly recommended: exclude `AGENTS.md` from the sdist.
 - P-311: Gate 14's identifier check does not read `README.md`, and its vocabulary check does not follow `--8<--` includes, although its docstring says an included page is scanned like any other. Waits: both surfaces are clean at `3f533574`; the closure pass re-runs both probes at the release HEAD.
 - P-312: `compare_old_new_criteria` given a nullable `is_stable` raises on a new-side `<NA>` and reads an old-side `<NA>` as unscreened. Waits: not exported, and no caller passes `is_stable`.
 - P-313: The stability panel coerces with `astype(bool)`, so a caller's text flag column (`"False"`, `"0"`) plots every unit Stable. Waits: jnwb writes `is_stable` as `boolean`; display only.
@@ -263,7 +246,7 @@ predicate if they reproduce, and go first.
 - IA-20: `np.unique(axis=0)` in `_codes` is 97% of `transfer_entropy` runtime; a mixed-radix integer key gives identical codes 71 times faster (`jnwb/connectivity.py:2023-2029`). Check: frozen-output diff on fixed seeds, with a radix-overflow guard.
 - IA-21: the `xflip` partition search is a pure-Python triple loop per surrogate; vectorising the inner loop gives identical cuts 10 to 45 times faster (`jnwb/laminar.py:1172-1191`). Check: frozen-cut diff, then timing.
 - IA-22: `cluster_permutation_test` sums each cluster with a full-map mask, O(K M) per permutation; `ndimage.sum_labels` gives identical sums (31 ms against 0.8 ms at 1582 clusters) (`jnwb/statistics.py:1900-1912`). Check: diff `max_null_stats` against a frozen run.
-- IA-23: `bootstrap_ci` resamples in a Python loop (11 times slower than vectorised at n 200), and `UnitAnalyzer.psth` calls it every time (`jnwb/statistics.py:1177-1181`). Check: vectorise; the random stream changes, so values move under a fixed seed and need a changelog entry or a ruling.
+- IA-23: `bootstrap_ci` resamples in a Python loop (11 times slower than vectorised at n 200), and `UnitAnalyzer.psth` calls it every time (`jnwb/statistics.py:1177-1181`). Check: vectorise; the random stream changes, so values move under a fixed seed and need a changelog entry or a ruling. Graded 2026-09-25 recommended: keep the loop now; a vectorised path lands later with a version note.
 - IA-24: `enrich_units_dataframe` makes three row-wise `.apply` passes (4000 units by 1536 electrodes, 4.2 s) (`jnwb/addressing.py:430-449`). Check: a vectorised lookup against a frozen output.
 - IA-25: `raster_psth` masks the whole train per onset (0.43 s against 0.14 s with `searchsorted`), and a list `st` fails with an unrelated `TypeError` (`jnwb/viz.py:155-157`). Check: `searchsorted` and `np.asarray(st)`.
 - IA-26: conditional Granger (`granger(Z=...)`) never runs in the suite (`jnwb/connectivity.py:1133-1143`). Check: a common driver passed as `Z` removes a spurious x to y.
@@ -294,7 +277,7 @@ predicate if they reproduce, and go first.
 - IB-24: the `classify_layer_from_depth` docstring summary says it classifies a cortical layer, against `docs/02:89` ("a cut on depth, not a cortical layer"). Check: fix the docstring and regenerate `docs/api.md`.
 - IB-25: `AGENTS.md` section 11 and `artifacts/problem_stack.md:10` write the cycle labels as literals `required-0.2.6` and `deferred-0.2.7`, which STEP 0a derives from the version, so a 0.2.7 triage following the text writes the wrong label. Check: write `required-<cycle>` and `deferred-<next>`, with a test that no standing rule names a literal cycle.
 - IB-26: the module docstring of `scripts/release_gate.py` omits STEPs 0a, 2a, 2b and 8, and `CONTRIBUTING.md:88-96` omits the readiness step. Check: extend `tests/test_module_docstrings_match_their_code.py` to the release gate.
-- IB-27: `artifacts/agents.md` sends readers to `artifacts/agents/` and `jnwb-developer`, which gate 14 lists as internal vocabulary banned from public docs. Check: a ruling on whether the roles are public, then gate the page or drop the terms.
+- IB-27: `artifacts/agents.md` sends readers to `artifacts/agents/` and `jnwb-developer`, which gate 14 lists as internal vocabulary banned from public docs. Check: a ruling on whether the roles are public, then gate the page or drop the terms. Graded 2026-09-25 highly recommended: the roles are internal; drop them from the public page.
 - IB-28: `docs/documentation_form.md`, an internal contributor contract, is in the user navigation, and `docs/index.md:52` and `docs/install.md:26` say "gate-enforced" and "release gate". Check: move it to `CONTRIBUTING.md` or out of the navigation.
 - IB-29: the six CI test legs run the suite serially (`.github/workflows/workflow.yml:67`), 558 to 745 s each, while the wheel leg uses `-n auto` at 385 s. Check: `-n auto` on the matrix after P-254's kaleido isolation.
 - IB-30: the live harness runs twice in the suite (`tests/test_every_gate_runs.py:55`, `tests/test_harness_adversarial_gates.py:307`, about 5 s each on six legs) and again in the build job. Check: keep one live-tree run.
@@ -313,9 +296,9 @@ predicate if they reproduce, and go first.
 - IB-43: ruled 2026-09-25, the `jrsa` row metrics require a named `null=` from 0.2.7; 0.2.6.1 only warns. Check: remove the default, and move every caller.
 - IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
 - IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
-- IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed.
+- IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed. Graded 2026-09-25 highly recommended: record a child seed so the result alone reproduces p.
 - IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.
-- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag.
+- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag. Graded 2026-09-25 minimal expandable: refuse a non-default `adim` when a null or `lag` is used; following `adim` waits.
 - IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
 - IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
 - IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
@@ -324,6 +307,7 @@ predicate if they reproduce, and go first.
 - IB-57: `tests/test_jrsa.py` reads the quickstart `jrsa` line from the page but still retypes the `print(...)` line after it, which matches the page today by eye only. Check: read both lines from the page.
 - IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics.
 - IB-59: `jrsa(lag=np.int64(3))` raises `TypeError` because `np.int64` is not an `int`; any integer lag read from an array fails. Check: accept `numbers.Integral`; a test with a NumPy integer.
+- IB-60: the coherence GPU-fallback test compares only p and the observed spectrum, so a device path that uses a different shift set with the same band counts passes it. Check: record the shift each estimator call receives and assert the fallback's list equals the CPU run's.
 
 ### 07-04 The planned 0.2.7 sequence
 
