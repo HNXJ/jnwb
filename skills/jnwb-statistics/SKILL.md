@@ -1,7 +1,7 @@
 ---
 name: jnwb-statistics
 description: Statistical hypothesis testing, parametric/nonparametric dual reporting,
-  family-wise FDR, label permutations, and exact confidence intervals.
+  FDR (Benjamini-Hochberg), label permutations, and exact confidence intervals.
 ---
 
 # `jnwb-statistics` — Statistical Inference, Permutations & Nulls

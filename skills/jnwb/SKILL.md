@@ -1,6 +1,6 @@
 ---
 name: jnwb
-description: Top-level router, scientific safeguard kernel, and memory bank for jnwb NWB electrophysiology analysis.
+description: Top-level router and scientific safeguard kernel for jnwb NWB electrophysiology analysis.
 ---
 
 # jnwb — Neuroscience & Electrophysiology Analysis Kernel
@@ -19,6 +19,7 @@ Activate this skill when the user asks for generic electrophysiology analysis, t
   - **Linear SVM decoding, neural trajectories, jRSA, population geometry**: delegate to `jnwb-population`
   - **Directional coupling (Granger, PSI, transfer entropy) with strict causal language**: delegate to `jnwb-connectivity`
   - **Visual QC, raster PSTH plotting, multi-format figure export**: delegate to `jnwb-figures`
+  - **Multi-panel Plotly publication figures through `jnwb.vis` (optional `vis` extra)**: delegate to `jnwb-landmark-viz`
 
 ## 3. High-Performance Acceleration (CuPy & Joblib)
 - **GPU**: Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. With a GPU present, `complex_tfr`, `cross_area_coherence`, `PopulationAnalyzer.population_trajectory`, `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`, `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory` compute on it and record the device that ran (`device` on `complex_tfr`'s result, `device_used` on the others). `granger_causality` recomputes the whole call on the CPU if any fit falls back. A request no GPU can serve warns and runs on the CPU. `band_power`, `relative_power`, `rdm`, `vflip` and `vflip_from_lfp` (whose warning names `vflip`) warn and run on the CPU even with a GPU present. `jrsa` computes every metric in NumPy on the CPU whatever its `backend` or `device`; an accelerator `backend` or `device='cuda'` warns and records `execution['device'] == 'cpu'`. `'metal'` runs only in `complex_tfr` with `dtype=np.complex64`, through JAX; it is implemented and has not been run on Metal hardware.

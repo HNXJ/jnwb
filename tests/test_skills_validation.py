@@ -1681,3 +1681,57 @@ class TestRowsAgainstTheLiveCall:
         plan = jnwb.build_permutation_plan([0, 1, 0, 1], [1, 1, 2, 2], n_permutations=2, rng=3)
         digests = plan["draw_manifest"]["label_digest"]
         assert all(re.fullmatch(r"[0-9a-f]{64}", d) for d in digests), list(digests)
+
+    def test_the_laminar_derivative_row_states_the_shape_and_offset_the_call_returns(self):
+        """Output row `k` of both second-derivative calls sits on input channel `k + 1`.
+
+        A reader who plots the output against the input depths without that offset draws every
+        sink and source one contact too shallow. The impulse is the discriminator: a unit
+        potential on channel 3 alone puts the curvature minimum on output row 2, not row 3.
+        """
+        row = _row_text("jnwb-lfp-spectral", "current_source_density_1d")
+        assert "two fewer channels" in row, row
+        assert re.search(r"output row `k` is input channel `k \+ 1`", row), row
+
+        pitch_um, sigma = 100.0, 0.3
+        dz2 = (pitch_um * 1e-6) ** 2
+        lfp = np.random.default_rng(31).normal(size=(6, 40))
+        curvature = jnwb.voltage_curvature_1d(lfp, pitch_um=pitch_um)
+        csd = jnwb.current_source_density_1d(lfp, pitch_um=pitch_um, conductivity_s_per_m=sigma)
+        assert curvature.shape == csd.shape == (4, 40)
+        for k in range(4):
+            np.testing.assert_allclose(
+                curvature[k], (lfp[k + 2] - 2.0 * lfp[k + 1] + lfp[k]) / dz2, rtol=1e-12
+            )
+        np.testing.assert_allclose(csd, -sigma * curvature, rtol=1e-12)
+
+        impulse = np.zeros((6, 1))
+        impulse[3] = 1.0
+        assert int(np.argmin(jnwb.voltage_curvature_1d(impulse, pitch_um=pitch_um))) == 2
+
+    def test_fdr_is_named_as_benjamini_hochberg_and_never_as_family_wise(self):
+        """FDR and family-wise error control are different guarantees; a label joining them
+        tells a reader that `fdr_correct` controls the error rate it does not."""
+        texts = {}
+        for skill in sorted(CANONICAL_SKILLS):
+            texts[f"{skill}/SKILL.md"] = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+            texts[f"{skill}/agents/openai.yaml"] = (
+                SKILLS_DIR / skill / "agents" / "openai.yaml"
+            ).read_text(encoding="utf-8")
+        joined = [
+            name for name, text in texts.items()
+            if re.search(r"family[- ]wise\s+(?:FDR|false discovery)", " ".join(text.split()), re.I)
+        ]
+        assert joined == [], f"these files call FDR family-wise: {joined}"
+        for name in ("jnwb-statistics/SKILL.md", "jnwb-statistics/agents/openai.yaml"):
+            assert "FDR (Benjamini-Hochberg)" in " ".join(texts[name].split()), name
+
+    def test_the_decoding_chance_line_is_the_measured_baseline(self):
+        """A chance line at 1/K overstates decoding whenever classes are unbalanced; the
+        population skill's rule is the majority baseline, so every figure sentence about
+        chance has to route there."""
+        text = (SKILLS_DIR / "jnwb-landmark-viz" / "SKILL.md").read_text(encoding="utf-8")
+        chance = [s for s in _sentence_units(text) if re.search(r"\bchance\b", s, re.I)]
+        assert chance, "the figure skill no longer says where a decoding chance line goes"
+        unrouted = [s for s in chance if "majority_baseline" not in s]
+        assert unrouted == [], f"chance sentences that do not route to the baseline: {unrouted}"

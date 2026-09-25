@@ -1,6 +1,7 @@
 ---
 name: jnwb-landmark-viz
-description: Publication-grade electrophysiology visualization engine (pure Plotly) generating Nature/Neuron-standard multi-panel figures, laminar spectrolaminar/CSD maps, multi-condition rasters, hierarchy regressions, triple exports (SVG/PNG/HTML), and epistemic argument sidecars.
+description: Multi-panel Plotly publication figures through jnwb.vis, with SVG, PNG and HTML
+  export and an argument sidecar. Needs the vis extra.
 ---
 
 # `jnwb-landmark-viz` — Publication-Grade Electrophysiology Visualization Engine (Plotly)
@@ -32,7 +33,7 @@ Subplots and elements use strict non-overlapping relative domain coordinates:
 - **Explicit Error Bars**: Categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
 - **Physical Scales & Units**: Explicit unit declarations on every axis (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`).
 - **Anatomical Markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is displayed as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
-- **Baseline References**: Dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$; chance line ($y = 0.5$) for binary decoders.
+- **Baseline References**: Dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level`.
 - **Significance Thresholding**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and non-parametric cluster-based permutation test bars.
 
 ## 3. Minimal Workflow Example

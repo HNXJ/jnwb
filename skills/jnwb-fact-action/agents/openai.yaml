@@ -1,5 +1,5 @@
 interface:
   display_name: jnwb-fact-action
-  description: Execution-control kernel for jnwb enforcing F -> R -> A -> V -> S, role/domain separation, and independent verification.
+  description: Execution-control kernel for jnwb. Enforces the F -> R -> A -> V -> S cycle and epistemic constraints.
 policy:
   allow_implicit_invocation: true
