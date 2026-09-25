@@ -11,6 +11,9 @@ Everything in 07-01 to 07-03 is to be checked: a packet reproduces a finding aga
 before it repairs anything, and a finding that does not reproduce is deleted. Rulings are in
 `artifacts/rulings/`.
 
+While the 0.2.6.1 patch is open the package version is 0.2.6.1, so the release gate reads
+the 0.2.7 items as deferred; they return to `required-0.2.7` when the version becomes 0.2.7.
+
 ## How this stack is executed
 
 Every item is a delegation packet in the contract of `skills/jnwb-fact-action` §5; the executing
@@ -43,14 +46,86 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
+| 0 | 06-201 to 06-204, then 06-205 (the 0.2.6.1 patch) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
 | 4 | 07-04 |
 
+## 0.2.6.1 patch
+
+Ruled 2026-09-25: the silently wrong results and misleading documentation found in the shipped
+0.2.6 ship as 0.2.6.1, cut from `dev`. Each item reproduces its finding at `057957aa` first.
+
+### 06-201 `jrsa` circular-shift null
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
+The permutation null for paired metrics shuffles time samples as if exchangeable, so on
+independent AR(1) pairs at phi 0.9 it rejects about half the time (IA-03, reproduced by both
+inspections). Add `null=` with `'circular_shift'` (default), `'block'` and `'iid'`; the result
+records the scheme; the skill row and the page name it. The changelog text goes to the dispatcher.
+Discriminator: the false-positive rate on independent AR(1) pairs at phi 0.9 is at most 0.08 under
+the default, and above it under `'iid'`.
+Accept: the discriminator, the existing `jrsa` tests, and an independent verifier's kill of a
+mutant that restores the i.i.d. default.
+
+### 06-202 Refuse symbolic transfer entropy
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `docs/08_directed_connectivity_and_information.md`, `skills/jnwb-connectivity/SKILL.md`.
+`transfer_entropy(estimator='symbolic')` reports significant flow in both directions for a
+zero-lag common source with no coupling (IA-01). It now raises, naming `'quantile'`, until a
+calibrated null exists. Every caller in the repository, docs and skills included, moves off it.
+Accept: the refusal is tested, no document or skill routes to the symbolic estimator, and an
+independent verifier kills a mutant that lets it through.
+
+### 06-203 Directed estimators honour `rng`
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 06-202.
+Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `tests/test_rng_control.py`.
+`_rng` maps `rng=None` to seed 0, rejects a `Generator` and truncates a float, so `granger`,
+`granger_spectral`, `phase_slope_index` and `transfer_entropy` break their documented contract
+and report `seed=None` for stream 0 (IA-02). Route them through `_rng.resolve_rng`; record the seed
+actually used. Blocked by 06-202 because both edit one file in one lane.
+Accept: `None` differs between calls, the recorded seed reproduces p, a `Generator` is accepted and
+a float refused, each in a test; an independent verifier kills a mutant restoring seed 0.
+
+### 06-204 Documentation that invites wrong claims
+
+Release: required-0.2.6.1.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `docs/common_mistakes.md`, `docs/references.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/quickstart.md`, `jnwb/laminar.py`.
+Three statements from 07-03, the text of each kept here:
+
+- IB-01 (blocker candidate): `docs/common_mistakes.md:119-121` calls the decoder's accuracy "Unbiased Outer CV Accuracy" computed "without leakage", while `docs/09` says the same function draws row-wise folds that leak across blocks and must be reported as an upper bound (`jnwb/decoding.py:155`, no `groups`); found by both inspections. Check: one statement, the leakage one, on both pages.
+- IB-02 (blocker candidate): the PSI row of `docs/common_mistakes.md:161` says PSI tests whether phase differences grow linearly with frequency, "indicating a consistent time delay"; PSI tests neither linearity nor delay (`AGENTS.md` invariant 8); `docs/references.md:43` says "X causes Y when" of Granger, and `docs/api.md:130` summarises `zflip` as a "propagation delay" with no caveat. Check: reword the three sentences, and extend the gate 14 term scan to "causes", "time delay" and "propagation delay" in `docs/` with an allowlist.
+- IB-13 (blocker candidate): `docs/06:158` and `docs/quickstart.md:115-121` read `bound_status None` as a valid unconstrained onset estimate, but only t0 is checked against its bound, so 14 of 20 pure-noise PSTHs read valid (t0 30.0, tau at its bound, r2 0). Check: flag a tau bound and low r2, or reword to "t0 not at a bound"; a noise-only PSTH test.
+
+The `zflip` summary line lives in its docstring in `jnwb/laminar.py`; `docs/api.md` is regenerated
+by the dispatcher. Only the documentation changes: `bound_status` keeps its behaviour and the page
+says what it checks.
+Accept: no page calls the decoder unbiased or leak-free, PSI is described as a sign of phase
+change, and "causes" and "propagation delay" appear only with the caveat `AGENTS.md` section 5
+requires; the docs build and the suite pass.
+
+### 06-205 Release 0.2.6.1
+
+Release: release-step-0.2.6.1.
+Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203, 06-204. AUTONOMY: none.
+Writes: none.
+The dispatcher sets the version and the changelog, records an independent closure pass over the
+patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
+seven checks, the tag, the GitHub Release whose PyPI job waits for Hamm's approval, and Zenodo.
+Accept: PyPI serves 0.2.6.1 and its wheel's `jnwb/` equals the tag byte for byte; a clean install
+runs the 06-201 and 06-202 discriminators; Zenodo shows the version.
+
 ### 07-01 Findings carried from 0.2.6
 
-Release: required-0.2.7.
+Release: deferred-0.2.7.
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
 Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6. A packet takes one
@@ -200,7 +275,7 @@ a `deferred-0.2.8` item with the reason it waits.
 
 ### 07-02 Release-process observations from 0.2.6
 
-Release: required-0.2.7.
+Release: deferred-0.2.7.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTING.md`.
 Observed while releasing 0.2.6; each is to be checked and either repaired or moved to a
@@ -216,7 +291,7 @@ Observed while releasing 0.2.6; each is to be checked and either repaired or mov
 
 ### 07-03 Post-release inspection findings
 
-Release: required-0.2.7.
+Release: deferred-0.2.7.
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CHANGELOG.md`.
 Two independent read-only inspections at `e66e70a9`, one of library code, cost and coverage and
@@ -224,9 +299,6 @@ one of documentation, skills and the release apparatus. Each bullet carries its 
 the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
 predicate if they reproduce, and go first.
 
-- IA-01 (blocker candidate): `transfer_entropy(estimator='symbolic')` reports significant flow in both directions for a zero-lag common source with no directed coupling (8 of 8 directions at the p floor over 4 seeds; quantile 1 of 8), and x to y when only y drives x (`jnwb/connectivity.py:2012-2020`, `977-997`). Check: a false-positive test on zero-lag-mixed noise and a one-direction test; repair the estimator or its null, or refuse symbolic for LFP.
-- IA-02 (blocker candidate): `_rng` in `jnwb/connectivity.py:972-974` maps `rng=None` to seed 0, rejects a `Generator` and truncates floats, so `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` break their `RNGLike` contract and report `seed=None` for stream 0. Check: route through `_rng.resolve_rng`; test that `None` varies, the reported seed reproduces p, a `Generator` is accepted and a float refused.
-- IA-03 (blocker candidate): the `jrsa` permutation null for paired metrics shuffles samples as exchangeable, so on independent AR(1) pairs at phi 0.9 it rejects at 0.527 against 0.047 at phi 0 (`jnwb/jrsa.py:446`, `465`, `1008-1017`), and `docs/03` applies it over time windows; the second inspection reproduced it independently (43 of 80 against 5 of 80) and found the population skill routing to it as "permutation nulls", with Granger and TE calibrated and phase slope at 10 of 100. Check: a false-positive test on independent AR(1) pairs; a named block or circular-shift scheme, or refusal without one.
 - IA-04 (blocker candidate): `jrsa` `lag` rolls the last axis, which holds features for the six metrics with observations on axis 0, so a lag sweep of cka, rv, rsa, procrustes, dcor or hsic returns one value under every label (`jnwb/jrsa.py:941-956`). Check: assert an axis-0 metric changes with lag on a delayed copy, or refuse `lag` for those metrics.
 - IA-05 (blocker candidate, weak): when CUDA fails part-way through the coherence surrogates, the CPU recompute draws new shifts from the advanced `rng`, so p differs from a CPU run under the same seed while the reported seed is unchanged (`jnwb/spectral.py:879-884`, `929-936`). Check: draw the shifts once before the device attempt; test an injected mid-null failure against the CPU result.
 - IA-06: the `jrsa` lag is circular (`xp.roll`), so the window recipe of `docs/03` wraps each window's end onto its start (lag 10 gives r 0.46 against 0.998 on the truncated overlap). Check: truncate to the overlap; test on a trended series.
@@ -254,8 +326,6 @@ predicate if they reproduce, and go first.
 - IA-28: tests that assert too little: `bilinear` checks only a length, the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN, and no test feeds `verify_roundtrip` a corrupted cast. Check: value-pinning tests for IA-04, IA-07 and IA-19.
 - IA-29: unbacked claims and project leftovers ship in the wheel: `nam` cites a missing script and receipts and calls `torch.manual_seed`, which resets the global torch stream; `REWARD_WINDOW_MS` is a task constant no function uses; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project output folders. Check: extend P-296's sweep to these; use a local `torch.Generator`.
 - IA-30: with one correlated block beside an uncorrelated rest, `xflip` places the boundary at the midpoint rather than the true edge; the fit is rejected, so it is a missed boundary rather than a false one (`jnwb/laminar.py:1138-1167`). Check: a boundary-recovery test for one block and background.
-- IB-01 (blocker candidate): `docs/common_mistakes.md:119-121` calls the decoder's accuracy "Unbiased Outer CV Accuracy" computed "without leakage", while `docs/09` says the same function draws row-wise folds that leak across blocks and must be reported as an upper bound (`jnwb/decoding.py:155`, no `groups`); found by both inspections. Check: one statement, the leakage one, on both pages.
-- IB-02 (blocker candidate): the PSI row of `docs/common_mistakes.md:161` says PSI tests whether phase differences grow linearly with frequency, "indicating a consistent time delay"; PSI tests neither linearity nor delay (`AGENTS.md` invariant 8); `docs/references.md:43` says "X causes Y when" of Granger, and `docs/api.md:130` summarises `zflip` as a "propagation delay" with no caveat. Check: reword the three sentences, and extend the gate 14 term scan to "causes", "time delay" and "propagation delay" in `docs/` with an allowlist.
 - IB-03: `docs/10_operation_specifications.md:98` gives `vflip_from_lfp` as `compute_psd(lfp, fs) -> vflip(psd, freqs)`; on channels-by-time input that runs over channels and `vflip` raises; the code uses the time axis. Check: write `axis=-1` into the composition and test it equals `vflip_from_lfp`.
 - IB-04: `README.md:79-80`, `docs/errors.md:137-139`, `226` and `docs/common_mistakes.md:290-291` say `event_onsets` warns when a table has no `codes` column; it does not, and its docstring says so; only `events` warns. Check: correct the pages.
 - IB-05: `docs/07:21` says a non-`Generator` `rng` raises `TypeError`, but `StatisticalAnalysis` accepts and coerces an int or `None`. Check: state the accepted types per surface.
@@ -266,7 +336,6 @@ predicate if they reproduce, and go first.
 - IB-10: `docs/errors.md:94-97` gives two layout bases; an electrode-less `TimeSeries` reports a third, `schema` (`jnwb/nwb_inspect.py:251-252`). Check: list all three.
 - IB-11: `docs/08:186` prints `network["matrix"]` as the net matrix; it is the directed matrix, not antisymmetric. Check: relabel.
 - IB-12: `docs/10:100` gives `testing.synth` an output type of `np.ndarray`; its builders return a receipt, a 3-tuple and a pair. Check: correct the row.
-- IB-13 (blocker candidate): `docs/06:158` and `docs/quickstart.md:115-121` read `bound_status None` as a valid unconstrained onset estimate, but only t0 is checked against its bound, so 14 of 20 pure-noise PSTHs read valid (t0 30.0, tau at its bound, r2 0). Check: flag a tau bound and low r2, or reword to "t0 not at a bound"; a noise-only PSTH test.
 - IB-14 (blocker candidate, weak): `skills/jnwb-landmark-viz/SKILL.md:60,71` pass millimetre depths, and `jnwb/vis/laminar.py:101,301,423` infer the unit from the maximum, so 0 to 1.55 mm is labelled "Relative Depth (0=Pia, 1=WM)". Check: a `depth_unit=` parameter with no default, or refusal of ambiguous ranges.
 - IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
 - IB-16: `docs/03:103` says `nan_policy="omit"` propagates NaN across the affected RDM pairs; one empty condition makes the whole result NaN, and one NaN sample moves the value 0.343 to 0.425. Check: correct the prose or omit pairwise; test one empty condition.
@@ -295,7 +364,7 @@ predicate if they reproduce, and go first.
 
 ### 07-04 The planned 0.2.7 sequence
 
-Release: required-0.2.7.
+Release: deferred-0.2.7.
 Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `artifacts/todo_stack.md`.
 The plan in `artifacts/planned_post_0.2.6.md` is authorized input to this cycle (ruled 2026-09-22). Reproduce
