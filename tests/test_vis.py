@@ -220,6 +220,7 @@ def test_spectrolaminar_map_primitive():
         freqs=freqs,
         depths=depths,
         crossover_depth=0.4,
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
@@ -237,13 +238,13 @@ def test_no_crossover_depth_is_drawn_unless_the_caller_computed_one():
 
     bare = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     plot_spectrolaminar_map(canvas=bare, row=0, col=0, rel_power=rel_power, freqs=freqs,
-                            depths=depths)
+                            depths=depths, depth_unit="relative")
     assert not any("Crossover" in (a.text or "") for a in bare.fig.layout.annotations)
     assert not any(isinstance(t, go.Scatter) for t in bare.fig.data)
 
     given = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     plot_spectrolaminar_map(canvas=given, row=0, col=0, rel_power=rel_power, freqs=freqs,
-                            depths=depths, crossover_depth=0.37)
+                            depths=depths, crossover_depth=0.37, depth_unit="relative")
     assert any("Crossover (0.37)" in (a.text or "") for a in given.fig.layout.annotations)
 
 
@@ -265,6 +266,7 @@ def test_opposing_gradients_primitive():
         crossover_depth=0.4,
         ci_gamma=ci_gamma,
         ci_alphabeta=ci_ab,
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
@@ -285,10 +287,51 @@ def test_csd_primitive():
         time_ms=time_ms,
         depths=depths,
         layer_boundaries={"L4": 0.4, "L5/6": 0.65},
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
     assert any(isinstance(t, go.Heatmap) for t in traces)
+
+
+def _laminar_call(name, depths, **kwargs):
+    """Draw one laminar panel on a fresh canvas and return the depth-axis title."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    n = len(depths)
+    if name == "map":
+        plot_spectrolaminar_map(canvas, 0, 0, rel_power=np.full((5, n), 0.5),
+                                freqs=np.arange(1.0, 6.0), depths=depths, **kwargs)
+    elif name == "gradients":
+        plot_opposing_gradients(canvas, 0, 0, gamma_power=np.linspace(1, 0, n),
+                                alphabeta_power=np.linspace(0, 1, n), depths=depths, **kwargs)
+    else:
+        plot_csd(canvas, 0, 0, csd_matrix=np.ones((n, 4)), time_ms=np.arange(4.0),
+                 depths=depths, **kwargs)
+    _, y_axis = canvas.get_axis_names(0, 0)
+    yaxis_name = "yaxis" if y_axis == "y" else f"yaxis{y_axis[1:]}"
+    return getattr(canvas.fig.layout, yaxis_name).title.text
+
+
+LAMINAR_PLOTS = ["map", "gradients", "csd"]
+
+
+@pytest.mark.parametrize("name", LAMINAR_PLOTS)
+@pytest.mark.parametrize("unit, label", [
+    ("mm", "Cortical Depth (mm)"),
+    ("um", "Cortical Depth (μm)"),
+    ("relative", "Relative Depth (0=Pia, 1=WM)"),
+])
+def test_laminar_depth_axis_is_labelled_from_the_declared_unit(name, unit, label):
+    """A 0-1.55 mm probe was labelled relative depth because the unit was read off the maximum."""
+    assert _laminar_call(name, np.linspace(0.0, 1.55, 8), depth_unit=unit) == label
+
+
+@pytest.mark.parametrize("name", LAMINAR_PLOTS)
+def test_laminar_depth_unit_is_required_and_validated(name):
+    with pytest.raises(TypeError, match="depth_unit"):
+        _laminar_call(name, np.linspace(0.0, 1.0, 8))
+    with pytest.raises(ValueError, match="'mm', 'um' or 'relative'"):
+        _laminar_call(name, np.linspace(0.0, 1.0, 8), depth_unit="cm")
 
 
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():

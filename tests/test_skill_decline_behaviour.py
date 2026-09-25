@@ -111,7 +111,7 @@ def _spectrolaminar(crossover_depth=None):
     kwargs = {} if crossover_depth is None else {"crossover_depth": crossover_depth}
     jviz.laminar.plot_spectrolaminar_map(
         canvas=canvas, row=0, col=0, rel_power=rng.random((20, 8)),
-        freqs=np.arange(1, 21), depths=np.linspace(0.0, 1.0, 8), **kwargs,
+        freqs=np.arange(1, 21), depths=np.linspace(0.0, 1.0, 8), depth_unit="relative", **kwargs,
     )
     notes = [a.text for a in canvas.fig.layout.annotations if "Crossover" in (a.text or "")]
     return canvas, notes

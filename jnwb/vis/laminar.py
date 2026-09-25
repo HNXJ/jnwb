@@ -17,6 +17,19 @@ import plotly.graph_objects as go
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
 
+_DEPTH_AXIS_TITLES = {
+    "mm": "Cortical Depth (mm)",
+    "um": "Cortical Depth (μm)",
+    "relative": "Relative Depth (0=Pia, 1=WM)",
+}
+
+
+def _depth_axis_title(depth_unit: str) -> str:
+    """Axis title for ``depth_unit``; the unit is declared by the caller, never read off the data."""
+    if not isinstance(depth_unit, str) or depth_unit not in _DEPTH_AXIS_TITLES:
+        raise ValueError(f"depth_unit must be 'mm', 'um' or 'relative'; got {depth_unit!r}")
+    return _DEPTH_AXIS_TITLES[depth_unit]
+
 
 def plot_spectrolaminar_map(
     canvas: PlotlyPublicationCanvas,
@@ -30,6 +43,8 @@ def plot_spectrolaminar_map(
     log_freq: bool = True,
     title: Optional[str] = "Spectrolaminar Power Map",
     colorbar_title: str = "Relative Power",
+    *,
+    depth_unit: str,
 ) -> None:
     """
     Render a 2D spectrolaminar relative power map (Mendoza-Halliday et al. 2024).
@@ -40,7 +55,7 @@ def plot_spectrolaminar_map(
         col: Grid column index.
         rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs].
         freqs: 1D array of frequencies (Hz).
-        depths: 1D array of cortical depths (normalized 0.0-1.0 or micrometers).
+        depths: 1D array of cortical depths, in ``depth_unit``.
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
             recording (for example with ``jnwb.vflip``), in the units of ``depths``. No
             marker is drawn when None; there is no default value because the depth is
@@ -49,7 +64,13 @@ def plot_spectrolaminar_map(
         log_freq: If True, set frequency axis to log scale.
         title: Panel title.
         colorbar_title: Title for colorbar.
+        depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
+            1 = white matter). Required; it labels the depth axis.
+
+    Raises:
+        ValueError: ``depth_unit`` is not one of the three units.
     """
+    depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rel_power = np.asarray(rel_power, dtype=float)
@@ -98,7 +119,6 @@ def plot_spectrolaminar_map(
             x_dict["ticktext"] = [str(tv) for tv in valid_ticks]
 
     y_dict = getattr(canvas.fig.layout, yaxis_name)
-    depth_title = "Cortical Depth (μm)" if np.max(depths) > 2.0 else "Relative Depth (0=Pia, 1=WM)"
     configure_axis(y_dict, title=depth_title)
     # Typically depth increases from surface (0) downward
     y_dict["autorange"] = "reversed"
@@ -158,6 +178,8 @@ def plot_opposing_gradients(
     gamma_color: str = "#C0392B",
     alphabeta_color: str = "#2980B9",
     title: Optional[str] = "Opposing Laminar Gradients",
+    *,
+    depth_unit: str,
 ) -> None:
     """
     Render opposing gamma vs. alpha/beta laminar power gradients with caller-supplied intervals.
@@ -171,7 +193,7 @@ def plot_opposing_gradients(
         col: Grid column index.
         gamma_power: 1D array of normalized gamma power along depth.
         alphabeta_power: 1D array of normalized alpha/beta power along depth.
-        depths: 1D array of cortical depths.
+        depths: 1D array of cortical depths, in ``depth_unit``.
         crossover_depth: Crossover depth computed from this recording, in the units of
             ``depths``; no marker when None.
         ci_gamma: [n_depths, 2] array of [ci_lower, ci_upper] for gamma.
@@ -179,7 +201,13 @@ def plot_opposing_gradients(
         gamma_color: Hex color for gamma profile.
         alphabeta_color: Hex color for alpha/beta profile.
         title: Panel title.
+        depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
+            1 = white matter). Required; it labels the depth axis.
+
+    Raises:
+        ValueError: ``depth_unit`` is not one of the three units.
     """
+    depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     gamma_power = np.asarray(gamma_power, dtype=float)
@@ -298,7 +326,6 @@ def plot_opposing_gradients(
     configure_axis(x_dict, title="Normalized Power (a.u.)", showgrid=True)
 
     y_dict = getattr(canvas.fig.layout, yaxis_name)
-    depth_title = "Cortical Depth (μm)" if np.max(depths) > 2.0 else "Relative Depth (0=Pia, 1=WM)"
     configure_axis(y_dict, title=depth_title)
     y_dict["autorange"] = "reversed"
 
@@ -328,6 +355,8 @@ def plot_csd(
     cmap: str = "RdBu_r",
     title: Optional[str] = "Current Source Density (CSD)",
     colorbar_title: str = "CSD (mV/mm²)",
+    *,
+    depth_unit: str,
 ) -> None:
     """
     Render a Current Source Density (CSD) depth x time profile with layer boundaries.
@@ -338,12 +367,18 @@ def plot_csd(
         col: Grid column index.
         csd_matrix: 2D array of shape [n_depths, n_times].
         time_ms: 1D array of time points relative to event (ms).
-        depths: 1D array of cortical depths.
+        depths: 1D array of cortical depths, in ``depth_unit``.
         layer_boundaries: Dictionary mapping layer names (e.g. 'L4', 'L5/6') to depth coordinates.
         cmap: Diverging colormap name (default 'RdBu_r' where blue is sink, red is source).
         title: Panel title.
         colorbar_title: Title for colorbar.
+        depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
+            1 = white matter). Required; it labels the depth axis.
+
+    Raises:
+        ValueError: ``depth_unit`` is not one of the three units.
     """
+    depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     csd_matrix = np.asarray(csd_matrix, dtype=float)
@@ -420,7 +455,6 @@ def plot_csd(
     configure_axis(x_dict, title="Time from onset (ms)")
 
     y_dict = getattr(canvas.fig.layout, yaxis_name)
-    depth_title = "Cortical Depth (μm)" if np.max(depths) > 2.0 else "Relative Depth (0=Pia, 1=WM)"
     configure_axis(y_dict, title=depth_title)
     y_dict["autorange"] = "reversed"
 

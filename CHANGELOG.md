@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
   run on the shortened series; `execution['n_overlap']` records the samples used; |lag| >= n
   raises. Values at a nonzero lag change.
+- **`jnwb.vis` laminar plots require `depth_unit=` (breaking).** `plot_spectrolaminar_map`,
+  `plot_opposing_gradients` and `plot_csd` take a keyword-only `depth_unit` (`'mm'`, `'um'` or
+  `'relative'`) with no default, label the depth axis from it, and raise `ValueError` for any
+  other value. They used to infer the unit from the largest depth, so a 0 to 1.55 mm probe was
+  labelled relative depth. Callers add `depth_unit=` to each call.
 
 ### Fixed
 
