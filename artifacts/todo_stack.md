@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-201 to 06-203 and 06-206 to 06-208, then 06-205 (the 0.2.6.1 patch) |
+| 0 | 06-206 to 06-208, then 06-205 (the 0.2.6.1 patch) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
@@ -57,72 +57,35 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 Ruled 2026-09-25: the silently wrong results and misleading documentation found in the shipped
 0.2.6 ship as 0.2.6.1, cut from `dev`. Each item reproduces its finding at `057957aa` first.
 
-### 06-201 `jrsa` circular-shift null
+### 06-206 `jrsa` row metrics warn on an unnamed null
 
 Release: required-0.2.6.1.
 Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
 Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
-The permutation null for paired metrics shuffles time samples as if exchangeable, so on
-independent AR(1) pairs at phi 0.9 it rejects about half the time (IA-03, reproduced by both
-inspections). Add `null=` with `'circular_shift'` (default), `'block'` and `'iid'`; the result
-records the scheme; the skill row and the page name it. The changelog text goes to the dispatcher.
-Discriminator: the false-positive rate on independent AR(1) pairs at phi 0.9 is at most 0.08 under
-the default, and above it under `'iid'`.
-Accept: the discriminator, the existing `jrsa` tests, and an independent verifier's kill of a
-mutant that restores the i.i.d. default.
-
-### 06-202 Refuse symbolic transfer entropy
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `docs/08_directed_connectivity_and_information.md`, `skills/jnwb-connectivity/SKILL.md`.
-`transfer_entropy(estimator='symbolic')` reports significant flow in both directions for a
-zero-lag common source with no coupling (IA-01). It now raises, naming `'quantile'`, until a
-calibrated null exists. Every caller in the repository, docs and skills included, moves off it.
-Accept: the refusal is tested, no document or skill routes to the symbolic estimator, and an
-independent verifier kills a mutant that lets it through.
-
-### 06-203 Directed estimators honour `rng`
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 06-202.
-Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `tests/test_rng_control.py`.
-`_rng` maps `rng=None` to seed 0, rejects a `Generator` and truncates a float, so `granger`,
-`granger_spectral`, `phase_slope_index` and `transfer_entropy` break their documented contract
-and report `seed=None` for stream 0 (IA-02). Route them through `_rng.resolve_rng`; record the seed
-actually used. Blocked by 06-202 because both edit one file in one lane.
-Accept: `None` differs between calls, the recorded seed reproduces p, a `Generator` is accepted and
-a float refused, each in a test; an independent verifier kills a mutant restoring seed 0.
-
-### 06-206 `jrsa` row metrics warn on an unnamed null
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: 06-201.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
 Ruled 2026-09-25. Forming a null for a row metric without naming `null=` raises a `UserWarning`
 that says axis-0 time needs `'circular_shift'` or `'block'` and that 0.2.7 requires the argument;
-naming any scheme silences it and changes no number. Same lane as 06-201.
+naming any scheme silences it and changes no number. Same lane as the circular-shift null.
 Accept: the warning and its silencing are tested, and an independent verifier kills a mutant that
 drops the warning.
 
 ### 06-207 `jrsa` refuses single-sample bootstrap on paired metrics
 
 Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: 06-201.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
 Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
 Ruled 2026-09-25. A bootstrap on a paired metric raises unless `null='iid'` is named; with it, the
-numbers equal 0.2.6. Every caller moves. Same lane as 06-201.
+numbers equal 0.2.6. Every caller moves. Same lane as 06-206.
 Accept: the refusal is tested, no document routes to the refused call, and an independent verifier
 kills a mutant that lets it through.
 
 ### 06-208 Directed surrogates use a circular shift below 7 trials
 
 Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 06-203.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `jnwb/connectivity.py`, `tests/test_connectivity.py`, `docs/08_directed_connectivity_and_information.md`, `skills/jnwb-connectivity/SKILL.md`.
 Ruled 2026-09-25. `granger`, `granger_spectral`, `transfer_entropy` and `phase_slope_index` take
 the circular-shift surrogate when there are fewer than 7 trials and record the scheme. Same lane as
-06-202 and 06-203.
+the `rng` repair.
 Accept: the false-positive rate at 3 trials on independent noise is at most about 0.08 in a test,
 7 trials and more are byte-identical to 0.2.6, and an independent verifier kills a mutant that
 restores the old threshold.
@@ -130,13 +93,13 @@ restores the old threshold.
 ### 06-205 Release 0.2.6.1
 
 Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203, 06-206, 06-207, 06-208. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: 06-206, 06-207, 06-208. AUTONOMY: none.
 Writes: none.
 The dispatcher sets the version and the changelog, records an independent closure pass over the
 patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
 seven checks, the tag, the GitHub Release whose PyPI job waits for Hamm's approval, and Zenodo.
 Accept: PyPI serves 0.2.6.1 and its wheel's `jnwb/` equals the tag byte for byte; a clean install
-runs the 06-201 and 06-202 discriminators; Zenodo shows the version.
+runs the circular-shift null and the symbolic refusal; Zenodo shows the version.
 
 ### 07-01 Findings carried from 0.2.6
 
