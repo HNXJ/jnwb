@@ -114,7 +114,7 @@ All 160 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.JRSAResult | class | *Container returned by jrsa().* |
-| jnwb.jrsa | function | (x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', backend = 'auto', device = 'auto', n_jobs = 1, batch_size = None, rng: 'RNGLike' = None, return_type = 'result', return_null = False, return_input = False, verbose = False, kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
+| jnwb.jrsa | function | (x1, x2 = None, adim = -1, labels = None, align = 'auto', align_mode = 'fraction', reduction = None, metric = 'rsa', lag = 0, window = None, sliding = False, normalize = False, standardize = False, detrend = False, nan_policy = 'omit', stats = True, permutations = 1000, bootstrap = 0, correction = 'fdr_bh', alpha = 0.05, alternative = 'two-sided', null = None, block_len = None, backend = 'auto', device = 'auto', n_jobs = 1, batch_size = None, rng: 'RNGLike' = None, return_type = 'result', return_null = False, return_input = False, verbose = False, kwargs) -> 'JRSAResult'<br>*Unified representational similarity / cross-area analysis.* |
 
 ## Module: jnwb.laminar
 

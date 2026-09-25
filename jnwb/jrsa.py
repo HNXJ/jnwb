@@ -150,6 +150,8 @@ def jrsa(
     correction="fdr_bh",
     alpha=0.05,
     alternative="two-sided",
+    null=None,
+    block_len=None,
     # execution
     backend="auto",
     device="auto",
@@ -239,6 +241,33 @@ def jrsa(
         side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
         upper-tail F-test of a non-negative F, which has no side to halve on, so that metric
         raises for a one-sided alternative without a permutation null.
+    null : {None, 'circular_shift', 'block', 'iid'}
+        How each permutation resamples x2 along the permuted axis; anything else raises.
+        The permuted axis is the last (aligned) axis for the paired metrics -- pearson,
+        spearman, kendall, cosine, mutual_information, granger_ssr_ftest,
+        transfer_entropy_histogram_nats and phase_slope -- and axis 0, the observations, for
+        rsa, cka, rv, hsic, distance_correlation and procrustes.
+
+        - ``'circular_shift'`` rotates x2 by a shift drawn uniformly from 0 to n - 1, the
+          same shift for every row. Each series keeps its autocorrelation, so the null
+          holds for autocorrelated time series. There are only n distinct shifts, so p
+          cannot fall much below ``1/n``.
+        - ``'block'`` cuts the axis into consecutive blocks of `block_len` samples (the last
+          may be shorter) and permutes their order. It keeps autocorrelation shorter than
+          `block_len`.
+        - ``'iid'`` permutes single samples, which is exchangeable only when the samples
+          are independent. On a time axis it must be named: on two independent AR(1)
+          series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
+        - ``None`` (default) is ``'circular_shift'`` for the paired metrics and ``'iid'``
+          for the observation-axis metrics, whose rows are conditions or observations.
+
+        ``execution['null']`` records the scheme that ran, or None when no permutation null
+        was formed. Before 0.2.6.1 every metric used ``'iid'``.
+    block_len : int or None
+        Block length in samples for ``null='block'``, where it is required: the block has
+        to span the autocorrelation of the data, which jrsa does not estimate. At least two
+        blocks must fit on the permuted axis. Passing it with any other `null` raises.
+        ``execution['null_block_len']`` records it.
     backend : str
         auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
         compatibility; every input is converted to NumPy whatever this names, so it does
@@ -351,6 +380,7 @@ def jrsa(
     # The tail applies to the parametric p as well as the permutation one, so it is checked
     # here rather than only where a permutation null is formed.
     _require_alternative(alternative)
+    _require_null(null, block_len)
     permutation_p = bool(stats and permutations > 0)
     if (alternative != "two-sided" and not permutation_p
             and str(metric).lower() in _UPPER_TAIL_PARAMETRIC_P):
@@ -368,7 +398,8 @@ def jrsa(
         sliding=sliding, normalize=normalize, standardize=standardize,
         detrend=detrend, nan_policy=nan_policy, stats=stats,
         permutations=permutations, bootstrap=bootstrap, correction=correction,
-        alpha=alpha, alternative=alternative, backend=backend, device=device,
+        alpha=alpha, alternative=alternative, null=null, block_len=block_len,
+        backend=backend, device=device,
         n_jobs=n_jobs, batch_size=batch_size, random_state=random_state,
         return_type=return_type, return_null=return_null,
         return_input=return_input, verbose=verbose, **kwargs,
@@ -444,6 +475,10 @@ def jrsa(
     # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
     # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
     perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+    # Paired metrics compare samples along the aligned axis, usually time, where single
+    # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
+    # independent AR(1) pairs at phi = 0.9.
+    null_scheme = null if null is not None else ("iid" if perm_axis == 0 else "circular_shift")
 
     if verbose:
         print(f"[jrsa] computing {metric!r} …")
@@ -463,7 +498,8 @@ def jrsa(
 
         if permutation_p:
             null_dist = _permutation_test(
-                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
+                x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs,
+                scheme=null_scheme, block_len=block_len, **kwargs
             )
             # The permutation p wins whenever it was computed. `if p_raw is None` let the
             # metric's own cell-wise parametric p pre-empt it, so `rsa`, `pearson`,
@@ -507,7 +543,8 @@ def jrsa(
             c_val = None
             if permutation_p:
                 nd = _permutation_test(
-                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
+                    x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis,
+                    n_jobs=n_jobs, scheme=null_scheme, block_len=block_len, **kwargs
                 )
                 # See the single-lag branch: the permutation p wins when it exists.
                 p = _p_from_null(v, nd, alternative)
@@ -547,6 +584,8 @@ def jrsa(
 
     # --- build result ---------------------------------------------------------
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
+    exec_meta["null"] = null_scheme if permutation_p else None
+    exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
 
     result = _make_result(
         value=value,
@@ -973,8 +1012,61 @@ def _metric_kwargs(metric_fn):
     } - {"axis"}
 
 
-def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwargs):
-    """Label-shuffle permutation test; returns null distribution, optimized for GPU if needed."""
+#: Accepted values of `null=`. None resolves per metric inside `jrsa`.
+NULL_SCHEMES = ("circular_shift", "block", "iid")
+
+
+def _require_null(null, block_len):
+    if null is not None and null not in NULL_SCHEMES:
+        raise ValueError(
+            f"jrsa: unrecognized null {null!r}. Valid options: None or {list(NULL_SCHEMES)} "
+            "(lowercase)."
+        )
+    if null == "block":
+        if (block_len is None or isinstance(block_len, bool)
+                or not isinstance(block_len, (int, np.integer)) or block_len < 1):
+            raise ValueError(
+                f"jrsa: null='block' needs block_len, a positive integer number of samples "
+                f"that spans the autocorrelation of the data; got block_len={block_len!r}."
+            )
+    elif block_len is not None:
+        raise ValueError(
+            f"jrsa: block_len={block_len!r} applies only to null='block'; got null={null!r}."
+        )
+
+
+def _null_index(local_rng, n, scheme, block_len):
+    """Index array that resamples an axis of length ``n`` under ``scheme``.
+
+    ``'iid'`` is ``local_rng.permutation(n)``, the draw every metric used before `null=`
+    existed, so a given seed reproduces the p-values of 0.2.6.
+    """
+    if scheme == "iid":
+        return local_rng.permutation(n)
+    if scheme == "circular_shift":
+        # Shift 0 is drawn too. `_p_from_null`'s (1 + k) / (n_perm + 1) is valid for draws
+        # that are uniform over the whole group of n rotations; leaving the identity out
+        # reports 1 / (n_perm + 1) for an observed value above every rotation, where the
+        # right answer is 1/n -- 0.0005 against 0.17 on a 6-sample axis.
+        k = int(local_rng.integers(0, n))
+        return np.roll(np.arange(n), k)
+    starts = np.arange(0, n, block_len)
+    order = local_rng.permutation(len(starts))
+    return np.concatenate([np.arange(starts[i], min(starts[i] + block_len, n)) for i in order])
+
+
+def _check_null_axis(n, scheme, block_len):
+    if scheme == "block" and n < 2 * block_len:
+        raise ValueError(
+            f"jrsa: null='block' needs at least two blocks on the permuted axis; "
+            f"block_len={block_len} with {n} samples gives fewer."
+        )
+
+
+def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1,
+                      scheme="iid", block_len=None, **kwargs):
+    """Permutation null of x2 against x1 along ``axis`` under ``scheme`` (see `_null_index`);
+    returns the null distribution."""
     is_cp = False
     try:
         import cupy as cp
@@ -988,10 +1080,11 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwarg
         null = []
         x2_work = x2 if x2 is not None else x1
         n = x2_work.shape[axis]
+        _check_null_axis(n, scheme, block_len)
         seeds = rng.integers(0, 2**31 - 1, size=n_perm)
         for seed in seeds:
             local_rng = np.random.default_rng(int(seed))
-            idx = cp.asarray(local_rng.permutation(n))
+            idx = cp.asarray(_null_index(local_rng, n, scheme, block_len))
             x2_perm = cp.take(x2_work, idx, axis=axis)
             v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
             if hasattr(v, "get"):
@@ -1003,13 +1096,14 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwarg
 
     x2_work = x2 if x2 is not None else x1
     n = x2_work.shape[axis]
-    
+    _check_null_axis(n, scheme, block_len)
+
     # Generate all permutation indices upfront to pass to workers cleanly
     seeds = rng.integers(0, 2**31 - 1, size=n_perm)
-    
+
     def _run_single_perm(seed):
         local_rng = np.random.default_rng(seed)
-        idx = local_rng.permutation(n)
+        idx = _null_index(local_rng, n, scheme, block_len)
         x2_perm = np.take(x2_work, idx, axis=axis)
         v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
         return float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)

@@ -73,6 +73,30 @@ fig = result.plot()
 - `result.statistic`: Test statistic accompanying `p` when applicable.
 - `result.null_distribution`: Array of surrogate permutation values when computed.
 
+### The Permutation Null (`null=`)
+
+Each permutation resamples x2 along one axis: the last (aligned) axis for the paired metrics
+(`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`, `"mutual_information"`,
+`"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
+conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
+`"procrustes"`.
+
+| `null=` | Resampling | Valid when |
+|---|---|---|
+| `None` (default) | `"circular_shift"` for the paired metrics, `"iid"` for the rest | see those rows |
+| `"circular_shift"` | rotate x2 by a random shift of 0 to n - 1 samples | each series is stationary; autocorrelation is kept. p cannot fall below about 1/n |
+| `"block"` | permute consecutive blocks of `block_len` samples, which must be given | autocorrelation is shorter than `block_len` |
+| `"iid"` | permute single samples | samples are independent. On two independent AR(1) series with coefficient 0.9 it rejects at p ≤ 0.05 about half the time |
+
+`result.execution["null"]` records the scheme that ran and `result.execution["null_block_len"]`
+the block length. Before 0.2.6.1 every metric used `"iid"`, so p-values of the paired metrics
+on autocorrelated data have changed.
+
+```python
+res = jnwb.jrsa(x1, x2, metric="pearson", null="block", block_len=50, rng=0)
+res.execution["null"]   # "block"
+```
+
 ---
 
 ## 3. Windows and Lags
