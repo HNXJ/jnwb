@@ -305,6 +305,11 @@ def _live_default_matches(live, written: str) -> bool:
         return str(live) == written
 
 
+#: The corpus held 120 inline routing calls when this was set. A floor far below the count
+#: only trips on mass deletion; this one fails once more than three rows disappear.
+_ROUTING_ROWS_FLOOR = 117
+
+
 def test_skill_routing_signatures_match_runtime():
     """Routing rows must be callable as written, not merely name real parameters.
 
@@ -375,10 +380,11 @@ def test_skill_routing_signatures_match_runtime():
                 f"gets a TypeError, or supplies them in the wrong order"
             )
 
-    assert checked >= 65, (
-        f"only {checked} routing rows were matched; rows that are not matched are not "
-        f"checked, which is how 7 tuple-bearing rows and 4 StatisticalAnalysis rows went "
-        f"unread"
+    assert checked >= _ROUTING_ROWS_FLOOR, (
+        f"only {checked} routing rows were matched against a floor of {_ROUTING_ROWS_FLOOR}; "
+        f"rows that are not matched are not checked, which is how 7 tuple-bearing rows and "
+        f"4 StatisticalAnalysis rows went unread. Removing rows on purpose lowers the floor "
+        f"in the same change"
     )
 
 
@@ -411,7 +417,7 @@ def test_every_inline_routing_call_is_reached_by_the_parser():
         "routing rows exist that the parser never yields, so nothing checks them: "
         + "; ".join(divergences)
     )
-    assert total_found >= 65, (
+    assert total_found >= _ROUTING_ROWS_FLOOR, (
         f"only {total_found} routing rows found in the whole skill corpus; agreement "
         f"between two readings of an empty corpus is not evidence of anything"
     )
