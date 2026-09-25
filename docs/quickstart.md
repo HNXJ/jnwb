@@ -98,7 +98,7 @@ print(f"Mean raw power: {tfr.power.mean():.4f}")
 
 ### 3. Directed Interaction (Phase Slope Index)
 
-Phase slope index between two time series, with a surrogate test. For a single trial the surrogate is a circular shift of the second series; with three or more trials it is a trial permutation:
+Phase slope index between two time series, with a surrogate test. Below 7 trials the surrogate circularly shifts each trial of the second series; from 7 it pairs each trial with another. `params['surrogate_scheme']` records which ran:
 
 ```python
 sig_a = rng.normal(size=1000)
