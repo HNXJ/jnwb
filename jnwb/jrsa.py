@@ -201,11 +201,13 @@ def jrsa(
         x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
         when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
-        Temporal lag(s) in samples. Each rolls x2 circularly along the axis the metric
-        treats as observations, whatever `adim` names: the last axis for the paired metrics,
-        axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes (the axes of
-        `null`). Rolling the feature axis instead left those six unchanged, so every lag
-        returned the same value.
+        Temporal lag(s) in samples. A lag of l pairs x1[t] with x2[t - l] along the axis the
+        metric treats as observations, whatever `adim` names: the last axis for the paired
+        metrics, axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes (the axes
+        of `null`). Only the overlap is compared, so each lag drops |l| samples, and the
+        null and bootstrap act on that shortened series; `execution['n_overlap']` records
+        the samples used (a list for several lags). |l| must be below the axis length. The
+        lag used to be circular, which paired each series' end with its start.
     window : tuple | int or None
         Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
         half-open, with negative values counted from the end as in Python slicing, or an
@@ -624,6 +626,9 @@ def jrsa(
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
     exec_meta["null"] = null_scheme if permutation_p else None
     exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
+    _n_axis = x1.shape[perm_axis]
+    _overlap = [_n_axis - abs(int(l)) if x2 is not None else _n_axis for l in lags]
+    exec_meta["n_overlap"] = _overlap[0] if len(lags) <= 1 else _overlap
 
     result = _make_result(
         value=value,
@@ -1012,28 +1017,34 @@ def _make_windows(x1, x2, axis_map, window, sliding):
 
 
 def _apply_lag(x1, x2, axis_map, lag, axis=-1):
-    """Apply temporal lag(s) by rolling x2 along ``axis`` on CPU or GPU.
+    """Pair x1[t] with x2[t - lag] along ``axis``, keeping only the overlap, on CPU or GPU.
 
     ``axis`` is the observation axis: -1 for the paired metrics, 0 for
     `_OBSERVATION_AXIS_0_METRICS`, whose last axis holds features they are invariant to.
-    If multiple lags are passed, returns stacked arrays of shape (n_lags, ...).
+    A lag of l drops |l| samples: x1 keeps ``[l:]`` and x2 ``[:n - l]`` for l > 0, x1
+    ``[:n - |l|]`` and x2 ``[|l|:]`` for l < 0. The lag used to be circular (``roll``),
+    which paired the end of each series with its start. One lag per call; `jrsa` loops.
     """
-    if lag == 0 or (hasattr(lag, "__len__") and len(lag) == 1 and lag[0] == 0):
-        return x1, x2
     if x2 is None:
         return x1, x2
     lags = [lag] if isinstance(lag, (int, float)) else list(lag)
+    if len(lags) != 1:
+        raise ValueError(f"_apply_lag takes one lag per call; got {len(lags)}.")
+    shift = int(lags[0])
+    if shift == 0:
+        return x1, x2
     xp = _get_xp(x2)
-    
-    if len(lags) == 1:
-        shift = int(lags[0])
-        return x1, xp.roll(x2, shift, axis=axis)
-    
-    # Stack multiple shifted copies along a new first axis
-    # The output will have shape (n_lags, ...)
-    x1_stacked = xp.stack([x1 for _ in lags], axis=0)
-    x2_stacked = xp.stack([xp.roll(x2, int(l), axis=axis) for l in lags], axis=0)
-    return x1_stacked, x2_stacked
+    n = x2.shape[axis]
+    if abs(shift) >= n:
+        raise ValueError(
+            f"jrsa: lag={shift} leaves no overlap on an axis of {n} samples; |lag| must be "
+            f"below {n}."
+        )
+    k = abs(shift)
+    head, tail = xp.arange(0, n - k), xp.arange(k, n)
+    if shift > 0:
+        return xp.take(x1, tail, axis=axis), xp.take(x2, head, axis=axis)
+    return xp.take(x1, head, axis=axis), xp.take(x2, tail, axis=axis)
 
 
 # ===========================================================================

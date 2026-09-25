@@ -58,11 +58,19 @@ class TestLagShiftsTheObservationAxis:
         x = rng.standard_normal((n, k))
         return x, np.roll(x, delay, axis=0) + 0.1 * rng.standard_normal((n, k))
 
+    @staticmethod
+    def _overlap(x, y, lag, axis):
+        n, k = x.shape[axis], abs(lag)
+        head, tail = np.arange(n - k), np.arange(k, n)
+        if lag >= 0:
+            return np.take(x, tail, axis=axis), np.take(y, head, axis=axis)
+        return np.take(x, head, axis=axis), np.take(y, tail, axis=axis)
+
     @pytest.mark.parametrize("metric", AXIS0)
-    def test_a_lag_equals_rolling_the_observations_by_hand(self, metric):
+    def test_a_lag_equals_the_overlap_of_the_observations_by_hand(self, metric):
         x, y = self._delayed_copy()
         swept = np.asarray(oa.jrsa(x, y, metric=metric, lag=[0, -3], stats=False).value, float)
-        by_hand = [float(oa.jrsa(x, np.roll(y, l, axis=0), metric=metric, stats=False).value)
+        by_hand = [float(oa.jrsa(*self._overlap(x, y, l, 0), metric=metric, stats=False).value)
                    for l in (0, -3)]
         np.testing.assert_allclose(swept, by_hand, rtol=1e-12)
         single = float(oa.jrsa(x, y, metric=metric, lag=-3, stats=False).value)
@@ -81,9 +89,54 @@ class TestLagShiftsTheObservationAxis:
         a = rng.standard_normal((3, 80))
         b = np.roll(a, 2, axis=-1)
         v = float(oa.jrsa(a, b, metric="pearson", lag=-2, stats=False).value)
-        ref = float(oa.jrsa(a, np.roll(b, -2, axis=-1), metric="pearson", stats=False).value)
+        ref = float(oa.jrsa(*self._overlap(a, b, -2, -1), metric="pearson", stats=False).value)
         np.testing.assert_allclose(v, ref, rtol=1e-12)
         np.testing.assert_allclose(v, 1.0, rtol=1e-12)
+
+
+class TestLagComparesTheOverlapOnly:
+    """The lag was circular, so a lag wrapped the end of each series onto its start: on a
+    trended series the realigning lag of a delayed copy gave r well below 1."""
+
+    @staticmethod
+    def _trended_delay(n=300, delay=10):
+        rng = np.random.default_rng(3)
+        x = np.linspace(0.0, 5.0, n) + 0.2 * rng.standard_normal(n)
+        y = np.concatenate([rng.standard_normal(delay), x[:-delay]])   # y[t] = x[t - delay]
+        return x, y
+
+    def test_the_realigning_lag_of_a_trended_delayed_copy_is_exactly_one(self):
+        x, y = self._trended_delay()
+        res = oa.jrsa(x, y, metric="pearson", lag=-10, stats=False)
+        np.testing.assert_allclose(float(res.value), 1.0, rtol=1e-12)
+        assert res.execution["n_overlap"] == 290
+
+    def test_several_lags_record_each_overlap(self):
+        x, y = self._trended_delay()
+        res = oa.jrsa(x, y, metric="pearson", lag=[0, -10, 7], stats=False)
+        assert res.execution["n_overlap"] == [300, 290, 293]
+
+    @pytest.mark.parametrize("metric, null, axis", [
+        ("pearson", "circular_shift", -1), ("cka", "iid", 0),
+    ])
+    def test_the_null_runs_on_the_shortened_series(self, metric, null, axis):
+        rng = np.random.default_rng(4)
+        shape = (120,) if axis == -1 else (120, 5)
+        x = rng.standard_normal(shape)
+        y = np.roll(x, 4, axis=0 if axis == 0 else -1) + rng.standard_normal(shape)
+        lagged = oa.jrsa(x, y, metric=metric, lag=-4, permutations=99, rng=0, null=null,
+                         return_null=True)
+        by_hand = oa.jrsa(x[:-4], y[4:], metric=metric, permutations=99, rng=0, null=null,
+                          return_null=True)
+        np.testing.assert_allclose(float(lagged.value), float(by_hand.value), rtol=1e-12)
+        np.testing.assert_allclose(lagged.null_distribution, by_hand.null_distribution, rtol=1e-12)
+        assert float(lagged.p) == float(by_hand.p)
+
+    @pytest.mark.parametrize("lag", [50, -50, 80])
+    def test_a_lag_with_no_overlap_raises(self, lag):
+        x = np.random.default_rng(0).standard_normal(50)
+        with pytest.raises(ValueError, match="no overlap"):
+            oa.jrsa(x, x, metric="pearson", lag=lag, stats=False)
 
 
 class TestHsicInputShapes:
