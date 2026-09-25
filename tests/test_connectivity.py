@@ -305,6 +305,15 @@ class TestTransferEntropy:
                                    bins=4, n_surrogates=20, seed=0)
         assert isinstance(result, DirectedResult)
 
+    def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
+        """06-202: two noisy copies of one white source tested significant both ways under
+        it. The generic unknown-estimator error also names 'quantile', so the match
+        requires the reason as well."""
+        x = np.random.default_rng(0).normal(size=(2, 200))
+        with pytest.raises(ValueError, match=r"not calibrated under zero-lag mixing.*"
+                                             r"estimator='quantile'"):
+            transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
+
 
 class TestDirectedConnectivityAndNetwork:
     def test_directed_connectivity_dispatches_by_method(self):

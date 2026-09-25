@@ -201,15 +201,6 @@ class TestBandPowerNormalize:
             jnwb.band_power(x, fs=1000.0, freq_range=(10, 30), normalize=True, baseline=None)
 
 
-class TestTransferEntropySymbolicMetadata:
-    def test_symbolic_n_times_matches_embedded_length(self):
-        rng = np.random.default_rng(0)
-        x = rng.normal(size=(2, 50))
-        y = rng.normal(size=(2, 50))
-        res = jnwb.transfer_entropy(x, y, estimator="symbolic", symbolic_order=3, n_surrogates=0)
-        assert res.n_times == 50 - 3 + 1
-
-
 class TestFinalAuditRecurrence:
     def test_granger_accepts_minimal_dof_order(self):
         rng = np.random.default_rng(1)

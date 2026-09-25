@@ -2009,17 +2009,6 @@ def _discretize(a: np.ndarray, bins: int, strategy: str) -> np.ndarray:
     return np.searchsorted(edges, a, side="right").astype(np.int64)
 
 
-def _ordinal_symbols(a: np.ndarray, m: int) -> np.ndarray:
-    """Bandt-Pompe ordinal patterns of order m -> (n_trials, n_times - m + 1) codes."""
-    n_trials, n_times = a.shape
-    if n_times <= m:
-        raise ValueError(f"symbolic order m={m} needs n_times > m; got {n_times}")
-    windows = np.stack([a[:, i : n_times - m + 1 + i] for i in range(m)], axis=-1)
-    ranks = np.argsort(np.argsort(windows, axis=-1), axis=-1)
-    powers = m ** np.arange(m)
-    return (ranks * powers).sum(axis=-1).astype(np.int64)
-
-
 def _codes(cols: List[np.ndarray]) -> np.ndarray:
     """Row-wise integer codes for a list of equal-length integer vectors."""
     if len(cols) == 1:
@@ -2125,17 +2114,20 @@ def transfer_entropy(
             ``'uniform'``  — equal-width bins
             ``'discrete'`` — the signal is already integer-valued (spike counts);
                              states are taken as-is, no binning
-            ``'symbolic'`` — Bandt-Pompe ordinal patterns of ``symbolic_order``;
-                             amplitude-invariant, good for drifting LFP
+            ``'symbolic'`` raises ``ValueError``. Its surrogate null is not calibrated
+            under zero-lag mixing: two noisy copies of one white source, with no
+            directed coupling, test significant in both directions. Use
+            ``'quantile'`` until a calibrated null exists.
         bins: number of states for quantile/uniform
-        symbolic_order: pattern order m for ``'symbolic'`` (m! states)
+        symbolic_order: kept so that later positional arguments keep their places;
+            it configures only the refused ``'symbolic'`` estimator and is unused
         bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
         rng: RNG seed, Generator, or None for fresh entropy (default 0 —
             deterministic) (``seed`` is the old spelling and still works)
         detrend: usually ``None``; TE is invariant to monotone rescaling under
-            quantile/symbolic estimators, so z-scoring buys nothing
+            the quantile estimator, so z-scoring buys nothing
 
     Returns:
         DirectedResult with ``unit='bits'``. ``diagnostics['samples_per_joint_state']``
@@ -2146,43 +2138,41 @@ def transfer_entropy(
         Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
         doi:10.1103/PhysRevLett.85.461 -- transfer entropy, eq. 4, with target history
         `k` and source history `l`; ``delay=1`` is the paper's alignment.
-        Bandt, C., & Pompe, B. (2002). Permutation entropy: a natural complexity measure for
-        time series. Phys. Rev. Lett. doi:10.1103/PhysRevLett.88.174102 -- the ordinal
-        patterns used as states by ``estimator='symbolic'``.
         Marschinski, R., & Kantz, H. (2002). Eur. Phys. J. B.
         doi:10.1140/epjb/e2002-00379-2 -- effective transfer entropy, the raw value minus
         the surrogate mean, reported as ``bias_corrected_*``. The surrogates here permute
         trials or circularly shift the source, which keeps its autocorrelation.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
-    if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
+    if estimator == "symbolic":
+        # INTENTIONAL BREAK (0.2.6.1). Ordinal patterns of order m span m samples, so a
+        # target pattern and a source pattern one step earlier share samples. Zero-lag
+        # mixing therefore reads as information flow, while the surrogates -- which shift
+        # or re-pair the source -- destroy that overlap, and the null sits below it. On two
+        # noisy copies of one white source (20 replicates, 49 surrogates) it rejected at
+        # 0.05 in both directions 19 times; the quantile estimator rejected 1 and 3 times.
         raise ValueError(
-            f"estimator must be quantile|uniform|discrete|symbolic; got {estimator!r}"
+            "transfer_entropy: estimator='symbolic' is refused. Its surrogate null is not "
+            "calibrated under zero-lag mixing, so a common source with no directed "
+            "coupling tests significant in both directions. Use estimator='quantile'."
         )
+    if estimator not in ("quantile", "uniform", "discrete"):
+        raise ValueError(f"estimator must be quantile|uniform|discrete; got {estimator!r}")
     if min(k, l) < 1 or delay < 1:
         raise ValueError(f"k, l, delay must all be >= 1; got k={k}, l={l}, delay={delay}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
-    # The embedding consumes max(k, delay * l) leading samples per trial, and `symbolic`
-    # consumes symbolic_order - 1 more before that.
+    # The embedding consumes max(k, delay * l) leading samples per trial.
     _history = max(int(k), int(delay) * int(l))
-    if estimator == "symbolic":
-        _history += int(symbolic_order) - 1
     require_trial_length(
         x, _history, "transfer_entropy", history_name="k/l/delay", time_axis=time_axis
     )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
-    embedded_n_times = n_times
 
-    if estimator == "symbolic":
-        xq = _ordinal_symbols(x, symbolic_order)
-        yq = _ordinal_symbols(y, symbolic_order)
-        embedded_n_times = n_times - symbolic_order + 1
-    else:
-        xq = _discretize(x, bins, estimator)
-        yq = _discretize(y, bins, estimator)
+    xq = _discretize(x, bins, estimator)
+    yq = _discretize(y, bins, estimator)
 
     te_xy, n_used, n_joint_xy = _te_one_direction(xq, yq, k, l, delay, bias_correction)
     te_yx, _, n_joint_yx = _te_one_direction(yq, xq, k, l, delay, bias_correction)
@@ -2256,14 +2246,13 @@ def transfer_entropy(
         p_y_to_x=p_yx,
         p_net=p_net,
         n_trials=n_trials,
-        n_times=embedded_n_times,
+        n_times=n_times,
         params={
             "k": int(k),
             "l": int(l),
             "delay": int(delay),
             "estimator": estimator,
             "bins": int(bins) if estimator in ("quantile", "uniform") else None,
-            "symbolic_order": int(symbolic_order) if estimator == "symbolic" else None,
             "bias_correction": bias_correction,
             "n_surrogates": int(n_surrogates),
             "detrend": detrend,
