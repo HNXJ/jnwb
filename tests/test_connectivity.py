@@ -393,6 +393,34 @@ class TestFewTrialSurrogates:
         assert sur["null_mean_x_to_y"] == 0.00035468224425054724
         assert sur["null_mean_y_to_x"] == 0.0006370039765307248
 
+    @pytest.mark.parametrize("n_trials", [1, 2, 3, 4, 5, 6])
+    def test_below_seven_trials_each_surrogate_trial_is_its_own_trial_shifted(
+        self, n_trials, monkeypatch
+    ):
+        """The recorded scheme and the 3-trial rate cannot see a surrogate that still
+        re-pairs trials at 4-6 while reporting 'circular_shift'. Every surrogate row must be
+        a nonzero roll of the same input row."""
+        import jnwb.connectivity as conn
+
+        seen = []
+        real = conn._surrogate_source
+
+        def spy(a, rng):
+            out = real(a, rng)
+            seen.append((a.copy(), out))
+            return out
+
+        monkeypatch.setattr(conn, "_surrogate_source", spy)
+        g = np.random.default_rng(n_trials)
+        x, y = g.normal(size=(n_trials, 60)), g.normal(size=(n_trials, 60))
+        granger(x, y, order=1, n_surrogates=3, rng=0)
+        assert len(seen) == 6  # 3 surrogates, both directions
+        for a, out in seen:
+            for i in range(n_trials):
+                assert any(np.array_equal(out[i], np.roll(a[i], s)) for s in range(1, 60)), (
+                    f"surrogate trial {i} of {n_trials} is not trial {i} shifted"
+                )
+
 
 class TestCrossAreaCoherenceContract:
     """0.2.4-09: out-of-contract input must fail loudly, not plausibly.
