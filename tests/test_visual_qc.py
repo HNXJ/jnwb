@@ -72,6 +72,39 @@ def test_plot_unit_quality_distribution_session_filter_reduces_data():
     plt.close(fig)
 
 
+def _stability_bars(stable):
+    units = _units_df(n=len(stable)).drop(columns=["stable_plus"]).assign(is_stable=stable)
+    fig = plot_unit_quality_distribution(units)
+    ax = fig.axes[5]
+    bars = [(t.get_text(), int(p.get_height())) for t, p in zip(ax.get_xticklabels(), ax.patches)]
+    plt.close(fig)
+    return bars
+
+
+def test_stability_bars_are_labelled_by_their_own_class():
+    # value_counts() orders by count, so a positional label swaps the classes whenever
+    # stable units outnumber unstable ones, and names a lone class after the wrong one.
+    assert _stability_bars([True] * 7 + [False] * 3) == [("Unstable", 3), ("Stable", 7)]
+    assert _stability_bars([True] * 5) == [("Unstable", 0), ("Stable", 5)]
+
+
+def test_a_unit_of_unknown_stability_is_in_neither_bar_and_counted_in_the_title():
+    stable = pd.array([True, True, False, pd.NA, pd.NA], dtype="boolean")
+    assert _stability_bars(stable) == [("Unstable", 1), ("Stable", 2)]
+    units = _units_df(n=5).drop(columns=["stable_plus"]).assign(is_stable=stable)
+    fig = plot_unit_quality_distribution(units)
+    assert "2 unknown" in fig.axes[5].get_title()
+    plt.close(fig)
+
+
+def test_quality_distribution_skips_an_absent_metric_panel():
+    units = _units_df().drop(columns=["waveform_duration"])
+    fig = plot_unit_quality_distribution(units)
+    assert "absent" in fig.axes[2].get_title()
+    assert "n=20" in fig.axes[0].get_title()
+    plt.close(fig)
+
+
 def test_plot_noise_vs_signal_returns_2x2_figure():
     units = _units_df()
     fig = plot_noise_vs_signal(units)

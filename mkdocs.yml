@@ -23,9 +23,24 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
-    - scheme: slate
+    # Two schemes with a toggle, added 2026-09-19. There was one, `slate`, so item 06-52's
+    # acceptance -- "renders legibly in both the light and the dark theme" -- named a comparison
+    # this site could not make, and a figure that hardcoded a light background was unfalsifiable.
+    # `media` makes the first entry the default for a visitor whose OS prefers dark.
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: deep purple
       accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
 
 extra_css:
   - _theme_override.css
@@ -44,22 +59,34 @@ markdown_extensions:
       smart_dollar: false
       tex_inline_wrap: ["\\(", "\\)"]
       tex_block_wrap: ["\\[", "\\]"]
-  - pymdownx.superfences
+  # Without custom_fences a ```mermaid fence is syntax-highlighted rather than drawn, and
+  # five published pages showed `graph TD` as a code listing. `class: mermaid` produces the
+  # <pre class="mermaid"> element mkdocs-material's bundle queries.
+  #
+  # `format:` is omitted deliberately. Material's documented recipe spells it
+  # `!!python/name:pymdownx.superfences.fence_code_format`, but that is already the default
+  # (superfences.py: `custom.get('format', fence_code_format)`), and writing the tag would
+  # make this file unreadable to yaml.safe_load -- which harness gate 13 and three tests use
+  # to parse the nav. Adding the tag "for completeness" would break them.
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
   - pymdownx.highlight
   - pymdownx.details
   - pymdownx.tabbed:
       alternate_style: true
 
+# Top-level groups are named for the question a reader arrives with, not for the material
+# they contain -- rule N4 of docs/documentation_form.md. The order is the order those
+# questions are asked: install it, learn it, use it, fix it, look something up, understand
+# why it is shaped this way.
 nav:
   - Getting started:
       - Welcome: index.md
       - Installation: install.md
       - Quickstart: quickstart.md
-      - Common Mistakes: common_mistakes.md
-      - Errors: errors.md
       - Analyzing with an Agent: agents.md
-      - Public API: api.md
-      - References: references.md
 
   - Tutorials:
       - Your Own NWB File: tutorials/00_your_own_file.md
@@ -70,21 +97,34 @@ nav:
       - Statistical Inference: tutorials/05_statistics.md
       - Laminar Analysis: tutorials/06_laminar.md
       - Ensembles & Decoding: tutorials/07_ensembles.md
-      - End-to-End Pipeline: tutorials/08_end_to_end_pipeline.md
+      - End-to-End Workflow: tutorials/08_end_to_end_pipeline.md
+      - Open Data: tutorials/09_open_data.md
 
-  - Architecture & Foundations:
-      - Philosophy & Boundary: 01_architecture_and_philosophy.md
+  - Doing an analysis:
       - Paths & Addressing: 02_paths_addressing_metadata.md
       - Representational Similarity: 03_representational_similarity_jrsa.md
       - Spectral Analysis & TFR: 04_spectral_analysis_and_tfr.md
-      - Operation Specifications: 10_operation_specifications.md
-
-  - Signal Processing & Dynamics:
       - Artifact Detection & Repair: 05_artifact_detection_and_repair.md
       - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
       - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
       - Directed Connectivity: 08_directed_connectivity_and_information.md
       - Decoding & Visual QC: 09_decoding_and_visual_qc.md
+      - Plotly Figures: vis.md
+
+  - Troubleshooting:
+      - Common Mistakes: common_mistakes.md
+      - Errors: errors.md
+
+  - Reference:
+      - Public API: api.md
+      - Operation Specifications: 10_operation_specifications.md
+      - References: references.md
+
+  - Design & conventions:
+      - Architecture: architecture.md
+      - Philosophy & Boundary: 01_architecture_and_philosophy.md
+      - Documentation Form: documentation_form.md
+      - Glossary: glossary.md
 
 
 # extra.jnwb_version is injected at build time by the hook below, from jnwb.__version__.

@@ -20,10 +20,11 @@ def _eigh_reference(X, k):
     The standardisation is recomputed rather than taken from the library, so a change
     there is caught too.
     """
-    mean = np.mean(X, axis=0, keepdims=True)
-    std = np.std(X, axis=0, keepdims=True)
-    std[std == 0.0] = 1.0
-    Z = (X - mean) / std
+    # A constant column (largest value == smallest) is 0; `std == 0` misses one whose
+    # computed std is rounding residue.
+    constant = X.max(axis=0, keepdims=True) == X.min(axis=0, keepdims=True)
+    std = np.where(constant, 1.0, np.std(X, axis=0, keepdims=True))
+    Z = np.where(constant, 0.0, (X - np.mean(X, axis=0, keepdims=True)) / std)
 
     evals, evecs = np.linalg.eigh(Z.T @ Z)
     order = np.argsort(evals)[::-1]

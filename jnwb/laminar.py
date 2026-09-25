@@ -9,7 +9,14 @@ Provides validated computational primitives for cortical depth and laminar analy
 References:
     Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
     potential power across the primate cortex. Nature Neuroscience.
-    doi:10.1038/s41593-023-01554-7
+    doi:10.1038/s41593-023-01554-7 -- the motif `vflip` tests for: gamma relative power
+    peaks superficially, alpha-beta deep, and their crossover marks layer 4.
+    `vflip` is not the paper's FLIP or its frequency-variable vFLIP, which share the name.
+    The paper divides each frequency by the power of the channel with the highest power,
+    uses 10-19 Hz and 75-150 Hz, and fits linear regressions over the channel range that
+    maximizes a goodness of fit; vFLIP also searches over band pairs. `vflip` normalizes
+    by the range across contacts, uses fixed default bands and scores the fit by its
+    support score Omega, so its crossover is not a FLIP or vFLIP crossover.
 """
 from __future__ import annotations
 
@@ -27,6 +34,7 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
+from ._spread import is_constant
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -39,6 +47,14 @@ CANONICAL_VFLIP_BANDS: Dict[str, Tuple[float, float]] = {
     "low": (8.0, 30.0),    # infragranular (deep) alpha/beta dominance
     "high": (50.0, 150.0),  # supragranular (superficial) gamma dominance
 }
+
+#: Half-width, in contacts, of the tolerance band around the granular layer boundary used
+#: by :func:`label_layers`. The granular interval is closed, so without a tolerance a
+#: contact sitting exactly on the boundary -- which is the ordinary case on real hardware,
+#: see :func:`label_layers` -- has its layer decided by the last bit of the pitch.
+#: 1e-6 contacts is a millionth of a contact spacing and some four orders of magnitude
+#: above the float error a realistic pitch and crossover carry.
+LAYER_BOUNDARY_TOL_CONTACTS: float = 1e-6
 
 
 @dataclass(frozen=True)
@@ -79,6 +95,19 @@ class VFlipResult(DictAccessMixin):
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
             masked contacts in input channel order.
+        index_space: Which axis ``crossover_contact``, ``profile``, ``low_peak_contact`` and
+            ``high_peak_contact`` are indexed on.
+
+            - ``"shaft_rank"``: position along the physical shaft, superficial end first.
+              Produced when `vflip` was given a `probe_geometry` carrying a usable
+              `linear_order`, which reorders the PSD rows before the fit.
+            - ``"channel"``: the row order of the PSD array as supplied. Produced when no
+              geometry was given, so no reordering happened.
+
+            The two coincide only when the electrode table is already ordered along the
+            shaft. :func:`label_layers` always reads shaft-rank, so it refuses a
+            ``"channel"`` result whenever the geometry it is handed has a non-identity
+            `linear_order` rather than mixing the two axes silently.
     """
 
     crossover_contact: Optional[float]
@@ -93,6 +122,7 @@ class VFlipResult(DictAccessMixin):
     n_channels: int
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
+    index_space: str = "channel"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -108,6 +138,7 @@ class VFlipResult(DictAccessMixin):
             "rejection_reason": self.rejection_reason,
             "n_channels": int(self.n_channels),
             "n_missing": int(self.n_missing),
+            "index_space": str(self.index_space),
         }
 
 
@@ -293,12 +324,20 @@ def vflip(
 
     effective_bad_input = bad_mask.copy()
 
-    # If probe_geometry is provided, order channels along the physical shaft
+    # If probe_geometry is provided, order channels along the physical shaft.
+    #
+    # Everything downstream -- the profile, the two peak contacts and the crossover --
+    # is then indexed on shaft rank rather than on PSD row. Without a usable
+    # `linear_order` no reorder happens and those indices stay in PSD row order. The two
+    # axes coincide only for a table already ordered along the shaft, so which one was
+    # used travels on the result and is checked at the `label_layers` boundary.
     if order is not None and len(order) == n_channels:
         psd_work = psd_arr[order]
         bad_mask = bad_mask[order]
+        index_space = "shaft_rank"
     else:
         psd_work = psd_arr
+        index_space = "channel"
 
     n_missing = int(np.sum(bad_mask))
     n_valid = n_channels - n_missing
@@ -319,6 +358,7 @@ def vflip(
             n_channels=n_channels,
             n_missing=n_missing,
             bad_channel_mask=effective_bad_input,
+            index_space=index_space,
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
@@ -455,7 +495,7 @@ def vflip(
                 crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
-    # Density-normalized to eliminate systematic channel-count scaling (EXT-REV-003).
+    # Density-normalized so the score does not scale with the number of channels.
     # Uses canonical 24-contact reference baseline (N_ref = 24):
     # - band_dist is normalized by sqrt(n_channels / 24) (RMS profile scaling)
     # - sep_metric is normalized by (n_channels / 24) (fractional span scaling)
@@ -530,6 +570,7 @@ def vflip(
         n_channels=n_channels,
         n_missing=n_missing,
         bad_channel_mask=effective_bad_input,
+        index_space=index_space,
     )
 
 
@@ -606,9 +647,12 @@ def vflip_from_lfp(
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
         potential power across the primate cortex. Nature Neuroscience.
-        doi:10.1038/s41593-023-01554-7
+        doi:10.1038/s41593-023-01554-7 -- the spectrolaminar motif :func:`vflip` tests for;
+        the :mod:`jnwb.laminar` module docstring says how its estimator differs from the
+        paper's FLIP and vFLIP.
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     # 1. Validate inputs
     fs = float(fs)
@@ -696,7 +740,14 @@ def label_layers(
     Maps contacts along a linear probe shaft into canonical cortical compartments:
     - ``"superficial"``: Supragranular layers (L1–L3), characterized by gamma dominance.
     - ``"input"``: Granular layer 4 (L4), centered at the spectrolaminar crossover point,
-      extending across a zone of width `granular_thickness_um`.
+      extending across a zone of width `granular_thickness_um`. The zone is **closed**:
+      a contact exactly `granular_thickness_um / 2` from the crossover is ``"input"``,
+      and the comparison carries a tolerance of
+      :data:`LAYER_BOUNDARY_TOL_CONTACTS` contacts so that convention is decided by the
+      stated rule rather than by the last bit of the pitch. Exact equality is the
+      ordinary case, not an edge case: at the default 400 um thickness the half-span is
+      exactly 10 contacts on a 20 um Neuropixels 1.0, 4 on a 50 um V-probe and 2 on a
+      100 um laminar array.
     - ``"deep"``: Infragranular layers (L5–L6), characterized by alpha/beta dominance.
     - ``"na"``: Assigned to all channels whenever `vflip_result.accepted` is `False`, or to
       invalid, bad, or out-of-bounds contacts.
@@ -725,17 +776,48 @@ def label_layers(
         Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
         string: ``"superficial"``, ``"input"``, ``"deep"``, or ``"na"``.
 
+    Index space:
+        Contacts are placed by their rank along `probe_geometry.linear_order`, so
+        `vflip_result.crossover_contact` must be a shaft rank too. A result carrying
+        ``index_space='channel'`` was fitted on unreordered PSD rows; it is accepted only
+        when this geometry's `linear_order` is the identity, where the two axes coincide,
+        and raises otherwise.
+
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
-            is not linear, channel count does not match `vflip_result.n_channels`, or range bounds
-            are invalid.
+            is not linear, channel count does not match `vflip_result.n_channels`, range bounds
+            are invalid, or `vflip_result.index_space` is not the shaft rank this geometry
+            requires.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
         potential power across the primate cortex. Nature Neuroscience.
-        doi:10.1038/s41593-023-01554-7
+        doi:10.1038/s41593-023-01554-7 -- the alpha-beta/gamma crossover as the layer 4
+        marker. The paper places layers 2/3 at the gamma peak and 5/6 at the alpha-beta
+        peak; the fixed-width input zone of `granular_thickness_um` is this function's rule.
     """
     # 1. Parameter validation
+    #
+    # The result type is checked first, and structurally rather than by class, because this
+    # function is duck-typed on `crossover_contact`. Handed an `XFlipResult` or `ZFlipResult`,
+    # which do not carry that field, it used to raise a bare `AttributeError` when
+    # `accepted=True` -- and when `accepted=False`, the ordinary case, `or` short-circuits
+    # before the field is ever read, so it took the all-"na" path and returned a full-length
+    # label array with no error and no warning. A wrong-type result then reads as an honest
+    # negative result, which is the failure direction that does not get noticed.
+    #
+    # Structural and not `isinstance`: any result that genuinely carries this geometry's
+    # fields is usable, so the requirement is the fields, not the class.
+    _required = ("accepted", "crossover_contact", "n_channels", "index_space")
+    _missing = [f for f in _required if not hasattr(vflip_result, f)]
+    if _missing:
+        raise TypeError(
+            f"label_layers requires a vflip-style result carrying {list(_required)}; "
+            f"{type(vflip_result).__name__} is missing {_missing}. Layer labelling is defined "
+            "against the spectrolaminar crossover along a linear shaft, so a result from a "
+            "different flip axis cannot be relabelled into it."
+        )
+
     granular_thickness_um = float(granular_thickness_um)
     if granular_thickness_um <= 0 or not np.isfinite(granular_thickness_um):
         raise ValueError(
@@ -798,9 +880,22 @@ def label_layers(
     mid_half_span = (granular_thickness_um / 2.0) / pitch
     crossover = float(vflip_result.crossover_contact)
 
-    # Granular (input) boundary interval in contact coordinate space
+    # Granular (input) boundary interval in contact coordinate space.
+    #
+    # The interval is CLOSED: a contact lying exactly `granular_thickness_um / 2` from the
+    # crossover is `input`. Compared exactly, that convention is decided by float noise
+    # rather than by anatomy, because the half-span is an exact integer on the pitches
+    # most used in the field -- at the default 400 um thickness, 10.0 contacts on a
+    # Neuropixels 1.0 (20 um), 4.0 on a 50 um V-probe, 2.0 on a 100 um laminar array --
+    # and one ulp of `pitch` then moves the boundary contact to `superficial` or `deep`.
+    # A non-round pitch such as 23.7 um gives 8.43882 and never sits on the edge.
+    #
+    # The comparison therefore carries an explicit tolerance. It is far below one contact
+    # spacing, so it can never pull in a contact that is genuinely a different contact,
+    # and far above the float error a realistic pitch carries.
     input_start = crossover - mid_half_span
     input_end = crossover + mid_half_span
+    boundary_tol = LAYER_BOUNDARY_TOL_CONTACTS * max(1.0, abs(mid_half_span), abs(crossover))
 
     # Orientation mapping:
     # Under 'superficial_to_deep': lower contact indices are superficial, higher are deep.
@@ -814,6 +909,27 @@ def label_layers(
         rank[order] = np.arange(n_geom_channels, dtype=float)
     else:
         rank = np.arange(n_geom_channels, dtype=float)
+
+    # Index-space boundary. `rank` above is shaft rank, and the crossover is compared
+    # against it, so a crossover measured on unreordered PSD rows is only meaningful when
+    # this table is already ordered along the shaft. Refuse rather than mix the two axes:
+    # a rotated or two-bank table returns a full set of confident layer labels for the
+    # wrong contacts, with `accepted=True` and nothing to read as a warning.
+    #
+    # A permutation cannot be pushed through a continuous sub-contact coordinate, and the
+    # profile it came from was fitted on contacts that were not neighbours on the shaft,
+    # so there is no correction to apply here -- only a refusal.
+    result_space = str(getattr(vflip_result, "index_space", "channel"))
+    if result_space != "shaft_rank" and not np.array_equal(
+        rank, np.arange(n_geom_channels, dtype=float)
+    ):
+        raise ValueError(
+            "vflip_result.crossover_contact is indexed on "
+            f"{result_space!r} (raw PSD row order) but probe_geometry has a non-identity "
+            "linear_order, so label_layers would read it as a shaft rank and label the "
+            "wrong contacts. Pass the same probe_geometry to vflip (or vflip_from_lfp) "
+            "so the fit is computed in shaft-rank space."
+        )
 
     labels: Dict[Any, str] = {}
     has_positions = hasattr(probe_geometry, "contact_positions") and probe_geometry.contact_positions is not None
@@ -851,8 +967,8 @@ def label_layers(
                 labels[ch_id] = "na"
                 continue
 
-        # In-bounds cortical layer assignment
-        if input_start <= c_pos <= input_end:
+        # In-bounds cortical layer assignment, on the closed interval documented above
+        if (input_start - boundary_tol) <= c_pos <= (input_end + boundary_tol):
             labels[ch_id] = "input"
         elif c_pos < input_start:
             labels[ch_id] = "superficial" if is_sup_to_deep else "deep"
@@ -1023,7 +1139,7 @@ def _optimal_contiguous_partition(
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
-    # 05-47: the off-diagonal term below was already answered from `prefix` in constant
+    # The off-diagonal term below was already answered from `prefix` in constant
     # time while the diagonal term re-summed a slice on every call. `np.diag` returns a
     # view, so nothing was copied, but the call plus the slice plus the reduction cost
     # 4.82 of the 5.56 microseconds an `interval_w` call took -- 87% of it -- and the DP
@@ -1537,7 +1653,8 @@ class ZFlipResult(DictAccessMixin):
 
     Attributes:
         adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
-            Phase Lag Index between adjacent contacts; NaN when not computed.
+            Phase Lag Index between adjacent contacts; NaN when not computed, and for a
+            pair with a constant contact (all-zero included).
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
@@ -1547,26 +1664,30 @@ class ZFlipResult(DictAccessMixin):
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
             unwrapping unambiguous interval).
-        mean_wpli: Average wPLI across adjacent contacts; NaN when not computed.
+        mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
+            any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
             under the fitted linear model (v = pitch_m / tau_per_channel), or None if
             unidentifiable or pitch_um was not provided.
-        tau_per_channel_s: Spatial delay gradient in seconds per contact (positive means
-            superficial leads deep in input order), or NaN if unidentifiable.
-        directionality: String classifying propagation direction:
-            - "superficial_to_deep" (tau_per_channel_s > 0)
-            - "deep_to_superficial" (tau_per_channel_s < 0)
+        tau_per_channel_s: Spatial delay gradient in seconds per contact, in input row
+            order: positive means the lower-index contact leads. NaN if unidentifiable.
+        directionality: Propagation direction in depth, named from the sign of
+            ``tau_per_channel_s`` and the ``orientation`` the caller stated:
+            - "superficial_to_deep" (the superficial end leads)
+            - "deep_to_superficial" (the deep end leads)
             - "unidentifiable" (delay identifiability criteria not satisfied)
         delay_identifiable: Boolean indicating whether the phase-frequency relationship
             satisfies the identifiability gate across contacts.
         p_value: Surrogate p-value against the per-channel phase-randomised null, or NaN
-            when the test was not performed (``n_surrogates=0``).
+            when the test was not performed (``n_surrogates=0``, or a contact is constant).
         accepted: True only if the surrogate test was performed and significant
             (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
             is identifiable.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
+        orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
+            superficial) or ``'deep_to_superficial'`` (row 0 deep).
     """
 
     adjacent_wpli: np.ndarray
@@ -1583,6 +1704,7 @@ class ZFlipResult(DictAccessMixin):
     rejection_reason: Optional[str]
     n_channels: int
     pitch_um: Optional[float] = None
+    orientation: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1601,13 +1723,18 @@ class ZFlipResult(DictAccessMixin):
             "rejection_reason": self.rejection_reason,
             "n_channels": int(self.n_channels),
             "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
+            "orientation": self.orientation,
         }
+
+
+_ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
 
 
 def zflip(
     lfp_matrix: np.ndarray,
     fs: float,
     *,
+    orientation: str,
     freq_range: Tuple[float, float] = (15.0, 35.0),
     pitch_um: Optional[float] = None,
     nperseg: Optional[int] = None,
@@ -1658,10 +1785,17 @@ def zflip(
        single-wave model.
 
     Args:
-        lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft.
-            Minimum 3 channels required. Pre-averaged :math:`C \times C \times F` tensors
+        lfp_matrix: 2D array of shape `(n_channels, n_samples)` ordered along the probe shaft,
+            in the direction `orientation` names. Minimum 3 channels required. Pre-averaged :math:`C \times C \times F` tensors
             are rejected with ValueError because segment information is required for wPLI.
         fs: Sampling frequency in Hz (must be strictly positive).
+        orientation: Required. Which end of the shaft row 0 is: ``'superficial_to_deep'``
+            (row 0 is the most superficial contact) or ``'deep_to_superficial'`` (row 0 is
+            the deepest, as in a tip-first electrode table). ``directionality`` names an
+            anatomical direction from this and the sign of the row-order delay gradient,
+            so the wrong value reverses it; nothing in the LFP can detect that. It has no
+            default, because the row order alone says nothing about depth; any other value
+            raises ValueError.
         freq_range: `(min_freq, max_freq)` in Hz over which the linear phase slope is fitted.
         pitch_um: Inter-contact spacing along the shaft in micrometers (optional).
         nperseg: Welch segment length for STFT; defaults to ``min(max(N // 2, 8), 256)``,
@@ -1681,12 +1815,27 @@ def zflip(
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
 
     Raises:
-        ValueError: If input is not a finite 2D array of at least 3 channels, `fs <= 0`,
+        TypeError: If `orientation` is not given.
+        ValueError: If `orientation` is not one of the two orders, input is not
+            a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
             fewer than 2 segments.
+
+    References:
+        Vinck, M., et al. (2011). An improved index of phase-synchronization for
+        electrophysiological data in the presence of volume-conduction, noise and
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055 -- the weighted
+        phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
+    if orientation not in _ZFLIP_ORIENTATIONS:
+        raise ValueError(
+            f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
+            f"contact) or 'deep_to_superficial' (row 0 is the deepest); got {orientation!r}. "
+            "directionality names a direction in depth from row order, and the row order of "
+            "an electrode table can run either way."
+        )
     lfp = np.asarray(lfp_matrix, dtype=float)
     if lfp.ndim != 2:
         raise ValueError(
@@ -1748,6 +1897,7 @@ def zflip(
             rejection_reason=f"Insufficient frequency bins in freq_range {freq_range} (got {n_freq_bins} bins, need >= 3)",
             n_channels=n_channels,
             pitch_um=pitch_um,
+            orientation=orientation,
         )
 
     f_band = freqs[mask]
@@ -1758,12 +1908,16 @@ def zflip(
     adj_delays = np.zeros(n_channels - 1, dtype=float)
     adj_r2 = np.zeros(n_channels - 1, dtype=float)
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
+    # A pair with a constant contact has no phase lag to weigh; its wPLI is NaN, as in
+    # jnwb.wpli, so it cannot enter mean_wpli as a zero or as rounding residue.
+    flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
 
     for i in range(n_channels - 1):
         # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
         Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
         w_f, _ = _wpli_from_cross_spectra(Sxy)
-        adj_wpli[i] = float(np.mean(w_f[mask]))
+        adj_wpli[i] = (np.nan if i in flat_contacts or i + 1 in flat_contacts
+                       else float(np.mean(w_f[mask])))
 
         # Phase slope from average cross-spectrum across segments
         Sxy_mean = np.mean(Sxy, axis=1)
@@ -1802,10 +1956,16 @@ def zflip(
             apparent_velocity = None
             directionality = "unidentifiable"
         else:
-            if tau_per_channel > 0:
-                directionality = "superficial_to_deep"
-            elif tau_per_channel < 0:
-                directionality = "deep_to_superficial"
+            # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
+            # order, which is the anatomical direction the caller named for row order.
+            if tau_per_channel > 0 or tau_per_channel < 0:
+                row_order_leads = tau_per_channel > 0
+                if orientation == "superficial_to_deep":
+                    directionality = ("superficial_to_deep" if row_order_leads
+                                      else "deep_to_superficial")
+                else:
+                    directionality = ("deep_to_superficial" if row_order_leads
+                                      else "superficial_to_deep")
             else:
                 delay_identifiable = False
                 tau_per_channel = float("nan")
@@ -1824,7 +1984,7 @@ def zflip(
     # Monte Carlo surrogate null test
     rng = np.random.default_rng(seed)
     p_val = float("nan")
-    if n_surrogates > 0:
+    if n_surrogates > 0 and not flat_contacts:
         exceed_count = 0
         for _ in range(n_surrogates):
             surr_lfp = _surrogate_phase_randomize(lfp, rng)
@@ -1845,11 +2005,14 @@ def zflip(
     accepted = bool(is_sig and has_coupling and delay_identifiable)
 
     reasons: List[str] = []
-    if n_surrogates == 0:
+    if flat_contacts:
+        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI undefined, "
+                       "surrogate test not performed")
+    elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0)")
     elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
-    if not has_coupling:
+    if not has_coupling and not flat_contacts:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
     if not delay_identifiable:
         reasons.append("Phase-frequency relation failed linear identifiability gate")
@@ -1875,6 +2038,7 @@ def zflip(
         rejection_reason=rejection_reason,
         n_channels=n_channels,
         pitch_um=pitch_um,
+        orientation=orientation,
     )
 
 

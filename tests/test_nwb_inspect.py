@@ -145,6 +145,135 @@ class TestNWBReadHelpers:
         assert len(data) > 0
         assert fs_hz == receipt.fs_hz
 
+    @pytest.mark.parametrize("kind", ["EyeTracking", "PupilTracking", "BehavioralTimeSeries"])
+    def test_behavior_container_acquisition_channel(self, tmp_path, kind):
+        """A series wrapped in a behavior container is read like one wrapped in `LFP`:
+        by container name, bare series name or `container/series`. These used to
+        raise AcquisitionNotFoundError because only `LFP` was unwrapped."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile, behavior
+
+        data = np.arange(20.0).reshape(10, 2) if kind == "EyeTracking" else np.arange(10.0)
+        nwb = NWBFile("s", "behavior", datetime(2026, 1, 1, tzinfo=tzutc()))
+        container = getattr(behavior, kind)(name="tracking")
+        if kind == "EyeTracking":
+            container.create_spatial_series(name="tracking_data", data=data, rate=1000.0,
+                                            reference_frame="screen", unit="degrees",
+                                            conversion=2.0)
+        else:
+            container.create_timeseries(name="tracking_data", data=data, rate=1000.0,
+                                        unit="a.u.", conversion=2.0)
+        nwb.add_acquisition(container)
+        path = tmp_path / "behavior.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+
+        expected = 2.0 * (data[:, 1] if data.ndim == 2 else data)
+        for name in ("tracking", "tracking_data", "tracking/tracking_data"):
+            got, fs_hz = acquisition_channel(path, name=name, channel=1 if data.ndim == 2 else 0)
+            np.testing.assert_array_equal(got, expected)
+            assert fs_hz == 1000.0
+
+    @pytest.mark.parametrize("kind", ["TimeSeries", "AbstractFeatureSeries"])
+    def test_a_series_without_electrodes_is_time_first(self, tmp_path, kind):
+        """A series with no electrode region has nothing to arbitrate its layout, and the NWB
+        schema puts time on the first axis of every TimeSeries subtype: five samples of ten
+        values are read as ten channels of five samples, whichever side is longer."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+        from pynwb.behavior import BehavioralTimeSeries
+        from pynwb.misc import AbstractFeatureSeries
+
+        data = np.arange(50.0).reshape(5, 10)
+        nwb = NWBFile("s", "short", datetime(2026, 1, 1, tzinfo=tzutc()))
+        if kind == "TimeSeries":
+            series = TimeSeries(name="values", data=data, rate=100.0, unit="a.u.")
+        else:
+            series = AbstractFeatureSeries(name="values", data=data, rate=100.0,
+                                           features=[f"f{i}" for i in range(10)],
+                                           feature_units=["a.u."] * 10)
+        container = BehavioralTimeSeries(name="behavior", time_series=series)
+        nwb.add_acquisition(container)
+        path = tmp_path / "short.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+
+        got, _ = acquisition_channel(path, name="values", channel=3)
+        np.testing.assert_array_equal(got, data[:, 3])
+        entry = next(e for e in inspect(path)["acquisitions"] if e["name"] == "behavior")
+        assert entry["layout"] == "time_by_channel"
+
+    def test_an_in_memory_series_without_electrodes_is_time_first(self):
+        """The object walk, which only an `NWBFile` with no file behind it reaches, applies the
+        same time-first rule as the file walk above."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBFile, TimeSeries
+
+        nwb = NWBFile("s", "short", datetime(2026, 1, 1, tzinfo=tzutc()))
+        nwb.add_acquisition(TimeSeries(name="values", data=np.arange(50.0).reshape(5, 10),
+                                       rate=100.0, unit="a.u."))
+        assert getattr(nwb, "container_source", None) is None  # else inspect reads the file
+        entry = next(e for e in inspect(nwb)["acquisitions"] if e["name"] == "values")
+        assert entry["layout"] == "time_by_channel"
+
+    def test_both_call_forms_unwrap_a_behavior_container_alike(self, tmp_path):
+        """The object walk unwrapped only `LFP`, so an in-memory behavior container reported no
+        series, shape or layout, and one in a processing module was left out, while the file
+        form of the same file reported all of them."""
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+        from pynwb.behavior import BehavioralTimeSeries, PupilTracking
+        from jnwb.nwb_inspect import CONTINUOUS_KEYS
+
+        def build():
+            nwb = NWBFile("s", "forms", datetime(2026, 1, 1, tzinfo=tzutc()))
+            nwb.add_acquisition(BehavioralTimeSeries(name="behavior", time_series=TimeSeries(
+                name="values", data=np.arange(50.0).reshape(5, 10), rate=100.0, unit="a.u.")))
+            pupil = PupilTracking(name="pupil")
+            for side in ("left", "right"):
+                pupil.create_timeseries(name=side, data=np.zeros(5), rate=100.0, unit="a.u.")
+            nwb.add_acquisition(pupil)
+            nwb.create_processing_module("behavior", "processed").add(BehavioralTimeSeries(
+                name="speed", time_series=TimeSeries(name="speed", data=np.zeros(8), rate=50.0,
+                                                     unit="m/s")))
+            return nwb
+
+        def view(info):
+            return {key: {e["name"]: {k: e[k] for k in CONTINUOUS_KEYS} for e in info[key]}
+                    for key in ("acquisitions", "processing_continuous")}
+
+        path = tmp_path / "forms.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(build())
+        from_file = view(inspect(path))
+        assert from_file["acquisitions"]["behavior"]["layout"] == "time_by_channel"
+        assert from_file["acquisitions"]["pupil"]["series"] == ["left", "right"]
+        assert set(from_file["processing_continuous"]) == {"speed"}
+        assert view(inspect(build())) == from_file
+
+    def test_behavior_container_with_two_series_is_ambiguous(self, tmp_path):
+        from datetime import datetime
+        from dateutil.tz import tzutc
+        from pynwb import NWBHDF5IO, NWBFile
+        from pynwb.behavior import PupilTracking
+
+        nwb = NWBFile("s", "two", datetime(2026, 1, 1, tzinfo=tzutc()))
+        pupil = PupilTracking(name="pupil")
+        for sname in ("left", "right"):
+            pupil.create_timeseries(name=sname, data=np.zeros(5), rate=100.0, unit="a.u.")
+        nwb.add_acquisition(pupil)
+        path = tmp_path / "two.nwb"
+        with NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+        with pytest.raises(AmbiguousAcquisitionError, match="wraps 2 series"):
+            acquisition_channel(path, name="pupil")
+        got, _ = acquisition_channel(path, name="pupil/right")
+        assert got.size == 5
+
     def test_1d_electrical_series_channel_access(self, tmp_path):
         from datetime import datetime
         from dateutil.tz import tzutc
@@ -240,4 +369,88 @@ class TestNWBReadHelpers:
         expected = raw_int[:, 0].astype(np.float64) * conversion + offset
         np.testing.assert_allclose(data, expected)
         assert fs == 1000.0
+
+    def test_channel_conversion_scales_each_channel(self, tmp_path):
+        """NWB: physical = data * conversion * channel_conversion[ch] + offset.
+
+        The same stored count on three channels must come back as three different voltages.
+        What would pass while the factor is ignored: a test whose factors are all 1, or one
+        that reads only channel 0.
+        """
+        from datetime import datetime, timezone
+        from pynwb import NWBFile, NWBHDF5IO
+        from pynwb.ecephys import ElectricalSeries
+
+        path = tmp_path / "channel_conversion.nwb"
+        nwb = NWBFile(session_description="cc", identifier="cc",
+                      session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+        dev = nwb.create_device(name="d")
+        grp = nwb.create_electrode_group(name="g", description="g", location="x", device=dev)
+        for _ in range(3):
+            nwb.add_electrode(group=grp, location="x")
+        region = nwb.create_electrode_table_region([0, 1, 2], "all")
+        factors, conversion, offset = [1.0, 2.0, 0.5], 1e-6, 1e-3
+        raw = np.full((50, 3), 100, dtype=np.int16)
+        nwb.add_acquisition(ElectricalSeries(
+            name="es", data=raw, electrodes=region, rate=1000.0, conversion=conversion,
+            offset=offset, channel_conversion=factors))
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+
+        for ch, factor in enumerate(factors):
+            data, _ = acquisition_channel(path, name="es", channel=ch)
+            np.testing.assert_allclose(data, 100 * conversion * factor + offset, rtol=0, atol=1e-15)
+
+
+def _series_starting_at(start_s):
+    """An in-memory NWB file whose one ElectricalSeries starts at ``start_s`` seconds."""
+    from datetime import datetime, timezone
+    from pynwb import NWBFile
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = NWBFile(session_description="st", identifier="st",
+                  session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    dev = nwb.create_device(name="d")
+    grp = nwb.create_electrode_group(name="g", description="g", location="x", device=dev)
+    for _ in range(2):
+        nwb.add_electrode(group=grp, location="x")
+    region = nwb.create_electrode_table_region([0, 1], "all")
+    nwb.add_acquisition(ElectricalSeries(name="lfp", data=np.zeros((100, 2)), electrodes=region,
+                                         rate=1000.0, starting_time=start_s))
+    return nwb
+
+
+class TestStartingTime:
+    """Sample 0 of an acquisition_channel array is at the series' starting_time, and event
+    times are session times. jnwb reports the offset and warns; it does not shift anything.
+    What would pass while the offset is lost: checking only a series that starts at 0."""
+
+    @pytest.mark.parametrize("start_s", [0.0, 5.0])
+    def test_inspect_reports_starting_time_in_both_forms(self, tmp_path, start_s):
+        from pynwb import NWBHDF5IO
+        nwb = _series_starting_at(start_s)
+        in_memory = inspect(nwb)["acquisitions"][0]["starting_time"]
+        path = tmp_path / "st.nwb"
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        assert in_memory == inspect(path)["acquisitions"][0]["starting_time"] == start_s
+
+    def test_a_nonzero_starting_time_warns_and_a_zero_one_does_not(self, tmp_path):
+        import warnings
+        from pynwb import NWBHDF5IO
+        for start_s in (0.0, 5.0):
+            path = tmp_path / f"st{start_s}.nwb"
+            with NWBHDF5IO(str(path), "w") as io:
+                io.write(_series_starting_at(start_s))
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                data, _ = acquisition_channel(path, name="lfp", channel=0)
+            ours = [w for w in caught if "starting_time" in str(w.message)]
+            assert data.shape == (100,)
+            if start_s == 0.0:
+                assert ours == [], [str(w.message) for w in ours]
+            else:
+                assert len(ours) == 1 and issubclass(ours[0].category, UserWarning)
+                assert "5.0 s" in str(ours[0].message)
+                assert "epoch_continuous" in str(ours[0].message)
 

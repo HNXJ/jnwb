@@ -53,7 +53,10 @@ from ._backend import (
     warn_no_gpu_path,
 )
 from ._parallel import parallel_map
+from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
+from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._layout import require_trial_length
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from scipy import stats
 
@@ -63,6 +66,25 @@ log = logging.getLogger(__name__)
 #: re-exported here unchanged so this module's existing consumers and internal uses below
 #: keep working without modification.
 from .spectral import CANONICAL_BANDS
+
+
+def _fixed_order(order: Any, func_name: str) -> int:
+    """A caller-fixed autoregressive order as an int, or ``ValueError``.
+
+    ``int()`` alone accepted ``0`` (a model with no history, returning zero causality),
+    truncated ``2.5`` to ``2`` and read ``True`` as ``1``. An integral float such as ``3.0``
+    is accepted as the integer it names.
+    """
+    if isinstance(order, (bool, np.bool_)) or isinstance(order, str):
+        raise ValueError(f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}")
+    try:
+        as_float = float(order)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}") from None
+    if not np.isfinite(as_float) or as_float != int(as_float) or as_float < 1:
+        raise ValueError(f"{func_name}: order must be 'auto' or an integer >= 1; got {order!r}")
+    return int(as_float)
 
 
 def _discrete_mi_from_labels(x: np.ndarray, y: np.ndarray) -> float:
@@ -131,16 +153,10 @@ def spike_mutual_information(
             "spike_mutual_information requires non-empty spike_times1 and spike_times2"
         )
 
-    bins1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)
-    n_bins = bins1.shape[-1]
-    if n_bins <= 1:
-        return 0.0
-
-    t_start, t_end = time_window_s
-    bin_sec = bin_size_ms / 1000.0
-    bin_edges = float(t_start) + bin_sec * np.arange(n_bins + 1)
-    hist1, _ = np.histogram(np.sort(spike_times1), bins=bin_edges)
-    hist2, _ = np.histogram(np.sort(spike_times2), bins=bin_edges)
+    whole_bin_count(time_window_s, bin_size_ms / 1000.0, "spike_mutual_information",
+                    "time_window_s", unit="s")
+    hist1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
+    hist2 = bin_spikes(spike_times2, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
 
     if estimator == "binary_occupancy":
         x = (hist1 > 0).astype(int)
@@ -191,7 +207,7 @@ def spike_count_mutual_information(
 
 
 def _residual_variance(residuals: np.ndarray) -> float:
-    """Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07).
+    """Maximum-likelihood residual variance: RSS divided by the sample count N.
 
     Took an ``n_params`` argument until 0.2.5 and never read it, so both call sites passed a
     parameter count into a divisor that was always ``N``. Removed rather than honoured: the
@@ -222,6 +238,7 @@ def fit_var_bivariate(
     ridge: float = 0.0,
     return_residuals: bool = False,
     context: str = "fit_var_bivariate",
+    ran_on: Optional[list] = None,
 ) -> Union[Tuple[float, float], Tuple[float, float, np.ndarray, np.ndarray]]:
     """
     Fit restricted and unrestricted VAR(p) models for bivariate Granger causality.
@@ -239,6 +256,8 @@ def fit_var_bivariate(
         context: The public function the caller invoked, used in device warnings.
             `fit_var_bivariate` is not exported, so naming it sends the reader to code
             they did not call.
+        ran_on: When given, receives the device this fit ran on, so a caller that fits
+            many times can tell whether one of them fell back.
     """
     resolved = resolve_device(device, context=context, prefer="cupy")
     if resolved == CUDA and ridge > 0:
@@ -286,13 +305,17 @@ def fit_var_bivariate(
             )
 
             if return_residuals:
-                return (
+                result = (
                     var_restricted,
                     var_unrestricted,
                     cp.asnumpy(residuals_restr),
                     cp.asnumpy(residuals_unrestr),
                 )
-            return var_restricted, var_unrestricted
+            else:
+                result = (var_restricted, var_unrestricted)
+            if ran_on is not None:
+                ran_on.append(CUDA)
+            return result
         except Exception as e:
             warn_device_fallback(context, e)
             log.warning(f"CUDA VAR fitting failed: {e}. Falling back to CPU.")
@@ -326,6 +349,8 @@ def fit_var_bivariate(
     residuals_unrestr = target - XY_reg @ beta_unrestr
     var_unrestricted = _residual_variance(residuals_unrestr)
 
+    if ran_on is not None:
+        ran_on.append(CPU)
     if return_residuals:
         return var_restricted, var_unrestricted, residuals_restr, residuals_unrestr
     return float(var_restricted), float(var_unrestricted)
@@ -354,9 +379,13 @@ def select_optimal_lag(
     criterion: str = "aic",
     ridge: float = 0.0,
     context: str = "select_optimal_lag",
+    ran_on: Optional[list] = None,
 ) -> int:
     """
     Select optimal VAR order p using AIC, BIC, or HQIC on the unrestricted model.
+
+    ``ran_on``, when given, receives the device of every fit, as in
+    :func:`fit_var_bivariate`.
     """
     n = len(x)
     best_ic = float("inf")
@@ -378,7 +407,7 @@ def select_optimal_lag(
 
     for p in range(1, actual_max + 1):
         _, var_unrestricted = fit_var_bivariate(
-            x, y, p, device=resolved, ridge=ridge, context=context)
+            x, y, p, device=resolved, ridge=ridge, context=context, ran_on=ran_on)
         n_samples = n - p
         n_params = 2 * p + 1
         ic = _info_criterion(n_samples, var_unrestricted, n_params, criterion)
@@ -430,7 +459,9 @@ def _ljung_box_pvalue(residuals: np.ndarray, nlags: int = 10) -> float:
     """Ljung–Box portmanteau test p-value on residual autocorrelations."""
     r = np.asarray(residuals, dtype=float).ravel()
     n = len(r)
-    if n < nlags + 2:
+    # Constant residuals have no autocorrelation to test; centred, they were rounding residue
+    # whose "autocorrelation" was 1 at every lag, and p read 0.0.
+    if n < nlags + 2 or is_constant(r):
         return float("nan")
     r = r - np.mean(r)
     denom = np.dot(r, r)
@@ -485,11 +516,14 @@ def granger_causality(
     F_1_to_2 is the directional causality from Signal 1 -> Signal 2
 
     Also returns residual diagnostics (lightweight ADF + Ljung–Box). Do not interpret
-    GC as biological directionality when diagnostics warn.
+    GC as biological directionality when diagnostics warn. ``device_used`` names the
+    device ('cpu' or 'cuda') that ran every fit.
 
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
-        and cross-spectral methods. Econometrica. doi:10.2307/1912791
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
+        causality: one series causes another when its past improves the prediction of
+        the other beyond the other's own past.
     """
     warnings.warn(
         "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
@@ -499,10 +533,8 @@ def granger_causality(
     s1 = np.asarray(signal1).flatten()
     s2 = np.asarray(signal2).flatten()
 
-    std1 = np.std(s1)
-    std2 = np.std(s2)
-    s1 = (s1 - np.mean(s1)) / std1 if std1 > 0 else np.zeros_like(s1)
-    s2 = (s2 - np.mean(s2)) / std2 if std2 > 0 else np.zeros_like(s2)
+    s1 = zscore(s1.astype(float), axis=0)
+    s2 = zscore(s2.astype(float), axis=0)
 
     # One device decision for the whole call, announced under the name the caller used.
     # With order='auto' this function reaches `fit_var_bivariate` up to 2*max_lag + 2
@@ -514,29 +546,40 @@ def granger_causality(
             "the ridge-penalised solver has no GPU path (pass ridge=0 to use the GPU)")
         resolved = CPU
 
-    if order == "auto":
-        order_2_to_1 = select_optimal_lag(
-            s1, s2, device=resolved, criterion=criterion, ridge=ridge,
-            context="granger_causality"
+    def _fit_all(dev, ran_on):
+        if order == "auto":
+            o21 = select_optimal_lag(
+                s1, s2, device=dev, criterion=criterion, ridge=ridge,
+                context="granger_causality", ran_on=ran_on
+            )
+            o12 = select_optimal_lag(
+                s2, s1, device=dev, criterion=criterion, ridge=ridge,
+                context="granger_causality", ran_on=ran_on
+            )
+        else:
+            o21 = o12 = _fixed_order(order, "granger_causality")
+        fit21 = fit_var_bivariate(
+            s1, s2, o21, device=dev, ridge=ridge, return_residuals=True,
+            context="granger_causality", ran_on=ran_on
         )
-        order_1_to_2 = select_optimal_lag(
-            s2, s1, device=resolved, criterion=criterion, ridge=ridge,
-            context="granger_causality"
+        fit12 = fit_var_bivariate(
+            s2, s1, o12, device=dev, ridge=ridge, return_residuals=True,
+            context="granger_causality", ran_on=ran_on
         )
-    else:
-        order_2_to_1 = int(order)
-        order_1_to_2 = int(order)
+        return o21, o12, fit21, fit12
 
-    var_r1, var_u1, res_r1, res_u1 = fit_var_bivariate(
-        s1, s2, order_2_to_1, device=resolved, ridge=ridge, return_residuals=True,
-        context="granger_causality"
-    )
+    # Every fit of one call runs on one device. A fit that fell back has already warned;
+    # the fits that did run on the GPU are discarded and the whole call recomputed on the
+    # CPU, so the order selection and both F statistics come from one estimator and
+    # `device_used` names it.
+    ran_on = []
+    order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(resolved, ran_on)
+    if resolved == CUDA and CPU in ran_on:
+        resolved = CPU
+        order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(CPU, None)
+    var_r1, var_u1, res_r1, res_u1 = fit21
+    var_r2, var_u2, res_r2, res_u2 = fit12
     f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
-
-    var_r2, var_u2, res_r2, res_u2 = fit_var_bivariate(
-        s2, s1, order_1_to_2, device=resolved, ridge=ridge, return_residuals=True,
-        context="granger_causality"
-    )
     f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
 
     diag_2_to_1 = _series_diagnostics(s1, res_u1, order_2_to_1)
@@ -562,6 +605,7 @@ def granger_causality(
             "warnings": all_warnings,
             "ok_for_interpretation": len(all_warnings) == 0,
         },
+        "device_used": resolved,
     }
 
 
@@ -810,10 +854,7 @@ def _detrend_trials(a: np.ndarray, mode: Optional[str]) -> np.ndarray:
     if mode == "demean":
         return a - a.mean(axis=1, keepdims=True)
     if mode == "zscore":
-        mu = a.mean(axis=1, keepdims=True)
-        sd = a.std(axis=1, keepdims=True)
-        sd = np.where(sd > 0, sd, 1.0)
-        return (a - mu) / sd
+        return zscore(a, axis=1)
     if mode == "linear":
         n = a.shape[1]
         t = np.linspace(-1.0, 1.0, n)
@@ -848,8 +889,9 @@ def bin_spikes(
 
     Temporal Axis Contract
     ----------------------
-    - **Bins**: $K = \operatorname{round}((t_1 - t_0) / \Delta)$ intervals, where
+    - **Bins**: $K = (t_1 - t_0) / \Delta$ intervals, where
       $t_0, t_1 = \text{window}$ (seconds) and $\Delta = \text{bin\_size\_ms} / 1000$ (seconds).
+      $K$ must be a whole number, so every bin is $\Delta$ wide.
       Each bin $k \in \{0, \dots, K-1\}$ covers the right-open interval:
       $$[t_k, t_{k+1}) = [t_0 + k\Delta,\; t_0 + (k+1)\Delta)$$
     - **Boundary Exclusion**: Spikes strictly prior to $t_0$ ($t < t_0$) or at/beyond
@@ -872,6 +914,10 @@ def bin_spikes(
 
     Returns:
         ``(n_trials, n_bins)`` float array, or ``(array, centers)`` if ``return_centers=True``.
+
+    Raises:
+        ValueError: If the span of ``window_s`` is not a whole multiple of ``bin_size_ms``;
+            the message names the nearest valid windows.
     """
     # `window` named no unit while its neighbour `bin_size_ms` did, in the same call.
     # Both are times, one in seconds and one in milliseconds, and only one said so.
@@ -885,12 +931,12 @@ def bin_spikes(
     if not t1 > t0:
         raise ValueError(f"window_s must satisfy end > start; got {window_s}")
     bin_sec = float(bin_size_ms) / 1000.0
-    n_bins = int(round((t1 - t0) / bin_sec))
+    n_bins = whole_bin_count((t0, t1), bin_sec, "bin_spikes", "window_s", unit="s")
     if n_bins < 2:
         raise ValueError(
-            f"window {window} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
+            f"window_s {window_s} at bin_size_ms={bin_size_ms} yields {n_bins} bins; need >= 2"
         )
-    edges = t0 + bin_sec * np.arange(n_bins + 1)
+    edges = bin_edges(t0, bin_sec, n_bins)
 
     n_nonfinite = _count_nonfinite_spikes(spike_times, trial_starts)
     if n_nonfinite:
@@ -906,24 +952,15 @@ def bin_spikes(
 
     if trial_starts is not None:
         st = np.asarray(spike_times, dtype=float).ravel()
-        rows = []
-        for start in np.asarray(trial_starts, dtype=float).ravel():
-            rel = st - float(start)
-            rel = rel[(rel >= t0) & (rel < t1)]
-            rows.append(np.histogram(rel, bins=edges)[0])
+        trains = (st - float(start) for start in np.asarray(trial_starts, dtype=float).ravel())
+    elif isinstance(spike_times, (list, tuple)) and (
+        len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
+    ):
+        trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
     else:
-        if isinstance(spike_times, (list, tuple)) and (
-            len(spike_times) == 0 or np.ndim(spike_times[0]) >= 1
-        ):
-            trains = [np.asarray(s, dtype=float).ravel() for s in spike_times]
-        else:
-            trains = [np.asarray(spike_times, dtype=float).ravel()]
-        rows = []
-        for s in trains:
-            filtered = s[(s >= t0) & (s < t1)]
-            rows.append(np.histogram(filtered, bins=edges)[0])
+        trains = [np.asarray(spike_times, dtype=float).ravel()]
 
-    counts = np.asarray(rows, dtype=float)
+    counts = right_open_counts(trains, t0, t1, bin_sec, n_bins)
     if counts.size == 0:
         raise ValueError("bin_spikes produced no trials")
     out = counts / bin_sec if output == "rate" else counts
@@ -1063,15 +1100,32 @@ def granger(
 
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
-        and cross-spectral methods. Econometrica. doi:10.2307/1912791
+        and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
+        causality: X causes Y when the past of X improves the prediction of Y beyond the
+        past of Y.
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
-        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the measure
+        of linear feedback, the log ratio of restricted to unrestricted residual variance,
+        which is ``x_to_y``.
+        Geweke, J. F. (1984). Measures of conditional linear dependence and feedback
+        between time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1984.10477110
+        -- the conditional measure, with the past of `Z` in both models.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    # Checked on the resolved trial shape, before detrending: a transposed array read as many
+    # very short trials pools into plenty of design rows, so nothing further down is short of
+    # data and nothing raised. The missing quantity is within-trial extent.
+    require_trial_length(
+        x,
+        max_lag if isinstance(order, str) else _fixed_order(order, "granger"),
+        "granger",
+        history_name="max_lag" if isinstance(order, str) else "order",
+        time_axis=time_axis,
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
 
@@ -1105,7 +1159,7 @@ def granger(
         rss_u, res_u = _ols_rss(d_u, yy, ridge)
         df_u = n_obs - d_u.shape[1]
         df_extra = d_u.shape[1] - d_r.shape[1]
-        # Sample-size normalized ML residual variance RSS / N (0.2.3-REV-07)
+        # Maximum-likelihood residual variance, RSS / N, as in `_residual_variance`
         sig2_r = rss_r / max(n_obs, 1)
         sig2_u = rss_u / max(n_obs, 1)
         # A zero unrestricted residual variance means the VAR could not be fitted, not
@@ -1155,9 +1209,7 @@ def granger(
         order_xy = _select_order(x, y)
         order_yx = _select_order(y, x)
     else:
-        order_xy = order_yx = int(order)
-        if order_xy < 1:
-            raise ValueError(f"order must be >= 1; got {order}")
+        order_xy = order_yx = _fixed_order(order, "granger")
 
     fit_xy = _one_direction(x, y, order_xy)  # X -> Y
     fit_yx = _one_direction(y, x, order_yx)  # Y -> X
@@ -1355,13 +1407,22 @@ def granger_spectral(
 
     References:
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
-        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803
+        time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the
+        frequency decomposition of the measure of linear feedback, from the transfer
+        function of the fitted VAR.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    require_trial_length(
+        x,
+        max_lag if isinstance(order, str) else _fixed_order(order, "granger_spectral"),
+        "granger_spectral",
+        history_name="max_lag" if isinstance(order, str) else "order",
+        time_axis=time_axis,
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
@@ -1373,9 +1434,7 @@ def granger_spectral(
         )
         p = int(max(probe.params["order_x_to_y"], probe.params["order_y_to_x"]))
     else:
-        p = int(order)
-        if p < 1:
-            raise ValueError(f"order must be >= 1; got {order}")
+        p = _fixed_order(order, "granger_spectral")
 
     a, sigma, n_obs = _fit_var_matrix([x, y], p, ridge=ridge)
     radius = _var_spectral_radius(a)
@@ -1592,6 +1651,34 @@ def _psi_from_spectra(
     return float(np.sum(np.imag(np.conj(c[:-1]) * c[1:])))
 
 
+def _psi_leave_one_out(fx: np.ndarray, fy: np.ndarray, idx: np.ndarray) -> np.ndarray:
+    """PSI over ``idx`` with each segment left out in turn: one replicate per segment.
+
+    Replicate ``i`` is ``_psi_from_spectra`` on every segment but ``i``. Its spectra are means
+    over the remaining segments, and each such sum is a prefix sum plus a suffix sum, so all
+    ``S`` replicates cost T(S * B) over the ``B`` bins in ``idx`` instead of T(S^2 * F) for
+    recomputing each from its segments. The two sums are added rather than one segment being
+    subtracted from the total: a subtraction cancels when one segment holds most of a bin's power.
+    """
+    ax = fx[:, idx]
+    ay = fy[:, idx]
+    n_seg = ax.shape[0]
+
+    def left_out_mean(v: np.ndarray) -> np.ndarray:
+        before = np.zeros_like(v)
+        np.cumsum(v[:-1], axis=0, out=before[1:])
+        after = np.zeros_like(v)
+        after[:-1] = np.cumsum(v[:0:-1], axis=0)[::-1]
+        return (before + after) / (n_seg - 1)
+
+    sxy = left_out_mean(ax * np.conj(ay))
+    sxx = left_out_mean(np.abs(ax) ** 2)
+    syy = left_out_mean(np.abs(ay) ** 2)
+    denom = np.sqrt(sxx * syy)
+    coh = np.divide(sxy, denom, out=np.zeros_like(sxy), where=denom > 0)
+    return np.sum(np.imag(np.conj(coh[:, :-1]) * coh[:, 1:]), axis=1)
+
+
 def phase_slope_index(
     X,
     Y,
@@ -1655,11 +1742,17 @@ def phase_slope_index(
         DirectedResult with ``unit='psi'``, ``per_band[name] = {value, z, sd,
         n_freq_bins, band_hz}``, and ``spectrum = {freqs, psi_per_freq, coherence}``.
         ``x_to_y`` is the summed PSI over the whole requested range with
-        ``y_to_x = -x_to_y``; ``net == x_to_y``.
+        ``y_to_x = -x_to_y``; ``net == x_to_y``. When no band holds the two frequency bins a
+        slope needs, ``x_to_y``, ``y_to_x`` and ``net`` are NaN and
+        ``diagnostics['ok_for_interpretation']`` is False.
 
     References:
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
         complex physical systems. Phys. Rev. Lett. doi:10.1103/PhysRevLett.100.234101
+        -- PSI, eq. 3, summed over the coherency of eq. 4 with the cross-spectrum
+        ``S_xy = <X Y*>`` of eq. 2; ``z`` is the normalization of eq. 6. The paper's
+        jackknife leaves out one epoch, a block of several segments, at a time; this one
+        leaves out one Welch segment, and adjacent segments overlap by ``noverlap``.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     if fs is None or not np.isfinite(fs) or fs <= 0:
@@ -1769,13 +1862,8 @@ def phase_slope_index(
 
         sd = float("nan")
         if jackknife and n_seg >= 3:
-            jk = np.empty(n_seg)
-            keep = np.ones(n_seg, dtype=bool)
-            for i in range(n_seg):
-                keep[i] = False
-                jk[i] = _psi_from_spectra(fx[keep], fy[keep], idx)
-                keep[i] = True
-            sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+            jk = _psi_leave_one_out(fx, fy, idx)
+            sd =float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
             jk_per_band[name] = jk
         elif jackknife:
             warnings_all.append("jackknife_needs_at_least_3_segments")
@@ -1813,9 +1901,11 @@ def phase_slope_index(
                 else None
             )
 
-    total = float(np.nansum([v["value"] for v in per_band.values()]))
+    band_values = np.array([v["value"] for v in per_band.values()], dtype=float)
+    # np.nansum of an all-NaN array is 0.0, which reads as "no lead" when no band had a slope.
+    total = float(np.nansum(band_values)) if np.isfinite(band_values).any() else float("nan")
 
-    # Top-level omnibus p-value extraction across evaluated bands (0.2.3-REV-08)
+    # One top-level p-value across the evaluated bands
     p_top = None
     if len(per_band) == 1:
         single = next(iter(per_band.values()))
@@ -2022,7 +2112,8 @@ def transfer_entropy(
     TE is positively biased at finite sample size, so a raw TE > 0 means nothing
     on its own. This implementation therefore runs a surrogate test by default
     and reports both the raw value and ``bias_corrected`` (raw minus surrogate
-    mean, the "effective transfer entropy").
+    mean, the "effective transfer entropy"). With ``n_surrogates=0`` there is no
+    null to subtract and the ``bias_corrected_*`` keys are absent.
 
     Args:
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
@@ -2053,7 +2144,15 @@ def transfer_entropy(
 
     References:
         Schreiber, T. (2000). Measuring information transfer. Phys. Rev. Lett.
-        doi:10.1103/PhysRevLett.85.461
+        doi:10.1103/PhysRevLett.85.461 -- transfer entropy, eq. 4, with target history
+        `k` and source history `l`; ``delay=1`` is the paper's alignment.
+        Bandt, C., & Pompe, B. (2002). Permutation entropy: a natural complexity measure for
+        time series. Phys. Rev. Lett. doi:10.1103/PhysRevLett.88.174102 -- the ordinal
+        patterns used as states by ``estimator='symbolic'``.
+        Marschinski, R., & Kantz, H. (2002). Eur. Phys. J. B.
+        doi:10.1140/epjb/e2002-00379-2 -- effective transfer entropy, the raw value minus
+        the surrogate mean, reported as ``bias_corrected_*``. The surrogates here permute
+        trials or circularly shift the source, which keeps its autocorrelation.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     if estimator not in ("quantile", "uniform", "discrete", "symbolic"):
@@ -2064,6 +2163,14 @@ def transfer_entropy(
         raise ValueError(f"k, l, delay must all be >= 1; got k={k}, l={l}, delay={delay}")
 
     x, y = _pair_trials(X, Y, time_axis=time_axis)
+    # The embedding consumes max(k, delay * l) leading samples per trial, and `symbolic`
+    # consumes symbolic_order - 1 more before that.
+    _history = max(int(k), int(delay) * int(l))
+    if estimator == "symbolic":
+        _history += int(symbolic_order) - 1
+    require_trial_length(
+        x, _history, "transfer_entropy", history_name="k/l/delay", time_axis=time_axis
+    )
     x = _detrend_trials(x, detrend)
     y = _detrend_trials(y, detrend)
     n_trials, n_times = x.shape
@@ -2169,8 +2276,15 @@ def transfer_entropy(
             "n_joint_states_x_to_y": int(n_joint_xy),
             "n_joint_states_y_to_x": int(n_joint_yx),
             "samples_per_joint_state": float(samples_per_state),
-            "bias_corrected_x_to_y": eff_xy,
-            "bias_corrected_y_to_x": eff_yx,
+            # Only present when surrogates ran. Without them there is no null
+            # mean to subtract, and eff_* still holds the raw estimate -- a
+            # value under this name would claim a correction that never
+            # happened. Granger reports the pair the same way.
+            **(
+                {"bias_corrected_x_to_y": eff_xy, "bias_corrected_y_to_x": eff_yx}
+                if n_surrogates > 0
+                else {}
+            ),
             "surrogates": surrogate_info,
             "warnings": warnings_all,
             "ok_for_interpretation": len(warnings_all) == 0,
@@ -2246,6 +2360,14 @@ def directed_network(
         diagonal NaN), ``p_matrix``, ``q_matrix`` (NaN when ``fdr=False`` or no
         p-values), ``labels``, ``results`` (the full DirectedResult per ordered
         pair), ``method``, and ``warnings``.
+
+    References:
+        Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
+        Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up procedure
+        behind ``q_matrix`` (``fdr_method='bh'``).
+        Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in
+        multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+        -- ``fdr_method='by'``, valid under arbitrary dependence.
     """
     if isinstance(signals, dict):
         labels = list(signals.keys())
@@ -2290,9 +2412,15 @@ def directed_network(
                 warnings_all.append(tag)
 
     q_matrix = np.full((n, n), np.nan)
+    # The family is the set of off-diagonal p-values that actually reached
+    # false_discovery_control, not every off-diagonal cell: an estimator that
+    # returns no p-value (TE without surrogates) or a pair that failed leaves
+    # NaN, and those cells are never corrected.
+    fdr_family_size = 0
     if fdr:
         off = ~np.eye(n, dtype=bool)
         finite = off & np.isfinite(p_matrix)
+        fdr_family_size = int(finite.sum())
         if finite.any():
             q_matrix[finite] = stats.false_discovery_control(
                 p_matrix[finite], method=fdr_method
@@ -2305,7 +2433,7 @@ def directed_network(
         "labels": labels,
         "method": method,
         "n_nodes": n,
-        "fdr_family_size": int(n * (n - 1)) if fdr else 0,
+        "fdr_family_size": fdr_family_size,
         "results": results,
         "params": kwargs,
         "warnings": warnings_all,

@@ -1,16 +1,14 @@
 # 04. Spectral Analysis, Coherence & Time-Frequency Representations (TFR)
 
-This document details spectral power estimation, time-frequency decomposition, cross-area coherence, memory-efficient accumulation, coordinate-explicit band extraction, and decibel transformations in `jnwb`.
+Power spectra, decibel formation, coherence, and Morlet TFRs with streaming accumulation.
 
 ---
 
 ## 1. Canonical Frequency Bands & Spectral Decomposition (`jnwb.spectral`)
 
-`jnwb.spectral` provides standard tools for computing spectral power density, cross-spectral density, coherence, and referencing.
-
 ### Canonical Frequency Bands (`CANONICAL_BANDS`)
 
-Unless customized by the user, `jnwb` standardizes frequency bands across modules:
+One band table, shared across modules:
 
 ```python
 import jnwb
@@ -100,10 +98,9 @@ stands -- pass power and baseline, never decibels.
 `nan_policy="omit"` aggregates over non-NaN entries only. Artifact repair legitimately leaves
 NaNs behind, so this is a real choice, but never a silent one.
 
-#### Direct Relative Power (`relative_power`)
+### Direct Relative Power (`relative_power`)
 
-`relative_power` computes power ratios against baseline without premature logarithmic conversions,
-providing explicit mathematical model selection:
+`relative_power` forms the ratio against baseline under a named model:
 
 ```python
 # Linear mean of ratios: E[P / B] (equal unit weighting)
@@ -116,11 +113,15 @@ rel_weighted = jnwb.relative_power(power, baseline, model="ratio_of_means", axis
 rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
 ```
 
-The model names are published in `jnwb.RELATIVE_POWER_MODELS`. The library guarantees:
-$\text{requested estimand} = \text{returned estimand}$, with no silent conversion between
-linear and decibel representations.
+The model names are in `jnwb.RELATIVE_POWER_MODELS`. The returned estimand is the requested
+one; nothing converts silently between linear and decibel.
 
-![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png)
+![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
+![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
+
+Panel A of that figure is synthetic per-unit power ratios on the ratio scale. Panel B puts the two
+`jnwb.aggregate_to_db` contracts beside the mean of per-unit decibels, which is the Jensen error
+the log-last rule forbids, and prints all three in dB so the gap is a number rather than a claim.
 
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
@@ -155,6 +156,13 @@ which depth receives input, so check the convention before comparing against a f
 from elsewhere -- the opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
 
+![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png#only-light)
+![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.dark.png#only-dark)
+
+Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
+falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
+aperiodic exponent from it, near -2.
+
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 
 Zero-phase (`zero_phase=True`, acausal forward-backward) and causal (`zero_phase=False`) filtering via Second-Order Sections (SOS):
@@ -166,8 +174,6 @@ beta_lfp = jnwb.bandpass_filter(lfp_trace, fs=1000.0, low_cut=14.0, high_cut=30.
 # 60 Hz line-noise notch filter
 clean_lfp = jnwb.notch_filter(lfp_trace, fs=1000.0, freq=60.0, q=30.0, zero_phase=True)
 ```
-
-![Power Spectral Density and 1/f Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png)
 
 ---
 
@@ -195,6 +201,8 @@ coh_dict = jnwb.cross_area_coherence(
 Measures based on the imaginary cross-spectrum reduce sensitivity specifically to zero-phase-lag
 coupling (instantaneous volume conduction, shared reference contamination). They do not confer
 immunity to non-zero-lag common inputs, source mixing, or reference-induced phase structure.
+`icoh_mean` is signed: positive means the first signal leads, the convention
+`phase_slope_index` follows. `wpli` is unsigned.
 
 ```python
 # Imaginary coherency (Nolte et al. 2004)
@@ -244,22 +252,9 @@ beta_power = TFRAnalyzer.extract_band(
 
 ---
 
-## 4. Decibel Transformation (`to_db`) & Estimand Considerations
+## 4. Complex Morlet Time-Frequency Representations & Accumulation
 
-`jnwb.to_db(ratio)` computes $10 \log_{10}(\text{ratio})$.
-
-### Estimand Aggregation Notice
-For baseline-normalized relative power estimands:
-$$\text{RelPower}(f, t) = \frac{\bar{P}_{\text{response}}(f, t)}{\bar{P}_{\text{baseline}}(f)}$$
-$$\text{Decibels}(f, t) = 10 \log_{10}\left(\text{RelPower}(f, t)\right) = \text{jnwb.to\_db}(\text{RelPower})$$
-
-> **Design Note**: In relative power analyses, averaging raw power across trials before computing the ratio and applying `to_db` once at the end preserves the arithmetic mean of physical power. `jnwb` supplies the mathematical primitive `to_db` without enforcing a fixed aggregation pipeline on arbitrary workflows.
-
----
-
-## 5. Complex Morlet Time-Frequency Representations & Accumulation
-
-### Complex Morlet Transform Primitive (`complex_tfr`, `morlet_wavelet`)
+### Complex Morlet Transform (`complex_tfr`, `morlet_wavelet`)
 
 `jnwb.complex_tfr` computes complex time-frequency coefficients via Morlet wavelets with discrete $L_1$ amplitude normalization:
 
@@ -287,7 +282,12 @@ tfr_res = jnwb.complex_tfr(
 # - tfr_res.amplitude: np.ndarray (|z|)
 ```
 
-![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png)
+![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.png#only-light)
+![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.dark.png#only-dark)
+
+Panel A of that figure is a synthetic LFP trace carrying one transient oscillatory burst and panel B is
+`jnwb.complex_tfr` on it with the cone of influence drawn, so the region the next paragraph
+excludes is visible as an outline rather than described.
 
 **What `coi_mask` excludes, and why the average comes after it.** Convolution runs with
 `mode="same"`, so near each edge part of the kernel hangs off the signal and is filled with
@@ -318,12 +318,15 @@ correct answer -- there is no uncontaminated estimate to report.
 
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
-- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM.
-- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — rewrites electrical-series datasets to `float32` inside an NWB file (path I/O, not in-memory array quantization):
+- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM. Its output has already averaged over trials, so `aggregate_to_db(how="mean_of_ratios")` refuses it; pass per-trial power for that estimand.
+- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). Omitting `select=` is deprecated: it falls back to a preset and warns:
 
 ```python
-# src and dst are filesystem paths to .nwb files
-report = jnwb.compress_fp32("raw_session.nwb", "compressed_session.nwb", verify=True)
+# src and dst are filesystem paths to .nwb files; select names datasets by their path in the file
+report = jnwb.compress_fp32(
+    "raw_session.nwb", "compressed_session.nwb",
+    select=["acquisition/probe_0_lfp/data"], verify=True,
+)
 assert report["verification"]["ok"] is True
 ```
 

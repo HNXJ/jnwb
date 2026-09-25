@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import pytest
 
 from jnwb.addressing import (
     map_peak_channel_to_area,
@@ -259,15 +260,20 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
         }
     )
 
-    enriched = enrich_units_dataframe(units, elec)
+    import pytest
+
+    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
+        enriched = enrich_units_dataframe(units, elec)
+    # The warning points at the caller, not at jnwb internals.
+    assert [w.filename for w in record if "depth_class" in str(w.message)] == [__file__]
 
     # cluster_id renamed to unit_id (SC-002 terminology alignment)
     assert "unit_id" in enriched.columns
     assert list(enriched["unit_id"]) == [10, 11, 12]
 
-    # Real area/layer mapping propagated from electrodes_df.
+    # Real area/depth-class mapping propagated from electrodes_df.
     # Channel 2 has no location (area=missing) but does have a valid
-    # z=800.0, so layer still resolves to 'Superficial' - area and layer
+    # z=800.0, so depth_class still resolves to 'Superficial' - area and depth_class
     # are mapped independently. The missing-area value round-trips through
     # a pandas Series.apply(), which represents it as None on some pandas
     # versions and np.nan on others (confirmed: local pandas 3.0.3 keeps
@@ -277,7 +283,9 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert area_values[0] == "V1"
     assert area_values[1] == "PFC"
     assert pd.isna(area_values[2])
-    assert list(enriched["layer"]) == ["Superficial", "Deep", "Superficial"]
+    assert list(enriched["depth_class"]) == ["Superficial", "Deep", "Superficial"]
+    # The deprecated copy is equal to it, row for row.
+    assert list(enriched["layer"]) == list(enriched["depth_class"])
 
     # Stability flag: quality >= 1.0; legacy stable_plus alias removed
     assert list(enriched["is_stable"]) == [True, False, True]
@@ -289,15 +297,31 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
 
 
 def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
+    import pytest
+
     units = pd.DataFrame({"peak_channel_id": [0, 1]})
-    enriched = enrich_units_dataframe(units, None)
+    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'"):
+        enriched = enrich_units_dataframe(units, None)
 
     assert enriched["area"].isna().all()
+    assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
     assert list(enriched["layer"]) == ["Unknown", "Unknown"]
     assert enriched["group_name"].isna().all()
-    # No quality column provided -> defaults to not-stable, not a crash
-    assert list(enriched["is_stable"]) == [False, False]
+    # No quality column provided -> no stability label is invented
+    assert "is_stable" not in enriched.columns
     assert "stable_plus" not in enriched.columns
+
+
+def test_a_layer_column_the_caller_supplied_is_kept_and_not_warned_about():
+    """Without electrode geometry the function writes no ``layer``, so it has nothing to warn of."""
+    import warnings
+
+    units = pd.DataFrame({"peak_channel_id": [0, 1], "layer": ["L2/3", "L5"]})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        enriched = enrich_units_dataframe(units, None)
+    assert list(enriched["layer"]) == ["L2/3", "L5"]
+    assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
 
 
 def test_enrich_units_dataframe_categorical_quality():
@@ -307,6 +331,52 @@ def test_enrich_units_dataframe_categorical_quality():
     })
     enriched = enrich_units_dataframe(units, None)
     assert list(enriched["is_stable"]) == [True, False, True, False]
+
+
+@pytest.mark.parametrize("quality", [
+    [2.0, np.nan, 0.0, None],
+    ["good", None, "mua", " n/a "],
+    ["1", "", "0", "nan"],
+])
+def test_a_unit_with_no_usable_quality_has_unknown_stability(quality):
+    """A missing quality is no evidence of instability: the unit is <NA>, not False."""
+    units = pd.DataFrame({"unit_id": [0, 1, 2, 3], "quality": pd.Series(quality, dtype=object)})
+    stable = enrich_units_dataframe(units, None)["is_stable"]
+    assert stable.dtype == "boolean"
+    assert stable.isna().tolist() == [False, True, False, True]
+    assert stable.dropna().tolist() == [True, False]
+
+
+def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
+    """NaN, None, blank strings and the text of a missing value are no quality at all."""
+    for quality in (
+        [np.nan, np.nan], [None, None], ["", " "], [None, np.nan], ["nan", "None"], ["NaN", "n/a"],
+        ["<NA>", "NaT"], [" <na> ", None],
+    ):
+        units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series(quality, dtype=object)})
+        enriched = enrich_units_dataframe(units, None)
+        assert "is_stable" not in enriched.columns, quality
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["#N/A", "#N/A N/A", "#NA", "-nan", "-NaN", "1.#IND", "-1.#IND", "1.#QNAN", "-1.#QNAN"],
+)
+def test_every_string_pandas_reads_as_missing_adds_no_stability_label(text):
+    """Strings `pandas.read_csv` turns into NaN by default are missing here too, not a label
+    that is never good."""
+    units = pd.DataFrame({"unit_id": [0, 1], "quality": pd.Series([text, None], dtype=object)})
+    assert "is_stable" not in enrich_units_dataframe(units, None).columns
+
+
+def test_the_copied_missing_strings_match_the_installed_pandas():
+    """The copy used when pandas moves its private name must not lag the real set."""
+    parsers = pytest.importorskip("pandas._libs.parsers")
+    if not hasattr(parsers, "STR_NA_VALUES"):
+        pytest.skip("this pandas does not expose STR_NA_VALUES")
+    from jnwb.addressing import _PANDAS_NA_FALLBACK
+
+    assert set(parsers.STR_NA_VALUES) <= _PANDAS_NA_FALLBACK
 
 
 def test_enrich_units_dataframe_no_fabricated_probeA():
@@ -608,3 +678,15 @@ class TestProbeGeometry:
         assert geom.is_linear is True
         assert geom.is_uniform is True
 
+
+
+def test_an_atlas_layer_label_is_one_location_and_two_areas_still_split():
+    """`VISpm2/3` is layer 2/3 of one area; `V1/V2` is two areas on one probe."""
+    assert parse_probe_areas("VISpm2/3") == ("VISpm2/3",)
+    assert parse_probe_areas("VISp2/3, VISp4") == ("VISp2/3", "VISp4")
+    assert parse_probe_areas("V1/V2") == ("V1", "V2")
+    elec = pd.DataFrame({"location": ["VISpm2/3", "VISpm4"]}, index=[1280, 1281])
+    assert map_peak_channel_to_area(1280, elec) == "VISpm2/3"
+    assert map_peak_channel_to_area(1281, elec) == "VISpm4"
+    probe = pd.DataFrame({"location": ["V1/V2"] * 4, "group_name": ["A"] * 4})
+    assert [map_peak_channel_to_area(i, probe) for i in range(4)] == ["V1", "V1", "V2", "V2"]

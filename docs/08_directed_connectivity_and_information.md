@@ -1,12 +1,11 @@
 # 08. Directed Connectivity, Information Dynamics & Network Topology
 
-This document details directed functional and effective connectivity, spectral Granger causality, Phase Slope Index (PSI), Transfer Entropy (TE), spike mutual information, and network graph topology in `jnwb`.
-
----
-
 ## 1. Overview & Directed Invariants
 
-`jnwb.connectivity` provides estimators for directed interaction between continuous time series (LFP, EEG) and point processes (spike trains).
+`jnwb.connectivity` provides estimators for directed interaction between continuous time series (LFP, EEG) and point processes (spike trains): Granger and spectral Granger, Phase Slope Index (PSI), Transfer Entropy (TE), spike mutual information, and network topology.
+
+The diagram below shows which estimators feed the network layer. Spike mutual information is the
+one that does not: it is a pairwise quantity here and no edge carries it into the graph.
 
 ```mermaid
 graph LR
@@ -21,7 +20,7 @@ graph LR
 
 ### Invariant: Statistical Predictability vs. Physical Causality
 $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
-Granger causality, Phase Slope Index, and Transfer Entropy establish statistical predictability / lag asymmetry in observed time series. `jnwb` distinguishes statistical directed metrics from perturbational physical causality.
+Granger causality, PSI, and TE establish statistical predictability / lag asymmetry in observed time series. `jnwb` distinguishes statistical directed metrics from perturbational physical causality.
 
 ---
 
@@ -55,6 +54,10 @@ print(f"X -> Y: {result.x_to_y:.4f} (p={result.p_x_to_y:.4f})")
 print(f"Y -> X: {result.y_to_x:.4f} (p={result.p_y_to_x:.4f})")
 print(f"Net: {result.net:.4f}")
 ```
+
+`order` is `"auto"` or a fixed integer >= 1. `granger`, `granger_spectral` and
+`granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
+with no history, which would read as no coupling.
 
 ### Spectral Granger (`granger_spectral`)
 
@@ -94,7 +97,12 @@ if psi_res.spectrum is not None:
     print("Freqs:", psi_res.spectrum["freqs"][:3], "...")
 ```
 
-![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png)
+![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
+![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
+
+Panel A of that figure is `jnwb.granger` at order 15 on a synthetic pair with a known lead, and panel B is
+`jnwb.phase_slope_index` on the same pair. Both name a direction in the statistics, and neither
+names one in the tissue, which is the invariant stated above.
 
 ---
 
@@ -102,7 +110,9 @@ if psi_res.spectrum is not None:
 
 Information-theoretic directed coupling with explicit discretization strategy:
 
-$$T_{X \to Y} = H(Y_t | Y_{t-1:t-l}) - H(Y_t | Y_{t-1:t-l}, X_{t-u:t-u-k})$$
+$$T_{X \to Y} = H(Y_t | Y_{t-1:t-k}) - H(Y_t | Y_{t-1:t-k}, X_{t-u:t-u-l+1})$$
+
+`k` is the target history, `l` the source history and $u$ is `delay`, as in Schreiber (2000), eq. 4.
 
 ```python
 te_res = jnwb.transfer_entropy(

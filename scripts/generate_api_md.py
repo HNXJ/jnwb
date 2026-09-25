@@ -1,7 +1,9 @@
 """Generate docs/api.md from the runtime public surface (jnwb.__all__)."""
 from __future__ import annotations
 
+import importlib
 import inspect
+import sys
 import types
 import typing
 from collections import defaultdict
@@ -9,6 +11,39 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, get_args, get_origin
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _public_stdlib_module(module: str, qualname: str) -> str:
+    """Collapse a private standard-library submodule to the module that re-exports it.
+
+    CPython reorganises standard-library internals between releases, and a class's
+    ``__module__`` follows the reorganisation. ``pathlib.Path.__module__`` is ``pathlib``
+    on 3.12, ``pathlib._local`` on 3.13 (3.13 split ``pathlib`` into a package), and
+    ``pathlib`` again on 3.14. Rendering that raw makes this page interpreter-dependent,
+    and six CI legs check ``--check`` against one committed file, so at most one of them
+    could ever have been green.
+
+    The shorter name is accepted only when the public parent re-exports the very object
+    the private path names, so this cannot invent a name that does not resolve. Scope is
+    the standard library: a third-party module path varies with the dependency version,
+    not the interpreter, and is handled by the explicit map in ``_canonical_type_name``.
+    """
+    parts = module.split(".")
+    if not parts or parts[0] not in sys.stdlib_module_names or "." in qualname:
+        return module
+    while len(parts) > 1 and parts[-1].startswith("_"):
+        candidate = ".".join(parts[:-1])
+        try:
+            parent = importlib.import_module(candidate)
+        except Exception:
+            break
+        obj = getattr(parent, qualname, None)
+        if getattr(obj, "__module__", None) != module:
+            break
+        if getattr(obj, "__qualname__", None) != qualname:
+            break
+        parts = parts[:-1]
+    return ".".join(parts)
 
 
 def _canonical_type_name(module: str, qualname: str) -> str:
@@ -21,15 +56,38 @@ def _canonical_type_name(module: str, qualname: str) -> str:
     if module in ("builtins",):
         return qualname
     if module and qualname:
-        return f"{module}.{qualname}"
+        return f"{_public_stdlib_module(module, qualname)}.{qualname}"
     return qualname or module
 
 
 def _first_doc_line(obj: Any) -> str:
-    doc = inspect.getdoc(obj) or ""
+    return _first_paragraph(inspect.getdoc(obj) or "")
+
+
+def _first_paragraph(doc: str) -> str:
     if not doc:
         return ""
     return doc.strip().split("\n\n")[0].replace("\n", " ").strip()
+
+
+def _optional_submodule_cell(name: str) -> str:
+    """The cell for a submodule whose dependencies are an optional extra, read from source.
+
+    Importing ``jnwb.vis`` needs Plotly, so rendering its row from the imported module would
+    make this page depend on which extras the generating environment has. The docstring is
+    read with ``ast.get_docstring``, which applies the same ``inspect.cleandoc`` that
+    ``inspect.getdoc`` applies to an imported module, so the row is the one an import would
+    have produced and is byte-identical with or without the extra.
+    """
+    import ast
+    import importlib.util
+
+    spec = importlib.util.find_spec(f"jnwb.{name}")
+    if spec is None or spec.origin is None:
+        raise RuntimeError(f"jnwb.{name} is declared optional but has no source to read")
+    tree = ast.parse(Path(spec.origin).read_text(encoding="utf-8"))
+    line = _first_paragraph(ast.get_docstring(tree) or "")
+    return f"*{line}*" if line else "*"
 
 
 def _format_default(value: Any) -> str:
@@ -124,16 +182,49 @@ def _format_signature(obj: Any) -> str:
 
 
 def _object_type_name(obj: Any) -> str:
+    """Classify by asking the object what it is.
+
+    ``callable`` replaces ``isinstance(obj, (dict, tuple, frozenset, list))``. That
+    enumeration had to be maintained, and the one scalar constant in ``__all__`` was missing
+    from it, so a ``str`` URL was typed "function" and described by the ``str`` constructor.
+    """
     if inspect.isclass(obj):
         return "class"
     if inspect.ismodule(obj):
         return "module"
-    if isinstance(obj, (dict, tuple, frozenset, list)):
-        return "constant"
-    return "function"
+    if callable(obj):
+        return "function"
+    return "constant"
+
+
+def _format_cell(obj: Any, kind: str) -> str:
+    """Render the Signature / Description cell.
+
+    A constant renders as its type. ``inspect.getdoc`` falls back to ``type(obj).__doc__``
+    for an instance, so asking a value for its docstring returns the builtin type's: the
+    ``str`` constructor signature described a URL constant, and a 370-character ``dict()``
+    constructor docstring described a band table. That held for all five constants --
+    ``inspect.getdoc(obj) == inspect.getdoc(type(obj))`` for every one.
+
+    The value stays out of the cell. ``SKILLS_URL`` interpolates ``jnwb.__version__``, and
+    this page regenerates on demand, so rendering the value would freeze one release's
+    version into a committed file.
+    """
+    if kind == "constant":
+        return _canonical_type_name(type(obj).__module__, type(obj).__qualname__)
+    sig = _format_signature(obj)
+    desc = _first_doc_line(obj)
+    if desc and not sig.startswith("*"):
+        return f"{sig}<br>*{desc}*"
+    return sig
 
 
 def _module_for_symbol(jnwb: Any, name: str) -> str:
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+
+    if name in OPTIONAL_SUBMODULES:
+        # A module carries no __module__, so an imported one groups under "jnwb" too.
+        return "jnwb"
     obj = getattr(jnwb, name)
     mod = getattr(obj, "__module__", "jnwb") or "jnwb"
     if mod == "jnwb":
@@ -150,6 +241,7 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     import jnwb
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
     grouped: Dict[str, List[str]] = defaultdict(list)
     for name in jnwb.__all__:
@@ -172,14 +264,12 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
         lines.append("| Symbol | Type | Signature / Description |")
         lines.append("|---|---|---|")
         for symbol in sorted(grouped[module_name]):
+            if symbol in OPTIONAL_SUBMODULES:
+                lines.append(f"| jnwb.{symbol} | module | {_optional_submodule_cell(symbol)} |")
+                continue
             obj = getattr(jnwb, symbol)
             typ = _object_type_name(obj)
-            sig = _format_signature(obj)
-            desc = _first_doc_line(obj)
-            cell = sig
-            if desc and not sig.startswith("*"):
-                cell = f"{sig}<br>*{desc}*"
-            lines.append(f"| jnwb.{symbol} | {typ} | {cell} |")
+            lines.append(f"| jnwb.{symbol} | {typ} | {_format_cell(obj, typ)} |")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"

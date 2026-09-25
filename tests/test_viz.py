@@ -116,3 +116,18 @@ class TestRasterPsth:
         assert mean.sum() > 0
         peak_bin = np.argmax(mean)
         assert abs(centers[peak_bin] - 25.0) < 15.0
+
+    STEADY_1KHZ = np.arange(0.0005, 3.0, 0.001)  # one spike per ms, off the bin edges
+
+    def test_a_window_of_partial_bins_is_refused_with_the_nearest_valid_windows(self):
+        """A 705 ms span at 10 ms bins made a last bin holding 5 ms of spikes divided by
+        10 ms: a steady 1000 Hz train read 500 Hz there."""
+        with pytest.raises(ValueError, match=r"win_ms=\(-200, 500\) or win_ms=\(-200, 510\)"):
+            raster_psth(self.STEADY_1KHZ, np.array([1.0, 1.5]), (-200.0, 505.0), bin_ms=10.0)
+
+    def test_a_window_of_whole_bins_reads_the_steady_rate_in_every_bin(self):
+        centers, mean, _ = raster_psth(self.STEADY_1KHZ, np.array([1.0, 1.5]), (-200.0, 500.0), 10.0)
+        assert centers.size == 70 and centers[-1] == pytest.approx(495.0)
+        assert np.allclose(mean, 1000.0)
+        # 0.3 / 0.1 is 2.9999999999999996 in floating point, and is still three whole bins.
+        assert raster_psth(self.STEADY_1KHZ, np.array([1.0]), (0.0, 0.3), 0.1)[0].size == 3

@@ -1,4 +1,4 @@
-"""05-85: two exported functions computing one estimand must not answer differently.
+"""Two exported functions computing one estimand must not answer differently.
 
 `majority_baseline(labels)` and `fold_majority_baseline(y_train, y_test)` both document the
 accuracy of predicting the majority class. Handed the same labels as both folds they are

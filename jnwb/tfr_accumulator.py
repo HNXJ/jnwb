@@ -18,18 +18,120 @@ the binding cost. Nothing here promised otherwise, but nothing said it either.
 
 from __future__ import annotations
 
+import weakref
 from typing import Dict, Optional
 
 import numpy as np
 
+from ._precision import (
+    WELFORD_32_BIT_TOLERANCE_BREACH,
+    PrecisionNotSupportedError,
+)
+
+
+class _TrialAveragedPower(np.ndarray):
+    """Power that has already been averaged over trials.
+
+    ``TFRAccumulator.power()`` and ``TFRAccumulator.mean`` return the mean as this view so that
+    ``aggregate_to_db`` can refuse ``how="mean_of_ratios"`` on it: a ratio of trial means is
+    ratio-of-means, whatever the call names. Values are unchanged. The mark survives ufuncs,
+    methods, numpy functions (``np.stack``, ``np.copy``, ...) and ``tolist()``. A plain array
+    that shares memory with the registered buffer (``np.asarray``, a view through a
+    ``memoryview`` or ``as_strided``) is still recognised by :func:`_is_trial_averaged`. A copy numpy makes without dispatch (``np.array``, a cast in
+    ``np.asarray``, assignment into another array) and a read back from :meth:`write` carry
+    no mark.
+    """
+
+    def __array_function__(self, func, types, args, kwargs):
+        result = super().__array_function__(func, types, args, kwargs)
+        if type(result) is np.ndarray and result.dtype.kind in "fc":
+            return result.view(_TrialAveragedPower)
+        return result
+
+    def tolist(self):
+        listed = super().tolist()
+        return _TrialAveragedList(listed) if isinstance(listed, list) else listed
+
+
+class _TrialAveragedList(list):
+    """``tolist()`` of trial-averaged power, marked for the same refusal."""
+
+
+# Buffers that hold an accumulator's trial mean, by id. Any array sharing memory with one is
+# recognised, whatever its type and however it was reached.
+_TRIAL_AVERAGED_BUFFERS: "weakref.WeakValueDictionary[int, np.ndarray]" = (
+    weakref.WeakValueDictionary()
+)
+
+
+def _register_trial_averaged(buffer: np.ndarray) -> np.ndarray:
+    if buffer.base is not None:
+        raise ValueError("only a buffer that owns its memory can be registered")
+    _TRIAL_AVERAGED_BUFFERS[id(buffer)] = buffer
+    return buffer
+
+
+def _is_trial_averaged(obj) -> bool:
+    """True for accumulator trial-mean power in any form that can carry a mark."""
+    if isinstance(obj, (_TrialAveragedPower, _TrialAveragedList)):
+        return True
+    if isinstance(obj, (list, tuple)):
+        return any(
+            isinstance(item, (np.ndarray, _TrialAveragedList)) and _is_trial_averaged(item)
+            for item in obj
+        )
+    if not isinstance(obj, np.ndarray):
+        obj = np.asarray(obj)  # a buffer-protocol object (memoryview, ...) becomes a view
+    # Memory overlap, not the `.base` chain: a view reached through a memoryview or
+    # `as_strided` has a base that is not an ndarray. `may_share_memory` compares byte bounds,
+    # O(ndim) per buffer, so the check is O(number of live registered buffers). Each registered
+    # buffer owns one contiguous allocation, so bounds overlap means shared memory.
+    return any(np.may_share_memory(obj, buffer) for buffer in list(_TRIAL_AVERAGED_BUFFERS.values()))
+
 
 class TFRAccumulator:
-    """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128."""
+    """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
-    def __init__(self, shape: tuple):
+    Registered ``double_only`` in :data:`jnwb._precision.PRECISION_POLICY`. A 32-bit
+    request is refused rather than honoured: see :meth:`__init__`.
+    """
+
+    def __init__(self, shape: tuple, *, dtype=None):
+        """Allocate the accumulators.
+
+        Args:
+            shape: ``(n_channels, n_freqs, n_times)``.
+            dtype: the precision requested for accumulation. ``None`` (default) accumulates
+                in float64/complex128, unchanged from before this parameter existed. A
+                double request -- ``np.float64`` or ``np.complex128`` -- is accepted and is
+                the same thing said explicitly. A single-precision request is **refused**.
+
+        Raises:
+            PrecisionNotSupportedError: if a 32-bit precision is requested. Welford's
+                update subtracts two nearly equal numbers, and at 32 bits the surviving
+                variance misses the ``rtol=1e-8`` that ``tests/test_tfr_accumulator.py``
+                holds :meth:`var` to. Refusing is deliberate: returning float64 from a
+                float32 request would silently substitute one precision for another, and
+                offering a 32-bit path would ship a documented
+                tolerance the code cannot meet.
+        """
+        if dtype is not None:
+            requested = np.dtype(dtype)
+            if requested not in (np.dtype(np.float64), np.dtype(np.complex128)):
+                low, high = WELFORD_32_BIT_TOLERANCE_BREACH
+                raise PrecisionNotSupportedError(
+                    f"TFRAccumulator cannot accumulate in {requested.name}: it is "
+                    "64-bit only. A 32-bit Welford update loses the variance to "
+                    "cancellation -- measured against the 64-bit reference, the relative "
+                    f"error exceeds the documented rtol=1e-8 of var() by {low}x to "
+                    f"{high}x across mean-to-standard-deviation ratios of 1 to 10000, so "
+                    "the breach does not depend on an unfavourable regime. Pass "
+                    "dtype=np.float64, or None, and downcast after summarising; write() "
+                    "already stores float32/complex64 on the way to disk."
+                )
         # shape = (n_channels, n_freqs, n_times)
         self.n = np.zeros(shape, np.int64)
-        self.mean = np.zeros(shape, np.float64)  # of |z|^2
+        self._mean = _register_trial_averaged(np.zeros(shape, np.float64))  # of |z|^2
         self.M2 = np.zeros(shape, np.float64)
         self.sum_z = np.zeros(shape, np.complex128)
         self.sum_unit_z = np.zeros(shape, np.complex128)
@@ -38,18 +140,35 @@ class TFRAccumulator:
     def shape(self) -> tuple:
         return self.n.shape
 
+    @property
+    def mean(self) -> np.ndarray:
+        """Trial-mean power, the same values as :meth:`power`.
+
+        Returns a copy, NaN where no trial was valid, so ``acc.mean[...] = x`` does not write
+        through; assign the whole array instead. The setter stores what it is given, so a
+        reload may set ``mean`` before or after ``n``; :meth:`add_trial` and :meth:`merge` start
+        a cell with no valid trial from zero, so ``acc.mean = acc.mean`` leaves it fillable.
+        """
+        return self.power()
+
+    @mean.setter
+    def mean(self, value) -> None:
+        self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
+
     def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
         """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
 
-        # Welford update, masked
+        # Welford update, masked; an empty cell's running mean starts from zero whatever was
+        # assigned to it.
+        self._mean[self.n == 0] = 0.0
         n_new = self.n + valid
-        delta = np.where(valid, p - self.mean, 0.0)
+        delta = np.where(valid, p - self._mean, 0.0)
         inc = np.divide(delta, n_new, out=np.zeros_like(delta), where=n_new > 0)
-        self.mean += inc
-        self.M2 += np.where(valid, delta * (p - self.mean), 0.0)
+        self._mean += inc
+        self.M2 += np.where(valid, delta * (p - self._mean), 0.0)
         self.n = n_new
 
         mag = np.abs(z)
@@ -61,21 +180,28 @@ class TFRAccumulator:
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
         """Exact pooling. merge(A, B) == summarize(A union B)."""
         n = self.n + other.n
-        delta = other.mean - self.mean
+        mine = np.where(self.n > 0, self._mean, 0.0)
+        delta = np.where(other.n > 0, other._mean, 0.0) - mine
         w = np.divide(other.n, n, out=np.zeros_like(delta), where=n > 0)
-        mean = self.mean + delta * w
+        mean = mine + delta * w
         M2 = self.M2 + other.M2 + delta**2 * np.divide(
             self.n * other.n, n, out=np.zeros_like(delta), where=n > 0
         )
         out = TFRAccumulator(self.shape)
-        out.n, out.mean, out.M2 = n, mean, M2
+        out.n, out.M2 = n, M2
+        out._mean = _register_trial_averaged(mean)
         out.sum_z = self.sum_z + other.sum_z
         out.sum_unit_z = self.sum_unit_z + other.sum_unit_z
         return out
 
     # ---- derived quantities ----
+    # A cell no valid trial reached has no estimate, so power, evoked power and ITC are NaN
+    # there, as var() and sem() already were. Zero read as measured silence and entered
+    # every downstream mean.
     def power(self) -> np.ndarray:
-        return self.mean
+        """Trial-mean power; NaN where no trial was valid."""
+        out = _register_trial_averaged(np.where(self.n > 0, self._mean, np.nan))
+        return out.view(_TrialAveragedPower)
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)
@@ -86,21 +212,25 @@ class TFRAccumulator:
         )
 
     def evoked(self) -> np.ndarray:
+        """Power of the trial-mean ``z``; NaN where no trial was valid."""
         return (
-            np.abs(np.divide(self.sum_z, self.n, out=np.zeros_like(self.sum_z), where=self.n > 0))
+            np.abs(np.divide(self.sum_z, self.n, out=np.full_like(self.sum_z, np.nan), where=self.n > 0))
             ** 2
         )
 
     def itc(self) -> np.ndarray:
+        """Inter-trial phase coherence; NaN where no trial was valid."""
         return np.abs(
-            np.divide(self.sum_unit_z, self.n, out=np.zeros_like(self.sum_unit_z), where=self.n > 0)
+            np.divide(
+                self.sum_unit_z, self.n, out=np.full_like(self.sum_unit_z, np.nan), where=self.n > 0
+            )
         )
 
     def write(self, h5group, meta: Dict) -> None:
         ch = (min(4, self.n.shape[0]), self.n.shape[1], min(256, self.n.shape[2]))
         filt = dict(compression="gzip", compression_opts=1, shuffle=True)
         h5group.create_dataset("n", data=self.n.astype(np.int32), chunks=ch, **filt)
-        h5group.create_dataset("mean", data=self.mean.astype(np.float32), chunks=ch, **filt)
+        h5group.create_dataset("mean", data=self._mean.astype(np.float32), chunks=ch, **filt)
         h5group.create_dataset("M2", data=self.M2.astype(np.float32), chunks=ch, **filt)
         h5group.create_dataset("sum_z", data=self.sum_z.astype(np.complex64), chunks=ch, **filt)
         h5group.create_dataset(

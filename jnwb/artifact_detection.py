@@ -4,7 +4,7 @@ jnwb.artifact_detection -- bad-channel and bad-trial DETECTION (exclusion), for 
 Distinct from jnwb.artifact_repair (interpolation/substitution within kept trials). This
 module decides what to DROP entirely: whole channels, whole trials.
 
-Method (Hamm, 2026-08-17):
+Method:
 
 Bad channels: correlate every channel's raw trace against every other channel
 (channel x channel Pearson correlation matrix, pooled across all trials/time). A channel whose
@@ -19,9 +19,8 @@ Bad trials: for a single GOOD channel, correlate every trial's waveform against 
 trial's waveform (trial x trial Pearson correlation matrix). A trial contaminated by a
 transient artifact (movement, chewing, cable jerk) looks different from the bulk of trials for
 that channel, so it separates out as a low-correlation outlier the same way a bad channel does
--- plus its own max |amplitude| is an outlier high. Per spec: "artifacts appear in all good
-channels always, if they exist" -- a genuine artifact is a shared physical event, not a
-single-channel quirk, so a trial is only called bad by CONSENSUS across multiple good channels'
+-- plus its own max |amplitude| is an outlier high. A genuine artifact is a shared physical
+event that appears on every good channel, not a single-channel quirk, so a trial is only called bad by CONSENSUS across multiple good channels'
 independent flags, not from one channel's flag alone (a single flagged channel more likely means
 that channel is itself imperfectly screened, not that the trial is bad).
 """
@@ -30,6 +29,8 @@ from __future__ import annotations
 from typing import Tuple
 
 import numpy as np
+
+from ._layout import require_channel_major
 
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
 
@@ -59,8 +60,19 @@ def _pearson_rows(x: np.ndarray) -> np.ndarray:
 
 
 def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
-    """data_ch_by_time: (n_channels, n_samples). Returns (n_channels, n_channels) Pearson corr."""
-    return _pearson_rows(data_ch_by_time)
+    """data_ch_by_time: (n_channels, n_samples). Returns (n_channels, n_channels) Pearson corr.
+
+    A time-major array used to pass straight through: a (6000, 64) input returned a
+    (6000, 6000) matrix, and ``bad_channels_from_correlation`` then reported a 6000-entry
+    verdict flagging 0 "channels". The refusal is here rather than in the verdict because
+    this is where rows stop being channels.
+    """
+    arr = np.asarray(data_ch_by_time, dtype=float)
+    if arr.ndim == 2:
+        require_channel_major(
+            arr, 0, "channel_correlation_matrix", argument="data_ch_by_time"
+        )
+    return _pearson_rows(arr)
 
 
 def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

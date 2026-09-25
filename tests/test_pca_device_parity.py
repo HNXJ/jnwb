@@ -1,16 +1,16 @@
-"""05-43: the device changed the number, twice over.
+"""The device changed the number, twice over.
 
-`AGENTS.md` invariant 6 says device and worker count never change a number. Two SVD
-paths broke it on a live RTX A4000:
+Device and worker count must never change a number. Two SVD paths broke that on a live
+RTX A4000:
 
 `gpu_pca(X(4000, 60), n_components=3)` returned float64 on CPU and float32 on CUDA, and
 neither path pinned a sign, so `max|cpu - cuda|` on the projections was **8.005**. Align
 the signs by hand and it drops to 6.5e-04 -- the float32 residue. Both defects were live
 at once, and the second hid the first.
 
-`compute_population_trajectory` was already float64 on both devices; only the sign
-differed, which showed as `max_rel = 2.0` -- a trajectory reflected through the origin,
-and the exact signature of a flip. Sign-aligned agreement was 6.5e-13.
+`compute_population_trajectory` was already float64 on both devices; only component signs
+differed, which showed as `max_rel = 2.0` -- the exact signature of a flipped component.
+Sign-aligned agreement was 6.5e-13.
 
 The audit reported both as one item and prescribed "match the CPU dtype on the CUDA
 branch" for both. That is wrong for `trajectory.py`, which uses `torch.as_tensor` and
@@ -114,6 +114,21 @@ class TestThePinItself:
 
         assert pinned_c.shape == (0, 5)
         assert pinned_p.shape == (4, 0)
+
+    def test_a_tie_broken_by_rounding_lands_on_one_answer(self):
+        """Two z-scored features give components +-[1, -1]/sqrt(2); the two devices round
+        the magnitudes differently, so `argmax` picked a different pivot on each. These two
+        inputs are one component up to sign, with rounding favouring opposite entries."""
+        a, b = 0.7071067811865475, 0.7071067811865476
+        first = np.array([[a, -b]])
+        second = np.array([[-b, a]])
+        projections = np.ones((3, 1))
+
+        pinned_first, _ = pin_component_signs(first, projections)
+        pinned_second, _ = pin_component_signs(second, -projections)
+
+        assert np.allclose(pinned_first, pinned_second, rtol=0, atol=1e-15)
+        assert pinned_first[0, 0] > 0
 
 
 class TestGpuPcaPinsItsSignsOnEitherDevice:
@@ -230,9 +245,11 @@ class TestTrajectoryPinsItsSigns:
             session, "V1", epochs, (-1000.0, 2000.0), 20.0, None)
         n_trials, n_units, n_bins = x.shape
         flat = x.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
-        std = flat.std(0, keepdims=True)
-        std[std == 0.0] = 1.0
-        scaled = (flat - flat.mean(0, keepdims=True)) / std
+        # A constant unit (largest value == smallest) is 0; `std == 0` misses one whose
+        # computed std is rounding residue.
+        constant = flat.max(0, keepdims=True) == flat.min(0, keepdims=True)
+        std = np.where(constant, 1.0, flat.std(0, keepdims=True))
+        scaled = np.where(constant, 0.0, (flat - flat.mean(0, keepdims=True)) / std)
         _, _, vt = np.linalg.svd(scaled, full_matrices=False)
         return scaled, vt[:3, :], (n_trials, n_bins)
 
@@ -337,3 +354,28 @@ class TestTheTwoDevicesReturnTheSameNumbers:
             session, "V1", epochs, n_components=3, device=d))
 
         assert np.max(np.abs(cpu["trajectory"] - cuda["trajectory"])) < 1e-9
+
+    def test_two_features_agree_although_their_loadings_tie(self):
+        """Two z-scored features tie every loading in magnitude, so the pivot was chosen by
+        rounding, which differs between LAPACK and cuSOLVER: 32 of 200 disagreed."""
+        disagree = []
+        for seed in range(60):
+            matrix = np.random.default_rng(seed).normal(size=(300, 2))
+            matrix[:, 1] += 0.5 * matrix[:, 0]
+            cpu, cuda = self._both(lambda d: gpu_pca(matrix, n_components=2, device=d))
+            if not (np.allclose(cpu[1], cuda[1], atol=1e-9)
+                    and np.allclose(cpu[0], cuda[0], atol=1e-9)):
+                disagree.append(seed)
+        assert disagree == []
+
+    def test_a_two_unit_trajectory_agrees(self):
+        disagree = []
+        for seed in range(60):
+            session = TestTrajectoryPinsItsSigns._Session(n_units=2, seed=seed)
+            epochs = TestTrajectoryPinsItsSigns._epochs()
+            cpu, cuda = self._both(lambda d: compute_population_trajectory(
+                session, "V1", epochs, n_components=2, device=d))
+            assert cuda["device_used"] == "cuda"
+            if not np.allclose(cpu["trajectory"], cuda["trajectory"], atol=1e-9):
+                disagree.append(seed)
+        assert disagree == []

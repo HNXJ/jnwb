@@ -1,672 +1,293 @@
-# 0.2.5
-
-Audited read-only at `3f432306` (0.2.4, released and served by PyPI) across code, tests,
-docs, skills, packaging, CI and backends. Each item carries the observation that produced it.
-Items are deleted when done; finished work is not recorded here.
-
-What the green state did not prove: the suite runs against the checkout and never against the
-installed wheel (`pythonpath = ["."]`); `docs/api.md` is generated from `__all__` and then
-checked against it; gate 5 is satisfied by its own generator; and a declared hard dependency
-can be absent while 1465 tests pass, because two modules convert the `ImportError` into NaN.
-
-## Execution protocol (authorized 2026-09-16)
-
-The stack is frozen. It is executed to empty in dependency batches, not as 84 approval cycles:
-A `05-01..25` scientific correctness, B `26..42` API and NWB, C `43..52` performance and
-backend, D `53..60` tests, E `61..66` docs, F `67..72` skills and agents, G `73..78` packaging,
-H `79..82` harness, I `83..84` independent critic and release.
-
-Within a batch: reproduce, repair, add the discriminator, continue. Critical and high findings
-are reproduced first. **A finding that does not reproduce is marked unsupported with its
-evidence and its item deleted -- correct code is not modified to match a wrong audit.** One
-batch-level regression and gate run, then commit and push, then the next batch.
-
-The numbering controls coverage, not ordering: when a defect being repaired is mechanically
-preventable, the smallest relevant repair from `05-79..82` is applied in that batch rather than
-deferred to H, so later work benefits from the gate.
-
-Qualification runs in a clean environment built from the declared extras, or in CI. The
-development `.venv` described at the end of this file is not package evidence.
-
-## 9. Documentation
-
-### 09 note: the persona is a neuroscientist who knows `pynwb` and nothing else, going install -> inspect their own file -> select data explicitly -> analyze -> interpret, without reading contributor material.
-
-## 10. Skills and agents
-
-**Acceptance condition for every item in this section** (ruled 2026-09-17, stated in
-`artifacts/direction.md` under "Skill behaviour"): a skill routes to an operation or it
-declines -- supported analysis executes, missing information is requested, a
-non-identifiable result is reported as a failure, an unsupported claim is not inferred.
-Where an item already edits a skill, the edited skill must satisfy this and representative
-routing behaviour must be tested. Skills are release surfaces: verify against live exports
-and docs, not against the skill's own text.
-
-## 11. Packaging
-
-## 12. Harness and gates
-
-*Empty. 0.2.5 is released; the records below say what each closed item measured.*
-
-# Findings marked unsupported
-
-## 05-84 released and verified from PyPI, not from the build that made it -- recorded 2026-09-19
-
-`__version__` 0.2.5, `__release_date__` 2026-09-19, `__status__` Beta unchanged because the
-wheel's own classifier says Beta, and the CHANGELOG's `[Unreleased]` heading became
-`[0.2.5] - 2026-09-19` over 120 entries.
-
-**Three receipts had to move with the version, and two of the three were found by tests
-rather than remembered:** `artifacts/benchmarks/import_profile.txt` and
-`import_breakdown.json` record the version they were generated from and failed until
-regenerated; `docs/agents.md` carried a `SKILLS_URL` example pinned to v0.2.4 and failed.
-`README.md` said "This checkout is `0.2.4`" and **nothing failed**, because nothing read it.
-It was found by grep, which is not a gate, so
-`tests/test_prose_version_claims_are_live.py` now fails when a version mention appears in
-`README.md` or `docs/` that is neither the live version nor declared history. It cannot
-classify them itself -- "deprecated in 0.1.7" and "this checkout is 0.1.7" are the same shape
-and only one should move on a bump -- so the two historical mentions are listed individually
-and a second test fails if that allowlist starts excusing text that is gone. Five
-discriminating mutations, all killed; the fifth survived first and exposed a real gap, both
-checks having skipped an entire line when it carried the pinned claim, so a stale version
-beside a correct one was excused by it.
-
-**Publication ordering held, and was observed rather than assumed.** Merge of
-[#18](https://github.com/HNXJ/jnwb/pull/18) to `main` as `0caf730a`, full matrix green;
-`v0.2.5` tagged on that commit, and the tag run's `Publish to PyPI` and `Publish to TestPyPI`
-jobs both reported **skipped** -- which is the fact `artifacts/fact_stack.md` asserts, that a
-tag push validates artifacts without uploading. The GitHub Release then ran `Publish to
-PyPI` to success.
-
-**Accept: verified from PyPI, not from the local wheel.** A fresh venv, `pip install
-jnwb==0.2.5` from `https://pypi.org/simple`, reports version 0.2.5, distribution metadata
-0.2.5, release date 2026-09-19, status Beta, and 156 exports whose sorted `__all__` is
-identical to the checkout's with no symbol on either side alone. `jnwb.__file__` resolves
-inside that venv, not into the checkout. The three 05-85 repairs were re-checked against the
-published copy rather than assumed to have shipped: `majority_baseline` refuses a missing
-label, `laplacian_reference` is channel-major with a flat interior on a channel ramp,
-`cross_modal_comparison` returns no `lag_corrected_pvalue` on its default branch, and
-`bin_spikes` returns `(n_trials, n_bins)`. `SKILLS_URL` resolves: HTTP 200 at
-`tree/v0.2.5/skills`.
-
-Local evidence taken before publishing, and not used in place of the above: full suite 2876
-passed, 3 skipped; sdist and wheel built and passed `twine check`; the local wheel installed
-into a separate clean venv and reported the same version and exports.
-
-## 05-85 three contradictions between faces, seven dimensions swept, two limits recorded -- recorded 2026-09-19
-
-- **Discriminator run 2026-09-19** Both halves, over the three new modules and `tests/test_skills_validation.py`. A seeded semantic contradiction (section 5 reverted to the minority order) failed the 05-85 modules and not the presence gate. A seeded presence-only defect (a routing row naming `jnwb.cross_modal_comparisons`, which does not exist) failed the presence gate and not the 05-85 modules. Neither suite fired on the other's seed, so 05-85 has not taken over gates 5, 9 and 13.
-- **Swept 2026-09-19, by dimension, with the instrument used**
-  - *Units* — 37 unit-suffixed parameters against their own `Args`/`Parameters` entries in both docstring styles, against every sentence in `skills/`, `docs/`, `examples/` and `README.md` naming a parameter and a unit, and against the magnitude of every literal passed to a unit-bearing parameter in 314 parsed sources. **No contradiction in meaning.** The first pass read only Google-style `Args:` and reported zero over a population it had never parsed; the second parses both and covers 19 of the 37. The four prose hits and ten magnitude hits were all false positives, read individually.
-  - *Axes* — **one finding, repaired.** `docs/10_operation_specifications.md` section 5 declared `(n_times, n_channels)` for continuous signals; eight of ten exported 2-D continuous-signal functions are channel-major. Verified by executing `bipolar_reference` and `laplacian_reference`, not by reading their docstrings. The three- and four-axis lines in the same section were checked with the same instrument and are correct.
-  - *Estimator* — **one finding, repaired.** `skills/jnwb-connectivity/SKILL.md` routed `cross_modal_comparison` as a best-lag correlation and told the reader to read `lag_corrected_pvalue`; `bin_ms` selects between two estimators and the default produces no such key. The docstring and the returned `interpretation` were already explicit, so the disagreement was between faces.
-  - *Failure behaviour* — every exported callable fed an all-NaN and an empty array in its first array parameter, against section 3's universal claim. **No violation.** Six apparent finite-from-nothing returns were all instrument artefacts: two from the probe substituting a valid `onsets` array, three from boolean verdict arrays being trivially finite, one degenerate. Separately, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired` and `paired_fire_prob_test` raise `AttributeError` rather than `TypeError` on an int seed; their annotations say `np.random.Generator`, so the faces agree and this is recorded, not repaired.
-  - *Randomness* — every exported function taking `rng`, `seed` or `random_state` called twice with one seed and once with another. Four honour the seed, **one did not** (`cross_modal_comparison`, the same finding as above, on the branch where the permutation is not run), none disagreed with itself, fourteen could not be called by the probe.
-  - *Aggregation* — every function whose docstring names exactly one of mean, median or sum, compared against the reductions its body calls. **No finding.** Two hits, both false: "mean delay" naming an impulse-response centroid, and a passage arguing against averaging decibels.
-  - *Identity/provenance* — area-label vocabulary across faces. **No finding.** `jnwb/addressing.py` holds no vocabulary by explicit design and says so; no other face claims one.
-  - *Composition* — two instruments. Every `python` block in all nine skills (8 blocks) parsed and every call to an exported function checked against the live signature for an argument it does not take or more positional arguments than it accepts: **0**. Then the hazard that the axes finding implies, scanned across every `.py` and every fenced block in the repository: a name bound from one of the eight channel-major functions and passed straight into `compute_psd` or `epoch_continuous` with no transpose and no explicit `axis=`. **0 hits**, on an instrument first driven over four seeded cases to confirm it finds the bare hop and passes the transposed, explicit-axis and unrelated forms. Now `TestNoFaceChainsTheTwoConventions`, because both calls in such a chain are correct alone, a signature check passes both, and the result has a plausible shape: it is how the convention error the specification carried would have become a number rather than an error.
-- **Not covered, and why** Composition's *aggregation-order* and *identifier-survival* claims were not swept: no instrument was built to compare a multi-step skill workflow against an executed equivalent, and those remain with `tests/test_skill_routing_behaviour.py` (05-67, six rows executed), `tests/test_docs_smoke.py` and `tests/test_docs_nwb_workflow.py`. *Shape* is covered for every function that declares a return shape, but only those. The introspective sweep was inconclusive -- 3 of 29 candidates callable, and both disagreements it reported were its own, one from reading `bipolar_reference`'s input claim as a return claim and one from handing `compute_psd` a channel-major array -- so it was replaced with fixtures in `tests/test_declared_return_shapes.py`. Five exported functions declare a named shape in a `Returns:` block. Three are checked by calling them (`bin_spikes`, `detect_band_outliers`, and `laplacian_reference` in the axis module), with dimensions chosen mutually distinct so a transposed return fails rather than coincides; five discriminating mutations, all killed. `build_time_resolved_matrix` and `compute_population_trajectory` each take a live NWB session and are not constructible in the suite, so the module asserts that they still declare a shape and still take a session, which keeps the gap stated rather than implied by their absence. A test fails if a sixth function starts declaring a return shape without being covered or named. Functions that declare no return shape at all are outside this: the dimension is unclaimed for them, which the accept criterion treats as N/A rather than missing only where the operation does not require it -- that judgement was not made function by function. A capability-by-capability matrix over all nine dimensions was not built; the sweep is by dimension across the API instead, which finds a contradiction wherever it is but does not certify that every capability was examined on every dimension.
-- **Gap found in an existing gate** `tests/test_skill_routing_behaviour.py` catches a routing row naming a result key the function never returns. It does not catch a row naming a key the function returns only on a non-default branch, which is how the `cross_modal_comparison` row survived 05-67. Covered for that one row by `tests/test_cross_modal_comparison_faces_agree.py`; not generalised, because only two routing rows instruct the reader to read a named key and both are now verified.
-
-
-## 05-83 five targets repaired, two end in a measurement, one reported kill was not real -- recorded 2026-09-18
-
-**Target 3 (estimator mutation completeness) reproduced, and wider than the item implies.**
-22 mutations, each preserving shape, keys and dtype and changing a returned number, run
-against the whole suite: 18 survived all 2679 tests.
-`tests/test_estimator_values_are_pinned.py` pins every one. Re-running all 18 against it
-kills all 18, with the unmutated control passing and all six source digests identical
-before and after.
-
-**One reported kill was not real.** `np.log` -> `np.log2` in `granger_spectral` was recorded
-as killed by `test_the_probe_agrees_with_an_independent_wall_clock`, which times two
-imports -- an expression no import executes. Two clean re-runs return SURVIVED. Target 1's
-phenomenon, caught in the act: the test sampled a wall clock once per side and failed once
-in 22 runs under 24-way contention, and because that run was a mutation sweep the failure
-was charged to the mutant. It now retries, which the systematic 3.33x defect it exists for
-still fails (ratios [3.85, 3.05, 3.48]) while one unlucky sample does not. This is one
-cause, measured; it does not claim to be the only one. What it did here was hide a real gap
-rather than invent one, so "stronger detection than its cause explains" is better read as
-*misattributed* detection.
-
-**Target 2 (Python 3.14 Torch collection-order fragility) reproduced exactly, and not
-repairable from inside jnwb.**
-
-Reproduction: `python -m pytest tests/test_analyzers_coverage.py
-tests/test_backend.py::TestCapabilityProbes` exits 3221225477 (0xC0000005, access
-violation) and fails the same three `TestCapabilityProbes` tests the item named.
-
-Mechanism, from `faulthandler`: the crash is inside `torch/__init__.py:444` during a C
-extension's `create_module`, reached from the deferred `import torch` at
-`jnwb/_backend.py:76` in `torch_cuda_available()`. It is the *first* torch import in a
-process where `test_analyzers_coverage` has already initialised CUDA.
-
-No repair is available here. The deferred import is deliberate --
-`tests/test_import_profile_receipt.py` asserts `import jnwb` does not load torch -- so
-making it eager trades this for a documented regression. And an access violation is not a
-Python exception, so no `except` tuple in `torch_cuda_available` can catch it.
-
-Scope, measured rather than assumed:
-- The full suite does **not** reproduce it single-process: 2735 passed in 8:49.
-- CI runs `pytest -v tests/` single-process and includes a 3.14 leg, but its runners have
-  no CUDA, so the CuPy initialisation this needs never happens.
-- Why the full single-process run is immune while the two-module subset is not is **not
-  established**. The obvious explanation -- that something imports torch earlier -- is
-  false: no test module imports torch or cupy at collection time.
-- The item's attribution to Python 3.14 could not be tested here. The local 3.12
-  interpreter has torch but not cupy, so the sequence the crash needs cannot be run on it.
-
-**Target 8 (`tests/test_rsa.py` redundancy) resolved where 05-59 could not measure it.**
-05-59 recorded that two assertions -- zero diagonal and the condensed/square round-trip --
-were reached by no mutant. They are unreachable, not merely unreached: `rdm` returns `v`
-condensed and `squareform(v)` square, so both properties hold for any `v` that `squareform`
-accepts. They assert scipy's contract, not jnwb's. Confirmed by mutation: doubling every
-returned distance leaves both passing.
-
-The mutation 05-59 named as surviving `test_rdm_metrics` -- `_condensed_distances` ignoring
-its `metric` argument -- was run against the whole suite and against the suite without
-`tests/test_rsa.py`. Both die, with an identical set of eight failures, every one of them
-in `tests/test_rsa_oracle.py`. The doubling mutation behaves the same way: five failures,
-the same set both times. `tests/test_rsa.py` contributes to neither.
-
-So the redundancy 05-59 measured now extends to the assertions it could not probe. The file
-still stays: 05-59's other finding is untouched by either mutation here -- it uniquely
-carries five failure classes, all of them rejection paths, and nothing in this measurement
-reaches those. Nothing in `tests/test_rsa.py` is changed.
-
-**Targets 4, 5, 6, 7 and 9** reproduced and were repaired, each with a test that fails the
-previous code. Target 6 was the largest: `core.autocrlf` is false and there is no
-`.gitattributes`, so working-tree bytes are blob bytes, and six tracked files were generated
-by three scripts whose `write_text` calls let `os.linesep` choose the line ending.
-`check_api_md_is_generated` compares `read_text` output, which normalises endings away, so
-the gate passed before and after a whole-file churn -- which is why every assertion in the
-new module reads bytes.
-
-A correction to that target's own premise, found by CI rejecting the first version of the
-test. "Working-tree bytes are blob bytes" is true of this machine, where `core.autocrlf` is
-false, and false of the Windows CI runners, which leave it at the Windows default of true
-and rewrite LF to CRLF on checkout. The first test read the six files from disk and failed
-on both Windows legs while passing here: it was asserting a property of the checkout's
-configuration, not of the repository. The invariant that matters is what is *stored* -- so
-that the two halves of the matrix agree on the bytes and a regeneration on either is a
-no-op -- and the tests now read the index, through `git ls-files --eol` and `git show :`.
-A working-tree-only change is deliberately no longer detected, and the discriminator that
-used to make one was replaced by one that reaches the stored bytes.
-
-### What this pass covered, and what it did not
-
-The item's Change clause named numerical correctness, failure semantics, API consistency,
-docs, skills, packaging, CI and gate efficacy. The weight fell on numerical correctness --
-where it found the most, 18 estimators with no discriminating test -- and on CI and gate
-efficacy, where it found a gate blind to the defect it was written for, a load-sensitive
-test that misattributes kills, and three generators that disagree across the matrix.
-Failure semantics and API consistency were exercised through the nine mandatory targets
-that touch them, not swept independently.
-
-Docs, skills and packaging were not swept again here. Packaging and CI were the subject of
-05-73..05-78 and 05-82, and the code/docs/skills/tests comparison is 05-85's whole scope,
-which runs next and is explicitly scoped to semantic agreement across those faces. Recording
-this so the item's deletion is not read as a claim that every surface it names was
-independently falsified in this pass.
-
-## 05-82 everything reproduced, one change made narrower than asked -- recorded 2026-09-18
-
-All three gaps were present exactly as described, including the item's four confirmations:
-no `continue-on-error`, no `|| true`, no `set +e`, `if-no-files-found: error` set, and the
-production PyPI trigger correctly narrow.
-
-One change is narrower than the item's wording. The Discriminator reads "a second push
-cancels the first", and `cancel-in-progress` is deliberately not unconditional: it is false
-for `refs/tags/*` and for `release` events. Those are the refs that actually upload, and a
-run cancelled between `build` and `publish-pypi` would leave a GitHub Release published
-with nothing on PyPI -- the ordering `artifacts/fact_stack.md` fixes, broken by the thing
-meant to protect it. For every other ref, which is every push to `main` and `dev` and every
-pull request, the second push cancels the first as the item asks.
-
-The pin resolves a moving target, so it is recorded here: on 2026-09-18,
-`pypa/gh-action-pypi-publish` `release/v1`, tag `v1.14.2` and commit
-`dc37677b2e1c63e2034f94d8a5b11f265b73ba33` were the same object, resolved through the
-GitHub API rather than read from a badge. The pin is that commit; the branch will move and
-the pin will not, which is the point.
-
-## 05-81 the tfr_accumulator claim does not reproduce as stated -- recorded 2026-09-18
-
-Four of the five docstrings reproduced exactly as described and are corrected. The fifth
-does not. The item reads "`tfr_accumulator.py:1` promises float64/complex128 accumulation;
-the persisted dtypes are float32/complex64". Both halves are true and they are not in
-conflict: the module docstring and the class docstring describe *accumulation*, and
-accumulation is float64/complex128 -- `__init__` allocates `np.float64` for `mean` and `M2`
-and `np.complex128` for `sum_z` and `sum_unit_z`. The downcast happens in `write`, which
-the docstring never described in either direction.
-
-So there was no false claim to correct, but there was a real omission of the same kind:
-nothing said that a summary round-tripped through HDF5 carries single-precision sufficient
-statistics, which is what the module's central property -- `merge(A, B) == summarize(A u B)`
-to floating-point tolerance -- holds to after a reload. That is now stated, with the reason
-the downcast is deliberate.
-
-The Accept condition, "no module docstring contradicts its code", is not achievable as a
-single mechanical check and is not claimed. What is mechanized is each of the five claims
-against the thing it is a claim about, plus one general sweep -- `Returns (...)` arity
-across every module in `jnwb/`, eight functions today. Prose about what a function means
-cannot be checked; counts, names, dtypes and numbers can, and those are what these are.
-
-## 05-80 the evidence is superseded, and half the change would be wrong -- recorded 2026-09-18
-
-The item's two evidence lines no longer hold. `grep -rn "todo_stack" scripts/ tests/`
-returns four test modules, not one path string. `AGENTS.md` has no section 4.3 -- it runs
-`## 0.` to `## 10.` with a single subsection, under 8 -- and the dead pointer the item
-names is already asserted absent by
-`test_agents_md_does_not_point_at_a_todo_item_that_is_not_there`, which also resolves any
-other item `AGENTS.md` names against the live stack.
-`test_every_repository_path_agents_md_cites_exists` already resolves every
-directory-prefixed path the document cites, with a floor on how much it matched.
-
-What did reproduce is narrower and is repaired: nothing resolved the document's own `§N`
-cross-references, nothing resolved a file named without a directory (the sweep's regex
-requires one of seven directory names in front, so `pyproject.toml` and `CHANGELOG.md`
-were invisible to it), nothing resolved anything in `artifacts/fact_stack.md`, and
-nothing held the todo stack to the section 2 rule.
-
-Not done, and deliberately: the item asks that every path in both stacks resolve. For the
-todo stack that check would be wrong. The stack is a record of findings as well as a plan,
-and a record correctly names what the finding caused to be deleted -- measured, eight of
-its cited paths and one test name are of exactly that kind, including
-`docs/requirements.txt`, which the note one item above names because 05-78 removed it, and
-`test_gpu_pca_cpu_and_cuda_agree_within_float32`, which the stack itself describes as no
-longer existing. A resolving sweep over that file would force the evidence to be deleted
-to stay green. The fact stack carries no such record and is swept in full.
-
-## 05-79 four sub-claims did not reproduce -- recorded 2026-09-18
-
-Nine gates were repaired and the item's central claim held everywhere it was tested:
-each adversarial tree was built and watched to pass before anything changed. Four
-sub-claims did not survive being checked.
-
-Gate 4's allowlist was said to carry four entries that do not exist. Three do not
-(`_audit_dist`, `_audit_dist2`, `_audit_dist_build`) and are pruned. The fourth absence
-is deliberate and says so where it lives, and the new test requires exactly that: an
-allowlisted file that is absent must carry its reason in the source or be pruned.
-
-Gate 5 was to be retired as subsumed by gate 9, on the grounds that it takes credit from
-the generated `docs/api.md` and matches substrings. Both were already repaired by 05-41:
-the gate skips `GENERATED_REFERENCE` and matches with `\b...\b`, and its docstring
-records the twelve symbols that repair surfaced. Only the non-recursive glob remained, so
-the gate was widened rather than retired -- retiring a check whose two stated defects are
-already gone would remove live coverage.
-
-Gate 8's PASS line was said to print "all agree" over a classifier set including 3.13
-while `PYTHON_CI_REQUIRED` omits it. The line names the two sets separately --
-`classifiers ['3.12', '3.13', '3.14'], CI covering ['3.12', '3.14'] all agree` -- so it
-asserts agreement between what is declared and what is tested, not that 3.13 is tested.
-It is unchanged. Whether CI should test 3.13 is a matrix decision, not a defect here.
-
-Of the four checks said to ship but never run, three do run:
-`validate_receipt_provenance`, `check_logarithm_last_rule` and `check_modality_isolation`
-are each imported and exercised by `tests/test_harness_adversarial_gates.py`. Only
-`check_protected_paths` was dead, and its `PROTECTED_PATHS` named another repository's
-`omission/...` directories, so it is removed rather than wired: wiring it would have
-meant inventing paths for it to protect.
-
-One process note. The discriminator harness left the D13 mutant (`rglob` -> `glob`) live
-in `tests/test_docs_links.py` despite asserting a digest match after the restore, and the
-full suite caught it. A pre/post digest comparison across the whole run, outside the
-per-case try/finally, is now what the run is trusted on; the second run came back
-byte-identical on all three mutated files.
-
-## 05-78 one half superseded by work done since the audit -- recorded 2026-09-18
-
-The item says neither `pytest-cov` nor `pytest-xdist` has a caller: no `addopts`, no
-`--cov`, no `-n` anywhere. That was true at the audit and is now half true.
-`pytest-xdist` acquired a caller in this execution -- the installed-wheel leg added for
-05-76 runs `pytest ... -n auto` -- so it is declared and used, and stays. `pytest-cov`
-still had none and is removed rather than given an `addopts`: adding coverage to every
-run is a new gate with a threshold to argue about, and the item's own alternative was
-to drop it.
-
-Everything else reproduced. `docs/requirements.txt` and the `[docs]` extra were
-byte-identical, `.readthedocs.yaml` installed both, and `fail_on_warning: true` makes a
-drift a failed publish; the file and its entry are gone. The two scripts measured 464
-and 161 lines, 625 together as stated, with no reference anywhere outside themselves,
-and the root allowlist still carried `jnwb-unified-rev.md`.
-
-The Accept records that all six extras resolve and notes that `jnwb[gpu]` installs
-cleanly with no CUDA because plain `jax`/`jaxlib` from PyPI is CPU-only, and that it
-should be `jax[cuda12]`. Not acted on: `jax[cuda12]` publishes no Windows wheel, so it
-would turn a working install into a failing one on this platform. That is a packaging
-decision with a user-visible consequence, not a defect to repair in passing, and it is
-left for the release seal to rule on.
-## 05-77 every figure in the item reproduced -- recorded 2026-09-18
-
-Checked rather than accepted. Installing the built 0.2.4 sdist into a clean 3.12
-environment yields `jnwb/` and `jnwb-0.2.4.dist-info/` and nothing else: no `SKILL.md`
-and no `AGENTS.md` anywhere in the environment. The sdist itself carries all nine
-skills and `AGENTS.md` at its root. Of the skills' 12 repository-relative links, 11
-point into `docs/`, which the sdist prunes, so they resolve only in a checkout --
-exactly the count the item gives. `grep -rn "skills" jnwb/ --include=*.py` returns
-nothing.
-
-Executed as ruled: one canonical tree, `skills/` still grafted into the sdist, no copy
-under `jnwb/`, the `MANIFEST.in` comment rewritten to describe its mechanism, and
-`jnwb.SKILLS_URL` added as the machine-readable pointer. The pointer names the tag for
-the installed version rather than a branch, so an agent that has only the package finds
-the routing rows written against the API it is holding; both forms were checked live
-and return 200.
-
-Not done, and deliberately outside the ruling: the 11 dangling links were left as
-relative paths. Rewriting them to the published documentation site would make them
-resolve inside the tarball, but it would also change seven skill files, which are
-doctrine-adjacent, for a gap the ruling chose to close with a pointer instead. Flagged
-here rather than actioned.
-## 05-76 reproduced, and the claim was worse than stated -- recorded 2026-09-18
-
-The mechanism reproduced exactly. With the wheel installed into a clean 3.12
-environment, `pytest tests/` run from the repository root imports
-`C:/workspace/jnwb/jnwb`, not the installed copy; `test_import_provenance.py` says so
-when `JNWB_EXPECTED_PACKAGE_ROOT` names the environment.
-
-Two corrections to the item. `pythonpath = ["."]` is not the only mechanism:
-`tests/__init__.py` makes `tests` a package, so pytest's prepend import mode inserts the
-repository root as well. Clearing `pythonpath` alone changes nothing; the leg also needs
-`--import-mode=importlib`. And the item says only the build job touches the wheel -- the
-tutorial step had stopped touching it too, because the checkout guard added with the
-import-provenance repair finds the sibling package under `$GITHUB_WORKSPACE` and
-prepends the source tree. That step's name has been false since that commit.
-
-Running the suite against an installed copy was not merely absent; it was impossible.
-Sixteen tests failed for three reasons, each a defect in its own right: five test
-modules prepended the repository root to `sys.path` and re-shadowed the package under
-test, two opened `skills/...` relative to the working directory, and one located
-`CHANGELOG.md` through `jnwb.__file__`. All three are repaired, and the scanners that
-keep them out are in `tests/test_the_suite_can_qualify_an_installed_copy.py`.
-
-The Discriminator asks that a defect present only in the packaged artifact fail CI. It
-now can: the leg runs the whole suite against the wheel. Against the built 0.2.4 wheel
-the result is 2499 passed, 48 skipped -- 46 more skips than the checkout run, all of
-them GPU-gated tests, because the clean environment has no CuPy. That is the same
-condition a CI runner is in, so the leg is no weaker there than the matrix legs are.
-## 05-75 reproduced exactly; the repair is wider than the item -- recorded 2026-09-18
-
-The mechanism reproduced as stated. A wheel-shaped zip carrying `tests/__init__.py`,
-`tests/test_secret.py` and `scripts/release_gate.py` was accepted by the old loop; the
-sdist-shaped tarball with the same content was rejected on `/tests/`.
-
-The item proposes component matching for the wheel and keeping the substring form for
-the sdist. That was not done: one rule, applied to both, is the smaller thing to get
-right, and the sdist layout passes it. Three things the item does not name were repaired
-in the same commit because leaving them would have left the check unsound:
-
-- The gate never rejected `site/` or `_build/`, which `MANIFEST.in` prunes. The two
-  lists had drifted, which is the same defect class as the one being repaired, so the
-  prune targets are now derived from `MANIFEST.in` in the suite.
-- `.lab` matched the directory that exists, `.lab_bundle_build`, only as a substring.
-  Switching to component matching would have silently dropped it; both names are listed.
-- CI carried a byte-identical copy of the same defective list. Repairing only the local
-  gate would have left the published pipeline shipping the same wheel. The workflow step
-  now calls the gate's matcher, and the suite runs that step's Python out of the YAML.
-
-Component matching narrows one case deliberately: `artifacts` used to reject a module
-named `lfp_artifacts.py`. That is a false positive, not protection, and it is now
-accepted. `omission` and `_unused` stay substring rules -- they are markers, not
-directories.
-
-The Accept asks for a wheel containing a top-level `tests` package to fail. It does,
-constructed in the scratch directory and again from within the suite. The real built
-wheel (54 entries) and sdist (103 entries) are clean under the repaired rule, so the
-change adds no false positive to the artifacts this package actually produces.
-## 05-74 nine floors, not seven -- corrected 2026-09-18
-
-The finding reproduced and grew. The item names seven defective floors; nine are.
-`torch>=1.12.0` and `pyyaml>=6.0` have exactly the defect the item describes and were
-not listed: neither release ships a cp312 or pure-python wheel (torch 1.12.0 stops at
-cp310, pyyaml 6.0 at cp311). Both moved in the same commit, because raising seven of
-nine would have left the gate red on the two that remained.
-
-The item's title also reads "of ten"; `pyproject.toml` declares 23 `>=` floors across
-the core list and the `torch`, `test` and `docs` extras. The other fourteen are clean:
-each resolves to a release with a usable wheel. The gate checks all 23, not the ten.
-
-Of the nine, one is the requires_python contradiction the item names (`scipy==1.8.0`
-declares `'>=3.8,<3.11'`); the other eight ship no usable wheel. The scipy floor had a
-second, independent reason to move that the item records: `false_discovery_control`
-arrived in 1.11. `tests/` derives that requirement from the call sites rather than
-asserting 1.11 as a constant, so it disappears if the calls do.
-
-The Accept asks for `pip install 'numpy==<floor>'` to succeed on 3.12 for each
-dependency. It was met by reading the index metadata for each floor rather than by
-running 23 installs: the question is whether an installable artifact exists for cp312,
-which the wheel tags and `requires_python` answer directly. Installing them would also
-have required a throwaway environment per dependency and would have tested this
-machine's resolver as much as the declaration.
-## 05-73 divergence measured larger, commit count unverifiable here -- recorded 2026-09-18
-
-The finding reproduced and grew. `jnwb.__version__` is 0.2.4, the index serves 0.2.4, and
-`## [Unreleased]` holds 1009 non-empty lines, not the 20 the audit measured.
-
-One figure could not be checked from this clone: "HEAD is 5 commits past `v0.2.4`". The
-tag objects are missing locally, so `git describe` and `git rev-list v0.2.4..HEAD` both
-abort. That is a defect of this checkout, not of the repository, and it does not affect
-the finding -- the version collision is established from the index and the changelog
-without needing a commit count.
-
-The check lives in `scripts/release_gate.py`, not `scripts/harness_gate.py`: it needs the
-network, and a per-commit gate that reaches the internet fails for reasons that have
-nothing to do with the tree. The suite drives every branch through the pure function and
-stubs the transport, so it gives the same answer offline.
-## 05-72 third count already gone, and the ruling is removal -- recorded 2026-09-18
-
-Two of the three counts reproduced: `docs/agents.md` says three tools at lines 12 and 24,
-`mcp.list_tools()` returned four, and `jnwb.mcp_server.__all__` had five entries. The
-third pointer, `docs/10:18`, no longer exists -- 05-64 deleted that page and replaced it
-with `docs/10_operation_specifications.md`, which says nothing about the MCP server.
-
-The item left the keep-or-drop decision to the implementation. It was dropped, on three
-grounds, each checked rather than assumed: nothing imports `custom_tools`, so the
-registration never took effect and the restart message was false; validation was
-`ast.parse` plus the presence of a function definition, with the write target inside the
-install; and no surface documented it. The removal went past the item's "drop it from
-`__init__.py`" to deleting `meta_tools.py` and `custom_tools.py`, because an unreferenced
-module whose whole content is a code-writing primitive is the same defect one import away.
-## 05-70 counted 84 of 151 -- corrected 2026-09-18
-
-The shape of the finding reproduced; the numbers did not. `jnwb.__all__` exports 155
-symbols, not 151, and 81 were mentioned by no skill, not 84. Every symbol the item names
-individually was genuinely unrouted, so the change stands as written.
-
-The item's Accept asks for the unmentioned set to be reviewed and justified. It was, and
-the review changed the standard: mention is not routing. A symbol named in a sentence is
-not callable from that sentence, so the coverage test requires a routing row for every
-public callable and accepts a bare mention only for constants and types. Under that
-stricter reading the tree ends at 111 symbols carrying a row and 44 excluded by category;
-a count of mentions would have reported 126 and 29 for the same tree.
-
-The `jnwb-laminar` skill was not created; the item's second option was taken. The depth
-estimators consume the PSDs and correlation matrices `jnwb-lfp-spectral` already produces,
-a separate skill would have to restate that half to be usable, and the skill tree is
-doctrine. The router gains the laminar trigger either way.
-## 05-67 found three more rows than it listed -- extended 2026-09-18
-
-All six rows reproduce as described. The strengthened check from 05-68 found three the
-audit did not list, each of a kind the old check could not see: `granger` naming the
-deprecated keyword-only `seed` instead of `rng`; `fit_exponential_onset` naming the
-keyword-only aliases `t0_bounds`/`tau_bounds` in the positional slots of `t0_bounds_ms`
-and `tau_bounds_ms`; and `aggregate_to_db` giving a default to a keyword-only argument
-that deliberately has none while stating the wrong default for `aggregate_over`. One of
-the three, `save_figure_suite`'s `formats`, sat inside a tuple default and so was in the
-7 rows the old regex skipped entirely. Nine rows corrected, not six.
-
-One detail of the audit's `paired_fire_prob_test` evidence is sharper than stated: the
-row as written raises `TypeError` for the missing `n_shuffles`, so a reader copying it
-verbatim gets an error. The silent sign flip is what happens next, when the reader adds
-the missing argument and keeps the order.
-
-## 05-65 claims about `coi_mask` and tutorial units -- partly refuted 2026-09-18
-
-Two of the item's six claims do not hold as stated.
-
-`docs/04` does not hand over `coi_mask` as a bare field name: the page carries a section
-headed "What `coi_mask` excludes, and why the average comes after it", explaining the
-`mode="same"` zero fill, the kernel-width exclusion and the bias from averaging before
-masking. That was repaired earlier in 0.2.5. The CSD half of the same claim reproduces and
-was fixed.
-
-"`docs/tutorials/03, 04, 05, 06, 08` contain no unit token at all" is true of the five
-`.md` files and false of the pages. Each includes its script with `--8<--`, and the
-included scripts carry Hz, ms, um and seconds for 03, 04, 06 and 08. `05_statistics.py`
-genuinely had none, and its quantities are the ones a unit changes; it was repaired.
-
-The audit's implied mechanism for `docs/09` is also wrong. It reads as though the example
-should pass `groups`; `nested_cv_linear_svm(X, labels, n_splits, rng)` has no such
-parameter. The defect is real in the other direction -- the page promises protection the
-function does not provide -- so the page now says where the protection actually is.
-
-## 05-64 cut docs/01 sections 1-3 -- not followed 2026-09-18
-
-The item prescribed cutting `docs/01` sections 1-3 and keeping only section 2C, on the
-evidence that those sections "name an internal scaffolding marker and a test file". Both
-leaks reproduce, and both are single clauses: `tests/test_jnwb_frozen_boundary.py` inside
-the boundary invariant, and `PLACEHOLDER-DUMMY` inside the synthetic-data rule. The
-sections around them are signal class independence, estimand disambiguation, the causal
-verb hierarchy, the unit of inference, valid nulls and the observed/derived/inferred/
-assumed/unknown vocabulary -- user-facing science, and the only statement of most of it.
-Cutting them would delete every user-facing fact in three sections to remove two clauses,
-against the item's own Preserves clause. The two clauses were removed instead.
-
-The audit's other 05-64 claims reproduce with drift in the counts: 117 and 2,781 words
-(2,764 claimed), 29 nav entries with 28 unique (28 and 27 claimed), 24,155 words over 28
-pages (22,181 claimed). `docs/11` section 9.2 is not the only documentation of all seven
-symbols it names -- `aperiodic_fit` is also in `docs/04`, and `zflip`, `probe_geometry`
-and `stream_npz_array` in `docs/02` -- but it is the only statement of their result
-fields and failure semantics, which is what the repair preserved.
-
-## 05-59 whole-file deletion of `tests/test_rsa.py` -- refuted 2026-09-18
-
-The item asked for the file to be deleted, on the evidence that every failure class it
-carries is covered by `test_rsa_oracle.py` and that it caught nothing under a `pdist**2`
-mutation. The `pdist**2` observation reproduces. The conclusion does not.
-
-Deletion was decided per failure class rather than per file: fifteen mutations of
-`jnwb/rsa.py` and `jnwb/jrsa.py` were run against `tests/test_rsa.py` and the oracle
-separately, and anything only the former caught was rerun against the whole suite with
-that file ignored. Five classes are uniquely carried by it, and the suite without it
-kills none of them:
-
-| Mutation | Only carrier | Caught elsewhere |
-|---|---|---|
-| `rdm` accepts input with fewer than 2 dimensions | `test_rdm_input_validation` | nothing |
-| `rdm_similarity` accepts mismatched lengths | `test_rdm_similarity_validation` | nothing |
-| `rdm_similarity` accepts a non-square 2D RDM | `test_rdm_similarity_validation` | nothing |
-| `rdm_similarity` accepts non-finite RDMs | `test_rdm_similarity_validation` | nothing |
-| an unknown metric silently computes Spearman | `test_rdm_similarity_validation` | nothing |
-
-Four of those sit in `test_rdm_similarity_validation`, which the item's evidence never
-mentions and which the first nine mutants never reached. Absence of kills against
-mutations aimed at other failure classes is not evidence of redundancy, and treating it
-as such would have deleted the only guard on every `rdm_similarity` rejection path.
-
-The stated justification fails independently. J1, reintroducing the 05-06 defect where
-the parametric p pre-empts the permutation null, is not caught by the oracle either, so
-"every failure class is covered by `test_rsa_oracle.py`" is false as written. It is
-caught elsewhere -- by `test_jrsa_correctness.py::TestPermutationPWins`, which asserts
-that invariant by name rather than incidentally -- but `test_jrsa_delegation_parity`
-also carries statistic-delegation parity and the `permutations=0` fallback, neither of
-which any mutant reached.
-
-Both merges in the item's Change are refused on inspection rather than measurement. The
-nine `TestPublicImport` classes are not duplicates of each other; each hardcodes its own
-module's export names, and parametrizing them over `EXPORT_MODULES` would check that
-registry against itself -- the circularity 05-55 removed from `test_rsa_oracle.py`.
-`TestHarnessResetContracts` is not nine substring assertions of one thing but six
-distinct doctrine contracts across different files; merging them trades six named
-failures for one anonymous failure on the gates that guard doctrine.
-
-Claim 6 reproduces in magnitude and not in attribution, and the edit it prompted was
-reverted: `parallel_map` dispatches `min(len(items), workers * chunks_per_worker)`
-chunks (`_parallel.py:103`), 2 for 2 items whatever `n_jobs` says, so `n_jobs=32` never
-started 32 interpreters. Measured back to back under the same load, 32 against 4 is
-7.47 s against 6.66 s.
-## 05-55 claims 4, 5 and 9 -- graded 2026-09-17
-
-Seven of the item's nine claims reproduced and were repaired at this commit. Three did
-not hold as written, and the corrections are recorded here because they outlive the item.
-
-**Claim 4 is stale.** `test_gpu_pca_cpu_and_cuda_agree_within_float32` no longer exists.
-05-43 renamed and repaired it at `c72d9c2a` to
-`test_gpu_pca_cpu_and_cuda_return_the_same_numbers`, which compares `proj`, `comp` and
-`var` rather than the sign-invariant variance ratio. No change was made for this claim.
-
-**Claim 9 does not reproduce, and the change it proposed is harmful.** The item asks for
-`pytest.importorskip("statsmodels")` in the two `test_release_recovery_gates` tests that
-patch it. `statsmodels>=0.13.0` is a required install dependency at `pyproject.toml:50`,
-not an optional extra, so a `ModuleNotFoundError` there is a broken installation and
-should fail loudly. `importorskip` would convert that into a silent skip. No test in the
-suite guards `statsmodels`, and the convention is right. No change was made.
-
-**Claim 5 reproduces as a mechanism but not as a loss of coverage.** `rdm_similarity`
-(`jnwb/rsa.py:197`) is a dispatcher whose `pearson` arm is `stats.pearsonr(v1, v2)`, and
-the test compared it against `pearsonr(a, b)` -- the same function on the same inputs, so
-the assertion was an identity. That much is confirmed by reading the dispatcher. The
-implied consequence is not: under a mutant replacing the `pearson` arm with an uncentred
-cosine, *both* the replacement definitional oracle and a replica of the old circular
-assertion failed. A wrong implementation diverges from the SciPy value it is compared
-against, so the old test did catch implementation defects. The repair was still made --
-it removes the test's dependence on SciPy's correctness and on the implementation
-continuing to delegate -- but it closed no measured gap, and the item's framing overstated
-what the circularity cost.
-
-## 05-52 Five modules carry unrelated responsibilities -- deleted 2026-09-17
-
-Evidence regenerated against `5f229231`. The item's numbers predate 05-26, 05-49, 05-50
-and 05-51, all of which edited these files. Structure measured as the intra-module
-dependency graph over top-level symbols: a component is a disjoint cluster, and a
-component is interleaved when another cluster's symbols fall inside its line span.
-
-| module | claimed | actual lines | components | splits at a line? |
-|---|---|---|---|---|
-| `laminar` | 1831, three estimators, split at 862 and 1476 | 1882 | 2 | 862 yes; 1476 now lands inside a comment mid-function |
-| `connectivity` | 2144, IT at 56-164 and 1728-2010, VAR at 167-1720 | 2304 | 2 plus 1 isolated | no -- 14 symbols interleave one span, 3 the other |
-| `spectral` | 1913, 208 lines of re-referencing and CSD | 2124 | 7 | CSD yes (2028-2123, 94 lines); re-referencing no (3 symbols scattered over 201-1829, 112 lines) |
-| `jrsa` | 1740, device subsystem duplicating `_backend.py` | 1778 | 2 | already closed by 05-26: `jrsa.py:22` imports `CPU, CUDA, resolve_device` from `._backend` |
-| `statistics` | 1633, five pure forwarders | 1764 | 8 | forwarder direction resolved in 05-51 |
-| `analyzers` | 779, three namespaces with no shared state | 805 | 3, zero edges | yes |
-
-Three reasons the change is not made.
-
-`laminar` does not hold three independent estimators. `xflip` and `zflip` share
-`_surrogate_phase_randomize`, the only edge joining them. A three-way split either
-duplicates that helper, reintroducing what 05-51 removed, or adds a fourth module the
-item does not name.
-
-Four of six modules interleave, so "split along the named line boundaries" is not
-available. The change is a reorder plus a split, a diff in which every line moves and a
-semantic change is invisible to review -- during a pass whose purpose is to stop the
-object moving.
-
-The split buys nothing measurable. `Preserves: every import path and __all__` means
-re-export, and `jnwb/__init__.py` imports `laminar`, `spectral` and `connectivity`
-eagerly at lines 76, 132 and 156. Per-module self import time is 1.5-5.9 ms of 2347.8 ms
-total (`artifacts/benchmarks/import_breakdown.json`, 0.2.4); the remainder is scipy and
-sklearn, charged to whichever module imports them first and needed by both halves either
-way. API, import cost and symbol set are identical before and after, while
-`_api_surface.py` gains entries -- surface added, none removed.
-
-`analyzers.py` reproduces exactly: three classes, three components, no edges between
-them. It is left alone for the third reason, which applies to it as much as to the rest.
-
-# Before 1.0
-
-- Replace example-based estimator coverage with analytic or property-based tests.
-- Processing-module discovery generalization beyond LFP if a corpus requires it.
-
-# Unversioned
-
-- File omission-side expert-feedback items in the omission repository.
-
-# Environment note, not repository work
-
-The development virtualenv at `.venv` has `omission` editable-installed
-(`__editable__.omission-0.1.0.pth`) and jnwb not installed (`pip show jnwb` -> not found), and
-is missing `statsmodels`, a declared hard dependency, plus `mkdocs` and `nbclient`. Every local
-receipt is therefore taken in an environment the boundary gates would reject, and 7 of the
-1472 local test failures trace to it while CI is green. This is machine configuration, not a
-repository change.
+# 0.2.6
+
+The remaining work of the 0.2.6 cycle, reorganized 2026-09-22 so that executing it in the order
+below reaches the release. Items are deleted when done; git, `CHANGELOG.md` and the receipts hold
+history. The previous cycle's record is `artifacts/archive/0.2.5/todo_stack_0.2.5.md`.
+
+0.2.6 is a coherence, reachability and evidence release. It is measured against
+`artifacts/goal.md` and opens under the three conditions of `AGENTS.md` §11. Deferred work and the
+0.2.7 sequence are in `artifacts/planned_post_0.2.6.md`, and findings deferred from the problem
+stack are 07-01. Rulings are in `artifacts/rulings/`.
+
+## How this stack is executed
+
+Every item is a delegation packet in the contract of `skills/jnwb-fact-action` §5; the executing
+role is `jnwb-developer` (`artifacts/agents/jnwb-developer.md`) unless the item names another.
+Map the fields onto the packet: `Role` ROLE, `Skill` DOMAIN SKILL, heading GOAL, id TODO ITEM,
+`Reads` extra AUTHORITIES, `Reproduce` OBSERVED BASELINE, `Writes` ALLOWED SCOPE, `Accept`
+ACCEPTANCE, `Stop` STOP CONDITIONS.
+
+| Rule | Why it binds |
+|---|---|
+| `AUTONOMY: max` unless the item says otherwise (`AGENTS.md` §12) | the actor and critic sequence the work and continue past a failing test or a surviving mutant |
+| One writable agent per worktree; a lane runs `scripts/verify_lane.py --baseline <commit>` before its first write | a shared tree has silently lost green tests here |
+| One item per packet | a batched packet reports the easy items and redefines the hard one |
+| The actor is never the verifier | every `repaired` is re-run against the exact diff by someone else |
+| Non-reproduction is a result | an imported finding that does not reproduce is returned `unsupported` and its item deleted |
+| A contradiction stops the packet | two sources disagreeing on one quantity go to `authority` |
+| The dispatcher owns the stacks, `CHANGELOG.md` and `docs/api.md` | a packet reports the disposition, the changelog text and the export change; the dispatcher writes them and regenerates `docs/api.md` at the wave barrier |
+| Wave barrier | `python scripts/harness_gate.py` (count the PASS lines), `python -m pytest tests/ -q`, commit, push, confirm CI on `dev` |
+
+Standing stop conditions on every packet: a repair needs a path outside `Writes`; the premise is
+already false; acceptance would need invented evidence or a human ruling; a secret would enter the
+repository or a transcript.
+
+Item fields: `Release`, `Role`, `Skill` (a skill directory or `none`, `per skill`, `per module`,
+`per finding`, `per chain`), `Blocked by` (live item ids or `none`), `Reads`, `Writes` (exact paths
+or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails before, passes after),
+`Accept`, `Stop`.
+
+## Execution order
+
+Items in one wave have disjoint `Writes`, resolved by path and closed under generation; run them
+in any order, at most two agents at a time unless Hamm raises the cap. Close each wave with the
+barrier above.
+
+| Wave | Items |
+|---|---|
+| W0 |  |
+| W1 |  |
+| W2 |  |
+| W3 |  |
+| W4 |  |
+| W5 |  |
+| W6 |  |
+| W7 |  |
+| W8 |  |
+| W9 |  |
+| W10 |  |
+| Rolling | Verification ran through `6c651511`; the receipt records it |
+| Closure | 06-40 |
+
+06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
+packets finish before 06-34.
+
+## W0. Integration and verification
+
+## W1. Freeze, sweeps and harness
+
+## W2. API repairs
+
+## W3. Statistics surface, diagrams and the open-data example
+
+## W4. Maintained figures, skill routing and references
+
+## W5. Figures, execution switch and decline
+
+## W6. Orders and empirical labelling
+
+## W7. Contracts
+
+## W8. Vocabulary and cost
+
+## W9-W10. Documentation form
+
+## Any wave. Confirmed findings
+
+## Rolling verification
+
+## Closure
+
+### 06-40 Full 0.2.6 release
+
+Release: release-step-0.2.6.
+Role: actor. Skill: none. Blocked by: none. AUTONOMY: none.
+Writes: none.
+Released by the agent once done (ruled 2026-09-23); Hamm approves the PyPI deployment. The release pull request merges `dev` into `main` with a merge commit through the `main` ruleset's seven checks, and `git diff dev <merge>` is empty (P-180: `main` was reconciled in HNXJ/jnwb#20). Tag `v0.2.6`; publish the GitHub Release, whose `publish-pypi` job waits in the `pypi` environment for Hamm's approval and which Zenodo archives. Then verify from PyPI in a clean environment: TestPyPI's 0.2.6 at `8e90a4ad` and the local wheel at `1d5e8b81` already passed, so this is the last leg of the artifact check.
+Accept: PyPI serves 0.2.6 and its wheel's `jnwb/` equals the tag byte for byte; a clean install opens and analyses an NWB file; `SKILLS_URL` and the README's `artifacts/agents.md` link (P-270) resolve; Zenodo shows a DOI.
+
+## 0.2.7
+
+### 07-01 Findings carried from 0.2.6
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per finding. Blocked by: none.
+Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
+Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6. A packet takes one
+finding and narrows the write set to its paths; a finding shown to meet the blocker predicate
+leaves this item as a `required-0.2.6` item.
+
+- P-01: `scripts/docs_build.py` writes `site/` inside the repository, and the test suite also creates `site/` mid-run with no build invoked, so no read-only packet can establish that the strict docs build passes while keeping the tree clean. Deferred: changes no shipped behaviour and invalidates no release evidence; 06-36 builds into a temporary directory.
+- P-08: Two reproduced review findings carry wrong counts: `doc-assets/module-map-omits-nwb-entry-points` says 36 omitted exports where a probe counts 35, and `ai-plumbing/agent-roles-exist-but-ship-nowhere` says five roles where six exist. Deferred: record counts only.
+- P-20: The unit-to-layer composition works through existing exports and no document or skill shows it. Deferred: documentation only; planned as 06-89 in `artifacts/planned_post_0.2.6.md`.
+- P-36: Reading computational order off the source was wrong on six specs: five predicted a gap the measurement did not find, and one exponential case a reading of the loop structure would miss; a nested loop is not evidence of the order it looks like. Deferred: a method finding, not a code defect; planned as 06-87.
+- P-63: 30 public exports are named in no skill, including `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` and the `Query`/`Question`/`Result`/`Interpretation`/`Lineage`/`Provenance` cluster; the seven domain skills otherwise partition 110 operations with one overlap. Deferred: a routing gap that changes no behaviour or evidence.
+- P-69: The problem stack's rule section stated a hand-written count of closing dispositions that contradicted its own table and `AGENTS.md` section 2; the sentence was repaired, and nothing checks hand-written counts in that file. Deferred: only the missing check remained, and the 2026-09-23 rewrite of that section removed the counted sentence.
+- P-76: `examples/quickstart_jnwb.py` writes two tracked files and `docs/quickstart.md:55` tells the reader to run it; the SVG carries a `<dc:date>` and random `<path id=...>` hashes, so every run dirties the checkout. `rcParams["svg.hashsalt"]` plus `metadata={"Date": None}` gives byte-identical SVG, and the PNG is already deterministic (re-measured 2026-09-23). Deferred: no shipped behaviour or evidence; `docs/generate_figures.py` is already held to its outputs by a test.
+- P-84: `tests/test_docs_call_shapes.py` missed documented calls that raise: its arity check was one-sided, dotted receivers were skipped, and `docs/10` had no fences. The code half is landed (`Signature.bind`, a per-page import map, receivers at any depth, a `docs/10` table collector that fails on an unresolved row). Deferred, upheld by the deferral attack on 2026-09-23: what remains is P-167's record correction and the type oracle.
+- P-90: 06-44 declared its write target in prose ("the documentation page that names the keys"), and no page names `fdr_pval`: a pointer born wrong, and no gate resolves prose write targets. Deferred: a prose target cannot be resolved mechanically; the repair is a gate that rejects a `Writes:` field naming a path outside backticks.
+- P-100: Gate 14 gates 2 of the 6 agent role names: `authority`, `critic`, `actor` and `verifier` are ordinary English, the gap is documented in the constant's comment, and a test keeps those four ungated. Deferred: deliberate; recorded so it is not rediscovered as a defect.
+- P-101: `checked >= 65` in the skills signature test sits against 116 rows, so only mass deletion trips it. Deferred: cheap to tighten now that the concurrent lanes have landed, and the coverage test makes the weak floor's failure nearly unreachable.
+- P-102: The repository mixed line-ending conventions with no rule and no check (`artifacts/*.md` and three `skills/*/SKILL.md` CRLF; `AGENTS.md`, `scripts/`, `tests/` and `docs/` LF): a byte-mode edit anchored with the wrong ending matches nothing, and `git apply` refuses mismatched context. `.gitattributes` now declares `-text` and Gate 16 fails a mixed file; the wholesale conversion Gate 16 cannot see is P-159. Deferred: whether to level the conventions is a ruling.
+- P-119: Three lanes (06-19, 06-21, 06-22) each read the highest problem id as P-107 and wrote `P-108` into an `xfail` reason for three different defects; a worktree cannot see ids allocated after it was cut, and the packet contract allocates none. All four references were renumbered on integration. Deferred: the repair is a packet that carries the allocated id or a named placeholder.
+- P-154: Scheduling fields carried prose that quoted field labels, so neither parsed: 11 defects across 10 items in one pass; the shapes were notes spliced into a `Blocked by:` field (06-30, 06-36, 06-27, 06-06), prose quoting a label inside its own item (06-31, 06-80), and five stale blockers hidden behind them, including 06-105 naming itself. All 11 were repaired by hand. Deferred: the durable half is a gate 15 check for a blocker naming no live item, an item naming itself, and a second field label in one item.
+- P-155: Ruling items 06-13 and 06-67 asked for evidence that committed artifacts already held (`artifacts/evidence/0.2.6/compress_fp32_default_candidates.md`, `compress_fp32_policy.md`, `missingness_table.md`), because each artifact named its item and the item never named it back; the unread missingness table held unrecorded defects (P-157, P-158) and a fourth candidate, `c3d`. Deferred: the durable half is a backlink check (an artifact naming a live todo id in its first 12 lines that the item does not name back), measured at 3 links with 2 broken, then 0 after repair.
+- P-162: Lane concurrency compared `Writes:` strings, so `docs/*.md` and `docs/08_directed_connectivity_and_information.md` read as disjoint though they name one file: 33 string-disjoint pairs of dispatchable work shared a tracked file, and a greedy batch of eighteen split into six once tokens were resolved against `git ls-files`. The parser also invented the write set `repaired` for 06-17. Deferred, upheld by the deferral attack on 2026-09-23: the 0.2.6 waves are scheduled on resolved paths; the gate expands each token with `fnmatch` against `git ls-files`, fails a token matching nothing, and fails an empty field unless the Role is `verifier` or `human ruling`.
+- P-167: P-84's record was partly wrong: the corpus did reach `docs/02`, `docs/07` and `docs/09` (25, 17 and 9 calls); a fourth cause was the per-fence import map (why P-78 survived, found when mutant M3 survived the repair of the three recorded causes); `docs/10` has no fences of any kind; and the module docstring was right about P-82. The code half is repaired. Deferred: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly and need a type oracle, planned as 06-110.
+- P-171: `test_the_value_is_a_density_not_an_integrated_power` does not catch `signal.welch(..., scaling="spectrum")`, though it catches `mean -> sum`; the scaling mutant is killed by `test_band_power_is_the_mean_psd_over_the_band` instead. Deferred: the class is covered and only the test's name misleads.
+- P-190: `acquisition_channel` raises `AcquisitionNotFoundError` for a series found with `timestamps` and no constant `rate`, so a caller catching "not found" to try another name reads a present series as absent. Deferred: the message says "has no constant sampling rate" and no rate is invented; a new exception class is a public API decision.
+- P-191: A contributor install without the `vis` extra fails the tests that sweep `jnwb.__all__` (19 counted by one lane, 21 by another in a git-less export). Deferred: false failures, never false passes; the test legs install the extra, and the CI smoke step and release-gate STEP 7 check the no-extra state.
+- P-192: `enrich_units_dataframe` on a units table without `peak_channel_id` fills `area=None`, `layer='Unknown'` and `group_name=None` on every row with no warning, and `docs/02_paths_addressing_metadata.md` does not state the prerequisite. Deferred: unknown values rather than wrong labels, ratified by `tests/test_substitution_class_sweep.py`; planned as 06-90.
+- P-196: No test pins `psi_freqs` or `psi_per_freq[0]` of `phase_slope_index`: zeroing the first bin or shifting the frequencies by half a bin survives every PSI-touching module. Deferred: the output is correct and its sign and spectrum are pinned.
+- P-197: The checkout-provenance scanners miss ten spellings (an annotated alias, a two-step alias, `jnwb.__path__`, `inspect.getfile`, `Path.cwd()`, tuple unpacking, `pathlib.Path('skills/..')`, `open('docs/..')`, `Path('./skills')`, `os.path.join('scripts', ..)`), and the test-path scanner accepts five more (`sys.path[:0] = [ROOT]`, `insert(1, ROOT)`, `insert(0, ROOT / 'scripts' / '..')`, `import sys as _s; _s.path.insert(0, ...)`, and any plant in `tests/__init__.py`). No live instance. Deferred: the installed-wheel CI leg, with `test_import_provenance.py`, fails a checkout-pinned test.
+- P-198: `run_full_preflight` records a failed gate once and nothing pins it: removing the de-duplication passes all 26 tests. Deferred: reachable only when a gate fails and then raises, and a duplicate record cannot hide a failure.
+- P-199: `examples/tutorials/09_open_data.py` checks the tick rate across three segments and nothing pins it: checking only the `window` segment passes all 5 tests. Deferred: the rate derivation is pinned; the unpinned part is a redundant cross-check.
+- P-200: `examples/tutorials/09_open_data.py` says the recording starts within a millisecond of its first spike; the page measures 6 to 9 ms against its enforced 10 ms bound. Deferred: wording only, and the bound is enforced.
+- P-203: `relative_power(model="log_ratio")` computes `10*log10` in `jnwb/spectral.py` instead of calling `to_db`, a retyped copy of the rule invariant 7 of `AGENTS.md` section 4 asks callers to reuse. Deferred: the same formula, so no number differs.
+- P-204: `ContainerTypeContradictionWarning` fires on LFP `ElectricalSeries` stored in `uV` (pynwb reports volts with `conversion=1.0`, so values are out by 1e6) and blames the declared type when only the unit is wrong: 78 of 96 corpus warnings. Deferred: it errs toward caution, and separating a unit-scale error from a type error is a public message choice.
+- P-209: Comments and docstrings in `scripts/` and `tests/` carry item identifiers (for example around the gate 8 and gate 14 helpers in `scripts/harness_gate.py`), which the head rule of `AGENTS.md` keeps out, and no gate scans them. Deferred: neither tree ships, and a comment cannot make a gate or test pass falsely (measured in full as P-284).
+- P-216: Branches that behave correctly and that no test pins, found by surviving mutants: the `/acquisition` bare-name ambiguity refusal, the gradients crossover default in `jnwb.vis`, a second contradicting interpreter sentence (gate 8 reads the first), `Claimed by: X; Y closed` spellings in STEP 0a (moot: that check was removed on 2026-09-23), a paraphrase of the unscoped delay instruction, direct `sys.modules.clear()` in the collection-order detector, the `jnwb.vis` vocabulary beyond a grep, and `VISp6a/b` splitting into a spurious area. Deferred: every branch behaves correctly on the live tree, and `VISp6a/b` is an edge no corpus here carries.
+- P-218: Gate 2 still excuses a directory at the path of a stale worktree registration: a deleted worktree re-created with a `.git` file pointing at the root's `.git` or another worktree's admin directory is listed, not prunable, and passes the identity check. Deferred: it needs a counterfeit at a stale registration's exact path and none exists here; the repair checks that the admin `gitdir` file points back at the directory.
+- P-219: Gate 2's PASS message reads `(no .agents/skills/ duplicate)` though the gate checks every `SKILL.md` outside `skills/`. Deferred: the check is wider than its message and no verdict changes.
+- P-220: An empty group named `session_description`, read with the waiver, raises `ValueError: already exists in root.groups` instead of reading `""` or raising `MissingRequiredNWBFieldError`, and the missingness table has no row for it. Deferred: the read still fails loudly on a malformed file; the repair is a table row and a named error.
+- P-221: `ContainerTypeContradictionWarning` is raised through public reads and not exported, so filtering it by name needs a submodule import. Deferred: emitted and documented, and it changes no value; exporting it is a decision.
+- P-227: The `phase_slope_index` jackknife leaves out one segment rather than one epoch, so its z is conservative under the null: 400 null draws give sd 0.669 and P(|z|>2) = 0.005 at the default overlap; the divergence is documented at the function. Deferred: conservative, so it cannot make evidence falsely pass; the repair is an epoch-level jackknife.
+- P-228: The name `vflip` collides with the published vFLIP of Mendoza-Halliday 2024, a different procedure; the `jnwb/laminar.py` module docstring states the difference. Deferred: a rename changes public API and needs a ruling.
+- P-229: The vflip calibration receipt hashes `inspect.getsource` of the estimator, docstrings included, so a documentation-only edit invalidates it. Deferred: it fails closed; the repair hashes code without docstrings.
+- P-230: `aperiodic_fit` fits without removing peaks first, unlike Donoghue 2020: a 10 Hz peak moves the exponent from 2.000 to 2.157; the function documents this and advises fitting a peak-free range. Deferred: documented use is correct, and changing the fit changes shipped values, which needs a ruling.
+- P-231: The `phase_locking_index` Rayleigh p-value comment quotes the second-order formula while the code computes the first-order one; at n = 10 the two and a Monte Carlo reference differ by at most 0.0004. Deferred: the code is correct; the comment is to be aligned.
+- P-232: Gate 15 and gate 17 read only `### 06-` item headings while STEP 0a reads items at any heading depth and any id, so they disagree on an item under `####`, and neither gate reads this item. Deferred: STEP 0a is the wider reader, so the gates can only under-read; the repair shares one parser.
+- P-234: The `JRSAResult` 0-d shim warns under the name `JRSAResult.p` when a copied `q` is indexed, and `p[-1]` raises without a deprecation warning. Deferred: values, dtype and arithmetic are unaffected; carried with the shim's removal.
+- P-235: The stated-gate-count test scans the instruction surfaces but not `skills/` or `docs/`, and matches digits but not number words or "Gates 1 to N". Deferred: the one live stated count is covered and correct.
+- P-238: `scripts/mutation_harness.py`'s `collect_selector` drops every node id containing a space, so such a parametrized discriminator cannot be named in `must_fail`. Deferred: it fails closed (the selector is rejected) and cannot produce a false kill.
+- P-240: With transparent figure backgrounds, legends lost their opaque box and overlap data: fig07 panel A (text over bars 4-5, both variants) and fig10 panel B. Deferred: legibility only; no value or label changes.
+- P-241: The contrast check in `tests/test_figure_form.py` exempts each generator's `THEMES` table and parses only 6-digit hex and `white/black/k/w`, so a dark `fg` of `#202020` or a named color such as `navy` passes. Deferred: this release's dark variants were checked by eye, all 11 legible.
+- P-242: `unit_census_report` with the default grouping, on a frame lacking `area` or `depth_class` and with no `layer`, drops those columns without a warning. Deferred: this matches the documented filter to available columns and gives no wrong number; an explicit `group_by` warns.
+- P-244: `apply_tight_auto_axis` floors the y lower limit at 0, so negative values in signed data (z-scores, LFP) are drawn outside the axes. Deferred: display only; the docstring and skill row state it.
+- P-245: `assign_quality_tier` maps an unknown quality code (anything but 0 or 1) to `'unstable'` instead of refusing it. Deferred: conservative and stated in the skill row; refusing it is an API change.
+- P-246: `paired_fire_prob_test(rng=<int>)` raises `AttributeError` rather than a checked `TypeError`. Deferred: a loud failure with no wrong value.
+- P-254: `Canvas.save_and_seal` and the `docs/vis.md` export block fail with kaleido's "Couldn't close or kill browser subprocess" when several kaleido exports run at once on this machine (two or more concurrent suites; a 24-way stress run also hung); CI runs the suite serially and has not shown it. Deferred: it fails loudly; a red local run naming this test is re-run alone before it is read.
+- P-255: `causal_exp_smooth(tau_ms=0)` returns all NaN with only a RuntimeWarning instead of raising. Deferred: loud, with no plausible-looking value.
+- P-256: Three errors name the wrong thing: `binary_occupancy_mutual_information` and `spike_count_mutual_information` name `spike_mutual_information`; `build_permutation_plan(labels, None)` raises a bare `TypeError` without naming `groups`; and a series with no constant rate raises `AcquisitionNotFoundError` although it exists (P-190). Deferred: each raises, so this is message quality only.
+- P-257: `ComplexTFR(device=...)` accepts any string as its device record. Deferred: only a hand-built `ComplexTFR` can carry a false record; `complex_tfr` sets it from the resolver.
+- P-258: The `_backend.py` row of `tests/test_substitution_class_sweep.py` gives `gpu_available` as its reason but now also covers `jax_metal_available`. Deferred: a reason string; the sweep's check is unchanged.
+- P-259: Rule F7 of the documentation contract (no fact that no gate or test enforces) conflicts with 06-51's "no fact present before is absent after"; the import timings in `docs/install.md` are the example, kept. Deferred: needs a ruling on which rule wins, and keeping the facts cannot mislead.
+- P-264: `phase_slope_index` with some bands undefined sums `net` over the defined bands while its docstring says "the whole requested range". Deferred: flagged by `ok_for_interpretation` and stated in the skill row.
+- P-265: With one value per group the ANOVA is NaN but `eta_squared` reads 1.0 beside it. Deferred: the arithmetic is right (no within-group variation) and cannot make a p or a flag pass.
+- P-266: `scripts/computational_contract_gate.py` tracks argument aliases without regard to order, so an argument overwritten before it reaches the switch counts as reaching it, and its static checks accept one correct path among several. Deferred: stated in the gate's docstring; no live export has the shape, and `tests/test_execution_switch.py` and `tests/test_precision_switch.py` hold the live behaviour.
+- P-267: No skill routes the `jnwb.ontology` objects, and the exclusion comment in `tests/test_skill_symbol_coverage.py` points to a workflow no skill has. Deferred: the exclusion is deliberate and tested; routing belongs to the skills `artifacts/fact_stack.md` plans beyond the ten of 0.2.6.
+- P-268: No single maintained capability map covers the public surface. Deferred: a capability-by-capability matrix is frozen out of 0.2.6, and the module map is checked against the exports.
+- P-269: No diagram shows the scientific-semantics distinctions (magnitude, direction, delay, inference). Deferred: the goal requires none; the four diagrams on `docs/architecture.md` meet the canonical-model line.
+- P-274: STEP 0a leaves four HTML heading forms unparsed: a `<b>`-wrapped id, an anchor before the id, a heading over three lines, and `Release&#58;`. Deferred: the stack uses no HTML heading.
+- P-275: `tests/test_vis_draws_no_default_landmark.py` misses a negative default (`UnaryOp`) and a body fallback such as `0.5 if crossover_depth is None`. Deferred: the code has a default of neither form.
+- P-276: The figure-form self-test does not pin the changed-pixel slack: raising it from 1e-5 to 2e-4 passes, and a real one-digit edit changes 8.1e-5 to 9.1e-5 of the pixels. Deferred: the constant at HEAD is 1e-5.
+- P-277: The architecture reachability test misses an agent named only in an edge label, nodes labelled "Assistant" or "LLM", and phrases such as "requires an LLM agent", and it fails a legitimate `subgraph` line. Deferred: the current pages violate none of these.
+- P-278: In `docs/architecture.md` the routing diagram asks "inference supported?" before "inputs present?", an order no skill or `artifacts/direction.md` states, and the dependency diagram omits h5py, hdmf, matplotlib, scikit-learn, statsmodels and joblib. Deferred: a presentation choice and an incomplete list, not a wrong edge.
+- P-279: The tuple check in `tests/test_skills_validation.py` counts elements only, so a swapped return order in `rdm_similarity` or `exact_sign_flip` survives it. Deferred: `tests/test_rsa.py` and `tests/test_statistics.py` kill both swaps.
+- P-280: Minor text: the open-data example's "within a millisecond" (6-9 ms measured); `plot_decoding_timecourse` promises a CI ribbon and cluster bars the caller supplies; `rdm_similarity`'s Step 5 and wPLI's zero-lag threshold are stated only in docstrings; `correlate`'s note says `test=` for `method=`; the quickstart's "single trial" PSI wording; `population_trajectory` warns under a short context name. Deferred: none changes a value or a documented contract.
+- P-281: `TestJrsaIsUnitFree::test_cuda_matches_cpu` compares CPU with CPU. Deferred: `jrsa` has no GPU path and warns on a device request.
+- P-282: `scripts/docs_form_gate.py` and the older tests (`tests/test_documentation_form.py`, `tests/test_docs_user_navigation.py`, `tests/test_figure_form.py`) assert F1, F5, N1, N2, N5 and G2 on the live tree twice, with only the corpus and vocabulary readers shared; the gate imports private helpers from two test modules; the old F1 test misses `#####`. Deferred: both copies must pass, so nothing passes falsely, and the gate covers the `#####` gap.
+- P-283: In `_timestamps_fate`, a regular `timestamps` array beside a `starting_time` with no `rate` attribute does arithmetic with `None`, so `convert` raises `TypeError`, now also through `select=`. Deferred: a loud failure with no wrong value.
+- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence.
+- P-287: The trial-mean view check reads a list one level deep: `[[P[0]],[P[1]]]` and a list of memoryviews pass. Deferred: `np.asarray` copies these, under the copy limit ruled acceptable on 2026-09-23.
+- P-288: `scripts/docs_form_gate.py` leaves `docs/tutorials/*.md` outside F1, F5 and F2, and misses a `####` heading indented one to three spaces. Deferred: measured with the gate's own functions, the live tree has 0 violations of either.
+- P-289: The MCP writes-nothing test snapshots only the file's directory and the working directory, and the no-`jnwb.testing` check is static and misses `importlib.import_module`. Deferred: no current code path writes or imports that way.
+- P-290: `CONTRIBUTING.md:265-266` says four-outcome routing tests are planned for 0.2.7 while `tests/test_skill_decline_behaviour.py` has them, and the ruled test taxonomy (`CONTRIBUTING.md:154`) is enforced by nothing. Deferred: a contributor page understates coverage; no evidence depends on it.
+- P-291: `stream_npz_array` accepts `Ellipsis` on a 0-d array where its docstring says it raises `TypeError`. Deferred: NumPy accepts it too, so the value is right and the docstring is wrong.
+- P-292: After a `cupy.linalg` call in a plain script, `compute_population_trajectory(device='cuda')` computes on the CPU and warns "no usable CUDA device was found via PyTorch". Deferred: `device_used` is `cpu` and invariant 6 holds; the wording misstates the cause (P-261's DLL conflict).
+- P-294: `acquisition_channel` does not resolve behavior containers under `processing/` (e.g. `processing/behavior/EyeTracking`) and raises "No acquisitions or processing continuous series found" while `inspect` lists them. Deferred: loud, changes no number.
+- P-295: Gate 14's identifier pattern passes `items/06-55`, `P-1000` and `p-29`, and fails a month-day `09-23`. Deferred: the live tree is clean and the false positive fails closed.
+- P-296: Dangling internal references in `jnwb/`: `nwb_tfr_storage_spec.md` (`compression.py:14`, `__init__.py:49,52`, untracked) and `artifacts/benchmarks/...` (`laminar.py:78`, `spectral.py:486,966`, pruned from the sdist); development-history comments such as the excluded-date note at `artifact_repair.py:445`. Deferred: no behavioural or scientific effect.
+- P-297: The `compare_multiple_groups` docstring omits that `eta_squared` is NaN for an empty group. Deferred: the value is a loud NaN and the CHANGELOG states it.
+- P-298: `_find_timestamp_paths` walks with `visititems`, which visits an object once under its first name, so a regular timestamps array with an earlier hard-link name is neither collapsed nor refused, and is cast and kept. Deferred: the receipt stays consistent; older than this cycle.
+- P-299: `inspect` reports `packaging` `direct` for wrapped behavior and `FilteredEphys` containers whose `data_path` is nested. Deferred: vocabulary only.
+- P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
+- P-300: `AGENTS.md` says "P-153's row carries why", which now resolves only through git history; the STEP 0a message truncates item titles. Waits: wording only.
+- P-301: No test pins the removal of an external project's name from `jnwb/vis/sidecar.py`; the author-year check cannot see a project name. Waits: the live tree is clean.
+- P-302: Outside `## Open`, a problem-shaped row with its id in column 2 or no id is not counted by STEP 0a. Waits: the Open section, the only place a problem is recorded, is fully checked.
+- P-303: `inspect` of an in-memory file unwraps the known container types while the file walk unwraps any group holding series, so an unknown container type can differ between the two forms. Waits: known types agree; older than this cycle.
+- P-304: Mutation-pass coverage gaps with correct code at HEAD: Gate 9's api.md sync is not tested against a same-length drift, the contract gate does not test an export recorded in two order categories, and documented `win_ms=` literals are not checked against `bin_ms`. Waits: no current evidence passes falsely.
+- P-305: `tests/test_semantic_mutation_classes.py` fails on any uncommitted byte change to its target modules, so a full-suite mutation oracle must deselect it, and the CUDA agreement tests kill device mutants only on a GPU machine. Waits: 06-34 accounted for both; a recipe note for the next pass.
+- P-307: No CI leg or fresh environment compares the documentation figures: every venv and CI leg has Matplotlib 3.11.2 against figures written by 3.10.8, so all 20 comparisons skip there. Waits: a skip is reported, and the figures pass where they were generated.
+- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Waits: 06-146 is verified on 3.12.0 by hand; the durable leg changes the CI matrix and Gate 8.
+- P-309: The distribution tests read only `<repo>/dist`, no variable points them at an external build, and `forbidden_entries` rejects no `examples` or `data` component, so keeping `examples/data` out of the wheel rests on a configuration check. Waits: 06-37's byte comparison held at `f657fce7`.
+- P-310: The sdist ships `AGENTS.md`, the repository's internal working rules, by `MANIFEST.in`. Waits: deliberate; whether it belongs in a distributed artifact needs a ruling.
+- P-311: Gate 14's identifier check does not read `README.md`, and its vocabulary check does not follow `--8<--` includes, although its docstring says an included page is scanned like any other. Waits: both surfaces are clean at `3f533574`; the closure pass re-runs both probes at the release HEAD.
+- P-312: `compare_old_new_criteria` given a nullable `is_stable` raises on a new-side `<NA>` and reads an old-side `<NA>` as unscreened. Waits: not exported, and no caller passes `is_stable`.
+- P-313: The stability panel coerces with `astype(bool)`, so a caller's text flag column (`"False"`, `"0"`) plots every unit Stable. Waits: jnwb writes `is_stable` as `boolean`; display only.
+- P-314: `acquisition_channel` cannot read a `BehavioralEvents` series from a file by any name while `inspect` reports it; `_WRAPPED_SERIES_ATTR` has no entry for it, and `BehavioralEpochs` and the ophys containers were not probed. Waits: loud, no number wrong; same root as P-294 and P-303.
+- P-315: `_whole_bin_count` gives a malformed message ("Use , or ...") for a reversed window or a negative bin, and its tolerance at about 3e7 bins was not rechecked after 06-145 scaled it. Waits: both fail loudly on unrealistic input.
+- P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Waits: neither is an item under the stack's format, the basis of P-302.
+- P-317: `docs/02_paths_addressing_metadata.md` says a stored entry is seeked past what a slice skips; on 3.12.0 it is read forward instead, so the cost grows with the slice's position there. Waits: values are correct, the docstring and CHANGELOG state the exception, and the page is at its tabled length.
+- P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Waits: the removal is scheduled by the ruling.
+- P-319: The test of the withdrawn refractory keys uses `assertWarnsRegex`, which accepts any number of warnings, so a second `FutureWarning` per call survives it. Waits: shipped behaviour warns once in 60 of 60 calls.
+- P-320: At large absolute times the whole-bin refusal prints the refused and the suggested window as the same text (`.10g`), and `{n:g}` can print a whole bin count for a window 1e-6 of a bin off. Waits: error path only; the refusal is correct.
+- P-321: `confirmatory_compare` returns `correction: "none"` beside BH `q_*` values and `confirmed_*` flags. Waits: the key describes the raw `pval` fields beside it, and the q-values are named separately.
+- P-322: `get_all_units_metadata(filter_quality=True)` on a file with no `quality` column raises a `KeyError` handled as a read failure, where the CHANGELOG says a `RuntimeWarning`. Waits: loud, and those units would be excluded anyway.
+- P-323: `compute_population_trajectory` leaves out `device_used` when the area has no units. Waits: no trajectory is computed.
+- P-324: `compress_fp32(select=)` on a same-file SoftLink writes an independent float32 copy under the link's name while the target stays float64. Waits: nothing requested is miscast; a test pins the behaviour.
+- P-325: The `FutureWarning` for `compress_fp32` without `select=` advises a path that raises `TypeError` on an int16 LFP, so an int16 LFP has no non-deprecated route. Waits: the floats-only rule is ruled; only the advice is wrong.
+- P-326: `composition_subset_0.2.6.md` still reads "Live defect" for H1-H7, repaired since. Waits: stale internal evidence text.
+- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Waits: the release runs from a clean tree, checked by hand before tagging.
+- P-328: The workflow pins `actions/checkout`, `setup-python`, `upload-artifact` and `download-artifact` to tags, so the repository's SHA-pin requirement for Actions stays off. Waits: those are GitHub-owned and allow-listed; pin them to commits, then turn the requirement on.
+- P-329: A paired difference built by arithmetic (`a` against `a - 0.3`) is not exactly constant, so the paired t is about 6e15 rather than inf. Waits: outside the exact-equality rule the docstring states, and significant either way.
+- P-330: STEP 0a matches items by id across the receipt, so renaming a required item's id to a new deferred one after the receipt reads as one item done and one added. Waits: it takes a deliberate rename; P-327's clean-tree check and a rule against new ids after the receipt would close it.
+- P-331: Zero-spread guards that exact equality cannot reach: the PSI jackknife gives z about 2.5e10 and p 0 for identical segments, `jrsa` standardises the residue of a detrended constant or linear row, the coherence and Granger residual-variance `> 0` guards see the same residue, and `bilinear`'s `std < 1e-9` cutoff is a fixed tolerance. Waits: each needs a numerical tolerance, which is a choice, and identical segments are degenerate input.
+- P-332: Twelve observations of the closure pass at `1d5e8b81`: wPLI and icoh report coupling with one flat channel; `quality_metrics` accepts unsorted spike times; `cross_modal_comparison` does not report its seed; flat input in `fit_exponential_onset`, `population_trajectory` and `rdm`; `UnitAnalyzer.psth` right-edge rounding and the sklearn multi-class error; the docs/10 `zflip` row says it raises on zero imaginary coherency; `cka` and `rv` give about 1e-33 on a constant pattern; project-history text in `nam.py` and `bilinear.py`; the `imaginary_coherency` docstring and docs/04 sign sentence; `_phase_slope`'s docstring says normal-approximation p where the code uses t; `plot_sorted_heatmap(category_labels)` is ignored; `jrsa(align='bogus')` is accepted when lengths are equal. Waits: each is loud, degenerate input, display or wording.
+- P-333: No test catches `is_constant(ignore_nan=True)` regressing to plain max/min, because its NaN case sits in a row whose std is exactly 0. Waits: the code is verified correct.
+- P-334: `_spread.zscore` on a slice holding plus or minus inf returns `[-inf, -inf, nan]` where the removed per-module code returned NaN. Waits: only non-finite input, where neither output meant anything.
+- P-335: Review the omission project's laminar curation pull request (ruled 2026-09-24): composable public parts plus a thin orchestrator, every threshold a parameter with a cited default, new WM and outside-cortex labels, a discriminator per rule, units in micrometres, and no project vocabulary. Waits: new capability, arriving after the 0.2.6 tag.
+- P-336: Two refusals have no test: `acquisition_channel` on a `channel_conversion` whose length is not the channel count (a mutant removing the check survived 121 tests), and STEP 0a when `git status` itself fails (a mutant reading that as clean survived 100). Waits: both behave correctly today, and the stacks are read from HEAD either way.
+- P-337: `acquisition_channel`'s unit-contradiction warning names only `conversion=` although `channel_conversion` is applied too, and its `starting_time` warning points at `nwb_inspect.py` rather than the caller's line. Waits: the messages are true and complete in substance.
+- P-338: `compress_fp32(select=)` can still cast an irregular timestamps array that a second link opens; through a hard link the two names then disagree by up to 2.4e-7 s. Waits: opt-in, unchanged since 0.2.5, and recorded in `stored_dtype_note`.
+- P-339: The MCP tool `prepare_signal_reference` tells an agent to slice raw `/data` without `conversion`, `channel_conversion`, `offset` or `starting_time`, and guesses layout from the shape. Waits: unchanged since it shipped, and `acquisition_channel` is the documented reader.
+- P-340: `compute_psd` and `compute_multitaper_psd` return rounding residue (1e-33 to 1e-23) for a constant trace instead of zero. Waits: they return arrays with no positivity guard to mislead.
+- P-341: Three documentation claims verified at `d42abd9c` have no test guarding them: the docs/03 direction table and population skill row for the directed `jrsa` metrics, the docs/03 loop that replaces `sliding=True`, and the extent of the source window in the docs/08 transfer-entropy formula (a mutant writing `t-u-l` for `t-u-l+1` survived). Waits: each is correct today.
+- P-342: Gate 19 hashes the first definition of a registered name, so a later redefinition or module-level rebinding passes, and it accepts a killing test whose class part is wrong or whose name appears only inside a string. Waits: no registered name is bound twice today, and every listed test was re-killed independently.
+- P-343: For float32 input whose top two singular values nearly coincide (relative gap 1.5e-5), CPU and CUDA PCA return different components; unchanged since before the sign-pin repair. Waits: document that device parity is undefined below working precision.
+- P-344: `compress_fp32` wall time still rises 2.4x from 800 to 1600 series although its operation count is linear; the extra slope is HDF5's per-operation cost in large groups. Waits: the quadratic link scan is gone, and files with that many series are rare.
+- P-345: Other permutation nulls miss draws that reproduce the observed statistic in a different summation order, so p comes out too small: `jrsa`'s `_p_from_null` when x1 has ties (p 0.035 to 0.039 where the exact p is 0.05), `shuffle_r2_ci` with tied scores, `cross_modal_comparison` with periodic spikes (up to 72x), `cluster_permutation_test` when a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` with identical trials, and `xflip` at small n (23 of 200 cross 0.05 at n=6). Repairs per site: a tolerance relative to the statistic, `math.fsum`, or sorted rows. Waits: deferred under the 2026-09-23 closure ruling as not a regression from the fourteen repairs; the §11 predicate alone would call it required, so it leads the 0.2.7 work.
+- P-346: The tie tolerance of `exact_sign_flip` and `shuffle_pvalue_paired` over-counts when one difference is 1e11 or more times the others (p up to +0.027 at 1e13), and no test pins its size (cutting it from 8 eps to 1 eps survives). Waits: conservative, and only at unphysical dynamic range.
+- P-347: `TFRAccumulator.mean` returns a copy, so `acc.mean[...] = x` no longer writes through; nothing in the repository does this. Waits: stated in the docstring.
+- P-348: Four verified behaviours have no test that would catch a regression: `compress_fp32` resolving a relative soft link from its own group, the `select=` message for a soft-linked regular timestamps array, the constant-channel NaN of `wpli` and `imaginary_coherency` on CUDA, and the exactness of `zflip`'s constancy check (a `ptp < 1e-6` mutant survives). Waits: each was observed correct at `c7949748`.
+- P-349: `zflip` still reports `adjacent_identifiable=True` and a finite delay from rounding residue for a pair with a constant contact, though `accepted` is now False; CPU and CUDA `wpli` differ for a channel one ulp from constant; the `starting_time` alignment patterns in README and docs/common_mistakes raise `TypeError` for a series stored with timestamps. Waits: the first two predate this cycle's repairs and the third fails loudly.
+- P-350: `permutation_test` and `shuffle_pvalue_unpaired` report `significant=True` at the p floor with a NaN `observed_difference` when finite inputs have a pooled sum beyond 1.8e308; before the centring they reported p 1.0, also wrong. Waits: no physical input reaches it; a guard returning NaN on non-finite centred values is the repair.
+- P-351: `vflip` reports `support_score = log(max(1e-12, metric))`, so a metric at or below zero reads as the score -27.63 rather than as no support; a consumer comparing probes saw identical scores on two unrelated probes and suspected a sentinel. Waits: such fits are rejected at the 3.75 gate either way; the repair reports -inf or NaN with the reason.
+- P-352: The installed-wheel smoke script in `scripts/release_gate.py` runs only when the release gate reaches its seventh step, so an exact key set in it went stale for a whole cycle while the suite stayed green. Waits: it fails closed, refusing a correct wheel rather than passing a wrong one; the repair runs the extracted script against the tree in the suite.
+- P-353: Three release-gate and `vflip` edges from the closure pass at `f0d905bf`: the readiness check treats any item deleted after the receipt as done, so it cannot tell a finished item from a dropped one; the smoke step keeps `PYTHONPATH` where the tutorial step strips it; and a caller's `vflip` `min_support_score` at or below -27.63 accepts a zero-support fit at the floor value (P-351). Waits: the deletions this cycle are backed by the receipt's verification table, the smoke script asserts a `site-packages` import, and the default threshold is 3.75.
+
+## Reported and not admitted
+
+Recorded so that nothing reported disappears by not being chosen.
+
+- `dist/` holds only 0.1.1, 0.1.3 and 0.2.4 artifacts; 06-38 builds fresh.
+- The ninth unreadable consumer file fails at `root/units` with `Columns must be the same
+  length`, separately from the eight that fail on device attributes.
+
+## Out of 0.2.6 scope
+
+Frozen with the acceptance set. Each needs its own authorization.
+
+- Raw-data-to-NWB conversion.
+- An authorization or permission subsystem.
+- Benchmark execution; the design is retained and marked unrun (06-33).
+- A capability-by-capability matrix over the whole public surface.
+- Repository minimization: dead tests, hand-transcribed examples, root and documentation cleanup.
+- Dataset-specific package code, and new estimators that only improve a demonstration.
+- The 36 unverified review findings, except where an item reaches one.
+
+## Acceptance
+
+Frozen 2026-09-23 (06-05, closed), each line re-established against the live tree; the non-goals under "Out of 0.2.6 scope" are frozen with it. Each line names what establishes it.
+
+| Line | Established by |
+|---|---|
+| no known material defect under the 0.2.6 acceptance set | 06-34, 06-39 |
+| one canonical scientific model, published and reachable | `docs/architecture.md` (in the navigation since `d3d17871`), `tests/test_architecture_page_reachability.py`, the four diagrams on that page |
+| every public claim reproduced against the implementation that answers it | 06-17 (now closed), 06-24, 06-136 |
+| skills route, decline, and are tested against live behaviour | 06-24, 06-25 (now closed), `tests/test_skill_decline_behaviour.py` |
+| cross-surface and compositional audit complete over the declared high-risk set | `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` and its proposal, every magnitude naming a committed test and seed (re-stamped 2026-09-23) |
+| documentation assets render and are regenerable | `tests/test_generated_figures_are_maintained.py`, 06-36 |
+| one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), `tests/test_synthetic_figures_are_labelled.py` |
+| published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
+| documentation low-verbosity and consistently formed, against a declared contract | 06-51 (now closed), 06-53 (now closed), `scripts/docs_form_gate.py`, `docs/glossary.md`, `tests/test_figure_form.py` |
+| one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56 (now closed), 06-59 (now closed), `scripts/computational_contract_gate.py` |
+| every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
+| a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |
+| `jnwb.vis` is an optional extra and `import jnwb` works without it | `tests/test_optional_vis_extra.py`, 06-37 |
+| suite wall time and the slowest tests measured before release | `scripts/release_gate.py` STEP 1 |
+| no release-blocking problem and no required item remaining, confirmed by a blocker-focused pass | 06-60, `scripts/release_gate.py` STEP 0a |
+
+The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a
+claim of exhaustive correctness. Deliberately absent: a claim that the JAX Metal backend works; it
+is implemented and declared unverified.

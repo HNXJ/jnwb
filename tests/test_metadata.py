@@ -24,7 +24,7 @@ class TestNwbReadErrors:
             get_all_units_metadata(bad, on_read_error="raise")
 
     def test_every_path_failing_is_not_an_empty_cohort(self, tmp_path):
-        """05-23. `on_read_error='skip'` is for carrying on with a partial result in a
+        """`on_read_error='skip'` is for carrying on with a partial result in a
         multi-file call. With nothing read there is no partial result, and the empty frame
         this used to return claimed an empty cohort instead of a failed read -- reported
         only through `log.error`, which `pytest.warns` and `-W error` cannot see.
@@ -45,6 +45,67 @@ class TestNwbReadErrors:
         for name in ("inspect", "events", "unit_spike_times"):
             with pytest.raises(FileNotFoundError):
                 getattr(jnwb, name)(missing)
+
+
+class TestDepthClassColumn:
+    def test_a_multi_file_read_emits_depth_class_and_warns_once_for_the_layer_copy(
+            self, tmp_path):
+        """Each file is enriched separately; the deprecated copy is announced once per call."""
+        from jnwb.testing.nwb_fixtures import write_synth_nwb
+
+        paths = [tmp_path / "ses-01_a.nwb", tmp_path / "ses-02_b.nwb"]
+        for path in paths:
+            write_synth_nwb(path)
+        with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
+            units = get_all_units_metadata(paths)
+        ours = [w for w in record if "depth_class" in str(w.message)]
+        assert len(ours) == 1, [str(w.message) for w in ours]
+        assert ours[0].filename == __file__
+        assert set(units["session_id"]) == {1, 2}
+        # The synthetic units carry no peak channel, so the class is the honest 'Unknown'.
+        assert set(units["depth_class"]) == {"Unknown"}
+        pd.testing.assert_series_equal(units["layer"], units["depth_class"], check_names=False)
+
+
+def test_a_quality_filter_with_no_usable_quality_excludes_every_unit_loudly(tmp_path):
+    """A filter nothing can pass must not become a filter nothing is subjected to."""
+    from datetime import datetime, timezone
+
+    import numpy as np
+    import pynwb
+
+    nwb = pynwb.NWBFile(session_description="q", identifier="q-1",
+                        session_start_time=datetime.now(timezone.utc))
+    nwb.add_unit_column(name="quality", description="quality")
+    for i in range(3):
+        nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=np.nan)
+    path = tmp_path / "ses-01_q.nwb"
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+    with pytest.warns(RuntimeWarning, match="no usable value"):
+        units = get_all_units_metadata(path, filter_quality=True)
+    assert len(units) == 0
+    assert len(get_all_units_metadata(path)) == 3
+
+
+def test_a_quality_filter_excludes_a_unit_of_unknown_stability(tmp_path):
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    nwb = pynwb.NWBFile(session_description="q", identifier="q-2",
+                        session_start_time=datetime.now(timezone.utc))
+    nwb.add_unit_column(name="quality", description="quality")
+    for i, label in enumerate(["good", "", "mua"]):
+        nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=label)
+    path = tmp_path / "ses-01_q.nwb"
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+    every = get_all_units_metadata(path)
+    assert every["is_stable"].isna().tolist() == [False, True, False]
+    assert get_all_units_metadata(path, filter_quality=True)["quality"].tolist() == ["good"]
 
 
 class TestPublicImport:
@@ -156,7 +217,9 @@ def _synthetic_units():
         "unit_id": [1, 2, 3, 4],
         "session_id": [100, 100, 101, 101],
         "area": ["FEF", "FEF", "PFC", "PFC"],
-        "layer": ["sup", "deep", "sup", "deep"],
+        "depth_class": ["Superficial", "Deep", "Superficial", "Deep"],
+        # A caller's own column of the old name, with values that differ from depth_class.
+        "layer": ["sup", "sup", "sup", "sup"],
         "quality": [1.0, 0.5, 1.0, 1.0],
         "snr": [2.0, 0.3, 1.5, 0.9],
         "firing_rate": [5.0, 0.05, 3.0, 0.2],
@@ -200,17 +263,33 @@ class TestClassifyUnitQuality:
 
 class TestUnitCensusReport:
     def test_groups_by_default_columns(self):
-        census = unit_census_report(_synthetic_units())
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            census = unit_census_report(_synthetic_units())
         assert set(census["session_id"]) == {100, 101}
         assert "n_units" in census.columns
+        # The default groups on the geometric depth class, not the deprecated column.
+        assert set(census["depth_class"]) == {"Superficial", "Deep"}
+        assert "layer" not in census.columns
+        assert (census["n_units"] == 1).all()
 
     def test_groups_by_custom_columns(self):
         census = unit_census_report(_synthetic_units(), group_by=["area"])
         assert set(census["area"]) == {"FEF", "PFC"}
         assert (census["n_units"] == 2).all()
 
-    def test_missing_group_columns_are_dropped_not_errored(self):
-        census = unit_census_report(_synthetic_units(), group_by=["area", "nonexistent_col"])
+    def test_a_default_call_on_a_frame_with_only_layer_warns_that_depth_is_not_split(self):
+        units = _synthetic_units().drop(columns="depth_class")
+        units["layer"] = ["Superficial", "Deep", "Superficial", "Deep"]
+        with pytest.warns(FutureWarning, match=r"'depth_class'.*'layer'"):
+            census = unit_census_report(units)
+        assert "layer" not in census.columns
+
+    def test_missing_group_columns_are_dropped_with_a_warning(self):
+        with pytest.warns(UserWarning, match="nonexistent_col"):
+            census = unit_census_report(_synthetic_units(), group_by=["area", "nonexistent_col"])
         assert "area" in census.columns
         assert "nonexistent_col" not in census.columns
 

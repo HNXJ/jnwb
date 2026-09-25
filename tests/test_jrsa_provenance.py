@@ -1,4 +1,4 @@
-"""05-26 and 05-33: what `jrsa` records about a run must be what the run did.
+"""What `jrsa` records about a run must be what the run did.
 
 `parameters` carries the request. `execution` carries what executed. They were the same
 dict of echoes: a device name that never ran, a backend that was converted away on the
@@ -46,7 +46,7 @@ def _cuda_refusal_pattern() -> str:
 
 
 class TestExecutionRecordsWhatRan:
-    """05-26. `AGENTS.md` invariant 6: the device never changes a number -- which also
+    """The device never changes a number -- which also
     means the record of the device must not claim one that did not run it.
     """
 
@@ -132,7 +132,7 @@ class TestExecutionRecordsWhatRan:
 
 
 class TestSeedRoundTrips:
-    """05-33. `execution['seed']` was `rng.bit_generator.state['state']['state']` -- the
+    """`execution['seed']` was `rng.bit_generator.state['state']['state']` -- the
     128-bit internal counter. A faithful record of the generator's position, and useless
     for reproduction: feeding it back as `random_state` seeds a different stream.
     """
@@ -167,7 +167,7 @@ class TestSeedRoundTrips:
 
 
 class TestBatchSizeIsRecordedAsWhatRan:
-    """05-50. `batch_size` was accepted, documented as "Chunk size for large arrays",
+    """`batch_size` was accepted, documented as "Chunk size for large arrays",
     and copied into `parameters` -- and nothing chunked. The only chunking helper in the
     module had no callers, so a result could carry `batch_size=32` in its provenance for
     a run that made one pass. Same defect as the device and backend echoes above, and

@@ -1,0 +1,6 @@
+interface:
+  display_name: jnwb-landmark-viz
+  description: Multi-panel Plotly publication figures through jnwb.vis, with SVG, PNG and HTML
+    export and an argument sidecar. Needs the vis extra.
+policy:
+  allow_implicit_invocation: true

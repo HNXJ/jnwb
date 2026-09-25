@@ -16,8 +16,11 @@ from scipy import optimize, signal, stats
 import pandas as pd
 
 from ._dictlike import DictAccessMixin
-from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
+from ._layout import require_channel_major
 from ._parallel import parallel_map
+from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._spread import is_constant as _is_constant
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +110,17 @@ def _require_finite_nonempty_trace(x: np.ndarray, func_name: str, name: str = "l
             f"{func_name}: {name} must be finite; remove or repair NaN or Inf samples first."
         )
     return arr
+
+
+def _flat_as_zero(x: np.ndarray) -> np.ndarray:
+    """A constant trace replaced by the zeros its mean-detrended spectrum is.
+
+    Welch removes each segment's mean, which for a constant 0.3 leaves rounding residue
+    rather than 0, so a ``> 0`` power guard read a flat trace as carrying power: its tilt
+    was fitted and a flat baseline gave a dB value. Use only ahead of an estimator that
+    detrends each segment by its mean, where this changes nothing but the residue.
+    """
+    return np.zeros_like(x) if _is_constant(x) else x
 
 
 #: Imaginary cross-spectral terms below this fraction of their cross-spectral magnitude are
@@ -336,6 +350,12 @@ def aggregate_to_db(
             values, so passing decibels in here fails loudly instead of computing a plausible
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
             distinguished from power by inspection, so the contract remains: pass power.
+            Also raised for ``how="mean_of_ratios"`` on ``TFRAccumulator`` trial-mean power
+            (``power()``, ``mean``, any array sharing their memory -- a view, including one
+            through ``memoryview`` or ``as_strided`` -- numpy results and ``tolist()``), which has
+            already averaged over trials and so can only give a ratio of means. A copy made
+            by ``np.array``, by assignment into another array, or read back from
+            ``TFRAccumulator.write`` carries no mark and is not refused.
 
     Example:
         >>> import numpy as np
@@ -355,6 +375,15 @@ def aggregate_to_db(
     if nan_policy not in ("propagate", "omit"):
         raise ValueError(f"nan_policy must be 'propagate' or 'omit'; got {nan_policy!r}")
 
+    from .tfr_accumulator import _is_trial_averaged
+
+    if how == "mean_of_ratios" and any(_is_trial_averaged(arr) for arr in (power, baseline)):
+        raise ValueError(
+            "how='mean_of_ratios' needs per-trial power, and TFRAccumulator.power() has already "
+            "averaged over trials, so a ratio of its output is ratio_of_means whatever `how` "
+            "names. Stack per-trial power (abs(tfr.z) ** 2) along a trial axis and pass that "
+            "axis as aggregate_over, or name how='ratio_of_means'."
+        )
     p = np.asarray(power, dtype=float)
     b = np.asarray(baseline, dtype=float)
     for name, arr in (("power", p), ("baseline", b)):
@@ -417,6 +446,7 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     arr = _require_finite_nonempty_trace(lfp_data, "compute_psd", name="lfp_data")
     if not (np.isfinite(fs) and fs > 0):
@@ -475,6 +505,7 @@ def harmonic_analysis(
         - frequencies: Frequency bins for spectrum
         - harmonic_ratio: P(fundamental) / (P(fundamental) + sum of P(orders 2..N)); 1.0
           when no higher order falls inside ``freq_range``
+        - device_used: 'cpu' or 'cuda', the device that computed the spectrum
 
         ``fundamental_freq`` and ``harmonic_ratio`` are NaN, and ``harmonics`` is empty, when
         no bin in ``freq_range`` has positive power (a constant trace).
@@ -490,9 +521,10 @@ def harmonic_analysis(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "harmonic_analysis"))
     result = {
         'fundamental_freq': float('nan'),
         'harmonics': {},
@@ -508,6 +540,7 @@ def harmonic_analysis(
             frequencies, pxx, _, _ = _welch_csd_gpu(lfp_trace, lfp_trace, fs, min(len(lfp_trace), 4096))
         except Exception as e:
             warn_device_fallback("harmonic_analysis", e, stacklevel=3)
+            device = CPU
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -524,6 +557,7 @@ def harmonic_analysis(
             noverlap=None
         )
 
+    result['device_used'] = device
     result['frequencies'] = frequencies
     result['spectral_profile'] = pxx
 
@@ -580,7 +614,7 @@ def cross_area_coherence(
     sampling_rate: Optional[float] = None,
     freq_bands: Union[Dict[str, Tuple[float, float]], str, None] = None,
     device: str = 'cpu',
-    rng: Optional[np.random.Generator] = None,
+    rng: RNGLike = DEFAULT_SEED,
     n_surrogates: int = 50,
     n_jobs: int = 1,
     nperseg: Optional[int] = None,
@@ -617,10 +651,16 @@ def cross_area_coherence(
                    band_coherence and p-value, so the caller names them.
         device: 'cpu' or 'cuda' (GPU acceleration via CuPy). Resolved **once**, before
                 any coherence is computed; see `device_used` in the returned dict.
-        rng: Generator for the surrogate shifts. Defaults to
-             ``np.random.default_rng(42)``, matching the convention in
-             `jnwb.statistics`. Previously hardcoded and unreachable, so every caller
-             got the same 50 surrogates and no seed could be recorded.
+        rng: Randomness for the surrogate shifts: an ``int`` seed, a
+             ``numpy.random.Generator``, or ``None`` for fresh OS entropy. Defaults to
+             ``DEFAULT_SEED`` (42), the seed this function has always used, so
+             ``inspect.signature`` and ``help()`` report the stream a bare call draws.
+             INTENTIONAL BREAK (0.2.6): the default was spelled ``None`` and resolved to
+             ``SeedSequence(42)`` in the body. A bare call is unchanged --
+             ``default_rng(42)`` and ``default_rng(SeedSequence(42))`` are the same
+             stream -- but an explicit ``rng=None`` now means what it means everywhere
+             else in this package and in NumPy: fresh entropy per call, where it
+             previously returned seed 42's surrogates.
         n_surrogates: Number of circular-shift surrogates per band (default 50).
                       Sets the resolution of the test: with the (count + 1) / (n + 1)
                       estimator the smallest attainable p-value is
@@ -667,8 +707,11 @@ def cross_area_coherence(
         - p_value_floor: Smallest p-value this call could return,
           1 / (n_surrogates_used + 1). A p-value at the floor means "not resolvable
           with this many surrogates".
-        - surrogate_seed_entropy: Entropy of the default generator, or None when the
-          caller supplied `rng` (record your own seed in that case).
+        - surrogate_seed_entropy: The entropy the surrogate generator was built from --
+          42 for a bare call, the seed you passed for an int `rng`, and the fresh OS
+          entropy actually drawn for `rng=None`, which is what makes that draw
+          reproducible after the fact. None only when you supplied a `Generator`, whose
+          stream position this function cannot recover; record your own seed in that case.
 
     Example:
         >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0, freq_bands='canonical')
@@ -678,6 +721,7 @@ def cross_area_coherence(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "cross_area_coherence")
     # INTENTIONAL BREAK (0.1.4). None used to mean CANONICAL_BANDS, so the band
@@ -703,9 +747,20 @@ def cross_area_coherence(
     # reject on a long recording, and the return value said nothing. The count is now
     # uniform and the floor it implies is reported. Pass n_surrogates=10 for the old
     # cost.
+    # The seed is in the signature, not here: `inspect.signature` reports the stream a
+    # bare call draws. `SeedSequence` is kept because it is the only route to the entropy
+    # `surrogate_seed_entropy` reports -- including for `rng=None`, where it captures the
+    # OS entropy that was drawn so the caller can reproduce a fresh-entropy run.
+    # `resolve_rng` is called for its type contract (a float or bool seed is refused
+    # rather than truncated); its Generator is discarded because the disclosing one is
+    # built from the sequence.
     seed_entropy = None
-    if rng is None:
-        seed_sequence = np.random.SeedSequence(42)
+    if not isinstance(rng, np.random.Generator):
+        # An int seed or None. A caller-supplied Generator is used as-is instead, so
+        # successive calls advance one stream rather than restarting it, and its position
+        # is not recoverable -- surrogate_seed_entropy stays None for that case alone.
+        resolve_rng(rng, func_name="cross_area_coherence")
+        seed_sequence = np.random.SeedSequence(rng)
         seed_entropy = int(seed_sequence.entropy)
         rng = np.random.default_rng(seed_sequence)
 
@@ -927,6 +982,7 @@ def spectral_tilt(
         - exponent: log-log slope (typically negative)
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
+        - device_used: 'cpu' or 'cuda', the device that computed the spectrum
 
         All three are NaN when fewer than two bins in ``freq_range`` have positive power (a
         constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
@@ -943,9 +999,10 @@ def spectral_tilt(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "spectral_tilt")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "spectral_tilt")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
     result = {
@@ -967,6 +1024,7 @@ def spectral_tilt(
         except Exception as e:
             warn_device_fallback("spectral_tilt", e, stacklevel=3)
             log.warning(f"GPU welch failed: {e}. Falling back to CPU.")
+            resolved = CPU
             frequencies, pxx = signal.welch(
                 lfp_trace,
                 fs=fs,
@@ -978,6 +1036,7 @@ def spectral_tilt(
             fs=fs,
             nperseg=min(len(lfp_trace), 4096)
         )
+    result['device_used'] = resolved
 
     # Filter to range and remove DC. The 0.5 Hz floor is part of the estimand, not a
     # detail: `freq_range=(0.1, 100)` and `(0.5, 100)` returned a bit-identical exponent
@@ -1092,8 +1151,9 @@ def aperiodic_fit(
           In contrast, unconstrained linear slope in :func:`spectral_tilt` is negative.
           The mathematical equivalence is `exponent_aperiodic == -slope_spectral_tilt`
           and `offset_aperiodic == log10(offset_spectral_tilt)`.
-        - Valid inputs with non-converging or ill-conditioned fits return
-          `accepted=False` rather than raising unhandled exceptions or fabricating parameters.
+        - A fit whose optimizer fails returns `accepted=False` rather than raising or
+          fabricating parameters. An ill-conditioned fit that converges is still
+          `accepted=True`; read `r_squared` before trusting it.
 
     Args:
         freqs: 1D array of strictly increasing, finite frequency coordinates in Hz, shape `(n_freqs,)`.
@@ -1115,6 +1175,11 @@ def aperiodic_fit(
     References:
         Donoghue, T., et al. (2020). Parameterizing neural power spectra into periodic and
         aperiodic components. Nature Neuroscience. doi:10.1038/s41593-020-00744-x
+        -- the aperiodic component of Methods eq. 3; `'fixed'` is its k = 0 case. The
+        paper's algorithm fits the aperiodic component after detecting and removing
+        periodic peaks. This function fits it to every bin in `freq_range` and removes
+        nothing, so an oscillatory peak inside the range steepens or flattens the fitted
+        exponent; choose a range without peaks.
     """
     if mode not in ("fixed", "knee"):
         raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
@@ -1301,8 +1366,9 @@ def relative_power(
             If ``None`` and ``model="mean_of_ratios"``, computes elementwise ratio :math:`P / B` without reduction.
             If ``None`` and ``model="ratio_of_means"``, reduces across all elements (:math:`\\sum P / \\sum B`).
             For ``model="log_ratio"``, ``axis`` must be ``None`` (elementwise dB transform).
-        device: Hardware device to use: ``"cpu"`` or ``"cuda"``. Resolved via :func:`resolve_device`.
-            If ``"cuda"`` is requested but unavailable, falls back to CPU with a diagnostic warning.
+        device: ``"cpu"`` (default). ``"cuda"`` and ``"metal"`` are accepted and computed on the
+            CPU with a RuntimeWarning: the return is a bare array, which has nowhere to record the
+            device that produced it.
 
     Returns:
         :class:`numpy.ndarray` of relative power values matching broadcast/reduced shape.
@@ -1337,8 +1403,7 @@ def relative_power(
             f"got axis={axis!r}. For aggregated decibels, use jnwb.aggregate_to_db."
         )
 
-    # Resolve device with observable fallback
-    resolved_dev = resolve_device(device, context="relative_power", prefer="cupy", stacklevel=3)
+    resolve_device(device, context="relative_power", stacklevel=3, supports=(CPU,))
 
     p_arr = np.asarray(power, dtype=np.float64)
     b_arr = np.asarray(baseline, dtype=np.float64)
@@ -1366,33 +1431,6 @@ def relative_power(
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")
 
-    # Execute computation
-    if resolved_dev == CUDA:
-        try:
-            import cupy as cp
-
-            p_gpu = cp.asarray(p_arr)
-            b_gpu = cp.asarray(b_arr)
-            b_gpu_broadcast = cp.broadcast_to(b_gpu, p_gpu.shape)
-
-            if model == "mean_of_ratios":
-                if axis is None:
-                    res_gpu = p_gpu / b_gpu_broadcast
-                else:
-                    res_gpu = cp.mean(p_gpu / b_gpu_broadcast, axis=axis)
-            elif model == "ratio_of_means":
-                num = cp.sum(p_gpu, axis=axis)
-                den = cp.sum(b_gpu_broadcast, axis=axis)
-                res_gpu = num / den
-            else:  # log_ratio
-                res_gpu = 10.0 * cp.log10(p_gpu / b_gpu_broadcast)
-
-            return cp.asnumpy(res_gpu)
-        except Exception as exc:
-            warn_device_fallback("relative_power", exc, stacklevel=3)
-            # Wholesale CPU fallback below
-
-    # CPU path
     if model == "mean_of_ratios":
         if axis is None:
             return p_arr / b_broadcast
@@ -1433,21 +1471,15 @@ def band_power(
         freq_range: (min_freq, max_freq) in Hz, inclusive at both ends
         normalize: If True, return as dB relative to baseline
         baseline: Baseline time series for normalization (optional)
-        device: 'cpu' or 'cuda' (GPU acceleration via CuPy). 'cuda' is the slower
-            route below roughly 22500 samples. At that size the Welch helper's fixed
-            cost -- one host-to-device transfer, the window, the FFT plan and the
-            copies back -- is most of the call, and there is too little arithmetic left
-            to amortise it. Paired on an RTX A4000, R = T_cuda / T_cpu is about 1.15 at
-            16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
-            crossover is documented rather than applied automatically: the CPU and CUDA
-            Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is, which invariant 6 forbids. See
-            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
+        device: 'cpu' (default). 'cuda' and 'metal' are accepted and computed on the CPU
+            with a RuntimeWarning: the return is a bare float, which has nowhere to record
+            the device that produced it.
 
     Returns:
         Mean PSD over the band in input-units^2/Hz, or, with ``normalize=True``,
         ``10 * log10(band / baseline_band)`` in dB -- a ratio of two densities over the
-        same band, so the per-Hz normalization cancels.
+        same band, so the per-Hz normalization cancels. A constant trace, whatever its level,
+        has band power 0.0; a constant baseline has no power and raises.
 
     Raises:
         ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
@@ -1462,25 +1494,20 @@ def band_power(
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
-    lfp_trace = _require_finite_nonempty_trace(lfp_trace, "band_power")
+    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "band_power"))
     if normalize:
         if baseline is None or np.size(baseline) == 0:
             raise ValueError(
                 "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
-        baseline = _require_finite_nonempty_trace(baseline, "band_power", name="baseline")
-    device = resolve_device(device, context="band_power", prefer="cupy", stacklevel=3)
+        baseline = _flat_as_zero(_require_finite_nonempty_trace(baseline, "band_power", name="baseline"))
+    resolve_device(device, context="band_power", stacklevel=3, supports=(CPU,))
 
     def _welch(trace):
         nperseg = min(len(trace), 4096)
-        if device == CUDA:
-            try:
-                freqs, pxx, _, _ = _welch_csd_gpu(trace, trace, fs, nperseg)
-                return freqs, pxx
-            except Exception as e:
-                warn_device_fallback("band_power", e, stacklevel=4)
         return signal.welch(trace, fs=fs, nperseg=nperseg)
 
     frequencies, pxx = _welch(lfp_trace)
@@ -1547,7 +1574,8 @@ def imaginary_coherency(
         nperseg: Welch/CSD segment length; defaults to ``min(max(N // 8, 8), 1024)``,
             which keeps at least 2 segments so the ratio is identifiable.
         noverlap: defaults to nperseg // 2.
-        device: 'cpu' or 'cuda' (CuPy), mirroring ``band_power``'s dispatch pattern.
+        device: 'cpu' or 'cuda' (CuPy). A GPU failure warns and recomputes on the CPU;
+            ``device_used`` records which ran.
 
     Returns:
         dict with:
@@ -1559,20 +1587,32 @@ def imaginary_coherency(
             comparison -- large gap between this and icoh indicates the raw
             coherence is dominated by zero-lag (volume-conduction-like) mixing.
           - ``n_freqs``: number of frequency bins averaged.
+          - ``device_used``: 'cpu' or 'cuda', the device that computed the spectra.
+
+        When `x` or `y` is constant, all-zero included, ``icoh_mean``, ``icoh_abs_mean``
+        and ``coh_mag_mean`` are NaN: coherency with a channel that does not vary is
+        undefined.
 
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
             yield fewer than 2 Welch segments, or `freq_range` selects no frequency bin.
 
-    Validated against synthetic cases in scripts/validate_imaginary_coherency.py:
-    a common zero-lag-mixed source drives coh_mag_mean up while icoh_mean stays
-    near zero; a genuinely lagged shared source drives both up.
+    On synthetic data, a common zero-lag-mixed source drives coh_mag_mean up while
+    icoh_mean stays near zero; a genuinely lagged shared source drives both up.
+
+    Sign convention: the cross-spectrum is ``S_xy = E[X conj(Y)]``, the conjugate of what
+    :func:`scipy.signal.csd` returns, so when `x` leads `y` the imaginary part is positive
+    wherever the lag's phase is below pi. :func:`jnwb.phase_slope_index` follows the same
+    convention: positive means `x` leads for both.
 
     References:
         Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the
         imaginary part of coherency. Clin. Neurophysiol. doi:10.1016/j.clinph.2004.04.029
+        -- the imaginary part of coherency, which non-interacting sources mixed at zero lag
+        leave at zero.
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
+        -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "imaginary_coherency")
     _require_1d_pair(x, y, "imaginary_coherency")
@@ -1580,6 +1620,7 @@ def imaginary_coherency(
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "imaginary_coherency")
     _require_finite_nonempty_pair(x, y, "imaginary_coherency")
+    flat = _is_constant(x) or _is_constant(y)
     n = len(x)
 
     if nperseg is None:
@@ -1599,6 +1640,10 @@ def imaginary_coherency(
         freqs, pxx = signal.welch(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
         _, pyy = signal.welch(y, fs=fs, nperseg=nperseg, noverlap=noverlap)
         _, sxy = signal.csd(x, y, fs=fs, nperseg=nperseg, noverlap=noverlap)
+    # Both branches return scipy's orientation, E[conj(X) Y]. Its conjugate, E[X conj(Y)],
+    # has a positive imaginary part when `x` leads -- the sign `phase_slope_index` reports.
+    # Conjugation negates the imaginary part exactly and leaves every magnitude untouched.
+    sxy = np.conj(sxy)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     _require_band_bins(freqs, mask, freq_range, "imaginary_coherency")
@@ -1606,8 +1651,8 @@ def imaginary_coherency(
     # Coherency is scale-invariant, so its guard must be too. An absolute floor of 1e-30 on
     # pxx*pyy is a statement about units: the product of two PSDs scales as the fourth power
     # of the signal amplitude, so a recording stored in a smaller unit walks into the clip
-    # and the estimate collapses. Measured on a genuinely coherent pair, icoh_mean held at
-    # -0.5144 down to a scale of 1e-6 and then fell to -0.000142 at 1e-8 and to zero below
+    # and the estimate collapses. Measured on a genuinely coherent pair, |icoh_mean| held at
+    # 0.5144 down to a scale of 1e-6 and then fell to 0.000142 at 1e-8 and to zero below
     # that -- a fabricated zero produced by the choice of unit alone. A floor relative to
     # the band's own largest product scales with the data and leaves the ratio untouched.
     prod = pxx[mask] * pyy[mask]
@@ -1617,12 +1662,15 @@ def imaginary_coherency(
     coherency = sxy[mask] / denom
     im_part = np.imag(coherency)
     coh_mag = np.abs(coherency) ** 2
+    if flat:
+        im_part = coh_mag = np.full(int(np.sum(mask)), np.nan)
 
     return {
         "icoh_mean": float(np.mean(im_part)),
         "icoh_abs_mean": float(np.mean(np.abs(im_part))),
         "coh_mag_mean": float(np.mean(coh_mag)),
         "n_freqs": int(np.sum(mask)),
+        "device_used": device,
     }
 
 
@@ -1674,9 +1722,12 @@ def wpli(
         - ``wpli_spectrum``: 1D array of standard wPLI across all frequencies.
         - ``n_segments``: Number of Welch segments evaluated.
         - ``n_freqs``: Number of frequency bins within `freq_range`.
+        - ``device_used``: `'cpu'` or `'cuda'`, the device that computed the spectra.
 
         A frequency whose segment cross-spectra are all exactly zero-lag reports 0. The
-        estimate does not depend on the amplitude units of `x` and `y`.
+        estimate does not depend on the amplitude units of `x` and `y`. When `x` or `y` is
+        constant, all-zero included, ``wpli``, ``wpli_debiased_sq`` and every entry of
+        ``wpli_spectrum`` are NaN: phase lag with a channel that does not vary is undefined.
 
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,
@@ -1685,7 +1736,9 @@ def wpli(
     References:
         Vinck, M., et al. (2011). An improved index of phase-synchronization for
         electrophysiological data in the presence of volume-conduction, noise and
-        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055
+        sample-size bias. NeuroImage. doi:10.1016/j.neuroimage.2011.01.055 -- the weighted
+        phase lag index above and the debiased estimator of squared wPLI. An imaginary part
+        no larger than 1e-10 times its cross-spectrum's magnitude counts as zero lag.
     """
     fs = _resolve_fs(fs, sampling_rate, "wpli")
     _require_1d_pair(x, y, "wpli")
@@ -1693,6 +1746,7 @@ def wpli(
     y = np.asarray(y, dtype=float).ravel()
     _require_equal_lengths(x, y, "wpli")
     _require_finite_nonempty_pair(x, y, "wpli")
+    flat = _is_constant(x) or _is_constant(y)
     n = len(x)
 
     if nperseg is None:
@@ -1735,6 +1789,11 @@ def wpli(
         )
         w_f, w_deb_sq_f = _wpli_from_cross_spectra(np.conj(Zx) * Zy)  # (n_freqs, n_segments)
         n_segments = Zx.shape[1]
+    if flat:
+        # Neither STFT removes the mean, so a constant trace keeps rounding residue in the
+        # bins above DC, and wPLI, being scale-free, turned that residue into a value.
+        w_f = np.full(len(freqs), np.nan)
+        w_deb_sq_f = np.full(len(freqs), np.nan)
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
     _require_band_bins(freqs, mask, freq_range, "wpli")
@@ -1748,6 +1807,7 @@ def wpli(
         "wpli_spectrum": w_f,
         "n_segments": n_segments,
         "n_freqs": int(np.sum(mask)),
+        "device_used": device,
     }
 
 
@@ -1860,7 +1920,7 @@ def _welch_csd_gpu(
         noverlap = nperseg // 2
     step = nperseg - noverlap
 
-    # 05-45: `harmonic_analysis`, `spectral_tilt` and `band_power` all call this as
+    # `harmonic_analysis` and `spectral_tilt` call this as
     # `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, so half of everything
     # below was a second copy of the first half. Reusing the first half is exact, not
     # an approximation: `y is x` means the two branches transfer the same bytes, gather
@@ -1881,11 +1941,11 @@ def _welch_csd_gpu(
     # Periodic Hann window matching scipy.signal.get_window('hann', nperseg)
     window = 0.5 - 0.5 * cp.cos(2.0 * cp.pi * cp.arange(nperseg) / nperseg)
 
-    # 05-45: this was a Python `while` loop appending one device array per segment, so
+    # This was a Python `while` loop appending one device array per segment, so
     # a 16384-sample trace at nperseg=256 ran 127 iterations and about 762 kernel
     # launches before `cp.stack`. Launch overhead, not arithmetic, was the cost: the
     # whole call took 26.8 ms against 16.6 ms for the equivalent scipy calls, and even
-    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt`, `band_power` and
+    # at nperseg=4096 -- 7 segments, which is what `spectral_tilt` and
     # `harmonic_analysis` ask for -- 2.6 ms of a 3.2 ms call was the loop, against a
     # fixed floor of 0.62 ms for the transfers, window and FFT together.
     #
@@ -1941,8 +2001,8 @@ def compute_multitaper_psd(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.
 
-    Multitaper spectral estimation (Thomson, 1982; Mitra & Pesaran, 1999) averages eigenspectra
-    modulated by orthogonal Slepian tapers, optimal for minimizing spectral leakage in finite-length
+    Multitaper spectral estimation (Thomson, 1982) averages eigenspectra modulated by
+    orthogonal Slepian tapers, optimal for minimizing spectral leakage in finite-length
     physiological epochs.
 
     Contract & Normalization:
@@ -1967,6 +2027,11 @@ def compute_multitaper_psd(
 
     Raises:
         ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains NaNs.
+
+    References:
+        Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proc. IEEE.
+        doi:10.1109/PROC.1982.12433 -- the multitaper estimate from DPSS tapers. The K
+        eigenspectra are averaged with equal weight; no adaptive weighting is applied.
     """
     if fs <= 0:
         raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
@@ -2059,10 +2124,22 @@ def voltage_curvature_1d(
 
     Raises:
         ValueError: If `pitch_um <= 0` or number of channels along `axis` is less than 3.
+
+    References:
+        Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
+        and determination of conductivity tensor for anuran cerebellum. J. Neurophysiol.
+        doi:10.1152/jn.1975.38.2.356 -- the second spatial derivative of the potential
+        that current source density scales by -sigma, here as the three-point difference.
     """
     if pitch_um <= 0:
         raise ValueError(f"Electrode pitch must be strictly positive; got {pitch_um} um.")
     arr = np.asarray(lfp_matrix, dtype=float)
+    # Before the count is read as a contact count, check it can be one. `bandpass_filter`
+    # defaults axis=-1 and this function defaults axis=0, so the obvious two-call chain hands
+    # the second derivative a time axis and neither call raised.
+    require_channel_major(
+        arr, axis, "voltage_curvature_1d", pitch_um=pitch_um, argument="lfp_matrix"
+    )
     n_ch = arr.shape[axis]
     if n_ch < 3:
         raise ValueError(f"Voltage curvature requires at least 3 channels along spatial axis; got {n_ch}.")
@@ -2120,6 +2197,12 @@ def current_source_density_1d(
 
     Raises:
         ValueError: If `pitch_um <= 0`, `conductivity_s_per_m <= 0`, or channel count < 3.
+
+    References:
+        Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis
+        and determination of conductivity tensor for anuran cerebellum. J. Neurophysiol.
+        doi:10.1152/jn.1975.38.2.356 -- current source density as -sigma times the second
+        spatial derivative of the potential, in one dimension with homogeneous conductivity.
     """
     if conductivity_s_per_m <= 0:
         raise ValueError(

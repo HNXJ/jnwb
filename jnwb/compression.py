@@ -3,9 +3,13 @@
 Public entry point: :func:`compress_fp32`.
 
     import jnwb
-    stats = jnwb.compress_fp32("path/to/session.nwb")                       # -> alongside, .fp32.nwb
-    stats = jnwb.compress_fp32(src, dst)                                    # explicit destination
-    stats = jnwb.compress_fp32(src, dst, verify=False)                      # skip verification
+    lfp = ["acquisition/probe_0_lfp/data"]
+    stats = jnwb.compress_fp32("path/to/session.nwb", select=lfp)           # -> alongside, .fp32.nwb
+    stats = jnwb.compress_fp32(src, dst, select=lfp)                        # explicit destination
+    stats = jnwb.compress_fp32(src, dst, select=lfp, verify=False)          # skip verification
+
+``select=`` names the datasets to cast to float32. A call without it falls back to the anchored
+LFP/MUAE preset below and emits ``FutureWarning``; ``select=`` becomes required in 0.2.7.
 
 Implements nwb_tfr_storage_spec.md Part 1 -- float64->float32 for LFP/MUAE, chunking,
 gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
@@ -68,12 +72,25 @@ import posixpath
 import sys
 import time
 import re
+import warnings
 from pathlib import Path
 
 import h5py
 import numpy as np
 
 FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
+
+# Stamped into every file this module writes, as `conversion_script` and inside each converted
+# dataset's `stored_dtype_note`. Both used to name `scripts/convert_nwb_compressed.py`,
+# which has never existed in this repository -- 22 of 22 real sessions carry that dead path, and
+# nothing ever resolved it, which is how it survived a release. Provenance that names a script
+# nobody can run does not merely fail to help; it sends a reader somewhere that does not exist.
+# The repair is to name the public entry point that actually performed the conversion, NOT to add
+# a script that makes the old string true -- that would satisfy the stamp rather than the caller.
+# Resolvable as a dotted attribute: `getattr(importlib.import_module("jnwb"), "compress_fp32")`.
+# Files written before this change are not rewritten; their stamp stays wrong, and only a later
+# write corrects it.
+CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
 
 # LFP/MUAE paths are DISCOVERED, not hardcoded -- multi-session audits exposed flat vs nested
 # `probe_N_lfp_data` layouts and varying probe counts. Probe count and nesting are independent
@@ -90,14 +107,33 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 # (probe_0_lfp/probe_0_lfp_data/electrodes/data), which has a different rank/shape and crashed
 # create_dataset on a chunk-rank mismatch. Caught in the synthetic fixture before it could repeat
 # against a real 100+ GiB file.
-_LFP_MUAE_RE = re.compile(r"(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
+#
+# ANCHORED, and matched with `fullmatch` rather than `search`. The pattern used to end in
+# `/data$` and be applied with `.search()`, so it matched any path whose TAIL contained the
+# corpus name: `stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`,
+# `scratch/backup_probe_0_lfp/data`, `general/extra/probe_0_lfp/data`, `scratch/probe_0_muae/data`
+# and `acquisition/my_probe_0_lfp/data` were all selected for the IRREVERSIBLE float32 downcast --
+# 6 of 6 adversarial names. A dataset in `scratch/` being silently downcast is not a selection
+# policy anyone chose. Two independent things are anchored here: the group must sit directly under
+# `acquisition/` (the head anchor), and `probe_N_lfp` must be a WHOLE path segment rather than the
+# tail of one, which is what rejects `my_probe_0_lfp`. Measured on the real corpus across 22
+# sessions: selection is identical to the unanchored form on all of them, because every real match
+# already sits under `acquisition/`. This narrows the exposure to hand-built and future files; it
+# does not re-baseline what the corpus selects.
+#
+# `^` and `$` are redundant under `fullmatch` and are written anyway: they keep the invariant
+# true if the call site ever reverts to `search`, which is the exact slip this comment is about. A
+# mutation run confirmed the need -- with the anchors absent, swapping `fullmatch` for `search`
+# reselected `scratch/acquisition/probe_0_lfp/data` and `acquisition/probe_0_lfp/datastore` while
+# every adversarial name listed above still passed.
+_LFP_MUAE_RE = re.compile(r"^acquisition/(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
 
 
 def _find_lfp_muae_paths(f: h5py.File) -> list[str]:
     paths: list[str] = []
 
     def w(name, obj):
-        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.search(name):
+        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.fullmatch(name):
             paths.append("/" + name)
 
     f.visititems(w)
@@ -109,6 +145,101 @@ CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/da
 # Verified identical across audited multi-session files unlike LFP/MUAE above,
 # so these stay as constants -- but convert() asserts they exist rather than silently skipping,
 # so a fourth session with yet another convention fails LOUDLY instead of repeating the LFP bug.
+
+# convert() rewrites these two at their source dtype after the cast loop, and the rewrite keeps
+# the attributes the loop stamped. A cast of either would be undone while its "cast to float32"
+# note survived on a dataset that was never cast, so `select=` refuses them rather than
+# returning that no-op.
+_GUARDED_PATHS = frozenset({SPIKE_TRAIN_PATH, CONVOLVED_PATH})
+
+_PRESET_WARNING = (
+    "no select= given, so the float32 cast falls back to the anchored LFP/MUAE preset "
+    "(acquisition/probe_N_lfp and acquisition/probe_N_muae). select= becomes required in "
+    "0.2.7: pass the dataset paths to cast, e.g. select=['acquisition/probe_0_lfp/data']."
+)
+
+
+def _resolve_selection(src: h5py.File, select) -> list[str]:
+    """The datasets to cast: the preset when ``select`` is None, otherwise exactly ``select``.
+
+    Every named path must be a dataset in ``src`` with a floating dtype, and
+    must not be a path convert() rewrites afterwards. Anything else raises before a byte is
+    written, because it would otherwise end as a silent no-op or a receipt for a cast that did
+    not happen.
+
+    Each entry is resolved to the name HDF5 gives the object it opens, and every check compares
+    that name rather than the caller's spelling: ``a//b``, ``a/./b`` and ``a/b/`` all open
+    ``/a/b``, and a check on the spelling would let them past a guard that ``a/b`` meets. The
+    refusals also compare the object itself (h5py objects compare equal when they are the same
+    HDF5 object), because a hard or soft link opens its target under the link's own name.
+    """
+    if select is None:
+        return _find_lfp_muae_paths(src)
+    if isinstance(select, (str, bytes)):
+        raise TypeError(
+            "select= takes a list of dataset paths, not one string; write select=[path]"
+        )
+    resolved = set()
+    for entry in select:
+        requested = "/" + str(entry).lstrip("/")
+        if requested not in src:
+            raise KeyError(
+                f"select= names {str(entry)}, which is not in {Path(src.filename).name}"
+            )
+        obj = src[requested]
+        # An external link opens a dataset in another file, and its name is a path there:
+        # resolving it by name would cast whatever this file holds at that path.
+        if Path(obj.file.filename).resolve() != Path(src.filename).resolve():
+            raise ValueError(
+                f"select= names {str(entry)}, an external link into another file "
+                f"({Path(obj.file.filename).name}); compress_fp32 casts datasets of "
+                f"{Path(src.filename).name} only."
+            )
+        resolved.add(obj.name)
+    paths = sorted(resolved)
+    guarded = [src[g] for g in sorted(_GUARDED_PATHS) if g in src]
+    timestamp_paths = _find_timestamp_paths(src)
+    soft_targets = _soft_link_targets(src)
+    for path in paths:
+        rel = path[1:]
+        obj = src[path]
+        same = next((g.name[1:] for g in guarded if g == obj), None)
+        if rel in _GUARDED_PATHS or same is not None:
+            link = f", a link to {same}" if same not in (None, rel) else ""
+            raise ValueError(
+                f"select= names {rel}{link}, which compress_fp32 always rewrites at its source "
+                "dtype; it cannot be cast to float32. Remove it from select=."
+            )
+        if not isinstance(obj, h5py.Dataset):
+            raise TypeError(f"select= names {rel}, which is a group, not a dataset")
+        if obj.dtype.kind != "f":
+            raise TypeError(
+                f"select= names {rel}, whose dtype {obj.dtype} is not floating; "
+                "select= casts floating-point datasets only"
+            )
+        if obj.ndim == 0:
+            raise ValueError(
+                f"select= names {rel}, a scalar (rank-0) dataset; select= casts arrays only"
+            )
+        # The fate is decided at the array's own path, whose group holds any starting_time.
+        ts = next((t for t in timestamp_paths if src[t] == obj), None)
+        fate = _timestamps_fate(src, ts, src[ts], soft_targets)[0] if ts is not None else None
+        if fate == "linked" and _is_regular(src[ts])[0]:
+            link = f", a link to {ts}" if ts != rel else ""
+            raise ValueError(
+                f"select= names {rel}{link}, a regular timestamps array that another link also "
+                "opens; the conversion keeps it at its source dtype instead of replacing it "
+                "with starting_time and rate, so the link stays valid, and it cannot be cast "
+                "to float32. Remove it from select=."
+            )
+        if fate in ("collapsed", "redundant"):
+            link = f", a link to {ts}" if ts != rel else ""
+            raise ValueError(
+                f"select= names {rel}{link}, a regular timestamps array that the conversion "
+                "replaces with starting_time and rate and drops; it cannot be cast to float32. "
+                "Remove it from select=."
+            )
+    return paths
 
 # Every `timestamps` array in the source that is regular gets collapsed. Discovered by scan,
 # not hardcoded, since a session can carry extra tracked signals (eye/pupil/reward/photodiode).
@@ -159,6 +290,94 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
             paths.append(name)
     f.visititems(w)
     return paths
+
+
+def _soft_link_targets(f: h5py.File) -> set:
+    """Every object that a soft link in ``f`` opens, each resolved relative to its group.
+
+    One pass over the file, O(groups + links). Built once per file and handed to every
+    :func:`_is_link_target` call, because rescanning the file for each ``timestamps`` array
+    made the conversion quadratic in the number of series.
+    """
+    groups = [f]
+    f.visititems(lambda _name, obj: groups.append(obj) if isinstance(obj, h5py.Group) else None)
+    targets = set()
+    for group in groups:
+        for name in group:
+            link = group.get(name, getlink=True)
+            if isinstance(link, h5py.SoftLink):
+                resolved = group.get(link.path)
+                if resolved is not None:
+                    targets.add(resolved)
+    return targets
+
+
+def _is_link_target(f: h5py.File, path: str, soft_targets: set) -> bool:
+    """Does any link other than ``path`` itself open the dataset at ``path``?
+
+    A second hard link raises the object's reference count; a soft link is found in
+    ``soft_targets``, the set :func:`_soft_link_targets` built for ``f`` (h5py objects hash and
+    compare as the HDF5 object they open). Deleting such a dataset leaves the other name
+    dangling or pointing at nothing -- pynwb writes one series' ``timestamps`` as a soft link
+    to another's.
+    """
+    target = f[path]
+    if h5py.h5o.get_info(target.id).rc > 1:
+        return True
+    return target in soft_targets
+
+
+def _timestamps_fate(src: h5py.File, ts_path: str, data, soft_targets: set) -> tuple:
+    """What step 3 of :func:`convert` does with the ``timestamps`` array at ``ts_path``.
+
+    ``("linked", None)``, ``("irregular", None)`` and ``("inconsistent", err)`` keep it;
+    ``("collapsed", rate)`` replaces it with ``starting_time`` + ``rate``; ``("redundant", err)``
+    drops it beside an existing ``starting_time`` it agrees with. ``linked`` is a dataset that
+    another link also opens, which neither of the last two may delete. Decided from the source
+    alone, because step 1 copies ``starting_time`` and every link verbatim and ``select=`` cannot
+    reach a scalar. ``soft_targets`` is :func:`_soft_link_targets` of ``src``.
+    """
+    if _is_link_target(src, ts_path, soft_targets):
+        return "linked", None
+    regular, rate = _is_regular(data)
+    if not regular:
+        return "irregular", None
+    group = src[posixpath.dirname("/" + ts_path) or "/"]
+    if "starting_time" not in group:
+        return "collapsed", rate
+    values = np.asarray(data[:])
+    existing = group["starting_time"]
+    existing_rate = existing.attrs.get("rate")
+    reconstructed = existing[()] + np.arange(len(values)) / existing_rate
+    err = float(np.max(np.abs(reconstructed - values))) if len(values) else 0.0
+    if existing_rate is not None and err < 1e-6:
+        return "redundant", err
+    return "inconsistent", err
+
+
+def _chunk_shape(shape, max_rows: int) -> tuple:
+    """Chunk shape for a dataset of ANY rank: cap the first axis, keep every other axis whole.
+
+    All three call sites used to build ``(min(max_rows, shape[0]), n)`` unconditionally --
+    a rank-2 tuple regardless of the dataset -- so a 1-D dataset raised ``ValueError: 'chunks'
+    must have same rank as dataset shape`` out of ``create_dataset``, and a 3-D one raised it
+    too. Latent only because today's selector cannot reach anything but 2-D arrays; load-bearing
+    the moment a caller names the dataset itself.
+
+    Rank 2 is unchanged **by construction**, not by coincidence: ``n`` was already ``shape[1]``
+    whenever ``ndim == 2``, so this returns the identical tuple the call sites built. The corpus
+    chunking is derived here rather than assumed, not re-baselined.
+
+    Each axis is clamped to at least 1 because HDF5 rejects a zero-length chunk dimension; an
+    empty dataset previously produced ``chunks=(0, n)`` and failed inside h5py.
+    """
+    if not shape:
+        raise ValueError(
+            "cannot chunk a rank-0 (scalar) dataset: chunked storage, which gzip+shuffle "
+            "requires, has no meaning for a dataset with no dimensions"
+        )
+    first = max(1, min(int(max_rows), int(shape[0])))
+    return (first,) + tuple(max(1, int(d)) for d in shape[1:])
 
 
 def _replace_dataset_data(dst: h5py.File, path: str, new_shape, new_dtype, chunks, filt,
@@ -258,15 +477,31 @@ def compact(src_path: Path, dst_path: Path) -> int:
         return _structural_copy(s, d)
 
 
-def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dict:
+def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False, *, select=None) -> dict:
+    """Convert ``src_path`` into ``dst_path``; ``select`` is as in :func:`compress_fp32`."""
+    if select is None:
+        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
+    return _convert(src_path, dst_path, drop_convolved, select)
+
+
+def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> dict:
+    with h5py.File(src_path, "r") as _src:
+        cast_paths = _resolve_selection(_src, select)
+
     if drop_convolved:
         print("!! --drop-convolved-spike-train forces the spec's original behavior. "
               "No kernel parameters are recoverable for this array (checked 2026-08-08, see "
               "module docstring). This is DATA LOSS, not compression. Proceeding because you "
               "asked explicitly.", file=sys.stderr)
 
-    stats = {"max_float32_err": 0.0, "timestamps_collapsed": [], "timestamps_kept_irregular": []}
+    stats = {"max_float32_err": 0.0, "cast_paths": list(cast_paths),
+             "timestamps_collapsed": [], "timestamps_kept_irregular": [],
+             "timestamps_kept_linked": []}
     t0 = time.time()
+
+    # Imported at call time, not module scope: `jnwb/__init__.py` imports this module, so a
+    # top-level `from jnwb import __version__` would be a circular import.
+    from jnwb import __version__ as _jnwb_version
 
     # Write to a temp path first -- this file WILL be padded with unreclaimed freed space from
     # the delete+recreate steps below (see module docstring). Compacted into dst_path at the end.
@@ -282,15 +517,13 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             del dst[CONVOLVED_PATH]
             stats["convolved_dropped_bytes"] = n_bytes
 
-        lfp_muae_paths = _find_lfp_muae_paths(src)
-        print(f"Step 2/3: replacing LFP/MUAE ({len(lfp_muae_paths)} arrays found, "
+        print(f"Step 2/3: replacing the selected arrays ({len(cast_paths)} arrays, "
               "float32+chunk+compress), spike_train and convolved_spike_train "
               "(rechunk+compress in place) ...")
-        for path in lfp_muae_paths:
+        for path in cast_paths:
             print(f"    {path}")
             src_ds = src[path]
-            n_ch = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(16384, src_ds.shape[0]), n_ch)
+            chunks = _chunk_shape(src_ds.shape, 16384)
             max_err = [0.0]
 
             def fill(ds, src_ds=src_ds, max_err=max_err):
@@ -305,8 +538,9 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
 
             _replace_dataset_data(dst, path, src_ds.shape, np.float32, chunks, FILT, fill)
             dst[path].attrs["stored_dtype_note"] = (
-                f"cast from float64 to float32 at write time by scripts/convert_nwb_compressed.py "
-                f"v2 on {time.strftime('%Y-%m-%d')}; measured max abs round-trip err {max_err[0]:.6e}"
+                f"cast from {src_ds.dtype} to float32 at write time by {CONVERSION_ENTRY_POINT} "
+                f"v{_jnwb_version} on {time.strftime('%Y-%m-%d')}; measured max abs round-trip "
+                f"err {max_err[0]:.6e}"
             )
             stats["max_float32_err"] = max(stats["max_float32_err"], max_err[0])
 
@@ -335,8 +569,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
 
         if SPIKE_TRAIN_PATH in dst:
             src_ds = src[SPIKE_TRAIN_PATH]
-            n_units = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(65536, src_ds.shape[0]), n_units)
+            chunks = _chunk_shape(src_ds.shape, 65536)
 
             def fill_st(ds, src_ds=src_ds):
                 block = 2_000_000
@@ -350,8 +583,7 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             # Source has NO compression on this array at all -- recompressing in place, with
             # the data fully intact, is a strict win: smaller on disk, nothing lost.
             src_ds = src[CONVOLVED_PATH]
-            n_ch = src_ds.shape[1] if src_ds.ndim == 2 else 1
-            chunks = (min(16384, src_ds.shape[0]), n_ch)
+            chunks = _chunk_shape(src_ds.shape, 16384)
 
             def fill_cv(ds, src_ds=src_ds):
                 block = 1_000_000
@@ -364,17 +596,13 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
         print("Step 3/3: collapsing regular timestamp arrays to starting_time+rate ...")
         stats["timestamps_redundant_dropped"] = []
         stats["timestamps_inconsistent_kept"] = []
+        soft_targets = _soft_link_targets(src)
         for ts_path in _find_timestamp_paths(src):
             full = "/" + ts_path
             data = src[ts_path][:]
-            regular, rate = _is_regular(data)
             group_path = posixpath.dirname(full) or "/"
             if group_path not in dst:
                 continue
-            if not regular:
-                stats["timestamps_kept_irregular"].append(ts_path)
-                continue
-
             # Some sessions ALREADY carry a
             # starting_time+rate dataset alongside an explicit (redundant) `timestamps` array
             # for the SAME TimeSeries, copied verbatim by Step 1. Creating a new starting_time
@@ -382,17 +610,21 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             # array being collapsed before treating the timestamps array as redundant and
             # dropping it -- do not assume, since a genuine mismatch would mean they encode
             # different things and neither should be silently discarded.
-            if "starting_time" in dst[group_path]:
-                existing = dst[group_path]["starting_time"]
-                existing_rate = existing.attrs.get("rate")
-                reconstructed = existing[()] + np.arange(len(data)) / existing_rate
-                err = float(np.max(np.abs(reconstructed - data))) if len(data) else 0.0
-                if existing_rate is not None and err < 1e-6:
-                    del dst[ts_path]
-                    stats["timestamps_redundant_dropped"].append((ts_path, err))
-                else:
-                    stats["timestamps_inconsistent_kept"].append((ts_path, err))
+            fate, value = _timestamps_fate(src, ts_path, data, soft_targets)
+            if fate == "linked":
+                stats["timestamps_kept_linked"].append(ts_path)
                 continue
+            if fate == "irregular":
+                stats["timestamps_kept_irregular"].append(ts_path)
+                continue
+            if fate == "redundant":
+                del dst[ts_path]
+                stats["timestamps_redundant_dropped"].append((ts_path, value))
+                continue
+            if fate == "inconsistent":
+                stats["timestamps_inconsistent_kept"].append((ts_path, value))
+                continue
+            rate = value
 
             del dst[ts_path]
             st_ds = dst[group_path].create_dataset("starting_time", data=np.float64(data[0]))
@@ -400,8 +632,11 @@ def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False) -> dic
             st_ds.attrs["unit"] = src[ts_path].attrs.get("unit", "seconds")
             stats["timestamps_collapsed"].append((ts_path, rate))
 
-        dst.attrs["conversion_script"] = "scripts/convert_nwb_compressed.py"
-        dst.attrs["conversion_script_version"] = "v2"
+        dst.attrs["conversion_script"] = CONVERSION_ENTRY_POINT
+        # INTENTIONAL BREAK, stated at the change site per the "invariants do not change silently"
+        # rule: this field used to read "v2", the version of a script that never existed. It now
+        # versions the thing `conversion_script` actually names, so the pair resolves together.
+        dst.attrs["conversion_script_version"] = _jnwb_version
         dst.attrs["conversion_date"] = time.strftime("%Y-%m-%d")
         dst.attrs["conversion_source_file"] = str(src_path)
         dst.attrs["conversion_kept_convolved_spike_train"] = not drop_convolved
@@ -426,6 +661,7 @@ def verify_roundtrip(
     dst_path: Path,
     n_check: int = 200_000,
     collapsed: "list | None" = None,
+    cast: "list | None" = None,
 ) -> dict:
     """Byte-level sampling of the transformed datasets, PLUS a real pynwb parse -- v1's bug was
     invisible to byte comparison alone, so the pynwb read is not optional.
@@ -435,6 +671,10 @@ def verify_roundtrip(
     discovered by ``_find_timestamp_paths`` was collapsed and then never verified. Timestamp
     reconstruction is also checked over the full array rather than the first ``n_check`` rows,
     because drift is smallest at the start by construction -- the one place the old check looked.
+
+    ``cast`` is ``stats["cast_paths"]``, the datasets actually cast; the preset is checked when it
+    is None. Checking the preset after a ``select=`` call would report arrays that were never
+    cast and skip the ones that were.
     """
     results = {"ok": True, "checks": []}
 
@@ -444,7 +684,7 @@ def verify_roundtrip(
             results["ok"] = False
 
     with h5py.File(src_path, "r") as s, h5py.File(dst_path, "r") as d:
-        for path in _find_lfp_muae_paths(s):
+        for path in (_find_lfp_muae_paths(s) if cast is None else cast):
             if path not in d:
                 continue
             n = min(n_check, s[path].shape[0])
@@ -540,12 +780,19 @@ def compress_fp32(
     verify: bool = True,
     n_check: int = 200_000,
     overwrite: bool = False,
+    select: "list[str] | None" = None,
 ) -> dict:
     """Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.
 
     Args:
         src: path to the NWB file to compress. Never modified.
         dst: output path. Defaults to ``<src stem>.fp32.nwb`` beside ``src``.
+        select: dataset paths to cast to float32, such as
+            ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
+            nothing. Each path is checked, cast and reported under the name of the dataset it
+            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is
+            IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE preset and emits
+            ``FutureWarning``; ``select=`` becomes required in 0.2.7.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
             to regenerate it from) -- see point 7 in the module docstring. Warns loudly.
@@ -555,14 +802,28 @@ def compress_fp32(
 
     Returns:
         dict of conversion stats -- ``src_bytes``, ``dst_bytes``, ``ratio``, ``elapsed_s``,
-        ``max_float32_err``, ``compaction_reclaimed_bytes``, the timestamp dispositions, and
-        (when ``verify``) ``verification`` with per-check results and an overall ``ok`` flag.
+        ``cast_paths``, ``max_float32_err``, ``compaction_reclaimed_bytes``, the timestamp
+        dispositions, and (when ``verify``) ``verification`` with per-check results and an
+        overall ``ok`` flag. ``ok`` is True in every returned dict: a failed check raises.
+        A regular ``timestamps`` array that another link also opens (pynwb writes shared
+        timestamps as a soft link) is kept as it is and listed in ``timestamps_kept_linked``,
+        so the link still resolves.
 
     Raises:
         FileNotFoundError: ``src`` does not exist.
         FileExistsError: ``dst`` exists and ``overwrite`` is False.
         KeyError: the file uses a structural convention this tool does not recognize -- raised
-            rather than silently skipping the affected arrays.
+            rather than silently skipping the affected arrays -- or ``select`` names a path that
+            is not in ``src``.
+        ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
+            always rewritten at their source dtype; a regular ``timestamps`` array, which the
+            conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset. A
+            hard or soft link to either of the first two is refused like its target. Every
+            ``select`` refusal comes before anything is written.
+        TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
+            not floating, an integer or boolean one included.
+        RuntimeError: ``verify`` is True and a verification check failed. ``dst`` has been
+            written and is left in place for inspection; the message names every failed check.
     """
     src = Path(src)
     if not src.exists():
@@ -572,12 +833,23 @@ def compress_fp32(
         raise FileExistsError(f"destination exists (pass overwrite=True): {dst}")
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    stats = convert(src, dst, drop_convolved=drop_convolved)
+    if select is None:
+        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
+    stats = _convert(src, dst, drop_convolved, select)
     stats["ratio"] = stats["src_bytes"] / stats["dst_bytes"] if stats["dst_bytes"] else float("nan")
     stats["src_path"] = str(src)
     stats["dst_path"] = str(dst)
     if verify:
         stats["verification"] = verify_roundtrip(
-            src, dst, n_check=n_check, collapsed=stats["timestamps_collapsed"]
+            src, dst, n_check=n_check, collapsed=stats["timestamps_collapsed"],
+            cast=stats["cast_paths"],
         )
+        if not stats["verification"]["ok"]:
+            failed = [f"{c['name']}: {c['detail']}" for c in stats["verification"]["checks"]
+                      if not c["ok"]]
+            raise RuntimeError(
+                f"compress_fp32 wrote {dst}, and {len(failed)} verification check(s) failed; "
+                f"the file is left in place for inspection and must not replace {src.name}: "
+                + " | ".join(d[:300] for d in failed)
+            )
     return stats

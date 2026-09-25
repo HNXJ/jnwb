@@ -217,7 +217,7 @@ def _smooth_gradient_null(seed, n_ch=16, n_t=400):
 
 
 class TestXFlipGradientGateOnBothPaths:
-    """05-07: `has_drop` was initialised True and the drop test ran only under
+    """`has_drop` was initialised True and the drop test ran only under
     `contiguous`, so the unrestricted path *skipped* the gate rather than failing it.
     Same data, same rngs: contiguous=True accepted 0/15, contiguous=False accepted 15/15."""
 
@@ -303,7 +303,7 @@ class TestXFlipGradientGateOnBothPaths:
 
 
 class TestXFlipValidatesItsThresholds:
-    """05-08: `is_sig = p <= alpha` is vacuously true for alpha >= 1. alpha=5.0 with
+    """`is_sig = p <= alpha` is vacuously true for alpha >= 1. alpha=5.0 with
     min_boundary_drop=0.0 accepted the gradient null in 15 of 15 seeds, while `zflip`
     range-checks the identical parameter."""
 

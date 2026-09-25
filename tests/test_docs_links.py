@@ -10,7 +10,7 @@ DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
 LINK = re.compile(r"\]\(([^)#]+)(?:#[^)]*)?\)")
 
 
-def broken_links(docs_dir: Path) -> "list[str]":
+def broken_links(docs_dir: Path, pages: "list[Path] | None" = None) -> "list[str]":
     """Every internal markdown link under `docs_dir` that does not resolve.
 
     A function rather than an inline loop so that the recursion can be driven over a
@@ -21,7 +21,7 @@ def broken_links(docs_dir: Path) -> "list[str]":
     offenders = []
     # rglob: docs/tutorials/ holds nine live pages, and a non-recursive glob checked none of
     # their links. Gate 5 and Gate 10 in scripts/harness_gate.py had the same blind spot.
-    for path in sorted(docs_dir.rglob("*.md")):
+    for path in pages if pages is not None else sorted(docs_dir.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
         for target in LINK.findall(text):
             if target.startswith(("http://", "https://", "mailto:")):
@@ -35,3 +35,14 @@ def broken_links(docs_dir: Path) -> "list[str]":
 def test_mkdocs_markdown_internal_links_resolve():
     offenders = broken_links(DOCS_DIR)
     assert offenders == [], "broken internal doc links: " + "; ".join(offenders)
+
+
+def test_the_agent_entry_page_links_resolve(tmp_path):
+    """`artifacts/agents.md` is where the README sends an agent; every link on it must land."""
+    artifacts = DOCS_DIR.parent / "artifacts"
+    offenders = broken_links(artifacts, [artifacts / "agents.md"])
+    assert offenders == [], "broken links on the agent entry page: " + "; ".join(offenders)
+
+    page = tmp_path / "agents.md"
+    page.write_text("[ok](agents.md) [gone](../skills/jnwb-absent/SKILL.md)", encoding="utf-8")
+    assert broken_links(tmp_path, [page]) == ["agents.md -> ../skills/jnwb-absent/SKILL.md"]

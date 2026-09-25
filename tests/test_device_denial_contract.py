@@ -1,4 +1,4 @@
-"""05-44: with a GPU present, two `device='cuda'` requests were denied in silence.
+"""With a GPU present, two `device='cuda'` requests were denied in silence.
 
 `jnwb/_backend.py` exists so that a caller who asks for an accelerator and does not get
 one is told. It covered two denial reasons and missed the third:

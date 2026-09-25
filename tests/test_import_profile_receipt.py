@@ -28,15 +28,26 @@ import sys
 import tempfile
 
 import jnwb
-from scripts.benchmark_import import (
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# `scripts/` is excluded from the wheel, and the leg that qualifies the built artifact runs this
+# suite from outside the checkout, so nothing puts the repository on `sys.path` there. A
+# module-scope `from scripts...` raises ModuleNotFoundError -- a collection *error*, which pytest
+# reports as `Interrupted` and which can take unrelated modules down with it.
+# `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
+# session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids -- and this module
+# imports `jnwb` above deliberately, so the installed copy must stay the one under test.
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from scripts.benchmark_import import (  # noqa: E402
     BREAKDOWN_PATH,
     MEMORY_PROBE,
     PROBE,
     PROFILE_PATH,
     render,
 )
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def _profile_text():

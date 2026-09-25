@@ -23,7 +23,7 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     Same kernel construction (finite window of 5*tau_ms, normalized, left-edge-padded
     causal convolution using edge-value rate[0]), generalized to operate on a pre-binned rate array
     rather than raw spike times. Edge-padding preserves constant baseline firing rates without
-    artificial startup depression (0.2.3-REV-09).
+    artificial startup depression.
 
     ESTIMATOR LATENCY PROPERTIES & HAZARD:
     A causal filter introduces an intrinsic group delay and time shift:
@@ -34,10 +34,24 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     - Step response 10% amplitude rise delay:
         t_{10%} = \tau_ms \cdot \ln(1/0.9) \approx 0.105 \cdot \tau_ms
 
-    In general, t_{observed} = t_{signal} + t_{estimator}(\tau_ms, bin_ms).
+    For a latency read as a threshold crossing on the smoothed trace,
+    t_{observed} = t_{signal} + t_{estimator}(\tau_ms, bin_ms), and the filter delay is to be
+    subtracted only from such a crossing.
+    ``fit_exponential_onset``, which is the operation this module routes onsets to, is not a
+    threshold crossing -- it fits t0 as the takeoff parameter of ``onset_model`` -- so no
+    filter delay is subtracted from its t0.
+    Sweeping tau_ms tells the two readouts apart: on a 1 ms unit step the half-amplitude
+    crossing tracks the filter at about tau_ms*ln(2), while the fitted t0 on that step holds a
+    tau-invariant -0.9 ms that follows bin_ms instead, measured at -0.118, -0.365, -0.860,
+    -1.854 and -4.805 ms for bin_ms of 0.25, 0.5, 1, 2 and 5. That invariance belongs to the
+    step response: on a graded rise the smoothed trace no longer has the model's shape, and
+    the fitted t0 moves with tau_ms by an amount that depends on the rise as well as the
+    filter, so no fixed correction removes it.
     Do NOT interpret cross-band or cross-condition onset latency differences as biological
-    timing differences without accounting for estimator delay, especially if different tau_ms
-    values are used or if underlying bandpass filter envelopes have differing rise kinetics.
+    timing differences without holding tau_ms fixed across every condition and band compared,
+    for either readout: a latency difference between two traces smoothed at different tau_ms
+    values is a difference between the filters, as is one between bandpass envelopes with
+    differing rise kinetics.
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.

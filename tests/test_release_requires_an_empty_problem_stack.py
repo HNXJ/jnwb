@@ -1,0 +1,582 @@
+"""Condition 3 of ``AGENTS.md`` section 11, as amended 2026-09-23, as a check that can fail.
+
+The problem stack holds only problems not yet triaged, and a release requires:
+
+  1. the problem stack exists and holds no problem row, in any section;
+  2. no todo item is still required for this cycle, and every item's release is readable; this
+     cycle's release step, which completes only after the tag, is not required;
+  3. the independent blocker-focused closure receipt exists and reports zero, and its commit is
+     HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack, and no
+     item held open at the receipt's commit carries another release at HEAD.
+
+Every test drives the check over a constructed tree and is measured against
+``test_a_compliant_tree_passes``: the compliant tree passes, and breaking exactly one thing fails.
+A test that only asserted the live tree reports violations would pass against a function that
+always returns one.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import subprocess
+import sys
+
+import pytest
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+# `scripts/` is excluded from the wheel, and the leg that qualifies the built artifact runs this
+# suite from outside the checkout, so nothing puts the repository on `sys.path` there. A
+# module-scope `from scripts...` raises ModuleNotFoundError -- a collection *error*, which pytest
+# reports as `Interrupted` and which can take unrelated modules down with it.
+# `append`, never `insert(0, ...)`: inserting re-shadows the installed package for the whole
+# session, which tests/test_the_suite_can_qualify_an_installed_copy.py forbids.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.release_gate import (  # noqa: E402
+    NEXT_CYCLE,
+    RELEASE_CYCLE,
+    blocker_fixpoint_receipt,
+    check_release_readiness,
+    problem_rows,
+    todo_release_fields,
+)
+HEAD = "a" * 40
+DEFERRED = f"deferred-{NEXT_CYCLE}"
+RELEASE_STEP = f"release-step-{RELEASE_CYCLE}"
+
+_PROBLEMS = """# Problem stack
+
+## Open
+
+| ID | Problem | Found by |
+|---|---|---|
+{rows}
+"""
+
+_TODOS = """# {cycle}
+
+Items are deleted when done.
+
+{items}
+## Acceptance
+"""
+
+_RECEIPT = """# Blocker fixpoint receipt
+
+| field | value |
+|---|---|
+| commit | `{commit}` |
+| new release-blocking problems found | {found} |
+"""
+
+
+def _git(root, *args):
+    return subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=jnwb-test", "-c",
+         "user.email=test@example.invalid", "-c", "commit.gpgsign=false", *args],
+        capture_output=True, text=True, check=True).stdout.strip()
+
+
+def _commit(root, message):
+    _git(root, "add", "--all")
+    _git(root, "commit", "-q", "--allow-empty", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True):
+    """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
+    ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against."""
+    (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "problem_stack.md").write_text(
+        _PROBLEMS.format(rows="\n".join(rows)) + tail, encoding="utf-8")
+    (tmp_path / "artifacts" / "todo_stack.md").write_text(
+        _TODOS.format(cycle=NEXT_CYCLE, items="\n".join(items)), encoding="utf-8")
+    if receipt:
+        (tmp_path / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
+            _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _commit(tmp_path, "the tree")
+    return tmp_path
+
+
+def _item(ident, release):
+    return (f"### {ident} Something\n\nRole: jnwb-developer. Skill: none. Blocked by: none.\n"
+            f"Release: {release}.\nWrites: `jnwb/x.py`.\n")
+
+
+# --- the compliant tree, which every discriminator below is measured against ------------------
+
+def test_a_compliant_tree_passes(tmp_path):
+    """An empty problem table, only deferred items and a receipt at HEAD."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED), _item("07-02", DEFERRED)])
+    assert problem_rows(root) == []
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+# --- 1. the problem stack is empty -------------------------------------------------------------
+
+@pytest.mark.parametrize("rows, tail", [
+    (["| P-01 | a defect | a packet |"], ""),
+    (["| P-01 | a defect | a packet | DEFERRED->0.2.7 | carried, with a reason |"], ""),
+    (["| P-01 | a defect | a packet | ACCEPTED | cannot be retested |"], ""),
+    (["| P-01 | a malformed row with one cell"], ""),
+    (["|P-01|no spaces|x|"], ""),
+    ([], "\n## Closed\n\n| ID | Problem | Disposition |\n|---|---|---|\n| P-C1 | done | repaired |\n"),
+    ([], "\n  | P-01 | indented under prose, outside any table heading | x |\n"),
+], ids=["plain", "deferred", "accepted", "malformed", "unspaced", "closed-section", "indented"])
+def test_any_problem_row_fails_whatever_it_says_or_wherever_it_sits(tmp_path, rows, tail):
+    root = _tree(tmp_path, rows=rows, tail=tail, items=[_item("07-01", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and v[0].startswith("1 problem row(s) remain"), v
+
+
+#: Problems written in a form a row-shaped pattern does not read. Under `## Open` any line but
+#: the header and separator is untriaged work, whatever its shape.
+EVASIONS = {
+    "bold-id": "| **P-300** | a defect | x |",
+    "code-id": "| `P-300` | a defect | x |",
+    "lowercase-id": "| p-300 | a defect | x |",
+    "blockquoted-table": "> | ID | Problem | Found by |\n> |---|---|---|\n> | P-300 | a defect | x |",
+    "bullet": "- P-300: a defect",
+    "id-in-column-2": "| x | P-300 | a defect |",
+    "unnumbered-row": "| | a defect | x |",
+    "prose": "A defect nobody has triaged yet.",
+    "second-header": "| ID | Problem | Found by |\n|---|---|---|",
+}
+
+
+@pytest.mark.parametrize("line", list(EVASIONS.values()), ids=list(EVASIONS))
+def test_any_content_under_open_fails_step_0a(tmp_path, line):
+    root = _tree(tmp_path, rows=[line], items=[_item("07-01", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "problem row(s) remain" in v[0], v
+
+
+def _open_findings(root):
+    from scripts.harness_gate import check_stack_form_consistency
+    return [v for v in check_stack_form_consistency(root) if "## Open" in v]
+
+
+@pytest.mark.parametrize("line", list(EVASIONS.values()), ids=list(EVASIONS))
+def test_any_noncanonical_content_under_open_fails_gate_15(tmp_path, line):
+    root = _tree(tmp_path, rows=[line], items=[_item("07-01", DEFERRED)])
+    assert _open_findings(root), f"gate 15 read {line!r} under ## Open as well formed"
+
+
+def test_gate_15_passes_an_empty_open_section_and_a_canonical_row(tmp_path):
+    """Gate 15 checks form; a recorded, well-formed problem is STEP 0a's to refuse, not its."""
+    assert _open_findings(_tree(tmp_path, items=[_item("07-01", DEFERRED)])) == []
+    assert _open_findings(_tree(tmp_path, rows=["| P-300 | a defect | x |"])) == []
+
+
+def test_a_problem_stack_with_no_open_section_fails_both(tmp_path):
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    stack = root / "artifacts" / "problem_stack.md"
+    stack.write_text(stack.read_text(encoding="utf-8").replace("## Open", "## Triage"),
+                     encoding="utf-8")
+    _commit(root, "rename the section")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "## Open" in v[0], v
+    assert _open_findings(root), "gate 15 passed a problem stack with no ## Open section"
+
+
+def test_a_missing_problem_stack_fails(tmp_path):
+    """A condition satisfied by deleting its own evidence is worse than none."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    (root / "artifacts" / "problem_stack.md").unlink()
+    _commit(root, "delete the problem stack")
+    assert problem_rows(root) is None
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "problem_stack.md is missing" in v[0], v
+
+
+# --- 2. no required item remains ---------------------------------------------------------------
+
+def test_an_item_still_required_this_cycle_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("06-99", "required-0.2.6")])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "06-99" in x for x in v)
+
+
+@pytest.mark.parametrize("release", ["deferred-0.2.8", "deferred-0.2.6"])
+def test_an_item_deferred_to_any_cycle_but_the_next_fails(tmp_path, release):
+    """Only the next cycle's stack carries deferred work; any other `deferred-*` is not deferred."""
+    root = _tree(tmp_path, items=[_item("99-903", release), _item("99-904", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "1 todo item(s) are still required" in v[0] and "99-903" in v[0], v
+
+
+def test_this_cycles_release_step_is_not_required(tmp_path):
+    """A release step completes only after the tag, so STEP 0a cannot wait for it."""
+    root = _tree(tmp_path, items=[_item("99-910", RELEASE_STEP), _item("99-911", DEFERRED)])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+@pytest.mark.parametrize("release", [
+    f"release-step-{NEXT_CYCLE}",
+    "release-step-",
+    "release-step",
+    f"release-step-{RELEASE_CYCLE}-rc1",
+    f"Release-step-{RELEASE_CYCLE}",
+])
+def test_a_release_step_for_any_other_cycle_or_in_any_other_form_is_required(tmp_path, release):
+    root = _tree(tmp_path, items=[_item("99-912", release), _item("99-913", RELEASE_STEP)])
+    v = check_release_readiness(root, head=HEAD)
+    assert (len(v) == 1 and "1 todo item(s) are still required" in v[0] and "99-912" in v[0]
+            and f"[{release}]" in v[0]), v
+
+
+def test_a_required_item_beside_a_release_step_still_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-914", RELEASE_STEP),
+                                  _item("99-915", f"required-{RELEASE_CYCLE}")])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "1 todo item(s) are still required" in v[0], v
+    assert "99-915" in v[0] and "99-914" not in v[0], v
+
+
+def test_an_item_with_no_release_field_fails(tmp_path):
+    root = _tree(tmp_path, items=["### 06-98 Something\n\nRole: jnwb-developer.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "06-98" in x for x in v), \
+        "an item with no Release: field read as deferred rather than as unclassified"
+
+
+@pytest.mark.parametrize("ident", ["06-01", "06-99", "06-100", "06-113", "07-5"])
+def test_an_item_id_of_any_digit_width_is_counted(tmp_path, ident):
+    """A two-digit pattern once made every three-digit item invisible to this check."""
+    root = _tree(tmp_path, items=[_item(ident, "required-0.2.6")])
+    assert [i for i, _, _ in todo_release_fields(root)] == [ident]
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and ident in x for x in v), \
+        f"item {ident} was invisible to the release check"
+
+
+def _nested(depth, parent_release="Release: deferred-0.2.7.\n", child_release="required-0.2.6"):
+    return (f"### 99-900 A parent\n\n{parent_release}\n"
+            f"{depth} 99-901 A nested item\n\nRelease: {child_release}.\n")
+
+
+@pytest.mark.parametrize("depth", ["##", "###", "####", "#####", "######"])
+def test_a_required_item_is_seen_at_any_heading_depth(tmp_path, depth):
+    """Only `### ` was read, so an item one level deeper was invisible and its `Release:` field
+    was read as its parent's, which kept the parent deferred and the release check clean."""
+    root = _tree(tmp_path, items=[_nested(depth)])
+    fields = {i: r for i, _, r in todo_release_fields(root)}
+    assert fields == {"99-900": DEFERRED, "99-901": "required-0.2.6"}
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+
+
+def test_a_parent_does_not_inherit_a_nested_items_release_field(tmp_path):
+    root = _tree(tmp_path, items=[_nested("####", parent_release="", child_release=DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-900" in x for x in v), v
+
+
+def test_an_item_stating_two_release_values_is_required(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-901", DEFERRED) + "Release: required-0.2.6.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+
+
+@pytest.mark.parametrize("second", [
+    "**Release:** required-0.2.6.",
+    "  Release: required-0.2.6.",
+    "release: required-0.2.6.",
+    "1. Release: required-0.2.6.",
+    "| Scope | Release: required-0.2.6. |",
+    "<b>Release:</b> required-0.2.6.",
+])
+def test_a_deferred_item_with_a_noncanonical_second_release_line_fails_closed(tmp_path, second):
+    """Only the canonical line was read, so a second value in any other form went unseen."""
+    root = _tree(tmp_path, items=[_item("99-901", DEFERRED) + second + "\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-901" in x for x in v), v
+    assert any("cannot be read" in x and "99-901" in x for x in v), v
+
+
+@pytest.mark.parametrize("hidden", [
+    "> ### 99-902 A quoted item\n>\n> Release: required-0.2.6.\n",
+    "- ### 99-902 A listed item\n\n  Release: required-0.2.6.\n",
+    "99-902 A setext item with no field\n===\n\nBody text.\n",
+    "99-902 A setext item with no field\n---\n\nBody text.\n",
+    "<h3>99-902 An HTML item with no field</h3>\n\nBody text.\n",
+])
+def test_a_contained_heading_after_a_deferred_item_is_read_as_an_item(tmp_path, hidden):
+    """A heading in a blockquote or list item was body text of the deferred item above it."""
+    root = _tree(tmp_path, items=[_item("99-901", DEFERRED) + "\n" + hidden])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("still required" in x and "99-902" in x for x in v), v
+    assert not any("99-901" in x for x in v), v
+
+
+def test_a_release_field_before_the_first_heading_fails_closed(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-901", DEFERRED)])
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text("Release: required-0.2.6.\n\n" + todo.read_text(encoding="utf-8"),
+                    encoding="utf-8")
+    _commit(root, "a release field before the first heading")
+    v = check_release_readiness(root, head=HEAD)
+    assert any("before the first heading" in x for x in v), v
+
+
+@pytest.mark.parametrize("heading", [
+    "### 99-901: A colon after the id",
+    "#### 9-901 One digit before the hyphen",
+    "### **99-901** A bold id",
+    "##### 99-901a A suffixed id",
+    "#### A heading with no id",
+])
+def test_an_item_whose_id_cannot_be_read_fails_closed(tmp_path, heading):
+    """A section STEP 0a cannot identify is reported, never skipped as prose."""
+    root = _tree(tmp_path, items=[f"{heading}\n\nRelease: required-0.2.6.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("cannot be read" in x and heading.lstrip("# ")[:20] in x for x in v), v
+
+
+@pytest.mark.parametrize("heading", ["### 99-901: A colon", "#### 99-901a A suffix"])
+def test_an_item_shaped_heading_fails_closed_without_a_release_field(tmp_path, heading):
+    """A readable id with no field reads as required; an unreadable one must not read as prose."""
+    root = _tree(tmp_path, items=[f"{heading}\n\nRole: jnwb-developer.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert any("cannot be read" in x and heading.lstrip("# ") in x for x in v), v
+
+
+def test_headings_that_are_not_items_add_no_violation(tmp_path):
+    root = _tree(tmp_path, items=[
+        "## W9-W10. A group heading\n",
+        "### 2026-09-23 A dated note\n\nNo field here.\n",
+        _item("07-01", DEFERRED) + "\n#### Notes\n\nProse only.\n",
+    ])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+# --- 3. the closure receipt --------------------------------------------------------------------
+
+def test_a_missing_receipt_fails(tmp_path):
+    root = _tree(tmp_path, receipt=False)
+    v = check_release_readiness(root, head=HEAD)
+    assert v and all("blocker_fixpoint_receipt" in x for x in v), v
+
+
+# --- 0. the evidence is what HEAD commits ------------------------------------------------------
+
+def test_an_uncommitted_edit_cannot_pass_a_commit_whose_stack_holds_required_items(tmp_path):
+    """The committed stack holds a required item; the working copy deletes it and adds a receipt
+    at HEAD. Reading the working copy reported no violation at all. What would pass while the
+    working copy is still read: checking only that some violation is reported, because the
+    uncommitted-change refusal alone would supply one."""
+    root = _tree(tmp_path, items=[_item("99-940", REQUIRED), _item("99-941", DEFERRED)],
+                 receipt=False)
+    head = _git(root, "rev-parse", "HEAD")
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text(todo.read_text(encoding="utf-8").replace(_item("99-940", REQUIRED), ""),
+                    encoding="utf-8")
+    _record_receipt(root, head)
+    v = check_release_readiness(root, head=head)
+    assert any("still required" in x and "99-940" in x for x in v), v
+    assert any("receipt" in x and "missing at HEAD" in x for x in v), v
+    dirty = [x for x in v if "uncommitted changes" in x]
+    assert len(dirty) == 1 and "artifacts/todo_stack.md" in dirty[0], v
+    assert "artifacts/blocker_fixpoint_receipt.md" in dirty[0], v
+    assert "problem_stack" not in dirty[0], v
+
+
+def test_a_problem_row_committed_at_head_is_seen_when_the_working_copy_drops_it(tmp_path):
+    root = _tree(tmp_path, rows=["| P-950 | a defect | x |"], items=[_item("07-01", DEFERRED)])
+    stack = root / "artifacts" / "problem_stack.md"
+    stack.write_text(stack.read_text(encoding="utf-8").replace("| P-950 | a defect | x |", ""),
+                     encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert any("problem row(s) remain" in x and "P-950" in x for x in v), v
+
+
+@pytest.mark.parametrize("path", ["problem_stack.md", "todo_stack.md",
+                                  "blocker_fixpoint_receipt.md"])
+def test_an_uncommitted_change_to_any_file_step_0a_reads_is_named(tmp_path, path):
+    """A compliant committed tree fails on an uncommitted edit to any one of the three files,
+    even an edit that changes no verdict, and only that file is named."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    assert check_release_readiness(root, head=HEAD) == []
+    target = root / "artifacts" / path
+    target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "uncommitted changes: artifacts/" + path + "." in v[0], v
+
+
+def _repository(tmp_path):
+    """A committed compliant tree with no receipt yet: the commit the closure pass runs against."""
+    root = _tree(tmp_path, items=[_item("99-920", DEFERRED), _item("99-921", DEFERRED)],
+                 receipt=False)
+    _git(root, "init", "-q")
+    return root, _commit(root, "the tree the closure pass reads")
+
+
+def _record_receipt(root, commit, found=0):
+    (root / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
+        _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+
+
+def test_a_receipt_at_an_ancestor_followed_only_by_the_receipt_and_todo_stack_passes(tmp_path):
+    """A committed receipt cannot name its own commit, so it names the one before it."""
+    root, passed = _repository(tmp_path)
+    _record_receipt(root, passed)
+    todo = root / "artifacts" / "todo_stack.md"
+    todo.write_text(todo.read_text(encoding="utf-8").replace(_item("99-921", DEFERRED), ""),
+                    encoding="utf-8")
+    head = _commit(root, "record the closure pass")
+    assert _git(root, "diff", "--name-only", passed, head).split() == [
+        "artifacts/blocker_fixpoint_receipt.md", "artifacts/todo_stack.md"]
+    assert check_release_readiness(root, head=head) == []
+
+
+@pytest.mark.parametrize("later", [False, True], ids=["with-the-receipt", "in-a-later-commit"])
+def test_a_code_change_after_the_receipt_commit_fails(tmp_path, later):
+    root, passed = _repository(tmp_path)
+    _record_receipt(root, passed)
+    if later:
+        _commit(root, "record the closure pass")
+    (root / "jnwb").mkdir()
+    (root / "jnwb" / "x.py").write_text("x = 1\n", encoding="utf-8")
+    head = _commit(root, "a change the closure pass never read")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "1 file(s) other than the receipt" in v[0] and "jnwb/x.py" in v[0], v
+
+
+def test_a_receipt_commit_off_heads_history_fails(tmp_path):
+    root, _ = _repository(tmp_path)
+    trunk = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(root, "checkout", "-q", "-b", "side")
+    elsewhere = _commit(root, "a commit HEAD never descends from")
+    _git(root, "checkout", "-q", trunk)
+    _record_receipt(root, elsewhere)
+    head = _commit(root, "record a closure pass from another history")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "is not an ancestor of HEAD" in v[0], v
+
+
+def test_a_receipt_commit_the_repository_does_not_know_fails(tmp_path):
+    root, _ = _repository(tmp_path)
+    _record_receipt(root, "b" * 40)
+    head = _commit(root, "record a closure pass against an unknown commit")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "does not know" in v[0], v
+
+
+REQUIRED = f"required-{RELEASE_CYCLE}"
+
+
+def _relabel(tmp_path, before, after):
+    """Violations once the receipt names a commit whose stack holds ``before`` and the commit
+    recording it leaves ``after``. ``None`` leaves the stack out of that commit."""
+    todo = tmp_path / "artifacts" / "todo_stack.md"
+    root = _tree(tmp_path, items=before or (), receipt=False)
+    _git(root, "init", "-q")
+    for step, items in enumerate((before, after)):
+        if items is None:
+            todo.unlink(missing_ok=True)
+        else:
+            todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items="\n".join(items)),
+                            encoding="utf-8")
+        if step == 0:
+            passed = _commit(root, "the tree the closure pass reads")
+            _record_receipt(root, passed)
+    return check_release_readiness(root, head=_commit(root, "record the closure pass"))
+
+
+@pytest.mark.parametrize("was, now", [
+    (REQUIRED, DEFERRED),
+    (REQUIRED, RELEASE_STEP),
+    (f"deferred-{RELEASE_CYCLE}", DEFERRED),
+], ids=["required-to-deferred", "required-to-release-step", "wrong-cycle-to-deferred"])
+def test_relabelling_a_held_item_after_the_receipt_fails(tmp_path, was, now):
+    """The closure pass judged what stays required; a later commit may delete, not relabel."""
+    v = _relabel(tmp_path, [_item("99-930", was), _item("99-931", DEFERRED)],
+                 [_item("99-930", now), _item("99-931", DEFERRED)])
+    assert len(v) == 1 and "held open" in v[0] and f"99-930: {was} -> {now}" in v[0], v
+    assert "99-931" not in v[0], v
+
+
+def test_a_held_item_deleted_after_the_receipt_is_done(tmp_path):
+    assert _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-931", DEFERRED)],
+                    [_item("99-931", DEFERRED)]) == []
+
+
+def test_an_unchanged_held_item_is_condition_2s_to_refuse(tmp_path):
+    items = [_item("99-930", REQUIRED), _item("99-931", DEFERRED)]
+    v = _relabel(tmp_path, items, items)
+    assert len(v) == 1 and "still required" in v[0] and "99-930" in v[0], v
+
+
+def test_an_item_added_after_the_receipt_is_judged_by_condition_2(tmp_path):
+    assert _relabel(tmp_path, [_item("99-930", REQUIRED)], [_item("99-932", DEFERRED)]) == []
+
+
+@pytest.mark.parametrize("absent", ["receipt", "head"])
+def test_a_todo_stack_absent_at_either_commit_fails(tmp_path, absent):
+    items = [_item("99-931", DEFERRED)]
+    v = _relabel(tmp_path, None if absent == "receipt" else items,
+                 None if absent == "head" else items)
+    where = "the receipt's commit" if absent == "receipt" else "at HEAD"
+    assert any("does not exist" in x and where in x for x in v), v
+
+
+def test_a_todo_stack_unreadable_at_the_receipt_commit_fails(tmp_path):
+    v = _relabel(tmp_path, [f"### 99-930: A colon\n\nRelease: {REQUIRED}.\n"],
+                 [_item("99-930", DEFERRED)])
+    assert len(v) == 1 and "cannot be read" in v[0] and "receipt's commit" in v[0], v
+
+
+def test_a_missing_todo_stack_fails(tmp_path):
+    """Deleting the stack must not read as zero required items."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    (root / "artifacts" / "todo_stack.md").unlink()
+    _commit(root, "delete the todo stack")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "todo_stack.md is missing" in v[0], v
+
+
+def test_a_receipt_cannot_be_tied_to_an_unresolved_head(tmp_path):
+    root = _tree(tmp_path)
+    v = check_release_readiness(root, head=None)
+    assert len(v) == 1 and "HEAD could not be resolved" in v[0], v
+
+
+@pytest.mark.parametrize("found", [1, 2])
+def test_a_receipt_reporting_new_blockers_fails(tmp_path, found):
+    root = _tree(tmp_path, found=found)
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and f"found {found} new release-blocking" in v[0], v
+
+
+def test_the_fixpoint_is_new_blockers_and_not_new_observations(tmp_path):
+    """A closure pass that files fifty deferred observations and zero blockers still closes."""
+    root = _tree(tmp_path, items=[_item(f"07-{n}", DEFERRED) for n in range(1, 51)], found=0)
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+def test_the_receipt_parser_reads_nothing_from_an_absent_receipt():
+    commit, found = blocker_fixpoint_receipt(pathlib.Path("/nonexistent-tree"))
+    assert commit is None and found is None
+
+
+# --- the live tree -----------------------------------------------------------------------------
+
+def test_the_live_problem_stack_has_no_problem_row():
+    """Every finding is repaired, shown false, or moved into the todo stack."""
+    assert problem_rows(REPO_ROOT) == []
+
+
+def test_the_live_item_count_agrees_between_both_parsers():
+    """Both readers share one parser, so the raw count of id-led headings at any depth is the
+    independent side; the live stack must also hold no section that looks like an item but
+    cannot be read, and must parse to at least one item."""
+    from scripts.release_gate import remaining_todo_items, unparseable_todo_headings
+    text = (REPO_ROOT / "artifacts" / "todo_stack.md").read_text(encoding="utf-8")
+    raw = re.findall(r"^ {0,3}#+[ \t]+\d\d-\d+(?:[ \t]|$)", text, re.M)
+    assert len(raw) > 0, "the todo stack parsed to zero items"
+    assert len(remaining_todo_items(REPO_ROOT)) == len(todo_release_fields(REPO_ROOT)) == len(raw)
+    assert unparseable_todo_headings(REPO_ROOT) == []

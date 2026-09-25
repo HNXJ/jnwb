@@ -13,6 +13,7 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ._bins import whole_bin_count
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,11 @@ def setup_vector_graphics():
 
 
 def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12):
-    """Apply tight temporal bounds and auto-scale y-axis without empty margins."""
+    """Pin the x-axis to ``x_span`` and fit the y-axis to the plotted lines.
+
+    The y lower limit is floored at 0, so negative values in the lines are drawn outside the
+    axes and not shown. Do not use it on signed data such as z-scores or LFP.
+    """
     ax.set_xlim(x_span)
     lines = ax.get_lines()
     if lines:
@@ -123,21 +128,25 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     Args:
         st: 1D array of spike times (seconds).
         onsets: 1D array of trial onset times (seconds).
-        win_ms: (start_ms, end_ms) window relative to each onset.
+        win_ms: (start_ms, end_ms) window relative to each onset. Its span must be a whole
+            number of ``bin_ms`` bins.
         bin_ms: bin width in ms.
 
     Returns:
         (bin_centers_ms, mean_rate_hz, sem_rate_hz). With no onsets the mean and SEM are NaN.
 
     Raises:
-        ValueError: If ``win_ms`` is not finite with end > start, or ``bin_ms`` is not positive.
+        ValueError: If ``win_ms`` is not finite with end > start, ``bin_ms`` is not positive,
+            or the span of ``win_ms`` is not a whole multiple of ``bin_ms``; the message names
+            the nearest valid windows.
     """
     if not (np.all(np.isfinite(win_ms)) and win_ms[1] > win_ms[0]):
         raise ValueError(f"raster_psth: win_ms={tuple(win_ms)} must be finite with end > start")
     if not (np.isfinite(bin_ms) and bin_ms > 0):
         raise ValueError(f"raster_psth: bin_ms must be positive and finite, got {bin_ms}")
+    n_bins = whole_bin_count(win_ms, bin_ms, "raster_psth")
     onsets = np.asarray(onsets, dtype=float)
-    edges = np.arange(win_ms[0], win_ms[1] + bin_ms, bin_ms)
+    edges = win_ms[0] + bin_ms * np.arange(n_bins + 1)
     centers = edges[:-1] + bin_ms / 2.0
     if onsets.size == 0:
         # No trials, so no trial average. This returned zeros, which reads as a silent unit.

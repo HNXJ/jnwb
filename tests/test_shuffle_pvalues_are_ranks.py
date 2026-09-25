@@ -128,6 +128,78 @@ class TestTheUnpairedPValueIsTheRankItClaimsToBe:
         assert ps[0] > 0.1, ps
 
 
+class TestADrawThatReproducesTheObservedSplitCountsItself:
+    """Recomputing the observed split in shuffled order can land an ulp below the observed
+    statistic. With these values it does for both the unpaired mean difference (after the
+    pooled values are centred) and the identity sign flip, and without the tie width the
+    p-value falls well below the exact one (unpaired) or to its floor (paired). Separated
+    groups make the exact p a count of two draws. The unpaired cases also run at a common
+    offset of 1e9, where a statistic taken from the uncentred values drops p to its floor."""
+
+    X = np.array([14.9, 18.9, 19.3])
+    Y = np.array([4.8, 5.9, 4.6])
+    D = np.array([1.53, 2.55, 2.07, 2.9, 1.42])
+
+    @pytest.mark.parametrize("offset", [0.0, 1e9])
+    @pytest.mark.parametrize("alternative, exact", [("two-sided", 0.1), ("greater", 0.05)])
+    def test_unpaired(self, alternative: str, exact: float, offset: float):
+        _, p = shuffle_pvalue_unpaired(
+            self.X + offset, self.Y + offset, N_SHUFFLES, np.random.default_rng(0),
+            alternative=alternative,
+        )
+        assert p == pytest.approx(exact, abs=0.02), (p, exact)
+        _, p_neg = shuffle_pvalue_unpaired(
+            -self.X - offset, -self.Y - offset, N_SHUFFLES, np.random.default_rng(0),
+            alternative="less" if alternative == "greater" else alternative,
+        )
+        assert p_neg == pytest.approx(exact, abs=0.02), (p_neg, exact)
+
+    @pytest.mark.parametrize("offset", [0.0, 1e9])
+    def test_permutation_test(self, offset: float):
+        from jnwb import StatisticalAnalysis
+
+        p = StatisticalAnalysis.permutation_test(
+            self.X + offset, self.Y + offset, n_permutations=N_SHUFFLES, rng=0
+        )["pval"]
+        assert p == pytest.approx(0.1, abs=0.02), p
+
+    @pytest.mark.parametrize("alternative, exact", [("two-sided", 2 / 32), ("greater", 1 / 32)])
+    def test_paired(self, alternative: str, exact: float):
+        _, p = shuffle_pvalue_paired(
+            self.D, np.zeros_like(self.D), N_SHUFFLES, np.random.default_rng(0), alternative=alternative
+        )
+        assert p == pytest.approx(exact, abs=0.015), (p, exact)
+        _, p_neg = shuffle_pvalue_paired(
+            -self.D, np.zeros_like(self.D), N_SHUFFLES, np.random.default_rng(0),
+            alternative="less" if alternative == "greater" else alternative,
+        )
+        assert p_neg == pytest.approx(exact, abs=0.015), (p_neg, exact)
+
+
+class TestACommonOffsetLeavesThePValueUnchanged:
+    """A difference of means does not see a common offset, so neither may the tie width.
+    Scaled by the raw values, the width at an offset of 1e9 times the spread counted
+    genuinely different splits as ties: p 0.538 against 0.487 at offset 0."""
+
+    @staticmethod
+    def _p(name: str, offset: float) -> float:
+        from jnwb import StatisticalAnalysis
+
+        rng = np.random.default_rng(1000)
+        x = rng.normal(1.5 / np.sqrt(1000), 1.0, 1000) + offset
+        y = rng.normal(0.0, 1.0, 1000) + offset
+        if name == "permutation_test":
+            return StatisticalAnalysis.permutation_test(x, y, n_permutations=1000, rng=0)["pval"]
+        func = shuffle_pvalue_unpaired if name == "unpaired" else shuffle_pvalue_paired
+        return func(x, y, 1000, np.random.default_rng(0))[1]
+
+    @pytest.mark.parametrize("name", ["unpaired", "permutation_test", "paired"])
+    def test_offset_1e9(self, name: str):
+        p0 = self._p(name, 0.0)
+        assert 0.05 < p0 < 0.95, p0
+        assert self._p(name, 1e9) == p0
+
+
 class TestTheIncidentalGuardIsStillThere:
     """If the folding test's guard is ever relaxed, this file is what remains."""
 

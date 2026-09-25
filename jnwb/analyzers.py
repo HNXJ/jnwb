@@ -11,9 +11,12 @@ Changes vs. previous version:
 """
 
 import logging
+import warnings
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
+from ._bins import bins_within, whole_bin_count
+from .gpu_pca import pin_component_signs
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -281,7 +284,7 @@ class UnitAnalyzer:
     Methods:
     - raster(spike_times, epochs) → Raster plot data
     - psth(spike_times, epochs, bin_size) → PSTH with CI
-    - autocorrelogram(spike_times, max_lag) → ACG with significance
+    - autocorrelogram(spike_times, max_lag) → ACG
     - quality_metrics(spike_times, amplitudes) → Quality scores
     - firing_rate(spike_times, window) → FR over time
     """
@@ -336,14 +339,19 @@ class UnitAnalyzer:
             spike_times: Spike times in seconds
             trial_onsets: Trial start times in seconds
             bin_size_ms: Bin size in milliseconds
-            window_ms: (pre_ms, post_ms) relative to onset
+            window_ms: (pre_ms, post_ms) relative to onset. Its span must be a whole number
+                of ``bin_size_ms`` bins.
 
         Returns:
             Dict with PSTH, CI, and statistics
+
+        Raises:
+            ValueError: If the span of ``window_ms`` is not a whole multiple of
+                ``bin_size_ms``; the message names the nearest valid windows.
         """
+        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
-        n_bins   = int(round((win_sec[1] - win_sec[0]) / bin_sec))
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
         trial_psths = []
@@ -370,7 +378,19 @@ class UnitAnalyzer:
     def autocorrelogram(spike_times: np.ndarray, max_lag_ms: float = 100,
                         bin_size_ms: float = 1, device: str = 'cpu') -> Dict:
         """
-        Autocorrelogram with refractory period significance test.
+        Autocorrelogram of one spike train.
+
+        Bins are ``bin_size_ms`` wide and centred on multiples of it. With ``n`` the number
+        of whole bins in ``max_lag_ms``, the histogram spans ``±(n + 1/2) * bin_size_ms``,
+        and ``acg`` holds the ``n`` positive-lag bins centred on ``lag_times_ms``,
+        ``bin_size_ms * (1, ..., n)``.
+
+        The refractory test this returned is withdrawn: it took the Poisson upper tail of
+        the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an over-filled
+        refractory bin read as a single unit and a clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
+        ``baseline_count`` are ``NaN`` and ``is_single_unit`` is ``None``, with a
+        ``FutureWarning``; they are removed in 0.2.7. The single-unit check is
+        :meth:`quality_metrics`, from inter-spike intervals under 2 ms.
 
         Args:
             spike_times: Spike times in seconds
@@ -379,34 +399,41 @@ class UnitAnalyzer:
             device: 'cpu' or 'cuda' (GPU acceleration via CuPy)
 
         Returns:
-            Dict with ACG, refractory p-value, is_single_unit flag
+            Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
+            the histogram) and the four withdrawn keys above.
         """
+        resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
         if len(spike_times) < 10:
             return {'error': 'Insufficient spikes for ACG', 'n_spikes': len(spike_times)}
 
         max_lag_sec = max_lag_ms / 1000
         bin_sec     = bin_size_ms / 1000
 
-        acg, lag_times = UnitAnalyzer._acg_vectorized(spike_times, max_lag_sec, bin_sec, device=device)
+        ran_on = []
+        acg, lag_times = UnitAnalyzer._acg_vectorized(
+            spike_times, max_lag_sec, bin_sec, device=resolved,
+            context='UnitAnalyzer.autocorrelogram', ran_on=ran_on)
 
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
 
-        ref_period_idx       = min(int(5 / bin_size_ms), len(acg) - 1)
-        baseline_idx_start   = min(int(10 / bin_size_ms), len(acg) - 1)
-        baseline_idx_end     = min(int(15 / bin_size_ms), len(acg))
-
-        ref_count      = acg[ref_period_idx]
-        baseline_count = np.mean(acg[baseline_idx_start:baseline_idx_end])
-        p_refractory   = stats.poisson.sf(ref_count, max(baseline_count, 1e-9))
-
+        warnings.warn(
+            "UnitAnalyzer.autocorrelogram: the refractory test is withdrawn because it was "
+            "inverted (an over-filled refractory bin read as a single unit). "
+            "'refractory_period_violation', 'refr_count' and 'baseline_count' are NaN and "
+            "'is_single_unit' is None; these keys are removed in 0.2.7. Use "
+            "UnitAnalyzer.quality_metrics (ISI < 2 ms) as the single-unit check.",
+            FutureWarning,
+            stacklevel=2,
+        )
         return {
             'acg':                        acg,
             'lag_times_ms':               lag_times * 1000,
-            'refractory_period_violation': float(p_refractory),
-            'is_single_unit':             bool(p_refractory < 0.05),
-            'refr_count':                 int(ref_count),
-            'baseline_count':             float(baseline_count),
+            'refractory_period_violation': float('nan'),
+            'is_single_unit':             None,
+            'refr_count':                 float('nan'),
+            'baseline_count':             float('nan'),
+            'device_used':                ran_on[0],
         }
 
     # Pairs held on the device at once. 4.19e6 float64 differences is 32 MiB, which
@@ -415,14 +442,15 @@ class UnitAnalyzer:
     _ACG_PAIR_BUDGET = 1 << 22
 
     @staticmethod
-    def _acg_histogram(xp, spike_times, max_lag: float, bin_edges, n_bins: int):
+    def _acg_histogram(xp, spike_times, bin_edges):
         """Sum the in-window difference histogram, one histogram per chunk.
 
         The same source runs under ``numpy`` and ``cupy``. Each spike contributes the
-        ragged window ``[lo_i, hi_i)``; flattening the whole chunk's windows into one
+        ragged window of spikes whose difference from it lies within the outer edges of
+        ``bin_edges``, so the search window and the histogram cannot disagree; flattening the whole chunk's windows into one
         index array turns "a histogram per spike" into "a histogram per chunk".
 
-        05-45: both previous paths were pathological in different ways. The CPU loop
+        Both previous paths were pathological in different ways. The CPU loop
         called :func:`numpy.histogram` once per spike, which is 41x to 46x slower than
         this for the same counts. The CUDA path below 30000 spikes built the full
         ``N x N`` difference matrix -- 6.71 GiB of device memory at 29999 spikes, just
@@ -433,15 +461,16 @@ class UnitAnalyzer:
         22.4 s against 0.93 s on the CPU. The kernel launches, not the transfers, were
         76% of the accounted time.
         """
+        lowest, highest = float(bin_edges[0]), float(bin_edges[-1])
         st = xp.sort(xp.asarray(spike_times))
         edges = xp.asarray(bin_edges)
-        acg = xp.zeros(2 * n_bins + 1, dtype=xp.int64)
+        acg = xp.zeros(len(bin_edges) - 1, dtype=xp.int64)
         n = int(st.size)
         if n == 0:
             return acg
 
-        lo_all = xp.searchsorted(st, st - max_lag, side="left")
-        hi_all = xp.searchsorted(st, st + max_lag, side="right")
+        lo_all = xp.searchsorted(st, st + lowest, side="left")
+        hi_all = xp.searchsorted(st, st + highest, side="right")
         counts_all = hi_all - lo_all
         widest = int(counts_all.max())
         chunk = max(1, UnitAnalyzer._ACG_PAIR_BUDGET // max(widest, 1))
@@ -462,41 +491,50 @@ class UnitAnalyzer:
 
     @staticmethod
     def _acg_vectorized(spike_times: np.ndarray,
-                        max_lag: float, bin_size: float, device: str = 'cpu') -> Tuple[np.ndarray, np.ndarray]:
+                        max_lag: float, bin_size: float, device: str = 'cpu',
+                        context: str = 'UnitAnalyzer.acg',
+                        ran_on: Optional[list] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Vectorized autocorrelogram via searchsorted — O(N log N) instead of O(N²).
 
-        For each spike i, find all spikes j within ±max_lag using searchsorted,
+        For each spike i, find all spikes j within the binned span using searchsorted,
         then histogram the differences.  Avoids the outer Python loop over all pairs.
 
+        Bins are ``bin_size`` wide and centred on ``k * bin_size`` for
+        ``k = -n, ..., n``, where ``n`` is the number of whole bins in ``max_lag``, so the
+        histogram spans ``±(n + 1/2) * bin_size``. The zero-lag bin holds every spike's
+        match with itself and is dropped. Returns the positive half, ``n`` counts, and
+        their lags ``bin_size * (1, ..., n)``, the bin centres.
+
         One implementation serves both devices, so they cannot drift apart: the CPU and
-        CUDA results are bit-identical, and were verified so against the previous
-        implementation at 500, 5000 and 35000 spikes.
+        CUDA results are bit-identical.
+
+        ``context`` names the public caller in device warnings; ``ran_on``, when given,
+        receives the device that computed the histogram.
         """
-        n_bins    = int(max_lag / bin_size)
-        bin_edges = np.linspace(-max_lag, max_lag, 2 * n_bins + 2)
+        n_bins    = bins_within(max_lag, bin_size)
+        bin_edges = bin_size * (np.arange(-n_bins, n_bins + 2) - 0.5)
 
         acg = None
-        if resolve_device(device, context='UnitAnalyzer.acg', prefer='cupy') == CUDA:
+        used = CPU
+        if resolve_device(device, context=context, prefer='cupy') == CUDA:
             try:
                 import cupy as cp
-                acg = cp.asnumpy(
-                    UnitAnalyzer._acg_histogram(cp, spike_times, max_lag, bin_edges,
-                                                n_bins))
+                acg = cp.asnumpy(UnitAnalyzer._acg_histogram(cp, spike_times, bin_edges))
+                used = CUDA
             except Exception as e:
-                warn_device_fallback("UnitAnalyzer.acg", e)
+                warn_device_fallback(context, e)
                 log.warning(f"CUDA ACG calculation failed: {e}. Falling back to CPU.")
                 acg = None
 
         if acg is None:
-            acg = UnitAnalyzer._acg_histogram(np, spike_times, max_lag, bin_edges, n_bins)
+            acg = UnitAnalyzer._acg_histogram(np, spike_times, bin_edges)
+        if ran_on is not None:
+            ran_on.append(used)
 
-        # Remove self-spike at t=0 (centre bin)
-        centre = n_bins
-        acg[centre] = 0
-        # Return positive-lag half only (symmetric)
-        lag_times = np.linspace(0, max_lag, n_bins + 1)[:-1]
-        return acg[centre + 1:], lag_times
+        # Positive-lag half only (the ACG is symmetric); index n_bins is the zero-lag bin.
+        lag_times = bin_size * np.arange(1, n_bins + 1)
+        return acg[n_bins + 1:], lag_times
 
     # Keep old name as alias for any existing call sites
     _acg_pearson = _acg_vectorized
@@ -722,6 +760,13 @@ class PopulationAnalyzer:
                 'explained_variance': shape (n_components,)
                 'explained_variance_ratio': shape (n_components,)
                 'device_used': 'cpu' or 'cuda' -- device that performed the SVD
+
+            Each component's largest-magnitude loading is positive, the lowest-index one
+            among loadings tied in magnitude
+            (:func:`jnwb.gpu_pca.pin_component_signs`). An SVD fixes a component only up to
+            sign, and cuSOLVER and LAPACK pick each component's sign independently, so
+            without the pin a CUDA component and its projection could have the opposite sign
+            to the CPU one.
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
@@ -741,6 +786,7 @@ class PopulationAnalyzer:
                 vt = cp.asnumpy(vt)
 
                 projection = X_centered @ vt.T[:, :n_components]
+                vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
                 explained_variance = (s ** 2) / (n_samples - 1)
                 total_variance = np.sum(explained_variance)
                 explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
@@ -770,6 +816,7 @@ class PopulationAnalyzer:
                         vt = v.cpu().numpy()
 
                         projection = X_centered @ vt.T[:, :n_components]
+                        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
                         explained_variance = (s ** 2) / (n_samples - 1)
                         total_variance = np.sum(explained_variance)
                         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
@@ -792,6 +839,7 @@ class PopulationAnalyzer:
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         projection = X_centered @ vt.T[:, :n_components]
+        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
         explained_variance = (s ** 2) / (n_samples - 1)
         total_variance = np.sum(explained_variance)
         explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance

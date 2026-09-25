@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "7f23f7a9551e5131b5a82df1247a0c355e06e40660abdbb3b82706e6a002c4e4",
+  "estimator_sha256": "fea6a0d4d78dc6ec571e8c93f37e78a1e7089e5ddbbac2c187c3ccbfb39e2c5b",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
@@ -341,11 +341,11 @@
     ]
   },
   "environment": {
-    "jnwb": "0.2.4",
+    "jnwb": "0.2.5",
     "python": "3.14.3",
     "numpy": "2.4.6",
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 130.2
+  "elapsed_s": 134.9
 }

@@ -1,0 +1,14 @@
+# Line-ending policy. P-124: nothing declared one, and eight tracked files carried both
+# conventions at once. The committed bytes are the convention, and `-text` is what makes a
+# clone reproduce them: git performs no end-of-line conversion in either direction, on any
+# platform, whatever a contributor's `core.autocrlf` happens to be set to.
+#
+# Measured across every tracked text file at 0.2.6: LF in the root, `.claude`, `.github` and
+# `scripts` uniformly; tests 121/132, jnwb 43/48, docs 29/31, artifacts 33/43 -- except
+# `skills/`, which is CRLF 16 of 18. That split is real and directional. Whether it should be
+# levelled is a separate decision this file deliberately does not take: declaring `eol=lf`
+# here would take it silently, by rewriting every CRLF blob on the next checkout.
+#
+# What is enforced instead is that no single file mixes the two, which is a defect under
+# either answer. Harness gate 16 (`scripts/harness_gate.py`) fails on a mixed file.
+* -text

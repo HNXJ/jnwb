@@ -117,7 +117,7 @@ Presence stays with the gates. Public-symbol presence, API generation and export
 agreement, documentation coverage and onboarding alignment are decided deterministically;
 the audit consumes those results rather than reproducing them.
 
-The audit is a 0.2.5 close-out gate (`artifacts/todo_stack.md`, 05-85), run once after the
+The audit is a 0.2.5 close-out gate (`artifacts/archive/0.2.5/todo_stack_0.2.5.md`, 05-85), run once after the
 stack empties and the independent critic completes, before the release seal.
 
 ## Prior art

@@ -1,19 +1,19 @@
 # Quickstart
 
-Study **electrophysiology and NWB 2.0+ datasets** — trial-level artifact repair, time-frequency dynamics, directed information flow, single-unit spiking latencies, and cross-modal representational similarity — with dataset-agnostic, mathematically verified algorithms.
+A tour of jnwb on NWB 2.0+ electrophysiology. Every operation takes arrays or NWB structures and assumes no particular experiment.
 
-> Documentation tracks the `dev` branch public contract. Every primitive operates on array representations or NWB structures without experiment-specific assumptions.
+> Documentation tracks the `dev` branch public contract.
 
 ## NWB file workflow (start here)
 
-For a new recording, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
+For a new session, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 
 0. [Your own NWB file](tutorials/00_your_own_file.md) — discover the layout of a file you did not write.
 1. [`jnwb.inspect`](tutorials/01_nwb_basics.md) — list interval tables and columns (no default table).
 2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**. `codes` is jnwb's default column name, not an NWB one, so pass `code_column=` with whatever `inspect` reported.
 3. [Spiking dynamics](tutorials/03_spiking.md) with `unit_spike_times`, `raster_psth`, `causal_exp_smooth`.
 4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
-5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Pipeline](tutorials/08_end_to_end_pipeline.md).
+5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Workflow](tutorials/08_end_to_end_pipeline.md).
 
 Run locally: `python examples/tutorials/00_your_own_file.py` (add your own file path as an argument), then `01_nwb_basics.py` and `02`–`08`. `examples/` ships in neither the wheel nor the sdist, so these need a [clone](install.md#source-checkout), not `pip install jnwb`.
 
@@ -28,11 +28,9 @@ import jnwb
 import numpy as np
 ```
 
-## Which Workflow Should I Use?
+## Which operation should I use?
 
-Pick the appropriate pipeline module for your analytical question:
-
-| Goal | Primary entry points | Core function / class | Output type |
+| Goal | Primary entry points | Method | Output type |
 |------|---------------------|------------------------|-------------|
 | **Trial QC & cleaning** | `jnwb.repair_lfp_trials`, `jnwb.bad_channels_from_correlation` | artifact repair + detection | `tuple`, masks |
 | **Spectral dynamics** | `jnwb.complex_tfr`, `jnwb.compute_multitaper_psd` | TFR + PSD | `ComplexTFR`, arrays |
@@ -45,11 +43,15 @@ Pick the appropriate pipeline module for your analytical question:
 
 ## Executable quickstart script (6-panel figure)
 
-`examples/quickstart_jnwb.py` is the authoritative smoke test: band power, label permutation, Granger causality, and nested-CV decoding on synthetic data, rendered as a six-panel figure.
+`examples/quickstart_jnwb.py` is the authoritative smoke test.
 
-![jnwb Quickstart Figure](assets/jnwb_quickstart.png)
+![jnwb Quickstart Figure](assets/jnwb_quickstart.png#only-light)
+![jnwb Quickstart Figure](assets/jnwb_quickstart.dark.png#only-dark)
 
-Run the complete quickstart script locally:
+Each of the six panels is one operation on synthetic data: artifact repair, band power, onset
+fitting, label permutation, Granger causality and nested-CV decoding. The figure is committed
+output from a run of the command below; if a panel disagrees with what the script prints on
+your machine, the script is authoritative.
 
 ```bash
 python examples/quickstart_jnwb.py
@@ -59,15 +61,13 @@ python examples/quickstart_jnwb.py
 
 ---
 
-## Markdown API tour (extended examples)
+## Step-by-step tour
 
-The steps below are a separate, documentation-first walkthrough (artifact repair, TFR, PSI, jRSA). They are **not** the same panels as `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
-
-## Step-by-Step Tour
+The steps below are a separate walkthrough, not the panels of `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
 
 ### 1. Artifact Detection & Repair
 
-Detect and interpolate high-amplitude transients across multichannel LFP arrays without corrupting unaffected channels or neighboring time windows:
+Detect and interpolate high-amplitude transients across multichannel LFP arrays, leaving unaffected channels and neighboring time windows intact:
 
 ```python
 rng = np.random.default_rng(0)
@@ -96,9 +96,9 @@ print(f"TFR shape (channels, freqs, time): {tfr.shape}")
 print(f"Mean raw power: {tfr.power.mean():.4f}")
 ```
 
-### 3. Directed Information Flow (Phase Slope Index)
+### 3. Directed Interaction (Phase Slope Index)
 
-Compute robust, phase-slope directionality between two time series with phase-randomized surrogate significance testing:
+Phase slope index between two time series, with a surrogate test. For a single trial the surrogate is a circular shift of the second series; with three or more trials it is a trial permutation:
 
 ```python
 sig_a = rng.normal(size=1000)
@@ -110,20 +110,20 @@ print(f"PSI X->Y: {psi.x_to_y:.4f}, p-value: {psi.p_x_to_y:.4f}")
 
 ### 4. Spiking PSTH & Onset Dynamics
 
-Calculate peristimulus time histograms with bootstrap confidence intervals and fit parametric latency models:
+Calculate a PSTH with its standard error and fit a parametric latency model:
 
 ```python
 spk_times = np.sort(rng.uniform(0, 10, 200))
 event_onsets = np.array([1.0, 3.0, 5.0, 7.0])
 
 time_bins, rate, sem = jnwb.raster_psth(spk_times, event_onsets, win_ms=(-100.0, 400.0), bin_ms=10.0)
-onset_fit = jnwb.fit_exponential_onset(time_bins, rate, t0_bounds=(0.0, 250.0))
+onset_fit = jnwb.fit_exponential_onset(time_bins, rate, t0_bounds_ms=(0.0, 250.0))
 print(f"Estimated latency t0: {onset_fit['t0']:.2f} ms (status: {onset_fit['bound_status']})")
 ```
 
 ### 5. Non-Parametric Statistical Testing
 
-Evaluate trial-level event comparisons using stratified shuffle permutations:
+Compare paired binary outcomes per trial. The p-value comes from a sign-flip shuffle of each trial's pair, and the risk-difference interval from a paired bootstrap:
 
 ```python
 fires_cond_a = np.array([True, True, False, True, False, True, True, False])

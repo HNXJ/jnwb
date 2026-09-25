@@ -11,6 +11,7 @@ import warnings
 from typing import Optional, Tuple, Dict, List, Union
 import numpy as np
 
+from ._spread import is_constant
 from ._units import resolve_unit_alias
 import pandas as pd
 from scipy import stats
@@ -54,8 +55,9 @@ def compute_response_metrics(
         - response_count: Total spikes in response window
         - response_zscore: Z-score of the response FIRING RATE relative to the baseline
           firing rate across trials. Rates, not counts, so unequal window lengths do not
-          manufacture a response. NaN when the baseline has no across-trial variance (for
-          example a silent baseline), where the normal approximation is undefined; use a
+          manufacture a response. NaN when the baseline has no across-trial variance (the
+          same count in every trial, silent or not), where the normal approximation is
+          undefined; use a
           Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
 
@@ -149,7 +151,9 @@ def compute_response_metrics(
         response_rates = np.array(response_spikes, dtype=float) / response_duration
 
         baseline_std = np.std(baseline_rates)
-        if baseline_std > 0:
+        # Constancy by exact equality: 7 spikes in 0.15 s is 46.67 Hz in every trial, yet the
+        # computed std is 7e-15, which made z about 1e15.
+        if not is_constant(baseline_rates) and baseline_std > 0:
             response_zscore = (np.mean(response_rates) - np.mean(baseline_rates)) / baseline_std
             metrics['response_zscore'] = float(response_zscore)
         else:
@@ -257,19 +261,24 @@ def phase_locking_index(
         - rayleigh_pvalue: P-value for Rayleigh non-uniformity test.
         - n_spikes: Total number of spike times evaluated.
 
+        With no spike inside the LFP window, ``n_spikes`` is 0, ``phase_hist`` is all zeros, and
+        ``peak_to_mean_contrast``, ``pli``, ``preferred_phase``, ``rayleigh_z`` and
+        ``rayleigh_pvalue`` are NaN.
+
     Example:
         >>> res = phase_locking_index(spikes, lfp_phase, lfp_times)
         >>> print(f"Preferred phase: {res['preferred_phase']:.3f} (Rayleigh p={res['rayleigh_pvalue']:.4f})")
         >>> # For unbiased across-unit comparison, use PPC:
         >>> ppc = pairwise_phase_consistency(spike_phases)
     """
+    # No spike, no phase: every value field stays NaN until a spike phase is computed.
     result = {
-        'peak_to_mean_contrast': 0.0,
-        'pli': 0.0,  # Legacy alias for peak_to_mean_contrast
+        'peak_to_mean_contrast': float('nan'),
+        'pli': float('nan'),  # Legacy alias for peak_to_mean_contrast
         'phase_hist': np.zeros(n_bins),
-        'preferred_phase': 0.0,
-        'rayleigh_z': 0.0,
-        'rayleigh_pvalue': 1.0,
+        'preferred_phase': float('nan'),
+        'rayleigh_z': float('nan'),
+        'rayleigh_pvalue': float('nan'),
         'n_spikes': len(unit_spike_times)
     }
 
@@ -341,6 +350,8 @@ def phase_locking_index(
         z = len(spike_phases) * r**2
 
         result['rayleigh_z'] = float(z)
+        # z == 0 is a measured zero resultant, whose p-value is exactly 1.
+        result['rayleigh_pvalue'] = 1.0
 
         # P-value approximation for Rayleigh test
         # For large n, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n) - (24*z - 132*z^2 + 76*z^3 - 9*z^4) / (288*n^2))
@@ -387,6 +398,8 @@ def pairwise_phase_consistency(
     References:
         Vinck, M., et al. (2010). The pairwise phase consistency: a bias-free measure of
         rhythmic neuronal synchronization. NeuroImage. doi:10.1016/j.neuroimage.2010.01.073
+        -- the PPC, the mean cosine of the phase difference over all pairs of observations,
+        computed through the resultant formula above.
     """
     arr = np.asarray(phases, dtype=float)
     n = arr.shape[axis] if arr.ndim > 0 else 0
@@ -426,6 +439,20 @@ def gaussian_smooth_rate(
             If sigma_ms <= 0, returns a copy of `rate` un-smoothed.
         axis: Axis along which to smooth (default: -1, the time axis).
 
+    Non-finite input:
+        A Gaussian kernel is a weighted sum, so one non-finite bin contaminates every bin the
+        kernel reaches. This is the one consumer of six that accepts an epoch truncated by the
+        end of the recording, and it used to neither refuse nor report the support it lost.
+        Measured at ``bin_ms=10, sigma_ms=20``: an interior NaN bin widens 1 into 17, and the
+        NaN a boundary policy actually produces sits at an *epoch edge*, where the kernel
+        reaches one side only and the same call widens 1 into 9. Contamination is nine times
+        the defect at the boundary and seventeen times it in the interior.
+
+        The array is still returned -- refusing would break every caller who is knowingly
+        smoothing a padded epoch -- but a ``RuntimeWarning`` now names how many bins went in
+        non-finite and how many came out that way, so the loss is reported rather than
+        silent. Mask or interpolate before calling if the spread is unacceptable.
+
     Returns:
         Smoothed array of the same shape and float dtype as `rate`.
 
@@ -440,5 +467,25 @@ def gaussian_smooth_rate(
 
     from scipy.ndimage import gaussian_filter1d
     sigma_bins = sigma_ms / bin_ms
-    return gaussian_filter1d(arr, sigma=sigma_bins, axis=axis, mode="reflect")
+    out = gaussian_filter1d(arr, sigma=sigma_bins, axis=axis, mode="reflect")
+
+    # Measured on the output rather than predicted from sigma: the kernel's reach is truncated
+    # at an array edge, so a boundary NaN spreads less far than an interior one and a computed
+    # radius would overstate the loss at exactly the position where the loss actually occurs.
+    # No `nan_policy` argument is offered here on purpose -- whether an additive public API
+    # change requires a CHANGELOG entry and a deprecation path is not yet decided, and
+    # warning needs no new parameter.
+    n_bad_in = int(np.count_nonzero(~np.isfinite(arr)))
+    if n_bad_in:
+        n_bad_out = int(np.count_nonzero(~np.isfinite(out)))
+        warnings.warn(
+            f"gaussian_smooth_rate: {n_bad_in} non-finite bin(s) of {arr.size} spread to "
+            f"{n_bad_out} after smoothing at sigma_ms={sigma_ms} / bin_ms={bin_ms} "
+            f"({sigma_bins:g} bins). A Gaussian kernel is a weighted sum, so every bin the "
+            "kernel reaches is contaminated. Mask or interpolate the non-finite bins before "
+            "smoothing if that spread is not intended.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return out
 

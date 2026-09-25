@@ -22,6 +22,7 @@ import numpy as np
 from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
 from ._rng import Default, RNGLike, resolve_seed_alias
+from ._spread import is_constant, zscore
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -40,7 +41,9 @@ class JRSAResult:
     effect : np.ndarray | None
         Effect size.
     p : np.ndarray | None
-        Raw p-values.
+        Raw p-values, in the tail `alternative` names: the permutation p when a permutation
+        null was formed, otherwise the metric's parametric p, or None for a metric that has
+        none.
     q : np.ndarray | None
         Corrected p-values (after multiple-comparison correction).
     df : np.ndarray | None
@@ -165,7 +168,9 @@ def jrsa(
     Parameters
     ----------
     x1 : array-like
-        First tensor (ndarray, cupy, torch, jax, or JNWB Signal).
+        First tensor: an ndarray or array-like, a scipy.sparse matrix (densified), a JAX
+        array, or a torch tensor or CuPy array on any device (copied to the host). A masked
+        array with a masked element raises.
     x2 : array-like or None
         Second tensor.  None → within-x1 analysis.
     adim : int | tuple | str | tuple[str]
@@ -178,13 +183,18 @@ def jrsa(
     align_mode : str
         Correspondence rule: fraction | sample | timestamp | index.
     reduction : dict or None
-        Dimension reductions, e.g. {"trial": "mean"}.
+        Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
+        mean | median | sum | max | min; anything else raises rather than defaulting.
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
         procrustes, granger_ssr_ftest, transfer_entropy_histogram_nats, phase_slope.
         The SSR F-test and histogram TE metrics are distinct from connectivity
         ``granger`` and ``transfer_entropy``.
+        Direction of the directed metrics: ``granger_ssr_ftest`` and
+        ``transfer_entropy_histogram_nats`` measure x2 -> x1 (how much x2's past predicts
+        x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
+        when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
         Temporal lag(s).
     window : tuple | int or None
@@ -195,11 +205,13 @@ def jrsa(
         which on a 6-sample axis clamped to the whole axis and returned the unwindowed
         answer with no warning.
     sliding : bool
-        Use sliding window.
+        Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
+        accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
+        window, e.g. ``[jrsa(x1, x2, window=(s, s + w)) for s in range(0, n - w + 1, step)]``.
     normalize : bool
         Normalise each input to [0, 1].
     standardize : bool
-        Z-score each input.
+        Z-score each input along the last axis; a constant row becomes 0.
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
@@ -212,19 +224,30 @@ def jrsa(
         Bootstrap iterations for confidence intervals.
     correction : str
         Multiple-comparison correction: none | bonferroni | holm |
-        holm-sidak | fdr_bh | fdr_by | cluster | maxT.
+        holm-sidak | fdr_bh | fdr_by.
+        Any other value raises `ValueError`; there is no fallback. This list used to end
+        "| cluster | maxT", neither of which was ever implemented -- both raised -- so the
+        docstring advertised two methods a caller could not use.
     alpha : float
         Significance threshold for the multiple-comparison correction. It does not set
         the width of `ci`, which is a fixed 95% percentile bootstrap interval.
     alternative : str
-        two-sided | greater | less.
+        two-sided | greater | less; anything else raises before any computation. It sets
+        the tail of `p`. With a permutation null (`stats=True`, `permutations > 0`) the tail
+        is counted on the null. Without one, `p` is the metric's parametric p, which is
+        two-sided; a one-sided alternative halves it when `value` lies on the requested
+        side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
+        upper-tail F-test of a non-negative F, which has no side to halve on, so that metric
+        raises for a one-sided alternative without a permutation null.
     backend : str
-        auto | numpy | scipy | jax | torch | cupy. Accepted for API compatibility and for
-        the input types it lets you pass; every metric converts to NumPy on its first line,
-        so this does not change where the arithmetic runs or what it returns.
+        auto | numpy | scipy | jax | torch | cupy. Validated and recorded for API
+        compatibility; every input is converted to NumPy whatever this names, so it does
+        not change which inputs are accepted, where the arithmetic runs or what it returns.
+        'cupy', 'jax' and 'torch' emit a RuntimeWarning saying so.
     device : str
-        'cpu' or 'cuda', validated by the same `resolve_device` the rest of the package
-        uses -- an unknown name raises. `execution['device']` records the resolved device.
+        'cpu', 'cuda' or 'metal', validated by the same `resolve_device` the rest of the
+        package uses -- an unknown name raises, and 'cuda' or 'metal' warns that jrsa
+        computes on the CPU. `execution['device']` records the resolved device.
     n_jobs : int
         CPU workers. Default 1 (serial), the same default as everywhere else in the
         package; -1 means all cores. Opt in only when the serial work is large enough
@@ -257,10 +280,13 @@ def jrsa(
     verbose : bool
         Print progress.
     **kwargs
-        Metric-specific keyword arguments (for example ``sigma`` for ``metric='hsic'``,
-        ``kernel`` for ``'cka'``, ``rdm_metric`` for ``'rsa'``, ``bins`` for
-        ``'mutual_information'``). A keyword the chosen metric does not declare raises
-        TypeError rather than being silently ignored.
+        Metric-specific keyword arguments: ``rdm_metric`` for ``'rsa'``, ``kernel`` for
+        ``'cka'`` (``'linear'`` only), ``sigma`` for ``'hsic'``, ``bins`` for
+        ``'mutual_information'`` and ``'transfer_entropy_histogram_nats'``, ``max_lag`` for
+        ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
+        ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
+        raises TypeError rather than being silently ignored. The histogram TE conditions on
+        one past sample of each series and takes no history length.
 
     Returns
     -------
@@ -271,9 +297,24 @@ def jrsa(
     ----------
     Kriegeskorte, N., et al. (2008). Representational similarity analysis: connecting the
     branches of systems neuroscience. Front. Syst. Neurosci. doi:10.3389/neuro.06.004.2008
-    (``metric='rsa'``).
+    (``metric='rsa'``) -- dissimilarity matrices of correlation distance ("Step 2"),
+    compared by Spearman rank correlation ("Step 4").
     Gretton, A., et al. (2005). Measuring statistical dependence with Hilbert-Schmidt
-    norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``).
+    norms. Lecture Notes in Computer Science. doi:10.1007/11564089_7 (``metric='hsic'``)
+    -- the empirical HSIC ``(m - 1)**-2 tr(KHLH)`` of Definition 2, eq. 9, with a Gaussian
+    kernel of width ``sigma``.
+    Kornblith, S., et al. (2019). Similarity of neural network representations revisited.
+    arXiv:1905.00414. doi:10.48550/arXiv.1905.00414 (``metric='cka'``) -- linear CKA,
+    ``||Y'X||_F**2 / (||X'X||_F ||Y'Y||_F)`` on column-centered inputs (Table 1).
+    Robert, P., & Escoufier, Y. (1976). A unifying tool for linear multivariate statistical
+    methods: the RV-coefficient. Appl. Stat. doi:10.2307/2347233 (``metric='rv'``) -- the
+    RV coefficient. On column-centered data it equals linear CKA (Kornblith et al. 2019,
+    section 3), and the two metrics return the same number.
+    Szekely, G. J., Rizzo, M. L., & Bakirov, N. K. (2007). Measuring and testing
+    dependence by correlation of distances. Ann. Stat. doi:10.1214/009053607000000505
+    (``metric='distance_correlation'``) -- the empirical distance correlation of
+    Definitions 4 and 5, eqs. 2.8-2.10. The paper sets it to 0 when an input is constant;
+    this returns NaN there.
     """
     t0 = time.perf_counter()
 
@@ -285,7 +326,7 @@ def jrsa(
     # parameter actually set they give 0.2189 four times. So every accepted spelling is
     # popped explicitly here, and two that disagree raise.
     #
-    # 05-34 made `rng` canonical package-wide. An earlier repair declared `seed` the
+    # `rng` is the canonical package-wide spelling. An earlier repair declared `seed` the
     # package-wide spelling; that was true of 7 functions against 8 spelling it `rng`, and
     # the argument now accepts a Generator as well as an int, which `seed` would misname.
     _given = "rng"
@@ -298,6 +339,27 @@ def jrsa(
                 _given = _alias
     random_state = resolve_seed_alias(rng, Default(None), alias_name="seed",
                                       func_name="jrsa")
+
+    if sliding:
+        raise NotImplementedError(
+            "jrsa(sliding=True) is not implemented; it used to be accepted and ignored. "
+            "Loop over windows instead, one call per window: "
+            "[jrsa(x1, x2, window=(s, s + w), ...) for s in range(0, n - w + 1, step)], "
+            "where `window` is in sample indices along the aligned axis."
+        )
+
+    # The tail applies to the parametric p as well as the permutation one, so it is checked
+    # here rather than only where a permutation null is formed.
+    _require_alternative(alternative)
+    permutation_p = bool(stats and permutations > 0)
+    if (alternative != "two-sided" and not permutation_p
+            and str(metric).lower() in _UPPER_TAIL_PARAMETRIC_P):
+        raise ValueError(
+            f"jrsa: alternative={alternative!r} needs a one-sided p, and metric {metric!r} "
+            "reports an upper-tail F-test p. F is non-negative and has no side, so the "
+            "one-sided p cannot be formed by halving, as it is for a signed statistic. Use "
+            "alternative='two-sided', or a permutation null (stats=True, permutations > 0)."
+        )
 
     # --- collect parameter snapshot -------------------------------------------
     params = dict(
@@ -396,8 +458,10 @@ def jrsa(
         )
         null_dist = None
         ci = None
+        if not permutation_p:
+            p_raw = _one_sided_parametric_p(value, p_raw, alternative)
 
-        if stats and permutations > 0:
+        if permutation_p:
             null_dist = _permutation_test(
                 x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
             )
@@ -431,6 +495,8 @@ def jrsa(
         for l in lags:
             x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l)
             v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
+            if not permutation_p:
+                p = _one_sided_parametric_p(v, p, alternative)
             val_list.append(v)
             stat_list.append(s)
             eff_list.append(e)
@@ -439,7 +505,7 @@ def jrsa(
             
             nd = None
             c_val = None
-            if stats and permutations > 0:
+            if permutation_p:
                 nd = _permutation_test(
                     x1_lagged, x2_lagged, metric_fn, permutations, rng, axis=perm_axis, n_jobs=n_jobs, **kwargs
                 )
@@ -650,6 +716,11 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
     return x1, x2, tuple(aligned_axes_list)
 
 
+#: Alignment algorithms `_resample_axis` implements. `'none'` and `'dtw'` are handled by
+#: `_align_dimensions` before it gets here, so they are not members of this set.
+ALIGN_MODES = ("auto", "downsample", "upsample", "nearest", "interpolate", "linear", "cubic")
+
+
 def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
     """Resample one array along *axis* to match the other, respecting GPU/CPU."""
     xp1 = _get_xp(x1)
@@ -713,56 +784,66 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
                 x2 = _interp_cubic(x2, n2, target, axis)
         except ImportError:
             x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
+    else:
+        # The chain used to end here with no `else`, so an unrecognised `align` returned both
+        # arrays untouched while `_align_dimensions` still appended the axis to `aligned_axes`
+        # and `parameters['align']` echoed the request: a claim that an alignment happened,
+        # over data that was never aligned.
+        raise ValueError(
+            f"jrsa: unrecognized align {align!r}. "
+            f"Valid options: {list(ALIGN_MODES)}."
+        )
     return x1, x2
+
+
+#: Reductions `reduction={axis_name: op}` accepts. Written out rather than derived from the
+#: dispatch below, so a value the dispatch cannot handle is not silently a valid request.
+REDUCTION_OPS = ("mean", "median", "sum", "max", "min")
+
+
+def _reduce_one(arr, op_str: str, ax: int):
+    """Apply one named reduction along *ax*, on CPU or GPU."""
+    xp = _get_xp(arr)
+    if op_str == "mean":
+        return xp.mean(arr, axis=ax, keepdims=True)
+    if op_str == "median":
+        if xp.__name__ == "cupy":
+            try:
+                return xp.median(arr, axis=ax, keepdims=True)
+            except AttributeError:
+                # The 50th percentile with linear interpolation *is* the median: the same
+                # number by a different call, so the recorded 'median' stays true.
+                return xp.percentile(arr, 50, axis=ax, keepdims=True)
+        return np.median(arr, axis=ax, keepdims=True)
+    if op_str == "sum":
+        return xp.sum(arr, axis=ax, keepdims=True)
+    if op_str == "max":
+        return xp.max(arr, axis=ax, keepdims=True)
+    if op_str == "min":
+        return xp.min(arr, axis=ax, keepdims=True)
+    # Unreachable: _reduce_dimensions validates first. Kept as a raise rather than a
+    # fallthrough so the dispatch cannot regrow a default while the validator is edited.
+    raise ValueError(f"jrsa: unhandled reduction {op_str!r}.")
 
 
 def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
     """Apply reductions (mean, median, …) along named axes on CPU or GPU."""
     for name, op_str in reduction.items():
+        if op_str not in REDUCTION_OPS:
+            # This used to fall through to `mean` while `parameters['reduction']` kept
+            # echoing the request, so `reduction={'time': 'medain'}` returned a mean and was
+            # recorded as a median. A typo in a reduction is not a preference to be
+            # approximated -- the same principle as the correction method above.
+            raise ValueError(
+                f"jrsa: unrecognized reduction {op_str!r} for axis {name!r}. "
+                f"Valid options: {list(REDUCTION_OPS)}."
+            )
         ax = axis_map.get(name)
         if ax is None:
             continue
-
-        xp1 = _get_xp(x1)
-        if op_str == "mean":
-            x1 = xp1.mean(x1, axis=ax, keepdims=True)
-        elif op_str == "median":
-            if xp1.__name__ == "cupy":
-                try:
-                    x1 = xp1.median(x1, axis=ax, keepdims=True)
-                except AttributeError:
-                    x1 = xp1.percentile(x1, 50, axis=ax, keepdims=True)
-            else:
-                x1 = np.median(x1, axis=ax, keepdims=True)
-        elif op_str == "sum":
-            x1 = xp1.sum(x1, axis=ax, keepdims=True)
-        elif op_str == "max":
-            x1 = xp1.max(x1, axis=ax, keepdims=True)
-        elif op_str == "min":
-            x1 = xp1.min(x1, axis=ax, keepdims=True)
-        else:
-            x1 = xp1.mean(x1, axis=ax, keepdims=True)
-
+        x1 = _reduce_one(x1, op_str, ax)
         if x2 is not None:
-            xp2 = _get_xp(x2)
-            if op_str == "mean":
-                x2 = xp2.mean(x2, axis=ax, keepdims=True)
-            elif op_str == "median":
-                if xp2.__name__ == "cupy":
-                    try:
-                        x2 = xp2.median(x2, axis=ax, keepdims=True)
-                    except AttributeError:
-                        x2 = xp2.percentile(x2, 50, axis=ax, keepdims=True)
-                else:
-                    x2 = np.median(x2, axis=ax, keepdims=True)
-            elif op_str == "sum":
-                x2 = xp2.sum(x2, axis=ax, keepdims=True)
-            elif op_str == "max":
-                x2 = xp2.max(x2, axis=ax, keepdims=True)
-            elif op_str == "min":
-                x2 = xp2.min(x2, axis=ax, keepdims=True)
-            else:
-                x2 = xp2.mean(x2, axis=ax, keepdims=True)
+            x2 = _reduce_one(x2, op_str, ax)
     return x1, x2
 
 
@@ -795,11 +876,9 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
                 except ImportError:
                     arr = arr - np.polyval(np.polyfit(np.arange(arr.shape[-1]), arr.T, 1), np.arange(arr.shape[-1]))
         if standardize:
-            mu = xp.nanmean(arr, axis=-1, keepdims=True)
-            sd = xp.nanstd(arr, axis=-1, keepdims=True)
-            # A constant row stays 0 after centring; the 1e-12 offset this replaces biased
-            # the scale of small-amplitude rows.
-            arr = (arr - mu) / xp.where(sd > 0, sd, 1.0)
+            # A constant row is exactly 0, decided by exact equality; the 1e-12 offset an
+            # earlier version used biased the scale of small-amplitude rows.
+            arr = zscore(arr, axis=-1, ignore_nan=True, xp=xp)
         if normalize:
             lo = xp.nanmin(arr, axis=-1, keepdims=True)
             hi = xp.nanmax(arr, axis=-1, keepdims=True)
@@ -809,7 +888,7 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract window or build sliding windows.
+    """Extract the analysis window. `jrsa` refuses `sliding=True` before this runs.
 
     `window` is in sample indices along the aligned axis. The clamping below used to be
     silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the
@@ -939,6 +1018,43 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1, **kwarg
     return np.asarray(null)
 
 
+#: Tail specifications `alternative=` accepts, written out rather than derived from the
+#: dispatch in `_p_from_null`.
+ALTERNATIVES = ("two-sided", "greater", "less")
+
+#: Metrics whose parametric p is an upper-tail test of a non-negative statistic rather than
+#: a two-sided test of a signed one, so a one-sided p cannot be formed from it by halving.
+_UPPER_TAIL_PARAMETRIC_P = frozenset({"granger_ssr_ftest"})
+
+
+def _require_alternative(alternative):
+    if alternative not in ALTERNATIVES:
+        # This chain used to end in a bare `else` computing the *less* tail, so an
+        # unrecognised alternative -- including the case variant 'GREATER' -- returned the
+        # left-tail p-value while `parameters['alternative']` echoed the request. A one-sided
+        # test asked for in the wrong case came back as p = 1.0 where the right answer was
+        # 0.005. Same principle as the correction method and the reduction: a request the
+        # dispatch does not recognise is not a request to be approximated.
+        raise ValueError(
+            f"jrsa: unrecognized alternative {alternative!r}. "
+            f"Valid options: {list(ALTERNATIVES)} (lowercase)."
+        )
+
+
+def _one_sided_parametric_p(value, p, alternative):
+    """One-sided p from a metric's two-sided parametric p: ``p / 2`` when ``value`` lies on
+    the requested side, ``1 - p / 2`` otherwise, and NaN where ``value`` is not finite."""
+    if p is None or alternative == "two-sided":
+        return p
+    if hasattr(value, "get"):
+        value = value.get()
+    v = np.asarray(value, dtype=np.float64)
+    p2 = np.asarray(p, dtype=np.float64)
+    on_side = v > 0 if alternative == "greater" else v < 0
+    out = np.where(np.isfinite(v), np.where(on_side, p2 / 2.0, 1.0 - p2 / 2.0), np.nan)
+    return np.float64(out) if out.ndim == 0 else out
+
+
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution.
 
@@ -946,14 +1062,26 @@ def _p_from_null(value, null_dist, alternative):
     against NaN are all False, so the exceedance count was 0 and the p-value came out at
     its own floor, ``1/(n+1)`` -- the *most* significant value the test can emit. A
     constant input against a Gaussian one reported ``value: nan, p: 0.000999``.
+
+    Returns a 0-d array, matching `value`, `statistic` and `effect`. This used to return
+    `np.atleast_1d(...)`, a shape-``(1,)`` array, for a result whose every other field was
+    0-d: one scalar p-value wrapped in a length-1 axis. Under
+    NumPy>=2 -- the floor `pyproject.toml` declares -- `float()` on that array raises
+    `TypeError`, so the documented quickstart line
+    ``float(jrsa_res.p)`` did not run. This function reduces `value` to a single
+    scalar `obs` before it counts anything, so it has no vector-valued case to preserve;
+    a vector-valued `p` still arises where it is real, from `_stack_lags` over multiple
+    lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead
+    of the former ``(n_lags, 1)``.
     """
+    _require_alternative(alternative)
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
     null_dist = np.asarray(null_dist)
     n = len(null_dist)
     if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
-        return np.atleast_1d(np.float64(np.nan))
+        return np.asarray(np.nan, dtype=np.float64)
     if alternative == "two-sided":
         k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
     elif alternative == "greater":
@@ -961,7 +1089,7 @@ def _p_from_null(value, null_dist, alternative):
     else:
         k = int(np.sum(null_dist <= obs))
     p = (1 + k) / (n + 1)
-    return np.atleast_1d(np.float64(p))
+    return np.asarray(p, dtype=np.float64)
 
 
 def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
@@ -1013,7 +1141,12 @@ def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
     return ci
 
 
+# Every accepted value of `correction`, and the `statsmodels` method it runs. `None` means
+# no correction. 'none' is a key here rather than a special case outside the map so that the
+# accepted set has one home: while it was absent, `.get('none', 'fdr_bh')` returned
+# Benjamini-Hochberg q-values under the label 'none'.
 _CORRECTION_METHOD_MAP = {
+    "none": None,
     "fdr_bh": "fdr_bh", "fdr_by": "fdr_by",
     "bonferroni": "bonferroni", "holm": "holm",
     "holm-sidak": "holm-sidak",
@@ -1021,28 +1154,52 @@ _CORRECTION_METHOD_MAP = {
 
 
 def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray:
-    """Apply multiple-comparison correction; returns q-values."""
+    """Apply multiple-comparison correction; returns q-values.
+
+    ``method='none'`` applies no correction: the q-values are the p-values, as float64.
+    """
     p_flat = np.asarray(p).ravel()
     m_lower = method.lower()
-    if m_lower not in _CORRECTION_METHOD_MAP and m_lower != "none":
+    if m_lower not in _CORRECTION_METHOD_MAP:
         # This used to warn and fall back to 'fdr_bh' while `parameters['correction']`
         # kept echoing the request, so a run corrected one way was recorded as corrected
         # another. A typo in a correction method is not a preference to be approximated.
         raise ValueError(
             f"Unrecognized correction method {method!r}. "
-            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())} or 'none'."
+            f"Valid options: {sorted(_CORRECTION_METHOD_MAP.keys())}."
         )
+    sm_method = _CORRECTION_METHOD_MAP[m_lower]
+    if sm_method is None:
+        # Returns before the `statsmodels` import: asking for no correction must not
+        # require the library that does correction.
+        return np.array(p, dtype=np.float64)
     try:
         from statsmodels.stats.multitest import multipletests
-        sm_method = _CORRECTION_METHOD_MAP.get(m_lower, "fdr_bh")
         _, q, _, _ = multipletests(p_flat, alpha=alpha, method=sm_method)
-    except ImportError:
+    except ImportError as exc:
+        # `statsmodels` is a hard dependency, so this runs only where a declared
+        # dependency is missing. It used to route every method but 'bonferroni' to
+        # Benjamini-Hochberg while `parameters['correction']` kept echoing the request:
+        # a 'holm' run was recorded as 'holm' and was in fact 'fdr_bh'. Same principle as
+        # the unrecognised-method branch above -- an estimator that cannot run is not a
+        # licence to return a differently-computed number under the requested label.
+        #
+        # 'bonferroni' keeps its fallback because it is not a substitution: p*m clipped
+        # at 1 is Bonferroni, and it reproduces `multipletests(method='bonferroni')`
+        # exactly, so the recorded label stays true.
         if m_lower == "bonferroni":
-            q = np.minimum(p_flat * len(p_flat), 1.0)
+            # `float(...)`, not `len(...)`: an integer p-array times a Python int keeps the
+            # array's integer dtype, and the product then overflows a narrow one. The
+            # float multiplier reproduces `multipletests(method='bonferroni')` for every
+            # input dtype, and is bit-identical to the int multiplier for float input.
+            q = np.minimum(p_flat * float(len(p_flat)), 1.0)
         else:
-            # Fallback BH via unified statistics module
-            from jnwb.statistics import StatisticalAnalysis
-            q = StatisticalAnalysis.fdr_correct(p_flat, method="bh")
+            raise ImportError(
+                f"jrsa correction={method!r} requires 'statsmodels', which is a declared "
+                f"dependency of jnwb and could not be imported. Install it "
+                f"(pip install 'statsmodels>=0.14.0'), or pass correction='bonferroni', "
+                f"which jnwb computes without it."
+            ) from exc
     return q.reshape(np.asarray(p).shape)
 
 
@@ -1051,6 +1208,8 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
 # ===========================================================================
 
 _VALID_BACKENDS = ("auto", "numpy", "scipy", "cupy", "jax", "torch")
+#: The backends that name an accelerator library jrsa does not compute with.
+_ACCELERATOR_BACKENDS = ("cupy", "jax", "torch")
 
 
 def _get_backend(backend: str, device: str) -> dict:
@@ -1063,6 +1222,9 @@ def _get_backend(backend: str, device: str) -> dict:
     `_autodetect_backend` picked a name from what happened to be importable, which
     likewise changed the record and nothing else. `parameters['backend']` still carries
     what the caller asked for; `execution['backend']` now carries what ran.
+
+    Naming an accelerator library is a request that is not delivered, so it is announced
+    the way a denied ``device='cuda'`` is.
     """
     requested = str(backend).strip().lower()
     if requested not in _VALID_BACKENDS:
@@ -1070,31 +1232,53 @@ def _get_backend(backend: str, device: str) -> dict:
             f"jrsa: unrecognised backend {backend!r}; expected one of "
             f"{sorted(_VALID_BACKENDS)}."
         )
+    if requested in _ACCELERATOR_BACKENDS:
+        warnings.warn(
+            f"jrsa: backend={requested!r} was requested, but every jrsa metric computes in "
+            f"NumPy on the CPU; execution['backend'] records 'numpy'.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
     return {"name": "numpy", "requested": requested, "device": device}
 
 
 def _to_backend(arr, backend_ctx: dict) -> np.ndarray:
-    """Convert arbitrary array type to numpy (or backend tensor), placing on correct device."""
-    bk = backend_ctx.get("name", "numpy")
-    dev = backend_ctx.get("device", "cpu")
-    # Extract data from JNWB Signal objects
+    """Convert one input to a float64 NumPy array on the host, or raise.
+
+    Dispatch is by type, never by attribute: an ndarray's `.data` is a raw buffer, a CuPy
+    array's is a device pointer and a sparse matrix's is its stored non-zeros, so taking
+    `.data` from anything that has one returned a wrong array or raised. Accepted: NumPy
+    arrays and array-likes, scipy.sparse (densified), torch tensors on any device
+    (detached, copied to host), CuPy arrays (copied to host), JAX arrays, and a container
+    without `__array__` whose `.data` is one of these (a pynwb TimeSeries). A masked array
+    with a masked element raises, because no metric honours a mask.
+
+    jrsa is a NumPy estimator; `backend` and `device` are validated and recorded, and
+    change no number.
+    """
+    if isinstance(arr, np.ma.MaskedArray):
+        if np.ma.getmaskarray(arr).any():
+            raise TypeError(
+                "jrsa: a masked array with masked elements was passed, and no jrsa metric "
+                "honours a mask; converting it would compute on the masked values. Drop "
+                "or impute them first."
+            )
+        arr = np.ma.getdata(arr)
+    if isinstance(arr, np.ndarray):
+        return np.asarray(arr, dtype=np.float64)
+    library = type(arr).__module__.split(".")[0]
+    if library == "scipy":
+        import scipy.sparse
+        if scipy.sparse.issparse(arr):
+            return np.asarray(arr.toarray(), dtype=np.float64)
+    if library == "torch":
+        return arr.detach().cpu().double().numpy()
+    if library == "cupy":
+        return np.asarray(arr.get(), dtype=np.float64)
+    if hasattr(arr, "__array__") or isinstance(arr, (list, tuple)) or np.isscalar(arr):
+        return np.asarray(arr, dtype=np.float64)
     if hasattr(arr, "data"):
-        arr = arr.data
-    if hasattr(arr, "numpy"):
-        # torch or jax
-        try:
-            arr = arr.numpy()
-        except (RuntimeError, TypeError, ValueError):
-            arr = np.asarray(arr)
-    if hasattr(arr, "get"):
-        # cupy
-        arr = arr.get()
-    # Everything above normalizes whatever the caller passed -- Signal, torch, jax, cupy --
-    # down to something numpy can take, and that is the part that matters. The dispatch that
-    # used to follow re-uploaded to cupy/jax/torch, and then every one of the 14 metrics
-    # called `_ensure_np` on its first line and pulled it straight back, so the transfer was
-    # pure cost and `execution` recorded a GPU run that executed on the CPU. jrsa is a NumPy
-    # estimator; `backend` and `device` are validated and recorded, and change no number.
+        return _to_backend(arr.data, backend_ctx)
     return np.asarray(arr, dtype=np.float64)
 
 
@@ -1141,9 +1325,10 @@ def _pearson(x1, x2, axis=-1, **kwargs):
             b_mean = cp.mean(b)
             a_std = cp.std(a)
             b_std = cp.std(b)
-            # NaN for a constant vector, as on the CPU path. The absolute cutoff and offset this
-            # replaces reported 0.0 there and shrank r at small amplitude (-0.007 for -0.27).
-            if float(a_std) == 0.0 or float(b_std) == 0.0:
+            # NaN for a constant vector, as on the CPU path, decided by exact equality: cp.std
+            # of 100 values of 2.7 is 4.4e-16. The absolute cutoff and offset an earlier
+            # version used reported 0.0 there and shrank r at small amplitude.
+            if is_constant(a, xp=cp) or is_constant(b, xp=cp):
                 r = cp.array(cp.nan)
             else:
                 r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std)
@@ -1533,8 +1718,14 @@ def _entropy(probs):
     return -np.sum(probs * np.log(probs))
 
 
-def _transfer_entropy(x1, x2, axis=-1, k=1, bins=10, **kwargs):
-    """Transfer entropy (x2 → x1) via plug-in histogram estimator."""
+def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
+    """Transfer entropy (x2 → x1) via plug-in histogram estimator.
+
+    The history is one past sample of each series and is not configurable. A `k` option
+    used to be declared here and never read, so `jrsa(..., k=5)` passed the keyword check
+    and returned the one-sample answer; without it, `k` is refused like any unknown option.
+    `jnwb.transfer_entropy` takes the target and source history lengths.
+    """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
@@ -1684,6 +1875,76 @@ def _make_exec_meta(backend_ctx, device, t0, random_state):
     }
 
 
+class _ScalarPValue(np.ndarray):
+    """0-d float array that still answers ``[0]``, with a `FutureWarning`, until 0.2.7.
+
+    `p` and `q` of a single-lag result used to be shape ``(1,)`` and are now 0-d like
+    `value`. A 0-d array raises `IndexError` on ``[0]``, which would break code written
+    against the old shape without notice. This view returns the scalar ``self[()]`` for
+    ``[0]`` and changes nothing else: every other index is the base ndarray's, and ufuncs
+    and NumPy functions receive a plain ndarray, so ``p * 2``, ``p < 0.05`` and
+    ``np.isnan(p)`` return exactly what they return for a plain 0-d array (a NumPy scalar).
+    It pickles as a plain ndarray, so a stored result does not depend on this class, which
+    0.2.7 removes.
+    """
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if "out" in kwargs:
+            kwargs["out"] = _plain_arrays(kwargs["out"])
+        return getattr(ufunc, method)(*_plain_arrays(inputs), **kwargs)
+
+    def __array_function__(self, func, types, args, kwargs):
+        return super().__array_function__(
+            func, (np.ndarray,), _plain_arrays(args), _plain_arrays(kwargs)
+        )
+
+    def __getitem__(self, key):
+        if (
+            self.ndim == 0
+            and isinstance(key, (int, np.integer))
+            and not isinstance(key, (bool, np.bool_))
+            and key == 0
+        ):
+            field_name = getattr(self, "_field_name", "p")
+            warnings.warn(
+                f"JRSAResult.{field_name} is 0-d; indexing it with [0] is deprecated and "
+                f"raises IndexError in 0.2.7. Use float(result.{field_name}) or "
+                f"result.{field_name}[()].",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return super().__getitem__(())
+        return super().__getitem__(key)
+
+    def __repr__(self):
+        return repr(self.view(np.ndarray))
+
+    def __reduce_ex__(self, protocol):
+        return np.asarray(self).__reduce_ex__(protocol)
+
+
+def _plain_arrays(obj):
+    """Replace every `_ScalarPValue` in a (nested) tuple, list or dict with a plain view."""
+    if isinstance(obj, _ScalarPValue):
+        return obj.view(np.ndarray)
+    if isinstance(obj, tuple):
+        return tuple(_plain_arrays(o) for o in obj)
+    if isinstance(obj, list):
+        return [_plain_arrays(o) for o in obj]
+    if isinstance(obj, dict):
+        return {k: _plain_arrays(v) for k, v in obj.items()}
+    return obj
+
+
+def _scalar_p_value(a, field_name):
+    """Wrap a 0-d p-value array in `_ScalarPValue`; anything else is returned unchanged."""
+    if a is None or np.ndim(a) != 0:
+        return a
+    out = np.asarray(a).view(_ScalarPValue)
+    out._field_name = field_name
+    return out
+
+
 def _make_result(
     value, statistic, effect, p, q, df, ci,
     metric, axes, aligned_axes, labels, parameters,
@@ -1700,8 +1961,8 @@ def _make_result(
         value=_to_numpy(value) if value is not None else np.float64(np.nan),
         statistic=_to_numpy(statistic),
         effect=_to_numpy(effect),
-        p=_to_numpy(p),
-        q=_to_numpy(q),
+        p=_scalar_p_value(_to_numpy(p), "p"),
+        q=_scalar_p_value(_to_numpy(q), "q"),
         df=_to_numpy(df),
         ci=_to_numpy(ci),
         metric=metric,

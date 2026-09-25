@@ -72,6 +72,31 @@ def test_build_time_resolved_matrix():
     assert X[:, 1, :].sum() == 4  # unit at row 1 has 4 mock spikes
 
 
+def test_build_time_resolved_matrix_refuses_a_window_that_is_not_whole_bins():
+    """110 ms at 20 ms made six bins 18.3 ms wide, reported as 20 ms bins."""
+    session = MockSession()
+    with pytest.raises(ValueError, match=r"time_window_ms=\(0, 100\) or time_window_ms=\(0, 120\)") as err:
+        build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                   time_window_ms=(0.0, 110.0), bin_size_ms=20.0)
+    # It returns counts, so the refusal names the partial bin rather than a wrong rate.
+    assert "the last bin would be partial" in str(err.value) and "rate" not in str(err.value)
+
+
+def test_build_time_resolved_matrix_bins_are_right_open_like_bin_spikes():
+    """A spike exactly on the window end is outside ``[start, end)``; the last bin was
+    closed on the right and counted it. Both boundaries are exact in binary."""
+    session = MockSession()
+    session.spikes = {0: np.array([1.0, 1.125]), 1: np.array([2.0625])}
+    X, _, _ = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                         time_window_ms=(0.0, 125.0), bin_size_ms=25.0)
+    assert X[0, 0].tolist() == [1, 0, 0, 0, 0]
+    assert X[1, 1].tolist() == [0, 0, 1, 0, 0]
+    # A one-bin window still gives a trials-by-units count matrix.
+    X1, _, centers = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                                time_window_ms=(0.0, 125.0), bin_size_ms=125.0)
+    assert X1.shape == (4, 2, 1) and X1[0, 0, 0] == 1 and centers.tolist() == [62.5]
+
+
 def test_compute_population_trajectory():
     session = MockSession()
     
@@ -97,13 +122,13 @@ def test_compute_population_trajectory():
 
 
 def test_compute_population_trajectory_empty():
-    """05-25. An explicitly requested population with no observations yields an
+    """An explicitly requested population with no observations yields an
     *unavailable* estimate, never zero. Zeros are a point in state space like any other, so
     the fabricated version put the population at the origin and reported
     `explained_variance == 0.0` -- "PCA ran and explained nothing" rather than "PCA did not
     run". `TFRAnalyzer.average_across_channels` already answers NaN for the same condition
     (`test_analyzers_coverage.py::test_empty_layer_mask_returns_nan_not_zeros`); this is
-    the package-wide policy, and `AGENTS.md` invariant 1.
+    the package-wide policy: missing data fails loudly rather than reading as a value.
     """
     session = MockSession()
 

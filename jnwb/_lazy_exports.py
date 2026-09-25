@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-SUBMODULES = frozenset({"visual_qc", "io", "laminar"})
+SUBMODULES = frozenset({"visual_qc", "io", "laminar", "vis"})
+
+#: The submodules in ``SUBMODULES`` whose third-party dependencies are an optional extra,
+#: mapped to that extra's name in ``pyproject.toml``. Each raises ``ImportError`` naming
+#: ``pip install jnwb[<extra>]`` when the extra is absent; this table lets a caller that walks
+#: ``jnwb.__all__`` know which names may be unavailable without importing them.
+OPTIONAL_SUBMODULES: dict[str, str] = {"vis": "vis"}
 
 EXPORT_MODULES: dict[str, str] = {
     # io

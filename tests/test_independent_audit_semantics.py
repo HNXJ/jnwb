@@ -16,15 +16,21 @@ class TestMonteCarloPValueConvention:
         g1 = np.array([0.0, 0.1, 0.2, 0.3])
         g2 = np.array([1.0, 1.1, 1.2, 1.3])
         res = StatisticalAnalysis.permutation_test(g1, g2, n_permutations=99, rng=rng)
-        obs = res["observed_difference"]
-        combined = np.concatenate([g1, g2])
+        # Exact rational arithmetic: a float recomputation of a split in shuffled order can
+        # land an ulp either side of the observed statistic and miscount the extreme draws.
+        from fractions import Fraction
+
+        combined = [Fraction(float(v)) for v in np.concatenate([g1, g2])]
         n_x = len(g1)
+
+        def diff(idx):
+            left = [combined[i] for i in idx[:n_x]]
+            right = [combined[i] for i in idx[n_x:]]
+            return abs(sum(left) / len(left) - sum(right) / len(right))
+
+        obs = diff(np.arange(len(combined)))
         local_rng = np.random.default_rng(0)
-        null = []
-        for _ in range(99):
-            idx = local_rng.permutation(len(combined))
-            null.append(np.mean(combined[idx[:n_x]]) - np.mean(combined[idx[n_x:]]))
-        k = int(np.sum(np.abs(null) >= abs(obs)))
+        k = sum(diff(local_rng.permutation(len(combined))) >= obs for _ in range(99))
         expected = (1 + k) / (99 + 1)
         assert res["pval"] == pytest.approx(expected)
 
@@ -47,7 +53,12 @@ class TestMonteCarloPValueConvention:
         from jnwb.jrsa import _p_from_null
 
         p = _p_from_null(0.5, np.array([0.0, 0.0, 0.0, 0.0, 1.0]), "two-sided")
-        assert float(p[0]) == pytest.approx(2.0 / 6.0)
+        # `float(p)`, not `float(p[0])`. `_p_from_null` returns a 0-d array, matching
+        # `value`, `statistic` and `effect`; it used to return shape ``(1,)`` and the
+        # subscript was unwrapping that stray axis. The assertion is about the
+        # Monte-Carlo convention, not about `p` being indexable -- the sibling test
+        # above asserts the same convention on a plain scalar.
+        assert float(p) == pytest.approx(2.0 / 6.0)
 
 
 class TestCompareGroupsPairedContract:
@@ -68,7 +79,11 @@ class TestCompareGroupsPairedContract:
         assert res["n1"] == 2
         assert res["n2"] == 2
         assert res["mean_diff_ci"]["observed_mean_diff"] == pytest.approx(0.0)
-        assert res["parametric"]["pval"] == pytest.approx(1.0)
+        # Every difference is zero, so the t statistic is 0/0: no test, not p = 1.
+        assert np.isnan(res["parametric"]["pval"])
+        assert np.isnan(res["parametric"]["effect_size"])
+        assert np.isnan(res["parametric"]["df"])
+        assert res["significant_parametric"] is False
 
     def test_paired_insufficient_finite_pairs_raises(self):
         """When fewer than 2 pairs are mutually finite, ValueError must be raised."""
@@ -103,7 +118,7 @@ class TestSpikeMIBinGrid:
         rng = np.random.default_rng(0)
         s1 = np.sort(rng.uniform(0, 1, 50))
         s2 = np.sort(rng.uniform(0, 1, 50))
-        window = (0.0, 1.0)
+        window = (0.0, 1.05)  # 30 whole bins; a partial last bin is refused
         bin_ms = 35.0
         n_bins = bin_spikes(s1, window=window, bin_size_ms=bin_ms).shape[1]
         spike_mutual_information(s1, s2, time_window=window, bin_size_ms=bin_ms)
@@ -216,10 +231,17 @@ class TestFinalAuditRecurrence:
 
         st = np.sort(np.random.default_rng(0).uniform(0, 0.6, 50))
         psth = UnitAnalyzer.psth(
-            st, trial_onsets=np.array([0.3]), window_ms=(-100, 500), bin_size_ms=7,
+            st, trial_onsets=np.array([0.3]), window_ms=(-100, 530), bin_size_ms=7,
         )
-        bs = bin_spikes(st, window=(-0.1, 0.5), bin_size_ms=7)
+        bs = bin_spikes(st, window=(-0.1, 0.53), bin_size_ms=7)
         assert len(psth["psth"]) == bs.shape[-1]
+
+    def test_psth_refuses_a_window_that_is_not_whole_bins(self):
+        """600 ms at 7 ms made 86 bins 6.98 ms wide, each rate divided by 7 ms."""
+        from jnwb.analyzers import UnitAnalyzer
+
+        with pytest.raises(ValueError, match=r"window_ms=\(-100, 495\) or window_ms=\(-100, 502\)"):
+            UnitAnalyzer.psth(np.array([0.31]), np.array([0.3]), bin_size_ms=7, window_ms=(-100, 500))
 
     def test_compare_groups_paired_single_pair_raises(self):
         with pytest.raises(ValueError, match="at least two paired"):

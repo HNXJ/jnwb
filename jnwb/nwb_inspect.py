@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,12 @@ import h5py
 import numpy as np
 from pynwb import NWBFile
 
-from jnwb.nwb_io import NWBInput, _with_nwb, nwb_read_io
+from jnwb.nwb_io import (
+    ContainerTypeContradictionWarning,
+    NWBInput,
+    _with_nwb,
+    nwb_read_io,
+)
 
 #: Historical spelling of `NWBInput`; this module's entry points are annotated with it.
 InspectInput = NWBInput
@@ -99,7 +105,7 @@ def _series_members(group: h5py.Group) -> list[tuple[str | None, str, h5py.Datas
     """Every continuous series directly under one container, as
     ``(series_name, data_relpath, data_dataset, rate_hz)``.
 
-    05-39: the predecessor walked the whole subtree with ``visititems``, taking the first
+    The predecessor walked the whole subtree with ``visititems``, taking the first
     ``data`` leaf and the first ``rate`` leaf **independently**. On an `LFP` container
     holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz it reported `lfp_alpha`'s
     shape and path beside `lfp_beta`'s rate -- a sampling rate that belonged to a
@@ -162,6 +168,22 @@ CHANNEL_BY_TIME = "channel_by_time"
 AMBIGUOUS_LAYOUT = "ambiguous"
 
 
+def _series_group(container: h5py.Group, data_relpath: str) -> h5py.Group | None:
+    """The group that directly holds one series' `data`, resolved from its relpath.
+
+    `_series_members` reports where each `data` leaf sits but not the group owning it, and the
+    owner is what carries that series' own `neurodata_type`: the members of an `LFP` container
+    are `ElectricalSeries` and the container is not. Resolving the path here keeps
+    `_series_members`' return shape untouched.
+    """
+    node: Any = container
+    for part in data_relpath.split("/")[:-1]:
+        node = node.get(part)
+        if not isinstance(node, h5py.Group):
+            return None
+    return node
+
+
 def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None:
     """Length of the electrode region sitting beside `data`, or ``None``.
 
@@ -170,11 +192,9 @@ def _h5_channel_count(group: h5py.Group, data_relpath: str | None) -> int | None
     """
     if data_relpath is None:
         return None
-    node: Any = group
-    for part in data_relpath.split("/")[:-1]:
-        node = node.get(part)
-        if not isinstance(node, h5py.Group):
-            return None
+    node = _series_group(group, data_relpath)
+    if node is None:
+        return None
     region = node.get("electrodes")
     if region is None:
         return None
@@ -197,10 +217,20 @@ def _pynwb_channel_count(series: Any) -> int | None:
     return int(n) or None
 
 
-def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
+#: Series types that carry an electrode region. The NWB schema puts time on the first axis of
+#: every TimeSeries; only these types have an electrode count that can contradict it, and a
+#: file of theirs that lacks the region falls back to the shape guess. Every other typed series
+#: is read time-first, since the shape guess would read five samples of ten values as five
+#: channels.
+_ELECTRODE_TYPES = frozenset({"ElectricalSeries", "SpikeEventSeries"})
+
+
+def _resolve_layout(
+    shape: Any, n_channels: int | None, neurodata_type: str | None = None
+) -> tuple[str, str]:
     """Decide which axis of a 2-D continuous series holds channels.
 
-    05-38: this was ``shape[0] >= shape[1]``, which never consulted the electrode count.
+    This was ``shape[0] >= shape[1]``, which never consulted the electrode count.
     A 64-channel x 1000-sample recording came out ``channel_by_time`` only by accident of
     being wider than tall, and a 50-sample x 100-channel one came out ``channel_by_time``
     while the same ``inspect`` dict carried 100 electrodes.
@@ -218,25 +248,119 @@ def _resolve_layout(shape: Any, n_channels: int | None) -> tuple[str, str]:
         # Both sides match (a square array) or neither does. Guessing here is exactly how
         # a slice across channels gets returned as a channel's time course.
         return AMBIGUOUS_LAYOUT, "electrode_count"
+    if neurodata_type is not None and neurodata_type not in _ELECTRODE_TYPES:
+        return TIME_BY_CHANNEL, "schema"
     # Nothing to arbitrate with. The shape heuristic is the only answer available.
     return (TIME_BY_CHANNEL if rows >= cols else CHANNEL_BY_TIME), "shape"
 
 
 CONTINUOUS_KEYS = (
     "name", "path", "neurodata_type", "packaging", "series",
-    "data_path", "data_shape", "data_dtype", "layout", "rate_hz",
+    "data_path", "data_shape", "data_dtype", "layout", "rate_hz", "starting_time",
 )
+
+
+def _starting_time_s(series: Any) -> float | None:
+    """A series' ``starting_time`` in seconds, or ``None`` when it has none (timestamps)."""
+    start = getattr(series, "starting_time", None)
+    if start is None:
+        return None
+    start = float(start)
+    return None if np.isnan(start) else start
+
+#: Data units the NWB core schema pins to a declared type. These are *fixed values* in the
+#: standard, not defaults -- ``ElectricalSeries.data.unit`` carries ``value: volts``, which is
+#: why a stored unit that differs contradicts the declaration rather than merely overriding it.
+#: It is also why the file is the only place the disagreement survives: pynwb substitutes the
+#: fixed value on read, so an `ElectricalSeries` whose file stores ``n.a.`` still reports
+#: ``volts`` through the object model.
+_SCHEMA_FIXED_DATA_UNIT = {"ElectricalSeries": "volts"}
+
+
+def _series_unit(data_ds: h5py.Dataset) -> str | None:
+    """The `unit` recorded beside one series' `data`, or ``None`` when it carries none."""
+    raw = data_ds.attrs.get("unit")
+    return None if raw is None else _decode(raw)
+
+
+def _type_contradictions(
+    container: h5py.Group,
+    members: list[tuple[str | None, str, h5py.Dataset, float | None]],
+) -> list[str]:
+    """One phrase per series whose own declared type disagrees with what it stores.
+
+    Two shapes are reported and nothing else is:
+
+    * a declared type the schema fixes a data unit for, where the stored unit is a different
+      one -- the container says extracellular voltage and holds something that is not;
+    * no declared type at all, where nothing in the file says what the series holds.
+
+    A series carrying no `unit` is deliberately not reported. An absent unit contradicts
+    nothing, and a warning that also fires on every merely incomplete file carries no more
+    information than one that fires on all of them.
+    """
+    findings: list[str] = []
+    for series_name, relpath, data_ds, _rate in members:
+        owner = _series_group(container, relpath)
+        if owner is None:
+            continue
+        label = series_name or "data"
+        ndt = _ndt(owner)
+        unit = _series_unit(data_ds)
+        if ndt is None:
+            stored = f"unit {unit!r}" if unit is not None else "no unit"
+            findings.append(
+                f"{label} declares no neurodata_type, so nothing in the file says what signal "
+                f"class it holds; it stores {stored} with dtype {data_ds.dtype}"
+            )
+            continue
+        fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
+        if fixed is not None and unit is not None and unit != fixed:
+            findings.append(
+                f"{label} declares neurodata_type {ndt!r}, for which the NWB schema fixes the "
+                f"data unit to {fixed!r}, but it stores unit {unit!r} with dtype "
+                f"{data_ds.dtype}"
+            )
+    return findings
+
+
+def _warn_type_contradiction(
+    container: h5py.Group,
+    path: str,
+    members: list[tuple[str | None, str, h5py.Dataset, float | None]],
+) -> None:
+    """Report, once per container, every series in it whose declared type disagrees.
+
+    Warn, never refuse. The warning is the whole signal; no jnwb
+    operation branches on it and the container is read exactly as it would have been.
+    """
+    findings = _type_contradictions(container, members)
+    if not findings:
+        return
+    warnings.warn(
+        f"{path}: declared type disagrees with what the file stores. "
+        + "; ".join(findings)
+        + ". jnwb reads the container unchanged and nothing downstream branches on this "
+        "warning; the typing is the file's to correct.",
+        ContainerTypeContradictionWarning,
+        stacklevel=2,
+    )
 
 
 def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str, Any]:
     """One `processing_continuous`/`acquisitions` entry, from the file.
 
-    05-39: every key in `CONTINUOUS_KEYS` is always present, `None` where it is not
+    Every key in `CONTINUOUS_KEYS` is always present, `None` where it is not
     known, so `inspect` reports one schema rather than a key set that depends on what
     the file happened to contain.
     """
     ndt = _ndt(group)
     members = _series_members(group)
+    # Report a container whose declared type contradicts its contents, and proceed.
+    # This sits on the h5py path because it is the only one that can witness the
+    # contradiction: pynwb substitutes the schema's fixed `unit` on read, and drops an
+    # untyped container from the object model entirely.
+    _warn_type_contradiction(group, path, members)
     entry: dict[str, Any] = {
         "name": name,
         "path": path,
@@ -248,6 +372,7 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         "data_dtype": None,
         "layout": None,
         "rate_hz": None,
+        "starting_time": None,
     }
     # Several series under one container is a question, not an answer: which one is "the"
     # rate, shape and path? The caller names the series it wants.
@@ -256,10 +381,16 @@ def _continuous_entry_h5py(group: h5py.Group, name: str, path: str) -> dict[str,
         entry["data_path"] = f"{path}/{relpath}"
         entry["data_shape"] = list(data_ds.shape)
         entry["data_dtype"] = str(data_ds.dtype)
+        node = _series_group(group, relpath)
         if len(data_ds.shape) == 2:
             entry["layout"] = _resolve_layout(
-                data_ds.shape, _h5_channel_count(group, relpath))[0]
+                data_ds.shape, _h5_channel_count(group, relpath),
+                _ndt(node) if node is not None else None)[0]
         entry["rate_hz"] = rate
+        st = node.get("starting_time") if node is not None else None
+        if isinstance(st, h5py.Dataset) and st.shape == ():
+            start = float(st[()])
+            entry["starting_time"] = None if np.isnan(start) else start
     return entry
 
 
@@ -323,10 +454,15 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
     }
 
 
+#: Marks a bare series name that more than one processing container holds.
+_SHARED_BARE_NAME = object()
+
+
 def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
     """Return (lookup_dict, top_level_names) for continuous series in nwb.processing."""
     found: dict[str, Any] = {}
     top_level: list[str] = []
+    bare_series: dict[str, list[Any]] = {}
     if not nwb.processing:
         return found, top_level
     for mod_name, mod in nwb.processing.items():
@@ -339,6 +475,7 @@ def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
                 if cname not in top_level:
                     top_level.append(cname)
                 for sname, s in obj.electrical_series.items():
+                    bare_series.setdefault(sname, []).append(s)
                     if sname not in found:
                         found[sname] = s
                     found[f"{mod_name}/{cname}/{sname}"] = s
@@ -347,7 +484,53 @@ def _find_processing_series(nwb: NWBFile) -> tuple[dict[str, Any], list[str]]:
                 found[f"{mod_name}/{cname}"] = obj
                 if cname not in top_level:
                     top_level.append(cname)
+    # A bare series name two containers share is marked rather than resolved to whichever
+    # container came first; `resolve_acquisition` refuses it and names the qualified forms.
+    for sname, held in bare_series.items():
+        if len(held) > 1 and any(found.get(sname) is s for s in held):
+            found[sname] = _SHARED_BARE_NAME
     return found, top_level
+
+
+# Containers that wrap their series, and the attribute that holds them. `LFP` and
+# `FilteredEphys` hold ElectricalSeries; the behavior containers hold SpatialSeries or
+# TimeSeries the same way, so eye, pupil and position channels unwrap like LFP.
+_WRAPPED_SERIES_ATTR = {
+    "LFP": "electrical_series",
+    "FilteredEphys": "electrical_series",
+    "EyeTracking": "spatial_series",
+    "Position": "spatial_series",
+    "CompassDirection": "spatial_series",
+    "PupilTracking": "time_series",
+    "BehavioralTimeSeries": "time_series",
+}
+
+
+def _wrapped_series(obj: Any) -> Any:
+    """The series mapping a container holds: its `_WRAPPED_SERIES_ATTR` attribute, else
+    `electrical_series` (any other type exposing one, as before), else ``None``."""
+    ndt = getattr(obj, "neurodata_type", type(obj).__name__)
+    if ndt in _WRAPPED_SERIES_ATTR:
+        return getattr(obj, _WRAPPED_SERIES_ATTR[ndt], None)
+    return getattr(obj, "electrical_series", None)
+
+
+def _acquisition_nested_series(nwb: NWBFile) -> dict[str, list[Any]]:
+    """Series held inside ``/acquisition`` containers (``LFP``, ``FilteredEphys`` and the
+    behavior containers in ``_WRAPPED_SERIES_ATTR``).
+
+    Keyed by the bare series name and by ``container/series``. A bare name held by two
+    containers maps to both, so the caller can refuse it rather than pick one.
+    """
+    found: dict[str, list[Any]] = {}
+    for cname, obj in (nwb.acquisition or {}).items():
+        wrapped = _wrapped_series(obj)
+        if not wrapped or not hasattr(wrapped, "items"):
+            continue
+        for sname, series in wrapped.items():
+            found.setdefault(sname, []).append(series)
+            found.setdefault(f"{cname}/{sname}", []).append(series)
+    return found
 
 
 def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> str:
@@ -368,7 +551,17 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
         if name is not None:
             in_acquisition = bool(nwb.acquisition) and name in nwb.acquisition
             in_processing = name in proc_dict
-            # 05-39: both used to be true happily, and acquisition won by the order of
+            nested = _acquisition_nested_series(nwb)
+            if name in nested and not in_acquisition:
+                qualified = sorted(k for k in nested if "/" in k and k.rsplit("/", 1)[-1] == name)
+                if len(nested[name]) > 1 or in_processing:
+                    raise AmbiguousAcquisitionError(
+                        f"'{name}' names a series in more than one container: "
+                        f"{qualified + (['a processing series'] if in_processing else [])}. "
+                        f"Pass the qualified name container/series."
+                    )
+                return name
+            # Both used to be true happily, and acquisition won by the order of
             # these two `if`s. Nothing said so, and the two objects are different data.
             if in_acquisition and in_processing:
                 qualified = sorted(
@@ -379,10 +572,20 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
                     f"{qualified or ['a processing series']}. "
                     f"Pass the qualified processing name to mean the latter."
                 )
+            if in_processing and proc_dict[name] is _SHARED_BARE_NAME:
+                qualified = sorted(
+                    k for k in proc_dict if "/" in k and k.rsplit("/", 1)[-1] == name
+                )
+                raise AmbiguousAcquisitionError(
+                    f"'{name}' names a series in more than one processing container: "
+                    f"{qualified}. Pass the qualified name."
+                )
             if in_acquisition or in_processing:
                 return name
+            nested_names = sorted(k for k in nested if "/" in k)
             raise AcquisitionNotFoundError(
                 f"Series '{name}' not found. Available: {all_available}"
+                + (f"; series inside containers: {nested_names}" if nested_names else "")
             )
 
         if len(all_available) == 1:
@@ -395,24 +598,27 @@ def resolve_acquisition(path_or_nwb: InspectInput, name: str | None = None) -> s
 
 
 def _electrical_series_from_acquisition(acq: Any, name: str | None = None):
-    """Unwrap an `LFP` container to the series it holds.
+    """Unwrap a wrapping container (`LFP`, `FilteredEphys`, or a behavior container such
+    as `EyeTracking`) to the series it holds; any other object is returned as is.
 
-    05-39: this was ``next(iter(...))``, so a container holding two series silently
+    This was ``next(iter(...))``, so a container holding two series silently
     returned whichever came first, while `inspect` reported a third answer built from
     both. A container that holds more than one series is a question for the caller.
     """
     ndt = getattr(acq, "neurodata_type", type(acq).__name__)
-    if ndt != "LFP":
+    attr = _WRAPPED_SERIES_ATTR.get(ndt)
+    if attr is None:
         return acq
-    wrapped = getattr(acq, "electrical_series", None) or {}
-    label = name or getattr(acq, "name", "LFP")
+    wrapped = getattr(acq, attr, None) or {}
+    label = name or getattr(acq, "name", ndt)
+    kind = "electrical series" if attr == "electrical_series" else "series"
     if not wrapped:
         raise AcquisitionNotFoundError(
-            f"Container '{label}' holds no electrical series"
+            f"Container '{label}' holds no {kind}"
         )
     if len(wrapped) > 1:
         raise AmbiguousAcquisitionError(
-            f"Container '{label}' wraps {len(wrapped)} electrical series: "
+            f"Container '{label}' wraps {len(wrapped)} {kind}: "
             f"{sorted(wrapped)}. Pass name=<series> explicitly."
         )
     return next(iter(wrapped.values()))
@@ -443,6 +649,54 @@ def unit_spike_times(path_or_nwb: InspectInput, unit_index: int = 0) -> np.ndarr
     return _with_nwb(path_or_nwb, _read)
 
 
+def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str) -> None:
+    """Warn when the type this series declares fixes a data unit the file does not store.
+
+    `inspect` warns where the contradiction is *declared*; this is where the harm *lands*.
+    An int16 spike container declared `ElectricalSeries` is exactly the case where applying
+    the volts conversion is wrong, and this function returned the converted array and warned
+    nothing.
+
+    The object model cannot witness the disagreement: pynwb substitutes the schema's fixed
+    value on read, so `series.unit` reads ``'volts'`` for a file that stores ``'n.a.'`` --
+    measured. What *is* reachable is the unit recorded beside `data`, because a lazily read
+    series leaves `series.data` as a live `h5py.Dataset` carrying its own attrs. No second
+    open is needed, which is cheaper than this defect was first recorded as costing.
+
+    For an in-memory file never written to disk there is no stored unit and nothing to
+    contradict, so `data` has no attrs and this returns silently.
+    """
+    ndt = getattr(series, "neurodata_type", type(series).__name__)
+    fixed = _SCHEMA_FIXED_DATA_UNIT.get(ndt)
+    if fixed is None:
+        return
+    data = getattr(series, "data", None)
+    attrs = getattr(data, "attrs", None)
+    if attrs is None:
+        return
+    try:
+        stored = attrs.get("unit")
+    except Exception:
+        return
+    if stored is None:
+        return
+    stored = _decode(stored)
+    if stored == fixed:
+        return
+    conversion = getattr(series, "conversion", None)
+    dtype = getattr(data, "dtype", None)
+    warnings.warn(
+        f"acquisition_channel: series '{acq_name}' declares neurodata_type {ndt!r}, for which "
+        f"the NWB schema fixes the data unit to {fixed!r}, but the file stores unit "
+        f"{stored!r} (dtype {dtype}). The returned array has had conversion="
+        f"{conversion!r} applied and is being presented as {fixed}, which is wrong if the "
+        f"series does not hold extracellular voltage. `series.unit` cannot show you this: "
+        f"pynwb substitutes the schema's fixed value on read.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
 def acquisition_channel(
     path_or_nwb: InspectInput,
     name: str | None = None,
@@ -453,6 +707,9 @@ def acquisition_channel(
     Resolves direct :class:`~pynwb.ecephys.ElectricalSeries` objects and
     ``LFP`` containers with nested electrical series from both
     ``/acquisition`` and processing modules (e.g. ``processing/ecephys/LFP``).
+    In ``/acquisition``, behavior containers (``EyeTracking``, ``PupilTracking``,
+    ``BehavioralTimeSeries``, ``Position``, ``CompassDirection``) and ``FilteredEphys``
+    unwrap to the series they hold the same way.
 
     Parameters
     ----------
@@ -473,17 +730,29 @@ def acquisition_channel(
     -------
     data:
         1D ``float64`` array of physically scaled samples according to the NWB
-        specification (:math:`x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}`).
+        specification (:math:`x_{\mathrm{physical}} = \mathrm{conversion} \cdot c_k \cdot x_{\mathrm{stored}} + \mathrm{offset}`,
+        where :math:`c_k` is the series' ``channel_conversion`` entry for the channel, 1 when absent).
+        A ``channel_conversion`` whose length is not the channel count raises ``ValueError``.
         Units match the series ``unit`` attribute (typically ``"volts"`` for
         :class:`~pynwb.ecephys.ElectricalSeries`).
     rate_hz:
         Sampling rate in Hz.
+
+    Warns
+    -----
+    UserWarning
+        When the series' ``starting_time`` is not 0. Sample 0 is at ``starting_time`` in
+        session time, so subtract it from session-time event onsets before
+        :func:`epoch_continuous`. :func:`inspect` reports it per series as ``starting_time``.
     """
 
     def _read(nwb: NWBFile) -> tuple[np.ndarray, float]:
         acq_name = resolve_acquisition(nwb, name)
+        nested = _acquisition_nested_series(nwb)
         if nwb.acquisition and acq_name in nwb.acquisition:
             container = nwb.acquisition[acq_name]
+        elif acq_name in nested:
+            container = nested[acq_name][0]
         else:
             proc_dict, _ = _find_processing_series(nwb)
             container = proc_dict[acq_name]
@@ -493,6 +762,10 @@ def acquisition_channel(
                 f"Series '{acq_name}' has no readable data array"
             )
 
+        # Warned before the array is read and scaled, so the caller sees the contradiction
+        # even if reading the slice then fails for an unrelated reason.
+        _warn_if_declared_unit_contradicts_storage(series, acq_name)
+
         shape = series.data.shape
         if len(shape) == 1:
             if channel != 0:
@@ -501,7 +774,7 @@ def acquisition_channel(
                 )
             data = np.asarray(series.data[:], dtype=np.float64)
         elif len(shape) == 2:
-            # 05-38: this sliced axis 1 unconditionally and bounds-checked shape[1],
+            # This sliced axis 1 unconditionally and bounds-checked shape[1],
             # never consulting the layout its own sibling `inspect` reports. On a
             # channel-major (64, 1000) series with 64 electrodes, channel=0 returned
             # data[:, 0] -- 64 samples taken across channels at one instant -- as a
@@ -509,7 +782,8 @@ def acquisition_channel(
             # channel=1000 raised "out of range ... with 1000 channels" for a file
             # that has 64 of them.
             n_channels = _pynwb_channel_count(series)
-            layout, basis = _resolve_layout(shape, n_channels)
+            layout, basis = _resolve_layout(
+                shape, n_channels, getattr(series, "neurodata_type", None))
             if layout == AMBIGUOUS_LAYOUT:
                 raise AmbiguousLayoutError(
                     f"Cannot tell which axis of series '{acq_name}' holds channels: "
@@ -538,6 +812,20 @@ def acquisition_channel(
             c_val = float(conversion)
             if c_val != 1.0:
                 data = data * c_val
+        # `channel_conversion` is the per-channel factor of an ElectricalSeries, applied after
+        # `conversion` and before `offset`; indexed on the channel axis, like `channel`.
+        channel_conversion = getattr(series, "channel_conversion", None)
+        if channel_conversion is not None:
+            factors = np.asarray(channel_conversion[:], dtype=np.float64).ravel()
+            n_expected = 1 if len(shape) == 1 else n
+            if factors.size != n_expected:
+                raise ValueError(
+                    f"Series '{acq_name}' stores {factors.size} channel_conversion factors "
+                    f"for {n_expected} channels; the physical value of channel {channel} "
+                    f"cannot be computed"
+                )
+            if factors[channel] != 1.0:
+                data = data * factors[channel]
         if offset is not None and not (isinstance(offset, float) and np.isnan(offset)):
             o_val = float(offset)
             if o_val != 0.0:
@@ -547,6 +835,17 @@ def acquisition_channel(
         if rate is None or (isinstance(rate, float) and np.isnan(rate)):
             raise AcquisitionNotFoundError(
                 f"Series '{acq_name}' has no constant sampling rate"
+            )
+        start = _starting_time_s(series)
+        if start is not None and start != 0.0:
+            warnings.warn(
+                f"acquisition_channel: series '{acq_name}' has starting_time={start!r} s, so "
+                f"sample 0 of the returned array is at {start!r} s in session time. Event "
+                f"times from the file's interval tables are session times: subtract "
+                f"{start!r} s from them before epoch_continuous, or every epoch is misaligned "
+                f"by {start!r} s.",
+                UserWarning,
+                stacklevel=3,
             )
         return data, float(rate)
 
@@ -581,9 +880,12 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
         "data_dtype": None,
         "layout": None,
         "rate_hz": None,
+        "starting_time": None,
     }
-    if ndt == "LFP":
-        wrapped = dict(getattr(obj, "electrical_series", None) or {})
+    # Every wrapping container unwraps, as the file walk does, not only `LFP`.
+    held = _wrapped_series(obj)
+    if held is not None and hasattr(held, "items"):
+        wrapped = dict(held)
         entry["series"] = sorted(wrapped) or None
         if len(wrapped) != 1:
             return entry
@@ -607,10 +909,12 @@ def _continuous_entry_pynwb(obj: Any, name: str, path: str) -> dict[str, Any]:
     entry["data_shape"] = list(shape)
     entry["data_dtype"] = str(dtype)
     if len(shape) == 2:
-        entry["layout"] = _resolve_layout(shape, _pynwb_channel_count(series))[0]
+        entry["layout"] = _resolve_layout(
+            shape, _pynwb_channel_count(series), getattr(series, "neurodata_type", None))[0]
     rate = getattr(series, "rate", None)
     if rate is not None and not (isinstance(rate, float) and np.isnan(rate)):
         entry["rate_hz"] = float(rate)
+    entry["starting_time"] = _starting_time_s(series)
     return entry
 
 
@@ -758,7 +1062,7 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
     Discovery only: lists acquisitions, electrodes, units, and **all** interval
     tables with columns and sample values. Does not select a default event table.
 
-    Both call forms answer with one schema. 05-39: they used to be two independent
+    Both call forms answer with one schema. They used to be two independent
     walks, so ``inspect(path)`` and ``inspect(nwb)`` reported different keys, different
     column lists and different dtypes for the same file. An `NWBFile` that was read from
     a file is now described by that file, which is what makes passing an open handle --

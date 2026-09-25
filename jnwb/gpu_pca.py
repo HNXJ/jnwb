@@ -9,6 +9,8 @@ from typing import Tuple, Dict, Any
 import numpy as np
 
 from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._precision import resolve_working_dtype
+from ._spread import zscore
 
 log = logging.getLogger(__name__)
 
@@ -20,14 +22,22 @@ def pin_component_signs(
 
     An SVD determines each component only up to a sign: ``V`` and ``-V`` describe the
     same subspace and explain the same variance, and LAPACK and cuSOLVER routinely
-    choose differently for the same matrix. Callers saw that as a trajectory reflected
-    through the origin, with ``max|cpu - cuda| / |cpu| == 2`` -- the exact signature of a
-    flip, and indistinguishable from a real disagreement until you align the signs by
-    hand. `AGENTS.md` invariant 6 says the device never changes a number, so the
-    convention has to be pinned in the library rather than left to whichever routine ran.
+    choose differently for the same matrix, component by component. Callers saw that as
+    components whose sign disagreed between devices, with ``max|cpu - cuda| / |cpu| == 2``
+    -- the exact signature of a flipped component, and indistinguishable from a real
+    disagreement until you align the signs by hand. The device must never change a number,
+    so the convention is pinned in the library rather than left to whichever routine ran.
 
     Any rule fixed by the data works; this is the one `sklearn.utils.extmath.svd_flip`
-    uses. A component of all zeros has no largest loading and is left alone.
+    uses, with ties broken by index. A component of all zeros has no largest loading and
+    is left alone.
+
+    Ties: loadings whose magnitudes agree to within ``sqrt(eps)`` of the component's dtype,
+    relative to the largest, are treated as tied, and the lowest-index one is the pivot.
+    Plain ``argmax`` let rounding choose among tied loadings, and ties are routine: two
+    z-scored features always give components ``[1, 1]/sqrt(2)`` and ``[1, -1]/sqrt(2)``,
+    where LAPACK and cuSOLVER round the two magnitudes differently and so pinned opposite
+    signs in 32 of 200 matrices.
 
     Args:
         components: ``(n_components, n_features)`` right singular vectors.
@@ -39,7 +49,11 @@ def pin_component_signs(
     """
     if components.size == 0:
         return components, projections
-    pivot = np.argmax(np.abs(components), axis=1)
+    magnitude = np.abs(components)
+    dtype = components.dtype if np.issubdtype(components.dtype, np.floating) else np.float64
+    tol = np.sqrt(np.finfo(dtype).eps)
+    tied = magnitude >= magnitude.max(axis=1, keepdims=True) * (1.0 - tol)
+    pivot = np.argmax(tied, axis=1)
     signs = np.sign(components[np.arange(components.shape[0]), pivot])
     signs[signs == 0.0] = 1.0
     return components * signs[:, None], projections * signs[None, :]
@@ -67,27 +81,32 @@ def gpu_pca(
     if matrix.ndim != 2:
         raise ValueError(f"gpu_pca expects a 2D matrix, got shape {matrix.shape}")
 
+    # One rule decides the output dtype, and every return path below goes through it.
+    # It used to be applied at the arithmetic alone, so the two paths that return without
+    # doing any arithmetic -- the empty early return here, and the padding at the end --
+    # both handed back float64 for a float32 matrix. The output dtype then depended on
+    # whether the input happened to be empty, or on whether `n_components` happened to
+    # exceed the rank, rather than on the input dtype.
+    working = resolve_working_dtype(matrix.dtype)
+
     n_samples, n_features = matrix.shape
     if n_samples == 0 or n_features == 0:
         return (
-            np.zeros((n_samples, n_components)),
-            np.zeros((n_components, n_features)),
+            np.zeros((n_samples, n_components), working),
+            np.zeros((n_components, n_features), working),
             0.0
         )
 
-    # Scale and center
-    mean = np.mean(matrix, axis=0, keepdims=True)
-    std = np.std(matrix, axis=0, keepdims=True)
-    std[std == 0.0] = 1.0
-    scaled = (matrix - mean) / std
+    # Scale and center; a constant column is exactly 0 and takes no component.
+    scaled = zscore(matrix, axis=0)
 
     # The CUDA branch used to cast to float32 while `_svd_numpy` stayed in float64, so
-    # `device=` changed the result by ~1e-4 on top of any sign flip. Decide the working
-    # dtype once, here, using numpy's own linalg promotion rule: float32 stays float32,
-    # everything else becomes float64 (which also makes float16 work, since
-    # `np.linalg.svd` rejects it outright).
-    if scaled.dtype != np.float32:
-        scaled = scaled.astype(np.float64)
+    # `device=` changed the result by ~1e-4 on top of any sign flip. The working dtype is
+    # decided once, above, by `resolve_working_dtype`: float32 stays float32, everything
+    # else becomes float64 (which also makes float16 work, since `np.linalg.svd` rejects
+    # it outright). Centering and scaling can promote, so re-apply the rule to the result.
+    if scaled.dtype != working:
+        scaled = scaled.astype(working)
 
     actual_components = min(n_components, n_samples, n_features)
 
@@ -133,13 +152,16 @@ def gpu_pca(
         else 0.0
     )
 
-    # If requested n_components > min(n_samples, n_features), pad output
+    # If requested n_components > min(n_samples, n_features), pad output. The padding is
+    # allocated in the working dtype: a bare np.zeros defaults to float64 and upcasts a
+    # float32 result on assignment, so whether the caller got float32 back depended on
+    # whether the rank happened to cover n_components.
     if actual_components < n_components:
-        pad_proj = np.zeros((n_samples, n_components))
+        pad_proj = np.zeros((n_samples, n_components), working)
         pad_proj[:, :actual_components] = proj_np
         proj_np = pad_proj
 
-        pad_comp = np.zeros((n_components, n_features))
+        pad_comp = np.zeros((n_components, n_features), working)
         pad_comp[:actual_components, :] = V_np
         V_np = pad_comp
 

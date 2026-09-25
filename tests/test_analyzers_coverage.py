@@ -9,12 +9,39 @@ Focus areas:
 - StatisticalAnalysis: correlation methods
 """
 
+import contextlib
+import sys
 import unittest
 import numpy as np
 import pandas as pd
 
 from jnwb.analyzers import TFRAnalyzer, UnitAnalyzer, PopulationAnalyzer
 from jnwb.statistics import StatisticalAnalysis
+
+
+@contextlib.contextmanager
+def blocked_import(name):
+    """Make `import <name>` fail, restoring only that one key.
+
+    `unittest.mock.patch.dict(sys.modules, ...)` cannot be used for this. Its restore is
+    `sys.modules.clear()` followed by `update(original)`, so every module imported inside
+    the block is evicted on exit. Blocking cupy here sends
+    `PopulationAnalyzer.population_trajectory` down its PyTorch fallback, which performs
+    the process's first `import torch` and adds ~730 `torch*` entries; the restore removed
+    all of them while torch's C extensions stayed loaded, and the next `import torch`
+    re-executed `torch/__init__.py` against an already-initialised `torch._C` and crashed
+    the interpreter with an access violation. That was P-12.
+    """
+    missing = object()
+    previous = sys.modules.get(name, missing)
+    sys.modules[name] = None
+    try:
+        yield
+    finally:
+        if previous is missing:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
 
 
 class TestTFRAnalyzerBandExtraction(unittest.TestCase):
@@ -174,6 +201,36 @@ class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
         self.assertIn('acg', result)
         self.assertIn('lag_times_ms', result)
         self.assertGreater(len(result['acg']), 0)
+
+
+class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
+    """The test took the Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre
+    about 6 ms), so an over-filled bin read as a single unit and an empty one did not."""
+
+    KEYS = ('refractory_period_violation', 'refr_count', 'baseline_count')
+
+    @staticmethod
+    def _trains():
+        rng = np.random.default_rng(0)
+        background = np.sort(rng.uniform(0.0, 600.0, 12000))
+        # Every spike has a partner 6 ms later: the tested bin is over-filled.
+        contaminated = np.sort(np.concatenate([background, background + 0.006]))
+        # A 10 ms dead time after every spike: a clean refractory dip.
+        clean = np.cumsum(0.010 + rng.exponential(0.05, 12000))
+        return {'contaminated': contaminated, 'clean dip': clean}
+
+    def test_no_train_reads_as_a_single_unit_and_the_keys_are_withdrawn(self):
+        for name, train in self._trains().items():
+            with self.subTest(train=name):
+                with self.assertWarnsRegex(FutureWarning, r"inverted.*0\.2\.7.*quality_metrics"):
+                    result = UnitAnalyzer.autocorrelogram(train, max_lag_ms=50, bin_size_ms=1)
+                self.assertIsNone(result['is_single_unit'])
+                for key in self.KEYS:
+                    self.assertIsInstance(result[key], float)
+                    self.assertTrue(np.isnan(result[key]), key)
+                self.assertEqual(len(result['acg']), 50)
+                np.testing.assert_allclose(result['lag_times_ms'], np.arange(1, 51))
+                self.assertEqual(result['device_used'], 'cpu')
 
 
 class TestPopulationAnalyzerNetwork(unittest.TestCase):
@@ -363,12 +420,11 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.assertIn(res['device_used'], ('cpu', 'cuda'))
 
     def test_fallback_warning_when_gpu_fails(self):
-        import sys
         import warnings
         from unittest.mock import patch
 
         with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
-            with patch.dict(sys.modules, {"cupy": None}):
+            with blocked_import("cupy"):
                 with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always")

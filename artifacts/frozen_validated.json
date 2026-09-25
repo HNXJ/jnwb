@@ -1,0 +1,60 @@
+{
+  "functions": [
+    {
+      "file": "jnwb/_bins.py",
+      "qualname": "bins_within",
+      "sha256": "3be2b4e8a6f387353fe5f05d2206ac14afbf343360cca702bd47202ccb5ffbb9",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_gpu_launch_overhead.py::TestAcgBinsAreBinSizeWideAndCentredOnTheirLags::test_a_max_lag_of_whole_bins_is_not_shortened_by_rounding"
+      ]
+    },
+    {
+      "file": "jnwb/_bins.py",
+      "qualname": "bin_edges",
+      "sha256": "7624bff92ada0f43fc5a37bcb68a640af3010bac12d3b3f5a8d0c1a298c1519a",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_connectivity.py::TestBinSpikes::test_temporal_coordinates_and_bin_centers",
+        "tests/test_trajectory.py::test_build_time_resolved_matrix"
+      ]
+    },
+    {
+      "file": "jnwb/_bins.py",
+      "qualname": "right_open_counts",
+      "sha256": "11f67841615430c38196f31bfb161b1c465b7829ffd57a0e31df70424752f147",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_connectivity.py::TestBinSpikes::test_right_open_boundary_contract",
+        "tests/test_trajectory.py::test_build_time_resolved_matrix_bins_are_right_open_like_bin_spikes"
+      ]
+    },
+    {
+      "file": "jnwb/statistics.py",
+      "qualname": "fdr_correct",
+      "sha256": "f19550790305d710642dcff74b6deb87c33f64c0379fffd8c265e68ab15a1ce8",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh"
+      ]
+    },
+    {
+      "file": "jnwb/statistics.py",
+      "qualname": "StatisticalAnalysis.fdr_correct",
+      "sha256": "9f5c14513c3f1db01163f0314c537ee1c2b4eafafaecd08d9177825ea9962650",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_statistics.py::TestFDRCorrect::test_by_is_benjamini_yekutieli_and_not_bh"
+      ]
+    },
+    {
+      "file": "jnwb/nwb_io.py",
+      "qualname": "nwb_read_io",
+      "sha256": "b662c03c297f2b176ae9854a19dcb0d632d573a5be477e0e6a7f14221e02f223",
+      "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
+      "killed_by": [
+        "tests/test_nwb_read_tolerance_and_visibility.py::test_a_mode_other_than_read_is_refused_before_the_file_opens"
+      ]
+    }
+  ]
+}

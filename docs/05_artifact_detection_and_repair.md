@@ -1,18 +1,22 @@
 # 05. Artifact Detection & Signal Repair
 
-This document details the public artifact detection and repair algorithms in `jnwb`, designed for high-density multi-channel electrophysiology and trial-segmented LFP/TFR data.
+Artifact detection and repair in `jnwb`, for multichannel electrophysiology and trial-segmented LFP/TFR data.
 
 ---
 
 ## 1. Overview & Repair Strategy
 
-High-channel-count probes (e.g. Neuropixels, multi-shank arrays) suffer from distinct artifact modalities:
-1. **Electrode Pop & Drift**: Single bad channels showing near-zero correlation or massive amplitude spikes.
-2. **Chewing / Movement / Optical Transients**: Synchronous, high-amplitude excursions spanning many or all channels simultaneously on specific trials.
+High-channel-count probes (e.g. Neuropixels, multi-shank arrays) carry two kinds of artifact:
 
-`jnwb` provides a two-stage strategy:
+- **Electrode Pop & Drift**: single bad channels showing near-zero correlation or large amplitude spikes.
+- **Chewing / Movement / Optical Transients**: synchronous, high-amplitude excursions spanning many or all channels on specific trials.
+
+`jnwb` handles them in two stages:
 - **Detection (`jnwb.artifact_detection`)**: Statistical identification of bad channels and trials via cross-correlation and amplitude z-scores.
 - **Repair (`jnwb.artifact_repair`)**: Substitution of artifact-corrupted samples with cross-trial medians to preserve array geometry without discarding entire trials.
+
+The diagram below is where the geometry is preserved: a mask enters the repair step and a tensor
+of the same shape leaves it.
 
 ```mermaid
 graph TD
@@ -22,13 +26,18 @@ graph TD
     Repair --> Clean[Repaired LFP Tensor + Diagnostics]
 ```
 
-![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.png)
+![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.png#only-light)
+![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.dark.png#only-dark)
+
+Panel A of that figure is one synthetic trial carrying an injected synchronous excursion, with the peak
+synchrony z-score the detector reports; panel B overlays `jnwb.repair_lfp_trials` on the same
+trial, so what the substitution changed and what it left alone are read off one pair of traces.
 
 ---
 
-## 2. Artifact Detection Primitives (`jnwb.artifact_detection`)
+## 2. Artifact Detection (`jnwb.artifact_detection`)
 
-All 5 core artifact detection functions are exposed directly in the top-level `jnwb` namespace:
+The five detection functions below are top-level `jnwb` exports.
 
 ### Channel Correlation Matrix & Bad Channel Rejection
 Computes the inter-channel correlation matrix and identifies disconnected or noisy electrodes via median correlation z-scores:
@@ -76,7 +85,7 @@ consensus_mask, bad_fractions = jnwb.consensus_bad_trials(
 
 ---
 
-## 3. High-Level Trial Repair Pipelines (`jnwb.artifact_repair`)
+## 3. Trial Repair (`jnwb.artifact_repair`)
 
 ### `repair_lfp_trials`
 Performs time-resolved cross-channel synchrony detection on trial-segmented LFP tensors, replacing flagged artifact intervals with the condition-matched cross-trial median:
@@ -90,10 +99,10 @@ repaired_lfp, frac_flagged, diagnostics = jnwb.repair_lfp_trials(
     segments,
     times_ms=times_ms,
     z_thresh=6.0,                    # Cross-channel synchronous-deviation threshold
-    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analysed: samples inside this
+    exclude_window_ms=(400.0, 600.0)  # PROTECTED, not analyzed: samples inside this
                                       # window are never flagged for repair. Use it
                                       # for an interval whose large deflection is
-                                      # signal -- a reward artefact, say -- that the
+                                      # signal -- a reward artifact, say -- that the
                                       # synchrony detector would otherwise substitute
                                       # away. Omit it to evaluate the whole epoch.
 )
@@ -119,15 +128,13 @@ to round-off (relative to the data, so the rule does not depend on power units) 
 
 !!! warning "`sided="both"` is not the conservative choice"
     The default `"upper"` flags power *increases* only. `"both"` also flags decreases — so when
-    the response under study **is** a power decrease, a two-sided detector flags genuine
-    decreases as artifacts and substitutes them away. The detector then eats the very effect it
-    was meant to protect. Choose `"both"` only when artifacts in your data genuinely go in both
-    directions.
+    the response under study **is** a power decrease, a two-sided detector flags that effect as
+    artifact and substitutes it away. Choose `"both"` only when artifacts in your data go in
+    both directions.
 
-    This is not hypothetical. A downstream reimplementation of this rule silently used a
-    two-sided test while its own docstring claimed parity with the one-sided library version.
-    The detector is exposed here precisely so the tail is an argument a caller states, rather
-    than a detail buried in a copy that can drift.
+    A downstream reimplementation of this rule silently used a two-sided test while its own
+    docstring claimed parity with the one-sided library version. The detector is exposed so the
+    tail is an argument a caller states, rather than a detail buried in a copy that can drift.
 
 `jnwb.DETECTION_TAILS` is the pair of accepted values, `("upper", "both")`, exported so a
 caller can validate a configured tail before the call rather than after it:
@@ -178,7 +185,7 @@ the 3-D path is the 4-D path with a length-1 channel axis, not a second implemen
 
 | Function | Primary Input | Returns | Purpose |
 |----------|---------------|---------|---------|
-| `channel_correlation_matrix` | $(C \times T)$ | $(C \times C)$ | Inter-electrode correlation |
+| `channel_correlation_matrix` | $(C \times T)$ | $(C \times C)$ | Inter-channel correlation |
 | `bad_channels_from_correlation` | $(C \times C)$ | `(bad_mask, mean_corr, z_scores)` | Outlier channel detection |
 | `trial_correlation_matrix` | $(N \times T)$ | $(N \times N)$ | Inter-trial waveform correlation |
 | `bad_trials_single_channel` | $(N \times T)$ | `(bad_mask, corr_z, amp_z)` | Per-channel bad trial detection |

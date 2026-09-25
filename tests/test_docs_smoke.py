@@ -28,8 +28,10 @@ class TestDocsSmokeFixtures:
         assert jnwb.classify_layer_from_depth(0, elec_df) == "Superficial"
         assert jnwb.classify_layer_from_depth(1, elec_df) == "Deep"
 
-        enriched = jnwb.enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1]}), elec_df)
-        assert "area" in enriched.columns and "layer" in enriched.columns
+        with pytest.warns(FutureWarning, match="depth_class"):
+            enriched = jnwb.enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1]}), elec_df)
+        assert list(enriched["depth_class"]) == ["Superficial", "Deep"]
+        assert list(enriched["layer"]) == list(enriched["depth_class"])
 
         # 2. Metadata & QC
         units_df = pd.DataFrame({
@@ -220,7 +222,7 @@ class TestDocsSmokeFixtures:
         psi_broad = jnwb.phase_slope_index(
             noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
         )
-        assert psi_narrow.net == 0.0
+        assert np.isnan(psi_narrow.net)
         assert np.isnan(psi_narrow.per_band["band"]["z"])
         assert psi_broad.net > 0.5
         assert psi_broad.per_band["band"]["z"] > 5.0

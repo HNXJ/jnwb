@@ -1,12 +1,10 @@
 # 06. Spike Extraction, PSTH & Onset Dynamics
 
-This document details spike rate extraction, Peristimulus Time Histogram (PSTH) generation, response significance classification, spike-LFP phase locking, causal smoothing latency physics, causality-bounded exponential onset fitting, and neural population trajectories in `jnwb`.
+PSTHs, response metrics, spike-LFP phase locking, causal smoothing, onset fitting and population trajectories.
 
 ---
 
 ## 1. Spike Analysis, Response Metrics & Phase Locking (`jnwb.spiking`, `jnwb.viz`)
-
-`jnwb.spiking` and `jnwb.viz` provide fast, vectorized operations for binning spike timestamps, computing response metrics, and analyzing spike-LFP phase alignment.
 
 ### Raster & PSTH Construction (`raster_psth`)
 
@@ -26,16 +24,20 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 )
 ```
 
-![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png)
+![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png#only-light)
+![Spike Raster and PSTH](assets/figures/fig02_raster_psth.dark.png#only-dark)
+
+Panel A of that figure is a synthetic raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
+spikes. Both panels share one time axis, so what the binning discards is read off the pair; the
+bins are right-open, which is why a spike on a bin edge falls in the later bin.
 
 ### Response Metrics & Significance Classification
 
 ```python
-# Compute peak firing rate, baseline rate, modulation index, and latency.
-# The window arguments are in SECONDS and say so in their names; the
-# raster_psth(win_ms=) call above is in milliseconds, and both take a float
-# 2-tuple, so the suffix is the only thing standing between you and a factor
-# of 1000.
+# Returns baseline_rate, response_rate, response_count, response_zscore, latency
+# and n_trials. The windows are in SECONDS, as their names say; raster_psth(win_ms=)
+# above is in milliseconds, and both take a float 2-tuple, so the suffix is the
+# only guard against a factor of 1000.
 metrics = jnwb.compute_response_metrics(
     spike_times=spike_times_s,
     epoch_onsets=trial_onsets_s,
@@ -55,7 +57,7 @@ print("Approximate p-value:", sig_result["pvalue"])
 print("Confidence:", sig_result["confidence"])
 ```
 
-### Spike-LFP Phase Locking (`phase_locking_index`, `pairwise_phase_consistency`)
+### Spike-LFP Phase Locking (`phase_locking_index`)
 
 Computes circular phase distribution, Rayleigh circular non-uniformity test, and descriptive peak-to-mean histogram contrast of spike occurrences relative to an LFP phase time series. Key `'pli'` is maintained strictly as a backwards-compatibility alias for `'peak_to_mean_contrast'`:
 
@@ -71,7 +73,7 @@ print("Preferred Phase (rad):", pli_result["preferred_phase"])
 print("Rayleigh z:", pli_result["rayleigh_z"], "p-value:", pli_result["rayleigh_pvalue"])
 ```
 
-#### Pairwise Phase Consistency (`pairwise_phase_consistency`)
+### Pairwise Phase Consistency (`pairwise_phase_consistency`)
 Unlike heuristic histogram contrast or PLV/PLI, which has substantial positive sample-size bias ($\mathbb{E}[\text{PLV}] \sim 1/\sqrt{N}$ under noise), Vinck et al. (2010)'s Pairwise Phase Consistency (PPC) is an asymptotically unbiased estimator of squared phase synchronization and is the **recommended estimator** for population and across-unit comparisons:
 
 $$\text{PPC} = \frac{2}{N(N-1)} \sum_{j=1}^{N-1} \sum_{k=j+1}^N \cos(\theta_j - \theta_k)$$
@@ -112,13 +114,13 @@ A causal filter introduces an inherent, deterministic time delay:
 
 $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{estimator}}(\tau, \Delta t)$$
 
-> **Hazard Warning**: Never interpret cross-band or cross-area onset latency differences as biological timing differences without accounting for estimator group delay, especially if different $\tau$ values or varying bandpass filter kinetics are involved.
+> **Hazard Warning**: Compare onsets only between traces smoothed with the same `tau_ms`. The delays above belong to a latency read as a threshold crossing on the smoothed trace, and only such a latency is corrected by them. A fitted $t_0$ is not a crossing: on a step response it is independent of $\tau$, and on a graded rise it moves with $\tau$ by an amount that depends on the rise, so no fixed correction applies. A difference between traces smoothed at different $\tau$, or between bandpass envelopes with different rise kinetics, is a difference between the filters.
 
 ---
 
 ## 3. Causality-Bounded Exponential Onset Fitting (`jnwb.onset_fitting`)
 
-`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the true physical takeoff time $t_0$:
+`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the takeoff time $t_0$ of the trace it is given; on a smoothed trace with a graded rise, $t_0$ moves with `tau_ms`:
 
 $$y(t) = \begin{cases} \text{baseline}, & t < t_0 \\ \text{baseline} + \text{amplitude} \cdot \left(1 - e^{-(t - t_0)/\tau}\right), & t \ge t_0 \end{cases}$$
 
@@ -130,8 +132,8 @@ import jnwb
 fit = jnwb.fit_exponential_onset(
     t_ms,
     rate,
-    t0_bounds=(0.0, 400.0),          # Physical causality boundaries
-    baseline_window=(-100.0, 0.0)    # Pre-stimulus baseline interval
+    t0_bounds_ms=(0.0, 400.0),          # Physical causality boundaries
+    baseline_window_ms=(-100.0, 0.0)    # Pre-stimulus baseline interval
 )
 
 print(f"Onset t0: {fit['t0']:.2f} ms")
@@ -141,7 +143,12 @@ print(f"Goodness-of-fit R2: {fit['r2']:.4f}")
 print(f"Optimizer Bound Status: {fit['bound_status']}")
 ```
 
-![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png)
+![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.png#only-light)
+![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.dark.png#only-dark)
+
+That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed synthetic rate it
+was fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
+gap between the two lines is the fit's bias on this rise; it depends on the rise as well as $\tau$, so it is not a filter delay to subtract.
 
 ### Boundary Status & Censoring Flags (`bound_status`)
 When an onset lies outside the search interval (e.g. pre-stimulus noise or unconstrained drift), nonlinear least squares pins $t_0$ against the outer bounds while reporting `converged: True`. `jnwb` reports `bound_status` to distinguish unconstrained interior fits from boundary-censored solutions:
@@ -161,10 +168,20 @@ When an onset lies outside the search interval (e.g. pre-stimulus noise or uncon
 ```python
 import jnwb
 
-# spike_matrices: Dict[unit_id -> (n_trials, n_times)]
-# Assemble time-resolved population matrix: (n_trials * n_times, n_units)
-matrix, metadata = jnwb.build_time_resolved_matrix(spike_matrices)
+# Both functions read the session themselves. They take the same three inputs --
+# an open session, an area, and a trial table -- and neither consumes the other's
+# output; `compute_population_trajectory` is not `build_time_resolved_matrix`
+# followed by PCA on the returned matrix.
 
-# Compute low-dimensional population trajectory (e.g. Top 3 Principal Components)
-trajectory_res = jnwb.compute_population_trajectory(matrix, n_components=3)
+# Assemble the time-resolved population tensor: (n_trials, n_units, n_bins)
+X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
+    session, area="V1", epochs_df=trials_df,
+)
+
+# Low-dimensional population trajectory, from the same three inputs.
+# Returns a dict: trajectory (n_trials, n_components, n_bins), explained_variance,
+# unit_ids, bin_centers.
+trajectory_res = jnwb.compute_population_trajectory(
+    session, area="V1", epochs_df=trials_df, n_components=3,
+)
 ```

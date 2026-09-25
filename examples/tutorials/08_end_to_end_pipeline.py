@@ -61,8 +61,13 @@ def main() -> None:
 
         # 5. Continuous LFP: Epoch and compute baseline-normalized band power
         lfp, fs_hz = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=0)
-        epochs_a, _ = jnwb.epoch_continuous(lfp, onsets_a, win_s=(0.0, 0.3), fs=fs_hz)
-        baseline_a, _ = jnwb.epoch_continuous(lfp, onsets_a, win_s=(-0.2, -0.05), fs=fs_hz)
+        # Onsets are session times, and sample 0 of `lfp` is at the series' starting_time
+        # (0 s in this file). Add it to the signal's time axis by subtracting it from the
+        # onsets; spike times are session times and keep the onsets as they are.
+        series = next(a for a in info["acquisitions"] if a["name"] == "probe_0_lfp")
+        lfp_onsets_a = onsets_a - (series["starting_time"] or 0.0)
+        epochs_a, _ = jnwb.epoch_continuous(lfp, lfp_onsets_a, win_s=(0.0, 0.3), fs=fs_hz)
+        baseline_a, _ = jnwb.epoch_continuous(lfp, lfp_onsets_a, win_s=(-0.2, -0.05), fs=fs_hz)
 
         power_post = np.array([
             jnwb.band_power(ep, fs=fs_hz, freq_range=jnwb.CANONICAL_BANDS["beta"], normalize=False)
@@ -77,7 +82,7 @@ def main() -> None:
 
         # 6. Connectivity: Estimate zero-lag-reduced phase coupling (wPLI)
         lfp_ch1, _ = jnwb.acquisition_channel(path, name="probe_0_lfp", channel=1)
-        epochs_ch1, _ = jnwb.epoch_continuous(lfp_ch1, onsets_a, win_s=(0.0, 0.3), fs=fs_hz)
+        epochs_ch1, _ = jnwb.epoch_continuous(lfp_ch1, lfp_onsets_a, win_s=(0.0, 0.3), fs=fs_hz)
         wpli_res = jnwb.wpli(epochs_a[0], epochs_ch1[0], fs=fs_hz, freq_range=(15.0, 30.0))
         wpli_score = wpli_res["wpli"]
         print(f"5. Connectivity: Inter-channel beta wPLI: {wpli_score:.3f}")

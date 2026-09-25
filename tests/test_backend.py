@@ -180,7 +180,7 @@ class TestCallSitesAreRouted:
 
 class TestDeviceRequestIsHonouredOrReported:
     def test_gpu_pca_cpu_and_cuda_return_the_same_numbers(self):
-        """05-43: this test used to read `_, _, var_cuda = gpu_pca(...)`, keeping only
+        """This test used to read `_, _, var_cuda = gpu_pca(...)`, keeping only
         `explained_variance_ratio`. That scalar is invariant to a sign flip and agrees
         to 1e-7 across float32 and float64, so it stayed green on a live A4000 while
         `max|cpu - cuda|` on the returned projections was 8.005. Compare what the

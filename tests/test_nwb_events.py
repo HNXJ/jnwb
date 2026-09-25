@@ -299,6 +299,19 @@ class TestAnAbsentCodeColumnIsNotSilent:
         assert et.code_column is None
         np.testing.assert_allclose(et.onsets, [1.0, 3.0])
 
+    def test_event_onsets_says_what_it_does_when_the_default_column_is_absent(self, tmp_path):
+        """Only `events` warns about the absent default column; `event_onsets` returns every
+        onset quietly, and its docstring must not promise the warning `events` gives."""
+        import warnings
+
+        path = self._foreign(tmp_path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            np.testing.assert_allclose(event_onsets(path, codes=None), [1.0, 3.0])
+        codes_doc = event_onsets.__doc__.split("codes:", 1)[1].split("code_column,", 1)[0]
+        assert "without a warning" in codes_doc, codes_doc
+        assert "warning says so" not in codes_doc, codes_doc
+
     def test_a_column_the_caller_named_must_exist(self, tmp_path):
         path = self._foreign(tmp_path)
         with pytest.raises(ColumnNotFoundError, match="condition"):

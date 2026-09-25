@@ -89,6 +89,12 @@ def rdm(
             condition pair. Correlation distance is undefined for a zero-variance
             condition and cosine distance for a zero-norm condition; reporting 0 there
             would declare the condition identical to the others.
+
+    References:
+        Kriegeskorte, N., et al. (2008). Representational similarity analysis: connecting
+        the branches of systems neuroscience. Front. Syst. Neurosci.
+        doi:10.3389/neuro.06.004.2008 -- the dissimilarity matrix, with correlation
+        distance as the default measure ("Step 2").
     """
     if resolve_device(device, context="rdm", prefer="cupy", stacklevel=3) == CUDA:
         warn_no_gpu_path("rdm", "rdm has no GPU implementation", stacklevel=3)
@@ -179,6 +185,13 @@ def rdm_similarity(
         ValueError: If an RDM is not square, not symmetric, has a nonzero diagonal, has
             a condensed length that is not :math:`N(N-1)/2`, the two lengths differ, or
             entries are non-finite.
+
+    References:
+        Kriegeskorte, N., et al. (2008). Representational similarity analysis: connecting
+        the branches of systems neuroscience. Front. Syst. Neurosci.
+        doi:10.3389/neuro.06.004.2008 -- comparison of dissimilarity matrices by Spearman
+        rank correlation ("Step 4"); relatedness is tested by permuting condition labels
+        ("Step 5"), which this function leaves to the caller.
     """
     v1 = _as_condensed_rdm(rdm1, "rdm1")
     v2 = _as_condensed_rdm(rdm2, "rdm2")

@@ -87,10 +87,11 @@ def test_the_documentation_figure_is_the_one_the_script_writes():
     was two weeks older than the script's own output -- showing a permutation panel the
     library no longer computes at all, since the script exited before writing anything.
     """
-    rendered = REPO_ROOT / "examples" / "figures" / "jnwb_quickstart.png"
-    published = DOCS / "assets" / "jnwb_quickstart.png"
-    assert rendered.is_file() and published.is_file()
-    assert published.read_bytes() == rendered.read_bytes(), (
-        "docs/assets/jnwb_quickstart.png differs from the figure "
-        "examples/quickstart_jnwb.py writes; copy the rendered one over it"
-    )
+    for name in ("jnwb_quickstart.png", "jnwb_quickstart.dark.png"):
+        rendered = REPO_ROOT / "examples" / "figures" / name
+        published = DOCS / "assets" / name
+        assert rendered.is_file() and published.is_file(), name
+        assert published.read_bytes() == rendered.read_bytes(), (
+            f"docs/assets/{name} differs from the figure "
+            "examples/quickstart_jnwb.py writes; copy the rendered one over it"
+        )

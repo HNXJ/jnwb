@@ -92,6 +92,17 @@ class TestExploratoryMulti:
         assert r["api"] == "exploratory"
 
 
+@pytest.mark.parametrize("test", ["both", "parametric", "nonparametric"])
+def test_exploratory_results_say_they_are_uncorrected(test):
+    compared = StatisticalAnalysis.exploratory_compare(A, B, n_bootstrap=50, test=test)
+    multi = StatisticalAnalysis.exploratory_multi({"a": A, "b": B}, test=test)
+    correlated = StatisticalAnalysis.exploratory_correlate(
+        A, B, method={"both": "both", "parametric": "pearson", "nonparametric": "spearman"}[test])
+    for result in (compared, multi, correlated):
+        assert result["correction"] == "none"
+        assert "multiple_comparison" not in result
+
+
 # ── Confirmatory API ──────────────────────────────────────────────────────────
 
 class TestConfirmatoryCompare:
@@ -426,7 +437,7 @@ class TestClusterPermutation:
             cluster_permutation_test(bad_x, Y)
         with pytest.raises(ValueError, match="within_group"):
             cluster_permutation_test(X, Y, scheme="within_group", groups=None)
-        # 05-35: an int is now a seed, not a type error -- the function used to refuse
+        # An int is now a seed, not a type error -- the function used to refuse
         # `rng=42` while seeding itself with `default_rng(0)` whenever `rng` was omitted.
         # A type that names no stream still raises.
         for bad in ("not_an_rng", 3.5, [0]):

@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 156 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 160 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -8,13 +8,14 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.CANONICAL_BANDS | constant | *dict() -> new empty dictionary dict(mapping) -> new dictionary initialized from a mapping object's     (key, value) pairs dict(iterable) -> new dictionary initialized as if via:     d = {}     for k, v in iterable:         d[k] = v dict(**kwargs) -> new dictionary initialized with the name=value pairs     in the keyword argument list.  For example:  dict(one=1, two=2)* |
-| jnwb.DB_AGGREGATIONS | constant | *Built-in immutable sequence.* |
-| jnwb.DETECTION_TAILS | constant | *Built-in immutable sequence.* |
-| jnwb.RELATIVE_POWER_MODELS | constant | *Built-in immutable sequence.* |
-| jnwb.SKILLS_URL | function | *str(object='') -> str str(bytes_or_buffer[, encoding[, errors]]) -> str* |
+| jnwb.CANONICAL_BANDS | constant | dict |
+| jnwb.DB_AGGREGATIONS | constant | tuple |
+| jnwb.DETECTION_TAILS | constant | tuple |
+| jnwb.RELATIVE_POWER_MODELS | constant | tuple |
+| jnwb.SKILLS_URL | constant | str |
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
+| jnwb.vis | module | *jnwb.vis -- Publication-grade electrophysiology visualization engine in pure Plotly.* |
 | jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
 
 ## Module: jnwb.addressing
@@ -23,9 +24,9 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.ProbeGeometry | class | *Extracted contact geometry and spatial properties for an electrode array.* |
 | jnwb.classify_layer_from_depth | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str<br>*Classify unit cortical layer using z depth coordinates.* |
-| jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, layer, and quality flags.* |
+| jnwb.enrich_units_dataframe | function | (units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | (peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None<br>*Map peak channel ID to brain area location.* |
-| jnwb.probe_geometry | function | (electrodes_table: typing.Any, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False) -> jnwb.addressing.ProbeGeometry<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
+| jnwb.probe_geometry | function | (electrodes_table: typing.Any, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False, stagger_tolerance_um: float = 100.0) -> jnwb.addressing.ProbeGeometry<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
 ## Module: jnwb.analyzers
 
@@ -57,7 +58,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False) -> 'dict'<br>*Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.* |
+| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False, select: "'list[str] | None'" = None) -> 'dict'<br>*Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.* |
 
 ## Module: jnwb.connectivity
 
@@ -126,7 +127,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.vflip | function | (psd: 'np.ndarray', freqs: 'np.ndarray', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 3.75, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile (vFLIP).* |
 | jnwb.vflip_from_lfp | function | (lfp: 'np.ndarray', fs: 'float', nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, window: 'str' = 'hann', detrend: 'Union[str, bool]' = 'constant', scaling: 'str' = 'density', band_low: 'Tuple[float, float]' = (8.0, 30.0), band_high: 'Tuple[float, float]' = (50.0, 150.0), contact_spacing: 'Optional[float]' = None, probe_geometry: 'Optional[Any]' = None, orientation: 'str' = 'auto', min_support_score: 'float' = 3.75, bad_channel_mask: 'Optional[np.ndarray]' = None, min_channels: 'int' = 8, min_peak_distance: 'int' = 2, device: 'str' = 'cpu') -> 'VFlipResult'<br>*Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.* |
 | jnwb.xflip | function | (data: 'np.ndarray', method: 'str' = 'pearson', contiguous: 'bool' = True, n_blocks: 'Optional[int]' = 2, min_block_size: 'int' = 2, n_surrogates: 'int' = 200, surrogate_method: 'str' = 'auto', alpha: 'float' = 0.05, min_contrast: 'float' = 0.05, min_boundary_drop: 'float' = 0.05, channel_axis: 'int' = 0, is_corr_matrix: 'Optional[bool]' = None, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'XFlipResult'<br>*Cross-Channel Laminar Correlation Profile (xFLIP).* |
-| jnwb.zflip | function | (lfp_matrix: 'np.ndarray', fs: 'float', freq_range: 'Tuple[float, float]' = (15.0, 35.0), pitch_um: 'Optional[float]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, min_linearity_r2: 'float' = 0.7, min_wpli: 'float' = 0.15, n_surrogates: 'int' = 50, alpha: 'float' = 0.05, rng: 'RNGLike' = 0, seed: 'Any' = 0) -> 'ZFlipResult'<br>*Estimate cortical depth phase gradients, propagation delay, and apparent velocity.* |
+| jnwb.zflip | function | (lfp_matrix: 'np.ndarray', fs: 'float', orientation: 'str', freq_range: 'Tuple[float, float]' = (15.0, 35.0), pitch_um: 'Optional[float]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, min_linearity_r2: 'float' = 0.7, min_wpli: 'float' = 0.15, n_surrogates: 'int' = 50, alpha: 'float' = 0.05, rng: 'RNGLike' = 0, seed: 'Any' = 0) -> 'ZFlipResult'<br>*Estimate cortical depth phase gradients, propagation delay, and apparent velocity.* |
 
 ## Module: jnwb.metadata
 
@@ -140,7 +141,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.filter_by_criteria | function | (df: pandas.DataFrame, criteria: Dict, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
 | jnwb.get_all_units_metadata | function | (nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | (units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict<br>*Analyze SNR distribution and quality.* |
-| jnwb.unit_census_report | function | (units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame<br>*Generate a census/summary report of units grouped by session/area/layer.* |
+| jnwb.unit_census_report | function | (units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
 
 ## Module: jnwb.nwb_events
 
@@ -176,6 +177,9 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
+| jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
+| jnwb.nwb_read_io | function | (path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
+| jnwb.read_nwb | function | (path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, kwargs: 'Any') -> 'Any'<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
 
 ## Module: jnwb.onset_fitting
 
@@ -226,7 +230,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.bipolar_reference | function | (channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | (data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
 | jnwb.compute_psd | function | (lfp_data: numpy.ndarray, fs: float, axis: int = 0)<br>*Welch power spectral density of a plain LFP array.* |
-| jnwb.cross_area_coherence | function | (lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: numpy.random._generator.Generator | None = None, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict<br>*Compute frequency-resolved coherence between two LFP signals.* |
+| jnwb.cross_area_coherence | function | (lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: int | numpy.random._generator.Generator | None = 42, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict<br>*Compute frequency-resolved coherence between two LFP signals.* |
 | jnwb.current_source_density_1d | function | (lfp_matrix: numpy.ndarray, pitch_um: float, conductivity_s_per_m: float, axis: int = 0) -> numpy.ndarray<br>*Compute physical 1D Current Source Density (CSD) along a laminar electrode array.* |
 | jnwb.harmonic_analysis | function | (lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict<br>*Decompose LFP trace into fundamental and harmonic components.* |
 | jnwb.imaginary_coherency | function | (x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, float]<br>*Imaginary part of coherency (Nolte et al. 2004) between two continuous signals.* |
@@ -294,7 +298,7 @@ All 156 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.apply_tight_auto_axis | function | (ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12)<br>*Apply tight temporal bounds and auto-scale y-axis without empty margins.* |
+| jnwb.apply_tight_auto_axis | function | (ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12)<br>*Pin the x-axis to ``x_span`` and fit the y-axis to the plotted lines.* |
 | jnwb.raster_psth | function | (st, onsets, win_ms, bin_ms: float = 10.0)<br>*Trial-averaged PSTH (mean + SEM firing rate per bin) for a raw spike-time array against an explicit onset array -- raw arrays in, no session/unit_id lookup. Distinct from :func:`jnwb.spiking.compute_response_metrics`'s single-response-window-scalar contract: this returns the full time-binned PSTH curve.* |
 | jnwb.resample_onsets | function | (onsets: numpy.ndarray, target_n: int = 100, rng: int | numpy.random._generator.Generator | None = 42, random_state: typing.Any = 42) -> numpy.ndarray<br>*Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there are fewer than ``target_n`` available), for a consistent raster trial count across units with different trial counts.* |
 | jnwb.save_figure_suite | function | (figures: List[matplotlib.figure.Figure], output_dir: str | pathlib.Path, basename: str, dpi: int = 300, formats: List[str] = ['png', 'pdf']) -> None<br>*Save a suite of figures to disk with consistent naming.* |

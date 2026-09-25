@@ -5,10 +5,13 @@ with known ground truth, producing reproducible high-resolution figures
 for docs/assets/figures/.
 
 Usage:
-    python docs/generate_figures.py
+    python docs/generate_figures.py                     # rewrite docs/assets/figures/
+    python docs/generate_figures.py --out-dir DIR       # write elsewhere, e.g. to compare
+    python docs/generate_figures.py --only fig07_population_decoding.png
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -21,22 +24,28 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_curve, auc
 
 import jnwb
 
-OUT_DIR = REPO_ROOT / "docs" / "assets" / "figures"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
+OUT_DIR = FIGURE_DIR
 
-# Theme Palette (Slate + Matte Violet + Matte Gold + Accents)
+# Every figure is drawn twice on a transparent background, in the light theme as NAME.png and in
+# the dark theme as NAME.dark.png; a page shows the one matching its palette scheme through
+# Material's `#only-light` and `#only-dark`. No figure paints its own background.
 C_VIOLET = "#7048e8"
 C_GOLD = "#c3aa5f"
-C_DARK = "#2d2d2d"
 C_GRAY = "#888888"
-C_LIGHT_GRAY = "#e0e0e0"
 C_RED = "#d9534f"
 C_GREEN = "#2e7d32"
-C_BG = "#fafafa"
+
+THEMES = {
+    "light": {"fg": "#2d2d2d", "edge": "#b0b0b0", "faint": "#e0e0e0", "suffix": ".png"},
+    "dark": {"fg": "#e0e0e0", "edge": "#6a6a6a", "faint": "#555555", "suffix": ".dark.png"},
+}
+C_DARK = THEMES["light"]["fg"]
+C_LIGHT_GRAY = THEMES["light"]["faint"]
+SUFFIX = THEMES["light"]["suffix"]
 
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -47,11 +56,31 @@ plt.rcParams.update({
     "ytick.labelsize": 7.5,
     "legend.fontsize": 7.5,
     "figure.titlesize": 10.5,
-    "axes.edgecolor": "#cccccc",
     "axes.linewidth": 0.8,
-    "axes.facecolor": "white",
-    "figure.facecolor": "white",
+    "axes.facecolor": "none",
+    "figure.facecolor": "none",
+    "savefig.transparent": True,
 })
+
+
+def apply_theme(name):
+    """Set the foreground colours every figure draws with; the background stays transparent."""
+    global C_DARK, C_LIGHT_GRAY, SUFFIX
+    theme = THEMES[name]
+    C_DARK, C_LIGHT_GRAY, SUFFIX = theme["fg"], theme["faint"], theme["suffix"]
+    plt.rcParams.update({
+        "text.color": theme["fg"],
+        "axes.labelcolor": theme["fg"],
+        "axes.titlecolor": theme["fg"],
+        "xtick.color": theme["fg"],
+        "ytick.color": theme["fg"],
+        "axes.edgecolor": theme["edge"],
+        "legend.labelcolor": theme["fg"],
+    })
+
+
+def _save(fig, name):
+    fig.savefig(OUT_DIR / name.replace(".png", SUFFIX))
 
 
 def fig01_addressing():
@@ -100,7 +129,7 @@ def fig01_addressing():
     ax2.invert_yaxis()
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig01_addressing_laminar.png")
+    _save(fig, "fig01_addressing_laminar.png")
     plt.close(fig)
 
 
@@ -149,7 +178,7 @@ def fig02_spikes_psth():
     ax2.legend(frameon=False, loc="upper right")
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig02_raster_psth.png")
+    _save(fig, "fig02_raster_psth.png")
     plt.close(fig)
 
 
@@ -169,7 +198,7 @@ def fig03_onset():
     smoothed = jnwb.causal_exp_smooth(noisy_rate, bin_ms=bin_ms, tau_ms=25.0)
 
     # jnwb bounded onset fitting
-    fit = jnwb.fit_exponential_onset(t, smoothed, t0_bounds=(0.0, 250.0))
+    fit = jnwb.fit_exponential_onset(t, smoothed, t0_bounds_ms=(0.0, 250.0))
     pred = jnwb.onset_model(t, fit["t0"], fit["tau"], fit["amplitude"], fit["baseline"])
 
     ax.scatter(t, noisy_rate, color=C_LIGHT_GRAY, s=12, label="Binned Rate (raw counts)", zorder=2)
@@ -184,12 +213,12 @@ def fig03_onset():
     ax.legend(frameon=False, loc="upper left", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig03_onset_fitting.png")
+    _save(fig, "fig03_onset_fitting.png")
     plt.close(fig)
 
 
 def fig04_spectral_tilt():
-    """Figure 4: Power Spectral Density and 1/f aperiodic spectral tilt."""
+    """Figure 4: Power Spectral Density and aperiodic spectral tilt."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
 
     fs = 1000.0
@@ -197,7 +226,7 @@ def fig04_spectral_tilt():
     t = np.arange(int(fs * duration)) / fs
     rng = np.random.default_rng(12)
 
-    # 1/f noise + 10 Hz rhythm
+    # Random-walk noise, whose spectrum falls as 1/f squared, + 10 Hz rhythm
     white = rng.standard_normal(len(t))
     pink = np.cumsum(white)
     pink -= pink.mean()
@@ -208,7 +237,7 @@ def fig04_spectral_tilt():
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. Raw LFP Time Series\n(1/f background + 10 Hz rhythm)", pad=8)
+    ax1.set_title("A. Raw LFP Time Series\n(random-walk background + 10 Hz rhythm)", pad=8)
 
     # Panel B: PSD + Tilt fit
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
@@ -219,14 +248,14 @@ def fig04_spectral_tilt():
     fitted_psd = tilt["offset"] * (f_fit ** tilt["exponent"])
 
     ax2.loglog(freqs[1:120], psd[1:120], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"1/f Fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power Spectral Density")
-    ax2.set_title("B. 1/f Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
+    ax2.set_title("B. Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
     ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig04_psd_spectral_tilt.png")
+    _save(fig, "fig04_psd_spectral_tilt.png")
     plt.close(fig)
 
 
@@ -266,7 +295,7 @@ def fig05_complex_tfr():
     leg = ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper left", labelcolor="white", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig05_complex_tfr_coi.png")
+    _save(fig, "fig05_complex_tfr_coi.png")
     plt.close(fig)
 
 
@@ -313,7 +342,7 @@ def fig06_aggregate_db():
     ax2.set_title("B. Decibel Aggregation Contracts\n(jnwb.aggregate_to_db)", pad=8)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig06_aggregate_to_db.png")
+    _save(fig, "fig06_aggregate_to_db.png")
     plt.close(fig)
 
 
@@ -344,19 +373,22 @@ def fig07_decoding():
     ax1.set_title("A. Cross-Validated Accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
     ax1.legend(frameon=False, loc="lower right", fontsize=7.2)
 
-    # Panel B: ROC Curve
-    # Generate synthetic scores reflecting the AUC
-    fpr = np.linspace(0, 1, 50)
-    tpr = np.minimum(1.0, fpr ** (1.0 / (res["auc"] / (1.0 - res["auc"] + 1e-6))))
-    ax2.plot(fpr, tpr, color=C_VIOLET, lw=1.8, label=f"Linear SVM (AUC = {res['auc']:.2f})")
-    ax2.plot([0, 1], [0, 1], color=C_GRAY, ls=":", lw=1.0, label="Chance (AUC = 0.50)")
-    ax2.set_xlabel("False Positive Rate")
-    ax2.set_ylabel("True Positive Rate")
-    ax2.set_title(f"B. Out-of-Fold Performance\n(F1 = {res['f1']:.2f})", pad=8)
+    # Panel B: the out-of-fold AUC and F1 the decoder returns, against chance. The result
+    # carries no decision scores, so no ROC curve can be drawn from it.
+    scores = [res["auc"], res["f1"]]
+    ax2.bar([0, 1], scores, color=C_VIOLET, width=0.5, edgecolor=C_DARK, lw=0.6)
+    for i, value in enumerate(scores):
+        ax2.text(i, value + 0.02, f"{value:.2f}", ha="center", va="bottom", fontsize=7.5)
+    ax2.axhline(0.5, color=C_GRAY, ls=":", lw=1.0, label="Chance (0.50)")
+    ax2.set_xticks([0, 1])
+    ax2.set_xticklabels(["AUC", "F1"])
+    ax2.set_ylim(0, 1.05)
+    ax2.set_ylabel("Out-of-fold score")
+    ax2.set_title("B. Out-of-Fold AUC and F1", pad=8)
     ax2.legend(frameon=False, loc="lower right", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig07_population_decoding.png")
+    _save(fig, "fig07_population_decoding.png")
     plt.close(fig)
 
 
@@ -389,11 +421,11 @@ def fig08_permutation():
 
     ax.set_xlabel("Mean Paired Difference (Δ Fire Rate)")
     ax.set_ylabel("Probability Density")
-    ax.set_title("Exchangeable Within-Group Permutation Null (jnwb.permute_labels)", pad=8)
+    ax.set_title("Paired Sign-Flip Permutation Null", pad=8)
     ax.legend(frameon=False, loc="upper left", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig08_permutation_null.png")
+    _save(fig, "fig08_permutation_null.png")
     plt.close(fig)
 
 
@@ -419,7 +451,7 @@ def fig09_directed_connectivity():
 
     # Panel A: Granger causality
     gc = jnwb.granger(x_filt, y_trials, order=15)
-    bars = ax1.bar(["X → Y\n(True Feedforward)", "Y → X\n(Feedback)"], [gc.x_to_y, gc.y_to_x], color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
+    bars = ax1.bar(["X → Y\n(simulated lead)", "Y → X\n(none simulated)"], [gc.x_to_y, gc.y_to_x], color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
     for b_item, val, p_val in zip(bars, [gc.x_to_y, gc.y_to_x], [gc.p_x_to_y, gc.p_y_to_x]):
         p_str = "p < 0.001" if p_val < 0.001 else f"p = {p_val:.3f}"
         ax1.text(b_item.get_x() + b_item.get_width() / 2, val + 0.01, f"{val:.3f}\n({p_str})", ha="center", fontsize=7.2)
@@ -442,7 +474,7 @@ def fig09_directed_connectivity():
     ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig09_directed_connectivity.png")
+    _save(fig, "fig09_directed_connectivity.png")
     plt.close(fig)
 
 
@@ -480,33 +512,41 @@ def fig10_artifact_repair():
     ax2.legend(frameon=False, loc="upper right", fontsize=7.2)
 
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "fig10_artifact_repair.png")
+    _save(fig, "fig10_artifact_repair.png")
     plt.close(fig)
 
 
-def main():
-    print("Generating 10 canonical documentation figures...")
-    fig01_addressing()
-    print("  [OK] Fig 01: Addressing & Laminar Depth")
-    fig02_spikes_psth()
-    print("  [OK] Fig 02: Spikes & PSTH")
-    fig03_onset()
-    print("  [OK] Fig 03: Onset Latency Fitting")
-    fig04_spectral_tilt()
-    print("  [OK] Fig 04: PSD & Spectral Tilt")
-    fig05_complex_tfr()
-    print("  [OK] Fig 05: Complex TFR & Cone of Influence")
-    fig06_aggregate_db()
-    print("  [OK] Fig 06: Decibel Aggregation")
-    fig07_decoding()
-    print("  [OK] Fig 07: Population Decoding")
-    fig08_permutation()
-    print("  [OK] Fig 08: Permutation Null")
-    fig09_directed_connectivity()
-    print("  [OK] Fig 09: Directed Connectivity")
-    fig10_artifact_repair()
-    print("  [OK] Fig 10: Artifact Repair")
-    print("All 10 figures successfully generated in docs/assets/figures/")
+#: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
+#: key here has no generator, and the maintenance test fails on it.
+FIGURES = {
+    "fig01_addressing_laminar.png": fig01_addressing,
+    "fig02_raster_psth.png": fig02_spikes_psth,
+    "fig03_onset_fitting.png": fig03_onset,
+    "fig04_psd_spectral_tilt.png": fig04_spectral_tilt,
+    "fig05_complex_tfr_coi.png": fig05_complex_tfr,
+    "fig06_aggregate_to_db.png": fig06_aggregate_db,
+    "fig07_population_decoding.png": fig07_decoding,
+    "fig08_permutation_null.png": fig08_permutation,
+    "fig09_directed_connectivity.png": fig09_directed_connectivity,
+    "fig10_artifact_repair.png": fig10_artifact_repair,
+}
+
+
+def main(argv=None):
+    global OUT_DIR
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--out-dir", type=Path, default=FIGURE_DIR)
+    parser.add_argument("--only", nargs="+", choices=sorted(FIGURES), default=sorted(FIGURES))
+    args = parser.parse_args(argv)
+    OUT_DIR = args.out_dir
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for theme in THEMES:
+        apply_theme(theme)
+        for name in args.only:
+            FIGURES[name]()
+            plt.close("all")
+            print(f"  [OK] {name.replace('.png', SUFFIX)}")
+    print(f"{len(args.only)} figure(s) in {len(THEMES)} themes written to {OUT_DIR}")
 
 
 if __name__ == "__main__":

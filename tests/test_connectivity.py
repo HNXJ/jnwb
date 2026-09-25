@@ -170,6 +170,44 @@ class TestBinSpikes:
         with pytest.raises(ValueError, match="yields 1 bins; need >= 2"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.1), bin_size_ms=100.0)
 
+    STEADY_1KHZ = np.arange(0.0005, 3.0, 0.001)  # one spike per ms, off the bin edges
+
+    def test_a_steady_train_reads_its_rate_in_every_bin_of_a_whole_bin_window(self):
+        # 0.3 / 0.01 is 29.999999999999996 in floating point, and is still 30 whole bins.
+        rates = bin_spikes(self.STEADY_1KHZ, window_s=(0.0, 0.3), bin_size_ms=10.0, output="rate")
+        assert rates.shape == (1, 30)
+        np.testing.assert_allclose(rates, 1000.0)
+        # An absolute window hours into a recording carries rounding beyond 1e-9 bins:
+        # this span is 99.99999999854481 bins in floating point.
+        far = bin_spikes(10000.0 + self.STEADY_1KHZ, window_s=(10000.003, 10000.103),
+                         bin_size_ms=1.0, output="rate")
+        assert far.shape == (1, 100)
+        np.testing.assert_allclose(far, 1000.0)
+
+    @pytest.mark.parametrize("end", [0.305, 0.304])
+    def test_a_window_that_is_not_whole_bins_is_refused(self, end):
+        """Rounded up, the last bin held part of its width and read low as a rate; rounded
+        down, the spikes between the last edge and the window end were dropped."""
+        with pytest.raises(ValueError, match=r"window_s=\(0, 0\.3\) or window_s=\(0, 0\.31\)"):
+            bin_spikes(self.STEADY_1KHZ, window_s=(0.0, end), bin_size_ms=10.0, output="rate")
+        with pytest.raises(ValueError, match=r"window_s=\(-0\.1, 0\.2\) or window_s=\(-0\.1, 0\.21\)"):
+            bin_spikes(self.STEADY_1KHZ, window_s=(-0.1, end - 0.1), bin_size_ms=10.0,
+                       trial_starts=[1.0, 2.0])
+
+    def test_mutual_information_refuses_at_its_own_boundary(self):
+        s = np.sort(np.random.default_rng(0).uniform(0.0, 1.0, 50))
+        with pytest.raises(ValueError, match=r"spike_mutual_information: time_window_s="):
+            spike_mutual_information(s, s, time_window_s=(0.0, 1.0), bin_size_ms=35.0)
+
+    def test_mutual_information_bins_a_boundary_spike_as_bin_spikes_does(self):
+        """A spike on the window end is outside the right-open window, so these two trains
+        occupy the same bins. A last bin closed on the right counted it and lowered the MI."""
+        a = np.array([0.05, 0.15, 0.5])
+        b = np.array([0.05, 0.15])
+        mi = spike_mutual_information(a, b, time_window_s=(0.0, 0.5), bin_size_ms=100.0)
+        assert mi == pytest.approx(
+            spike_mutual_information(b, b, time_window_s=(0.0, 0.5), bin_size_ms=100.0))
+
 
 class TestGranger:
     def test_x_leads_y_gives_positive_net(self):
@@ -485,7 +523,7 @@ class TestCrossModalLagSearchPaysForItself:
 
 
 class TestPsiInferenceIsNotOverstated:
-    """05-10: a 10-segment jackknife reported p = 0.0, and overlapping bands were summed
+    """A 10-segment jackknife reported p = 0.0, and overlapping bands were summed
     twice into the headline estimate."""
 
     @staticmethod
@@ -548,9 +586,23 @@ class TestPsiInferenceIsNotOverstated:
         assert fwd.net == pytest.approx(-rev.net, rel=1e-9)
         assert fwd.net > 0.0
 
+    def test_the_returned_spectrum_carries_the_same_sign_as_net(self):
+        """The spectrum is public and plotted; summed over the band's adjacent-bin pairs it is
+        the band estimate itself, so its sign is pinned by the headline value."""
+        x, y = self._lagged_pair()
+        fwd = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        rev = phase_slope_index(y, x, fs=1000.0, nperseg=1024)
+        freqs = fwd.spectrum["freqs"]
+        lo, hi = fwd.per_band["full"]["band_hz"]
+        idx = np.flatnonzero((freqs >= lo) & (freqs <= hi))
+        in_band = fwd.spectrum["psi_per_freq"][idx[:-1]].sum()
+        assert in_band == pytest.approx(fwd.net, rel=1e-9)
+        np.testing.assert_allclose(
+            fwd.spectrum["psi_per_freq"], -rev.spectrum["psi_per_freq"], atol=1e-12)
+
 
 class TestGrangerNotTestedIsNotPassed:
-    """05-11 / 05-12: an untested assumption and a degenerate fit were both reported as
+    """An untested assumption and a degenerate fit were both reported as
     interpretable results."""
 
     # `sys.path[0]` for a script is the script's own directory, not the cwd, so without

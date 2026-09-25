@@ -14,6 +14,7 @@ statistics skill did not route to.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,7 +50,42 @@ def test_every_repository_path_agents_md_cites_exists():
                            "\n".join(lines)))
     assert len(cited) >= 10, f"only {len(cited)} paths matched; the sweep has stopped working"
     missing = sorted(p for p in cited if not (REPO_ROOT / p).exists())
+    # A generated, git-ignored file is absent until its generator runs, which is the normal state
+    # of every fresh checkout and every agent worktree. `artifacts/state.md` is the case: the
+    # suite failed in each fan-out worktree for a pointer that is correct and simply not yet
+    # materialised. The pointer does resolve for a reader -- after one command.
+    # The exemption is deliberately narrow: ignored by git AND named by a script that writes it.
+    # A path that is merely missing is still the defect this test exists for.
+    missing = [p for p in missing if not _is_generated_by_a_script(p)]
     assert not missing, f"AGENTS.md cites paths that do not exist: {missing}"
+
+
+def _is_generated_by_a_script(rel_path: str) -> bool:
+    """True only for a git-ignored path that some `scripts/*.py` names as an output."""
+    ignored = subprocess.run(
+        ["git", "check-ignore", "-q", rel_path], cwd=REPO_ROOT, capture_output=True
+    )
+    if ignored.returncode != 0:
+        return False
+    name = Path(rel_path).name
+    return any(
+        name in script.read_text(encoding="utf-8", errors="replace")
+        for script in (REPO_ROOT / "scripts").glob("*.py")
+    )
+
+
+def test_the_generated_path_exemption_does_not_excuse_an_ordinary_missing_file():
+    """The discriminator for the carve-out above, so it cannot widen into a blanket excuse."""
+    assert not _is_generated_by_a_script("artifacts/not_a_real_artifact.md"), (
+        "a path no script writes was treated as generated"
+    )
+    assert not _is_generated_by_a_script("jnwb/__init__.py"), (
+        "a tracked file was treated as generated"
+    )
+    assert _is_generated_by_a_script("artifacts/state.md"), (
+        "the one path the carve-out exists for is no longer recognised by it; if state.md became "
+        "tracked, delete the carve-out rather than loosening it"
+    )
 
 
 def test_agents_md_does_not_point_at_a_todo_item_that_is_not_there():

@@ -33,6 +33,7 @@ import numpy as np
 from ._parallel import parallel_map, spawn_seeds
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._spread import is_constant as _is_constant
 import pandas as pd
 from scipy import stats
 
@@ -57,6 +58,11 @@ def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
 
     Raises:
         ValueError: If n <= 0, k < 0, k > n, or alpha is not in (0, 1).
+
+    References:
+        Clopper, C. J., & Pearson, E. S. (1934). The use of confidence or fiducial limits
+        illustrated in the case of the binomial. Biometrika. doi:10.1093/biomet/26.4.404
+        -- the exact binomial interval, computed here from Beta quantiles.
     """
     try:
         k_int = int(k)
@@ -136,6 +142,9 @@ def exact_sign_flip(
       No RNG is used or required.
     - For N > 20: Monte Carlo sign-flip sampling with caller-controlled `rng`.
 
+    A null mean within rounding of the observed one counts as a tie. That width is
+    proportional to the differences, so rescaling them (a change of units) leaves p unchanged.
+
     Args:
         diffs: 1D array-like of paired differences (e.g. condition A - condition B).
         alternative: "two-sided" (|mean_null| >= |mean_obs|),
@@ -176,7 +185,7 @@ def exact_sign_flip(
     else:
         p_floor = 0.0
 
-    tol = 1e-12
+    tol = _tie_tolerance(arr)
 
     if n <= 20:
         # Exact direct enumeration of all 2^N combinations
@@ -240,6 +249,14 @@ def fdr_correct(
 
     Returns:
         np.ndarray: FDR-adjusted q-values, same shape as input (flattened 1-D).
+
+    References:
+        Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
+        Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up procedure,
+        returned as adjusted p-values (``method='bh'``).
+        Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in
+        multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+        -- ``method='by'``, valid under arbitrary dependence.
     """
     return StatisticalAnalysis.fdr_correct(p_values, method=method)
 
@@ -408,6 +425,38 @@ def _require_shuffle_inputs(a: np.ndarray, b: np.ndarray, n_shuffles: int, func_
         raise ValueError(f"{func_name}: n_shuffles must be a positive integer, got {n_shuffles!r}")
 
 
+def _tie_tolerance(values: np.ndarray) -> float:
+    """Width within which two evaluations of one permutation statistic are the same number.
+
+    The statistic is a mean, or a difference of means over disjoint subsets, of ``values``
+    (or of ``values`` with signs flipped). A draw that reproduces the observed split sums the
+    same terms in another order and can land an ulp below the observed statistic, so a bare
+    ``>=`` fails to count it and the p-value comes out too small: 3 v 3 separated groups,
+    exact p 0.1, gave p < 0.05 in 16 of 200 seeds. Summing in any order moves a subset mean
+    by less than ``eps * sum(|v|)`` over that subset, and the difference of two means by
+    less than twice that, so two evaluations differ by less than ``4 * eps * sum(|v|)``;
+    the tolerance doubles that bound. It scales with the data, so a change of units leaves
+    every comparison unchanged.
+
+    A difference of means ignores a common offset and ``sum(|v|)`` does not, so the unpaired
+    callers centre the pooled values on their mean before computing the statistic, the null
+    and this width. Uncentred, n = 1000 per group at an offset of 1e10 times the spread
+    counted every split as a tie and returned p 1.0 where the exact rank was 0.487.
+    """
+    return 8.0 * float(np.finfo(float).eps) * float(np.sum(np.abs(values)))
+
+
+def _zero_spread_t(a: float, b: float) -> Tuple[float, float]:
+    """(t, p) of a t-test whose data have no spread, `a` and `b` being the constant values
+    compared: no test when they are equal, and an unbounded t with p 0.0 otherwise, which is
+    what scipy returns when the spread computes to exactly zero. A constant at inf or -inf has
+    no test either; the check is on the values, so a finite difference too large to represent
+    keeps its sign."""
+    if a == b or not (math.isfinite(a) and math.isfinite(b)):
+        return float("nan"), float("nan")
+    return math.copysign(math.inf, a - b), 0.0
+
+
 def shuffle_pvalue_paired(
     a: np.ndarray,
     b: np.ndarray,
@@ -440,12 +489,13 @@ def shuffle_pvalue_paired(
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
+    tol = _tie_tolerance(diff)
     if alt == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
     elif alt == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
     else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
     return obs, float(p)
 
 
@@ -492,19 +542,21 @@ def shuffle_pvalue_unpaired(
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
     alt = _require_alternative(alternative, "shuffle_pvalue_unpaired")
-    obs = float(np.mean(a) - np.mean(b))
     pooled = np.concatenate([a, b])
+    pooled = pooled - np.mean(pooled)  # see _tie_tolerance
     n_a = len(a)
+    obs = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
     null = np.empty(n_shuffles)
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
+    tol = _tie_tolerance(pooled)
     if alt == "greater":
-        p = (1.0 + np.sum(null >= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
     elif alt == "less":
-        p = (1.0 + np.sum(null <= obs)) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
     else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs))) / (n_shuffles + 1.0)
+        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
     return obs, float(p)
 
 
@@ -584,11 +636,14 @@ def shuffle_r2_ci(
 
     Returns:
         dict with r2_observed, r2_null_ci_lo, r2_null_ci_hi, r2_null_mean, p_val, n_shuffle.
+        A single-class label or a constant score has no R^2: every field but ``n_shuffle`` is
+        then NaN.
     """
     random_state = resolve_seed_alias(rng, random_state, alias_name='random_state', func_name='shuffle_r2_ci')
     def _r2(y, s):
-        if np.std(s) == 0 or np.std(y) == 0:
-            return 0.0
+        # A constant label or score has no correlation to square; 0.0 would read as "none".
+        if _is_constant(s) or _is_constant(y):
+            return float("nan")
         r = np.corrcoef(y, s)[0, 1]
         return float(r ** 2)
 
@@ -605,8 +660,9 @@ def shuffle_r2_ci(
     for i in range(n_shuffle):
         y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
+    # Every comparison against a NaN is False, which would put p at its floor, 1/(B+1).
     k = int(np.sum(null >= r2_obs))
-    p_val = float((1 + k) / (n_shuffle + 1))
+    p_val = float((1 + k) / (n_shuffle + 1)) if np.isfinite(r2_obs) else float("nan")
     return {
         "r2_observed": r2_obs,
         "r2_null_ci_lo": float(np.percentile(null, 2.5)),
@@ -652,6 +708,26 @@ def coef_rows(
     return rows
 
 
+_TEST_CHOICES = ("both", "parametric", "nonparametric")
+_CORRELATION_METHODS = ("both", "pearson", "spearman")
+
+
+def _resolve_test_choice(test: str, func_name: str) -> Tuple[bool, bool]:
+    """Map a ``test=`` argument to ``(run_parametric, run_nonparametric)``.
+
+    Callers use this to declare one primary test. The unselected test is then not
+    computed at all, rather than computed and filtered out of the return: a pre-registered
+    family budget is a statement about how many tests were performed, and filtering a dual
+    result afterwards leaves that count outside the caller's control.
+    """
+    if not isinstance(test, str) or test not in _TEST_CHOICES:
+        raise ValueError(
+            f"{func_name}: test must be one of {_TEST_CHOICES}; got {test!r}. "
+            f"Use 'both' (the default) for the dual exploratory report."
+        )
+    return test in ("both", "parametric"), test in ("both", "nonparametric")
+
+
 class StatisticalAnalysis:
     """
     Dual statistical testing with honest multiple-comparison handling.
@@ -684,7 +760,11 @@ class StatisticalAnalysis:
 
         References:
             Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
-            Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x
+            Stat. Soc. B. doi:10.1111/j.2517-6161.1995.tb02031.x -- the step-up
+            procedure, returned as adjusted p-values (``method='bh'``).
+            Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate
+            in multiple testing under dependency. Ann. Stat. doi:10.1214/aos/1013699998
+            -- ``method='by'``, valid under arbitrary dependence.
         """
         p = np.asarray(p_values, dtype=float).ravel()
         if p.size == 0:
@@ -692,21 +772,39 @@ class StatisticalAnalysis:
         return np.asarray(stats.false_discovery_control(p, method=method), dtype=float)
 
     @staticmethod
-    def _uncorrected_flags(param_p: float, nonparam_p: float) -> Dict:
-        """Single-comparison unadjusted significance flags; not family-wise FDR."""
-        return {
-            "significant_parametric": float(param_p) < StatisticalAnalysis.ALPHA,
-            "significant_nonparametric": float(nonparam_p) < StatisticalAnalysis.ALPHA,
-            "multiple_comparison": {
-                "applied": False,
-                "method": None,
-                "reason": "single_comparison_dual_report",
-                "note": (
+    def _uncorrected_flags(
+        param_p: Optional[float] = None,
+        nonparam_p: Optional[float] = None,
+    ) -> Dict:
+        """Single-comparison unadjusted significance flags; not family-wise FDR.
+
+        A test that was not run contributes no flag, so ``n_tests`` is the number of tests
+        actually performed rather than the number the function is capable of performing.
+        That is the number a pre-registered family budget is spent against.
+        """
+        flags: Dict = {}
+        if param_p is not None:
+            flags["significant_parametric"] = float(param_p) < StatisticalAnalysis.ALPHA
+        if nonparam_p is not None:
+            flags["significant_nonparametric"] = float(nonparam_p) < StatisticalAnalysis.ALPHA
+
+        n_tests = len(flags)
+        dual = n_tests == 2
+        flags["multiple_comparison"] = {
+            "applied": False,
+            "method": None,
+            "reason": "single_comparison_dual_report" if dual else "single_comparison_one_test",
+            "n_tests": n_tests,
+            "note": (
+                (
                     "Parametric and nonparametric tests are dual exploratory reports. "
-                    "Use StatisticalAnalysis.fdr_correct(p_values) across a hypothesis family."
-                ),
-            },
+                    if dual
+                    else "One test was performed, as selected by test=. "
+                )
+                + "Use StatisticalAnalysis.fdr_correct(p_values) across a hypothesis family."
+            ),
         }
+        return flags
 
     @staticmethod
     def _bootstrap_mean_diff_ci(
@@ -755,6 +853,8 @@ class StatisticalAnalysis:
         paired: bool = False,
         n_bootstrap: int = 2000,
         rng: RNGLike = DEFAULT_SEED,
+        *,
+        test: str = "both",
     ) -> Dict:
         """
         Compare two groups: parametric (t-test) + non-parametric (Mann-Whitney / Wilcoxon).
@@ -764,7 +864,24 @@ class StatisticalAnalysis:
         - independent: Cohen's d (pooled within-group SD)
 
         Does **not** apply FDR to the two dual-test p-values.
+
+        A test the data cannot support -- an empty group, one observation per group, two
+        identical constant groups, or paired groups whose every difference is zero -- reports
+        its ``statistic`` and ``pval`` as NaN, a t-test's ``df`` as float NaN, and its
+        ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
+        Constant groups at different values, or paired groups whose differences are one
+        non-zero constant, have no spread: the t-test's ``statistic`` is -inf or +inf and its
+        ``pval`` 0.0. Constancy is tested by exact equality, so 0.3 and 0.5 behave alike.
+
+        Args:
+            test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
+                ``"nonparametric"``. Naming one runs only that test: the other is not
+                computed and its keys are absent from the result. Declare the primary test
+                here when a pre-registered analysis budgets one test per hypothesis;
+                leaving the default runs two and spends two.
         """
+        run_param, run_nonparam = _resolve_test_choice(test, "compare_groups")
+
         group1 = np.asarray(group1).flatten()
         group2 = np.asarray(group2).flatten()
 
@@ -804,72 +921,79 @@ class StatisticalAnalysis:
         }
 
         if paired:
-            t_stat, t_pval = stats.ttest_rel(valid1, valid2)
-            w_stat, w_pval = stats.wilcoxon(valid1, valid2)
-            df = len(valid1) - 1
-            diff = valid1 - valid2
-            sd_diff = np.std(diff, ddof=1) if len(valid1) > 1 else np.nan
-            cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff and sd_diff > 0 else 0.0
-
-            result.update(
-                {
-                    "parametric": {
-                        "test": "paired_t_test",
-                        "statistic": float(t_stat) if not np.isnan(t_stat) else 0.0,
-                        "pval": float(t_pval) if not np.isnan(t_pval) else 1.0,
-                        "df": int(df),
-                        "effect_size": cohens_dz,
-                        "effect_size_name": "cohens_dz",
-                    },
-                    "non_parametric": {
-                        "test": "wilcoxon",
-                        "statistic": float(w_stat) if not np.isnan(w_stat) else 0.0,
-                        "pval": float(w_pval) if not np.isnan(w_pval) else 1.0,
-                    },
+            if run_param:
+                t_stat, t_pval = stats.ttest_rel(valid1, valid2)
+                df = len(valid1) - 1
+                diff = valid1 - valid2
+                if _is_constant(diff):
+                    # Zero spread, tested exactly; scipy sees it only when the computed SD is 0.
+                    t_stat, t_pval = _zero_spread_t(valid1[0], valid2[0])
+                    cohens_dz = float("nan")
+                else:
+                    sd_diff = np.std(diff, ddof=1)
+                    cohens_dz = float(np.mean(diff) / sd_diff) if sd_diff > 0 else float("nan")
+                # An undefined test (e.g. identical groups) stays NaN rather than reading as
+                # statistic 0.0 and p 1.0, which is a measured null result.
+                result["parametric"] = {
+                    "test": "paired_t_test",
+                    "statistic": float(t_stat),
+                    "pval": float(t_pval),
+                    # A test with no estimate has no degrees of freedom either.
+                    "df": float("nan") if np.isnan(t_stat) else int(df),
+                    "effect_size": cohens_dz,
+                    "effect_size_name": "cohens_dz",
                 }
-            )
+            if run_nonparam:
+                w_stat, w_pval = stats.wilcoxon(valid1, valid2)
+                # The default zero_method drops zero differences; with none left there is no
+                # rank to test, yet scipy returns statistic 0.0 and p 1.0.
+                if not np.any(valid1 != valid2):
+                    w_stat, w_pval = float("nan"), float("nan")
+                result["non_parametric"] = {
+                    "test": "wilcoxon",
+                    "statistic": float(w_stat),
+                    "pval": float(w_pval),
+                }
             paired_flag = True
         else:
-            t_stat, t_pval = stats.ttest_ind(valid1, valid2)
-            u_stat, u_pval = stats.mannwhitneyu(valid1, valid2, alternative="two-sided")
             df = len(valid1) + len(valid2) - 2
-
-            pooled_std = (
-                np.sqrt(
-                    ((len(valid1) - 1) * np.var(valid1, ddof=1)
-                     + (len(valid2) - 1) * np.var(valid2, ddof=1))
-                    / df
+            if run_param:
+                t_stat, t_pval = stats.ttest_ind(valid1, valid2)
+                both_constant = bool(len(valid1) and len(valid2)
+                                     and _is_constant(valid1) and _is_constant(valid2))
+                if both_constant and df > 0:
+                    t_stat, t_pval = _zero_spread_t(valid1[0], valid2[0])
+                # A one-observation group adds nothing to the pooled sum of squares; its
+                # ddof=1 variance is NaN, and 0 * NaN made the pooled SD NaN and d read 0.0.
+                ss1 = (len(valid1) - 1) * np.var(valid1, ddof=1) if len(valid1) > 1 else 0.0
+                ss2 = (len(valid2) - 1) * np.var(valid2, ddof=1) if len(valid2) > 1 else 0.0
+                pooled_std = np.sqrt((ss1 + ss2) / df) if df > 0 else 0.0
+                cohens_d = (
+                    (np.mean(valid1) - np.mean(valid2)) / pooled_std
+                    if not both_constant and len(valid1) and len(valid2) and pooled_std > 0
+                    else float("nan")
                 )
-                if df > 0
-                else 0.0
-            )
-            cohens_d = (
-                (np.mean(valid1) - np.mean(valid2)) / pooled_std if pooled_std > 0 else 0.0
-            )
-
-            result.update(
-                {
-                    "parametric": {
-                        "test": "independent_t_test",
-                        "statistic": float(t_stat) if not np.isnan(t_stat) else 0.0,
-                        "pval": float(t_pval) if not np.isnan(t_pval) else 1.0,
-                        "df": int(df),
-                        "effect_size": float(cohens_d),
-                        "effect_size_name": "cohens_d_pooled",
-                    },
-                    "non_parametric": {
-                        "test": "mann_whitney_u",
-                        "statistic": float(u_stat) if not np.isnan(u_stat) else 0.0,
-                        "pval": float(u_pval) if not np.isnan(u_pval) else 1.0,
-                    },
+                result["parametric"] = {
+                    "test": "independent_t_test",
+                    "statistic": float(t_stat),
+                    "pval": float(t_pval),
+                    "df": float("nan") if np.isnan(t_stat) else int(df),
+                    "effect_size": float(cohens_d),
+                    "effect_size_name": "cohens_d_pooled",
                 }
-            )
+            if run_nonparam:
+                u_stat, u_pval = stats.mannwhitneyu(valid1, valid2, alternative="two-sided")
+                result["non_parametric"] = {
+                    "test": "mann_whitney_u",
+                    "statistic": float(u_stat),
+                    "pval": float(u_pval),
+                }
             paired_flag = False
 
         result.update(
             StatisticalAnalysis._uncorrected_flags(
-                result["parametric"]["pval"],
-                result["non_parametric"]["pval"],
+                result["parametric"]["pval"] if run_param else None,
+                result["non_parametric"]["pval"] if run_nonparam else None,
             )
         )
         result["mean_diff_ci"] = StatisticalAnalysis._bootstrap_mean_diff_ci(
@@ -878,19 +1002,29 @@ class StatisticalAnalysis:
         return result
 
     @staticmethod
-    def compare_multiple_groups(groups: Dict[str, np.ndarray]) -> Dict:
-        """Compare multiple groups: ANOVA + Kruskal-Wallis (no 2-test FDR)."""
+    def compare_multiple_groups(
+        groups: Dict[str, np.ndarray],
+        *,
+        test: str = "both",
+    ) -> Dict:
+        """Compare multiple groups: ANOVA + Kruskal-Wallis (no 2-test FDR).
+
+        A test the data cannot support -- an empty group, one observation per group for the
+        ANOVA, or identical constant groups -- reports its ``statistic`` and ``pval`` as NaN,
+        and its ``significant_*`` flag is False; an ANOVA with no estimate reports
+        ``df_between`` and ``df_within`` as float NaN, and ``group_sizes`` keeps the counts.
+        ``eta_squared`` is NaN when the data have no variance.
+
+        Args:
+            test: Which test to perform -- ``"both"`` (default), ``"parametric"``
+                (one-way ANOVA) or ``"nonparametric"`` (Kruskal-Wallis). Naming one runs
+                only that test; the other is not computed and its keys are absent.
+        """
+        run_param, run_nonparam = _resolve_test_choice(test, "compare_multiple_groups")
+
         group_data = [np.asarray(g).flatten() for g in groups.values()]
         group_data = [g[~np.isnan(g)] for g in group_data]
         group_names = list(groups.keys())
-
-        f_stat, f_pval = stats.f_oneway(*group_data)
-        h_stat, h_pval = stats.kruskal(*group_data)
-
-        grand_mean = np.concatenate(group_data).mean() if len(group_data) > 0 else 0
-        ss_between = sum(len(g) * (np.mean(g) - grand_mean) ** 2 for g in group_data)
-        ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_data)
-        eta_squared = ss_between / ss_total if ss_total > 0 else 0
 
         k = len(group_data)
         n_total = sum(len(g) for g in group_data)
@@ -909,32 +1043,71 @@ class StatisticalAnalysis:
             "group_mads": [
                 stats.median_abs_deviation(g) if len(g) > 0 else np.nan for g in group_data
             ],
-            "parametric": {
+        }
+
+        if run_param:
+            f_stat, f_pval = stats.f_oneway(*group_data)
+            grand_mean = np.concatenate(group_data).mean() if len(group_data) > 0 else 0
+            ss_between = sum(len(g) * (np.mean(g) - grand_mean) ** 2 for g in group_data)
+            ss_total = sum(np.sum((g - grand_mean) ** 2) for g in group_data)
+            # No variance at all leaves no share of it to explain: 0/0, not 0.
+            eta_squared = ss_between / ss_total if ss_total > 0 else float("nan")
+            # The sums of squares of constant data are rounding residue, not zero; decide the
+            # two degenerate cases exactly. An empty group, or a non-finite value, keeps the NaN
+            # computed above.
+            if group_data and all(len(g) and np.all(np.isfinite(g)) for g in group_data):
+                if _is_constant(np.concatenate(group_data)):
+                    eta_squared = float("nan")
+                elif all(_is_constant(g) for g in group_data):
+                    eta_squared = 1.0
+            result["parametric"] = {
                 "test": "one_way_anova",
-                "statistic": float(f_stat) if not np.isnan(f_stat) else 0.0,
-                "pval": float(f_pval) if not np.isnan(f_pval) else 1.0,
-                "df_between": int(df_between),
-                "df_within": int(df_within),
+                "statistic": float(f_stat),
+                "pval": float(f_pval),
+                # A test with no estimate has no degrees of freedom; group_sizes keeps the counts.
+                "df_between": float("nan") if np.isnan(f_stat) else int(df_between),
+                "df_within": float("nan") if np.isnan(f_stat) else int(df_within),
                 "effect_size": float(eta_squared),
                 "effect_size_name": "eta_squared",
-            },
-            "non_parametric": {
+            }
+        if run_nonparam:
+            h_stat, h_pval = stats.kruskal(*group_data)
+            result["non_parametric"] = {
                 "test": "kruskal_wallis",
-                "statistic": float(h_stat) if not np.isnan(h_stat) else 0.0,
-                "pval": float(h_pval) if not np.isnan(h_pval) else 1.0,
-            },
-        }
+                "statistic": float(h_stat),
+                "pval": float(h_pval),
+            }
+
         result.update(
             StatisticalAnalysis._uncorrected_flags(
-                result["parametric"]["pval"],
-                result["non_parametric"]["pval"],
+                result["parametric"]["pval"] if run_param else None,
+                result["non_parametric"]["pval"] if run_nonparam else None,
             )
         )
         return result
 
     @staticmethod
-    def correlate(x: np.ndarray, y: np.ndarray) -> Dict:
-        """Correlate two variables: Pearson r + Spearman rho (no 2-test FDR)."""
+    def correlate(x: np.ndarray, y: np.ndarray, *, method: str = "both") -> Dict:
+        """Correlate two variables: Pearson r + Spearman rho (no 2-test FDR).
+
+        A constant input has no correlation: that block reports ``statistic``, ``pval``,
+        ``effect_size`` and ``df`` as float NaN, and its ``significant_*`` flag is False. A
+        defined correlation keeps its integer ``df``.
+
+        Args:
+            method: Which correlation to compute -- ``"both"`` (default), ``"pearson"``
+                (returned under ``parametric``) or ``"spearman"`` (under ``non_parametric``).
+                Naming one computes only that one; the other is not computed and its keys
+                are absent. Name the correlation before seeing the data when the analysis
+                budgets one test per hypothesis; the default runs two and spends two.
+        """
+        if not isinstance(method, str) or method not in _CORRELATION_METHODS:
+            raise ValueError(
+                f"correlate: method must be one of {_CORRELATION_METHODS}; got {method!r}."
+            )
+        run_pearson = method in ("both", "pearson")
+        run_spearman = method in ("both", "spearman")
+
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
 
@@ -945,35 +1118,35 @@ class StatisticalAnalysis:
         if len(x_valid) < 3:
             return {"error": "Insufficient valid samples"}
 
-        r_pearson, p_pearson = stats.pearsonr(x_valid, y_valid)
-        rho_spearman, p_spearman = stats.spearmanr(x_valid, y_valid)
         df = len(x_valid) - 2
-
-        result = {
-            "n": len(x_valid),
-            "parametric": {
+        result: Dict = {"n": len(x_valid)}
+        if run_pearson:
+            r_pearson, p_pearson = stats.pearsonr(x_valid, y_valid)
+            result["parametric"] = {
                 "test": "pearson_r",
                 # NaN (e.g. zero-variance input) is propagated, not rewritten to 0.0/1.0 --
                 # "undefined" and "measured zero correlation" are different claims.
                 "statistic": float(r_pearson),
                 "pval": float(p_pearson),
-                "df": int(df),
+                # A correlation with no estimate has no degrees of freedom either.
+                "df": float("nan") if np.isnan(r_pearson) else int(df),
                 "effect_size": float(r_pearson**2),
                 "effect_size_name": "r_squared",
-            },
-            "non_parametric": {
+            }
+        if run_spearman:
+            rho_spearman, p_spearman = stats.spearmanr(x_valid, y_valid)
+            result["non_parametric"] = {
                 "test": "spearman_rho",
                 "statistic": float(rho_spearman),
                 "pval": float(p_spearman),
-                "df": int(df),
+                "df": float("nan") if np.isnan(rho_spearman) else int(df),
                 "effect_size": float(rho_spearman**2),
                 "effect_size_name": "rho_squared",
-            },
-        }
+            }
         result.update(
             StatisticalAnalysis._uncorrected_flags(
-                result["parametric"]["pval"],
-                result["non_parametric"]["pval"],
+                result["parametric"]["pval"] if run_pearson else None,
+                result["non_parametric"]["pval"] if run_spearman else None,
             )
         )
         return result
@@ -1027,7 +1200,26 @@ class StatisticalAnalysis:
         n_permutations: int = 5000,
         rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
-        """Permutation test for difference between two groups.
+        """Permutation test for the difference in means between two samples.
+
+        **This is a flat shuffle. Do not use it on grouped or nested data.** Every
+        observation is treated as exchangeable with every other, so trials nested in
+        sessions, blocks, subjects or cycles are shuffled across that structure and the
+        null absorbs the between-group differences the design confounds the effect with.
+        The resulting p-value is anticonservative, and nothing here detects the nesting or
+        warns: the two samples are the only structure this function is given.
+
+        Measured on a confounded design whose true condition effect is zero -- two sessions
+        with baselines 0.0 and 6.0, 12 vs 4 trials in one and 4 vs 12 in the other -- the
+        flat null has standard deviation 1.07 and returns p = 0.0025, while a within-group
+        null over the same data has standard deviation 0.17 and returns p = 0.24. The flat
+        shuffle reports a significant effect that does not exist.
+
+        For grouped data use ``jnwb.permute_labels(labels, groups=..., scheme=
+        "within_group", rng=...)``, which takes the exchangeability structure explicitly,
+        or ``jnwb.cluster_permutation_test(X, Y, groups=..., scheme="within_group")`` when
+        the comparison is over time or frequency. Grouping arguments are deliberately not
+        accepted here; ``permute_labels`` already implements the schemes.
 
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
@@ -1063,10 +1255,10 @@ class StatisticalAnalysis:
                 "n_y": len(y),
             }
 
-        obs_diff = np.mean(x) - np.mean(y)
-
         combined = np.concatenate([x, y])
+        combined = combined - np.mean(combined)  # see _tie_tolerance
         n_x = len(x)
+        obs_diff = np.mean(combined[:n_x]) - np.mean(combined[n_x:])
 
         perm_diffs = np.empty(n_permutations)
         for i in range(n_permutations):
@@ -1075,7 +1267,7 @@ class StatisticalAnalysis:
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff)))
+        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff) - _tie_tolerance(combined)))
         p_value = (1 + k) / (n_permutations + 1)
 
         return {
@@ -1098,55 +1290,70 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        *,
+        test: str = "both",
     ) -> Dict:
         """
         Dual parametric + non-parametric comparison for **exploratory analysis**.
 
-        Returns raw p-values only — no ``fdr_pval_*`` keys, no FDR theatre.
-        Do **not** cite these p-values as publication-level inference without
-        applying ``fdr_correct()`` across the full hypothesis family.
+        Pass ``test="parametric"`` or ``test="nonparametric"`` to name one primary test;
+        only that one is computed and only its keys are returned. The default runs both.
 
-        Equivalent to ``compare_groups`` minus the deprecated flags.
+        Every p-value in the result is raw. No key in it is FDR-corrected, and no key
+        claims to be: corrected values are spelled ``q_`` and are returned only by
+        ``confirmatory_compare``. Do **not** cite these p-values as publication-level
+        inference without applying ``fdr_correct()`` across the full hypothesis family.
+
+        Equivalent to ``compare_groups`` minus the ``multiple_comparison`` block. The result
+        carries ``correction: "none"``, so a consumer reading it can tell these p-values were
+        not corrected without knowing which entry point produced them.
         """
-        # Re-use the internals but strip deprecated keys
+        # Re-use compare_groups and strip the multiple_comparison block
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             result = StatisticalAnalysis.compare_groups(
-                group1, group2, paired=paired, n_bootstrap=n_bootstrap
+                group1, group2, paired=paired, n_bootstrap=n_bootstrap, test=test
             )
-        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
-            result.pop(key, None)
+        result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     @staticmethod
-    def exploratory_correlate(x: np.ndarray, y: np.ndarray) -> Dict:
+    def exploratory_correlate(x: np.ndarray, y: np.ndarray, *, method: str = "both") -> Dict:
         """
         Dual Pearson r + Spearman rho for **exploratory analysis**.
 
-        Returns raw p-values only — no deprecated flags, no FDR theatre.
+        Pass ``method="pearson"`` or ``method="spearman"`` to name one correlation; only
+        that one is computed and only its keys are returned. The default computes both.
+
+        Every p-value in the result is raw, and so are the ``significant_*`` flags. The
+        result carries ``correction: "none"``, as ``exploratory_compare`` does.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            result = StatisticalAnalysis.correlate(x, y)
-        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
-            result.pop(key, None)
+            result = StatisticalAnalysis.correlate(x, y, method=method)
+        result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     @staticmethod
-    def exploratory_multi(groups: Dict[str, np.ndarray]) -> Dict:
+    def exploratory_multi(groups: Dict[str, np.ndarray], *, test: str = "both") -> Dict:
         """
         Dual ANOVA + Kruskal-Wallis for **exploratory analysis** of multiple groups.
 
-        Returns raw p-values only — no deprecated flags, no FDR theatre.
+        Every p-value in the result is raw and no key in it claims otherwise. Pass
+        ``test="parametric"`` or ``test="nonparametric"`` to name one primary test; only
+        that one is computed. The default runs both. The result carries
+        ``correction: "none"``.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            result = StatisticalAnalysis.compare_multiple_groups(groups)
-        for key in ("fdr_pval_parametric", "fdr_pval_nonparametric", "multiple_comparison"):
-            result.pop(key, None)
+            result = StatisticalAnalysis.compare_multiple_groups(groups, test=test)
+        result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
+        result["correction"] = "none"
         return result
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1191,6 +1398,7 @@ class StatisticalAnalysis:
             Dict with all exploratory_compare keys plus:
                 ``hypothesis``, ``alpha``, ``q_parametric``, ``q_nonparametric``,
                 ``confirmed_parametric``, ``confirmed_nonparametric``, ``api``.
+            A test whose ``pval`` is NaN has a NaN q-value and is not confirmed.
         """
         if not isinstance(hypothesis, str) or not hypothesis.strip():
             raise ValueError(
@@ -1209,8 +1417,12 @@ class StatisticalAnalysis:
         )
         param_p = result["parametric"]["pval"]
         nonparam_p = result["non_parametric"]["pval"]
-        # BH-correct across the two dual-test p-values (minimal within-comparison family)
-        q_vals = StatisticalAnalysis.fdr_correct([param_p, nonparam_p])
+        # BH-correct across the two dual-test p-values (minimal within-comparison family).
+        # An undefined p enters the family as 1.0, the value it used to be reported as, so a
+        # defined partner's q is unchanged; its own q is NaN.
+        p_pair = np.array([param_p, nonparam_p], dtype=float)
+        q_vals = StatisticalAnalysis.fdr_correct(np.where(np.isnan(p_pair), 1.0, p_pair))
+        q_vals[np.isnan(p_pair)] = np.nan
         result.update(
             {
                 "hypothesis": hypothesis.strip(),
@@ -1273,7 +1485,7 @@ def _lag_align(x: np.ndarray, y: np.ndarray, shift: int) -> Tuple[np.ndarray, np
 
 def _abs_pearson(a: np.ndarray, b: np.ndarray) -> float:
     """|Pearson r| without the p-value, for permutation nulls. 0.0 if either is constant."""
-    if len(a) < 3:
+    if len(a) < 3 or _is_constant(a) or _is_constant(b):
         return 0.0
     a = a - a.mean()
     b = b - b.mean()
@@ -1572,7 +1784,12 @@ def cluster_permutation_test(
 
     References:
         Maris, E., & Oostenveld, R. (2007). Nonparametric statistical testing of EEG- and
-        MEG-data. J. Neurosci. Methods. doi:10.1016/j.jneumeth.2007.03.024
+        MEG-data. J. Neurosci. Methods. doi:10.1016/j.jneumeth.2007.03.024 -- the
+        cluster-based permutation test: the sum of t within each suprathreshold cluster,
+        tested against the permutation distribution of the largest cluster statistic.
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be zero.
+        Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585 -- the p-value
+        ``(1 + k) / (B + 1)`` over B random permutations.
     """
     from scipy import ndimage
 
@@ -1644,19 +1861,25 @@ def cluster_permutation_test(
                 raise ValueError("scheme='within_group' requires groups to be specified.")
             pooled_groups = None
 
-    def _finite_t(m: np.ndarray, se: np.ndarray) -> np.ndarray:
-        """t = m / se, with the se == 0 points answered rather than zero-filled.
+    def _finite_t(m: np.ndarray, se: np.ndarray, constant: np.ndarray,
+                  exact_m: np.ndarray) -> np.ndarray:
+        """t = m / se, with the zero-standard-error points answered rather than zero-filled.
 
         Zero standard error makes the statistic 0/0. A difference that is exactly zero in
         every observation is an *observed* zero and stays 0.0. A constant non-zero
         difference is perfectly consistent and its t is unbounded; 0.0 was the most wrong
         available answer there, reporting the strongest possible effect as no effect, so
         that point is now NaN and is reported as non-estimable instead.
+
+        ``constant`` marks the points whose data have no spread, tested exactly, and
+        ``exact_m`` is their difference: the computed ``se`` and ``m`` of constant data are
+        rounding residue (about 1e-17 for 0.3), which made the t there 1e16 or any value.
         """
-        t = np.divide(m, se, out=np.zeros_like(m), where=se > 0)
-        degenerate = ~(se > 0)
+        degenerate = constant | ~(se > 0)
+        t = np.divide(m, se, out=np.zeros_like(m), where=~degenerate)
         if np.any(degenerate):
-            t = np.where(degenerate, np.where(m == 0, 0.0, np.nan), t)
+            m_d = np.where(constant, exact_m, m)
+            t = np.where(degenerate, np.where(m_d == 0, 0.0, np.nan), t)
         return t
 
     def _calc_t_paired(d: np.ndarray) -> np.ndarray:
@@ -1664,14 +1887,15 @@ def cluster_permutation_test(
         m = np.mean(d, axis=0)
         v = np.var(d, axis=0, ddof=1)
         se = np.sqrt(v / n)
-        return _finite_t(m, se)
+        return _finite_t(m, se, _is_constant(d, axis=0), d[0])
 
     def _calc_t_unpaired(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         n_a, n_b = x1.shape[0], x2.shape[0]
         m1, m2 = np.mean(x1, axis=0), np.mean(x2, axis=0)
         v1, v2 = np.var(x1, axis=0, ddof=1), np.var(x2, axis=0, ddof=1)
         se = np.sqrt(v1 / n_a + v2 / n_b)
-        return _finite_t(m1 - m2, se)
+        constant = _is_constant(x1, axis=0) & _is_constant(x2, axis=0)
+        return _finite_t(m1 - m2, se, constant, x1[0] - x2[0])
 
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []

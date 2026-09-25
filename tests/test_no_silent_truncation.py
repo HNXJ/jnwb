@@ -1,4 +1,4 @@
-"""05-21 and 05-24: input that does not fit the contract must be refused or reported,
+"""Input that does not fit the contract must be refused or reported,
 never quietly shortened, re-paired, or answered with a measured zero.
 
 Each test fails when its repair is reverted.
@@ -21,7 +21,7 @@ from jnwb.statistics import (
 
 
 class TestNoSilentTruncationOrMispairing:
-    """05-21: four entry points shortened or dropped input where a sibling refuses.
+    """Four entry points shortened or dropped input where a sibling refuses.
 
     The shared contract: the caller either gets what they asked for, or is told -- through
     `warnings`, which `-W error` and `pytest.warns` can see, not only through `logging`,
@@ -113,7 +113,7 @@ class TestNoSilentTruncationOrMispairing:
 
 
 class TestClusterPermutationRejectsNonEstimablePoints:
-    """05-24: the entry guard tested `isnan` only, and `np.divide(..., out=zeros_like(m),
+    """The entry guard tested `isnan` only, and `np.divide(..., out=zeros_like(m),
     where=se > 0)` left the pre-filled 0.0 behind wherever it did not divide.
     """
 

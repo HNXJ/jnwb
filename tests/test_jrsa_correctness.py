@@ -266,14 +266,54 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
             oa.jrsa(x1, x2, metric="hsic", permutations=10, bootstrap=0, stats=True,
                     kernel="linear")
 
-    def test_the_metrics_own_options_still_reach_it(self):
-        """The guard must reject typos without disabling real options."""
-        x1, x2 = self._pair()
-        a = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
-                                   stats=False, sigma=0.5).value)[0])
-        b = float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=0, bootstrap=0,
-                                   stats=False, sigma=4.0).value)[0])
-        assert a != b, "sigma reached the metric but changed nothing"
+    # The guard must reject typos without disabling real options. Every option a metric
+    # declares, with two values that must give different output. Passing the keyword check is not evidence the option is read: the histogram TE
+    # declared `k` and never used it, so k=1, 2 and 5 all returned 0.040111.
+    _OPTIONS = {
+        ("rsa", "rdm_metric"): ("correlation", "euclidean"),
+        ("hsic", "sigma"): (0.5, 4.0),
+        ("mutual_information", "bins"): (4, 16),
+        ("transfer_entropy_histogram_nats", "bins"): (4, 10),
+        ("granger_ssr_ftest", "max_lag"): (1, 5),
+        ("phase_slope", "fs"): (100.0, 200.0),
+        ("phase_slope", "nperseg"): (64, 256),
+        ("phase_slope", "noverlap"): (0, 48),
+        ("phase_slope", "bands"): ((5.0, 15.0), (20.0, 40.0)),
+        ("phase_slope", "jackknife"): (True, False),
+    }
+    # `kernel` has one legal value; any other raises, which is tested where cka is.
+    _SINGLE_VALUED = {("cka", "kernel")}
+
+    def test_the_table_covers_every_declared_option(self):
+        from jnwb.jrsa import _METRIC_DISPATCH, _metric_kwargs
+
+        declared = {(m, k) for m, fn in _METRIC_DISPATCH.items() for k in _metric_kwargs(fn)}
+        assert declared == set(self._OPTIONS) | self._SINGLE_VALUED
+
+    @pytest.mark.parametrize("metric,option", sorted(_OPTIONS))
+    def test_every_declared_option_changes_the_output(self, metric, option):
+        rng = np.random.default_rng(3)
+        if metric in ("rsa", "hsic"):
+            x1, x2 = rng.standard_normal((30, 8)), rng.standard_normal((30, 8))
+        else:
+            x2 = rng.normal(size=2000)
+            x1 = 0.6 * np.r_[0.0, 0.0, 0.0, x2[:-3]] + rng.normal(size=2000)
+        base = {"fs": 100.0, "nperseg": 128, "bands": (10.0, 30.0)} if metric == "phase_slope" else {}
+        out = []
+        for value in self._OPTIONS[(metric, option)]:
+            kw = {**base, option: value}
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                r = oa.jrsa(x1, x2, metric=metric, permutations=0, **kw)
+            out.append(np.array([np.nan if a is None else float(np.ravel(a)[0])
+                                 for a in (r.value, r.statistic, r.p)]))
+        assert not np.array_equal(out[0], out[1], equal_nan=True), (
+            f"{metric}: {option} passed the keyword check and changed nothing: {out}")
+
+    def test_the_histogram_te_refuses_a_history_length(self):
+        with pytest.raises(TypeError, match=r"\['k'\]"):
+            oa.jrsa(np.arange(50.0), np.arange(50.0)[::-1],
+                    metric="transfer_entropy_histogram_nats", k=2, stats=False)
 
     def test_passing_both_spellings_is_refused(self):
         """05-34 made `rng` canonical and routed jrsa through the package's shared alias
@@ -301,7 +341,7 @@ _OBS_AXIS_0_FEATURE_INVARIANT = ["cka", "rv", "distance_correlation", "procruste
 
 
 class TestBootstrapResamplesObservations:
-    """05-05: `perm_axis` was computed and then ignored by both `_bootstrap` call sites,
+    """`perm_axis` was computed and then ignored by both `_bootstrap` call sites,
     which hardcoded axis=-1. For the six observation-axis-0 metrics the interval therefore
     answered "how much does this depend on which columns I measured" rather than "on which
     observations I sampled"."""
@@ -341,7 +381,7 @@ class TestBootstrapResamplesObservations:
 
 
 class TestPermutationPWins:
-    """05-06: `if p_raw is None` let the metric's own cell-wise parametric p pre-empt the
+    """`if p_raw is None` let the metric's own cell-wise parametric p pre-empt the
     permutation p that had already been computed. `oa.jrsa(..., metric="rsa")` returned the
     identical value at permutations=10 and permutations=2000 -- it was
     `rdm_similarity(v1, v2, "spearman")[1]`, which rsa.py:167 states is not a valid test
@@ -388,3 +428,103 @@ class TestPermutationPWins:
         parametric = rdm_similarity(rdm(a), rdm(b), "spearman")[1]
         res = oa.jrsa(a, b, metric="rsa", permutations=0, random_state=2)
         assert float(np.atleast_1d(res.p)[0]) == pytest.approx(parametric)
+
+
+class TestAlternativeWithoutPermutations:
+    """With no permutation null, `alternative` used to be echoed in `parameters` while the
+    reported p stayed the metric's two-sided one, and a misspelt alternative was accepted."""
+
+    rng = np.random.default_rng(3)
+    x1 = rng.normal(size=(15, 8))
+    x2 = -x1 + 0.4 * rng.normal(size=(15, 8))      # r = -0.949
+
+    @pytest.mark.parametrize("kw", [{}, {"permutations": 0}, {"stats": False},
+                                    {"lag": [0, 1], "permutations": 0}])
+    def test_a_misspelt_alternative_raises_before_anything_is_computed(self, kw):
+        with pytest.raises(ValueError, match="alternative 'GREATER'"):
+            oa.jrsa(self.x1, self.x2, metric="pearson", alternative="GREATER", rng=0, **kw)
+        # Refused ahead of the metric, which is checked later in the pipeline.
+        with pytest.raises(ValueError, match="alternative"):
+            oa.jrsa(self.x1, self.x2, metric="bogus", alternative="GREATER", **kw)
+
+    @pytest.mark.parametrize("kw", [{"permutations": 0}, {"stats": False}])
+    def test_a_one_sided_alternative_halves_the_parametric_p_on_its_side(self, kw):
+        from scipy import stats as sps
+
+        r, p2 = sps.pearsonr(self.x1.ravel(), self.x2.ravel())
+        two = oa.jrsa(self.x1, self.x2, metric="pearson", rng=0, **kw)
+        assert float(two.value) == pytest.approx(r) and r < -0.9
+        assert float(two.p) == pytest.approx(p2, rel=1e-9)
+        less = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="less", rng=0, **kw)
+        greater = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="greater", rng=0,
+                          **kw)
+        assert float(less.p) == pytest.approx(p2 / 2, rel=1e-9) and float(less.p) < 1e-50
+        assert float(greater.p) == 1.0 - p2 / 2
+        # Per lag, on each lag's own sign. The fixture needs lags of both signs: with one
+        # sign throughout, taking every lag's side from the first lag would pass too.
+        g = np.random.default_rng(11)
+        s = g.normal(size=400)
+        u = -s + 1.5 * np.roll(s, 2) + 0.3 * g.normal(size=400)
+        base = oa.jrsa(s, u, metric="pearson", lag=[0, 1, 2, 3], rng=0, **kw)
+        v, pb = np.asarray(base.value), np.asarray(base.p)
+        assert (v > 0).any() and (v < 0).any(), v
+        for alt, on_side in (("greater", v > 0), ("less", v < 0)):
+            lagged = oa.jrsa(s, u, metric="pearson", lag=[0, 1, 2, 3], alternative=alt, rng=0,
+                             **kw)
+            np.testing.assert_allclose(np.asarray(lagged.p),
+                                       np.where(on_side, pb / 2, 1 - pb / 2), rtol=1e-12)
+
+    def test_an_upper_tail_f_test_refuses_a_one_sided_request(self):
+        """The SSR F-test p is upper-tail already; halving it would be wrong."""
+        with pytest.raises(ValueError, match="granger_ssr_ftest") as err:
+            oa.jrsa(self.x1, self.x2, metric="granger_ssr_ftest", alternative="less",
+                    permutations=0)
+        # The message says why, not only that.
+        assert "upper-tail F-test" in str(err.value) and "halving" in str(err.value)
+
+
+def test_sliding_windows_are_refused_and_the_loop_is_named():
+    """`sliding=True` was accepted and ignored: value and p were identical to
+    `sliding=False`, with no warning. It is refused, and the message names the loop."""
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(6, 8, 40))
+    x2 = x1 + rng.normal(size=(6, 8, 40))
+    with pytest.raises(NotImplementedError, match=r"sliding=True.*window=\(s, s \+ w\)"):
+        oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=True, stats=False)
+    oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=False, stats=False)
+
+
+class TestDirectedMetricsStateTheDirectionTheyMeasure:
+    """The SSR F-test and histogram TE measure x2 -> x1, the reverse of
+    `connectivity.granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads.
+    No public text said so; the docstring now does, and this holds it to the numbers."""
+
+    @staticmethod
+    def _lead_lag():
+        rng = np.random.default_rng(0)
+        lead = rng.normal(size=2000)
+        # One sample: the histogram TE conditions on one past sample of each series, so a
+        # longer lead would leave it nothing to see in either direction.
+        lag = 0.9 * np.r_[0.0, lead[:-1]] + 0.4 * rng.normal(size=2000)
+        return lead, lag
+
+    @pytest.mark.parametrize("metric", ["granger_ssr_ftest", "transfer_entropy_histogram_nats"])
+    def test_the_x2_to_x1_metrics_are_large_when_x2_leads(self, metric):
+        lead, lag = self._lead_lag()
+        x2_leads = float(oa.jrsa(lag, lead, metric=metric, stats=False).value)
+        x1_leads = float(oa.jrsa(lead, lag, metric=metric, stats=False).value)
+        assert x2_leads > 2 * x1_leads, (x2_leads, x1_leads)
+        g = oa.granger(lead, lag)
+        assert g.x_to_y > g.y_to_x, "connectivity.granger no longer reads x_to_y as X -> Y"
+
+    def test_phase_slope_is_positive_when_x1_leads(self):
+        lead, lag = self._lead_lag()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            assert float(oa.jrsa(lead, lag, metric="phase_slope", stats=False).value) > 0
+
+    def test_the_docstring_says_so(self):
+        doc = " ".join(oa.jrsa.__doc__.split())
+        assert ("``granger_ssr_ftest`` and ``transfer_entropy_histogram_nats`` measure "
+                "x2 -> x1") in doc
+        assert "``phase_slope`` is positive when x1 leads x2" in doc

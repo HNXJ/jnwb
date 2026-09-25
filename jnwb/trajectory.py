@@ -10,7 +10,9 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._backend import CUDA, resolve_device, warn_device_fallback
+from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
+from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._spread import zscore
 from .gpu_pca import pin_component_signs
 
 log = logging.getLogger(__name__)
@@ -32,7 +34,9 @@ def build_time_resolved_matrix(
         session: Generic session container or interface providing get_units() and get_spike_times()
         area: Brain area to select units from
         epochs_df: DataFrame of trials/epochs (must have 'start_time')
-        time_window_ms: (start_ms, end_ms) relative to epoch onset
+        time_window_ms: (start_ms, end_ms) relative to epoch onset. Its span must be a whole
+            number of ``bin_size_ms`` bins. Every bin is right-open, as in
+            :func:`jnwb.bin_spikes`, so a spike on ``end_ms`` is outside the window.
         bin_size_ms: Width of time bins in ms
         quality: Filter units by quality tier ('stable_plus', 'stable', etc.)
 
@@ -41,14 +45,17 @@ def build_time_resolved_matrix(
         unit_ids: List of unit identities (raw units_df row-index positions, matching
             the session's get_spike_times primary lookup convention) represented in the rows/columns of X
         bin_centers: Center times of bins relative to trial onset in ms
+
+    Raises:
+        ValueError: If the span of ``time_window_ms`` is not a whole multiple of
+            ``bin_size_ms``; the message names the nearest valid windows.
     """
-    # Calculate bin edges
+    n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
+                             "time_window_ms")
     start_sec = time_window_ms[0] / 1000.0
     end_sec = time_window_ms[1] / 1000.0
     bin_sec = bin_size_ms / 1000.0
-    n_bins = int(round((end_sec - start_sec) / bin_sec))
-    bin_edges = np.linspace(start_sec, end_sec, n_bins + 1)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0 * 1000.0
+    bin_centers = (bin_edges(start_sec, bin_sec, n_bins)[:-1] + bin_sec / 2.0) * 1000.0
 
     units_df = session.get_units(quality=quality, area=area)
     if len(units_df) == 0:
@@ -71,13 +78,10 @@ def build_time_resolved_matrix(
         spike_times = session.get_spike_times(unit_id)
         if len(spike_times) == 0:
             continue
-        # Sort spike times for searchsorted speed
-        st = np.sort(spike_times)
-        for i, onset in enumerate(onsets):
-            # Map spike times to relative window
-            rel_spikes = st - onset
-            counts, _ = np.histogram(rel_spikes, bins=bin_edges)
-            X[i, j, :] = counts
+        # The same right-open bins as `bin_spikes`: a spike on the window end is outside.
+        st = np.asarray(spike_times, dtype=float)
+        X[:, j, :] = right_open_counts((st - onset for onset in onsets),
+                                       start_sec, end_sec, bin_sec, n_bins)
 
     return X, unit_ids, bin_centers
 
@@ -99,7 +103,8 @@ def compute_population_trajectory(
     .. note::
         This function computes standardized PCA (correlation PCA): features across units
         are centered and z-scored to unit variance before SVD. Units contribute equally
-        to total variance regardless of baseline firing rate. This contrasts with
+        to total variance regardless of baseline firing rate; a unit whose rate never
+        changes contributes nothing. This contrasts with
         :meth:`jnwb.analyzers.UnitAnalyzer.population_trajectory` which computes
         unstandardized covariance PCA (centering only).
 
@@ -119,6 +124,7 @@ def compute_population_trajectory(
         - explained_variance: explained variance ratio of kept components
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
+        - device_used: 'cpu' or 'cuda', the device that performed the SVD
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -142,11 +148,8 @@ def compute_population_trajectory(
     # Reshape X to (n_trials * n_bins, n_units) to perform PCA over the unit dimension
     X_flat = X.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
     
-    # Scale and center features
-    mean = np.mean(X_flat, axis=0, keepdims=True)
-    std = np.std(X_flat, axis=0, keepdims=True)
-    std[std == 0.0] = 1.0
-    X_scaled = (X_flat - mean) / std
+    # Scale and center features; a constant unit is exactly 0 and takes no component.
+    X_scaled = zscore(X_flat, axis=0)
 
     actual_components = min(n_components, X_flat.shape[0], n_units)
 
@@ -173,13 +176,14 @@ def compute_population_trajectory(
         except Exception as e:
             warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
+            resolved = CPU
             proj_np, V_np, S_np = _svd_numpy()
     else:
         proj_np, V_np, S_np = _svd_numpy()
 
     # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
-    # and cuSOLVER happened to pick, which showed up as a trajectory reflected through
-    # the origin. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    # and cuSOLVER happened to pick for each component, which showed up as trajectory
+    # components of opposite sign. See :func:`jnwb.gpu_pca.pin_component_signs`.
     V_np, proj_np = pin_component_signs(V_np, proj_np)
 
     # Calculate variance explained ratio
@@ -204,5 +208,6 @@ def compute_population_trajectory(
         'trajectory': trajectory,
         'explained_variance': float(explained_variance),
         'unit_ids': unit_ids,
-        'bin_centers': bin_centers
+        'bin_centers': bin_centers,
+        'device_used': resolved,
     }

@@ -11,12 +11,11 @@ Activate this skill for any substantial, multi-step, or consequential repository
 Simple, single-domain reference lookups may route directly to domain skills. All multi-step work must route through `jnwb-fact-action`.
 
 ## 2. Mandatory Authority Loading Order
-Before inspecting or altering code, an agent MUST load authorities in strict sequence:
-1. `AGENTS.md` (repository invariants, operational rules, workflow grammar)
-2. `artifacts/fact_stack.md` (human-authorized durable facts)
-3. `artifacts/todo_stack.md` (unresolved executable work)
-4. Relevant domain skill (e.g. `jnwb-nwb-data`, `jnwb-lfp-spectral`, `jnwb-statistics`)
-5. Current repository evidence (re-read targets, execute probes, inspect live tree)
+Before inspecting or altering code, an agent MUST load the authorities listed in **`AGENTS.md` §3 Prepare, in the order given there**. That is the sole loading-order authority; this skill carries no list of its own.
+
+That order reaches every slot of $X$, which `AGENTS.md` §2 defines. A loading order leaving a slot unreachable is not a shorter version of this one — it is a different one, and it cannot rank what it never loads.
+
+Ruled 2026-09-19 (06-61, candidate C). This section previously enumerated five sources of its own. The enumeration drifted from `AGENTS.md` §3, which by then named eight, leaving `goal`, `state` and `problem` unreachable to any packet that followed this file — recorded as P-14. The repair is not a corrected copy: a second copy is the mechanism that produced the drift, so there is now one authority and a pointer to it.
 
 ## 3. Core Epistemic Invariants
 - **High freedom in hypothesis generation; zero freedom in project-fact completion.**
@@ -33,7 +32,7 @@ Before inspecting or altering code, an agent MUST load authorities in strict seq
 The execution loop formalizes $W = P(RG)^N S$:
 
 ### F — Frame
-- Load authorities in the mandatory sequence (1–5).
+- Load authorities per §2, which delegates the order to `AGENTS.md` §3 Prepare.
 - Identify the exact todo item from `artifacts/todo_stack.md`.
 - Reconstruct the estimand, units, coordinate frames, boundaries, and acceptance criteria.
 - Select the relevant domain skill (`role` $\perp$ `domain`).
@@ -63,18 +62,46 @@ The execution loop formalizes $W = P(RG)^N S$:
 When delegating sub-tasks to separate subagents or roles, decouple the role from the domain skill. Every delegated packet must follow the standard contract:
 
 ```text
-ROLE: authority | critic | actor | verifier | docs-harness
+ROLE: authority | critic | actor | verifier | docs-harness | jnwb-developer
 DOMAIN SKILL: <canonical domain skill, e.g. jnwb-nwb-data>
 GOAL: <precise outcome>
 TODO ITEM: <item from todo_stack.md>
 AUTHORITIES: <receipts / files>
 RELEVANT FACTS: <from fact_stack.md>
+BASELINE COMMIT: <the SHA this packet was written against>
 OBSERVED BASELINE: <reproduced behavior before change>
 INVARIANTS: <preserved properties>
 ALLOWED SCOPE: <exact files permitted to change>
 ACCEPTANCE: <concrete passing criteria>
 STOP CONDITIONS: <when to stop and surface>
 ```
+
+`BASELINE COMMIT` is the one field a packet must act on before it reads anything else. Verifying
+it is the first step of Prepare in `AGENTS.md` §3, which defines both the comparison and the
+remedy and is the only place either is written down; this skill adds only that the check is not
+optional and that a mismatch stops the packet rather than being worked around. Two fields are
+needed rather than one because `OBSERVED BASELINE` records the behaviour a packet reproduced and
+says nothing about whether it reproduced it on the right tree, which is how P-28 survived three
+fan-outs with that field already in the contract.
+
+`ACCEPTANCE` must name a whole-suite run whenever `ALLOWED SCOPE` permits adding, renaming or
+moving a test file. A scoped selector cannot observe a rule that a different module enforces,
+so an acceptance built from the harness gate and the packet's own test module is satisfiable
+while such a rule is broken. Measured: a provenance assertion added to `tests/test_compression.py`
+violated the reservation in `tests/test_the_suite_can_qualify_an_installed_copy.py` that only
+`test_import_provenance.py` may assert which installation is under test; the gate reported 14
+of 14 and the packet's own module passed, and only the whole suite failed. This is a rule about
+what an acceptance must be able to detect, not a rule that every packet runs everything: a
+packet whose scope cannot reach a test file does not need it.
+
+The converse binds too: `ALLOWED SCOPE` must permit a test file whenever `ACCEPTANCE` requires a
+discriminator proven by mutation. A discriminator is a test, so a packet that demands one while
+scoping the change to a single non-test file states two conditions that cannot both be met, and
+the agent has to choose which instruction to break. Measured: the 06-93 packet scoped the change
+to `skills/jnwb-spiking/SKILL.md` "and nothing else" and required six mutants and a killed
+assertion each; the lane wrote the discriminator into `tests/test_skills_validation.py`, judged
+correctly, and had to report the excursion for ratification instead of reporting its result.
+A packet that forces that choice is defective whichever way the agent resolves it.
 
 Every delegated result must return:
 

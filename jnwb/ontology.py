@@ -429,7 +429,7 @@ class Figure:
 #
 # The three below forward their arguments to the constructor of the same name and add nothing:
 # `create_result(q, s, p, l) == Result(q, s, p, l)` for every input. They were never in
-# `__all__`. Deprecated in 0.2.5 rather than removed, per `AGENTS.md` section 8; call the
+# `__all__`. Deprecated in 0.2.5 rather than removed, so callers have a path; call the
 # dataclass directly. `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`,
 # which is the documented route and is not deprecated.
 

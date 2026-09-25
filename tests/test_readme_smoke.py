@@ -81,9 +81,7 @@ def test_readme_links_resolve_from_the_page_that_renders_it():
     """`readme = "README.md"` makes this file the PyPI long description.
 
     PyPI renders it verbatim and does not rewrite relative links, so
-    `[CONTRIBUTING.md](CONTRIBUTING.md)` resolved against pypi.org and 404'd. One of the
-    four was worse than dead: `artifacts/` is pruned from the sdist by `MANIFEST.in`, so
-    `artifacts/todo_stack.md` is not in the artifact the page describes either.
+    `[CONTRIBUTING.md](CONTRIBUTING.md)` resolved against pypi.org and 404'd.
 
     An absolute link can be wrong in the other direction -- a URL that looks right and
     points at nothing -- so each `blob/main` target is resolved against the checkout.
@@ -94,7 +92,7 @@ def test_readme_links_resolve_from_the_page_that_renders_it():
     )
 
     links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", README.read_text(encoding="utf-8"))
-    assert len(links) >= 8, f"only {len(links)} links found; the sweep has stopped working"
+    assert len(links) >= 7, f"only {len(links)} links found; the sweep has stopped working"
     for label, target in links:
         assert target.startswith(("http://", "https://")), (
             f"README link {label!r} -> {target!r} is relative, so it is dead on the PyPI "

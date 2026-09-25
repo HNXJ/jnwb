@@ -6,6 +6,8 @@ and memory layouts.
 """
 from __future__ import annotations
 
+import functools
+import io
 import itertools
 import os
 import zipfile
@@ -31,41 +33,90 @@ def _read_skip(f, n_bytes: int, chunk_size: int = 65536) -> None:
         n_bytes -= n_read
 
 
+def _read_exact(f, buf) -> None:
+    """Fill buf from the stream, failing if the entry ends first rather than leaving it unset."""
+    if f.readinto(buf) != memoryview(buf).nbytes:
+        raise EOFError("Unexpected EOF while streaming NPZ archive entry")
+
+
+def _seek_skip(f, n_bytes: int) -> None:
+    """Advance a stored (uncompressed) archive entry by n_bytes without reading them.
+
+    ``ZipExtFile.seek`` clamps a target past the end of the entry instead of failing, so the
+    landing position is checked: a header that promises more elements than the entry holds must
+    fail here as it does through ``_read_skip``.
+    """
+    target = f.tell() + n_bytes
+    if f.seek(target) != target:
+        raise EOFError("Unexpected EOF while streaming NPZ archive entry")
+
+
+@functools.lru_cache(maxsize=None)
+def _stored_seek_is_reliable() -> bool:
+    """Whether this interpreter's ``ZipExtFile.seek`` reads a stored entry correctly afterwards.
+
+    CPython 3.12.0 loses count of the bytes left in a stored entry after a seek that lands inside
+    its read buffer, so the reads that follow end early and a valid archive fails as truncated.
+    One such seek on an in-memory archive decides it; where it fails, skipped bytes are read.
+    """
+    payload = bytes(range(256)) * 32
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("probe", payload)
+    try:
+        with zipfile.ZipFile(raw) as zf, zf.open("probe") as f:
+            f.read(1)
+            return f.seek(2) == 2 and f.read() == payload[2:]
+    except Exception:
+        return False
+
+
 def _stream_slice(
     f,
     shape: Tuple[int, ...],
     fortran_order: bool,
     dtype: np.dtype,
     slice_tuple: Union[slice, int, Tuple[Union[slice, int], ...]],
+    seekable: bool = False,
 ) -> np.ndarray:
     """Stream sliced elements from an open .npy stream in monotonic element order."""
-    if isinstance(slice_tuple, (slice, int, np.integer)):
-        slice_tuple = (slice_tuple,)
+    # NumPy validates the index against a zero-stride array of the same shape, which costs no
+    # memory, so every index NumPy rejects raises NumPy's own error (IndexError for too many
+    # indices, an out-of-range integer or a non-integer scalar; ValueError for a zero step).
+    np.broadcast_to(np.empty((), dtype=np.uint8), shape)[slice_tuple]
+    items = slice_tuple if isinstance(slice_tuple, tuple) else (slice_tuple,)
 
     slices = []
-    for s in slice_tuple:
-        if isinstance(s, (int, np.integer)):
-            slices.append(slice(int(s), int(s) + 1, 1))
-        elif isinstance(s, slice):
+    for s, dim in zip(items, shape):
+        if isinstance(s, slice):
             slices.append(s)
+        elif isinstance(s, (int, np.integer)) and not isinstance(s, bool):
+            i = int(s) + dim if int(s) < 0 else int(s)
+            slices.append(slice(i, i + 1, 1))
         else:
-            raise TypeError(f"Indices in slice_tuple must be slice or int, got {type(s).__name__}")
-
-    if len(slices) > len(shape):
-        raise ValueError(
-            f"Too many indices for array: array is {len(shape)}-dimensional, but {len(slices)} were indexed"
-        )
-
+            raise TypeError(
+                "slice_tuple holds integers and slices only; got "
+                f"{type(s).__name__}, which NumPy reads as a different kind of index"
+            )
 
     while len(slices) < len(shape):
         slices.append(slice(None))
+    # An integer index removes its axis, as in NumPy; the stream reads it as a length-1 slice.
+    drop_int_axes = tuple(
+        0 if isinstance(s, (int, np.integer)) else slice(None) for s in items
+    )
 
     indices = [s.indices(dim) for s, dim in zip(slices, shape)]
     out_shape = tuple(len(range(*idx)) for idx in indices)
     order = "F" if fortran_order else "C"
 
+    if not shape:
+        buf = bytearray(dtype.itemsize)
+        _read_exact(f, buf)
+        return np.frombuffer(buf, dtype=dtype).reshape(()).copy()
+
     if any(s == 0 for s in out_shape):
-        return np.empty(out_shape, dtype=dtype, order=order)
+        return np.empty(out_shape, dtype=dtype, order=order)[drop_int_axes]
 
     ndim = len(shape)
     if fortran_order:
@@ -87,6 +138,9 @@ def _stream_slice(
 
     out = np.empty(out_shape, dtype=dtype, order=order)
     curr_elem = 0
+    # A stored entry seeks past what the slice skips, so time follows what is read. A compressed
+    # entry has no random access and must be decompressed up to the last selected element.
+    skip = _seek_skip if seekable else _read_skip
 
     def forward_to_elem(target_elem: int) -> None:
         nonlocal curr_elem
@@ -96,7 +150,7 @@ def _stream_slice(
                 f"Internal streaming error: target element {target_elem} < current element {curr_elem}"
             )
         if diff_elems > 0:
-            _read_skip(f, diff_elems * itemsize)
+            skip(f, diff_elems * itemsize)
             curr_elem = target_elem
 
 
@@ -109,7 +163,9 @@ def _stream_slice(
         # To preserve monotonic forward streaming, sort other_axes by descending stride so that
         # the dimension with smallest stride varies in the innermost loop of itertools.product.
         other_axes.sort(key=lambda ax: elem_strides[ax], reverse=True)
-        other_ranges = [ranges[ax] for ax in other_axes]
+        # Each outer axis is walked in ascending element order; a negative step is walked
+        # reversed and written to its output position, which the index below computes.
+        other_ranges = [ranges[ax] if ranges[ax].step > 0 else ranges[ax][::-1] for ax in other_axes]
         other_strides = [elem_strides[ax] for ax in other_axes]
 
         for outer_coords in itertools.product(*other_ranges):
@@ -129,10 +185,10 @@ def _stream_slice(
 
             dest_sub = out[tuple(out_slice)]
             if dest_sub.flags.c_contiguous or dest_sub.flags.f_contiguous:
-                f.readinto(dest_sub.data)
+                _read_exact(f, dest_sub.data)
             else:
                 buf = bytearray(block_bytes)
-                f.readinto(buf)
+                _read_exact(f, buf)
                 out[tuple(out_slice)] = np.frombuffer(buf, dtype=dtype)
             curr_elem += block_len
     else:
@@ -146,11 +202,11 @@ def _stream_slice(
         mv_item = memoryview(item_buf)
         for elem_offset, out_idx in flat_tasks:
             forward_to_elem(elem_offset)
-            f.readinto(mv_item)
+            _read_exact(f, mv_item)
             curr_elem += 1
             out[out_idx] = np.frombuffer(item_buf, dtype=dtype)[0]
 
-    return out
+    return out[drop_int_axes]
 
 
 def stream_npz_array(
@@ -165,10 +221,19 @@ def stream_npz_array(
     and compressed archives ZIP_DEFLATED). Preserves exact dtype, shape, and Fortran/C
     memory order.
 
+    Time depends on the compression. A stored archive (``np.savez``) seeks past what the slice
+    skips, so time follows the number of elements read. A compressed archive
+    (``np.savez_compressed``) is decompressed from the start of the array to its last selected
+    element. Seeking means the entry's CRC-32 is checked only when the slice skips nothing;
+    read the whole array to verify the file. Where the interpreter's ``zipfile`` miscounts a
+    stored entry after a seek (CPython 3.12.0), a stored archive is read forward instead.
+
     Args:
         file_path: Path to the .npz archive on disk.
         key: Array key within the archive (with or without '.npy' suffix).
-        slice_tuple: Slice specification for the array (slice, int, or tuple of slices/ints).
+        slice_tuple: A slice, an integer, or a tuple of them, applied as NumPy applies it:
+            ``(slice(1, 4), -1)`` on shape ``(5, 6, 7)`` gives shape ``(3, 7)``, because an
+            integer removes its axis.
 
     Returns:
         np.ndarray: Sliced array with preserved dtype and memory order.
@@ -177,8 +242,13 @@ def stream_npz_array(
     Raises:
         FileNotFoundError: If file_path does not exist on disk.
         KeyError: If key is not present in the NPZ archive.
+        IndexError: Where NumPy raises it: too many indices, an integer out of bounds for its
+                    axis, or a scalar index that is not an integer.
+        TypeError: For an index NumPy accepts that is not an integer or a slice (``...``,
+                   ``None``, a boolean, an array or a list).
         ValueError: If archive is corrupt, compression method is unsupported,
-                    array format/header is invalid, or layout is unsupported (e.g. object dtype).
+                    array format/header is invalid, or layout is unsupported (e.g. object dtype);
+                    and for a slice step of zero, as in NumPy.
     """
     path = Path(file_path)
     if not path.exists():
@@ -227,8 +297,13 @@ def stream_npz_array(
                     fortran_order=fortran_order,
                     dtype=dtype,
                     slice_tuple=slice_tuple,
+                    seekable=(
+                        info.compress_type == zipfile.ZIP_STORED
+                        and f.seekable()
+                        and _stored_seek_is_reliable()
+                    ),
                 )
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, IndexError, TypeError):
             raise
         except Exception as exc:
             raise ValueError(f"Failed to stream array '{key}' from corrupt archive {path}: {exc}") from exc

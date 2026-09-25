@@ -9,8 +9,9 @@ documentation, in
 
 ## Setup
 
-Python 3.12 or newer. CI runs 3.12 and 3.14 on Ubuntu and Windows, so a change must work on
-both ends of that range.
+Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows — six legs, and
+`pyproject.toml` is where the declared set lives — so a change must work across the whole range,
+not only at its ends.
 
 ```bash
 git clone git@github.com:HNXJ/jnwb.git
@@ -31,8 +32,8 @@ python -m pytest tests/ -q
 ```
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
-CI exercises the declared Python floor and newest supported version (see `pyproject.toml`).
-A small number of tests skip when optional extras are not installed.
+CI exercises every version `pyproject.toml` declares, so a version the package claims is a
+version CI runs. A small number of tests skip when optional extras are not installed.
 
 ## Branches
 
@@ -44,27 +45,61 @@ work you have run the full checks on. Never force-push either branch.
 
 ## Before you push
 
-Four checks, in this order. All four run in CI, so running them locally only saves you a
+Three checks, in this order. All three run in CI, so running them locally only saves you a
 round trip.
 
 ```bash
 python -m pytest tests/ -q
 python scripts/harness_gate.py
 python scripts/docs_build.py
-python scripts/release_gate.py
 ```
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive.
-- **`harness_gate.py`** — 13 repository gates: the project boundary, skills, paths, the
-  root allowlist, docs, the public API set, version agreement, the Python policy, import
-  shadowing, project identifiers in code, and NWB onboarding alignment. It fails on
-  structure, not behaviour.
+- **`harness_gate.py`** — 19 repository gates: the project boundary, skill-tree uniqueness,
+  machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
+  tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
+  floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
+  and `docs/install.md`, `docs/api.md` against `__all__` and the generator,
+  docs versions derived from `__version__`, no unowned importable package at the root, project
+  identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
+  and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
+  stack form, line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
+  column against the runtime object, and frozen-validated functions against their verified
+  bodies. It fails on structure, not behaviour.
+
+**Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
+was verified by someone other than its author and had a mutant killed by the tests it names.
+Each entry records the SHA-256 of the function's syntax tree without docstrings or comments,
+so rewording a docstring or reformatting leaves it frozen and any change to the code does not.
+Gate 19 fails when a frozen body changes. Such a change either carries a new independent
+verification and kill, recording the new hash and commit, or removes the entry. A function is
+admitted only with that verification, a kill, and no open todo entry naming it; reviews may
+skip an entry whose hash still matches.
 - **`python scripts/docs_build.py`** — strict MkDocs via the same interpreter as pytest.
   Read the Docs sets `fail_on_warning`, so a warning here is a failed publish.
-- **`release_gate.py`** — builds the wheel, installs it in a clean venv, and smoke-tests
-  the installed package. Only needed before tagging, but it catches packaging mistakes
-  (a module missing from the wheel, a broken extra) that the suite cannot see.
+
+A fourth check exists and is **not** part of this sequence:
+
+```bash
+python scripts/release_gate.py
+```
+
+- **`release_gate.py`** — runs the suite in parallel and prints its wall time and ten slowest
+  tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+  package. It catches packaging mistakes (a module missing from the wheel, a
+  broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
+  commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
+  in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
+  dependency fails. Run it before tagging, not before pushing: it needs network access to
+  build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
+  it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
+  calls its `main`.
+
+  If `gh` is unavailable, unauthenticated, or the commit has no finished run, the CI step
+  reports *unresolved* and the gate stops. That is deliberate: the alternative passes hardest
+  exactly when the release is least verifiable. `JNWB_SKIP_CI_CHECK=1` proceeds anyway and
+  says loudly in the log that the tag carries no CI evidence.
 
 Stage exact paths. `git add .` sweeps in build output and scratch files.
 
@@ -108,7 +143,7 @@ All code in `jnwb` must satisfy the following implementation standards:
 2. **Explicit Dimensions, Units & Coordinates**: Always specify physical units (e.g. `fs: float` in Hz, time in seconds, frequencies in Hz). Never confuse array indices with physical coordinate values.
 3. **Stable Terminology**: Use standardized parameter names across modules (`fs` or `sampling_rate`, `time_window`, `freq_range`, `alpha`, `rng`).
 4. **Typed Public Signatures**: Type-annotate public function arguments and return types.
-5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) must accept an optional `rng: Optional[Union[np.random.Generator, int]] = None` and instantiate a local generator via `np.random.default_rng(rng)`. **Never mutate global state** (`np.random.seed()`).
+5. **Deterministic Behavior & Explicit RNG**: Functions requiring stochasticity (permutation, bootstrap, cross-validation) accept `rng: RNGLike` (`jnwb._rng`, an `int` seed, a `np.random.Generator`, or `None`) and resolve it through `resolve_rng`. **The default in the signature is the seed the function will use** — `DEFAULT_SEED` (42), or the literal that function has always used, or no default where the caller must choose — so `inspect.signature` and `help()` report the stream a bare call draws. Wrap it in `_rng.Default(...)` when the parameter carries a deprecated alias and "not supplied" must stay distinguishable from an explicit `None`. `None` means fresh OS entropy, and a body must never resolve it to a fixed seed: five functions declared `rng=None` and then ran `np.random.default_rng(42)`, so two calls a caller believed were independent shared one null and agreed exactly. `jnwb/_rng.py` records that repair (05-35). Default to `None` only where fresh entropy per call is the intended contract. `tests/test_rng_convention_matches_the_signatures.py` holds the live signatures against this paragraph, so the two cannot drift apart. **Never mutate global state** (`np.random.seed()`).
 6. **No Hidden Filesystem Assumptions**: Never hardcode relative paths, machine-specific drive letters, or external network dependencies in library functions.
 7. **No Silent Numerical Clipping / Censoring**: Never silently clamp, filter, or discard invalid values unless explicitly requested by a parameter.
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
@@ -139,6 +174,31 @@ Every module must be protected by deterministic test coverage in `tests/`. Tests
 - **Numerical Stability**: Safeguards against divide-by-zero, NaN propagation, ill-conditioned matrices, and float precision overflow.
 - **Regression Tests**: Every corrected bug or edge case must be accompanied by an adversarial regression test.
 
+### Mutation runs go through the harness
+
+A mutation run — editing the tree to check that a test can fail, then restoring it — must use
+`scripts/mutation_harness.py`. Do not hand-roll one.
+
+The harness derives its state directory from the worktree being operated on, refuses to touch a
+path outside that worktree, and admits one session per worktree under an OS-level lock. That is
+not ceremony. A worktree isolates the repository and **not** the session scratchpad, so two
+lanes writing a file called `mutate.py` into the shared scratchpad collide — measured three
+times across two batches, once between a live mutation harness and another lane's harness
+pointing at a third worktree.
+
+The danger is not the lost file, it is the **restore**. A write-restore harness reads its own
+script to know what to put back; if that script is replaced between mutate and restore, the
+restore targets a tree the session does not own, and leaves a live mutant in a tree nobody is
+looking at. Every collision so far was benign and visible, caught by hash. The same race with a
+restore in flight would not be.
+
+The harness also refuses to report a kill it has not earned: it proves each selector collects
+and passes on the pristine tree first, verifies every restore by sha256 per mutant rather than
+once at the end, and requires the specific node id to appear as `FAILED` rather than accepting
+that the run merely went red. A selector naming a bare test method where the test is a class
+method collects nothing and exits non-zero, which is indistinguishable from a kill — that
+produced six false kills in 0.2.5 and hid a real gap behind them.
+
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
@@ -147,6 +207,74 @@ Every module must be protected by deterministic test coverage in `tests/`. Tests
   ```bash
   python scripts/docs_build.py
   ```
+
+## Skill rule
+
+A skill routes an agent to jnwb's public operations and constrains how it composes them. The
+operation's code, documentation and tests define what it computes; the skill names it and says
+when to use it (`artifacts/direction.md`: code implements, docs explain, skills route, tests
+verify).
+
+### When a skill is created
+
+Only when all three hold, per `artifacts/fact_stack.md` ("Skill creation is capability-gated"):
+
+1. a coherent **public** capability surface exists for it to route to;
+2. that surface has enough routing complexity to benefit from a specialist;
+3. no existing skill can carry it more simply.
+
+A skill whose main behaviour would be declining, or writing code no public API provides, is not
+created. The API, its documentation and its tests land first, or in the same change as the skill.
+Extending an existing skill is the default.
+
+### What a skill contains
+
+`skills/<name>/SKILL.md`, with frontmatter `name: <name>` and a one-sentence `description`, then:
+
+| Section | Holds |
+|---|---|
+| Trigger | The requests that should load this skill |
+| Routing | One row per operation: `jnwb.fn(args)` and when to use it |
+| Invariants | The scientific constraints composition must respect, each stated once |
+| Minimal workflow | One runnable example on synthetic data |
+| Verification | How an agent checks its result |
+| Documentation | Links to the `docs/` pages that define the operations |
+
+`skills/<name>/agents/openai.yaml` carries `interface.display_name` (equal to `<name>`),
+`interface.description`, and `policy.allow_implicit_invocation: true`.
+
+Every task a skill handles ends in one of four outcomes: compose and execute, request missing
+information, report non-identifiability or failure, or decline an unsupported inference. A skill
+that cannot decline is incomplete.
+
+### What a skill leaves out
+
+- Mathematics and estimator definitions: link the `docs/` page instead.
+- Implementation internals (pool mechanics, accumulator algorithms, solver details).
+- Counts of exports, tests or files.
+- Study-specific condition codes, session labels or area vocabularies (Gate 6).
+
+State a default only where it changes how the operation must be called, and give it a row in
+`tests/test_skill_default_claims_match_signatures.py`; an unregistered mention fails the suite.
+
+### What checks it
+
+`tests/test_skills_validation.py`, `tests/test_skill_default_claims_match_signatures.py` and
+harness Gate 2 check, on every run:
+
+- the skill directory is in `CANONICAL_SKILLS`, and `skills/` is the only skill tree;
+- frontmatter and `openai.yaml` match the shape above;
+- every routed `jnwb.` symbol is in `jnwb.__all__` and every routing row's arguments bind to
+  `inspect.signature` of the live function;
+- every default stated in prose equals the signature default;
+- every linked `docs/` path exists, and no hardcoded counts appear.
+
+A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
+check fails the suite otherwise. Adding a skill also adds its row to the router
+(`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
+
+Routing tests that exercise all four outcomes for every skill are planned for 0.2.7
+(`artifacts/planned_post_0.2.6.md`).
 
 ## Repository root freeze and `artifacts/` policy
 
@@ -237,12 +365,20 @@ finish something, delete it from the stack in the same commit.
 
 ## Releasing
 
-Maintainers only, and only from a clean `dev` with all four checks green.
+Maintainers only, and only from a clean `dev` with the three pre-push checks green and
+`release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
    entry.
-2. Commit to `dev`, push, and wait for CI to pass on that exact commit.
-3. Fast-forward `main` to `dev` and push it.
+2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
+   now checks this rather than trusting you to: it resolves the run whose head SHA is the
+   commit under qualification and requires every unconditional job to have concluded
+   `success`.
+3. Merge `dev` into `main` and push it. Not a fast-forward: `main` carries the merge commit
+   of every previous release PR, so `git merge --ff-only dev` fails there and always has.
+   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
+   `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
+   all went through a PR merge; this step said "fast-forward" through all of them.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
    upload to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`

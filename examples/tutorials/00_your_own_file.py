@@ -109,10 +109,9 @@ def choose_code_column(table: dict) -> str | None:
 def continuous_series(info: dict) -> list[dict]:
     """Every continuous series in the file, acquisitions first.
 
-    05-42: the tutorial iterated `info["acquisitions"]` alone, so a file whose LFP lives
-    in a processing module -- which is where `LFP` containers usually live -- printed no
-    continuous line at all and then claimed it had aligned the layout. `inspect` reports
-    both lists with the same keys; a reader looking for their data has to look in both.
+    `inspect` reports acquisition series and processing-module series in two lists with the
+    same keys. An `LFP` container usually lives in a processing module, so reading
+    `info["acquisitions"]` alone finds no continuous series in most files.
     """
     return list(info["acquisitions"]) + list(info["processing_continuous"])
 
@@ -219,7 +218,12 @@ def main() -> None:
             except jnwb.NWBInspectError as err:
                 print(f"{name}: {err}")
                 continue
-            epochs, _ = jnwb.epoch_continuous(signal, onsets, win_s=(-0.2, 0.6), fs=fs_hz)
+            # Onsets are session times, and sample 0 of `signal` is at the series'
+            # starting_time, which inspect reports per series. Add it to the signal's time
+            # axis by subtracting it from the onsets; acquisition_channel warns when it is not 0.
+            start_s = entry.get("starting_time") or 0.0
+            epochs, _ = jnwb.epoch_continuous(
+                signal, onsets - start_s, win_s=(-0.2, 0.6), fs=fs_hz)
             freqs, psd = jnwb.compute_psd(signal, fs=fs_hz)
             print(
                 f"{name}: {epochs.shape[0]} epochs of {epochs.shape[1]} samples, "

@@ -40,11 +40,39 @@ class TestSpectralSummaries:
         with pytest.raises(ValueError, match=match):
             call(bad)
 
-    def test_constant_trace_has_no_tilt_and_no_fundamental(self):
-        tilt = jnwb.spectral_tilt(np.full(4096, 2.0), fs=FS)
+    # 2.0 has an exact mean; 0.3 and 6389.565 do not, so Welch's detrend leaves rounding
+    # residue that a `> 0` power guard reads as a spectrum.
+    @pytest.mark.parametrize("level", [2.0, 0.3, 6389.565])
+    def test_constant_trace_has_no_tilt_no_fundamental_and_no_band_power(self, level):
+        flat = np.full(4096, level)
+        tilt = jnwb.spectral_tilt(flat, fs=FS)
         assert all(np.isnan(tilt[k]) for k in ("exponent", "offset", "fit_quality"))
-        harmonics = jnwb.harmonic_analysis(np.full(4096, 2.0), fs=FS)
+        harmonics = jnwb.harmonic_analysis(flat, fs=FS)
         assert np.isnan(harmonics["fundamental_freq"]) and harmonics["harmonics"] == {}
+        assert jnwb.band_power(flat, fs=FS, freq_range=(8.0, 30.0), normalize=False) == 0.0
+        with pytest.raises(ValueError, match="no power"):
+            jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), baseline=np.full(8192, level))
+
+    @pytest.mark.parametrize("level", [0.0, 2.0, 0.3, 6389.565])
+    @pytest.mark.parametrize("side", ["x", "y"])
+    def test_coupling_with_a_constant_channel_is_nan(self, level, side):
+        """Coupling with a channel that does not vary is undefined, on either side.
+
+        What would pass while a flat channel still yields a number: comparing a flat channel
+        with an all-zero one, which both reported 0.0 from imaginary_coherency; wpli gave the
+        flat one a value from the rounding residue its undetrended STFT keeps. The one-ulp
+        control fails a constancy test that carries a tolerance.
+        """
+        flat = np.full(4096, level)
+        bumped = flat.copy()
+        bumped[100] = np.nextafter(level, np.inf)
+        for channel, undefined in ((flat, True), (bumped, False)):
+            pair = (channel, TRACE[:4096]) if side == "x" else (TRACE[:4096], channel)
+            icoh = jnwb.imaginary_coherency(*pair, fs=FS, freq_range=(4.0, 80.0))
+            w = jnwb.wpli(*pair, fs=FS, freq_range=(4.0, 80.0))
+            values = [icoh["icoh_mean"], icoh["icoh_abs_mean"], icoh["coh_mag_mean"],
+                      w["wpli"], w["wpli_debiased_sq"], *w["wpli_spectrum"]]
+            assert np.all(np.isnan(values)) if undefined else np.all(np.isfinite(values))
 
     def test_harmonic_ratio_does_not_count_the_fundamental_twice(self):
         t = np.arange(4000) / FS
@@ -76,32 +104,24 @@ class TestSpectralSummaries:
         with pytest.raises(ValueError):
             getattr(jnwb, func)(TRACE, fs=FS, device="gpu0", **kwargs)
 
-    @pytest.mark.parametrize("func", ["band_power", "harmonic_analysis"])
-    def test_gpu_failure_warns_and_matches_cpu(self, func, monkeypatch):
-        kwargs = {"normalize": False, "freq_range": (8.0, 30.0)} if func == "band_power" else {}
-
+    # band_power has no GPU path (it returns a bare float with nowhere to record a device);
+    # tests/test_execution_switch.py holds it to computing on the CPU with a warning.
+    def test_gpu_failure_warns_and_matches_cpu(self, monkeypatch):
         def boom(*args, **kwds):
             raise RuntimeError("simulated CUDA failure")
 
-        cpu = getattr(jnwb, func)(TRACE, fs=FS, **kwargs)
+        cpu = jnwb.harmonic_analysis(TRACE, fs=FS)
         monkeypatch.setattr(spectral, "resolve_device", lambda *a, **k: spectral.CUDA)
         monkeypatch.setattr(spectral, "_welch_csd_gpu", boom)
         with pytest.warns(RuntimeWarning, match="simulated CUDA failure"):
-            fallback = getattr(jnwb, func)(TRACE, fs=FS, device="cuda", **kwargs)
-        if func == "band_power":
-            assert fallback == cpu
-        else:
-            assert fallback["fundamental_freq"] == cpu["fundamental_freq"]
+            fallback = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")
+        assert fallback["fundamental_freq"] == cpu["fundamental_freq"]
 
     @pytest.mark.skipif(not _backend.cupy_available(), reason="needs CuPy with a CUDA device")
     def test_cuda_executes_and_matches_cpu(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
-            gpu_power = jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), normalize=False, device="cuda")
             gpu_profile = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")["spectral_profile"]
-        assert gpu_power == pytest.approx(
-            jnwb.band_power(TRACE, fs=FS, freq_range=(8.0, 30.0), normalize=False), rel=1e-10
-        )
         np.testing.assert_allclose(
             np.asarray(gpu_profile), jnwb.harmonic_analysis(TRACE, fs=FS)["spectral_profile"], rtol=1e-10
         )

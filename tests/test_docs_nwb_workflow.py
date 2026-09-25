@@ -57,7 +57,7 @@ def test_readme_nwb_workflow_block_executes(tmp_path, monkeypatch):
             start_time=onset, stop_time=onset + 0.05,
             stimulus="grating" if index % 2 == 0 else "blank",
         )
-    with NWBHDF5IO(str(tmp_path / "recording.nwb"), "w") as io:
+    with NWBHDF5IO(str(tmp_path / "session.nwb"), "w") as io:
         io.write(nwb)
 
     fence = "```python" + chr(10) + "(.*?)```"
@@ -72,6 +72,96 @@ def test_readme_nwb_workflow_block_executes(tmp_path, monkeypatch):
     assert namespace["onsets"].size == 2
     np.testing.assert_allclose(namespace["onsets"], [0.1, 0.5])
     assert namespace["table"].code_column == "stimulus"
+
+
+def _clock_session(path, start_s, scale=1.0):
+    """A file whose series starts at ``start_s`` and whose every sample holds its session time.
+
+    Four trials at session seconds ``start_s + (0.5, 1.0, 1.5, 2.0)``, written multiplied by
+    ``scale``. An epoch read at lag 0 therefore returns the onset it was cut at, in session
+    seconds, only when the onsets and the samples are on one clock.
+    """
+    from datetime import datetime, timezone
+
+    from pynwb import NWBFile, NWBHDF5IO
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = NWBFile(session_description="clock", identifier=f"clock{start_s}_{scale}",
+                  session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(name="shank0", description="d", location="unknown",
+                                       device=device)
+    for index in range(2):
+        nwb.add_electrode(group=group, location="unknown", x=0.0, y=0.0, z=float(index))
+    session_s = start_s + np.arange(3000) / 1000.0
+    nwb.add_acquisition(ElectricalSeries(
+        name="probe_0_lfp", data=np.column_stack([session_s, session_s]),
+        electrodes=nwb.create_electrode_table_region([0, 1], "all"),
+        starting_time=start_s, rate=1000.0,
+    ))
+    nwb.add_trial_column(name="stimulus", description="stimulus label")
+    for index, lag in enumerate((0.5, 1.0, 1.5, 2.0)):
+        onset = (start_s + lag) * scale
+        nwb.add_trial(start_time=onset, stop_time=onset + 0.05 * scale,
+                      stimulus="grating" if index % 2 == 0 else "blank")
+    nwb.add_unit(spike_times=[start_s + 0.6])
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+def _at_lag_zero(namespace, epochs_name, t_name):
+    t = namespace[t_name]
+    return namespace[epochs_name][:, int(np.argmin(np.abs(t)))]
+
+
+@pytest.mark.parametrize("start_s", [0.0, 100.0])
+def test_readme_alignment_block_puts_each_epoch_on_its_onset(tmp_path, monkeypatch, start_s):
+    """The README's alignment block, run after its NWB block, on a series that starts late.
+
+    What would pass while the offset is lost: a series that starts at 0, which is why the
+    block ran green before it subtracted ``starting_time``.
+    """
+    import warnings
+
+    _clock_session(tmp_path / "session.nwb", start_s)
+    blocks = re.findall("```python" + chr(10) + "(.*?)```",
+                        README.read_text(encoding="utf-8"), re.S)
+    workflow = [b for b in blocks if "jnwb.inspect(" in b and "event_onsets(" in b]
+    alignment = [b for b in blocks if "epoch_continuous(" in b and "acquisition_channel(" in b]
+    assert len(workflow) == 1 and len(alignment) == 1, (len(workflow), len(alignment))
+
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        exec(compile(workflow[0], "README.md", "exec"), namespace)
+        exec(compile(alignment[0], "README.md", "exec"), namespace)
+    np.testing.assert_allclose(_at_lag_zero(namespace, "epochs", "t_axis_s"),
+                               start_s + np.array([0.5, 1.5]), rtol=0, atol=1e-9)
+
+
+@pytest.mark.parametrize(("start_s", "scale"), [(0.0, 1.0), (100.0, 1.0), (100.0, 1000.0)])
+def test_common_mistakes_clock_pattern_puts_each_epoch_on_its_onset(tmp_path, monkeypatch,
+                                                                    start_s, scale):
+    """The "Onsets on a Different Clock" correct pattern, in seconds and in milliseconds, on
+    series that start at 0 and late. A duration check that ignores ``starting_time`` reads
+    session-second onsets past the data's length as milliseconds and divides them by 1000."""
+    import warnings
+
+    _clock_session(tmp_path / "session.nwb", start_s, scale)
+    page = (REPO_ROOT / "docs" / "common_mistakes.md").read_text(encoding="utf-8")
+    blocks = [b for b in re.findall("```python" + chr(10) + "(.*?)```", page, re.S)
+              if "epoch_continuous(" in b and "acquisition_channel(" in b]
+    assert len(blocks) == 1, len(blocks)
+
+    monkeypatch.chdir(tmp_path)
+    namespace: dict = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        exec(compile("import jnwb" + chr(10) + blocks[0], "common_mistakes.md", "exec"),
+             namespace)
+    np.testing.assert_allclose(_at_lag_zero(namespace, "epochs", "t"),
+                               start_s + np.array([0.5, 1.0, 1.5, 2.0]), rtol=0, atol=1e-9)
 
 
 def test_readme_documents_inspect_events_onsets():

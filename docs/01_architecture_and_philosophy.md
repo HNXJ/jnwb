@@ -1,22 +1,22 @@
 # 01. Architecture & Design Philosophy
 
-`jnwb` is a dataset-agnostic, object-oriented, high-performance Python library designed for large-scale electrophysiology and Neurodata Without Borders (NWB 2.0+) analysis.
-
-This document outlines the core architecture, scientific invariants, epistemic standards, and repository boundaries governing `jnwb`.
+`jnwb` is a Python library for electrophysiology analysis on Neurodata Without Borders (NWB 2.0+) files, written against no particular dataset. This page covers its package boundary and the scientific invariants its operations hold.
 
 ---
 
 ## 1. Core Philosophy: Generic Library Core vs. Domain Extensions
 
-A fundamental architectural principle of `jnwb` is the strict separation between:
-1. **Generic Electrophysiology Primitives (`jnwb/`)**: General mathematical operations, signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
+`jnwb` keeps two things apart:
+1. **Generic Electrophysiology Operations (`jnwb/`)**: Signal processing, time-frequency representations, representational similarity analysis (JRSA), artifact detection/repair, spike extraction, onset latency modeling, directed connectivity, decoding, and statistical null hypothesis testing.
 2. **Project-Specific Domain Extensions**: Task structures, custom condition codes, sequence slot timings, and project-specific unit classification taxonomies.
+
+The diagram draws that boundary: only the dashed edge leaves the package.
 
 ```mermaid
 graph TD
     NWB[NWB 2.0+ Files / HDF5 Slabs] --> jnwb[jnwb Generic Core Library]
     jnwb --> Paths[paths: Root & Volume Resolution]
-    jnwb --> Addr[addressing: Channel -> Area & Layer]
+    jnwb --> Addr[addressing: Channel -> Area & Depth Class]
     jnwb --> Meta[metadata: Unit Quality & QC]
     jnwb --> JRSA[jrsa: Representational Similarity]
     jnwb --> Spectral[spectral / tfr_accumulator: TFR & Coherence]
@@ -31,37 +31,32 @@ graph TD
 ```
 
 ### The `jnwb/` Boundary Invariant
-`jnwb` does not encode experiment-specific condition codes, task sequence rules, or manuscript
-findings in library code — those belong in downstream project packages.
-- `jnwb` never imports from downstream project directories.
-- This invariant is mechanically enforced by automated regression gates.
-- Downstream projects consume `jnwb` as an imported library dependency.
+Project-specific extensions and manuscript findings live in downstream project packages, which
+import `jnwb`. `jnwb` never imports from them, and a regression gate enforces it.
 
 ### NWB, PyNWB and HDMF
 
-NWB (Neurodata Without Borders) is a data standard for neurophysiology: an HDF5 layout plus a
-schema for acquisitions, electrodes, units, trials and intervals (Teeters et al., 2015; Rübel
-et al., 2022). jnwb reads NWB files through PyNWB, the reference Python API, which uses HDMF
-for the schema and HDF5 input and output. Public NWB datasets are shared on the DANDI Archive.
+NWB is a data standard for neurophysiology: an HDF5 layout plus a schema for acquisitions,
+electrodes, units, trials and intervals (Teeters et al., 2015; Rübel et al., 2022). jnwb reads
+NWB files through PyNWB, the reference Python API, which uses HDMF for the schema and HDF5 input
+and output. Public NWB datasets are shared on the DANDI Archive.
 
-jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) temporarily enable HDMF
-builder repairs for malformed unit and index builders. Repairs are scoped to the read: they do
-not alter `BuildManager.construct` at import, and a missing required `session_description`
-raises `MissingRequiredNWBFieldError` rather than synthesizing a value. Citations and links are
-in [References](references.md#data-format).
+jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) repair malformed unit and
+index builders through HDMF for that read only; `BuildManager.construct` is not altered at
+import, and a missing required `session_description` raises `MissingRequiredNWBFieldError`
+rather than synthesizing a value. Citations and links are in
+[References](references.md#data-format).
 
 ---
 
 ## 2. Scientific & Epistemic Invariants
 
-`jnwb` is built around rigorous physical and statistical invariants:
-
 ### A. Signal Class Independence
-* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) represent distinct physical observables.
-* **No Modality Pooling**: Analyses never aggregate or pool signals across distinct modalities without explicit, intermediate transformation and declared units.
+* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) are distinct observables.
+* **No Modality Pooling**: Signals of distinct modalities are never pooled without an explicit transformation and declared units.
 
 ### B. Estimand Disambiguation
-Every analytical estimator computes a specific estimand:
+Each estimator computes one estimand:
 $$\text{Prevalence} \neq \text{Magnitude} \neq \text{Information} \neq \text{Mechanism}$$
 * **Prevalence**: Fraction of responsive or selective units/channels in a population.
 * **Magnitude**: Absolute or normalized effect size (e.g., $\Delta\text{Hz}$, $\Delta\text{dB}$, SNR).
@@ -72,46 +67,41 @@ $$\text{Prevalence} \neq \text{Magnitude} \neq \text{Information} \neq \text{Mec
 $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 * Linear correlation and mutual information establish non-directional association.
 * Granger causality, phase slope index, and transfer entropy establish statistical temporal predictability.
-* Perturbational manipulations (optogenetics, pharmacology, lesions) establish physical causality. We never use stronger causal verbs to describe weaker statistical associations.
+* Perturbational manipulations (optogenetics, pharmacology, lesions) establish physical causality. A weaker result is never described with a stronger causal verb.
 
 ### D. Mathematical vs. Analysis-Specific Conventions
 * `jnwb` provides generic mathematical transforms (e.g. `to_db(ratio) = 10 * log10(ratio)`, `compute_psd`, `band_power`).
-* Specific aggregation sequences (such as averaging raw power across trials before baseline ratio calculation, termed "Logarithm Last") are estimand-specific choices for particular relative power estimators; `jnwb` exposes the underlying primitives without hardcoding a specific project's aggregation pipeline.
+* The logarithm comes last: `aggregate_to_db` owns the ratio-aggregate-log sequence and makes the caller name the estimand (`how="mean_of_ratios"` or `"ratio_of_means"`), so the order is enforced without fixing one project's aggregation.
 
 ### E. Unit of Inference & Hierarchical Structure
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.
 * When trials nest within sessions or subjects, exchangeability schemes (`within_group` permutations, grouped CV) must respect that structure; hierarchical or cluster-bootstrap analyses are the project's choice when the inferential unit is above the trial.
 
 ### F. Valid Nulls & No Synthetic Science
-* A null finding ($p \ge \alpha$) is an empirical scientific observation, not an error. Analysis parameters, frequency bands, or temporal windows are never retrofitted to achieve significance.
-* Outputs must never contain synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
+* A null finding ($p \ge \alpha$) is an observation, not an error. Parameters, frequency bands and windows are never retrofitted to reach significance.
+* Outputs hold no synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
 ---
 
-## 3. Epistemic Claim Discipline
-
-Every assertion in `jnwb` documentation, metadata, and test reports follows strict epistemic categorization:
-$$\text{claim} \in \{\text{observed}, \text{derived}, \text{inferred}, \text{assumed}, \text{unknown}\}$$
-
-1. **Observed**: Directly read from physical instrumentation or verified raw data files on disk.
-2. **Derived**: Computed via deterministic mathematical operations from observed data without parameter fitting.
-3. **Inferred**: Statistical estimates resulting from model fits, optimization, or hypothesis tests with specified assumptions and confidence bounds.
-4. **Assumed**: Axiomatic priors, boundary constraints, or sampling window conventions.
-5. **Unknown**: Quantities not empirically verified or where conflicting evidence remains unresolved.
-
----
-
-## 4. Module Map & Architecture Summary
+## 3. Module Map & Architecture Summary
 
 | Module | Core Responsibility | Primary Public Symbols in `jnwb.__all__` |
 |--------|---------------------|------------------------------------------|
 | `paths` | Data root discovery & volume remap management | `paths` |
-| `addressing` | Spatial channel-to-area and depth-to-layer addressing | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
+| `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
+| `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
+| `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning` |
+| `continuous` | Epoching a continuous signal around event onsets | `epoch_continuous` |
+| `io` | Slices of NPZ arrays read without loading the whole archive | `io`, `stream_npz_array` |
+| `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
 | `metadata` | Unit quality classification, census, & SNR auditing | `get_all_units_metadata`, `classify_unit_quality`, `unit_census_report`, `get_snr_analysis`, `filter_by_criteria`, `audit_units`, `audit_electrodes`, `assign_quality_tier`, `electrode_inventory` |
 | `filtering` | Zero-phase & causal Butterworth bandpass and notch SOS filters | `bandpass_filter`, `notch_filter` |
 | `ontology` | Structured query objects and event referencing | `Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage` |
 | `jrsa` | Representational Similarity Analysis (RDMs, metrics) | `jrsa`, `JRSAResult` |
+| `rsa` | Representational dissimilarity matrices and their comparison | `rdm`, `rdm_similarity` |
 | `spectral` | Multi-taper spectral analysis, coherence, CSD, and PLV | `compute_psd`, `compute_multitaper_psd`, `band_power`, `spectral_tilt`, `voltage_curvature_1d`, `current_source_density_1d`, `harmonic_analysis`, `imaginary_coherency`, `cross_area_coherence`, `bipolar_reference`, `laplacian_reference`, `to_db`, `CANONICAL_BANDS` |
+| `tfr` | Complex Morlet time-frequency representation | `complex_tfr`, `morlet_wavelet`, `ComplexTFR` |
+| `laminar` | Depth profiles along a probe shaft from spectra, correlation blocks and phase gradients, and layer labels from an accepted profile | `vflip`, `vflip_from_lfp`, `xflip`, `zflip`, `label_layers`, `VFlipResult`, `XFlipResult`, `ZFlipResult` |
 | `tfr_accumulator` | Streaming trial-wise TFR accumulation | `TFRAccumulator`, `assert_mergeable` |
 | `compression` | NWB on-disk fp32 conversion (`compress_fp32` path I/O) | `compress_fp32` |
 | `analyzers` | High-level session analyzers | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` |
@@ -126,3 +116,4 @@ $$\text{claim} \in \{\text{observed}, \text{derived}, \text{inferred}, \text{ass
 | `decoding` | Nested cross-validated linear SVM population decoding | `nested_cv_linear_svm`, `majority_baseline`, `fold_majority_baseline`, `assign_outer_folds`, `build_inner_validation_partitions`, `build_representation_ladder` |
 | `visual_qc` | Multi-panel unit waveform and session QC figures | `visual_qc` |
 | `viz` | Publication vector graphics standards & multi-panel saving | `setup_vector_graphics`, `apply_tight_auto_axis`, `save_figure_suite`, `resample_onsets`, `raster_psth` |
+| `vis` | Plotly figures; needs the optional `vis` extra ([Plotly Figures](vis.md)) | `vis` |

@@ -38,14 +38,14 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 ## Installation
 
-Requires Python **3.12 or newer**. Tested in CI on 3.12 and 3.14.
+Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
 
 ```bash
 pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.5`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.6`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs]" for development
@@ -60,16 +60,16 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 ```python
 import jnwb
 
-info = jnwb.inspect("recording.nwb")
+info = jnwb.inspect("session.nwb")
 
 # Read the layout off the inspection rather than assuming it.
 for table in info["interval_tables"]:
     print(table["name"], [column["name"] for column in table["columns"]])
 # trials ['id', 'start_time', 'stimulus', 'stop_time']
 
-table = jnwb.events("recording.nwb", table="trials", code_column="stimulus")
+table = jnwb.events("session.nwb", table="trials", code_column="stimulus")
 onsets = jnwb.event_onsets(
-    "recording.nwb", table="trials", code_column="stimulus", codes=["grating"],
+    "session.nwb", table="trials", code_column="stimulus", codes=["grating"],
 )
 ```
 
@@ -95,7 +95,7 @@ spikes = np.sort(np.concatenate([rng.uniform(0.0, 21.5, 110),   # homogeneous ba
 
 time_bins, rate_hz, _ = jnwb.raster_psth(spikes, events, win_ms=(-100.0, 400.0), bin_ms=10.0)
 smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
-fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds=(0.0, 200.0))
+fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds_ms=(0.0, 200.0))
 print(f"Onset t0: {fit['t0']:.1f} ms of a true 60.0 "
       f"(R2={fit['r2']:.2f}, {fit['bound_status'] or 'interior'})")
 
@@ -106,12 +106,14 @@ beta = jnwb.band_power(lfp, fs=fs, freq_range=jnwb.CANONICAL_BANDS["beta"], norm
 print(f"TFR shape: {tfr.shape}, beta power: {beta:.4f}")
 ```
 
-Read spikes and LFP for alignment after you have onsets:
+Read spikes and LFP for alignment after you have onsets. Onsets are session time; sample 0
+of the LFP is at its `starting_time`:
 
 ```python
-spikes = jnwb.unit_spike_times("recording.nwb", unit_index=0)
-lfp, fs_hz = jnwb.acquisition_channel("recording.nwb", name="probe_0_lfp", channel=0)
-epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets, win_s=(-0.1, 0.4), fs=fs_hz)
+spikes = jnwb.unit_spike_times("session.nwb", unit_index=0)
+lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)
+start_s = next(a["starting_time"] for a in info["acquisitions"] if a["name"] == "probe_0_lfp")
+epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets - start_s, win_s=(-0.1, 0.4), fs=fs_hz)
 ```
 
 Unit and electrode census:
@@ -129,10 +131,8 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 
 Setup, the checks to run, the branch model and the release procedure are in
 [CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
-The queued work is in [artifacts/todo_stack.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/todo_stack.md), which is
-in the repository only -- `artifacts/` is pruned from the sdist.
 
-If you are an AI agent, read [AGENTS.md](https://github.com/HNXJ/jnwb/blob/main/AGENTS.md) first.
+For AI agents: see [artifacts/agents.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/agents.md).
 
 ## License
 

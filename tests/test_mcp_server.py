@@ -148,6 +148,51 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("error", res)
         self.assertEqual(res["error_type"], "PathNotFound")
 
+    def test_every_registered_tool_leaves_the_file_and_working_directory_unchanged(self):
+        """`docs/agents.md` says the server writes nothing. A source scan for one writer's
+        name cannot hold that: `open(..., "w")`, an h5py or pynwb write mode and a sidecar
+        file all pass it. This runs every registered tool on its success path and compares
+        the bytes on disk before and after.
+        """
+        import asyncio
+        import hashlib
+        import os
+
+        import jnwb.mcp_server as package
+
+        calls = {
+            "inspect_nwb": {"file_path": self.file_path},
+            "get_event_codes_and_timings": {"file_path": self.file_path},
+            "prepare_signal_reference": {
+                "file_path": self.file_path,
+                "dataset_path": "/acquisition/ElectricalSeries/data",
+            },
+        }
+        live = {tool.name for tool in asyncio.run(package.mcp.list_tools())}
+        self.assertEqual(set(calls), live, "a registered tool has no call in this test")
+
+        def snapshot(*roots):
+            return {
+                path: hashlib.sha256(path.read_bytes()).hexdigest()
+                for root in roots
+                for path in pathlib.Path(root).rglob("*")
+                if path.is_file()
+            }
+
+        with tempfile.TemporaryDirectory() as cwd:
+            before = snapshot(self.temp_dir.name, cwd)
+            self.assertIn(pathlib.Path(self.file_path), before)
+            previous = os.getcwd()
+            os.chdir(cwd)
+            try:
+                for name, kwargs in sorted(calls.items()):
+                    result = getattr(package, name)(**kwargs)
+                    self.assertNotIn("error", result, f"{name} did not reach its success path")
+            finally:
+                os.chdir(previous)
+            after = snapshot(self.temp_dir.name, cwd)
+        self.assertEqual(before, after, "an MCP tool created or changed a file")
+
 class TestMCPServerEntrypoint(unittest.TestCase):
     def test_server_module_exposes_fastmcp_instance(self):
         from jnwb.mcp_server import server

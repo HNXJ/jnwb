@@ -8,6 +8,24 @@ pass one of them.
 
 The messages below are the real ones, taken from a file written with plain pynwb.
 
+## What to pass
+
+| Error | Raised by | The fix |
+|---|---|---|
+| `AmbiguousAcquisitionError` | `acquisition_channel`, `resolve_acquisition` | `name=` one of the series in the message |
+| `AcquisitionNotFoundError` | `acquisition_channel`, `resolve_acquisition` | `name=` one of the names under `Available` |
+| `ChannelIndexError` | `acquisition_channel` | `channel=` below the stated count |
+| `AmbiguousLayoutError` | `acquisition_channel` | Nothing. Read and transpose the array yourself |
+| `UnitNotFoundError` | `unit_spike_times` | `unit_index=` below the stated count |
+| `AmbiguousIntervalTableError` | `events`, `event_onsets`, `resolve_interval_table` | `table=` one of the names in the message |
+| `IntervalTableNotFoundError` | `events`, `event_onsets`, `resolve_interval_table` | `table=` one of the names under `Available` |
+| `ColumnNotFoundError` | `events`, `event_onsets` | `code_column=` one of the listed columns |
+| `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
+| `MissingRequiredNWBFieldError` | any read | Repair the file, or waive the field with `read_nwb(path, allow_missing=(exc.field_name,))` |
+
+`NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
+directly. The rest of this page is why each refusal exists, which the table cannot carry.
+
 ## Finding the name to pass
 
 Two resolvers answer "what would jnwb pick, and is that unambiguous?" without reading any
@@ -27,7 +45,7 @@ table, and otherwise raises.
 [`inspect`](api.md) lists everything both of them can see:
 
 ```python
-info = jnwb.inspect("recording.nwb")
+info = jnwb.inspect("session.nwb")
 [a["name"] for a in info["acquisitions"]]
 [t["name"] for t in info["interval_tables"]]
 [c["name"] for c in info["interval_tables"][0]["columns"]]
@@ -49,59 +67,50 @@ except jnwb.NWBInspectError as exc:
 
 > Several continuous series present: ['probe_0_lfp', 'probe_1_lfp']. Pass name=&lt;series&gt; explicitly.
 
-Raised by `acquisition_channel` and `resolve_acquisition` when `name` is omitted and the
-file holds more than one continuous series. **Pass `name=` one of the names in the
-message.**
-
-It is also raised for two narrower kinds of ambiguity:
+Two narrower kinds of ambiguity raise the same class:
 
 > Container 'LFP' wraps 2 electrical series: ['lfp_alpha', 'lfp_beta']. Pass name=&lt;series&gt; explicitly.
 
-An `LFP` container holding several series has no single rate, shape or path. **Pass
-`name=` the series itself**, not the container.
+An `LFP` container holding several series has no single rate, shape or path, so name the
+series itself rather than the container.
 
 > 'shared' names both /acquisition/shared and ['ecephys/shared'].
 
 The same name exists in `/acquisition` and in a processing module, and they are different
-data. **Pass the qualified processing name** (`"ecephys/shared"`) to mean the latter.
+data. The qualified processing name (`"ecephys/shared"`) means the latter.
 
 ### `AcquisitionNotFoundError`
 
 > Series 'nope' not found. Available: ['probe_0_lfp', 'probe_1_lfp']
 
-The name does not exist. **Pass one of the names in `Available`.** The same class is
-raised when a series exists but has no readable data array, and when it has no constant
-sampling rate — a series with explicit `timestamps` rather than a `rate` cannot be
-epoched by sample index.
+The same class is raised when a series exists but has no readable data array, and when it
+has no constant sampling rate — a series with explicit `timestamps` rather than a `rate`
+cannot be epoched by sample index.
 
 ### `ChannelIndexError`
 
 > Channel index 99 out of range for series 'only' with 4 channels (layout time_by_channel, decided by electrode_count)
 
-The channel index is outside the series. The message states the true channel count, which
-axis holds channels and how that was decided — `electrode_count` means it was read from
-the series' electrode region, `shape` means it was guessed from which dimension is longer
-because the series carries no electrode information. **Pass `channel=` below the stated
-count.**
+The message states which axis holds channels and how that was decided:
+`electrode_count` means it was read from the series' electrode region, `shape` means it
+was guessed from which dimension is longer, because the series carries no electrode
+information.
 
 ### `AmbiguousLayoutError`
 
 > Cannot tell which axis of series 'square' holds channels: shape (4, 4) against 4 electrodes, so neither dimension matches or both do. Guessing would return a slice across channels as a channel's time course.
 
-The channel axis cannot be determined: the electrode count matches neither dimension, or
-the array is square so it matches both. There is no argument that resolves this one,
-because the file does not contain the answer. `inspect` reports `layout: "ambiguous"` for
-the same series. **Read the array yourself** and transpose it according to what you know
-about how it was recorded; jnwb will not pick an axis, because a wrong pick returns one
-instant sampled across channels dressed as a channel's time course.
+There is no argument that resolves this one, because the file does not contain the answer.
+`inspect` reports `layout: "ambiguous"` for the same series. Transpose the array according
+to what you know about how it was recorded; jnwb will not pick an axis, because a wrong
+pick returns one instant sampled across channels dressed as a channel's time course.
 
 ### `UnitNotFoundError`
 
 > Unit index 7 out of range for 1 units
 
-Raised by `unit_spike_times` for an out-of-range row, for a file with no units table, and
-for a units table with no `spike_times` column. **Pass `unit_index=` below the stated
-count**, or check `jnwb.inspect(path)["units"]`.
+Raised for an out-of-range row, for a file with no units table, and for a units table with
+no `spike_times` column. `jnwb.inspect(path)["units"]` shows which of the three it is.
 
 ## Reading events: `NWBEventError`
 
@@ -111,24 +120,19 @@ count**, or check `jnwb.inspect(path)["units"]`.
 
 > Several interval tables and none named 'trials': ['blocks', 'stimuli']. Pass table=&lt;name&gt; explicitly.
 
-Raised by `events`, `event_onsets` and `resolve_interval_table` when `table` is omitted,
-several interval tables exist and none is called `trials`. **Pass `table=` one of the
-names in the message.** Note that a file with a `trials` table *and* five others does not
-raise: `trials` wins. Pass `table=` anyway when you mean one of the others.
+A file with a `trials` table *and* five others does not raise: `trials` wins. Pass
+`table=` anyway when you mean one of the others.
 
 ### `IntervalTableNotFoundError`
 
 > Interval table 'nope' not found. Available: ['trials']
 
-**Pass one of the names in `Available`.**
-
 ### `ColumnNotFoundError`
 
 > Code column 'nope' not found. Columns: ['start_time', 'stop_time']
 
-The interval table exists and the requested `code_column` does not. **Pass `code_column=`
-one of the listed columns.** `codes` is a jnwb default, not an NWB requirement — a file
-from another lab usually calls that column `stimulus`, `condition` or `trial_type`.
+`codes` is a jnwb default, not an NWB requirement — a file from another lab usually calls
+that column `stimulus`, `condition` or `trial_type`.
 
 Omitting `code_column` on a table with no `codes` column is *not* an error: the onsets are
 returned with a warning that no codes were found, because the onsets are what you need
@@ -141,32 +145,88 @@ specific.
 
 > Non-finite onset at index 0: np.float64(nan)
 
-A selected row has a missing or non-finite onset. All three entry points agree: `events`,
-`event_onsets` and `epoch_continuous` refuse it rather than carry `NaN` into an index
-computation. **Drop or repair the offending row**; the message names it.
+All three entry points agree: `events`, `event_onsets` and `epoch_continuous` refuse a
+missing or non-finite onset rather than carry `NaN` into an index computation.
 
 ## Reading the file at all: `MissingRequiredNWBFieldError`
 
 > NWB file is missing required field 'session_description'; jnwb does not synthesize required metadata
 
 Raised while reading, when a field the NWB specification requires is absent from the file
-on disk. There is no argument to pass: the file is incomplete. **Repair the file** — the
-exception carries the missing field name as `exc.field_name`. jnwb will not invent a value
-for a field the specification requires, because a synthesized `session_description`
-propagates into every figure caption and table that reads it.
+on disk. The exception carries the missing field name as `exc.field_name`. jnwb will not
+invent a value for a field the specification requires, because a synthesized
+`session_description` propagates into every figure caption and table that reads it.
+
+To open the file anyway, name the field you accept losing. Today `session_description` is the
+only field jnwb refuses on, and naming any other raises `ValueError`:
+
+```python
+try:
+    nwbfile = jnwb.read_nwb("session.nwb")
+except jnwb.MissingRequiredNWBFieldError as exc:
+    nwbfile = jnwb.read_nwb("session.nwb", allow_missing=(exc.field_name,))
+
+nwbfile.session_description        # "" -- pynwb cannot build the object without the field
+nwbfile.jnwb_waived_requirements   # ("session_description",)
+```
+
+`jnwb_waived_requirements` records the waivers the read used, not the ones it was offered. A
+file that has the field reads `()` under the same `allow_missing`, so passing the waiver across a
+whole corpus still tells each waived file apart from one that recorded an empty description.
+
+`read_nwb` closes the file before it returns, so its object holds metadata and no readable data
+arrays. To read data from a waived file, read inside `nwb_read_io`, which takes the same
+`allow_missing` and sets the same attribute:
+
+```python
+with jnwb.nwb_read_io("session.nwb", allow_missing=("session_description",)) as io:
+    nwbfile = io.read()
+    spike_times = nwbfile.units["spike_times"][0]
+```
+
+The functions that take a path (`inspect`, `events`, `unit_spike_times`, ...) never waive.
+
+### What a read returns for each state of `session_description`
+
+"Default" is `read_nwb(path)`; "waived" is `read_nwb(path, allow_missing=("session_description",))`.
+"Flag" is `jnwb_waived_requirements` on the returned object.
+
+| On disk | Default | Waived |
+|---|---|---|
+| Absent | Raises `MissingRequiredNWBFieldError` | `""`, flag `("session_description",)` |
+| Explicit null: null dataspace, zero-length array or null reference | Raises an HDMF or h5py error | Raises the same error |
+| Empty string | `""`, flag `()` | `""`, flag `()` |
+| One-element string array | The element, flag `()`, no warning | The same |
+| Any other malformed value, such as an integer or a two-element array | Raises HDMF's `ConstructError` | Raises the same error |
+| Present and valid | The value, flag `()` | The same |
+| Soft or external link to a valid description | The linked value, flag `()` | The same |
+| Dangling soft link | Raises `MissingRequiredNWBFieldError`, with `BrokenLinkWarning` | `""`, flag `("session_description",)`, with `BrokenLinkWarning` |
+| External link to a missing file | Raises `MissingRequiredNWBFieldError`, with `BrokenLinkWarning` | `""`, flag `("session_description",)`, with `BrokenLinkWarning` |
+| Fixed-length string of NUL bytes | `""`, flag `()` | The same |
+
+Four rows collapse information the file holds, and the returned object cannot recover it:
+
+- **Damage reads as absence.** A dangling soft link and a broken external link return exactly
+  what an absent field returns. HDMF drops the link and emits `BrokenLinkWarning` during the
+  read; the returned object carries no trace of it. Record warnings at read time if damage and
+  incompleteness must be told apart.
+- **NUL bytes read as empty.** A fixed-length string loses its trailing NUL bytes when read, so
+  a field holding only NULs is indistinguishable from an empty one.
+- **A one-element array reads as its element.** pynwb flattens it on every read, with or without
+  jnwb, and it is indistinguishable from a scalar holding the same string.
 
 ## Warnings, not errors
 
-Two conditions warn rather than raise, because in both cases the caller gets something
+Three conditions warn rather than raise, because in each case the caller gets something
 usable and the risk is that it is silently wrong.
 
-- **No `codes` column** (`events`, `event_onsets`): the onsets are returned without codes.
-- **Most epochs entirely outside the data** (`epoch_continuous`, under
-  `boundary_policy="nan"`): the returned array is the right shape and entirely `NaN`,
-  which is what onsets in milliseconds look like when read as seconds. The warning names
-  both spans. See [Common mistakes §11](common_mistakes.md).
+| Condition | Raised by | What you get |
+|---|---|---|
+| A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record written from the read can say the file needed repairing |
+| No `codes` column | `events`, `event_onsets` | The onsets, without codes |
+| Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 
-Turn either into an error while developing:
+Turn all three into errors while developing:
 
 ```python
 import warnings

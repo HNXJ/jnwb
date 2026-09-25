@@ -114,6 +114,9 @@ class TestDerivedQuantities:
         expected_sem = np.sqrt(expected_var / trials.shape[0])
 
         np.testing.assert_allclose(acc.power(), expected_mean, rtol=1e-9)
+        # The trial-averaged marker changes no value, and asarray returns a plain ndarray.
+        assert type(np.asarray(acc.power())) is np.ndarray
+        assert np.array_equal(np.asarray(acc.power()), acc.mean)
         np.testing.assert_allclose(acc.var(), expected_var, rtol=1e-8)
         np.testing.assert_allclose(acc.sem(), expected_sem, rtol=1e-8)
 
@@ -151,6 +154,66 @@ class TestDerivedQuantities:
         for p in phases:
             acc.add_trial(np.array([[np.exp(1j * p) * 2.0]]))
         assert acc.itc()[0, 0] < 0.05  # expected ~1/sqrt(n) ~ 0.014
+
+    def test_a_cell_no_valid_trial_reached_has_no_estimate(self):
+        """n == 0 is missing data: every derived quantity is NaN there, never 0.0, and the
+        cells a trial did reach are unchanged by the mask."""
+        shape = (2, 3)
+        trials = _random_trials(4, shape, seed=9)
+        valid = np.ones((4, *shape), bool)
+        valid[:, 0, 0] = False
+        acc = _summarize(trials, valid)
+        empty = acc.n == 0
+        assert empty.sum() == 1
+        for name, value in (("power", acc.power()), ("mean", acc.mean), ("evoked", acc.evoked()),
+                            ("itc", acc.itc()), ("var", acc.var()), ("sem", acc.sem())):
+            assert np.all(np.isnan(value[empty])), name
+            assert np.all(np.isfinite(value[~empty])), name
+        np.testing.assert_allclose(acc.power()[~empty], (np.abs(trials) ** 2).mean(axis=0)[~empty])
+
+    def test_mean_round_trip_keeps_an_empty_cell_fillable(self):
+        """`acc.mean = acc.mean` must not store the NaN the getter reports at n == 0 into the
+        running mean, or a later trial or merge can never fill that cell."""
+        shape = (2, 3)
+        trials = _random_trials(5, shape, seed=4)
+        valid = np.ones((5, *shape), bool)
+        valid[:4, 0, 0] = False  # only the last trial reaches (0, 0)
+        expected = _summarize(trials, valid).power()
+
+        acc = _summarize(trials[:4], valid[:4])
+        acc.mean[0, 1] = -1.0  # a copy: writes nothing through
+        before = acc.power()
+        acc.mean = acc.mean
+        np.testing.assert_array_equal(acc.power(), before)
+        other = _summarize(trials[4:], valid[4:])
+
+        merged = acc.merge(other)
+        reverse = other.merge(acc)
+        acc.add_trial(trials[4], valid=valid[4])
+        for got in (acc.power(), merged.power(), reverse.power()):
+            assert np.isfinite(got[0, 0])
+            np.testing.assert_allclose(got, expected, rtol=1e-12)
+
+    @pytest.mark.parametrize("order", [("M2", "mean", "n", "sum_unit_z", "sum_z"),
+                                       ("n", "M2", "mean", "sum_unit_z", "sum_z")])
+    def test_a_reload_restores_power_whatever_order_mean_and_n_are_set(self, order):
+        """h5py iterates keys by name, so a restore loop sets `mean` before `n`; the setter must
+        not read the fresh accumulator's zero `n` as every cell being empty. A cell with trials
+        whose mean is NaN (an infinite sample declared valid) must reload as NaN, not 0.0."""
+        shape = (2, 3)
+        trials = _random_trials(4, shape, seed=6)
+        trials[0, 0, 1] = np.inf
+        valid = np.ones((4, *shape), bool)
+        valid[:, 1, 2] = False
+        acc = _summarize(trials, valid)
+        assert np.isnan(acc.power()[0, 1]) and acc.n[0, 1] == 4
+        saved = {name: np.array(getattr(acc, name)) for name in order}
+
+        restored = TFRAccumulator(shape)
+        for name in order:
+            setattr(restored, name, saved[name])
+        np.testing.assert_array_equal(restored.power(), acc.power())
+        assert np.isnan(restored.power()[1, 2]) and np.isnan(restored.power()[0, 1])
 
 
 class TestNumericalStability:

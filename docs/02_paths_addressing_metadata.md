@@ -1,16 +1,15 @@
 # 02. Paths, Addressing, Metadata & Ontology
 
-This document provides a comprehensive guide to data path resolution, anatomical addressing (channel $\to$ area, depth $\to$ layer), unit quality auditing, and query ontology in `jnwb`.
+Data roots, streaming reads, anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology.
 
 ---
 
 ## 1. Path Management & Drive Remap Isolation (`jnwb/paths.py`)
 
-**Per-file NWB discovery** (acquisitions, interval tables, event codes) uses `jnwb.inspect` and the
-[event tutorial sequence](tutorials/02_addressing_and_metadata.md). `jnwb.paths` resolves
-**repository data roots** for batch jobs — it does not inspect the contents of a single `.nwb` file.
-
-Electrophysiology datasets frequently span multiple storage volumes, local SSDs, network mounts, or external RAID arrays. `jnwb.paths` eliminates hardcoded absolute paths by managing dynamic root resolution via environment variables while guaranteeing stable repo-internal paths.
+`jnwb.paths` resolves data roots for batch jobs from environment variables, so no absolute path
+is written into code. It does not look inside a `.nwb` file: per-file discovery (acquisitions,
+interval tables, event codes) is `jnwb.inspect` and the
+[addressing tutorial](tutorials/02_addressing_and_metadata.md).
 
 ### Key API Functions
 
@@ -34,22 +33,22 @@ nwb_dir = jnwb.paths.nwb_dir()
 ```
 
 ### Environment Variable Mapping
-Paths are configured via environment variables rather than source code edits:
 
 | Path Key | Environment Variable | Default Fallback | Purpose |
 |----------|----------------------|------------------|---------|
-| `nwb_dir` | `JNWB_NWB_DIR` / `OMISSION_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
-| `analysis_dir` | `JNWB_ANALYSIS_DIR` / `OMISSION_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
-| `outputs` | `JNWB_OUTPUTS_DIR` / `OMISSION_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
-| `artifacts` | `JNWB_ARTIFACTS_DIR` / `OMISSION_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
+| `nwb_dir` | `JNWB_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
+| `analysis_dir` | `JNWB_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
+| `outputs` | `JNWB_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
+| `artifacts` | `JNWB_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
+
+Each variable still reads a legacy `OMISSION_*` alias of the same suffix, with a
+`DeprecationWarning`.
 
 ---
 
 ## 2. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
 
-Electrophysiological datasets often store dense time series (such as LFP, multi-unit activity, or high-dimensional TFR spectra) in compressed `.npz` archives. Standard `np.load` decompresses the entire array into RAM, which causes severe memory pressure on multi-channel or multi-hour sessions.
-
-`jnwb.stream_npz_array` provides streaming, memory-bounded access to slices of arrays stored in `.npz` files (both `ZIP_DEFLATED` compressed and `ZIP_STORED` uncompressed) without full-file RAM allocation. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead, avoiding silent full-array materialization:
+`np.load` decompresses a whole `.npz` array into RAM. `jnwb.stream_npz_array` reads a slice of it, from `ZIP_DEFLATED` and `ZIP_STORED` archives alike. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead. A stored entry is seeked past what the slice skips; a compressed one is read forward up to the slice's last element, so its time grows with the slice's position:
 
 ```python
 import jnwb
@@ -74,7 +73,7 @@ Also accessible as `jnwb.io.stream_npz_array`.
 
 ## 3. Spatial & Laminar Addressing (`jnwb/addressing.py`)
 
-`jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomically meaningful area and laminar (cortical layer) assignments.
+`jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomical area assignments and a geometric depth class.
 
 ### Peak Channel to Area Mapping (`map_peak_channel_to_area`)
 
@@ -85,23 +84,25 @@ import jnwb
 area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=electrodes_df)
 ```
 
-### Depth-to-Layer (Laminar) Resolution (`classify_layer_from_depth`)
+### Geometric Depth Class (`classify_layer_from_depth`)
 
-Translates probe electrode depth ($z$-coordinate) into cortical layer classification with explicit unit safety:
+Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`.
 
 ```python
-# Classifies layer based on electrode z depth with explicit units ('Superficial' for <= 1000 um, 'Deep' for > 1000 um)
-layer = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
+# 'Superficial' for <= 1000 um, 'Deep' for > 1000 um, with explicit depth units
+depth_class = jnwb.classify_layer_from_depth(peak_channel_id=0, electrodes_df=electrodes_df, depth_unit="um")
 # Returns: 'Superficial', 'Deep', or 'Unknown' (unknown/incompatible units return 'Unknown')
 ```
 
 ### Enriching Units DataFrame (`enrich_units_dataframe`)
 
-Attaches standardized `unit_id`, `area`, and `layer` columns directly to units tables:
+Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to units tables:
 
 ```python
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
+
+`layer` is a deprecated copy of `depth_class`, removed in the next release. The call emits `FutureWarning` whenever it writes `layer`; pandas cannot warn when a column is read, so the warning fires even if `layer` is never used. `jnwb.get_all_units_metadata` emits both columns the same way, with one warning per call, and `jnwb.unit_census_report` with `group_by=None` groups by `depth_class`.
 
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 
@@ -130,6 +131,7 @@ Estimates cortical depth phase gradients, the per-contact delay, and an apparent
 z_res = jnwb.zflip(
     lfp_matrix,
     fs=1000.0,
+    orientation="superficial_to_deep",   # row 0 is the most superficial contact
     freq_range=(15.0, 35.0),
     pitch_um=geom.nominal_pitch,
     n_surrogates=50,
@@ -141,23 +143,29 @@ print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
 
 **What these three numbers license.** `tau_per_channel_s` is a delay per contact in
 seconds, fitted to the phase gradient across depth; `apparent_velocity_m_s` is that
-gradient expressed as a speed in metres per second, using `pitch_um` for the spacing.
+gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
 shape is produced by axonal conduction, but also by two sources with a fixed phase offset,
-by a travelling wave in the local field, and by volume conduction from a single distant
-generator. `directionality` names the sign of the gradient along the contact ordering, so
-it is a direction in *depth*, not a direction of causal influence. Reporting any of the
+by a traveling wave in the local field, and by volume conduction from a single distant
+generator. `directionality` is a direction in *depth*, not a direction of causal influence.
+It comes from the sign of the gradient along the rows and the `orientation` you state, which has
+no default: an electrode table can list contacts from either end, and the LFP cannot say which.
+Pass `"deep_to_superficial"` when row 0 is the deepest contact. Reporting any of the
 three as a conduction speed or as evidence that one layer drives another is the
 association-to-causality step that [Architecture &
 Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.
 
-![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png)
+![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png#only-light)
+![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.dark.png#only-dark)
+
+On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
+partitioning 24 contacts of one probe
+across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts, with the
+boundary it cuts at drawn. Both are spatial assignments and neither carries a causal direction.
 
 ---
 
 ## 4. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
-
-`jnwb.metadata` provides tools for extracting spike-sorting metadata across cohorts of NWB files, categorizing unit isolation quality, computing Signal-to-Noise Ratios (SNR), and producing census reports.
 
 ### Multi-Session Metadata Extraction & Classification
 
@@ -169,7 +177,7 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 # Extract all units across multiple sessions into a unified pandas DataFrame
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
-# Classify unit quality tiers (attaches quality_class: 'Good'|'MUA'|'Noise', is_valid, issue_flags)
+# Classify unit quality tiers (attaches quality_class: 'Good'|'Fair'|'Poor', is_valid, issue_flags)
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area
@@ -193,11 +201,13 @@ elec_audit = jnwb.audit_electrodes(electrodes_df, units_df)
 # Generate multi-session electrode inventory
 inventory = jnwb.electrode_inventory(nwb_files)
 
-# Assign explicit quality tier based on presence fraction and SNR
+# Assign explicit quality tier ('mua' | 'stable' | 'unstable') from presence and SNR.
+# All three arguments are per-unit Series, not scalars, and `quality` is the integer
+# sorter code (0 = MUA, 1 = single-unit candidate), not a word.
 tier = jnwb.assign_quality_tier(
-    quality="good",
-    trial_presence_fraction=0.95,
-    snr=4.5
+    quality=classified_units["quality"],
+    trial_presence_fraction=classified_units["trial_presence_fraction"],
+    snr=classified_units["snr"],
 )
 ```
 
@@ -220,8 +230,6 @@ good_v1_units = jnwb.filter_by_criteria(
 ---
 
 ## 5. Query & Event Ontology (`jnwb/ontology.py`)
-
-`jnwb.ontology` defines object-oriented queries, datasets, and provenance descriptors:
 
 These objects record *what was asked, of which data, under which alignment, and what was
 concluded*. They hold no data-access code: nothing here opens an NWB file. They are the

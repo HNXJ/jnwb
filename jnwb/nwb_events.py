@@ -328,8 +328,9 @@ def event_onsets(
         Interval table selection; see :func:`events`.
     codes:
         One code or a sequence of codes. Matching preserves table order and
-        duplicate rows. When omitted (``codes=None``), all rows are returned
-        without requiring ``code_column`` to exist. When provided but
+        duplicate rows. When omitted (``codes=None``), all rows are returned; the
+        default ``codes`` column may then be absent, without a warning, but a
+        ``code_column`` you name must exist or ``ColumnNotFoundError`` is raised. When provided but
         nothing matches, returns an empty array (valid empty selection).
     code_column, onset_column:
         See :func:`events`.

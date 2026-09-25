@@ -36,7 +36,6 @@ TFR_ACCUMULATOR = REPO_ROOT / "jnwb" / "tfr_accumulator.py"
 #: A numbered line in a module docstring's list of gates: "  7. Package & metadata ...".
 DOCSTRING_GATE = re.compile(r"^ {2}(\d+)\. ", re.M)
 #: The runner's own numbered comments: "    # 7. Package and metadata version ...".
-RUNNER_GATE = re.compile(r"^    # (\d+)\. ", re.M)
 #: A "Returns (a, b, c)" line anywhere in a function docstring.
 RETURNS_TUPLE = re.compile(r"Returns?\s+\(([^)]*)\)", re.I)
 
@@ -87,36 +86,91 @@ def function_name_words(name: str) -> "set[str]":
     return {w for w in name.split("_") if len(w) >= IDENTIFYING} - {"check", "validate"}
 
 
+def harness_gate_module():
+    """The gate module, imported once so counts come from the structure rather than a literal."""
+    from scripts import harness_gate
+
+    return harness_gate
+
+
+def _adapter_check(source: str, adapter: str) -> "str | None":
+    """The first check an adapter function calls, found by reading its own def block."""
+    block = re.search(rf"^def {re.escape(adapter)}\(.*?(?=^def |\Z)", source, re.M | re.S)
+    if not block:
+        return None
+    call = re.search(r"\b((?:check|validate)_\w+)\s*\(", block.group(0))
+    return call.group(1) if call else None
+
+
 def runner_gate_calls(source: str) -> "dict[str, str]":
-    """Each numbered gate in the runner, mapped to the check function it calls."""
-    lines = source.splitlines()
+    """Each numbered gate in the runner, mapped to the check function it calls.
+
+    This read the `# N.` comments above a straight line of calls in `run_full_preflight`. On
+    2026-09-19 the runner became the `GATES` table so that one failing gate could no longer stop
+    the rest, and the numbers moved into the table entries. Same question, current source of it.
+    """
+    table = re.search(r"^GATES[^=]*= \[(.*?)^\]", source, re.M | re.S)
+    if not table:
+        return {}
     calls = {}
-    for i, line in enumerate(lines):
-        match = re.match(r"^    # (\d+)\. ", line)
-        if not match:
+    for number, entry in re.findall(r"^    \((\d+), (.*?)(?=^    \(\d+, |\Z)",
+                                    table.group(1), re.M | re.S):
+        # `_one(check_x, ...)` passes the check as a reference, so match the bare name here.
+        call = re.search(r"\b((?:check|validate)_\w+)", entry)
+        if call:
+            calls[number] = call.group(1)
             continue
-        for follow in lines[i + 1 : i + 8]:
-            call = re.search(r"\b((?:check|validate)_\w+)\s*\(", follow)
-            if call:
-                calls[match.group(1)] = call.group(1)
-                break
+        # A bespoke adapter names no check on the entry line; it calls them in its own body.
+        adapter = re.match(r"\s*(_\w+)", entry)
+        resolved = _adapter_check(source, adapter.group(1)) if adapter else None
+        if resolved:
+            calls[number] = resolved
     return calls
 
 
+#: How many identifying words a docstring entry must share with the check it describes.
+#: One was the bar until 06-64 rewrote gate 2's entry to "Uniqueness of the CI matrix: the Python
+#: versions in the workflow are distinct" -- one word shared with `check_skill_tree_uniqueness`,
+#: describing a different check entirely, and the sweep passed. One shared word licenses any
+#: sentence containing it.
+REQUIRED_SHARED_WORDS = 2
+
+
 def entries_not_naming_their_check(doc: str, calls: "dict[str, str]") -> "list[str]":
-    """Documented gate entries that share no identifying word with the function they run."""
+    """Documented gate entries that do not identify the function they run.
+
+    A check whose name yields fewer than `REQUIRED_SHARED_WORDS` identifying words cannot meet the
+    higher bar, so for those the entry must instead overlap the check's own docstring -- otherwise
+    the rule would be unsatisfiable rather than strict.
+    """
     offenders = []
     for number, entry in re.findall(r"^ {2}(\d+)\. (.+)$", doc, re.M):
         function = calls.get(number)
         if function is None:
             offenders.append(f"gate {number}: the runner calls nothing under that number")
             continue
-        if not function_name_words(function) & identifying_words(entry):
-            offenders.append(
-                f"gate {number}: the docstring says {entry!r} while the runner calls "
-                f"{function}(), with no identifying word in common"
-            )
+        name_words = function_name_words(function)
+        shared = name_words & identifying_words(entry)
+        required = min(REQUIRED_SHARED_WORDS, len(name_words))
+        if len(shared) >= required and shared:
+            continue
+        # Fall back to the check's own docstring before reporting: a check named with one
+        # identifying word is described, not renamed, by the entry.
+        own_doc = check_docstring(function)
+        if own_doc and len(identifying_words(own_doc) & identifying_words(entry)) >= 2:
+            continue
+        offenders.append(
+            f"gate {number}: the docstring says {entry!r} while the runner calls "
+            f"{function}(), sharing {sorted(shared)} -- fewer than {required} identifying words, "
+            "and the entry does not match the check's own docstring either"
+        )
     return offenders
+
+
+def check_docstring(function_name: str) -> str:
+    """The named check's own docstring, or '' when it cannot be resolved."""
+    function = getattr(harness_gate_module(), function_name, None)
+    return (function.__doc__ or "") if function is not None else ""
 
 
 def returns_arity_mismatches(root: Path) -> "list[str]":
@@ -195,18 +249,11 @@ class TestTheHarnessGateListsTheGatesItRuns:
     def test_the_numbering_matches_the_runner(self):
         doc = module_docstring(HARNESS_GATE)
         source = HARNESS_GATE.read_text(encoding="utf-8")
-        # The runner's numbered comments restart inside two helpers, so take the longest run
-        # that begins at 1 and ascends -- the preflight sequence at the bottom of the file.
-        runs, current = [], []
-        for number in (int(n) for n in RUNNER_GATE.findall(source)):
-            if number == 1:
-                current = [1]
-                runs.append(current)
-            elif current and number == current[-1] + 1:
-                current.append(number)
-            else:
-                current = []
-        runner = max(runs, key=len)
+        # This used to hunt for the longest ascending run of `# N.` comments, because numbered
+        # comments restarted inside two helpers. The `GATES` table states each number once, so
+        # the heuristic is gone and the numbers are simply read.
+        # Table order, not sorted: a table that ran 5 before 4 must still fail here.
+        runner = [int(n) for n in runner_gate_calls(source)]
         documented = [int(n) for n in DOCSTRING_GATE.findall(doc)]
         assert len(runner) >= 13, f"only {len(runner)} runner gates parsed; the sweep is wrong"
         assert documented == runner, (
@@ -224,17 +271,45 @@ class TestTheHarnessGateListsTheGatesItRuns:
         """The case that passed: "Protected path safety" against a skill-tree check."""
         doc = "  2. Protected path safety: protects concurrent working tree directories."
         offenders = entries_not_naming_their_check(doc, {"2": "check_skill_tree_uniqueness"})
-        assert len(offenders) == 1 and "no identifying word" in offenders[0], offenders
+        # Assert the substance -- one offender, naming the gate and the check it actually runs --
+        # rather than the wording, which pinned a sentence and broke when the sentence improved.
+        assert len(offenders) == 1, offenders
+        assert "gate 2" in offenders[0] and "check_skill_tree_uniqueness" in offenders[0], offenders
+
+    def test_one_shared_word_is_not_enough(self):
+        """06-64's G3: an entry sharing a single word described a different check and passed."""
+        doc = "  2. Uniqueness of the CI matrix: the Python versions in the workflow are distinct."
+        offenders = entries_not_naming_their_check(doc, {"2": "check_skill_tree_uniqueness"})
+        assert len(offenders) == 1, (
+            "an entry sharing only the word 'uniqueness' with check_skill_tree_uniqueness, while "
+            f"describing the CI matrix, was accepted: {offenders}"
+        )
 
     def test_an_entry_the_runner_does_not_run_is_found(self):
         offenders = entries_not_naming_their_check("  14. Something new.", {})
         assert offenders == ["gate 14: the runner calls nothing under that number"]
 
     def test_the_count_matches_what_the_runner_prints(self):
+        """The name promised a comparison the body never made.
+
+        `printed` was computed from the `PASS: ` literals and then never used; the only assertion
+        compared the docstring count against the literal 13, which is not "what the runner prints"
+        by any reading. Both sides are now derived and compared to each other.
+        """
         doc = module_docstring(HARNESS_GATE)
-        printed = HARNESS_GATE.read_text(encoding="utf-8").count('"PASS: ')
-        printed += HARNESS_GATE.read_text(encoding="utf-8").count('f"PASS: ')
-        assert len(DOCSTRING_GATE.findall(doc)) == 13, DOCSTRING_GATE.findall(doc)
+        source = HARNESS_GATE.read_text(encoding="utf-8")
+        # Not `count('"PASS: ') + count('f"PASS: ')`: an f-string literal contains the plain one
+        # as a substring, so that sum double-counted every computed pass line. The old code did
+        # exactly that and went unnoticed because the value was discarded.
+        printed = source.count('"PASS: ')
+        documented = len(DOCSTRING_GATE.findall(doc))
+        declared = len(harness_gate_module().GATES)
+        assert documented == declared == printed, (
+            "the three counts of the gates disagree:\n"
+            f"  module docstring entries: {documented}\n"
+            f"  entries in GATES:         {declared}\n"
+            f"  'PASS: ' literals:        {printed}"
+        )
 
 
 class TestTheVersionHookQuotesTheRealRequiresPython:
@@ -377,3 +452,47 @@ class TestEveryReturnsLineHasTheRightArity:
         )
         assert returns_arity_mismatches(tmp_path) == []
         assert returns_arity_checked(tmp_path) == 1
+
+
+#: Where a contributor or an agent is told how many gates there are.
+GATE_COUNT_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "artifacts/agents.md")
+GATE_COUNT_GLOBS = ("artifacts/agents/*.md",)
+
+#: "Gates 1-16" (any dash) and "18 repository gates" / "18 gates". A count written as a word, a
+#: "gate 2 of 13" recalling one run, or a quoted "18 of 18 gates executed" receipt is not a claim
+#: about the current total.
+GATE_COUNT = re.compile(
+    r"\b[Gg]ates\s+1\s*[-–—]\s*(\d+)\b"
+    r"|(?<![\w.-])(\d+)\s+(?:repository\s+|harness\s+)?gates\b(?!\s+executed)"
+)
+
+
+def prose_gate_counts(text: str) -> "list[int]":
+    return [int(a or b) for a, b in GATE_COUNT.findall(text)]
+
+
+class TestProseGateCountsFollowTheRunner:
+    """Four surfaces stated a gate count, nothing read them, and all four drifted together."""
+
+    def _surfaces(self):
+        paths = [REPO_ROOT / p for p in GATE_COUNT_SURFACES]
+        for pattern in GATE_COUNT_GLOBS:
+            paths.extend(sorted(REPO_ROOT.glob(pattern)))
+        return [p for p in paths if p.is_file()]
+
+    def test_every_stated_count_is_the_number_of_gates(self):
+        total = len(harness_gate_module().GATES)
+        offenders = [
+            f"{p.relative_to(REPO_ROOT).as_posix()}: says {n}"
+            for p in self._surfaces()
+            for n in prose_gate_counts(p.read_text(encoding="utf-8"))
+            if n != total
+        ]
+        assert not offenders, f"GATES holds {total}: {offenders}"
+
+    def test_the_reader_finds_both_forms_and_leaves_recollections(self):
+        text = (
+            "Run and verify Gates 1–16. It runs 18 repository gates. Eleven gates stayed unrun "
+            "after gate 2 of 13 failed, and the run printed 13 of 13 gates executed."
+        )
+        assert prose_gate_counts(text) == [16, 18]

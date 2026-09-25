@@ -2,14 +2,14 @@
 
 Two defects motivate this module.
 
-05-35: five functions declared ``rng: Optional[np.random.Generator] = None`` and then ran
+First, five functions declared ``rng: Optional[np.random.Generator] = None`` and then ran
 ``np.random.default_rng(42)`` -- or ``default_rng(0)`` -- when the caller left it out.
 ``None`` reads as "fresh randomness" and behaved as a fixed seed, so two calls a caller
 believed were independent shared a null distribution and agreed exactly. The seed is now
 in the signature, where ``inspect.signature`` and ``help()`` show it, and ``None`` means
 what it means everywhere else in NumPy: draw fresh entropy from the OS.
 
-05-34: ``nested_cv_linear_svm`` had no randomness parameter at all and hardcoded
+Second, ``nested_cv_linear_svm`` had no randomness parameter at all and hardcoded
 ``random_state=42`` at four sites, so nobody could ask whether a decoding accuracy
 survived a different partition of the same trials.
 
@@ -63,7 +63,7 @@ class Default:
     ``None`` cannot mark "not supplied" for a random-number argument, because ``None`` is
     a meaningful value: it means fresh OS entropy. ``granger(seed=None)`` and ``granger()``
     must not resolve to the same stream. A plain sentinel would fix that but would replace
-    the visible default in the signature -- the exact defect 05-35 repaired -- so this one
+    the visible default in the signature -- the first defect this module exists to prevent -- so this one
     reports the value it stands for:
 
     >>> import inspect

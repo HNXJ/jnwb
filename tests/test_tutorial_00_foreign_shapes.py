@@ -1,4 +1,4 @@
-"""05-42: tutorial 00 was the page for an unfamiliar file, and broke on two common ones.
+"""Tutorial 00 was the page for an unfamiliar file, and broke on two common ones.
 
 It read `acquisition["rate_hz"]` and iterated `info["acquisitions"]` alone.
 

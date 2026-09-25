@@ -29,6 +29,7 @@ TEST_EXTRA_CALLERS = {
     "build": "-m build",
     "twine": '"twine", "check"',
     "pyyaml": "import yaml",
+    "setuptools": "from setuptools import find_namespace_packages",
     "mcp": "from mcp",
     "nbclient": "nbclient",
     "nbformat": "nbformat",

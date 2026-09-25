@@ -2,19 +2,33 @@
 Anatomical addressing and cortical layer mapping for NWB electrode tables.
 
 Maps units/channels to areas and layers from electrode metadata, and standardizes
-units DataFrame fields (unit_id, area, layer, quality flags). Probe labels are
-split on comma or slash only; this module carries no area vocabulary and does not
-normalize spelling or aliases.
+units DataFrame fields (unit_id, area, depth_class, quality flags). Probe labels are
+split on comma or slash only, keeping a slash inside an atlas layer label; this module
+carries no area vocabulary and does not normalize spelling or aliases.
 """
 
 from dataclasses import dataclass
 import logging
-import re
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import pandas as pd
 import numpy as np
 
 log = logging.getLogger(__name__)
+
+# The strings pandas' own readers parse as missing by default. The set is a private pandas name,
+# so the copy below, taken from pandas 3.0.5, stands in if it moves.
+_PANDAS_NA_FALLBACK = frozenset({
+    "", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
+    "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null",
+})
+try:
+    from pandas._libs.parsers import STR_NA_VALUES as _PANDAS_NA_STRINGS
+except ImportError:
+    _PANDAS_NA_STRINGS = _PANDAS_NA_FALLBACK
+
+# Compared after strip() and lower(); "nat" is how a missing datetime prints.
+_MISSING_TEXT = frozenset(s.lower() for s in _PANDAS_NA_STRINGS) | {"nat"}
 
 
 def parse_probe_areas(label: str) -> tuple:
@@ -24,6 +38,11 @@ def parse_probe_areas(label: str) -> tuple:
     otherwise returns each label exactly as the NWB file wrote it. This resolves only
     SEPARATION; which channels fall in which area is decided afterwards, by position
     along the probe.
+
+    A slash followed by a field that does not start with a letter continues the label
+    before it rather than starting a new area, because atlas layer labels use a slash
+    inside one name: ``VISpm2/3`` is layer 2/3 of one area, not the two areas ``VISpm2``
+    and ``3``. A slash between two names that start with letters still separates areas.
 
     No vocabulary lives here, deliberately. Neither identity (is `DP` the same area as
     `V4`?) nor spelling (is `v3a` the same area as `V3a`?) is a question generic
@@ -45,11 +64,26 @@ def parse_probe_areas(label: str) -> tuple:
         ('V3A', 'V1')
         >>> parse_probe_areas("v3d,V2")
         ('v3d', 'V2')
+        >>> parse_probe_areas("VISpm2/3")
+        ('VISpm2/3',)
+        >>> parse_probe_areas("VISp2/3, VISp4")
+        ('VISp2/3', 'VISp4')
 
     Self-contained by design: jnwb must give identical scientific behaviour whether or not
     any project package is importable, so nothing here may depend on one being installed.
     """
-    return tuple(t for t in (p.strip() for p in re.split(r"[,/]", str(label))) if t)
+    fields: list[str] = []
+    for part in str(label).split(","):
+        merged: list[str] = []
+        for piece in (p.strip() for p in part.split("/")):
+            if not piece:
+                continue
+            if merged and not piece[0].isalpha():
+                merged[-1] = f"{merged[-1]}/{piece}"
+            else:
+                merged.append(piece)
+        fields.extend(merged)
+    return tuple(fields)
 
 
 def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
@@ -309,20 +343,75 @@ def enrich_units_dataframe(
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Enrich units DataFrame with standardized area, layer, and quality flags.
+    """Enrich units DataFrame with standardized area, depth class, and quality flags.
 
     Enforces SC-002: Terminology alignment (using unit_id and standard quality flags).
+
+    The geometric class from :func:`classify_layer_from_depth` ('Deep', 'Superficial' or
+    'Unknown') is written to ``depth_class``. It is a threshold on electrode depth, not a
+    cortical layer; the electrophysiological laminar identity is ``jnwb.label_layers``.
+
+    ``layer`` is a deprecated copy of ``depth_class`` and is removed in jnwb 0.2.7. Whenever
+    this function writes it, the call emits ``FutureWarning``. pandas has no hook on reading a
+    column, so the warning fires at the call whether or not ``layer`` is read afterwards. With
+    no electrode geometry, a ``layer`` column already on ``units_df`` is kept as supplied and
+    nothing is written or warned. Read ``depth_class``; until 0.2.7 the warning can be
+    silenced with ``warnings.filterwarnings("ignore", message="The 'layer' column",
+    category=FutureWarning)``.
+
+    ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
+    membership in the accepted good labels otherwise -- and is not added when ``units_df``
+    has no ``quality`` column, or one holding only NaN, None, blank strings or the text of a
+    missing value, because there is nothing to derive it from. The text of a missing value is
+    any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
+    ``"#N/A"``, ``"-1.#IND"``, ...) or ``"NaT"``, compared case-insensitively after stripping
+    whitespace. When it is added, ``is_stable`` has pandas' nullable ``"boolean"`` dtype, and a
+    unit whose own quality is missing, or is not a number in a numeric column, is ``<NA>``:
+    its stability is unknown, not ``False``.
 
     Args:
         units_df: Raw NWB units DataFrame
         electrodes_df: Raw NWB electrodes DataFrame
         depth_unit: Optional unit for electrode depth coordinates (e.g. 'um', 'mm').
-        threshold: Optional depth threshold for layer classification.
+        threshold: Optional depth threshold for the depth class.
         threshold_unit: Optional unit for threshold.
 
     Returns:
         Standardized and enriched DataFrame
     """
+    df, wrote_layer = _enrich_units_dataframe(
+        units_df,
+        electrodes_df,
+        depth_unit=depth_unit,
+        threshold=threshold,
+        threshold_unit=threshold_unit,
+    )
+    if wrote_layer:
+        _warn_legacy_layer_column(stacklevel=3)
+    return df
+
+
+_LEGACY_LAYER_WARNING = (
+    "The 'layer' column is a deprecated copy of 'depth_class', the geometric "
+    "Deep/Superficial/Unknown class, and is removed in jnwb 0.2.7. Read 'depth_class'."
+)
+
+
+def _warn_legacy_layer_column(stacklevel: int = 2) -> None:
+    """Emit the ``FutureWarning`` for the deprecated ``layer`` column."""
+    warnings.warn(_LEGACY_LAYER_WARNING, FutureWarning, stacklevel=stacklevel)
+
+
+def _enrich_units_dataframe(
+    units_df: pd.DataFrame,
+    electrodes_df: Optional[pd.DataFrame],
+    *,
+    depth_unit: Optional[str] = None,
+    threshold: Optional[float] = None,
+    threshold_unit: Optional[str] = None,
+) -> Tuple[pd.DataFrame, bool]:
+    """:func:`enrich_units_dataframe` without the warning; also says whether ``layer`` was written."""
+    wrote_layer = False
     df = units_df.copy()
 
     # 1. Standardize unit_id column
@@ -339,7 +428,7 @@ def enrich_units_dataframe(
     # 2. Enrich anatomical mapping if electrodes_df is provided
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
         df['area'] = df['peak_channel_id'].apply(lambda x: map_peak_channel_to_area(x, electrodes_df))
-        df['layer'] = df['peak_channel_id'].apply(
+        df['depth_class'] = df['peak_channel_id'].apply(
             lambda x: classify_layer_from_depth(
                 x,
                 electrodes_df,
@@ -348,7 +437,9 @@ def enrich_units_dataframe(
                 threshold_unit=threshold_unit,
             )
         )
-        
+        df['layer'] = df['depth_class']
+        wrote_layer = True
+
         # Resolve group_name/probe mapping
         col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)
         if col_group is not None:
@@ -361,24 +452,33 @@ def enrich_units_dataframe(
     else:
         if 'area' not in df.columns:
             df['area'] = None
+        if 'depth_class' not in df.columns:
+            df['depth_class'] = 'Unknown'
         if 'layer' not in df.columns:
-            df['layer'] = 'Unknown'
+            df['layer'] = df['depth_class']
+            wrote_layer = True
         if 'group_name' not in df.columns:
             df['group_name'] = None
 
     # 3. Handle quality and stable flags
     # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
     # for categorical quality labels, standard accepted good labels are stable.
-    if 'quality' in df.columns:
-        q_num = pd.to_numeric(df['quality'], errors='coerce')
+    quality = df['quality'] if 'quality' in df.columns else None
+    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
+    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
+    text = quality.astype(str).str.strip().str.lower() if quality is not None else None
+    if quality is not None and (quality.notna() & ~text.isin(_MISSING_TEXT)).any():
+        q_num = pd.to_numeric(quality, errors='coerce')
         if q_num.notna().any():
-            df['is_stable'] = q_num >= 1.0
+            usable, stable = q_num.notna(), q_num >= 1.0
         else:
             _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
-            df['is_stable'] = df['quality'].astype(str).str.strip().str.lower().isin(_GOOD_LABELS)
-    else:
-        if 'is_stable' not in df.columns:
-            df['is_stable'] = False
+            usable, stable = quality.notna() & ~text.isin(_MISSING_TEXT), text.isin(_GOOD_LABELS)
+        # A unit with no usable quality is <NA>: unknown, not unstable.
+        df['is_stable'] = stable.astype('boolean').mask(~usable)
+    # With no quality column, or one holding only NaN, None or blank strings, there is nothing
+    # to derive stability from, so no `is_stable` is added: an all-<NA> column would be a
+    # label with no data behind it.
 
     # Force conversion of core types. snr/unit_id are stored as dtype=str
     # (object) on some sessions but float64 on others — the same cross-session dtype
@@ -396,7 +496,13 @@ def enrich_units_dataframe(
     # Ensure clean RangeIndex (0 to N-1) to guarantee row-position lookup in get_spike_times
     df = df.reset_index(drop=True)
 
-    return df
+    return df, wrote_layer
+
+
+# Smallest advance along the shaft axis, as a fraction of the mean advance, that still
+# counts as two contacts sitting at distinct depths. Contacts that share a depth (a planar
+# grid, a paired ladder) fall far below this and do not describe a shaft.
+_MIN_AXIAL_STEP_FRACTION = 0.2
 
 
 @dataclass(frozen=True)
@@ -417,6 +523,8 @@ class ProbeGeometry:
         Fractional tolerance used to evaluate nominal pitch uniformity.
     is_linear : bool
         Whether contacts fall along a single linear probe shaft within tolerance.
+        A staggered (zig-zag / multi-column) shaft is linear: what matters is that
+        contacts advance monotonically along the shaft axis, not that they are collinear.
     is_uniform : bool
         Whether inter-contact spacing along the ordered contacts is uniform within tolerance.
     linear_order : np.ndarray
@@ -429,6 +537,13 @@ class ProbeGeometry:
         Name or identifier of the probe group/shank, or ``None``.
     units : str
         Spatial coordinate units, always ``"um"``.
+    stagger_um : float
+        Lateral extent of the contacts perpendicular to the shaft axis, in micrometers
+        (:math:`\\mu\\mathrm{m}`). ``0.0`` for a single-column (collinear) shaft; for a
+        staggered two-column shaft this is the separation between the columns.
+    is_staggered : bool
+        Whether the contacts carry a lateral offset from the shaft axis large enough
+        that the shaft is not collinear. A staggered shaft is still ``is_linear=True``.
     """
 
     contact_positions: np.ndarray
@@ -441,6 +556,8 @@ class ProbeGeometry:
     orientation: Optional[np.ndarray]
     probe_name: Optional[str]
     units: str = "um"
+    stagger_um: float = 0.0
+    is_staggered: bool = False
 
 
 def probe_geometry(
@@ -451,6 +568,7 @@ def probe_geometry(
     nominal_pitch: Optional[float] = None,
     pitch_tolerance: float = 0.1,
     strict_linear: bool = False,
+    stagger_tolerance_um: float = 100.0,
 ) -> ProbeGeometry:
     """Extract contact geometry, linear ordering, and spacing from electrode coordinates.
 
@@ -474,7 +592,10 @@ def probe_geometry(
         (e.g. ``"um"``, ``"mm"``, ``"m"``). Raises :class:`ValueError` if unsupported.
     nominal_pitch : float, optional
         Expected inter-contact spacing in input units. If omitted, estimated from the
-        median Euclidean distance between adjacent ordered contacts.
+        median *advance along the shaft axis* between adjacent ordered contacts. On a
+        staggered shaft this is the axial step, not the contact-to-contact chord: a shaft
+        advancing 25 :math:`\\mu\\mathrm{m}` per contact with a 40 :math:`\\mu\\mathrm{m}`
+        lateral stagger has a pitch of 25, not :math:`\\sqrt{25^2 + 40^2}`.
     pitch_tolerance : float, default 0.1
         Allowable relative deviation from nominal pitch:
         :math:`|\\Delta d - d_{\\mathrm{nom}}| \\le \\epsilon \\cdot d_{\\mathrm{nom}}`.
@@ -482,6 +603,11 @@ def probe_geometry(
     strict_linear : bool, default False
         If ``True``, raises :class:`ValueError` if the probe contacts do not conform to a
         linear geometry within tolerance.
+    stagger_tolerance_um : float, default 100.0
+        Maximum lateral extent, in micrometers (:math:`\\mu\\mathrm{m}`), that contacts may
+        span perpendicular to the shaft axis while still counting as a single linear shaft.
+        Standard staggered / zig-zag multi-column shafts sit well inside this bound; a
+        planar grid or a scattered arrangement does not. Must be non-negative and finite.
 
     Returns
     -------
@@ -498,6 +624,11 @@ def probe_geometry(
     """
     if pitch_tolerance < 0.0 or not np.isfinite(pitch_tolerance):
         raise ValueError(f"pitch_tolerance must be a non-negative finite float, got {pitch_tolerance}")
+
+    if stagger_tolerance_um < 0.0 or not np.isfinite(stagger_tolerance_um):
+        raise ValueError(
+            f"stagger_tolerance_um must be a non-negative finite float, got {stagger_tolerance_um}"
+        )
 
     units_norm = str(units).strip().lower()
     if units_norm not in _DEPTH_UNIT_SCALES:
@@ -628,6 +759,8 @@ def probe_geometry(
             orientation=None,
             probe_name=resolved_probe_name,
             units="um",
+            stagger_um=0.0,
+            is_staggered=False,
         )
 
     # 6. Assess linearity via Principal Component Analysis (SVD)
@@ -645,25 +778,88 @@ def probe_geometry(
     sorted_proj = projections[linear_order]
     sorted_coords = coords_um[linear_order]
 
-    # Ensure orientation points in the direction of sorted projections
-    if (sorted_proj[-1] - sorted_proj[0]) < 0:
+    # Pin the sign of the principal axis to electrode-table row order.
+    #
+    # A singular vector's sign is arbitrary -- `v` and `-v` describe the same axis -- and which
+    # one LAPACK returns can change under a perturbation far below any physical tolerance. When
+    # it changes, `linear_order` reverses end to end. Measured on the unrepaired module: a
+    # straight 24-contact shaft at 100 um pitch with `z` scaled by `1 - 1e-9` reversed
+    # `linear_order` from `[0..23]` to `[23..0]` and `orientation` from `[0, 0, 1]` to
+    # `[0, 0, -1]`.
+    #
+    # The guard here used to read `if (sorted_proj[-1] - sorted_proj[0]) < 0:`. That branch was
+    # unreachable: `sorted_proj = projections[np.argsort(projections)]` is ascending by
+    # construction, so the difference is non-negative for every possible input. It could not
+    # correct anything, and while it stood the returned ordering was whichever sign LAPACK
+    # happened to produce.
+    #
+    # The informative comparison is against row order, not against the sorted projections.
+    # `jnwb.laminar.vflip` documents `orientation` as being relative to channel indexing, so the
+    # axis must advance with the electrode table.
+    row_index = np.arange(n_channels, dtype=np.float64)
+    row_covariance = float(
+        np.dot(projections - projections.mean(), row_index - row_index.mean())
+    )
+    if row_covariance < 0.0:
         principal_dir = -principal_dir
-        projections = np.dot(centered, principal_dir)
-        linear_order = np.argsort(projections)
-        sorted_proj = projections[linear_order]
-        sorted_coords = coords_um[linear_order]
+    elif row_covariance == 0.0:
+        # The axis is orthogonal to row order, so row order carries no direction to follow and
+        # the arbitrary LAPACK sign would show through. Fall back to a convention that depends
+        # only on the vector itself: its first non-zero component is positive.
+        nonzero = np.flatnonzero(principal_dir)
+        if nonzero.size and principal_dir[nonzero[0]] < 0.0:
+            principal_dir = -principal_dir
+
+    # Recomputed unconditionally rather than inside each branch: one dot product, and no path
+    # can leave `projections` disagreeing with the `principal_dir` that is returned.
+    projections = np.dot(centered, principal_dir)
+    linear_order = np.argsort(projections)
+    sorted_proj = projections[linear_order]
+    sorted_coords = coords_um[linear_order]
+
+    mean_pos = np.mean(coords_um, axis=0)
+
+    # 6b. Refine the shaft axis so a lateral stagger cannot tilt it.
+    # On a zig-zag shaft the alternating lateral offset is correlated with the contact
+    # index, which pulls the raw principal component off the true shaft axis and leaks
+    # part of the stagger into the measured advance. Averaging each half of the ordered
+    # contacts cancels any repeating lateral pattern, leaving pure advance along the shaft.
+    # This relies on the initial ordering already being by depth, which holds while the
+    # lateral extent stays well under the axial span -- comfortably true for any stagger
+    # inside stagger_tolerance_um, and the geometry is refused as non-linear before the
+    # estimate would degrade.
+    half = n_channels // 2
+    if half >= 1:
+        lo_centroid = np.mean(sorted_coords[:half], axis=0)
+        hi_centroid = np.mean(sorted_coords[n_channels - half:], axis=0)
+        delta = hi_centroid - lo_centroid
+        delta_norm = float(np.linalg.norm(delta))
+        if delta_norm > 0.0:
+            principal_dir = delta / delta_norm
+            projections = np.dot(coords_um - mean_pos, principal_dir)
+            linear_order = np.argsort(projections)
+            sorted_proj = projections[linear_order]
+            sorted_coords = coords_um[linear_order]
 
     unit_orientation = principal_dir / np.linalg.norm(principal_dir)
 
     # Reconstructed positions along the linear axis: mean + proj * unit_orientation
-    mean_pos = np.mean(coords_um, axis=0)
     reconstructed = mean_pos + np.outer(projections, unit_orientation)
-    residuals = np.linalg.norm(coords_um - reconstructed, axis=1)
+    lateral_offsets = coords_um - reconstructed
+    residuals = np.linalg.norm(lateral_offsets, axis=1)
     max_residual = np.max(residuals)
 
-    # Inter-contact distances along sorted order
-    diffs = np.diff(sorted_coords, axis=0)
-    step_distances = np.linalg.norm(diffs, axis=1)
+    # Lateral extent: how wide the shaft is, measured across its dominant lateral
+    # direction. A single-column shaft is 0; a staggered two-column shaft is the
+    # column separation. This is a stagger, not a departure from linearity.
+    _, _, lateral_vt = np.linalg.svd(lateral_offsets, full_matrices=False)
+    stagger_um = float(np.ptp(np.dot(lateral_offsets, lateral_vt[0])))
+
+    # Advance along the shaft axis between adjacent ordered contacts. Deliberately not
+    # the 3D chord between contacts: on a staggered shaft the chord is the hypotenuse of
+    # (axial step, lateral stagger) and would report the stagger as advance.
+    axial_steps = np.diff(sorted_proj)
+    axial_span = float(sorted_proj[-1] - sorted_proj[0])
 
     # Derived or explicit nominal pitch in micrometers
     if nominal_pitch is not None:
@@ -671,21 +867,41 @@ def probe_geometry(
         if nom_pitch_um <= 0.0 or not np.isfinite(nom_pitch_um):
             raise ValueError(f"nominal_pitch must be positive and finite, got {nominal_pitch}")
     else:
-        nom_pitch_um = float(np.median(step_distances))
+        nom_pitch_um = float(np.median(axial_steps))
 
-    # Linearity condition: transverse residuals must be small compared to nominal pitch
-    # Allow at most max(pitch_tolerance * nom_pitch_um, 1e-4) deviation from the line
-    line_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
-    is_linear = bool(max_residual <= line_tol)
+    # Linearity condition, in the sense the laminar path needs: contacts must sit at
+    # distinct, monotonically advancing depths along one axis, and their lateral offset
+    # must be a bounded stagger rather than open scatter. Collinearity is not required.
+    mean_axial_step = axial_span / (n_channels - 1)
+    if mean_axial_step > 0.0:
+        advances_monotonically = bool(
+            np.all(axial_steps >= _MIN_AXIAL_STEP_FRACTION * mean_axial_step)
+        )
+    else:
+        advances_monotonically = False
+    stagger_within_tolerance = bool(stagger_um <= stagger_tolerance_um)
+    is_linear = bool(advances_monotonically and stagger_within_tolerance)
 
     if strict_linear and not is_linear:
-        raise ValueError(
-            f"Probe geometry is non-linear: maximum off-axis deviation {max_residual:.3f} um "
-            f"exceeds tolerance {line_tol:.3f} um"
-        )
+        if not advances_monotonically:
+            reason = (
+                f"contacts do not advance monotonically along the shaft axis "
+                f"(smallest axial step {float(np.min(axial_steps)):.3f} um against a mean of "
+                f"{mean_axial_step:.3f} um)"
+            )
+        else:
+            reason = (
+                f"lateral extent {stagger_um:.3f} um exceeds stagger tolerance "
+                f"{float(stagger_tolerance_um):.3f} um"
+            )
+        raise ValueError(f"Probe geometry is non-linear: {reason}")
 
-    # Uniformity condition: step distances within pitch_tolerance of nominal pitch
-    pitch_err = np.abs(step_distances - nom_pitch_um)
+    # A shaft is staggered when its lateral extent puts it outside collinearity.
+    collinear_tol = max(pitch_tolerance * nom_pitch_um, 1e-4) if nom_pitch_um > 0 else 1e-4
+    is_staggered = bool(stagger_um > collinear_tol)
+
+    # Uniformity condition: axial steps within pitch_tolerance of nominal pitch
+    pitch_err = np.abs(axial_steps - nom_pitch_um)
     is_uniform = bool(is_linear and np.all(pitch_err <= (pitch_tolerance * nom_pitch_um + 1e-6)))
 
     return ProbeGeometry(
@@ -699,6 +915,8 @@ def probe_geometry(
         orientation=unit_orientation,
         probe_name=resolved_probe_name,
         units="um",
+        stagger_um=stagger_um,
+        is_staggered=is_staggered,
     )
 
 

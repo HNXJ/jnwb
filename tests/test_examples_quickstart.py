@@ -1,7 +1,7 @@
 """Executes `examples/quickstart_jnwb.py`, which nothing executed.
 
-The script is named in `AGENTS.md` as the smallest end-to-end script and in
-`docs/quickstart.md` as the authoritative smoke test, and both README and that page call it
+The script is the smallest end-to-end example, `docs/quickstart.md` names it the
+authoritative smoke test, and both README and that page call it
 executable. Nothing in the suite ran it, so it stayed broken across a release: 0.2.x
 tightened `permute_labels` to refuse a design with one label per group, which is exactly
 the design the permutation panel builds on purpose, and the script died there with a
@@ -46,9 +46,9 @@ def test_the_quickstart_script_runs_end_to_end(quickstart, monkeypatch, tmp_path
     monkeypatch.setattr(quickstart, "OUT", str(tmp_path))
     quickstart.main()
 
-    for ext in ("svg", "png"):
-        written = tmp_path / f"jnwb_quickstart.{ext}"
-        assert written.is_file() and written.stat().st_size > 0, f"no {ext} was written"
+    for name in ("jnwb_quickstart.svg", "jnwb_quickstart.png", "jnwb_quickstart.dark.png"):
+        written = tmp_path / name
+        assert written.is_file() and written.stat().st_size > 0, f"no {name} was written"
 
     out = capsys.readouterr().out
     for _, api, _ in quickstart.PANELS:

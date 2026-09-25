@@ -4,6 +4,466 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.2.6] - 2026-09-24
+
+### Added
+
+- **`inspect` reports each continuous series' `starting_time`, and `acquisition_channel` warns
+  when it is not 0.** Sample 0 of an `acquisition_channel` array is at the series'
+  `starting_time`, while interval-table onsets are session times; nothing reported the offset,
+  so on a series starting at 5 s the documented `acquisition_channel` → `event_onsets` →
+  `epoch_continuous` path epoched 5 s away from every event and measured -0.0001 mV for a
+  1 mV evoked deflection. Every continuous entry, from a path or an in-memory file, gains
+  `starting_time` in seconds (`None` for a series stored with timestamps).
+  `acquisition_channel` raises `UserWarning` naming the shift when it is non-zero; its return
+  is unchanged. Tutorials 00, 04 and 08 and the NWB-data skill subtract it from the onsets
+  before epoching.
+- **`CITATION.cff`.** Citation metadata for GitHub's "Cite this repository" and for archiving
+  each GitHub Release on Zenodo.
+- **`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of
+  dataset paths cast to float32, irreversibly (`select=["acquisition/probe_0_lfp/data"]`). A
+  missing path, a group, a dataset that is not floating-point, a scalar dataset, a regular
+  `timestamps` array (replaced by `starting_time` and `rate`), and `spike_train` or
+  `convolved_spike_train` (always rewritten at their source dtype) are refused before anything
+  is written; naming any of the last three used to report a float32 cast of a dataset that was
+  never cast or is absent from the output. Each path is checked under the name of the dataset it
+  opens, so `a//b`, `a/./b` and `a/b/` meet the same refusals as `a/b` and are cast once under
+  that name, and a hard or soft link to a refused dataset is refused like the dataset. The
+  result gains `cast_paths`, and verification checks exactly those datasets.
+- **`correlate` and `exploratory_correlate` take `method=`.** Keyword-only: `"both"` (the
+  default, the same values as before), `"pearson"` or `"spearman"`. Naming one computes only that
+  correlation and returns only its keys, so `n_tests` counts what was performed. An unknown
+  method raises `ValueError`.
+- **`compare_groups`, `compare_multiple_groups`, `exploratory_compare` and `exploratory_multi`
+  take `test=`.** Keyword-only: `"both"` (the default), `"parametric"` or `"nonparametric"`.
+  Naming one runs only that test and returns only its keys. An unknown name raises `ValueError`.
+- **`jnwb.vis`, a Plotly figure engine, as the optional `vis` extra.** Install it with
+  `pip install jnwb[vis]`, which adds `plotly>=6.1.1` and `kaleido>=1.0.0`; kaleido writes the
+  SVG and PNG that `PlotlyPublicationCanvas.save_and_seal` exports alongside the HTML. The core
+  dependencies are unchanged. Without the extra, `import jnwb` and every other export work,
+  and accessing `jnwb.vis` raises `ImportError` naming `pip install jnwb[vis]`.
+  `from jnwb import *` needs the extra, because `vis` is in `jnwb.__all__`.
+- **An open-data tutorial on a real public recording.** `examples/tutorials/09_open_data.py`
+  and the "Open Data" page read a 7.8 MB excerpt of DANDI 000253 v0.240503.0152 (CC-BY-4.0,
+  doi:10.48324/dandi.000253/0.240503.0152), committed under `examples/data/` and kept out of
+  the wheel. The tutorial derives the LFP clock from the file -- the timestamps are clock ticks,
+  giving 1249.9987 Hz, with sample 0 placed within 10 ms -- then computes a PSTH by cortical
+  layer and band power by depth. `scripts/build_open_data_excerpt.py` rebuilds the excerpt
+  from the published assets after checking their SHA-256.
+- **Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`,
+  `exploratory_multi` and `exploratory_correlate` results carry `correction: "none"`. Their
+  p-values and `significant_*` flags were already raw; the key states it in the result itself. Corrected values stay on `confirmatory_compare`.
+- **A read can waive a missing `session_description`, reachable from `import jnwb`.**
+  `jnwb.read_nwb(path, allow_missing=("session_description",))` opens a file that
+  `MissingRequiredNWBFieldError` refuses by default; the field reads `""`, and
+  `nwbfile.jnwb_waived_requirements` is `("session_description",)` only when the waiver was
+  used. A file that has the field reads `()` whatever `allow_missing` says. `jnwb.nwb_read_io`
+  takes the same `allow_missing` and keeps the file open for reading data. It is a reader: any
+  `mode` other than `"r"` raises `ValueError` before the file is opened, where `"w"` used to
+  truncate it and `"a"` and `"r+"` opened it for writing. Write with `pynwb.NWBHDF5IO`.
+  `jnwb.SqueezedAttributeWarning` is exported so a repaired read can be caught by name.
+  `docs/errors.md` tabulates what a read returns for each on-disk state of the field.
+
+### Changed
+
+- **One execution switch.** `device='metal'` runs `complex_tfr` (with `dtype=np.complex64`)
+  through JAX on Apple GPUs; it is implemented and has not been run on Metal hardware. Every
+  other function warns and computes on the CPU, as do 64-bit requests on Metal.
+  `band_power` and `relative_power` no longer have GPU paths: `device='cuda'` or `'metal'`
+  warns and computes on the CPU, because their bare return values have nowhere to record the
+  device. `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`,
+  `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`
+  now return `device_used`. `granger_causality` recomputes on the CPU if any fit falls back,
+  where it used to mix GPU and CPU fits. `jrsa(backend='cupy'|'jax'|'torch')` and `n_jobs>1`
+  without joblib now warn instead of falling back silently.
+- **`PopulationAnalyzer.population_trajectory` makes each component's largest loading
+  positive**, so CPU and CUDA agree; LAPACK and cuSOLVER used to choose each component's sign
+  independently, so a CUDA component and its projection could have the opposite sign to the
+  CPU one. Component and projection signs may flip compared with 0.2.5.
+- **`wpli` and `imaginary_coherency` return NaN when either channel is constant**, all-zero
+  included: `wpli`, `wpli_debiased_sq` and every `wpli_spectrum` entry, and `icoh_mean`,
+  `icoh_abs_mean` and `coh_mag_mean`. In 0.2.5 `imaginary_coherency` returned 0.0 for an all-zero
+  channel and a rounding-residue value for other constants (0.14 at 0.3). `wpli` returned
+  0 for an all-zero channel and 0.14 to 0.18 for any other constant, from the rounding residue
+  its STFT keeps because it does not detrend. The constancy test is exact: one sample one ulp
+  away makes a channel non-constant. `zflip` applies the same rule to its adjacent wPLI: a
+  constant contact makes both of its pairs NaN, so `mean_wpli` is NaN rather than an average
+  over zeros, and the surrogate test is skipped (`p_value` NaN, with the contact named in
+  `rejection_reason`).
+- **The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**
+  (`cast from int16 to float32`). It used to say `float64` whatever the source was.
+- **The geometric depth class is `depth_class`.** `enrich_units_dataframe` and
+  `get_all_units_metadata` write it ('Deep' / 'Superficial' / 'Unknown', a threshold on
+  electrode depth) to a new column `depth_class`; laminar identity from spectra remains
+  `label_layers`. `unit_census_report` with `group_by=None` groups by
+  `['session_id', 'area', 'depth_class']`, so the census carries `depth_class` where it carried
+  `layer`. Given a frame with `layer` and no `depth_class`, it does not read `layer`; it drops
+  the depth split and emits a `FutureWarning` naming both columns.
+- **The `phase_slope_index` jackknife runs in time linear in the number of segments.** It was
+  quadratic. `value` and the spectra are unchanged; `sd`, `z` and the p-values agree with the
+  previous implementation to 1e-11 relative. At 50 000 samples with `nperseg=256` a call takes
+  12 ms instead of 800 ms.
+- **`stream_npz_array` seeks inside an uncompressed archive.** A slice of an `np.savez` entry
+  skips the elements before it instead of reading them, so time no longer grows with the
+  slice's position (0.5 ms against 82 ms for the last 1000 of 1.6e7 float64). Output is
+  byte-identical, and compressed archives are unchanged. A slice that skips part of a stored
+  entry no longer verifies its CRC-32; read the whole array to verify the file. CPython 3.12.0
+  keeps reading the skipped elements: its `zipfile` ends a stored entry early after a seek into
+  the read buffer, which failed valid archives as corrupt. A check of `zipfile` on first use
+  picks the path.
+- **`stream_npz_array` indexes as NumPy does.** An integer index removes its axis:
+  `slice_tuple=(slice(1, 4), 2)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned
+  `(3, 1, 7)`, which broadcast silently against NumPy's result; with `-1` in place of `2` it
+  returned `(3, 0, 7)`, an empty array. Code that relied on the kept
+  axis must index with a length-1 slice (`slice(k, k + 1)`) instead. Too many indices and a
+  non-integer scalar index raise `IndexError`, as in NumPy, where they raised `ValueError`; a
+  zero-dimensional array reads with `slice_tuple=()`. Ellipsis, `None`, booleans, arrays and a
+  list, which NumPy reads as other kinds of index, raise `TypeError`; a boolean used to be read
+  as an integer and a list as a tuple.
+- **`imaginary_coherency` is signed like `phase_slope_index`: positive means `x` leads `y`.**
+  The cross-spectrum is now `E[X conj(Y)]`, the conjugate of what `scipy.signal.csd` returns,
+  on both devices. `icoh_mean` changes sign on every input; `icoh_abs_mean`, `coh_mag_mean` and
+  `n_freqs` are unchanged. With `x` leading `y` by 5 ms, `icoh_mean` was -0.6255 while the phase
+  slope index was +1.7767. Code that read a negative `icoh_mean` as `x` leading must flip its
+  test.
+- **`aggregate_to_db(how="mean_of_ratios")` refuses `TFRAccumulator.power()` output.** The
+  accumulator has already averaged over trials, so a ratio of its output is a ratio of means
+  whatever `how` names; the call used to return that under the other name. It now raises
+  `ValueError` naming the per-trial route. `how="ratio_of_means"` on accumulator output, and
+  `mean_of_ratios` on per-trial power, are unchanged. The refusal covers `power()`, `mean`, any
+  array sharing memory with the mean buffer (every view, including one reached through
+  `memoryview` or `as_strided`), NumPy function results over them and `tolist()`; values are
+  unchanged. A copy NumPy makes without dispatch (`np.array`, assignment into another array)
+  and a read back from `write()` carry no mark and are not refused.
+- **`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both
+  used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`
+  and `alternative='GREATER'`. The error names the valid set, and an unrecognised
+  `alternative` is refused before anything is computed, with or without a permutation null.
+  The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`
+  and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is
+  still accepted.
+- **`jrsa(alternative=)` sets the tail of the parametric p.** With `permutations=0` or
+  `stats=False`, `p` is the metric's own two-sided p, and `alternative='greater'` or `'less'`
+  was echoed in `parameters` without changing it. The one-sided p is now the two-sided p
+  halved when `value` lies on the requested side and `1 - p/2` otherwise: for a Pearson r of
+  -0.949, `'greater'` gives 1.0 where it gave 5.2e-61. `granger_ssr_ftest`, whose parametric
+  p is an upper-tail F-test, raises `ValueError` for a one-sided alternative without a
+  permutation null.
+- **`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable
+  value.** A frame without one, or with only NaN, None, blank entries or the text of a missing
+  value (any string `pandas.read_csv` reads as missing by default, such as `"nan"`, `"n/a"`,
+  `"#N/A"` or `"-1.#IND"`, or `"NaT"`), used to receive
+  `is_stable=False` on every unit, a label with no data behind it. The column is now absent in
+  that case; the unit quality plot already treats it as optional, and
+  `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a
+  `RuntimeWarning` instead of passing them through.
+- **`is_stable` is a nullable boolean: `<NA>` where a unit's own quality is missing.**
+  `enrich_units_dataframe` and `get_all_units_metadata` write it with pandas' `"boolean"` dtype.
+  A unit whose `quality` is NaN, None, blank or the text of a missing value, or is not a number
+  in a numeric column, used to read `False`, unstable, when other units had usable values; it
+  reads `<NA>`. `filter_quality=True` still excludes it. `plot_unit_quality_distribution` counts
+  it in neither stability bar and gives the number of unknown units in the panel title. Code
+  that negates the column (`~df["is_stable"]`) now keeps `<NA>` where it kept `True`; use
+  `df["is_stable"].eq(False)` to select units known to be unstable.
+- **`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape
+  `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives
+  `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`.
+- **`jrsa(sliding=True)` raises `NotImplementedError`.** It was accepted and ignored: value and
+  p were identical to `sliding=False`, with no warning, while the jRSA page presented it as
+  sliding-window analysis. The error names the alternative, one call per
+  `window=(start, stop)`, and the page shows that loop.
+- **`jrsa(metric='transfer_entropy_histogram_nats')` refuses `k`.** The metric declared a `k`
+  option and never read it: `k=1`, `2` and `5` all returned the one-sample-history answer
+  (0.040111 on one input). It now raises `TypeError` like any unknown option; the estimator
+  conditions on one past sample of each series. `jnwb.transfer_entropy` takes history lengths.
+  Every other metric-specific option `jrsa` accepts with more than one legal value changes the
+  result.
+- **INTENTIONAL BREAK: `zflip` requires `orientation`.** `directionality` named a direction in
+  depth from row order alone, and nothing required row 0 to be superficial: a tip-first
+  electrode table of a wave running superficial to deep was reported as `deep_to_superficial`
+  and accepted. `orientation='superficial_to_deep'` (row 0 is the most superficial contact) or
+  `'deep_to_superficial'` (row 0 is the deepest) is now a keyword with no default; a call
+  without it raises `TypeError` and any other value raises `ValueError`. Code that passed
+  superficial-first rows adds `orientation='superficial_to_deep'` and gets the numbers it got
+  before. `tau_per_channel_s` stays in row order (positive when the lower-index contact leads),
+  and `ZFlipResult.orientation` records the order stated.
+
+### Fixed
+
+- **`compress_fp32` keeps shared timestamps, and a failed verification raises.** pynwb writes a
+  series' shared `timestamps` as a soft link to another series' array. When that array was
+  regular, the conversion replaced it with `starting_time` and `rate` and deleted it, leaving
+  the link dangling and the output unreadable by pynwb (`ConstructError`); the only signal was
+  `verification["ok"] == False` in the returned dict. A regular `timestamps` array that any
+  other hard or soft link opens is now kept as it is, listed in `timestamps_kept_linked`, and
+  refused by `select=` like any regular timestamps array. With `verify=True` a failed check
+  raises `RuntimeError` naming each failed check, and the written file is left in place for
+  inspection, so `ok` is True in every returned result.
+- **`acquisition_channel` applies `channel_conversion`.** An `ElectricalSeries` may store a
+  per-channel factor, and the NWB specification computes the physical value as
+  `data * conversion * channel_conversion[ch] + offset`. The factor was ignored, so a file
+  storing `channel_conversion=[1, 2, 0.5]` returned the same voltage on all three channels where
+  pynwb returns 1e-4, 2e-4 and 5e-5 V. A `channel_conversion` whose length is not the channel
+  count raises `ValueError`.
+- **A PSTH window must be whole bins.** `raster_psth` built a last bin that ran past
+  `win_ms[1]` when the span was not a multiple of `bin_ms`, and divided its partial count by the
+  full `bin_ms`: a steady 1000 Hz train read 500 Hz in the last bin of `win_ms=(-200, 505)` at
+  10 ms. Such a window now raises `ValueError` naming the nearest valid windows
+  (`win_ms=(-200, 500)` or `(-200, 510)`); every valid call returns what it did.
+  `jnwb.vis.plot_multi_condition_raster_psth` had the same last bin and refuses the same way,
+  and its default window is `(-250, 530)` where it was `(-250, 531)`, whose last bin held 1 ms.
+  `UnitAnalyzer.psth` stretched such a window into bins that were not `bin_size_ms` wide and
+  divided each by `bin_size_ms`; it refuses the window as well.
+- **A `bin_spikes` window must be whole bins.** `bin_spikes` made `round(span / bin)` bins.
+  Rounded up, the last bin ran past the window end and `output="rate"` divided its partial
+  count by the full width: a steady 1000 Hz train read 600 Hz in the last bin of
+  `window_s=(0, 0.306)` at 10 ms. Rounded down, spikes between the last edge and the window end
+  were dropped: `(0, 0.305)` counted 300 of 305. Such a window now raises `ValueError` naming
+  the nearest valid windows (`window_s=(0, 0.3)` or `(0, 0.31)`); every valid call returns what
+  it did. `spike_mutual_information` and its two aliases refuse the same windows under
+  `time_window_s`, and now bin both trains through `bin_spikes`: their own histogram closed the
+  last bin on the right, so a spike exactly on the window end was counted.
+  `build_time_resolved_matrix` (and `compute_population_trajectory` through it) stretched such a
+  window into bins not `bin_size_ms` wide; it refuses the window as well. The whole-bin check
+  scales its floating-point tolerance with the window's endpoints, so an absolute window hours
+  into a recording is not refused for rounding.
+- **`UnitAnalyzer.autocorrelogram` bins are `bin_size_ms` wide and centred on their lags.**
+  They were `2 * max_lag / (2n + 1)` wide, 0.99 ms at the default 1 ms, and `lag_times_ms`
+  labelled each bin one bin below where it sat: a train firing every 5 ms peaked at the label
+  4 ms. Bins are now centred on multiples of `bin_size_ms`, the histogram spans
+  `±(n + 1/2) * bin_size_ms`, and `lag_times_ms` is `bin_size_ms * (1, ..., n)`, the centres;
+  the same train peaks at 5 ms. `n`, the whole bins in `max_lag_ms`, no longer loses one to
+  rounding (9 ms at 0.1 ms made 89 bins). Its refractory test is withdrawn (Deprecated, below).
+- **`build_time_resolved_matrix` bins are right-open.** Its last bin was closed on the right, so
+  a spike exactly on `time_window_ms[1]` was counted there; `bin_spikes` and every other spike
+  binner exclude it. It now bins through the same rule as `bin_spikes`.
+- **A result with no estimate is NaN, not a number.** These calls returned ordinary-looking
+  values where the data held no estimate:
+  - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,
+    `x_to_y` and `y_to_x` are now NaN, with `diagnostics['ok_for_interpretation']` False. When
+    some bands have a slope, `net` still sums those.
+  - `phase_locking_index` with no spike in the LFP window returned `pli` 0.0,
+    `preferred_phase` 0.0, `rayleigh_z` 0.0 and `rayleigh_pvalue` 1.0. All four, and
+    `peak_to_mean_contrast`, are now NaN, with `n_spikes` 0.
+  - `compare_groups` and `exploratory_compare` rewrote an undefined test as `statistic` 0.0 and
+    `pval` 1.0: an empty group, one value per group, or two identical constant groups. The test
+    now reports NaN, its `df` is float NaN rather than a count such as 18 for an empty group,
+    and its `significant_*` flag is False; a defined test keeps its integer `df`. A paired
+    Wilcoxon test whose every difference is zero reported scipy's statistic 0.0 and p 1.0; it
+    is NaN. An effect size with a zero or undefined SD is NaN rather than 0.0, and a one-value
+    group against a larger one gets its Cohen's d instead of 0.0. `confirmatory_compare` gives
+    a NaN `pval` a NaN q-value; the other test's q is unchanged. Zero spread is tested by exact
+    equality: the computed SD of a constant 0.3 is about 1e-17, so two constant 0.3 groups kept
+    `statistic` 0.0 and `pval` 1.0, and constant groups at 0.3 and 0.7 read t -2.2e16 and d
+    -9.7e15. Constant groups at one value now read NaN, and at different values t -inf or
+    +inf, `pval` 0.0 and d NaN, whatever the finite values; a paired difference that is one
+    non-zero constant reads the same way, with d_z NaN. A group constant at inf or -inf, such
+    as a silent channel in decibels, has no test and reads NaN.
+  - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and
+    Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests
+    now report NaN with `significant_*` False, and an ANOVA with no estimate reports
+    `df_between` and `df_within` as float NaN (`group_sizes` keeps the counts). `eta_squared` is
+    NaN for data with no variance or with an empty group; with one observation per group and
+    unequal values every deviation lies between groups, so `eta_squared` is 1.0 while the ANOVA
+    itself is NaN. Both cases are decided by exact equality on finite data: constant groups at
+    0.1 of sizes 3 and 4 reported `eta_squared` 2.29, and constant groups at distinct values
+    1.0000000000000004.
+  - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant
+    input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation
+    keeps its integer `df`.
+  - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0
+    and `p_val` 1.0. Every field but `n_shuffle` is now NaN. Constancy is tested by exact
+    equality, so a constant 0.3, whose `np.std` is 5.6e-17 rather than 0, is caught as a
+    constant 0.5 is.
+  - `cluster_permutation_test` reads a point's zero standard error from its data, compared
+    exactly. The computed spread of a constant 0.3 is rounding residue, so a paired difference
+    of 0.3 at every observation read t 1.8e16 where a constant non-zero difference is NaN, and
+    two groups of 7 and 12 equal to 0.3 read t 3.3, enough to form a cluster at the default
+    threshold, where equal constant groups read 0.0.
+- **Standardisation takes a constant to 0.** The computed std of a constant 0.3 is rounding
+  residue rather than 0, and dividing the centred values, the same residue, by it turned the
+  constant into a column of ones. A constant column in `gpu_pca` and a unit with an unchanging
+  rate in `compute_population_trajectory` each took a whole principal component; a constant
+  row under `jrsa(standardize=True)`, a constant trial under `detrend='zscore'` (the `granger`
+  and `granger_spectral` default) and a constant signal in the deprecated `granger_causality`
+  entered the analysis as ones. Each is now exactly 0, on CPU and CUDA alike, whatever the
+  constant's value. `compute_response_metrics` with the same baseline count in every trial
+  read `response_zscore` about 1e15 in size (-2.1e15 for 7 spikes in 0.15 s over 20 trials)
+  where no across-trial variance gives NaN; it is NaN. Constant model residuals read a
+  Ljung-Box p of 0.0 and the warning `residual_autocorrelation_ljung_box_p<0.05`; the test is
+  now not run, with `residual_whiteness_not_tested`.
+- **`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,
+  `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in
+  `/acquisition` raised `AcquisitionNotFoundError` ("has no readable data array"), and its bare
+  series name was not found, although `inspect` reported the series, its path and its rate. Only
+  `LFP` was unwrapped. These containers now unwrap the way `LFP` does: by container name, bare
+  series name or `container/series`, and a container holding several series raises
+  `AmbiguousAcquisitionError`. A `FilteredEphys` container in `/acquisition`, which raised the same
+  way when named by its container, is unwrapped too. `inspect` on an `NWBFile` with no file
+  behind it unwrapped only `LFP`, so it reported these containers with no series, shape or
+  layout, and left those in processing modules out, where `inspect` of the file reported them;
+  both forms now report them alike. A series whose type carries no electrode
+  region (every `TimeSeries` subtype except `ElectricalSeries` and `SpikeEventSeries`) has
+  nothing to decide which axis holds channels, so its layout follows the NWB schema's time-first
+  rule rather than a guess from which side is longer, in `acquisition_channel` and in
+  `inspect`'s `layout`. An `ExternalLink` in `compress_fp32(select=)` that points into another
+  file is refused: it opens a dataset there, and resolving it by name cast this file's dataset at
+  the same path. One that points back into the source file is cast as an alias of its target.
+- **`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`
+  returned an empty array; it returns the last element. A negative step on an outer axis, with
+  the fastest axis read whole, raised "Internal streaming error"; it returns the slice. An entry
+  shorter than its header declared returned uninitialized memory; it raises `ValueError`. An
+  out-of-range integer index returned an empty array; it raises `IndexError`.
+- **`jrsa` converts its inputs by type.** It took `.data` from any input carrying one: a
+  `scipy.sparse` matrix became its stored non-zeros (CKA 0.011 against 0.801, RSA NaN, no
+  error), a CuPy array or a torch CUDA tensor raised, and a masked array lost its mask. Sparse,
+  CuPy and torch inputs on any device now convert to dense host values, and a masked array
+  with a masked element raises `TypeError`.
+- **Skill routing rows and docstrings state what the call does.** Every routing row in
+  `skills/` was checked by calling the function. Among the corrections: `compute_response_metrics`
+  computes no peak rate or modulation index (also corrected on the spike-analysis page);
+  `compute_psd` needs `axis=-1` for the input `vflip` expects; `spectral_tilt` and
+  `aperiodic_fit` report `exponent` with opposite signs; `granger_causality` is deprecated;
+  `resample_onsets` repeats onsets when there are too few; `apply_tight_auto_axis` floors the y
+  axis at 0. The `event_onsets`, `save_and_seal`, `repair_lfp_trials` and `aperiodic_fit`
+  docstrings no longer overclaim.
+- **`unit_census_report` warns when `group_by` names a column the frame lacks.** The column
+  was dropped silently, so the census was grouped by fewer columns than the call named. It is
+  still dropped, now with a `UserWarning` naming it.
+- **A fixed Granger order must be an integer >= 1.** `granger`, `granger_spectral` and
+  `granger_causality` raise `ValueError` on `order=0`, a fraction, a bool or NaN. `order=0`
+  used to fit a model with no history and return zero causality in both directions, which read
+  as no coupling; `2.5` was truncated to `2` and `True` read as `1`. An integral float such as
+  `3.0` is still accepted.
+- **A `session_description` stored as a soft or external link to a valid dataset is read
+  through** instead of raising `MissingRequiredNWBFieldError`, matching pynwb.
+- **An atlas layer label is one location.** `parse_probe_areas` and
+  `map_peak_channel_to_area` read every `/` as a boundary between two areas, so the label
+  `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in
+  `VISpm2`. A slash followed by a field that does not start with a letter now continues the
+  label before it; `V1/V2` still names two areas.
+- **A series inside a container can be read by name.** On an `LFP` container holding several
+  series, `acquisition_channel` told the caller to name the series and then raised
+  `AcquisitionNotFoundError` for that name. A series name now resolves, bare or as
+  `container/series`. A bare name that two containers hold raises
+  `AmbiguousAcquisitionError` listing the qualified names; in processing modules it used to
+  return whichever module came first.
+- **Documentation figures and captions match what they draw.** Panel B of the decoding
+  figure drew a curve manufactured from the AUC value and labelled it a ROC curve; it now
+  shows the out-of-fold AUC and F1 the decoder returns. The spectral caption names the
+  1/f-squared background the generator builds, and the quickstart caption names all six
+  panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU. Five
+  figures that no longer matched their generator are regenerated, and a test now fails any
+  figure that `docs/generate_figures.py` would draw differently. Every figure caption says its
+  data are synthetic.
+- **The `jnwb.vis` PSTH ribbon is named for what it is.** `plot_multi_condition_raster_psth`
+  documented bootstrap CIs and draws mean ± 1.96 SEM across trials, clipped at 0 Hz; the
+  package docstring claimed Clopper-Pearson error bars nothing computes. Both now say that
+  every other interval is an input. A new page, "Plotly Figures", documents `jnwb.vis`.
+- **One glossary.** A "Glossary" page defines operation and workflow, session and recording,
+  contact and channel, electrode and electrodes table, and trial and epoch; every page uses
+  those terms, and the documentation examples name a whole NWB file `session.nwb`.
+- **Every cited method names the result jnwb implements.** `docs/references.md` is one table per
+  topic, each row giving the source, the result implemented and the functions that implement
+  it; a test holds the page and the docstrings to each other in both directions, and every DOI
+  was resolved on 2026-09-23. Docstrings state where jnwb departs from a reference: `aperiodic_fit` without peak removal, the Morlet
+  cone-of-influence default, the phase-slope jackknife unit, equal-weight multitaper averaging,
+  NaN distance correlation for a constant input, and that `vflip` is not the published vFLIP.
+  The Mitra and Pesaran citation is removed from `compute_multitaper_psd`.
+- **Documentation states what it can support.** The fitted onset is described as moving with
+  `tau_ms` on a graded rise rather than as the true takeoff time; the architecture page says the
+  wheel installs the operations while documentation and tests live in the repository; the GPU
+  line of the router skill names every function that computes on or records the device.
+- **Figures follow the page's palette scheme.** Every documentation figure is drawn twice on a
+  transparent background, for the light and the dark scheme, and each page shows the one that
+  matches; the dark scheme's surfaces no longer paint the light scheme dark. The permutation
+  figure's title names the paired sign-flip null it draws. The agent page lists all ten skills.
+- **The architecture page draws its structure.** Four diagrams replace two tables and add two
+  views: what defines, implements, verifies and routes to an operation; the four outcomes
+  of a task as a decision; the path from an NWB session to a verified result; and the
+  one-way dependency from a project to jnwb.
+- **The fitted onset is not described as independent of smoothing.** The spike-analysis
+  page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a
+  step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are
+  compared only between traces smoothed with the same `tau_ms`.
+- **`visual_qc.plot_unit_quality_distribution` labels each stability bar by its own class.**
+  The labels followed the bar order of `value_counts()`, which sorts by count: 7 stable and 3
+  unstable units plotted as 7 unstable and 3 stable, and 5 stable units as 5 unstable. Both
+  classes are now always drawn, an absent one as zero. A units table without one of
+  `firing_rate`, `snr`, `waveform_duration` or `quality` raised `AttributeError`; that panel is
+  now left empty and titled as absent.
+- **The transfer-entropy formula on the directed-connectivity page matches the code.** It
+  conditioned the target's past on `l` and the source's past on `k`; `transfer_entropy` uses
+  `k` for the target history and `l` for the source history, so a reader who set them from the
+  page fitted a different model.
+- **`compute_population_trajectory`, `PopulationAnalyzer.population_trajectory` and `gpu_pca`
+  agree between CPU and CUDA when loadings tie.** The sign pin took the largest-magnitude
+  loading by `argmax`, so among loadings tied in magnitude rounding chose the pivot, and the
+  two devices round differently: with two z-scored features every loading ties, and `gpu_pca`
+  pinned opposite signs on 32 of 200 matrices while a two-unit trajectory differed by 8.5 in
+  one component on 4 of 60 sessions. Loadings within `sqrt(eps)` of the largest now count as
+  tied and the lowest-index one is the pivot, on both devices.
+- **The `jrsa` docstring, the jRSA page and the population skill state the direction of each
+  directed metric.** `granger_ssr_ftest` and `transfer_entropy_histogram_nats` measure x2 -> x1,
+  the reverse of `granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads x2. No
+  public text said so. The numbers are unchanged.
+- **A shuffle that reproduces the observed split counts as at least as extreme.**
+  `StatisticalAnalysis.permutation_test`, `shuffle_pvalue_unpaired` and
+  `shuffle_pvalue_paired` recomputed the observed statistic in shuffled order, which can land
+  an ulp below it and fail the `>=` count, so p came out too small: for 3 v 3 separated groups,
+  whose exact two-sided p is 0.1, `permutation_test` gave p < 0.05 in 16 of 200 seeds, and one
+  set of five positive paired differences gave `shuffle_pvalue_paired` its floor, 0.0002, where
+  the exact p is 0.0625. Each comparison now allows the largest rounding difference two
+  evaluations of the statistic can have, 8 eps times the sum of the absolute values. The two
+  unpaired tests take that sum over the pooled values centred on their mean, because a
+  difference of means ignores a common offset: the raw sum turned distinct splits into ties
+  and gave p 1.0 against 0.487 at an offset of 1e10 times the spread.
+- **`exact_sign_flip` gives the same p in any units.** It counted a null mean within an
+  absolute 1e-12 of the observed one as a tie, so differences of order 1e-12, ordinary band
+  powers in V^2/Hz, made every flip a tie: one set of twelve differences gave p 0.0049 in
+  uV^2/Hz and 1.0 in V^2/Hz. The tie width is now the rounding bound above, which scales with
+  the differences.
+- **`TFRAccumulator` reports no estimate where no trial was valid.** `power()`, `mean`,
+  `evoked()` and `itc()` returned 0.0 in cells whose count is zero, such as the samples
+  `coi_mask` excludes in every trial, where `var()` and `sem()` already returned NaN. They are
+  now NaN there too, matching `np.nanmean` over the masked per-trial power. Cells with at least
+  one valid trial are unchanged. `mean` returns a copy, so `acc.mean[...] = x` no longer writes
+  through. Its setter stores what it is given, so a reload may set `mean` before or after `n`,
+  and `add_trial` and `merge` start a cell with no valid trial from zero, so `acc.mean =
+  acc.mean` leaves those cells fillable.
+- **A flat trace has no spectrum, at any level.** Welch removes each segment's mean, and for a
+  constant such as 0.3 that leaves rounding residue rather than zero, which the `> 0` power
+  guards read as a spectrum: `spectral_tilt` fitted an exponent, `harmonic_analysis` reported a
+  fundamental, `band_power` against a flat 0.3 baseline returned 561 dB instead of raising, and
+  `imaginary_coherency` against a flat channel gave `icoh_abs_mean` 0.17. A constant trace is
+  now treated as the all-zero trace its detrended spectrum is, so these return what an all-zero
+  trace returns: NaN tilt and fundamental, band power 0.0, a raise for the baseline, and NaN
+  coherency, as for any constant channel.
+
+### Deprecated
+
+- **Calling `compress_fp32` or `convert` without `select=`.** It still casts the anchored LFP/MUAE
+  preset and writes the same bytes, but emits `FutureWarning`; `select=` becomes required in
+  0.2.7.
+- **Indexing a 0-d `JRSAResult.p` or `q` with `[0]`.** It still returns the scalar in 0.2.6
+  and emits `FutureWarning`; 0.2.7 removes it and `[0]` raises `IndexError`. Use
+  `float(res.p)` or `res.p[()]`.
+- **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`.** It is an
+  exact copy of `depth_class` and is removed in 0.2.7. A call that writes it emits
+  `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is
+  read, so the warning fires at the call whether or not `layer` is used. Read `depth_class`.
+- **The refractory test of `UnitAnalyzer.autocorrelogram`.** It was inverted: it took the
+  Poisson upper tail of the count in one bin near 6 ms against the mean of the bins near 11 to
+  15 ms, so an over-filled refractory bin read `is_single_unit=True` and a clean dip read
+  `False`. A train in which every spike has a partner 6 ms later read as a single unit; a train
+  with a 10 ms dead time did not. `refractory_period_violation`, `refr_count` and
+  `baseline_count` are now `NaN` and `is_single_unit` is `None`, each call emits
+  `FutureWarning`, and the keys are removed in 0.2.7. `acg`, `lag_times_ms` and `device_used`
+  are unchanged. The single-unit check is `UnitAnalyzer.quality_metrics`, from inter-spike
+  intervals under 2 ms.
+
 ## [0.2.5] - 2026-09-19
 
 ### Added

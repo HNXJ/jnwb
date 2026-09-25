@@ -1,4 +1,4 @@
-"""05-38: acquisition_channel sliced axis 1 whatever orientation the file was in.
+"""Acquisition_channel sliced axis 1 whatever orientation the file was in.
 
 The channel axis was decided by ``shape[0] >= shape[1]`` -- whichever side is longer --
 and ``acquisition_channel`` did not consult even that. It always sliced ``data[:, channel]``
@@ -220,6 +220,16 @@ class TestTheResolverItself:
     def test_a_zero_length_electrode_region_is_not_an_arbiter(self):
         assert _resolve_layout((64, 1000), 0) == (CHANNEL_BY_TIME, "shape")
 
+    @pytest.mark.parametrize("ndt,expected", [
+        ("ElectricalSeries", (CHANNEL_BY_TIME, "shape")),
+        ("SpikeEventSeries", (CHANNEL_BY_TIME, "shape")),
+        ("TimeSeries", (TIME_BY_CHANNEL, "schema")),
+    ])
+    def test_only_a_type_without_an_electrode_region_is_read_time_first(self, ndt, expected):
+        """An electrode-bearing type whose file lacks the region falls back to the shape
+        guess; the schema's time-first rule is for types that have no region to consult."""
+        assert _resolve_layout((64, 1000), None, ndt) == expected
+
 
 class TestOneDimensionalSeriesAreUntouched:
 
@@ -290,3 +300,75 @@ class TestProcessingModulesGetTheSameArbiter:
         got, rate = jnwb.acquisition_channel(path, channel=5)
         np.testing.assert_allclose(got, self.CHANNEL_MAJOR[5, :])
         assert rate == 1000.0
+
+
+def _write_acquisition_lfp_pair(path):
+    """An /acquisition LFP container holding two series, as open datasets ship them."""
+    import pynwb
+
+    nwb = pynwb.NWBFile(session_description="layout", identifier="lay-3",
+                        session_start_time=datetime.now(timezone.utc))
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(name="g", description="d", location="V1",
+                                       device=device)
+    for i in range(4):
+        nwb.add_electrode(x=0.0, y=float(i), z=0.0, imp=0.0, location="V1",
+                          filtering="none", group=group)
+    region = nwb.create_electrode_table_region(list(range(4)), "all")
+    first = np.arange(100 * 4, dtype=float).reshape(100, 4)
+    lfp = pynwb.ecephys.LFP(electrical_series=[
+        pynwb.ecephys.ElectricalSeries(name="early", data=first, electrodes=region, rate=500.0),
+        pynwb.ecephys.ElectricalSeries(name="late", data=first + 1e4, electrodes=region,
+                                       rate=250.0),
+    ], name="probe_lfp")
+    nwb.add_acquisition(lfp)
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    return str(path)
+
+
+class TestASeriesInsideAnAcquisitionContainerIsReachableByName:
+    """The container refused to choose and told the caller to name the series; naming it
+    then raised "not found", so no series inside it could be read."""
+
+    def test_each_series_is_returned_by_its_own_name(self, tmp_path):
+        path = _write_acquisition_lfp_pair(tmp_path / "pair.nwb")
+        with pytest.raises(jnwb.AmbiguousAcquisitionError, match="Pass name=<series>"):
+            jnwb.acquisition_channel(path, name="probe_lfp")
+        early, fs_early = jnwb.acquisition_channel(path, name="early", channel=1)
+        late, fs_late = jnwb.acquisition_channel(path, name="probe_lfp/late", channel=1)
+        assert (fs_early, fs_late) == (500.0, 250.0)
+        np.testing.assert_array_equal(early, np.arange(100) * 4 + 1)
+        np.testing.assert_array_equal(late, np.arange(100) * 4 + 1 + 1e4)
+
+    def test_a_missing_name_lists_the_series_inside_containers(self, tmp_path):
+        path = _write_acquisition_lfp_pair(tmp_path / "pair.nwb")
+        with pytest.raises(jnwb.AcquisitionNotFoundError, match="probe_lfp/early"):
+            jnwb.acquisition_channel(path, name="middle")
+
+    def test_a_series_name_two_processing_modules_share_is_refused(self, tmp_path):
+        """The processing walk kept whichever module came first under the bare name."""
+        import pynwb
+
+        nwb = pynwb.NWBFile(session_description="layout", identifier="lay-4",
+                            session_start_time=datetime.now(timezone.utc))
+        device = nwb.create_device(name="probe")
+        group = nwb.create_electrode_group(name="g", description="d", location="V1",
+                                           device=device)
+        for i in range(4):
+            nwb.add_electrode(x=0.0, y=float(i), z=0.0, imp=0.0, location="V1",
+                              filtering="none", group=group)
+        region = nwb.create_electrode_table_region(list(range(4)), "all")
+        base = np.arange(100 * 4, dtype=float).reshape(100, 4)
+        for mod, offset in (("first", 0.0), ("second", 1e4)):
+            lfp = pynwb.ecephys.LFP(electrical_series=pynwb.ecephys.ElectricalSeries(
+                name="lfp_series", data=base + offset, electrodes=region, rate=500.0))
+            nwb.create_processing_module(name=mod, description="d").add(lfp)
+        path = str(tmp_path / "twomod.nwb")
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwb)
+
+        with pytest.raises(jnwb.AmbiguousAcquisitionError, match="second/LFP/lfp_series"):
+            jnwb.acquisition_channel(path, name="lfp_series")
+        got, _ = jnwb.acquisition_channel(path, name="second/LFP/lfp_series", channel=1)
+        np.testing.assert_array_equal(got, np.arange(100) * 4 + 1 + 1e4)

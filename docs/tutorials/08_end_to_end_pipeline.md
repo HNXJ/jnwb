@@ -1,4 +1,4 @@
-# End-to-End Analysis Pipeline
+# End-to-End Workflow
 
 A complete workflow demonstrating composition from NWB file inspection, event retrieval,
 spiking PSTH calculation, continuous LFP epoching, baseline normalization (decibels last),

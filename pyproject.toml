@@ -62,12 +62,19 @@ gpu = [
     "cupy-cuda12x",
     "jax",
 ]
+# jnwb.vis. kaleido writes the SVG and PNG that save_and_seal always exports; kaleido 1.x
+# needs plotly 6.1.1 or newer, and plotly 6.1.0 fails that export against it.
+vis = [
+    "plotly>=6.1.1",
+    "kaleido>=1.0.0",
+]
 test = [
     "pytest>=7.0",
     "pytest-xdist>=3.0",
     "build>=1.0.0",
     "twine>=4.0.0",
     "pyyaml>=6.0.1",
+    "setuptools>=61.0.0",
     "mcp<2.0",
     "nbclient>=0.10",
     "nbformat>=5.10",
@@ -79,7 +86,7 @@ docs = [
     "pymdown-extensions>=11.0.1",
 ]
 all = [
-    "jnwb[mcp,torch,gpu,test,docs]",
+    "jnwb[mcp,torch,gpu,vis,test,docs]",
 ]
 
 [project.urls]

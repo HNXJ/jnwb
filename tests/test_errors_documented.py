@@ -1,4 +1,4 @@
-"""05-41: the errors a first-time reader meets were explained nowhere but the generated
+"""The errors a first-time reader meets were explained nowhere but the generated
 reference.
 
 `docs/api.md` is generated from `jnwb.__all__`, so it contains every export by
@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 GENERATED = "api.md"
@@ -42,6 +43,9 @@ def _hand_written_text():
 def _exported_errors():
     out = []
     for name in jnwb.__all__:
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never an error class; importing it needs its optional extra.
+            continue
         obj = getattr(jnwb, name, None)
         if isinstance(obj, type) and issubclass(obj, BaseException):
             out.append(name)
@@ -66,10 +70,10 @@ class TestEveryErrorClassIsExplained:
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
         assert _mentions(page, name)
 
-    def test_there_are_twelve_of_them(self):
+    def test_there_are_thirteen_of_them(self):
         """A count that fails when an error class is added without a paragraph. If this
         fails, add the class to docs/errors.md and change the number here."""
-        assert len(_exported_errors()) == 12, _exported_errors()
+        assert len(_exported_errors()) == 13, _exported_errors()
 
     def test_both_base_classes_are_named_so_a_caller_can_catch_a_family(self):
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
