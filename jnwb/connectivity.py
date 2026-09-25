@@ -512,8 +512,8 @@ def granger_causality(
     """
     Compute bivariate Granger Causality (GC) values between two continuous signals.
 
-    F_2_to_1 is the directional causality from Signal 2 -> Signal 1
-    F_1_to_2 is the directional causality from Signal 1 -> Signal 2
+    F_2_to_1 is how much Signal 2's past improves the prediction of Signal 1
+    F_1_to_2 is how much Signal 1's past improves the prediction of Signal 2
 
     Also returns residual diagnostics (lightweight ADF + Ljung–Box). Do not interpret
     GC as biological directionality when diagnostics warn. ``device_used`` names the
@@ -522,8 +522,8 @@ def granger_causality(
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
         and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
-        causality: one series causes another when its past improves the prediction of
-        the other beyond the other's own past.
+        causality: X Granger-predicts Y when the past of X improves the prediction of Y
+        beyond the past of Y, a temporal-lag asymmetry rather than a causal effect.
     """
     warnings.warn(
         "granger_causality is deprecated; use jnwb.granger, which returns DirectedResult.",
@@ -1119,8 +1119,8 @@ def granger(
     References:
         Granger, C. W. J. (1969). Investigating causal relations by econometric models
         and cross-spectral methods. Econometrica. doi:10.2307/1912791 -- Granger
-        causality: X causes Y when the past of X improves the prediction of Y beyond the
-        past of Y.
+        causality: X Granger-predicts Y when the past of X improves the prediction of Y
+        beyond the past of Y, a temporal-lag asymmetry rather than a causal effect.
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple
         time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1982.10477803 -- the measure
         of linear feedback, the log ratio of restricted to unrestricted residual variance,
