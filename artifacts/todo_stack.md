@@ -226,7 +226,6 @@ one of documentation, skills and the release apparatus. Each bullet carries its 
 the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
 predicate if they reproduce, and go first.
 
-- IA-05 (blocker candidate, weak): when CUDA fails part-way through the coherence surrogates, the CPU recompute draws new shifts from the advanced `rng`, so p differs from a CPU run under the same seed while the reported seed is unchanged (`jnwb/spectral.py:879-884`, `929-936`). Check: draw the shifts once before the device attempt; test an injected mid-null failure against the CPU result.
 - IA-06: the `jrsa` lag is circular (`xp.roll`), so the window recipe of `docs/03` wraps each window's end onto its start (lag 10 gives r 0.46 against 0.998 on the truncated overlap). Check: truncate to the overlap; test on a trended series.
 - IA-07: `verify_roundtrip` in `jnwb/compression.py:694` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
 - IA-08: `compute_response_metrics` accepts a reversed window and returns a negative spike count with a positive rate (`jnwb/spiking.py:95-135`). Check: refuse start at or after stop for both windows.

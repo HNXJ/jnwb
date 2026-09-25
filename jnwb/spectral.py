@@ -876,7 +876,6 @@ def cross_area_coherence(
         out['peak_coherence_freq'] = float(frequencies[peak_idx])
         out['peak_coherence_value'] = float(coherency[peak_idx])
 
-
         # One surrogate spectrum per shift, computed once and reused across bands.
         #
         # This preserves the null's cross-band dependence structure. The old code built
@@ -910,16 +909,6 @@ def cross_area_coherence(
 
         return out
 
-    # The shifts are drawn once, before any device attempt. Drawn inside `_compute_all`,
-    # a CUDA failure part-way through the null left `rng` advanced, so the CPU recompute
-    # drew different shifts and p differed from a CPU run under the same reported seed.
-    low_val, high_val = 1, len(lfp_area2) - 1
-    shifts = (
-        rng.integers(low_val, high_val, size=int(n_surrogates))
-        if low_val < high_val
-        else np.zeros(int(n_surrogates), dtype=int)
-    )
-
     # Resolve the device ONCE. The GPU path used to be attempted inside the surrogate
     # loop behind a per-iteration `except Exception`, so an intermittent failure (OOM
     # under memory pressure) silently produced a null mixing two estimators, with
@@ -927,6 +916,17 @@ def cross_area_coherence(
     # work and recomputes everything, observed value included, on the CPU, so the
     # returned values share one estimator, named in `device_used`.
     device_used = resolve_device(device, context='cross_area_coherence', prefer='cupy')
+
+    # The shifts are drawn once, after the device resolves (an invalid device leaves a
+    # caller's generator untouched) and before any device attempt. Drawn inside
+    # `_compute_all`, a CUDA failure part-way through the null left `rng` advanced, so the
+    # CPU recompute drew different shifts and p differed from a CPU run under the same seed.
+    low_val, high_val = 1, len(lfp_area2) - 1
+    shifts = (
+        rng.integers(low_val, high_val, size=int(n_surrogates))
+        if low_val < high_val
+        else np.zeros(int(n_surrogates), dtype=int)
+    )
     # CPU workers are pointless once the estimator is on the GPU: each process would
     # build its own CUDA context, competing for the same device.
     device_requested_cuda = device_used == CUDA

@@ -1870,3 +1870,14 @@ class TestCoherenceGpuFallbackKeepsTheNull:
         assert fell_back["surrogate_seed_entropy"] == cpu["surrogate_seed_entropy"]
         assert fell_back["band_significance"] == cpu["band_significance"]
         np.testing.assert_allclose(fell_back["coherence_spectrum"], cpu["coherence_spectrum"], rtol=1e-12)
+
+    def test_an_invalid_device_leaves_the_callers_generator_untouched(self):
+        import jnwb.spectral as sp
+
+        x, y = self._signals()
+        gen = np.random.default_rng(3)
+        before = gen.bit_generator.state
+        kw = dict(self.KW, rng=gen)
+        with pytest.raises(ValueError):
+            sp.cross_area_coherence(x, y, device="no-such-device", **kw)
+        assert gen.bit_generator.state == before
