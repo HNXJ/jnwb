@@ -45,6 +45,47 @@ def test_jrsa_multilag_stacking():
     assert res_multi.value is not None
     assert res_multi.value.shape == (3,)
 
+class TestLagShiftsTheObservationAxis:
+    """`lag` rolled the last axis for every metric. For the six whose observations lie on
+    axis 0 that axis holds features, which they are invariant to, so a lag sweep of a
+    delayed copy returned one value under every label."""
+
+    AXIS0 = ["cka", "rv", "rsa", "procrustes", "distance_correlation", "hsic"]
+
+    @staticmethod
+    def _delayed_copy(n=60, k=6, delay=3):
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal((n, k))
+        return x, np.roll(x, delay, axis=0) + 0.1 * rng.standard_normal((n, k))
+
+    @pytest.mark.parametrize("metric", AXIS0)
+    def test_a_lag_equals_rolling_the_observations_by_hand(self, metric):
+        x, y = self._delayed_copy()
+        swept = np.asarray(oa.jrsa(x, y, metric=metric, lag=[0, -3], stats=False).value, float)
+        by_hand = [float(oa.jrsa(x, np.roll(y, l, axis=0), metric=metric, stats=False).value)
+                   for l in (0, -3)]
+        np.testing.assert_allclose(swept, by_hand, rtol=1e-12)
+        single = float(oa.jrsa(x, y, metric=metric, lag=-3, stats=False).value)
+        np.testing.assert_allclose(single, by_hand[1], rtol=1e-12)
+        assert abs(swept[1] - swept[0]) > 1e-3 * max(abs(swept[1]), 1e-12), swept
+
+    @pytest.mark.parametrize("metric", ["cka", "rv", "rsa", "distance_correlation"])
+    def test_the_true_delay_realigns_a_delayed_copy(self, metric):
+        """cka, rv, rsa and dcor are 1 for identical representations; lag -3 undoes the delay."""
+        x, y = self._delayed_copy()
+        v = np.asarray(oa.jrsa(x, y, metric=metric, lag=[0, -3], stats=False).value, float)
+        assert v[1] > 0.9 and v[0] < 0.7, v
+
+    def test_a_paired_metric_still_lags_the_last_axis(self):
+        rng = np.random.default_rng(1)
+        a = rng.standard_normal((3, 80))
+        b = np.roll(a, 2, axis=-1)
+        v = float(oa.jrsa(a, b, metric="pearson", lag=-2, stats=False).value)
+        ref = float(oa.jrsa(a, np.roll(b, -2, axis=-1), metric="pearson", stats=False).value)
+        np.testing.assert_allclose(v, ref, rtol=1e-12)
+        np.testing.assert_allclose(v, 1.0, rtol=1e-12)
+
+
 class TestHsicInputShapes:
     """_hsic flattened only x1, so every input that was not 2-D failed on x2 inside cdist."""
 

@@ -179,7 +179,7 @@ def jrsa(
         Aligned dimension(s). Default -1. It steers alignment, `reduction` (axes named
         here) and `window`. Nothing downstream follows it: the paired metrics pair samples
         and resample the last axis, the observation-axis metrics resample axis 0 (see
-        `null`), and `lag` rolls the last axis.
+        `null`), and `lag` rolls the axis the metric treats as observations.
     labels : list[str] or None
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
@@ -201,8 +201,11 @@ def jrsa(
         x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
         when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
-        Temporal lag(s) in samples. Each rolls x2 circularly along the last axis, whatever
-        `adim` names.
+        Temporal lag(s) in samples. Each rolls x2 circularly along the axis the metric
+        treats as observations, whatever `adim` names: the last axis for the paired metrics,
+        axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes (the axes of
+        `null`). Rolling the feature axis instead left those six unchanged, so every lag
+        returned the same value.
     window : tuple | int or None
         Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
         half-open, with negative values counted from the end as in Python slicing, or an
@@ -256,8 +259,8 @@ def jrsa(
         kendall, cosine, mutual_information, granger_ssr_ftest,
         transfer_entropy_histogram_nats and phase_slope -- and axis 0, the observations, for
         rsa, cka, rv, hsic, distance_correlation and procrustes. The last axis is the
-        aligned axis only at the default ``adim=-1``: the null and `lag` act on axis -1
-        whatever `adim` names, so put time last.
+        aligned axis only at the default ``adim=-1``: for the paired metrics the null and
+        `lag` act on axis -1 whatever `adim` names, so put time last.
 
         - ``'circular_shift'`` rotates x2 by a shift drawn uniformly from 0 to n - 1, the
           same shift for every row. Each series keeps its autocorrelation, so the null
@@ -522,7 +525,7 @@ def jrsa(
     lags = [lag] if isinstance(lag, (int, float)) else list(lag)
     
     if len(lags) <= 1:
-        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag)
+        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
         value, statistic, effect, p_raw, df = metric_fn(
             x1_lagged, x2_lagged, axis=-1, **kwargs
         )
@@ -564,7 +567,7 @@ def jrsa(
         null_dist_list, ci_list = [], []
         
         for l in lags:
-            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l)
+            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l, axis=perm_axis)
             v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
             if not permutation_p:
                 p = _one_sided_parametric_p(v, p, alternative)
@@ -1008,8 +1011,11 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     return x1, x2, (start, stop)
 
 
-def _apply_lag(x1, x2, axis_map, lag):
-    """Apply temporal lag(s) by rolling along the last axis on CPU or GPU.
+def _apply_lag(x1, x2, axis_map, lag, axis=-1):
+    """Apply temporal lag(s) by rolling x2 along ``axis`` on CPU or GPU.
+
+    ``axis`` is the observation axis: -1 for the paired metrics, 0 for
+    `_OBSERVATION_AXIS_0_METRICS`, whose last axis holds features they are invariant to.
     If multiple lags are passed, returns stacked arrays of shape (n_lags, ...).
     """
     if lag == 0 or (hasattr(lag, "__len__") and len(lag) == 1 and lag[0] == 0):
@@ -1021,12 +1027,12 @@ def _apply_lag(x1, x2, axis_map, lag):
     
     if len(lags) == 1:
         shift = int(lags[0])
-        return x1, xp.roll(x2, shift, axis=-1)
+        return x1, xp.roll(x2, shift, axis=axis)
     
     # Stack multiple shifted copies along a new first axis
     # The output will have shape (n_lags, ...)
     x1_stacked = xp.stack([x1 for _ in lags], axis=0)
-    x2_stacked = xp.stack([xp.roll(x2, int(l), axis=-1) for l in lags], axis=0)
+    x2_stacked = xp.stack([xp.roll(x2, int(l), axis=axis) for l in lags], axis=0)
     return x1_stacked, x2_stacked
 
 
