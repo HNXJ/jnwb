@@ -13,15 +13,15 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Task | Skill |
 |---|---|
 | Multi-step or consequential repository work: features, defect investigation, API changes, refactoring, release gates | `jnwb-fact-action` (enforces $F \to R \to A \to V \to S$, authority loading order and role/domain separation) |
-| NWB inspection, paths, metadata, electrodes, addressing, compression | `jnwb-nwb-data` |
-| Spike raster/PSTH, latency, causal smoothing, unit QC | `jnwb-spiking` |
+| NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| Spike trains: binning, PSTH, onset latency, response significance, spike-field locking | `jnwb-spiking` |
 | LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy) | `jnwb-connectivity` |
 | Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
-| Multi-panel Plotly publication figures through `jnwb.vis` (optional `vis` extra) | `jnwb-landmark-viz` |
+| Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 ## 3. Execution: GPU and Parallel CPU
 Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. A request no GPU can serve warns and runs on the CPU.
