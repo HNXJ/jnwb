@@ -1770,7 +1770,8 @@ assert p_geom.is_linear is True and p_geom.is_uniform is True
 # `wpli` returns a dict, so `hasattr` is always False on it; and the debiased key is
 # `wpli_debiased_sq`, not `wpli_debiased`. Check the keys and their contracts.
 wpli_res = jnwb.wpli(sig[:500], sig[500:], fs=1000.0, freq_range=(10.0, 40.0))
-assert set(wpli_res) == {'wpli', 'wpli_debiased_sq', 'freqs', 'wpli_spectrum', 'n_segments', 'n_freqs'}
+assert set(wpli_res) == {'wpli', 'wpli_debiased_sq', 'freqs', 'wpli_spectrum', 'n_segments', 'n_freqs', 'device_used'}
+assert wpli_res['device_used'] == 'cpu', wpli_res['device_used']
 assert 0.0 <= wpli_res['wpli'] <= 1.0, wpli_res['wpli']
 assert -1.0 <= wpli_res['wpli_debiased_sq'] <= 1.0, wpli_res['wpli_debiased_sq']
 assert wpli_res['freqs'].shape == wpli_res['wpli_spectrum'].shape
