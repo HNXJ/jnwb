@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-201 to 06-204, then 06-205 (the 0.2.6.1 patch) |
+| 0 | 06-201 to 06-203, then 06-205 (the 0.2.6.1 patch) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
@@ -94,28 +94,10 @@ actually used. Blocked by 06-202 because both edit one file in one lane.
 Accept: `None` differs between calls, the recorded seed reproduces p, a `Generator` is accepted and
 a float refused, each in a test; an independent verifier kills a mutant restoring seed 0.
 
-### 06-204 Documentation that invites wrong claims
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `docs/common_mistakes.md`, `docs/references.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/quickstart.md`, `jnwb/laminar.py`.
-Three statements from 07-03, the text of each kept here:
-
-- IB-01 (blocker candidate): `docs/common_mistakes.md:119-121` calls the decoder's accuracy "Unbiased Outer CV Accuracy" computed "without leakage", while `docs/09` says the same function draws row-wise folds that leak across blocks and must be reported as an upper bound (`jnwb/decoding.py:155`, no `groups`); found by both inspections. Check: one statement, the leakage one, on both pages.
-- IB-02 (blocker candidate): the PSI row of `docs/common_mistakes.md:161` says PSI tests whether phase differences grow linearly with frequency, "indicating a consistent time delay"; PSI tests neither linearity nor delay (`AGENTS.md` invariant 8); `docs/references.md:43` says "X causes Y when" of Granger, and `docs/api.md:130` summarises `zflip` as a "propagation delay" with no caveat. Check: reword the three sentences, and extend the gate 14 term scan to "causes", "time delay" and "propagation delay" in `docs/` with an allowlist.
-- IB-13 (blocker candidate): `docs/06:158` and `docs/quickstart.md:115-121` read `bound_status None` as a valid unconstrained onset estimate, but only t0 is checked against its bound, so 14 of 20 pure-noise PSTHs read valid (t0 30.0, tau at its bound, r2 0). Check: flag a tau bound and low r2, or reword to "t0 not at a bound"; a noise-only PSTH test.
-
-The `zflip` summary line lives in its docstring in `jnwb/laminar.py`; `docs/api.md` is regenerated
-by the dispatcher. Only the documentation changes: `bound_status` keeps its behaviour and the page
-says what it checks.
-Accept: no page calls the decoder unbiased or leak-free, PSI is described as a sign of phase
-change, and "causes" and "propagation delay" appear only with the caveat `AGENTS.md` section 5
-requires; the docs build and the suite pass.
-
 ### 06-205 Release 0.2.6.1
 
 Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203, 06-204. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: 06-201, 06-202, 06-203. AUTONOMY: none.
 Writes: none.
 The dispatcher sets the version and the changelog, records an independent closure pass over the
 patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
@@ -361,6 +343,10 @@ predicate if they reproduce, and go first.
 - IB-36: `CONTRIBUTING.md:111,205,347` states the docs-and-skills lockstep rule three times. Check: keep one.
 - IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
 - IB-38: `AGENTS.md` is about 8k tokens loaded into every session in this repository; section 10's recipes repeat what `docs/` and the skills carry, and section 11's history paragraphs repeat the rulings they cite; 14 tests pin its text, `tests/test_agents_md_recipes.py` among them. Check: move the recipes to a tested docs page and the history to `artifacts/rulings/`, leaving pointers, and move the tests with them.
+- IB-39: the 0.2.6.1 wording repair was held by a grep, not a gate; "causes", "time delay", "propagation delay" and "latency" can return to `docs/`, `skills/` or a public docstring unnoticed, and gate 14 scans `docs/` only. Check: extend the term scan to the three surfaces with an allowlist of the conditional uses.
+- IB-40: the `bound_status` statement on `docs/06` and `docs/quickstart.md` (a pure-noise PSTH usually reads `None`, with tau at a bound and r2 near 0) is backed by a scratch probe, not a test. Check: a noise-only PSTH test that pins it.
+- IB-41: `docs/10_operation_specifications.md:102` says `zflip` raises for zero imaginary coherency or ill-conditioned cross-spectra; it has neither check (`jnwb/laminar.py`, the validation block of `zflip`). Check: list the raises it has.
+- IB-42: `docs/01_architecture_and_philosophy.md` measures exactly its 1200-word ceiling after the 0.2.6.1 wording repair, so any addition fails the length test. Check: trim, or rule a new ceiling.
 
 ### 07-04 The planned 0.2.7 sequence
 
