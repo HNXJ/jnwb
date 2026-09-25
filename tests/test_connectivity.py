@@ -345,6 +345,54 @@ class TestDirectedConnectivityAndNetwork:
         recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
         assert recorded == np.random.default_rng(3).integers(0, 2**63 - 1, size=3).tolist()
 
+    def test_directed_network_refuses_two_different_generators(self):
+        """`granger(rng=a, seed=b)` raises; the network must not hide the contradiction by
+        drawing its per-pair seeds from one of them."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "AB"}
+        with pytest.raises(ValueError, match="Conflicting values provided to directed_network"):
+            directed_network(signals, method="granger", order=1, n_surrogates=5,
+                             rng=np.random.default_rng(1), seed=np.random.default_rng(2))
+
+
+class TestFewTrialSurrogates:
+    """Below 7 trials the surrogates circularly shift each trial instead of re-pairing
+    trials: 3 trials admit 2 derangements, so the re-pairing null held two values and
+    independent noise tested significant at 0.05 in 30 of 80 p-values here (bc04a791)."""
+
+    def test_independent_noise_at_three_trials_rejects_near_alpha(self):
+        ps = []
+        for rep in range(40):
+            g = np.random.default_rng(rep)
+            x, y = g.normal(size=(3, 200)), g.normal(size=(3, 200))
+            res = granger(x, y, order=1, n_surrogates=19, rng=rep)
+            ps += [res.p_x_to_y, res.p_y_to_x]
+        assert np.mean(np.asarray(ps) <= 0.05) <= 0.08
+
+    @pytest.mark.parametrize("n_trials,scheme", [(6, "circular_shift"), (7, "trial_permutation")])
+    def test_every_surrogate_consumer_records_the_scheme(self, n_trials, scheme):
+        g = np.random.default_rng(0)
+        x, y = g.normal(size=(n_trials, 128)), g.normal(size=(n_trials, 128))
+        for res in (
+            granger(x, y, order=1, n_surrogates=2),
+            granger_spectral(x, y, fs=100.0, order=1, n_freqs=16, n_surrogates=2),
+            phase_slope_index(x, y, fs=100.0, bands=(5.0, 30.0), n_surrogates=2),
+            transfer_entropy(x, y, n_surrogates=2),
+        ):
+            assert res.params["surrogate_scheme"] == scheme, res.method
+        assert granger(x, y, order=1).params["surrogate_scheme"] is None
+
+    def test_seven_trials_keep_the_null_they_had(self):
+        """Pinned at bc04a791, before the threshold moved from 3 to 7."""
+        g = np.random.default_rng(11)
+        x = g.normal(size=(7, 200))
+        y = 0.3 * np.roll(x, 1, axis=1) + g.normal(size=(7, 200))
+        res = granger(x, y, order=1, n_surrogates=19, rng=0)
+        sur = res.diagnostics["surrogates"]
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.05)
+        assert sur["null_mean_x_to_y"] == 0.00035468224425054724
+        assert sur["null_mean_y_to_x"] == 0.0006370039765307248
+
 
 class TestCrossAreaCoherenceContract:
     """0.2.4-09: out-of-contract input must fail loudly, not plausibly.

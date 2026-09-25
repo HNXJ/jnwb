@@ -10,7 +10,7 @@ description: Directed connectivity, bivariate Granger causality, phase slope ind
 Activate this skill when quantifying directional coupling, lag asymmetries, Granger causality, phase slope index, or transfer entropy across brain regions or channels.
 
 ## 2. Task-to-Operation Routing Matrix
-- `jnwb.granger(X, Y, order="auto", n_surrogates=0, rng=0)`: Time-domain bivariate Granger causality with time-shift surrogate significance.
+- `jnwb.granger(X, Y, order="auto", n_surrogates=0, rng=0)`: Time-domain bivariate Granger causality with surrogate significance (scheme in invariant 3).
 - `jnwb.granger_spectral(X, Y, fs, order="auto", n_freqs=256, bands=None)`: Frequency-resolved spectral Granger causality.
 - `jnwb.phase_slope_index(X, Y, fs, bands)`: Phase Slope Index (PSI) quantifying frequency-dependent driver/receiver lag. A band holding fewer than two frequency bins has no slope: its `per_band` value is NaN and `diagnostics['ok_for_interpretation']` is False. When no band has a slope, `net`, `x_to_y` and `y_to_x` are NaN; when only some do, `net` sums the bands that have one, so read `per_band` before `net`.
 - `jnwb.transfer_entropy(X, Y, k=1, l=1, estimator="quantile", n_surrogates=...)`: Non-linear information-theoretic transfer entropy, in bits. `estimator` is `"quantile"`, `"uniform"` or `"discrete"` (integer spike counts); `"symbolic"` raises `ValueError`, because its surrogate null is not calibrated under zero-lag mixing and a common source with no directed coupling tests significant in both directions.
@@ -26,7 +26,7 @@ Activate this skill when quantifying directional coupling, lag asymmetries, Gran
 ## 3. Invariants & Safeguards
 1. **Strict Epistemic Language**: Granger causality, PSI, and Transfer Entropy measure **temporal-lag asymmetry (predictive directionality)** under an observational model. Never use causal verbs ("region A drives region B causally") for observational time-series metrics.
 2. **Stationarity & Pre-filtering**: Time-domain Granger requires wide-sense stationary inputs; demean and detrend signals prior to model fitting.
-3. **Surrogate Null Construction**: Evaluate significance using time-shift surrogates that destroy temporal alignment while preserving autocorrelation.
+3. **Surrogate Null Construction**: Evaluate significance using surrogates that destroy cross-signal alignment while preserving each signal's autocorrelation. `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` pair the source with the wrong trial at 7 or more trials and circularly shift each trial below that, because a few trials admit too few re-pairings for a calibrated null; `params['surrogate_scheme']` records which ran.
 4. **Coupling vs Direction vs Delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
 5. **No Volume Conduction Immunity**: Measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
 

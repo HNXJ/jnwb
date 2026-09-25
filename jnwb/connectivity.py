@@ -990,15 +990,33 @@ def _surrogate_rng(
     return np.random.default_rng(sequence), int(sequence.entropy)
 
 
+#: Fewest trials for which the surrogates re-pair trials instead of shifting them.
+#: INTENTIONAL BREAK (0.2.6.1): this was 3. With n trials there are only about n!/e
+#: derangements -- 2 at three trials -- so the null holds a handful of distinct values. On
+#: independent white noise (100 pairs, 39 surrogates), P(p <= 0.05) was 0.25-0.33 at three
+#: trials across granger, granger_spectral, phase_slope_index and transfer_entropy, and
+#: 0.14-0.21 at four; the circular shift gave 0.02-0.10 at three, four and six trials,
+#: and its one value above 0.075 (phase_slope_index at four) was 0.052 over 400 pairs.
+_MIN_TRIALS_FOR_TRIAL_PERMUTATION = 7
+
+
+def _surrogate_scheme(n_trials: int) -> str:
+    """The surrogate scheme :func:`_surrogate_source` uses for ``n_trials``."""
+    if n_trials >= _MIN_TRIALS_FOR_TRIAL_PERMUTATION:
+        return "trial_permutation"
+    return "circular_shift"
+
+
 def _surrogate_source(a: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """
     Destroy cross-signal timing while preserving each trial's own autocorrelation.
 
-    Trial permutation when >= 3 trials (pairs the source with the wrong trial),
-    otherwise a circular shift of at least 10% of the record.
+    Trial permutation when there are at least ``_MIN_TRIALS_FOR_TRIAL_PERMUTATION`` (7)
+    trials (pairs the source with the wrong trial), otherwise a circular shift of each
+    trial by at least 10% of the record and at most 90% of it.
     """
     n_trials, n_times = a.shape
-    if n_trials >= 3:
+    if _surrogate_scheme(n_trials) == "trial_permutation":
         perm = rng.permutation(n_trials)
         # guarantee a real derangement so no trial keeps its own partner
         for i in range(n_trials):
@@ -1096,8 +1114,12 @@ def granger(
             the reported influence is X -> Y not routed through Z.
         ridge: L2 penalty on non-intercept coefficients (0 = plain OLS)
         detrend: per-trial preprocessing, default ``'zscore'``
-        n_surrogates: if > 0, also run a trial-shuffled surrogate test alongside
-            the analytic F-test. Set this when residuals are not white.
+        n_surrogates: if > 0, also run a surrogate test alongside the analytic
+            F-test. Set this when residuals are not white. With 7 or more trials the
+            surrogates pair the source with the wrong trial; with fewer, each source
+            trial is circularly shifted by 10-90% of its length, because a few trials
+            admit too few re-pairings for a null. ``params['surrogate_scheme']`` records
+            which ran.
         rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator`` used
             in place, or ``None`` for fresh OS entropy; a float is refused. Passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
@@ -1299,6 +1321,7 @@ def granger(
             "n_conditioning": len(z_list),
             "seed": None if isinstance(seed, np.random.Generator) else seed,
             "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
+            "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
         },
         diagnostics={
             "direction_x_to_y": {k: v for k, v in diag_xy.items()},
@@ -1414,7 +1437,8 @@ def granger_spectral(
         bands: ``None`` (whole spectrum), ``'canonical'``, ``(fmin, fmax)``, or a
             ``{name: (fmin, fmax)}`` dict. Each band reports its mean and its
             peak frequency in both directions.
-        n_surrogates: trial-shuffled surrogate test (there is no analytic null here)
+        n_surrogates: surrogate test (there is no analytic null here); the scheme is
+            as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
 
@@ -1606,6 +1630,7 @@ def granger_spectral(
             "n_surrogates": int(n_surrogates),
             "seed": None if isinstance(seed, np.random.Generator) else seed,
             "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
+            "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
         },
         diagnostics={
             "spectral_radius": radius,
@@ -1757,8 +1782,9 @@ def phase_slope_index(
         jackknife: estimate the standard deviation of PSI by leave-one-segment-out
             and report ``z = psi / sd``, the normalization Nolte et al. use for
             significance. ``|z| > 2`` is the conventional threshold.
-        n_surrogates: optional trial-shuffled surrogate test in addition to (or,
-            with jackknife=False, instead of) the jackknife z
+        n_surrogates: optional surrogate test in addition to (or, with
+            jackknife=False, instead of) the jackknife z; the scheme is as in
+            :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
 
@@ -1985,6 +2011,7 @@ def phase_slope_index(
             "detrend": detrend,
             "seed": None if isinstance(seed, np.random.Generator) else seed,
             "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
+            "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
         },
         diagnostics={
             "n_segments": int(n_seg),
@@ -2168,7 +2195,8 @@ def transfer_entropy(
         Marschinski, R., & Kantz, H. (2002). Eur. Phys. J. B.
         doi:10.1140/epjb/e2002-00379-2 -- effective transfer entropy, the raw value minus
         the surrogate mean, reported as ``bias_corrected_*``. The surrogates here permute
-        trials or circularly shift the source, which keeps its autocorrelation.
+        trials (7 or more) or circularly shift the source (fewer), which keeps its
+        autocorrelation; ``params['surrogate_scheme']`` records which.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "transfer_entropy")
@@ -2287,6 +2315,7 @@ def transfer_entropy(
             "detrend": detrend,
             "seed": None if isinstance(seed, np.random.Generator) else seed,
             "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
+            "surrogate_scheme": _surrogate_scheme(n_trials) if n_surrogates > 0 else None,
         },
         diagnostics={
             "n_embedding_samples": int(n_used),
@@ -2417,6 +2446,11 @@ def directed_network(
     # surrogates would depend on n_jobs. Draw one int seed per pair up front instead; each
     # pair then records its seed as `surrogate_seed_entropy`.
     pair_kwargs = [kwargs] * len(pairs)
+    if "rng" in kwargs and "seed" in kwargs:
+        # Both spellings of one argument: refuse a contradiction here, before the per-pair
+        # seeds below would replace both with one value and hide it.
+        resolve_seed_alias(kwargs["rng"], kwargs["seed"], alias_name="seed",
+                           func_name="directed_network")
     gen_keys = [k for k in ("rng", "seed") if isinstance(kwargs.get(k), np.random.Generator)]
     if gen_keys:
         pair_seeds = kwargs[gen_keys[0]].integers(0, 2**63 - 1, size=len(pairs))
