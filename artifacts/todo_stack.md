@@ -314,12 +314,14 @@ predicate if they reproduce, and go first.
 - IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
 - IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
 - IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed.
-- IB-47: the `jrsa` circular-shift null applies one shift to every row, which keeps the cross-row covariance of x2; no test pins that. Check: a test that fails under a per-row shift.
 - IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.
 - IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag.
 - IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
 - IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
 - IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
+- IB-53: no test shows `jrsa`'s `null='block'` can reject; its false-positive test also passes for a null that never rejects, and a mutant keeping the blocks in order survived the full suite. Check: a coupled-series test for `block` with p at most 0.01.
+- IB-54: `tests/test_jrsa.py:55`, which says it runs the literal quickstart line, and `tests/test_docs_smoke.py:256` still call the row metric without `null="iid"`, which the page now passes. Check: read the line from the page, or add the argument.
+- IB-55: the sliding-window recipe on `docs/03` uses 20-sample windows under the circular-shift null, whose p cannot go below about 1/20, and tells readers to correct across windows. Check: state the floor at the recipe, or widen the windows.
 
 ### 07-04 The planned 0.2.7 sequence
 

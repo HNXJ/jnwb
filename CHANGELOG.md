@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `transfer_entropy_histogram_nats` and `phase_slope`, the permutation null shifts x2 along the
   last axis, the same shift for every row. It used to shuffle single samples as if independent:
   on two independent AR(1) series with coefficient 0.9 it rejected at p ≤ 0.05 for 0.505 of
-  pairs, against 0.035 now. The new `null=` takes `'circular_shift'`, `'block'` (with the
+  pairs, against about 0.05 now (0.04 to 0.06 over 600 to 1000 pairs). The new `null=` takes `'circular_shift'`, `'block'` (with the
   required `block_len=`) or `'iid'`, which reproduces 0.2.6 seed for seed.
   `result.execution['null']` records the scheme that ran. The null and `lag` act on the last
   axis whatever `adim` names, so put time last.
