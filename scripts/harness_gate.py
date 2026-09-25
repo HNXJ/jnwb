@@ -1313,6 +1313,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
     It was held out while it linked `artifacts/todo_stack.md` from its Contributing section; the
     2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
+    `artifacts/agents.md` is the agent entry page `README.md` links to, and is held to them too.
 
     `skills/**/*.md` is scanned too: the skills ship in the sdist and are published at
     `jnwb.SKILLS_URL`, so they are public. The skill about working on this repository lives
@@ -1332,7 +1333,9 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
                 f"{root / surface}; the sweep is broken, not the tree"
             ]
         pages += found
-    pages += [page for page in (root / "README.md",) if page.is_file()]
+    pages += [
+        page for page in (root / "README.md", root / "artifacts" / "agents.md") if page.is_file()
+    ]
 
     patterns = [(term, _internal_term_pattern(term)) for term in INTERNAL_PROCESS_TERMS]
     for page in pages:
@@ -2792,7 +2795,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
     (14, _internal_vocabulary_checks,
-     lambda: "PASS: No internal process vocabulary in docs/, skills/ or README.md "
+     lambda: "PASS: No internal process vocabulary in docs/, skills/, README.md or "
+             "artifacts/agents.md "
              f"({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
              "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "

@@ -1190,6 +1190,16 @@ class TestGate14InternalProcessVocabulary:
         violations = check_internal_process_vocabulary(root)
         assert len(violations) == 1 and "README.md:1" in violations[0], violations
 
+    def test_the_agent_entry_page_is_scanned_like_a_docs_page(self, tmp_path: Path):
+        """`artifacts/agents.md` is where the README sends an agent."""
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "artifacts").mkdir()
+        (root / "artifacts" / "agents.md").write_text(
+            "Adapt a role in artifacts/agents/actor.md\n", encoding="utf-8"
+        )
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "artifacts/agents.md:1" in violations[0], violations
+
     def test_the_live_docs_tree_passes(self):
         """The four pages that legitimately describe agent-assisted use stay unedited."""
         assert check_internal_process_vocabulary(REPO_ROOT) == []
