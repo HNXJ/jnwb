@@ -334,6 +334,36 @@ def test_laminar_depth_unit_is_required_and_validated(name):
         _laminar_call(name, np.linspace(0.0, 1.0, 8), depth_unit="cm")
 
 
+def test_granger_spectra_draws_the_inputs():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    freqs = np.linspace(1.0, 100.0, 7)
+    gc_ff = np.array([0.013, 0.21, 0.37, 0.05, 0.11, 0.002, 0.3])
+    gc_fb = gc_ff[::-1] / 3.0
+    null = np.column_stack([np.full(7, 0.01), np.full(7, 0.04)])
+    plot_granger_spectra(canvas, 0, 0, freqs, gc_ff, gc_fb, null_ribbon=null,
+                         ff_label="X → Y", fb_label="Y → X")
+    low, high, ff, fb = canvas.fig.data
+    for trace, y in [(low, null[:, 0]), (high, null[:, 1]), (ff, gc_ff), (fb, gc_fb)]:
+        np.testing.assert_allclose(trace.x, freqs, rtol=1e-12)
+        np.testing.assert_allclose(trace.y, y, rtol=1e-12)
+    assert high.fill == "tonexty"
+    assert (ff.name, fb.name) == ("X → Y", "Y → X")
+    assert canvas.fig.layout.xaxis.title.text == "Frequency (Hz)"
+    assert canvas.fig.layout.yaxis.title.text == "Granger Causality"
+
+
+def test_rsm_heatmap_draws_the_inputs():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    labels = ["a", "b", "c"]
+    rsm = np.array([[0.0, 0.31, 0.72], [0.31, 0.0, 0.113], [0.72, 0.113, 0.0]])
+    plot_rsm_heatmap(canvas, 0, 0, rsm, labels, colorbar_title="1 - r")
+    (heatmap,) = canvas.fig.data
+    np.testing.assert_allclose(np.asarray(heatmap.z, dtype=float), rsm, rtol=1e-12)
+    assert list(heatmap.x) == labels and list(heatmap.y) == labels
+    assert heatmap.colorbar.title.text == "1 - r"
+    assert canvas.fig.layout.yaxis.autorange == "reversed"
+
+
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():
     """The default window spanned 781 ms at 10 ms bins, so its last bin held 1 ms of spikes
     divided by 10 ms and a steady 1000 Hz train drew a dip to about 100 Hz at the end."""
