@@ -128,6 +128,21 @@ class TestGate2SeesAnySecondSkillTree:
         violations = check_skill_tree_uniqueness(tmp_path)
         assert violations and "DUPLICATE_SKILL_TREE" in violations[0], where
 
+    @pytest.mark.parametrize("where, text", [
+        ("artifacts/skills/JNWB", "# copy\n"),
+        ("artifacts/skills/renamed", "---\nname: jnwb\n---\n# copy\n"),
+        ("artifacts/evidence/process", "# not the process-skill folder\n"),
+    ])
+    def test_a_copy_under_another_spelling_or_folder_is_rejected(
+        self, tmp_path: Path, where: str, text: str
+    ):
+        (tmp_path / "skills/jnwb").mkdir(parents=True)
+        (tmp_path / "skills/jnwb/SKILL.md").write_text("---\nname: jnwb\n---\n", encoding="utf-8")
+        (tmp_path / where).mkdir(parents=True)
+        (tmp_path / where / "SKILL.md").write_text(text, encoding="utf-8")
+        violations = check_skill_tree_uniqueness(tmp_path)
+        assert violations and "DUPLICATE_SKILL_TREE" in violations[0], where
+
     def test_another_packages_skills_inside_an_ephemeral_directory_are_ignored(self, tmp_path):
         target = tmp_path / ".venv" / "Lib" / "site-packages" / "other" / ".agents" / "skills"
         target.mkdir(parents=True)

@@ -269,6 +269,12 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Any, 
     return found is not None and found[0] == _canonical(directory) and found[1] == root_identity[1]
 
 
+def _skill_frontmatter_name(skill: Path) -> Optional[str]:
+    """The lower-cased `name:` from a SKILL.md frontmatter, or None when it declares none."""
+    found = re.match(r"---\r?\n(?:(?!---).*\r?\n)*?name:\s*(\S+)", skill.read_text(encoding="utf-8"))
+    return found.group(1).strip("'\"").lower() if found else None
+
+
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 2 (Skill Tree Uniqueness): every SKILL.md in the tree lives under skills/.
 
@@ -285,7 +291,11 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     violations = []
     identities: Dict[Any, Any] = {}
     git_unavailable: Optional[str] = None
-    shipped_names = {p.parent.name for p in (root / "skills").glob("*/SKILL.md")}
+    # A copy is the same skill under any spelling: its folder name, compared without case, or
+    # the `name:` its frontmatter declares.
+    shipped = sorted((root / "skills").glob("*/SKILL.md"))
+    shipped_names = {p.parent.name.lower() for p in shipped}
+    shipped_names |= {n for n in map(_skill_frontmatter_name, shipped) if n}
     for skill in sorted(root.rglob("SKILL.md")):
         relative = skill.relative_to(root)
         if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
@@ -297,7 +307,7 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
             except GitUnavailable as exc:
                 git_unavailable = str(exc)  # nothing is excused without git's answer
         if relative.parts[:2] == ("artifacts", "skills") and len(relative.parts) == 4:
-            if relative.parts[2] in shipped_names:
+            if {relative.parts[2].lower(), _skill_frontmatter_name(skill)} & shipped_names:
                 violations.append(
                     f"DUPLICATE_SKILL_TREE: {relative.as_posix()} repeats the shipped skill "
                     f"skills/{relative.parts[2]}/. One skill has one home."
@@ -1315,7 +1325,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
     `artifacts/agents.md` is the agent entry page `README.md` links to, and is held to them too.
 
-    `skills/**/*.md` is scanned too: the skills ship in the sdist and are published at
+    `skills/**/*.md` and `skills/**/*.yaml` are scanned too: the skills ship in the sdist and are published at
     `jnwb.SKILLS_URL`, so they are public. The skill about working on this repository lives
     under `artifacts/skills/`, which is not scanned.
     """
@@ -1327,6 +1337,8 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     pages: List[Path] = []
     for surface in ("docs", "skills"):
         found = sorted((root / surface).rglob("*.md")) if (root / surface).is_dir() else []
+        if surface == "skills" and found:
+            found += sorted((root / surface).rglob("*.yaml"))  # agents/openai.yaml ships too
         if not found:
             return [
                 "INTERNAL_VOCABULARY: no public documentation found to scan under "
@@ -2766,7 +2778,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (1, _one(check_frozen_boundary, "FAIL: jnwb/ frozen boundary check failed:"),
      lambda: "PASS: jnwb/ frozen boundary clean (zero unauthorized project imports)."),
     (2, _one(check_skill_tree_uniqueness, "FAIL: Skill tree uniqueness violated:"),
-     lambda: "PASS: Single canonical skill tree verified (no .agents/skills/ duplicate)."),
+     lambda: "PASS: One skill tree: every SKILL.md is under skills/, or under artifacts/skills/ "
+             "without repeating a shipped skill."),
     (3, _one(check_no_hardcoded_test_paths,
              "FAIL: Hardcoded machine-local paths detected in tests:"),
      lambda: "PASS: Tests free of machine-local hardcoded drive paths."),

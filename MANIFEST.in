@@ -7,7 +7,7 @@
 # That is the intended outcome, not an oversight. A skill is read by a harness pointed at
 # a directory, nothing in jnwb/ reads one (`grep -rn skills jnwb/ --include=*.py` is
 # empty), and copying the tree under jnwb/ to force it into the wheel would create the
-# second skill tree that harness gate 2 forbids. An installed copy finds them through
+# second copy of the skills, free to drift. An installed copy finds them through
 # `jnwb.SKILLS_URL` instead.
 #
 # AGENTS.md is the repository's own working rules and stays out, as does everything under

@@ -1103,6 +1103,15 @@ class TestGate14InternalProcessVocabulary:
         violations = check_internal_process_vocabulary(root)
         assert len(violations) == 1 and "skills/jnwb/SKILL.md:1" in violations[0], violations
 
+    def test_a_shipped_skill_yaml_is_scanned(self, tmp_path: Path):
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "agents").mkdir()
+        (root / "skills" / "jnwb" / "agents" / "openai.yaml").write_text(
+            "prompt: Queue it on the todo stack.\n", encoding="utf-8"
+        )
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "openai.yaml:1" in violations[0], violations
+
     def test_an_empty_skills_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
         root = self._docs(tmp_path, guide="A clean page.\n")
         (root / "skills" / "jnwb" / "SKILL.md").unlink()

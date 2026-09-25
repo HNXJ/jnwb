@@ -38,6 +38,7 @@ OTHERS = [
     ROOT / "docs" / "documentation_form.md",
 ]
 OTHERS += sorted(ROOT.glob("skills/*/SKILL.md"))
+OTHERS += sorted(ROOT.glob("artifacts/skills/*/SKILL.md"))
 OTHERS += sorted(ROOT.glob("artifacts/agents/*.md"))
 # Dispatchable subagent definitions. They route over the role files and AGENTS.md rather than
 # restating either, and they are measured here so that stays true: a routing file nothing
