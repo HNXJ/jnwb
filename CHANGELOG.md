@@ -6,6 +6,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6.1] - 2026-09-25
+
+### Changed
+
+- **`transfer_entropy(estimator="symbolic")` raises `ValueError` (breaking).** Its surrogate
+  null is not calibrated under zero-lag mixing: on two noisy copies of one white source with no
+  directed coupling it rejected at 0.05 in both directions in 19 of 20 replicates (quantile: 1
+  and 3). Use `estimator="quantile"`. `symbolic_order` stays in the signature, unused;
+  `params["symbolic_order"]` is removed.
+- **`jrsa` paired metrics use a circular-shift null by default; their p-values change.** For
+  `pearson`, `spearman`, `kendall`, `cosine`, `mutual_information`, `granger_ssr_ftest`,
+  `transfer_entropy_histogram_nats` and `phase_slope`, the permutation null shifts x2 along the
+  last axis, the same shift for every row. It used to shuffle single samples as if independent:
+  on two independent AR(1) series with coefficient 0.9 it rejected at p ≤ 0.05 for 0.505 of
+  pairs, against about 0.05 now (0.04 to 0.06 over 600 to 1000 pairs). The new `null=` takes `'circular_shift'`, `'block'` (with the
+  required `block_len=`) or `'iid'`, which reproduces 0.2.6 seed for seed.
+  `result.execution['null']` records the scheme that ran. The null and `lag` act on the last
+  axis whatever `adim` names, so put time last.
+- **`jrsa` refuses `bootstrap > 0` on a paired metric unless `null='iid'` is named (breaking).**
+  Single-sample resampling undercovers on autocorrelated data: the 95% pearson interval covered
+  0 for 0.475 of independent AR(1) pairs with coefficient 0.9. With `null='iid'` the interval
+  equals 0.2.6.
+- **`granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` circularly shift
+  each trial below 7 trials (it was below 3).** With 3 to 6 trials the trial re-pairing null had
+  too few distinct values: on independent noise, P(p ≤ 0.05) was 0.25 to 0.33 at 3 trials and
+  0.14 to 0.21 at 4, and is 0.02 to 0.10 at 3 to 6 now. p-values change for 3 to 6 trials;
+  1 to 2 and 7 or more are unchanged. `params["surrogate_scheme"]` records the scheme.
+
+### Deprecated
+
+- **`jrsa` row metrics warn when a null is formed without `null=`.** For `rsa`, `cka`, `rv`,
+  `hsic`, `distance_correlation` and `procrustes` the default (an i.i.d. permutation of axis-0
+  rows) is unchanged, so numbers are unchanged, and now emits a `UserWarning`. When axis 0 is
+  time that permutation is invalid: `cka` and `rv` rejected every independent AR(1) pair.
+  From 0.2.7 `null=` must be named for these metrics; naming any scheme silences the warning.
+
+### Fixed
+
+- **The directed estimators honour `rng`.** In `granger`, `granger_spectral`,
+  `phase_slope_index` and `transfer_entropy`, `rng=None` silently meant seed 0 and was recorded
+  as `seed=None`; it now draws fresh entropy. A `numpy.random.Generator` is accepted (it raised
+  `TypeError`), and a float seed raises `TypeError` (2.7 ran as seed 2). The entropy used is
+  `params["surrogate_seed_entropy"]`; passing it back as `rng` reproduces p. An int seed gives
+  identical numbers.
+- **`directed_network` does not depend on `n_jobs` with a `Generator`.** It draws one seed per
+  pair before any worker starts, and raises on contradictory `rng=` and `seed=`.
+
+### Documentation
+
+- `docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or
+  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy.
+- The phase slope index is described as the summed imaginary part of adjacent-bin coherency
+  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag
+  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.
+  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its
+  identifiability gate passes.
+- `fit_exponential_onset`'s `bound_status` is documented as checking only t0 against
+  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too.
+- A new logo and favicon.
+
 ## [0.2.6] - 2026-09-24
 
 ### Added

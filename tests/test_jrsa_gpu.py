@@ -65,8 +65,9 @@ def test_jrsa_cupy_gpu_execution():
     np.testing.assert_allclose(res_cosine_cpu.value, res_cosine_gpu.value, rtol=1e-5)
 
     # Test permutation test and bootstrapping consistency
-    res_stats_cpu = oa.jrsa(x, y, metric="pearson", device="cpu", stats=True, permutations=200, bootstrap=200, random_state=42)
-    res_stats_gpu = oa.jrsa(x, y, metric="pearson", device="cuda", stats=True, permutations=200, bootstrap=200, random_state=42)
+    # null='iid': x and y are i.i.d. draws, and a paired-metric bootstrap requires it named.
+    res_stats_cpu = oa.jrsa(x, y, metric="pearson", device="cpu", stats=True, permutations=200, bootstrap=200, random_state=42, null="iid")
+    res_stats_gpu = oa.jrsa(x, y, metric="pearson", device="cuda", stats=True, permutations=200, bootstrap=200, random_state=42, null="iid")
     
     # We verify that permutation p-values and confidence intervals are closely aligned
     # (they are computed using identical seeded random_state)

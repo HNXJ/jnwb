@@ -305,6 +305,15 @@ class TestTransferEntropy:
                                    bins=4, n_surrogates=20, seed=0)
         assert isinstance(result, DirectedResult)
 
+    def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
+        """06-202: two noisy copies of one white source tested significant both ways under
+        it. The generic unknown-estimator error also names 'quantile', so the match
+        requires the reason as well."""
+        x = np.random.default_rng(0).normal(size=(2, 200))
+        with pytest.raises(ValueError, match=r"not calibrated under zero-lag mixing.*"
+                                             r"estimator='quantile'"):
+            transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
+
 
 class TestDirectedConnectivityAndNetwork:
     def test_directed_connectivity_dispatches_by_method(self):
@@ -324,6 +333,96 @@ class TestDirectedConnectivityAndNetwork:
         result = directed_network(signals, method="granger", order=2, fdr=False)
         assert "labels" in result
         assert set(result["labels"]) == {"A", "B", "C"}
+
+    def test_directed_network_draws_a_generator_once_per_pair_up_front(self):
+        """06-203: a Generator copied into each worker would replay one stream, so the
+        surrogates would depend on n_jobs. Each pair gets an int seed drawn before any
+        worker starts, in pair order, and records it."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, rng=np.random.default_rng(3))
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert recorded == np.random.default_rng(3).integers(0, 2**63 - 1, size=3).tolist()
+
+    def test_directed_network_refuses_two_different_generators(self):
+        """`granger(rng=a, seed=b)` raises; the network must not hide the contradiction by
+        drawing its per-pair seeds from one of them."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "AB"}
+        with pytest.raises(ValueError, match="Conflicting values provided to directed_network"):
+            directed_network(signals, method="granger", order=1, n_surrogates=5,
+                             rng=np.random.default_rng(1), seed=np.random.default_rng(2))
+
+
+class TestFewTrialSurrogates:
+    """Below 7 trials the surrogates circularly shift each trial instead of re-pairing
+    trials: 3 trials admit 2 derangements, so the re-pairing null held two values and
+    independent noise tested significant at 0.05 in 30 of 80 p-values here (bc04a791)."""
+
+    def test_independent_noise_at_three_trials_rejects_near_alpha(self):
+        ps = []
+        for rep in range(40):
+            g = np.random.default_rng(rep)
+            x, y = g.normal(size=(3, 200)), g.normal(size=(3, 200))
+            res = granger(x, y, order=1, n_surrogates=19, rng=rep)
+            ps += [res.p_x_to_y, res.p_y_to_x]
+        assert np.mean(np.asarray(ps) <= 0.05) <= 0.08
+
+    @pytest.mark.parametrize("n_trials,scheme", [(6, "circular_shift"), (7, "trial_permutation")])
+    def test_every_surrogate_consumer_records_the_scheme(self, n_trials, scheme):
+        g = np.random.default_rng(0)
+        x, y = g.normal(size=(n_trials, 128)), g.normal(size=(n_trials, 128))
+        for res in (
+            granger(x, y, order=1, n_surrogates=2),
+            granger_spectral(x, y, fs=100.0, order=1, n_freqs=16, n_surrogates=2),
+            phase_slope_index(x, y, fs=100.0, bands=(5.0, 30.0), n_surrogates=2),
+            transfer_entropy(x, y, n_surrogates=2),
+        ):
+            assert res.params["surrogate_scheme"] == scheme, res.method
+        assert granger(x, y, order=1).params["surrogate_scheme"] is None
+
+    def test_seven_trials_keep_the_null_they_had(self):
+        """Pinned before the threshold moved from 3 to 7. The means differ across BLAS builds
+        in the last bits, so they are compared to 1e-12; another null differs far more."""
+        g = np.random.default_rng(11)
+        x = g.normal(size=(7, 200))
+        y = 0.3 * np.roll(x, 1, axis=1) + g.normal(size=(7, 200))
+        res = granger(x, y, order=1, n_surrogates=19, rng=0)
+        sur = res.diagnostics["surrogates"]
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.05)
+        np.testing.assert_allclose(
+            [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
+            [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,
+        )
+
+    @pytest.mark.parametrize("n_trials", [1, 2, 3, 4, 5, 6])
+    def test_below_seven_trials_each_surrogate_trial_is_its_own_trial_shifted(
+        self, n_trials, monkeypatch
+    ):
+        """The recorded scheme and the 3-trial rate cannot see a surrogate that still
+        re-pairs trials at 4-6 while reporting 'circular_shift'. Every surrogate row must be
+        a nonzero roll of the same input row."""
+        import jnwb.connectivity as conn
+
+        seen = []
+        real = conn._surrogate_source
+
+        def spy(a, rng):
+            out = real(a, rng)
+            seen.append((a.copy(), out))
+            return out
+
+        monkeypatch.setattr(conn, "_surrogate_source", spy)
+        g = np.random.default_rng(n_trials)
+        x, y = g.normal(size=(n_trials, 60)), g.normal(size=(n_trials, 60))
+        granger(x, y, order=1, n_surrogates=3, rng=0)
+        assert len(seen) == 6  # 3 surrogates, both directions
+        for a, out in seen:
+            for i in range(n_trials):
+                assert any(np.array_equal(out[i], np.roll(a[i], s)) for s in range(1, 60)), (
+                    f"surrogate trial {i} of {n_trials} is not trial {i} shifted"
+                )
 
 
 class TestCrossAreaCoherenceContract:

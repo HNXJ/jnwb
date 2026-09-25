@@ -1642,8 +1642,10 @@ _ANY_BLOCK_ASSERTION = re.compile(
     "|".join(re.escape(p) for p in sorted(_BLOCK_ASSERTIONS, key=len, reverse=True))
 )
 
-_ITEM_HEADER = re.compile(r"^### (06-\d+)\b", re.MULTILINE)
-_ITEM_ID = re.compile(r"\b06-\d+\b")
+#: An item id is the cycle's two-digit minor version, a hyphen and a number (`06-40`, `07-01`).
+#: The lookbehind keeps the month and day of a date such as 2026-09-19 from reading as an id.
+_ITEM_HEADER = re.compile(r"^### (\d{2}-\d+)\b", re.MULTILINE)
+_ITEM_ID = re.compile(r"(?<![\w-])\d{2}-\d+\b")
 
 
 def _stack_items(text: str) -> List[Tuple[int, str, str]]:
@@ -2413,7 +2415,7 @@ def check_stack_pointers_resolve(repo_root: Optional[Path] = None) -> List[str]:
                 # second sentence of the field. That is deliberate -- after the first full stop
                 # the field is narrating, not declaring -- and `test_a_dead_id_in_the_narration_
                 # is_not_read_as_a_blocker` plants both shapes to hold the boundary where it is.
-                for ref in re.findall(r"\b06-\d+\b", name):
+                for ref in _ITEM_ID.findall(name):
                     resolved += 1
                     if ref not in live:
                         violations.append(

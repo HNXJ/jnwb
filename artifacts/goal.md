@@ -1,8 +1,10 @@
 # Goal
 
-Ruled 2026-09-19 by Hamm (06-01); revised by Hamm 2026-09-22. The statement jnwb is measured
-against, from 0.2.6 on. Subject to `artifacts/direction.md`, which it does not restate. Durable
-rules it relies on live in `artifacts/fact_stack.md`; release acceptance is `AGENTS.md` §11.
+Ruled 2026-09-19 by Hamm (06-01); revised by Hamm 2026-09-22; version-specific lines updated on
+his instruction 2026-09-24, when 0.2.7 opened. The statement jnwb is measured against, from 0.2.6
+on. Subject to `artifacts/direction.md`, which it does not restate. Durable rules it relies on live
+in `artifacts/fact_stack.md`; release acceptance is `AGENTS.md` §11. The 0.2.7 sequence is
+`artifacts/planned_post_0.2.6.md`.
 
 Each section states one goal and the check that holds it. A goal with no check is a preference,
 and is recorded as work in `artifacts/todo_stack.md` until it has one.
@@ -54,16 +56,18 @@ waived field reads `""` and `jnwb_waived_requirements` records the waiver that a
 on that read, so a waived field and a genuinely empty one are distinguishable (ruled 2026-09-22,
 06-67 option (d); implemented by 06-82).
 
-Held by: `tests/test_nwb_read_tolerance_and_visibility.py` and, once 06-82 lands, one test per row
-of the missingness table in `docs/errors.md`.
+Held by: `tests/test_nwb_read_tolerance_and_visibility.py`, which carries one test per row of the
+missingness table in `docs/errors.md`.
 
 ## 5. Dynamic
 
 "Dynamic" means adaptation to unfamiliar NWB datasets, metadata, structures, and explicit caller
 inputs. Generic structural NWB operations -- validate, write, convert, repair a representation
 whose intent is identifiable -- may enter the core under the boundary in
-`artifacts/fact_stack.md`, each with API, documentation and tests before its skill. None is added
-in 0.2.6. Ambiguous scientific meaning is detected and never resolved by jnwb.
+`artifacts/fact_stack.md`, each with API, documentation and tests before its skill. None was added
+in 0.2.6; any in 0.2.7 enters through the capability-gated section of
+`artifacts/planned_post_0.2.6.md`. Ambiguous scientific meaning is detected and never resolved by
+jnwb.
 
 Held by: the fact-stack boundary and Gate 6, which keeps study tokens out of `jnwb/`, `skills/`
 and `docs/`.
@@ -104,8 +108,8 @@ added per item; a new check extends an existing module or gate before it creates
 time and peak memory are costs: measured before each release and not grown without a recorded
 reason.
 
-Held by: `AGENTS.md` §11 condition 2 for computational order. A release check that records suite
-wall time and the slowest tests is 0.2.6 work.
+Held by: `AGENTS.md` §11 condition 2 for computational order, and `scripts/release_gate.py` STEP 1,
+which records suite wall time and the ten slowest tests. Peak memory has no check yet (07-02).
 
 ## Supported interpreters
 

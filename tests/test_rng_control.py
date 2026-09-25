@@ -229,3 +229,58 @@ class TestNestedCvPartitionIsControllable:
         res = nested_cv_linear_svm(X, np.array([0, 1, 1]), n_splits=3)
         assert res["status"] == "insufficient_trials_for_cv"
         assert np.isnan(res["accuracy"])
+
+
+# 06-203: the directed estimators resolved `rng` through a private helper that mapped
+# `None` to seed 0 (recorded as `seed=None`), refused a Generator and truncated 2.7 to 2.
+_DG = np.random.default_rng(5)
+_DX = _DG.normal(size=(2, 400))
+_DY = 0.1 * np.roll(_DX, 2, axis=1) + _DG.normal(size=(2, 400))  # weak, so no p sits at its floor
+DIRECTED = {
+    "granger": lambda rng: jnwb.granger(_DX, _DY, order=2, n_surrogates=29, rng=rng),
+    "granger_spectral": lambda rng: jnwb.granger_spectral(
+        _DX, _DY, fs=100.0, order=2, n_freqs=32, n_surrogates=29, rng=rng,
+        bands={"a": (2.0, 12.0), "b": (14.0, 26.0), "c": (28.0, 45.0)}),
+    "phase_slope_index": lambda rng: jnwb.phase_slope_index(
+        _DX, _DY, fs=100.0, bands={"a": (5.0, 14.0), "b": (16.0, 30.0)}, n_surrogates=29,
+        rng=rng),
+    "transfer_entropy": lambda rng: jnwb.transfer_entropy(_DX, _DY, n_surrogates=29, rng=rng),
+}
+
+
+def _null_of(res):
+    """Every surrogate-derived number the result carries."""
+    return (res.p_x_to_y, res.p_y_to_x, res.p_net,
+            tuple(sorted((k, v.get("p_surrogate")) for k, v in (res.per_band or {}).items())),
+            tuple(sorted((k, v) for k, v in res.diagnostics.get("surrogates", {}).items())))
+
+
+@pytest.mark.parametrize("name", sorted(DIRECTED))
+class TestDirectedEstimatorsHonourRng:
+    def test_none_draws_a_fresh_null_each_call(self, name):
+        runs = [DIRECTED[name](None) for _ in range(4)]
+        entropies = {r.params["surrogate_seed_entropy"] for r in runs}
+        assert len(entropies) == 4 and all(isinstance(e, int) for e in entropies)
+        assert len({_null_of(r) for r in runs}) > 1, "rng=None still draws one fixed null"
+
+    def test_the_recorded_entropy_reproduces_the_null(self, name):
+        first = DIRECTED[name](None)
+        again = DIRECTED[name](first.params["surrogate_seed_entropy"])
+        assert _null_of(again) == _null_of(first)
+
+    def test_an_int_seed_is_recorded_and_keeps_its_stream(self, name):
+        """An int seed draws `default_rng(seed)`, the stream it drew before 06-203."""
+        res = DIRECTED[name](0)
+        assert res.params["seed"] == 0 and res.params["surrogate_seed_entropy"] == 0
+        assert _null_of(res) == _null_of(DIRECTED[name](np.random.default_rng(0)))
+
+    def test_a_generator_is_used_in_place(self, name):
+        gen = np.random.default_rng(7)
+        first, second = DIRECTED[name](gen), DIRECTED[name](gen)
+        assert first.params["surrogate_seed_entropy"] is None
+        assert _null_of(first) == _null_of(DIRECTED[name](7))
+        assert _null_of(second) != _null_of(first)
+
+    def test_a_float_is_refused_rather_than_truncated(self, name):
+        with pytest.raises(TypeError, match=f"{name}: rng must be an int seed"):
+            DIRECTED[name](2.7)

@@ -1,18 +1,13 @@
-# 0.2.7
+# 0.2.6
 
-Opened 2026-09-24, after 0.2.6 was published to PyPI, on Hamm's instruction.
-Items are deleted when done; git, `CHANGELOG.md` and the receipts hold history. The previous cycle's record is
-`artifacts/archive/0.2.6/todo_stack_0.2.6.md`, with its closure receipt beside it.
+The remaining work of the 0.2.6 cycle, reorganized 2026-09-22 so that executing it in the order
+below reaches the release. Items are deleted when done; git, `CHANGELOG.md` and the receipts hold
+history. The previous cycle's record is `artifacts/archive/0.2.5/todo_stack_0.2.5.md`.
 
-0.2.7 is measured against `artifacts/goal.md` and opens under the three conditions of `AGENTS.md`
-§11. Its authorized input is `artifacts/planned_post_0.2.6.md` (07-04), the findings deferred from
-0.2.6 (07-01), and what the 0.2.6 release and a post-release inspection observed (07-02, 07-03).
-Everything in 07-01 to 07-03 is to be checked: a packet reproduces a finding against its own tree
-before it repairs anything, and a finding that does not reproduce is deleted. Rulings are in
-`artifacts/rulings/`.
-
-While the 0.2.6.1 patch is open the package version is 0.2.6.1, so the release gate reads
-the 0.2.7 items as deferred; they return to `required-0.2.7` when the version becomes 0.2.7.
+0.2.6 is a coherence, reachability and evidence release. It is measured against
+`artifacts/goal.md` and opens under the three conditions of `AGENTS.md` §11. Deferred work and the
+0.2.7 sequence are in `artifacts/planned_post_0.2.6.md`, and findings deferred from the problem
+stack are 07-01. Rulings are in `artifacts/rulings/`.
 
 ## How this stack is executed
 
@@ -44,29 +39,64 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 ## Execution order
 
-| Order | Items |
+Items in one wave have disjoint `Writes`, resolved by path and closed under generation; run them
+in any order, at most two agents at a time unless Hamm raises the cap. Close each wave with the
+barrier above.
+
+| Wave | Items |
 |---|---|
-| 0 | 06-205 (the 0.2.6.1 release) |
-| 1 | 07-03 blocker candidates, then the rest of 07-03 |
-| 2 | 07-01, triaged against the blocker predicate |
-| 3 | 07-02 |
-| 4 | 07-04 |
+| W0 |  |
+| W1 |  |
+| W2 |  |
+| W3 |  |
+| W4 |  |
+| W5 |  |
+| W6 |  |
+| W7 |  |
+| W8 |  |
+| W9 |  |
+| W10 |  |
+| Rolling | Verification ran through `6c651511`; the receipt records it |
+| Closure | 06-40 |
 
-## 0.2.6.1 patch
+06-17 dispatches one packet per finding into whichever wave its declared paths fit, and all of its
+packets finish before 06-34.
 
-Ruled 2026-09-25: the silently wrong results and misleading documentation found in the shipped
-0.2.6 ship as 0.2.6.1, cut from `dev`. Each item reproduces its finding at `057957aa` first.
+## W0. Integration and verification
 
-### 06-205 Release 0.2.6.1
+## W1. Freeze, sweeps and harness
 
-Release: release-step-0.2.6.1.
+## W2. API repairs
+
+## W3. Statistics surface, diagrams and the open-data example
+
+## W4. Maintained figures, skill routing and references
+
+## W5. Figures, execution switch and decline
+
+## W6. Orders and empirical labelling
+
+## W7. Contracts
+
+## W8. Vocabulary and cost
+
+## W9-W10. Documentation form
+
+## Any wave. Confirmed findings
+
+## Rolling verification
+
+## Closure
+
+### 06-40 Full 0.2.6 release
+
+Release: release-step-0.2.6.
 Role: actor. Skill: none. Blocked by: none. AUTONOMY: none.
 Writes: none.
-The dispatcher sets the version and the changelog, records an independent closure pass over the
-patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
-seven checks, the tag, the GitHub Release whose PyPI job waits for Hamm's approval, and Zenodo.
-Accept: PyPI serves 0.2.6.1 and its wheel's `jnwb/` equals the tag byte for byte; a clean install
-runs the circular-shift null and the symbolic refusal; Zenodo shows the version.
+Released by the agent once done (ruled 2026-09-23); Hamm approves the PyPI deployment. The release pull request merges `dev` into `main` with a merge commit through the `main` ruleset's seven checks, and `git diff dev <merge>` is empty (P-180: `main` was reconciled in HNXJ/jnwb#20). Tag `v0.2.6`; publish the GitHub Release, whose `publish-pypi` job waits in the `pypi` environment for Hamm's approval and which Zenodo archives. Then verify from PyPI in a clean environment: TestPyPI's 0.2.6 at `8e90a4ad` and the local wheel at `1d5e8b81` already passed, so this is the last leg of the artifact check.
+Accept: PyPI serves 0.2.6 and its wheel's `jnwb/` equals the tag byte for byte; a clean install opens and analyses an NWB file; `SKILLS_URL` and the README's `artifacts/agents.md` link (P-270) resolve; Zenodo shows a DOI.
+
+## 0.2.7
 
 ### 07-01 Findings carried from 0.2.6
 
@@ -74,9 +104,8 @@ Release: deferred-0.2.7.
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
 Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6. A packet takes one
-finding and narrows the write set to its paths. The item stays required until each finding is
-triaged: one that meets the blocker predicate is repaired in 0.2.7, and one that does not moves to
-a `deferred-0.2.8` item with the reason it waits.
+finding and narrows the write set to its paths; a finding shown to meet the blocker predicate
+leaves this item as a `required-0.2.6` item.
 
 - P-01: `scripts/docs_build.py` writes `site/` inside the repository, and the test suite also creates `site/` mid-run with no build invoked, so no read-only packet can establish that the strict docs build passes while keeping the tree clean. Deferred: changes no shipped behaviour and invalidates no release evidence; 06-36 builds into a temporary directory.
 - P-08: Two reproduced review findings carry wrong counts: `doc-assets/module-map-omits-nwb-entry-points` says 36 omitted exports where a probe counts 35, and `ai-plumbing/agent-roles-exist-but-ship-nowhere` says five roles where six exist. Deferred: record counts only.
@@ -217,125 +246,17 @@ a `deferred-0.2.8` item with the reason it waits.
 - P-352: The installed-wheel smoke script in `scripts/release_gate.py` runs only when the release gate reaches its seventh step, so an exact key set in it went stale for a whole cycle while the suite stayed green. Waits: it fails closed, refusing a correct wheel rather than passing a wrong one; the repair runs the extracted script against the tree in the suite.
 - P-353: Three release-gate and `vflip` edges from the closure pass at `f0d905bf`: the readiness check treats any item deleted after the receipt as done, so it cannot tell a finished item from a dropped one; the smoke step keeps `PYTHONPATH` where the tutorial step strips it; and a caller's `vflip` `min_support_score` at or below -27.63 accepts a zero-support fit at the floor value (P-351). Waits: the deletions this cycle are backed by the receipt's verification table, the smoke script asserts a `site-packages` import, and the default threshold is 3.75.
 
+## Reported and not admitted
 
-### 07-02 Release-process observations from 0.2.6
+Recorded so that nothing reported disappears by not being chosen.
 
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTING.md`.
-Observed while releasing 0.2.6; each is to be checked and either repaired or moved to a
-`deferred-0.2.8` item.
+- `dist/` holds only 0.1.1, 0.1.3 and 0.2.4 artifacts; 06-38 builds fresh.
+- The ninth unreadable consumer file fails at `root/units` with `Columns must be the same
+  length`, separately from the eight that fail on device attributes.
 
-- RP-1: Merging the release pull request deleted `dev`: the repository deletes merged heads, and the `dev` ruleset's deletion rule lets the admin role bypass always. It was restored at the merge commit. Check: switch off automatic deletion of merged heads, or restrict the bypass, and say which in `CONTRIBUTING.md`'s release steps.
-- RP-2: STEP 0e resolved the newest CI run for the commit, a pull-request run still in progress, and refused although the push run for the same commit had passed. Check: whether a concluded green run for the exact commit suffices, and test the choice.
-- RP-3: `scripts/release_gate.py` stops at its first failing step, and each run takes 12 to 30 minutes; 0.2.6 needed four runs, one lost to a stale `artifacts/state.md`. Check: run the cheap checks (state freshness, the extracted smoke script, the release body) before the suite.
-- RP-4: At release the full CI matrix ran four times on one commit (the `main`, `dev` and tag pushes and the release event), and the release run queued behind the tag run in one concurrency group, about 45 minutes before the PyPI approval was requested. Check: skip a run on a commit whose tree already passed, and measure the saving.
-- RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds.
-- RP-6: Locked entries remain under `.git/worktrees/` from earlier lanes. Check: remove them once no process holds them, stopping the fsmonitor daemons first.
-- RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Check: record peak memory beside wall time in the release gate's suite step.
+## Out of 0.2.6 scope
 
-### 07-03 Post-release inspection findings
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per finding. Blocked by: none.
-Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CHANGELOG.md`.
-Two independent read-only inspections at `e66e70a9`, one of library code, cost and coverage and
-one of documentation, skills and the release apparatus. Each bullet carries its receipt in short;
-the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
-predicate if they reproduce, and go first.
-
-- IA-04 (blocker candidate): `jrsa` `lag` rolls the last axis, which holds features for the six metrics with observations on axis 0, so a lag sweep of cka, rv, rsa, procrustes, dcor or hsic returns one value under every label (`jnwb/jrsa.py:941-956`). Check: assert an axis-0 metric changes with lag on a delayed copy, or refuse `lag` for those metrics.
-- IA-05 (blocker candidate, weak): when CUDA fails part-way through the coherence surrogates, the CPU recompute draws new shifts from the advanced `rng`, so p differs from a CPU run under the same seed while the reported seed is unchanged (`jnwb/spectral.py:879-884`, `929-936`). Check: draw the shifts once before the device attempt; test an injected mid-null failure against the CPU result.
-- IA-06: the `jrsa` lag is circular (`xp.roll`), so the window recipe of `docs/03` wraps each window's end onto its start (lag 10 gives r 0.46 against 0.998 on the truncated overlap). Check: truncate to the overlap; test on a trended series.
-- IA-07: `verify_roundtrip` in `jnwb/compression.py:694` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
-- IA-08: `compute_response_metrics` accepts a reversed window and returns a negative spike count with a positive rate (`jnwb/spiking.py:95-135`). Check: refuse start at or after stop for both windows.
-- IA-09: `aggregate_to_db` turns a zero baseline into +inf dB with warnings suppressed, where `relative_power` raises on the same input (`jnwb/spectral.py:400-417`). Check: one policy for both, pinned by a test.
-- IA-10: `TFRAnalyzer.compare_conditions` reports `n_significant` from uncorrected per-location t-tests (792 of 16000 on null data), and no test runs it (`jnwb/analyzers.py:182-217`). Check: correct for multiple comparisons or label the count uncorrected; a null-data test.
-- IA-11: `PopulationAnalyzer.pie_chart_data` silently skips a filter on an absent column, so the counts cover every unit; untested (`jnwb/analyzers.py:671-673`). Check: raise or warn on an unknown key.
-- IA-12: `explained_variance` is a scalar ratio in `compute_population_trajectory` and a per-component array of absolute variances in `PopulationAnalyzer.population_trajectory`; `jnwb/trajectory.py:108` cites a `UnitAnalyzer.population_trajectory` that does not exist. Check: one meaning with a deprecation path; fix the reference.
-- IA-13: `crossover_depth_um` is the absolute z coordinate when z varies along the shank and rank times pitch otherwise, while `label_layers(depth_range_um=)` always uses rank times pitch (`jnwb/laminar.py:488-495`, `965`). Check: one stated frame; a z-descending geometry test.
-- IA-14: `_resolve_electrode_row` falls through from `channel_id` to `id` when a value is missing, switching identifier space silently (`jnwb/addressing.py:109-115`). Check: stop at the first identifier column that exists.
-- IA-15: `xflip(rng=None)` seeds from entropy and neither result class records the seed (`jnwb/laminar.py:1276`, `1506`). Check: record the seed; test that it reproduces p.
-- IA-16: `jrsa(nan_policy='omit')` on axis-0 metrics drops a feature column rather than the observation (`jnwb/jrsa.py:632-659`). Check: drop along the observation axis.
-- IA-17: `granger` order selection passes `RSS/(N-k)` to `_info_criterion`, which documents the ML `RSS/N`, and scores each order on a different sample (`jnwb/connectivity.py:1195-1205`, `359-371`). Check: an order-recovery test on a known VAR(p) scored on one trimmed sample.
-- IA-18: `classify_response_significance` turns an effect size (mean difference over per-trial SD) into a normal p-value that does not fall with trial count (`jnwb/spiking.py:149-158`, `212-219`). Check: decide effect size or test; test p against trial count at a fixed effect.
-- IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: one model for two classes and a calibration test.
-- IA-20: `np.unique(axis=0)` in `_codes` is 97% of `transfer_entropy` runtime; a mixed-radix integer key gives identical codes 71 times faster (`jnwb/connectivity.py:2023-2029`). Check: frozen-output diff on fixed seeds, with a radix-overflow guard.
-- IA-21: the `xflip` partition search is a pure-Python triple loop per surrogate; vectorising the inner loop gives identical cuts 10 to 45 times faster (`jnwb/laminar.py:1172-1191`). Check: frozen-cut diff, then timing.
-- IA-22: `cluster_permutation_test` sums each cluster with a full-map mask, O(K M) per permutation; `ndimage.sum_labels` gives identical sums (31 ms against 0.8 ms at 1582 clusters) (`jnwb/statistics.py:1900-1912`). Check: diff `max_null_stats` against a frozen run.
-- IA-23: `bootstrap_ci` resamples in a Python loop (11 times slower than vectorised at n 200), and `UnitAnalyzer.psth` calls it every time (`jnwb/statistics.py:1177-1181`). Check: vectorise; the random stream changes, so values move under a fixed seed and need a changelog entry or a ruling.
-- IA-24: `enrich_units_dataframe` makes three row-wise `.apply` passes (4000 units by 1536 electrodes, 4.2 s) (`jnwb/addressing.py:430-449`). Check: a vectorised lookup against a frozen output.
-- IA-25: `raster_psth` masks the whole train per onset (0.43 s against 0.14 s with `searchsorted`), and a list `st` fails with an unrelated `TypeError` (`jnwb/viz.py:155-157`). Check: `searchsorted` and `np.asarray(st)`.
-- IA-26: conditional Granger (`granger(Z=...)`) never runs in the suite (`jnwb/connectivity.py:1133-1143`). Check: a common driver passed as `Z` removes a spurious x to y.
-- IA-27: exported callables at 0% coverage: `TFRAnalyzer.by_layer`, `UnitAnalyzer.raster`, `DirectedResult.to_dict/ok/summary`, `jnwb.vis.plot_granger_spectra`, `plot_rsm_heatmap`, `paths.resolve_nwb_path/sha256_file/require`; `nam.train_nam` at 3%. Check: one value-pinning test each, or a declared exclusion.
-- IA-28: tests that assert too little: `bilinear` checks only a length, the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN, and no test feeds `verify_roundtrip` a corrupted cast. Check: value-pinning tests for IA-04, IA-07 and IA-19.
-- IA-29: unbacked claims and project leftovers ship in the wheel: `nam` cites a missing script and receipts and calls `torch.manual_seed`, which resets the global torch stream; `REWARD_WINDOW_MS` is a task constant no function uses; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project output folders. Check: extend P-296's sweep to these; use a local `torch.Generator`.
-- IA-30: with one correlated block beside an uncorrelated rest, `xflip` places the boundary at the midpoint rather than the true edge; the fit is rejected, so it is a missed boundary rather than a false one (`jnwb/laminar.py:1138-1167`). Check: a boundary-recovery test for one block and background.
-- IB-03: `docs/10_operation_specifications.md:98` gives `vflip_from_lfp` as `compute_psd(lfp, fs) -> vflip(psd, freqs)`; on channels-by-time input that runs over channels and `vflip` raises; the code uses the time axis. Check: write `axis=-1` into the composition and test it equals `vflip_from_lfp`.
-- IB-04: `README.md:79-80`, `docs/errors.md:137-139`, `226` and `docs/common_mistakes.md:290-291` say `event_onsets` warns when a table has no `codes` column; it does not, and its docstring says so; only `events` warns. Check: correct the pages.
-- IB-05: `docs/07:21` says a non-`Generator` `rng` raises `TypeError`, but `StatisticalAnalysis` accepts and coerces an int or `None`. Check: state the accepted types per surface.
-- IB-06: `docs/10:18` says every stochastic function accepts an int, a `Generator` or `None`; `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` fail on an int or `None` with `AttributeError`, and `permute_labels` refuses them. Check: one accepted set, enforced, and the page to match.
-- IB-07: `docs/10:48-49` says the structured returns, `JRSAResult` among them, implement `.to_dict()` and `__getitem__`; `JRSAResult` has neither. Check: add them or exclude it on the page.
-- IB-08: `docs/10:33` says seeds are spawned per worker with `SeedSequence(seed).spawn(n_jobs)`; the code spawns one seed per iteration, which is what makes results independent of `n_jobs`. Check: correct the page.
-- IB-09: `docs/09:116-118` says `compare_session_quality` takes the frame `diagnostics.compare_sessions()` returns; no such function exists, and the columns it reads are unnamed. Check: name the columns and drop the reference.
-- IB-10: `docs/errors.md:94-97` gives two layout bases; an electrode-less `TimeSeries` reports a third, `schema` (`jnwb/nwb_inspect.py:251-252`). Check: list all three.
-- IB-11: `docs/08:186` prints `network["matrix"]` as the net matrix; it is the directed matrix, not antisymmetric. Check: relabel.
-- IB-12: `docs/10:100` gives `testing.synth` an output type of `np.ndarray`; its builders return a receipt, a 3-tuple and a pair. Check: correct the row.
-- IB-14 (blocker candidate, weak): `skills/jnwb-landmark-viz/SKILL.md:60,71` pass millimetre depths, and `jnwb/vis/laminar.py:101,301,423` infer the unit from the maximum, so 0 to 1.55 mm is labelled "Relative Depth (0=Pia, 1=WM)". Check: a `depth_unit=` parameter with no default, or refusal of ambiguous ranges.
-- IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
-- IB-16: `docs/03:103` says `nan_policy="omit"` propagates NaN across the affected RDM pairs; one empty condition makes the whole result NaN, and one NaN sample moves the value 0.343 to 0.425. Check: correct the prose or omit pairwise; test one empty condition.
-- IB-17: `skills/jnwb-fact-action` is a contributor-process skill that ships (sdist, `SKILLS_URL`, `docs/agents.md`) with implicit invocation, internal ids and a trigger claiming all multi-step work, while the router scopes it to repository tasks. Check: a ruling on whether it ships; meanwhile scope its trigger.
-- IB-18: gate 14 scans `docs/` and `README.md` for process terms but not the shipped `skills/`, and checks only identifiers in `jnwb/`, where `jnwb/__init__.py:22` names a harness gate. Check: add `skills/` to gate 14, with a named exemption if IB-17 rules it stays.
-- IB-19: `skills/jnwb-landmark-viz/SKILL.md:35` mandates a chance line at 0.5 and `jnwb/vis/state_space.py:28` defaults `chance_level=0.5`, against the population skill's rule for unbalanced classes. Check: point to `majority_baseline` or make `chance_level` required.
-- IB-20: `skills/jnwb-statistics/SKILL.md:3-4` and its `agents/openai.yaml` say "family-wise FDR", conflating FWER with Benjamini-Hochberg. Check: "FDR (Benjamini-Hochberg)".
-- IB-21: the CSD and curvature row of `skills/jnwb-lfp-spectral/SKILL.md:28` omits that the output has two fewer channels, so output row k is input channel k+1 (`AGENTS.md` invariant 4). Check: state the shape and offset; a routing test on it.
-- IB-22: the router `skills/jnwb/SKILL.md` never routes to `jnwb-landmark-viz`. Check: a test that every skill directory is reachable from the router.
-- IB-23: `docs/04:164` calls a value near -2 the aperiodic exponent while `aperiodic_fit` on the same page returns +2; the sign note lives only in the skill. Check: one sign convention or a named field.
-- IB-24: the `classify_layer_from_depth` docstring summary says it classifies a cortical layer, against `docs/02:89` ("a cut on depth, not a cortical layer"). Check: fix the docstring and regenerate `docs/api.md`.
-- IB-25: `AGENTS.md` section 11 and `artifacts/problem_stack.md:10` write the cycle labels as literals `required-0.2.6` and `deferred-0.2.7`, which STEP 0a derives from the version, so a 0.2.7 triage following the text writes the wrong label. Check: write `required-<cycle>` and `deferred-<next>`, with a test that no standing rule names a literal cycle.
-- IB-26: the module docstring of `scripts/release_gate.py` omits STEPs 0a, 2a, 2b and 8, and `CONTRIBUTING.md:88-96` omits the readiness step. Check: extend `tests/test_module_docstrings_match_their_code.py` to the release gate.
-- IB-27: `artifacts/agents.md` sends readers to `artifacts/agents/` and `jnwb-developer`, which gate 14 lists as internal vocabulary banned from public docs. Check: a ruling on whether the roles are public, then gate the page or drop the terms.
-- IB-28: `docs/documentation_form.md`, an internal contributor contract, is in the user navigation, and `docs/index.md:52` and `docs/install.md:26` say "gate-enforced" and "release gate". Check: move it to `CONTRIBUTING.md` or out of the navigation.
-- IB-29: the six CI test legs run the suite serially (`.github/workflows/workflow.yml:67`), 558 to 745 s each, while the wheel leg uses `-n auto` at 385 s. Check: `-n auto` on the matrix after P-254's kaleido isolation.
-- IB-30: the live harness runs twice in the suite (`tests/test_every_gate_runs.py:55`, `tests/test_harness_adversarial_gates.py:307`, about 5 s each on six legs) and again in the build job. Check: keep one live-tree run.
-- IB-31: the two slowest tests take 25.6 s and 22.4 s (`test_rng_convention_matches_the_signatures.py[cross_modal_comparison]`, `test_api_md_is_interpreter_independent.py`), about 20% of the parallel wall time. Check: shrink the entropy test's input.
-- IB-32: `scripts/measure_agents_md_duplication.py:37-52` reads gitignored `.claude/agents/*.md`, present on one machine, and skips `docs/agents.md`, where the skill table already differs from `AGENTS.md` section 7 in three rows. Check: tracked files only, including `docs/agents.md`.
-- IB-33: in four of ten skills the `agents/openai.yaml` description differs from the SKILL.md description; the test checks only that the key exists. Check: byte equality of the two.
-- IB-34: the router calls itself a "memory bank" and sends readers to `AGENTS.md` for agent pitfalls that live in `docs/common_mistakes.md`; `jnwb-landmark-viz` lacks the routing, invariants and doc-link sections of the other domain skills, and its layout constants disagree with `jnwb/vis/canvas.py:226-267`. Check: the shared template of 07-04's first step.
-- IB-35: `skills/jnwb-connectivity/SKILL.md:50` cites `docs/common_mistakes.md` section 7 for a narrow-band PSI (`net=-2.1e-05`), while that section reports `nan` for the same case at another signal length. Check: one receipt with a stated length, cited by both.
-- IB-36: `CONTRIBUTING.md:111,205,347` states the docs-and-skills lockstep rule three times. Check: keep one.
-- IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
-- IB-38: `AGENTS.md` is about 8k tokens loaded into every session in this repository; section 10's recipes repeat what `docs/` and the skills carry, and section 11's history paragraphs repeat the rulings they cite; 14 tests pin its text, `tests/test_agents_md_recipes.py` among them. Check: move the recipes to a tested docs page and the history to `artifacts/rulings/`, leaving pointers, and move the tests with them.
-- IB-39: the 0.2.6.1 wording repair was held by a grep, not a gate; "causes", "time delay", "propagation delay" and "latency" can return to `docs/`, `skills/` or a public docstring unnoticed, and gate 14 scans `docs/` only. Check: extend the term scan to the three surfaces with an allowlist of the conditional uses.
-- IB-40: the `bound_status` statement on `docs/06` and `docs/quickstart.md` (a pure-noise PSTH usually reads `None`, with tau at a bound and r2 near 0) is backed by a scratch probe, not a test. Check: a noise-only PSTH test that pins it.
-- IB-41: `docs/10_operation_specifications.md:102` says `zflip` raises for zero imaginary coherency or ill-conditioned cross-spectra; it has neither check (`jnwb/laminar.py`, the validation block of `zflip`). Check: list the raises it has.
-- IB-42: `docs/01_architecture_and_philosophy.md` measures exactly its 1200-word ceiling after the 0.2.6.1 wording repair, so any addition fails the length test. Check: trim, or rule a new ceiling.
-- IB-43: ruled 2026-09-25, the `jrsa` row metrics require a named `null=` from 0.2.7; 0.2.6.1 only warns. Check: remove the default, and move every caller.
-- IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
-- IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
-- IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed.
-- IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.
-- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag.
-- IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
-- IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
-- IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
-- IB-53: no test shows `jrsa`'s `null='block'` can reject; its false-positive test also passes for a null that never rejects, and a mutant keeping the blocks in order survived the full suite. Check: a coupled-series test for `block` with p at most 0.01.
-- IB-54: `tests/test_jrsa.py:55`, which says it runs the literal quickstart line, and `tests/test_docs_smoke.py:256` still call the row metric without `null="iid"`, which the page now passes. Check: read the line from the page, or add the argument.
-- IB-55: the sliding-window recipe on `docs/03` uses 20-sample windows under the circular-shift null, whose p cannot go below about 1/20, and tells readers to correct across windows. Check: state the floor at the recipe, or widen the windows.
-
-### 07-04 The planned 0.2.7 sequence
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `artifacts/todo_stack.md`.
-The plan in `artifacts/planned_post_0.2.6.md` is authorized input to this cycle (ruled 2026-09-22). Reproduce
-each of its steps against this tree and turn each into its own item here, with fields, before any
-of it is implemented.
-Accept: every step of the plan is an item of this stack or is recorded as already done.
-
-## Out of 0.2.7 scope
-
-Carried from 0.2.6. Each needs its own authorization.
+Frozen with the acceptance set. Each needs its own authorization.
 
 - Raw-data-to-NWB conversion.
 - An authorization or permission subsystem.
@@ -347,4 +268,26 @@ Carried from 0.2.6. Each needs its own authorization.
 
 ## Acceptance
 
-`AGENTS.md` §11, the same three conditions as 0.2.6, measured against `artifacts/goal.md`.
+Frozen 2026-09-23 (06-05, closed), each line re-established against the live tree; the non-goals under "Out of 0.2.6 scope" are frozen with it. Each line names what establishes it.
+
+| Line | Established by |
+|---|---|
+| no known material defect under the 0.2.6 acceptance set | 06-34, 06-39 |
+| one canonical scientific model, published and reachable | `docs/architecture.md` (in the navigation since `d3d17871`), `tests/test_architecture_page_reachability.py`, the four diagrams on that page |
+| every public claim reproduced against the implementation that answers it | 06-17 (now closed), 06-24, 06-136 |
+| skills route, decline, and are tested against live behaviour | 06-24, 06-25 (now closed), `tests/test_skill_decline_behaviour.py` |
+| cross-surface and compositional audit complete over the declared high-risk set | `artifacts/evidence/0.2.6/composition_subset_0.2.6.md` and its proposal, every magnitude naming a committed test and seed (re-stamped 2026-09-23) |
+| documentation assets render and are regenerable | `tests/test_generated_figures_are_maintained.py`, 06-36 |
+| one real NWB end-to-end example with provenance | `examples/tutorials/09_open_data.py` (verified at `a9993322`; P-199 and P-200 carry its gaps), `tests/test_synthetic_figures_are_labelled.py` |
+| published artifact independently verified, from TestPyPI before publication and from PyPI after | 06-37, 06-38, 06-40 |
+| documentation low-verbosity and consistently formed, against a declared contract | 06-51 (now closed), 06-53 (now closed), `scripts/docs_form_gate.py`, `docs/glossary.md`, `tests/test_figure_form.py` |
+| one precision switch and one execution switch; CPU, parallel CPU and CUDA exercised here | 06-56 (now closed), 06-59 (now closed), `scripts/computational_contract_gate.py` |
+| every declared interpreter qualified by CI on Ubuntu and Windows, and every surface declaring the same set | gate 8, CI on `dev`, 06-35 |
+| a read invents no metadata, and a named waiver is recorded as it happened | `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_public_api_reachability.py` |
+| `jnwb.vis` is an optional extra and `import jnwb` works without it | `tests/test_optional_vis_extra.py`, 06-37 |
+| suite wall time and the slowest tests measured before release | `scripts/release_gate.py` STEP 1 |
+| no release-blocking problem and no required item remaining, confirmed by a blocker-focused pass | 06-60, `scripts/release_gate.py` STEP 0a |
+
+The form matches 0.2.5's closure: no known material defect under a stated acceptance set, not a
+claim of exhaustive correctness. Deliberately absent: a claim that the JAX Metal backend works; it
+is implemented and declared unverified.

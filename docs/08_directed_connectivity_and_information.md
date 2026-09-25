@@ -118,7 +118,7 @@ $$T_{X \to Y} = H(Y_t | Y_{t-1:t-k}) - H(Y_t | Y_{t-1:t-k}, X_{t-u:t-u-l+1})$$
 te_res = jnwb.transfer_entropy(
     X, Y,
     k=1, l=1, delay=1,
-    estimator="quantile",   # quantile | uniform | discrete | symbolic
+    estimator="quantile",   # quantile | uniform | discrete
     bins=4,
     n_surrogates=200,
     rng=0,
@@ -132,6 +132,10 @@ TE is reported in **bits** (the estimator uses $\log_2$), and the result carries
 0.05 nats and not a percentage. The quantity is a reduction in uncertainty about $Y_t$
 given $X$'s past: directed predictability, not a mechanism, and its magnitude depends on
 the discretization (`estimator`, `bins`) as well as on the coupling.
+
+`estimator="symbolic"` (ordinal patterns) raises `ValueError`. Its surrogate null is not
+calibrated under zero-lag mixing: two noisy copies of one white source, with no directed
+coupling, test significant in both directions. Use `"quantile"`.
 
 ---
 
