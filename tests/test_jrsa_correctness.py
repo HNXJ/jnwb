@@ -603,20 +603,26 @@ class TestTimeAxisNullKeepsAutocorrelation:
         one of 40 independent AR(1) pairs; the default stays for 0.2.6.1 and warns."""
         rng = np.random.default_rng(5)
         a, b = rng.normal(size=(40, 6)), rng.normal(size=(40, 6))
-        with pytest.warns(UserWarning, match="null='circular_shift' or null='block'"):
+        with pytest.warns(UserWarning, match="null='circular_shift' or null='block'") as rec:
             default = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3)
+        ours = [r for r in rec if "null='circular_shift' or null='block'" in str(r.message)]
+        assert len(ours) == 1 and ours[0].filename == __file__, [r.filename for r in ours]
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             named = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3, null="iid")
             oa.jrsa(a, b, metric="cka", stats=False)          # no null formed, no warning
+            oa.jrsa(a, b, metric="cka", permutations=0)
+            oa.jrsa(a[:, 0], b[:, 0], metric="pearson", permutations=19, rng=0)
         assert float(named.p) == float(default.p)
         np.testing.assert_array_equal(named.ci, default.ci)
 
-    @pytest.mark.parametrize("null", [None, "circular_shift"])
-    def test_a_paired_metric_bootstrap_needs_iid_named(self, null):
+    @pytest.mark.parametrize("null, block_len", [
+        (None, None), ("circular_shift", None), ("block", 10),
+    ])
+    def test_a_paired_metric_bootstrap_needs_iid_named(self, null, block_len):
         x, y = self._ar1_pairs(1, n=60)[0]
         with pytest.raises(ValueError, match="bootstrap.*null='iid'"):
-            oa.jrsa(x, y, metric="pearson", bootstrap=20, rng=0, null=null)
+            oa.jrsa(x, y, metric="pearson", bootstrap=20, rng=0, null=null, block_len=block_len)
 
     def test_a_paired_metric_bootstrap_with_iid_named_keeps_the_0_2_6_numbers(self):
         # Values computed by jnwb 0.2.6 with the same call minus `null`.

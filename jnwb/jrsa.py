@@ -176,7 +176,10 @@ def jrsa(
     x2 : array-like or None
         Second tensor.  None → within-x1 analysis.
     adim : int | tuple | str | tuple[str]
-        Aligned dimension(s). Default -1.
+        Aligned dimension(s). Default -1. It steers alignment, `reduction` (axes named
+        here) and `window`. Nothing downstream follows it: the paired metrics pair samples
+        and resample the last axis, the observation-axis metrics resample axis 0 (see
+        `null`), and `lag` rolls the last axis.
     labels : list[str] or None
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
@@ -198,7 +201,8 @@ def jrsa(
         x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
         when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
-        Temporal lag(s).
+        Temporal lag(s) in samples. Each rolls x2 circularly along the last axis, whatever
+        `adim` names.
     window : tuple | int or None
         Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
         half-open, with negative values counted from the end as in Python slicing, or an
@@ -260,8 +264,10 @@ def jrsa(
           holds for autocorrelated time series. There are only n distinct shifts, so p
           cannot fall much below ``1/n``.
         - ``'block'`` cuts the axis into consecutive blocks of `block_len` samples (the last
-          may be shorter) and permutes their order. It keeps autocorrelation shorter than
-          `block_len`.
+          may be shorter) and permutes their order. `block_len` should span several
+          autocorrelation times: on independent AR(1) series with coefficient 0.9 (200
+          samples), ``block_len=20`` rejected at p <= 0.05 for 0.30 of pairs with cka and
+          ``block_len=50`` for 0.062.
         - ``'iid'`` permutes single samples, which is exchangeable only when the samples
           are independent. On a time axis it must be named: on two independent AR(1)
           series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
