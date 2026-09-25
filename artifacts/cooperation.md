@@ -32,7 +32,7 @@ memory. A message that disagrees with a file loses.
 (`<from>_to_<to>.md`), with a single writer per file and append-only entries. Each message is headed
 `## <UTC> <from>#<n>`. Ids are qualified by sender (`cowork#3`, `kickoff#2`) because each
 outbox numbers from 1; a reply cites `re <from>#<n>`, and completed work is marked `ack <from>#<n>`.
-Nothing notifies an agent of a new message: Hamm says "check bus", or a scheduled task reads it.
+Nothing notifies an agent of a new message: Hamm says "check bus", or an agent's chat watcher sees a pointer to it.
 
 **Chat.** `F:/cowork/jnwb-bus/jchat/jchat.py` in file mode (`--file`): one append-only JSONL file
 per room, message id = line number. It is for conversation. Claims, handoffs and receipts stay on
@@ -58,18 +58,17 @@ choice, or evidence that conflicts with a higher authority (`AGENTS.md` §12).
 
 | # | Task | Who | Trigger | Output |
 |---|---|---|---|---|
-| T1 | Stack hygiene: pointers resolve, no finished items remain, parsed fields parse, every problem row is triaged, the todo stack's version headings match the package version. Runs T2 over `last_T1_sha..dev` in the same run. If `dev` has not moved since the last T1, posts only "T1 <date>: no change @<sha>" | worker | daily 07:47 local, scheduled | findings, proposed edits and T2 verdicts on the bus, each naming the `dev` SHA read; the integrator applies them |
+| T1 | Stack hygiene: pointers resolve, no finished items remain, parsed fields parse, every problem row is triaged, the todo stack's version headings match the package version. Runs T2 over `last_T1_sha..dev` in the same run. If `dev` has not moved since the last T1, posts only "T1 <date>: no change @<sha>" | worker | on request | findings, proposed edits and T2 verdicts on the bus, each naming the `dev` SHA read; the integrator applies them |
 | T2 | Independent review of the commits integrated since the last review, the integrator's own included | worker | inside T1, or on request | verdict per commit, with receipts |
 | T3 | Triage proposal for problem rows under the blocker predicate (`AGENTS.md` §11) | worker | when the problem stack is not empty | `required` or `deferred` per row, with the predicate clause; the integrator or a critic decides |
 | T4 | Execute one todo item as a packet | either role, by claim | manual | commits and a bundle (worker) or commits on `dev` (integrator) |
 | T5 | CI watch; diagnose a red run | integrator | after each push | a repair, or a row in the problem stack |
-| T6 | Memory curation: promote a recurring lesson to a rule, archive a stale one, delete a wrong one | integrator, own memory only | Mondays 09:12 local, scheduled | a short note on the bus of what was promoted |
-| T6′ | Friction scan: repeated friction in the bus and chat logs becomes rule-edit proposals for `AGENTS.md` or this file | worker | Mondays 08:47 local, scheduled | proposals on the bus; the integrator or Hamm applies them |
+| T6 | Memory curation: promote a recurring lesson to a rule, archive a stale one, delete a wrong one | integrator, own memory only | on request | a short note on the bus of what was promoted |
+| T6′ | Friction scan: repeated friction in the bus and chat logs becomes rule-edit proposals for `AGENTS.md` or this file | worker | on request | proposals on the bus; the integrator or Hamm applies them |
 | T7 | Release checklist (`CONTRIBUTING.md`) | integrator | Hamm | the release |
 
-A worker's scheduled run starts from nothing: no conversation, clone or environment. It
-re-clones and re-installs, runs only while this PC and the desktop app are on, and stalls on any
-step that needs an approval, so a scheduled packet asks for none.
+No task runs on a schedule. "On request" means Hamm asks, or an agent asks on the bus or in
+chat; the agent asked runs it in its next turn.
 
 ## Conflicts
 
