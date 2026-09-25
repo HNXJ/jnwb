@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 06-206 and 06-207, then 06-205 (the 0.2.6.1 patch) |
+| 0 | 06-205 (the 0.2.6.1 release) |
 | 1 | 07-03 blocker candidates, then the rest of 07-03 |
 | 2 | 07-01, triaged against the blocker predicate |
 | 3 | 07-02 |
@@ -57,31 +57,10 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 Ruled 2026-09-25: the silently wrong results and misleading documentation found in the shipped
 0.2.6 ship as 0.2.6.1, cut from `dev`. Each item reproduces its finding at `057957aa` first.
 
-### 06-206 `jrsa` row metrics warn on an unnamed null
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
-Ruled 2026-09-25. Forming a null for a row metric without naming `null=` raises a `UserWarning`
-that says axis-0 time needs `'circular_shift'` or `'block'` and that 0.2.7 requires the argument;
-naming any scheme silences it and changes no number. Same lane as the circular-shift null.
-Accept: the warning and its silencing are tested, and an independent verifier kills a mutant that
-drops the warning.
-
-### 06-207 `jrsa` refuses single-sample bootstrap on paired metrics
-
-Release: required-0.2.6.1.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-population/SKILL.md`.
-Ruled 2026-09-25. A bootstrap on a paired metric raises unless `null='iid'` is named; with it, the
-numbers equal 0.2.6. Every caller moves. Same lane as 06-206.
-Accept: the refusal is tested, no document routes to the refused call, and an independent verifier
-kills a mutant that lets it through.
-
 ### 06-205 Release 0.2.6.1
 
 Release: release-step-0.2.6.1.
-Role: actor. Skill: none. Blocked by: 06-206, 06-207. AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: none. AUTONOMY: none.
 Writes: none.
 The dispatcher sets the version and the changelog, records an independent closure pass over the
 patch as the receipt, and releases as 0.2.6 was: a pull request from `dev` into `main` through the
@@ -337,6 +316,10 @@ predicate if they reproduce, and go first.
 - IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed.
 - IB-47: the `jrsa` circular-shift null applies one shift to every row, which keeps the cross-row covariance of x2; no test pins that. Check: a test that fails under a per-row shift.
 - IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.
+- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag.
+- IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
+- IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
+- IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
 
 ### 07-04 The planned 0.2.7 sequence
 
