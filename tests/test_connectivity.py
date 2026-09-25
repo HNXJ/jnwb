@@ -334,6 +334,17 @@ class TestDirectedConnectivityAndNetwork:
         assert "labels" in result
         assert set(result["labels"]) == {"A", "B", "C"}
 
+    def test_directed_network_draws_a_generator_once_per_pair_up_front(self):
+        """06-203: a Generator copied into each worker would replay one stream, so the
+        surrogates would depend on n_jobs. Each pair gets an int seed drawn before any
+        worker starts, in pair order, and records it."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, rng=np.random.default_rng(3))
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert recorded == np.random.default_rng(3).integers(0, 2**63 - 1, size=3).tolist()
+
 
 class TestCrossAreaCoherenceContract:
     """0.2.4-09: out-of-contract input must fail loudly, not plausibly.

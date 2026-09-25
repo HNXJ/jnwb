@@ -57,7 +57,7 @@ from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -969,9 +969,25 @@ def bin_spikes(
     return out
 
 
-def _rng(seed: Optional[int]) -> np.random.Generator:
-    """Deterministic by default — an unseeded connectivity p-value is not reproducible."""
-    return np.random.default_rng(0 if seed is None else int(seed))
+def _surrogate_rng(
+    rng: RNGLike, func_name: str
+) -> Tuple[np.random.Generator, Optional[int]]:
+    """The surrogate generator, and the entropy that rebuilds it.
+
+    An ``int`` seed draws the stream ``default_rng(seed)`` always drew, and its entropy is
+    the seed. ``None`` draws fresh OS entropy and returns it, so ``rng=<entropy>``
+    reproduces the p-values. A ``Generator`` is used in place, advancing the caller's
+    stream; its position is not recoverable, so the entropy is ``None``. A float or bool
+    raises ``TypeError`` through ``resolve_rng`` rather than being truncated.
+
+    INTENTIONAL BREAK (0.2.6.1): ``None`` meant seed 0 and was recorded as ``seed=None``,
+    a ``Generator`` raised ``TypeError`` and ``2.7`` ran as seed 2.
+    """
+    if isinstance(rng, np.random.Generator):
+        return rng, None
+    resolve_rng(rng, func_name=func_name)
+    sequence = np.random.SeedSequence(None if rng is None else int(rng))
+    return np.random.default_rng(sequence), int(sequence.entropy)
 
 
 def _surrogate_source(a: np.ndarray, rng: np.random.Generator) -> np.ndarray:
@@ -1082,8 +1098,10 @@ def granger(
         detrend: per-trial preprocessing, default ``'zscore'``
         n_surrogates: if > 0, also run a trial-shuffled surrogate test alongside
             the analytic F-test. Set this when residuals are not white.
-        rng: RNG seed, Generator, or None for fresh entropy, for surrogates
-            (default 0 — deterministic) (``seed`` is the old spelling and still works)
+        rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator`` used
+            in place, or ``None`` for fresh OS entropy; a float is refused. Passing
+            ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
+            p-values (``seed`` is the old spelling and still works)
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -1112,6 +1130,7 @@ def granger(
         -- the conditional measure, with the past of `Z` in both models.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger")
     if criterion not in ("aic", "bic", "hqic"):
         raise ValueError(f"criterion must be aic|bic|hqic; got {criterion!r}")
 
@@ -1220,14 +1239,13 @@ def granger(
     surrogate_info: Dict[str, Any] = {"n_surrogates": int(n_surrogates)}
 
     if n_surrogates > 0:
-        rng = _rng(seed)
         obs_net = fit_xy["gc"] - fit_yx["gc"]
         null_xy = np.empty(n_surrogates)
         null_yx = np.empty(n_surrogates)
         for i in range(int(n_surrogates)):
-            x_s = _surrogate_source(x, rng)
+            x_s = _surrogate_source(x, surrogate_rng)
             null_xy[i] = _one_direction(x_s, y, order_xy)["gc"]
-            y_s = _surrogate_source(y, rng)
+            y_s = _surrogate_source(y, surrogate_rng)
             null_yx[i] = _one_direction(y_s, x, order_yx)["gc"]
         p_xy = float((1 + np.sum(null_xy >= fit_xy["gc"])) / (n_surrogates + 1))
         p_yx = float((1 + np.sum(null_yx >= fit_yx["gc"])) / (n_surrogates + 1))
@@ -1279,7 +1297,8 @@ def granger(
             "ridge": float(ridge),
             "detrend": detrend,
             "n_conditioning": len(z_list),
-            "seed": seed,
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
         },
         diagnostics={
             "direction_x_to_y": {k: v for k, v in diag_xy.items()},
@@ -1396,6 +1415,8 @@ def granger_spectral(
             ``{name: (fmin, fmax)}`` dict. Each band reports its mean and its
             peak frequency in both directions.
         n_surrogates: trial-shuffled surrogate test (there is no analytic null here)
+        rng: surrogate randomness, as in :func:`granger`; passing
+            ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``,
@@ -1412,6 +1433,7 @@ def granger_spectral(
         function of the fitted VAR.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger_spectral')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger_spectral")
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"granger_spectral requires a positive fs; got {fs!r}")
 
@@ -1524,17 +1546,16 @@ def granger_spectral(
 
     p_xy = p_yx = None
     if n_surrogates > 0:
-        rng = _rng(seed)
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
         null_xy_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         null_yx_by_band: Dict[str, List[float]] = {name: [] for name in per_band}
         for i in range(int(n_surrogates)):
-            xs = _surrogate_source(x, rng)
+            xs = _surrogate_source(x, surrogate_rng)
             a_s, sig_s, _ = _fit_var_matrix([xs, y], p, ridge=ridge)
             tmp = _spectral_gc_from_var(a_s, sig_s, freqs, fs)
             null_xy[i] = _mean_over(tmp[1], all_mask)
-            ys = _surrogate_source(y, rng)
+            ys = _surrogate_source(y, surrogate_rng)
             a_s2, sig_s2, _ = _fit_var_matrix([x, ys], p, ridge=ridge)
             tmp2 = _spectral_gc_from_var(a_s2, sig_s2, freqs, fs)
             null_yx[i] = _mean_over(tmp2[0], all_mask)
@@ -1583,7 +1604,8 @@ def granger_spectral(
             "ridge": float(ridge),
             "detrend": detrend,
             "n_surrogates": int(n_surrogates),
-            "seed": seed,
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
         },
         diagnostics={
             "spectral_radius": radius,
@@ -1737,6 +1759,8 @@ def phase_slope_index(
             significance. ``|z| > 2`` is the conventional threshold.
         n_surrogates: optional trial-shuffled surrogate test in addition to (or,
             with jackknife=False, instead of) the jackknife z
+        rng: surrogate randomness, as in :func:`granger`; passing
+            ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
 
     Returns:
         DirectedResult with ``unit='psi'``, ``per_band[name] = {value, z, sd,
@@ -1755,6 +1779,7 @@ def phase_slope_index(
         leaves out one Welch segment, and adjacent segments overlap by ``noverlap``.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "phase_slope_index")
     if fs is None or not np.isfinite(fs) or fs <= 0:
         raise ValueError(f"phase_slope_index requires a positive fs; got {fs!r}")
 
@@ -1878,10 +1903,9 @@ def phase_slope_index(
         }
 
     if n_surrogates > 0:
-        rng = _rng(seed)
         null = {name: np.empty(int(n_surrogates)) for name in per_band}
         for i in range(int(n_surrogates)):
-            y_s = _surrogate_source(y, rng)
+            y_s = _surrogate_source(y, surrogate_rng)
             seg_ys = _welch_segments(y_s, nperseg, noverlap)
             seg_ys = (seg_ys - seg_ys.mean(axis=1, keepdims=True)) * taper
             fys = np.fft.rfft(seg_ys, axis=1)
@@ -1959,7 +1983,8 @@ def phase_slope_index(
             "jackknife": bool(jackknife),
             "n_surrogates": int(n_surrogates),
             "detrend": detrend,
-            "seed": seed,
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
         },
         diagnostics={
             "n_segments": int(n_seg),
@@ -2124,8 +2149,10 @@ def transfer_entropy(
         bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
-        rng: RNG seed, Generator, or None for fresh entropy (default 0 —
-            deterministic) (``seed`` is the old spelling and still works)
+        rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator`` used
+            in place, or ``None`` for fresh OS entropy; a float is refused. Passing
+            ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
+            p-values (``seed`` is the old spelling and still works)
         detrend: usually ``None``; TE is invariant to monotone rescaling under
             the quantile estimator, so z-scoring buys nothing
 
@@ -2144,6 +2171,7 @@ def transfer_entropy(
         trials or circularly shift the source, which keeps its autocorrelation.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='transfer_entropy')
+    surrogate_rng, seed_entropy = _surrogate_rng(seed, "transfer_entropy")
     if estimator == "symbolic":
         # INTENTIONAL BREAK (0.2.6.1). Ordinal patterns of order m span m samples, so a
         # target pattern and a source pattern one step earlier share samples. Zero-lag
@@ -2182,15 +2210,16 @@ def transfer_entropy(
     surrogate_info: Dict[str, Any] = {"n_surrogates": int(n_surrogates)}
 
     if n_surrogates > 0:
-        rng = _rng(seed)
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
         for i in range(int(n_surrogates)):
             null_xy[i] = _te_one_direction(
-                _surrogate_source(xq, rng).astype(np.int64), yq, k, l, delay, bias_correction
+                _surrogate_source(xq, surrogate_rng).astype(np.int64),
+                yq, k, l, delay, bias_correction,
             )[0]
             null_yx[i] = _te_one_direction(
-                _surrogate_source(yq, rng).astype(np.int64), xq, k, l, delay, bias_correction
+                _surrogate_source(yq, surrogate_rng).astype(np.int64),
+                xq, k, l, delay, bias_correction,
             )[0]
         p_xy = float((1 + np.sum(null_xy >= te_xy)) / (n_surrogates + 1))
         p_yx = float((1 + np.sum(null_yx >= te_yx)) / (n_surrogates + 1))
@@ -2256,7 +2285,8 @@ def transfer_entropy(
             "bias_correction": bias_correction,
             "n_surrogates": int(n_surrogates),
             "detrend": detrend,
-            "seed": seed,
+            "seed": None if isinstance(seed, np.random.Generator) else seed,
+            "surrogate_seed_entropy": seed_entropy if n_surrogates > 0 else None,
         },
         diagnostics={
             "n_embedding_samples": int(n_used),
@@ -2340,8 +2370,9 @@ def directed_network(
             The family is the whole matrix — correcting one cell in isolation
             would imply an undisclosed set.
         n_jobs: CPU workers for the pairs. Default 1 (serial); -1 uses every core.
-            Each estimator seeds its surrogates from its own ``seed`` argument, so
-            the result is identical for any n_jobs.
+            Each estimator seeds its surrogates from its own ``rng`` argument, so
+            the result is identical for any n_jobs. A ``Generator`` passed as ``rng``
+            is drawn once per pair before any worker starts.
         **kwargs: forwarded to the estimator
 
     Returns:
@@ -2382,9 +2413,19 @@ def directed_network(
     warnings_all: List[str] = []
 
     pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    # A Generator shared across workers would be copied into each one and replayed, so the
+    # surrogates would depend on n_jobs. Draw one int seed per pair up front instead; each
+    # pair then records its seed as `surrogate_seed_entropy`.
+    pair_kwargs = [kwargs] * len(pairs)
+    gen_keys = [k for k in ("rng", "seed") if isinstance(kwargs.get(k), np.random.Generator)]
+    if gen_keys:
+        pair_seeds = kwargs[gen_keys[0]].integers(0, 2**63 - 1, size=len(pairs))
+        pair_kwargs = [{**kwargs, **{k: int(s) for k in gen_keys}} for s in pair_seeds]
     pair_results = parallel_map(
-        lambda ij: directed_connectivity(series[ij[0]], series[ij[1]], method=method, **kwargs),
-        pairs,
+        lambda job: directed_connectivity(
+            series[job[0][0]], series[job[0][1]], method=method, **job[1]
+        ),
+        list(zip(pairs, pair_kwargs)),
         n_jobs=n_jobs,
     )
     for (i, j), res in zip(pairs, pair_results):
