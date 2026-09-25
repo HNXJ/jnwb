@@ -319,9 +319,9 @@ predicate if they reproduce, and go first.
 - IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
 - IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
 - IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
-- IB-53: no test shows `jrsa`'s `null='block'` can reject; its false-positive test also passes for a null that never rejects, and a mutant keeping the blocks in order survived the full suite. Check: a coupled-series test for `block` with p at most 0.01.
-- IB-54: `tests/test_jrsa.py:55`, which says it runs the literal quickstart line, and `tests/test_docs_smoke.py:256` still call the row metric without `null="iid"`, which the page now passes. Check: read the line from the page, or add the argument.
 - IB-55: the sliding-window recipe on `docs/03` uses 20-sample windows under the circular-shift null, whose p cannot go below about 1/20, and tells readers to correct across windows. Check: state the floor at the recipe, or widen the windows.
+- IB-56: the `quickstart_inputs` fixture in `tests/test_docs_smoke.py` seeds a fresh `default_rng(0)`, so its arrays differ from the ones the quickstart page draws in sequence; a docs-smoke pass says the calls run, not that the page's numbers do. Check: build the inputs by executing the page's own setup lines.
+- IB-57: `tests/test_jrsa.py` reads the quickstart `jrsa` line from the page but still retypes the `print(...)` line after it, which matches the page today by eye only. Check: read both lines from the page.
 
 ### 07-04 The planned 0.2.7 sequence
 
