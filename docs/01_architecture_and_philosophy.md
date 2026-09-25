@@ -24,7 +24,7 @@ graph TD
     jnwb --> Artifact[artifact_detection / artifact_repair]
     jnwb --> Spikes[spiking / onset_fitting / trajectory]
     jnwb --> Stats[statistics / permutation]
-    jnwb --> Decode[decoding: Blocked Nested CV SVM]
+    jnwb --> Decode[decoding: row-wise nested CV SVM, grouped fold builders]
     jnwb --> Viz[visual_qc / viz: Publication Graphics]
 
     jnwb -.->|Consumed by| Ext[Downstream project packages]

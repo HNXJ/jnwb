@@ -1648,7 +1648,8 @@ def xflip(
 class ZFlipResult(DictAccessMixin):
     """Container for zFLIP Cortical Depth Phase-Gradient & Delay Estimation results.
 
-    zFLIP estimates laminar phase slope and propagation latency across ordered
+    zFLIP estimates laminar phase slope and, where the identifiability gate passes, an
+    apparent per-contact phase delay across ordered
     electrode contacts along a linear probe shaft.
 
     Attributes:
@@ -1671,7 +1672,7 @@ class ZFlipResult(DictAccessMixin):
             unidentifiable or pitch_um was not provided.
         tau_per_channel_s: Spatial delay gradient in seconds per contact, in input row
             order: positive means the lower-index contact leads. NaN if unidentifiable.
-        directionality: Propagation direction in depth, named from the sign of
+        directionality: Which end of the shaft leads in phase, named from the sign of
             ``tau_per_channel_s`` and the ``orientation`` the caller stated:
             - "superficial_to_deep" (the superficial end leads)
             - "deep_to_superficial" (the deep end leads)
