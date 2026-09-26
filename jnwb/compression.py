@@ -631,7 +631,7 @@ def verify_roundtrip(
     over any other set would report arrays that were never cast and skip the ones that were.
     Each cast dataset must be in both files, be float32, have the source's shape and equal the
     float32 cast of the source over the rows checked. A cast path absent from either file, or a
-    collapsed group without ``starting_time`` in the destination and ``timestamps`` in the
+    collapsed group without ``starting_time`` in the destination or ``timestamps`` in the
     source, is a failed check.
     """
     results = {"ok": True, "checks": []}
