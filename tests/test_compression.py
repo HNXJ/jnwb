@@ -177,7 +177,7 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
                 f.create_dataset("units/id", data=np.arange(3))
 
         before = list(warnings.filters)
-        verify_roundtrip(src, dst, cast=[])
+        verify_roundtrip(src, dst, collapsed=[], cast=[])
         assert warnings.filters == before, "verify_roundtrip mutated the global filter state"
 
     def test_a_warning_still_fires_after_a_verify(self, tmp_path):
@@ -191,7 +191,7 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
             with h5py.File(p, "w") as f:
                 f.create_dataset("units/id", data=np.arange(3))
 
-        verify_roundtrip(src, dst, cast=[])
+        verify_roundtrip(src, dst, collapsed=[], cast=[])
         with pytest.warns(RuntimeWarning, match="still audible"):
             warnings.warn("still audible", RuntimeWarning)
 
@@ -244,6 +244,30 @@ class TestVerifyRoundtripChecksTheCast:
         src, dst = _cast_pair(tmp_path, raw, cast)
         checks = _cast_checks(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]))
         assert len(checks) == 1 and checks[0]["ok"] is True, checks
+
+    def test_a_cast_path_absent_from_the_destination_fails(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(7).normal(0.0, 1.0, size=(50, 2))
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32))
+        with h5py.File(dst, "a") as f:
+            del f[LFP]
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        checks = _cast_checks(result)
+        assert len(checks) == 1 and checks[0]["ok"] is False, checks
+        assert result["ok"] is False
+
+    def test_the_collapsed_set_is_required_and_keyword_only(self, tmp_path):
+        """A default checked two hardcoded groups and reported the collapsed arrays as verified."""
+        import inspect
+
+        from jnwb.compression import verify_roundtrip
+
+        param = inspect.signature(verify_roundtrip).parameters["collapsed"]
+        assert param.default is inspect.Parameter.empty
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        with pytest.raises(TypeError, match="collapsed"):
+            verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5", cast=[])
 
 
 # --------------------------------------------------------------------------------------------

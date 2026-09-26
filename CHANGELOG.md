@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`jnwb.compression.verify_roundtrip` requires `cast=` (breaking).** `cast=` is keyword-only
   with no default and names the datasets to check, normally `stats["cast_paths"]`. Without it
   the function checked the LFP/MUAE preset, reporting arrays a `select=` call never cast.
+- **`jnwb.compression.verify_roundtrip` requires `collapsed=` (breaking).** `collapsed=` is
+  keyword-only with no default, normally `stats["timestamps_collapsed"]`. Without it the
+  function checked two hardcoded groups and reported `ok=True` with the collapsed timestamps
+  never checked. A `cast=` path absent from the destination is now a failed check; it was
+  skipped. Direct callers pass `collapsed=` by keyword; `compress_fp32` is unchanged.
 - **The sdist no longer ships `AGENTS.md` or the `jnwb-fact-action` skill.** Both describe how
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel

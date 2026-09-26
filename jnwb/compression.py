@@ -636,21 +636,22 @@ def verify_roundtrip(
     src_path: Path,
     dst_path: Path,
     n_check: int = 200_000,
-    collapsed: "list | None" = None,
     *,
+    collapsed: list,
     cast: list,
 ) -> dict:
     """Byte-level sampling of the transformed datasets, PLUS a real pynwb parse -- v1's bug was
     invisible to byte comparison alone, so the pynwb read is not optional.
 
     ``collapsed`` is ``stats["timestamps_collapsed"]``, the paths whose source timestamps were
-    actually deleted. It used to be a hardcoded two-element list, so every *other* array
-    discovered by ``_find_timestamp_paths`` was collapsed and then never verified. Timestamp
-    reconstruction is also checked over the full array rather than the first ``n_check`` rows,
-    because drift is smallest at the start by construction -- the one place the old check looked.
+    actually deleted, and is required: a default checked two hardcoded groups and reported the
+    collapsed arrays as verified. Timestamp reconstruction is checked over the full array rather
+    than the first ``n_check`` rows, because drift is smallest at the start by construction.
 
     ``cast`` is ``stats["cast_paths"]``, the datasets actually cast, and is required: a check
     over any other set would report arrays that were never cast and skip the ones that were.
+    Each cast dataset must be in the destination and equal the float32 cast of the source over
+    the rows checked; an absent one is a failed check.
     """
     results = {"ok": True, "checks": []}
 
@@ -662,6 +663,7 @@ def verify_roundtrip(
     with h5py.File(src_path, "r") as s, h5py.File(dst_path, "r") as d:
         for path in cast:
             if path not in d:
+                rec(f"{path} present in the destination", False, "MISSING")
                 continue
             n = min(n_check, s[path].shape[0])
             # A cast is deterministic, so the destination must equal it exactly. An absolute
@@ -686,10 +688,7 @@ def verify_roundtrip(
                 eq = np.array_equal(s[path][:], d[path][:])
                 rec(f"{path} full exact match", eq, "exact" if eq else "MISMATCH")
 
-        if collapsed is None:
-            ts_paths = ["acquisition/probe_0_lfp", "processing/spike_train/spike_train_data"]
-        else:
-            ts_paths = sorted({posixpath.dirname(str(p)) for p, _rate in collapsed})
+        ts_paths = sorted({posixpath.dirname(str(p)) for p, _rate in collapsed})
         for grp in ts_paths:
             if grp + "/starting_time" in d and grp + "/timestamps" in s:
                 st = float(d[grp + "/starting_time"][()])
