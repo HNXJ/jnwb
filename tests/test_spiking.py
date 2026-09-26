@@ -196,6 +196,25 @@ class TestClassifyResponseSignificance:
         assert out["confidence"] == "undefined" and np.isnan(out["pvalue"])
         assert out["is_significant"] is False
 
+    @pytest.mark.parametrize("bad", [-1, 2.5], ids=["negative", "fractional"])
+    def test_a_count_that_is_not_a_non_negative_integer_raises(self, bad):
+        resp = self.RESP.astype(float)
+        resp[3] = bad
+        with pytest.raises(ValueError, match="non-negative integers"):
+            classify_response_significance(self._metrics(4.0, self.BASE, resp))
+
+    @pytest.mark.parametrize("d_r", [0.0, np.inf], ids=["zero", "infinite"])
+    def test_a_window_length_that_is_not_positive_and_finite_raises(self, d_r):
+        with pytest.raises(ValueError, match="positive and finite"):
+            classify_response_significance(self._metrics(4.0, d_r=d_r))
+
+    def test_a_dict_without_window_lengths_is_undefined_with_a_warning(self):
+        m = self._metrics(4.0)
+        del m["baseline_duration_s"], m["response_duration_s"]
+        with pytest.warns(UserWarning, match="duration_s"):
+            out = classify_response_significance(m)
+        assert out["confidence"] == "undefined" and np.isnan(out["pvalue"])
+
     def test_a_summary_without_per_trial_counts_is_undefined_with_a_warning(self):
         with pytest.warns(UserWarning, match="per-trial counts"):
             out = classify_response_significance({"response_count": 10, "response_zscore": 4.0})
@@ -210,7 +229,8 @@ class TestClassifyResponseSignificance:
         """Homogeneous 2 Hz Poisson units over 500 trials. A test on paired rate differences
         is miscalibrated when the windows differ in length: a response spike is worth
         6.67 Hz and a baseline spike 5 Hz, so the null differences are skewed. The bound is
-        alpha plus three binomial standard errors over the 300 simulated units."""
+        alpha plus three binomial standard errors over the 300 simulated units. The median p
+        is held near 0.5 so that a test which never rejects cannot pass."""
         rng = np.random.default_rng(20260926)
         onsets = np.arange(500) * 1.0 + 1.0
         n_units, alpha = 300, 0.05
@@ -225,6 +245,7 @@ class TestClassifyResponseSignificance:
         assert not np.isnan(p).any()
         bound = alpha + 3.0 * np.sqrt(alpha * (1 - alpha) / n_units)
         assert np.mean(p < alpha) <= bound, (np.mean(p < alpha), bound)
+        assert 0.3 < np.median(p) < 0.7, np.median(p)
 
 
 class TestPhaseLockingIndex:

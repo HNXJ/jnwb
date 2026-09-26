@@ -52,7 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alone can be classified 'none'. A dict without the per-trial counts and window lengths, such
   as one built by hand from summary values, is 'undefined' with a `UserWarning` and a NaN
   `pvalue`; pass the dict `compute_response_metrics` returns. A NaN count is 'undefined';
-  count arrays that are not 1-D or differ in shape raise `ValueError`.
+  count arrays that are not 1-D or differ in shape, a negative or fractional count, and a
+  window length that is not positive and finite raise `ValueError`.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
