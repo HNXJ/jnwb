@@ -94,6 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `explained_variance_ratio.sum()`. No warning is possible, since the key is unchanged: code
   that reads it as a float fails with `TypeError` for more than one component, and with
   `n_components=1` reads a variance where it read a fraction.
+- `PopulationAnalyzer.network_connectivity` computes the graph through `network_topology` and
+  so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
+  diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix
+  are unchanged.
 
 ### Deprecated
 

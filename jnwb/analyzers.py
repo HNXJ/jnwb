@@ -734,22 +734,28 @@ class PopulationAnalyzer:
             threshold: |r| > threshold counts as a connection
 
         Returns:
-            Dict with graph metrics (n_nodes, n_edges, density, degree distribution)
-        """
-        binary_adj = np.abs(correlation_matrix) > threshold
-        np.fill_diagonal(binary_adj, False)
+            Dict with graph metrics (n_nodes, n_edges, density, degree distribution).
+            ``n_edges`` counts undirected edges, half the directed count of
+            :func:`jnwb.network_topology`, which thresholds the matrix and supplies the
+            degrees.
 
-        n_nodes  = binary_adj.shape[0]
-        n_edges  = int(binary_adj.sum()) // 2
+        Raises:
+            ValueError: As :func:`jnwb.network_topology` does, for a matrix that is not
+                square 2-D, a NaN or Inf off the diagonal, or a threshold that is not finite.
+        """
+        from .connectivity import network_topology
+
+        topology = network_topology(correlation_matrix, threshold=threshold)
+        n_nodes  = topology['n_nodes']
+        n_edges  = topology['n_edges'] // 2
         density  = 2 * n_edges / (n_nodes * (n_nodes - 1)) if n_nodes > 1 else 0.0
-        degrees  = binary_adj.sum(axis=0)
 
         return {
             'n_nodes':              n_nodes,
             'n_edges':              n_edges,
             'density':              float(density),
-            'mean_degree':          float(np.mean(degrees)),
-            'degree_distribution':  degrees.tolist(),
+            'mean_degree':          topology['mean_degree'],
+            'degree_distribution':  topology['in_degrees'],
             'threshold':            threshold,
         }
 

@@ -265,6 +265,26 @@ class TestPopulationAnalyzerNetwork(unittest.TestCase):
         self.assertGreaterEqual(result['n_edges'], 0)
         self.assertLessEqual(result['n_edges'], 3)
 
+    def test_the_graph_is_the_one_network_topology_computes(self):
+        """The method calls the routed function rather than keeping a copy of its rule."""
+        from unittest.mock import patch
+        import jnwb.connectivity as connectivity
+
+        corr = np.random.default_rng(5).uniform(-1, 1, size=(6, 6))
+        with patch.object(connectivity, 'network_topology',
+                          wraps=connectivity.network_topology) as spy:
+            result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        spy.assert_called_once()
+        topology = connectivity.network_topology(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], topology['n_edges'] // 2)
+        self.assertEqual(result['degree_distribution'], topology['in_degrees'])
+
+    def test_a_nan_entry_raises_rather_than_reading_as_no_edge(self):
+        corr = np.eye(4)
+        corr[0, 1] = corr[1, 0] = np.nan
+        with self.assertRaisesRegex(ValueError, "NaN or Inf off the diagonal"):
+            PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+
 
 class TestPopulationAnalyzerPieChartData(unittest.TestCase):
     """A filter on a column the table lacks refuses; it used to count every unit."""
@@ -282,6 +302,15 @@ class TestPopulationAnalyzerPieChartData(unittest.TestCase):
         res = PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': 'V1'})
         self.assertEqual(res['counts'], {'good': 1, 'mua': 1})
         self.assertEqual(res['total'], 2)
+
+    def test_the_filter_is_filter_by_criteria(self):
+        from unittest.mock import patch
+        import jnwb.metadata as metadata
+
+        with patch.object(metadata, 'filter_by_criteria',
+                          wraps=metadata.filter_by_criteria) as spy:
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': ['V1', 'MT']})
+        spy.assert_called_once()
 
 
 class TestPopulationAnalyzerCompareCriteria(unittest.TestCase):
