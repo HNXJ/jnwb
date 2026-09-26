@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-17 (ruled API change), then 07-18, 07-19, 07-20 |
+| 2b | 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -260,7 +260,6 @@ predicate if they reproduce, and go first.
 - IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
 - IB-16: `docs/03:103` says `nan_policy="omit"` propagates NaN across the affected RDM pairs; one empty condition makes the whole result NaN, and one NaN sample moves the value 0.343 to 0.425. Check: correct the prose or omit pairwise; test one empty condition.
 - IB-23: `docs/04:164` calls a value near -2 the aperiodic exponent while `aperiodic_fit` on the same page returns +2; the sign note lives only in the skill. Check: one sign convention or a named field.
-- IB-24: the `classify_layer_from_depth` docstring summary says it classifies a cortical layer, against `docs/02:89` ("a cut on depth, not a cortical layer"). Check: fix the docstring and regenerate `docs/api.md`.
 - IB-25: `AGENTS.md` section 11 and `artifacts/problem_stack.md:10` write the cycle labels as literals `required-0.2.6` and `deferred-0.2.7`, which STEP 0a derives from the version, so a 0.2.7 triage following the text writes the wrong label. Check: write `required-<cycle>` and `deferred-<next>`, with a test that no standing rule names a literal cycle.
 - IB-26: the module docstring of `scripts/release_gate.py` omits STEPs 0a, 2a, 2b and 8, and `CONTRIBUTING.md:88-96` omits the readiness step. Check: extend `tests/test_module_docstrings_match_their_code.py` to the release gate.
 - IB-28: `docs/documentation_form.md`, an internal contributor contract, is in the user navigation, and `docs/index.md:52` and `docs/install.md:26` say "gate-enforced" and "release gate". Check: move it to `CONTRIBUTING.md` or out of the navigation.
@@ -300,6 +299,7 @@ predicate if they reproduce, and go first.
 - IB-68: a one-dimensional per-frequency baseline broadcasts onto the time axis when the frequency and time counts are equal, silently, in `TFRAccumulator.add_trial(baseline=)` as in `aggregate_to_db` (plain numpy broadcasting). Graded recommended: refusing a baseline whose `ndim` is neither 0 nor the data's is an API choice. Check: a ruling, then a test with equal counts. Ruled 2026-09-25: refuse a baseline whose `ndim` is neither 0 nor the data's; the message suggests `baseline[:, None]`.
 - IB-69: a `TFRAccumulator` read back from disk keeps adding in float32 (`M2`, `sum_z`, `sum_unit_z` and now `sum_ratio`), and an integer `z` raises after the running mean has changed. Graded minimal expandable. Check: setters that cast to float64 as `mean`'s does, and the input cast before any state changes, each with a test.
 - IB-70: no CI leg installs the dependency floors `pyproject.toml` declares (for example `scikit-learn>=1.3.1`), so behaviour that differs below the newest release is never exercised: `StratifiedGroupKFold(shuffle=True)` does not stratify on 1.3.1 to 1.7.2 and CI runs only the newest. Can make qualification test the wrong artifact, so it is a blocker candidate. Check: one CI leg on the floor versions, or the floors raised to what is tested.
+- IB-71: private coordination ids (P-, 06-, 07- and IB- numbers) appear in 55 files under `scripts/` and `tests/`, against the surface rule of `AGENTS.md`, and gate 14 scans only `jnwb/` and `docs/`. Check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
@@ -430,21 +430,6 @@ each invariant that restates a `docs/` definition is replaced by the link; the s
 existing skills does not grow.
 Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
 requires.
-
-### 07-17 Remove the deprecated `layer` column
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/addressing.py`, `jnwb/metadata.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
-Ruled 2026-09-23 (P-21): `layer` duplicates `depth_class` in 0.2.6 and goes in 0.2.7. Reproduced at
-`dcb75f12`: `enrich_units_dataframe` still writes it and warns (`jnwb/addressing.py:354-360`,
-`382-390`, `400-413`, `440-459`), and `get_all_units_metadata` carries the same plumbing
-(`jnwb/metadata.py:96-162`). Drop the warning helper and the plumbing that reports whether `layer`
-was written, and reword the first docstring lines that still say "layer"; the dispatcher regenerates
-`docs/api.md`. IB-24 of 07-03 names one of those docstrings.
-Accept: neither function writes `layer` or warns about it; `_warn_legacy_layer_column` and
-`wrote_layer` no longer occur in `jnwb/`; `CHANGELOG.md` records the removal.
-Stop: a `layer` column supplied on input would be dropped or rewritten.
 
 ### 07-18 Skill examples run in the suite
 
