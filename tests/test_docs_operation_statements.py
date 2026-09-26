@@ -10,6 +10,7 @@ checks without also reading the page.
 from __future__ import annotations
 
 import ast
+import importlib
 import inspect
 import re
 import warnings
@@ -553,34 +554,23 @@ def test_the_synth_row_states_what_each_builder_returns():
 # --------------------------------------------------------------- jrsa nan_policy
 
 
-def _nan_sentence():
-    text = _flat(_page("docs/03_representational_similarity_jrsa.md"))
-    match = re.search(r"leaves nothing: (.*?) raise `ValueError`; (.*?) return `NaN`", text)
-    assert match, "the nan_policy statement moved"
-    return re.findall(r'`"(\w+)"`', match.group(1)), re.findall(r'`"(\w+)"`', match.group(2))
-
-
 def _conditions():
     rng = np.random.default_rng(0)
     x1 = rng.normal(size=(6, 10, 40))
     return x1, x1 + rng.normal(size=x1.shape)
 
 
-@pytest.mark.parametrize("metric", _nan_sentence()[0])
-def test_an_empty_condition_raises_for_the_metrics_the_page_names(metric):
+def test_the_page_says_every_metric_raises_when_no_sample_remains():
+    text = _flat(_page("docs/03_representational_similarity_jrsa.md"))
+    assert "if none remain, every metric raises `ValueError`" in text, "the nan_policy statement moved"
+
+
+@pytest.mark.parametrize("metric", sorted(importlib.import_module("jnwb.jrsa")._METRIC_DISPATCH))
+def test_an_empty_condition_raises_for_every_metric(metric):
     x1, x2 = _conditions()
     x1[2] = np.nan
     with pytest.raises(ValueError):
         jnwb.jrsa(x1, x2, metric=metric, stats=False, rng=0)
-
-
-@pytest.mark.parametrize("metric", _nan_sentence()[1])
-def test_an_empty_condition_is_nan_for_the_metrics_the_page_names(metric):
-    x1, x2 = _conditions()
-    x1[2] = np.nan
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        assert np.isnan(float(jnwb.jrsa(x1, x2, metric=metric, stats=False, rng=0).value))
 
 
 def test_one_nan_sample_drops_that_sample_from_every_condition():
