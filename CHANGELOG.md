@@ -60,6 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
   is unchanged.
 
+### Removed
+
+- **Breaking: the `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`,**
+  deprecated in 0.2.6. It was an exact copy of `depth_class`; read `depth_class` instead. Code
+  that reads `layer` from their output now raises `KeyError`. The `FutureWarning` about it is
+  gone, and a `layer` column already on the input is returned unchanged, where the electrode
+  path used to overwrite it with the depth class.
+
 ### Fixed
 
 - `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.

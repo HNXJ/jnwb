@@ -102,7 +102,7 @@ Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to u
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
 
-`layer` is a deprecated copy of `depth_class`, removed in the next release. The call emits `FutureWarning` whenever it writes `layer`; pandas cannot warn when a column is read, so the warning fires even if `layer` is never used. `jnwb.get_all_units_metadata` emits both columns the same way, with one warning per call, and `jnwb.unit_census_report` with `group_by=None` groups by `depth_class`.
+`jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. Neither function writes a `layer` column.
 
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 

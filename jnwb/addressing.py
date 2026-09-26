@@ -1,7 +1,7 @@
 """
-Anatomical addressing and cortical layer mapping for NWB electrode tables.
+Anatomical addressing and geometric depth classes for NWB electrode tables.
 
-Maps units/channels to areas and layers from electrode metadata, and standardizes
+Maps units/channels to areas and depth classes from electrode metadata, and standardizes
 units DataFrame fields (unit_id, area, depth_class, quality flags). Probe labels are
 split on comma or slash only, keeping a slash inside an atlas layer label; this module
 carries no area vocabulary and does not normalize spelling or aliases.
@@ -9,8 +9,7 @@ carries no area vocabulary and does not normalize spelling or aliases.
 
 from dataclasses import dataclass
 import logging
-import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
 
@@ -249,9 +248,9 @@ def classify_layer_from_depth(
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
 ) -> str:
-    """Classify unit cortical layer using z depth coordinates.
+    """Classify a unit's geometric depth class from electrode z depth.
 
-    Classifies layer based on electrode z depth ('Superficial' for <= threshold,
+    Thresholds electrode z depth ('Superficial' for <= threshold,
     'Deep' for > threshold). To prevent scientific errors from unit ambiguity,
     depth units must be explicitly provided via ``depth_unit`` or declared in
     ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
@@ -276,7 +275,7 @@ def classify_layer_from_depth(
         threshold_unit: Optional unit of threshold (e.g. 'um', 'mm').
 
     Returns:
-        Cortical layer label ('Deep', 'Superficial', or 'Unknown')
+        Geometric depth class ('Deep', 'Superficial', or 'Unknown'), not a cortical layer
     """
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return "Unknown"
@@ -351,13 +350,7 @@ def enrich_units_dataframe(
     'Unknown') is written to ``depth_class``. It is a threshold on electrode depth, not a
     cortical layer; the electrophysiological laminar identity is ``jnwb.label_layers``.
 
-    ``layer`` is a deprecated copy of ``depth_class`` and is removed in jnwb 0.2.7. Whenever
-    this function writes it, the call emits ``FutureWarning``. pandas has no hook on reading a
-    column, so the warning fires at the call whether or not ``layer`` is read afterwards. With
-    no electrode geometry, a ``layer`` column already on ``units_df`` is kept as supplied and
-    nothing is written or warned. Read ``depth_class``; until 0.2.7 the warning can be
-    silenced with ``warnings.filterwarnings("ignore", message="The 'layer' column",
-    category=FutureWarning)``.
+    No ``layer`` column is written. One already on ``units_df`` is returned as supplied.
 
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
     membership in the accepted good labels otherwise -- and is not added when ``units_df``
@@ -379,39 +372,6 @@ def enrich_units_dataframe(
     Returns:
         Standardized and enriched DataFrame
     """
-    df, wrote_layer = _enrich_units_dataframe(
-        units_df,
-        electrodes_df,
-        depth_unit=depth_unit,
-        threshold=threshold,
-        threshold_unit=threshold_unit,
-    )
-    if wrote_layer:
-        _warn_legacy_layer_column(stacklevel=3)
-    return df
-
-
-_LEGACY_LAYER_WARNING = (
-    "The 'layer' column is a deprecated copy of 'depth_class', the geometric "
-    "Deep/Superficial/Unknown class, and is removed in jnwb 0.2.7. Read 'depth_class'."
-)
-
-
-def _warn_legacy_layer_column(stacklevel: int = 2) -> None:
-    """Emit the ``FutureWarning`` for the deprecated ``layer`` column."""
-    warnings.warn(_LEGACY_LAYER_WARNING, FutureWarning, stacklevel=stacklevel)
-
-
-def _enrich_units_dataframe(
-    units_df: pd.DataFrame,
-    electrodes_df: Optional[pd.DataFrame],
-    *,
-    depth_unit: Optional[str] = None,
-    threshold: Optional[float] = None,
-    threshold_unit: Optional[str] = None,
-) -> Tuple[pd.DataFrame, bool]:
-    """:func:`enrich_units_dataframe` without the warning; also says whether ``layer`` was written."""
-    wrote_layer = False
     df = units_df.copy()
 
     # 1. Standardize unit_id column
@@ -437,8 +397,6 @@ def _enrich_units_dataframe(
                 threshold_unit=threshold_unit,
             )
         )
-        df['layer'] = df['depth_class']
-        wrote_layer = True
 
         # Resolve group_name/probe mapping
         col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)
@@ -454,9 +412,6 @@ def _enrich_units_dataframe(
             df['area'] = None
         if 'depth_class' not in df.columns:
             df['depth_class'] = 'Unknown'
-        if 'layer' not in df.columns:
-            df['layer'] = df['depth_class']
-            wrote_layer = True
         if 'group_name' not in df.columns:
             df['group_name'] = None
 
@@ -496,7 +451,7 @@ def _enrich_units_dataframe(
     # Ensure clean RangeIndex (0 to N-1) to guarantee row-position lookup in get_spike_times
     df = df.reset_index(drop=True)
 
-    return df, wrote_layer
+    return df
 
 
 # Smallest advance along the shaft axis, as a fraction of the mean advance, that still

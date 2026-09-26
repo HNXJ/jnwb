@@ -63,7 +63,7 @@ Python workflows call the functions directly.
 
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`
-- `jnwb.enrich_units_dataframe(units_df, electrodes_df)`: Writes the geometric depth class ('Deep' / 'Superficial' / 'Unknown') to `depth_class`. `layer` is a deprecated copy, removed in 0.2.7, and writing it emits `FutureWarning`; read `depth_class`. `get_all_units_metadata` emits both the same way. `is_stable` (pandas `"boolean"` dtype) is `<NA>` for a unit with no usable `quality`, and is absent when no unit has one; `filter_quality=True` excludes `<NA>` units.
+- `jnwb.enrich_units_dataframe(units_df, electrodes_df)`: Writes the geometric depth class ('Deep' / 'Superficial' / 'Unknown') to `depth_class`; no `layer` column is written, so read `depth_class`. `get_all_units_metadata` emits it the same way. `is_stable` (pandas `"boolean"` dtype) is `<NA>` for a unit with no usable `quality`, and is absent when no unit has one; `filter_quality=True` excludes `<NA>` units.
 - `jnwb.probe_geometry(electrodes_table, *, probe_name=None, units="um", nominal_pitch=None, pitch_tolerance=0.1, strict_linear=False)`
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
 - `jnwb.classify_unit_quality(units_df, thresholds=None)`

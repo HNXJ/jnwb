@@ -28,10 +28,9 @@ class TestDocsSmokeFixtures:
         assert jnwb.classify_layer_from_depth(0, elec_df) == "Superficial"
         assert jnwb.classify_layer_from_depth(1, elec_df) == "Deep"
 
-        with pytest.warns(FutureWarning, match="depth_class"):
-            enriched = jnwb.enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1]}), elec_df)
+        enriched = jnwb.enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0, 1]}), elec_df)
         assert list(enriched["depth_class"]) == ["Superficial", "Deep"]
-        assert list(enriched["layer"]) == list(enriched["depth_class"])
+        assert "layer" not in enriched.columns
 
         # 2. Metadata & QC
         units_df = pd.DataFrame({

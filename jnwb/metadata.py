@@ -77,9 +77,7 @@ def get_all_units_metadata(
 
         ``depth_class`` is the geometric class of
         :func:`jnwb.addressing.enrich_units_dataframe`, which is called with no depth unit,
-        so it reads 'Unknown' unless the electrodes table declares one. ``layer`` is a
-        deprecated copy of it, removed in jnwb 0.2.7; when it is written the call emits one
-        ``FutureWarning``, however many files are read.
+        so it reads 'Unknown' unless the electrodes table declares one.
 
     Example:
         >>> units = get_all_units_metadata('/path/to/nwb')
@@ -93,7 +91,6 @@ def get_all_units_metadata(
 
     all_units = []
     n_failed = 0
-    wrote_layer = False
 
     for nwb_path in nwb_paths:
         nwb_path = Path(nwb_path)
@@ -111,9 +108,8 @@ def get_all_units_metadata(
                 raw_units = nwb.units.to_dataframe().copy()
                 elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
 
-                from jnwb.addressing import _enrich_units_dataframe
-                units_df, wrote_file_layer = _enrich_units_dataframe(raw_units, elec_df)
-                wrote_layer = wrote_layer or wrote_file_layer
+                from jnwb.addressing import enrich_units_dataframe
+                units_df = enrich_units_dataframe(raw_units, elec_df)
                 units_df['session_id'] = session_id
 
                 log.info(f"{session_id}: {len(units_df)} units extracted")
@@ -159,9 +155,6 @@ def get_all_units_metadata(
 
     result = pd.concat(all_units, ignore_index=True)
     log.info(f"Total: {len(result)} units across {len(nwb_paths)} sessions")
-    if wrote_layer:
-        from jnwb.addressing import _warn_legacy_layer_column
-        _warn_legacy_layer_column(stacklevel=3)
 
     return result
 
