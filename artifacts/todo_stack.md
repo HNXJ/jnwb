@@ -294,6 +294,7 @@ predicate if they reproduce, and go first.
 - IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only.
 - IB-63: `skills/jnwb-landmark-viz/SKILL.md` routes by `jnwb.vis` module, not by the per-operation `jnwb.fn(args)` rows the template's routing section describes, so no signature check covers its rows. Check: per-function rows for the `vis` extra, checked against `inspect.signature` when plotly is installed.
 - IB-64: an export missing from the computational-order record fails `tests/test_computational_contract_gate.py` but no gate in `scripts/harness_gate.py`, so the gates stay green while the suite is red. Check: run the same check as a gate, or record why the suite alone holds it.
+- IB-65: `jnwb.preflight` counts a blank signal name as a stated signal (`signals=['  '], signal_units={'  ': 'V'}` is supported) and accepts a non-string unit (`{'lfp': 1e-6}` is supported while `{'lfp': 0}` requests). Graded recommended: whether each should request or raise is a public API choice. Check: a ruling, then one test each.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
