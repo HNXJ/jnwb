@@ -3,7 +3,7 @@
 Published sources for the methods jnwb implements. Each row names the result jnwb implements and
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
 a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
-2005 on 2026-09-25) and matched the title, authors and year of its Crossref record (DataCite for
+2005 on 2026-09-25, Wilcoxon 1945 on 2026-09-26) and matched the title, authors and year of its Crossref record (DataCite for
 the arXiv entry). Where jnwb
 departs from the published result, the row and the docstring say how.
 
@@ -57,6 +57,7 @@ treatment in these two books, checked on Open Library:
 | Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be zero: calculating exact p-values when permutations are randomly drawn. *Statistical Applications in Genetics and Molecular Biology* 9(1). [doi:10.2202/1544-6115.1585](https://doi.org/10.2202/1544-6115.1585) | The Monte Carlo p-value $(1 + b) / (B + 1)$ over $B$ random permutations | `cluster_permutation_test` |
 | Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society Series B* 57(1), 289-300. [doi:10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x) | The step-up procedure, returned as adjusted p-values (`method='bh'`, through `scipy.stats.false_discovery_control`) | `fdr_correct`, `StatisticalAnalysis.fdr_correct`, `directed_network` |
 | Benjamini, Y., & Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. *The Annals of Statistics* 29(4). [doi:10.1214/aos/1013699998](https://doi.org/10.1214/aos/1013699998) | The step-up procedure under arbitrary dependence (`method='by'`) | `fdr_correct`, `StatisticalAnalysis.fdr_correct`, `directed_network` |
+| Wilcoxon, F. (1945). Individual comparisons by ranking methods. *Biometrics Bulletin* 1(6), 80-83. [doi:10.2307/3001968](https://doi.org/10.2307/3001968) | The signed-rank test on paired differences, two-sided, through `scipy.stats.wilcoxon` with `zero_method='wilcox'`, which drops zero differences before ranking | `classify_response_significance` |
 | Clopper, C. J., & Pearson, E. S. (1934). The use of confidence or fiducial limits illustrated in the case of the binomial. *Biometrika* 26(4), 404-413. [doi:10.1093/biomet/26.4.404](https://doi.org/10.1093/biomet/26.4.404) | The exact binomial confidence interval, computed from Beta quantiles | `clopper_pearson` |
 
 ## Representational analysis

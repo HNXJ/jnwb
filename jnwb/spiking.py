@@ -60,6 +60,9 @@ def compute_response_metrics(
           undefined; use a
           Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
+        - baseline_rates, response_rates: float arrays, one rate (spikes/s) per onset, in
+          onset order; the paired samples `classify_response_significance` tests. Zeros for
+          every onset when there are no spikes, and empty with no onsets.
 
     Raises:
         ValueError: a window whose start is at or after its stop.
@@ -97,7 +100,9 @@ def compute_response_metrics(
         # where the two-trial case correctly returned 'undefined' and NaN.
         'response_zscore': float('nan'),
         'latency': None,
-        'n_trials': len(epoch_onsets)
+        'n_trials': len(epoch_onsets),
+        'baseline_rates': np.zeros(len(epoch_onsets)),
+        'response_rates': np.zeros(len(epoch_onsets)),
     }
 
     if len(epoch_onsets) == 0 or len(spike_times) == 0:
@@ -144,6 +149,10 @@ def compute_response_metrics(
     metrics['baseline_rate'] = float(baseline_rate)
     metrics['response_rate'] = float(response_rate)
     metrics['response_count'] = int(response_count_total)
+    baseline_rates = np.array(baseline_spikes, dtype=float) / baseline_duration
+    response_rates = np.array(response_spikes, dtype=float) / response_duration
+    metrics['baseline_rates'] = baseline_rates
+    metrics['response_rates'] = response_rates
 
     # Compute z-score on RATES, not raw counts.
     #
@@ -158,9 +167,6 @@ def compute_response_metrics(
     # duration is exactly a no-op when the windows are equal, which is the case where
     # differencing counts was already correct.
     if z_score and len(baseline_spikes) > 1:
-        baseline_rates = np.array(baseline_spikes, dtype=float) / baseline_duration
-        response_rates = np.array(response_spikes, dtype=float) / response_duration
-
         baseline_std = np.std(baseline_rates)
         # Constancy by exact equality: 7 spikes in 0.15 s is 46.67 Hz in every trial, yet the
         # computed std is 7e-15, which made z about 1e15.
@@ -185,28 +191,47 @@ def compute_response_metrics(
 def classify_response_significance(
     metrics: Dict[str, float],
     zscore_threshold: float = 1.96,
-    min_spike_count: int = 5
+    min_spike_count: int = 5,
+    *,
+    alpha: float = 0.05,
 ) -> Dict[str, Union[bool, float]]:
     """
-    Classify unit response as significant based on metrics.
+    Classify a unit's response against its baseline from `compute_response_metrics` output.
+
+    The p-value is the two-sided signed-rank test of Wilcoxon (1945), Biometrics Bulletin
+    1(6):80-83, doi:10.2307/3001968, on the per-trial differences ``response_rates - baseline_rates``,
+    through ``scipy.stats.wilcoxon(zero_method='wilcox')``, which discards zero differences.
+    It falls as trials accumulate at a fixed effect. ``response_zscore`` is the effect size:
+    a response is significant when ``|response_zscore| >= zscore_threshold`` and
+    ``p < alpha``. Among significant responses, ``|z| > 3`` is 'high' and the rest 'medium'.
 
     Args:
-        metrics: Dict from compute_response_metrics()
-        zscore_threshold: Z-score cutoff for significance (default: 1.96 = p<0.05)
-        min_spike_count: Minimum spikes needed in response window
+        metrics: Dict from compute_response_metrics(), carrying `baseline_rates` and
+            `response_rates`.
+        zscore_threshold: Effect-size cutoff on ``|response_zscore|``.
+        min_spike_count: Minimum spikes needed in response window.
+        alpha: Significance level for the signed-rank p-value, in (0, 1).
 
     Returns:
         Dict with:
-        - is_significant: bool (response passes threshold)
-        - pvalue: Approximate p-value from z-score
-        - confidence: Confidence level ('high', 'medium', 'low', 'none', or 'undefined'
-          when response_zscore is NaN because the baseline had no across-trial variance)
+        - is_significant: bool (both the effect-size cutoff and ``p < alpha`` pass)
+        - pvalue: Wilcoxon signed-rank p-value. 1.0 when every difference is zero, since
+          none is left to rank, and under 'low'; NaN under 'undefined'.
+        - confidence: 'high', 'medium', 'none', 'low' (fewer than `min_spike_count`
+          response spikes), or 'undefined' when `response_zscore` is NaN because the
+          baseline had no across-trial variance, or when `metrics` lacks the per-trial
+          rates (a `UserWarning` says so).
+
+    Raises:
+        ValueError: `alpha` outside (0, 1), or per-trial rate arrays of different lengths.
 
     Example:
         >>> sig = classify_response_significance(metrics)
         >>> if sig['is_significant']:
         ...     print(f"Strong response (p={sig['pvalue']:.4f})")
     """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"classify_response_significance: alpha must be in (0, 1), got {alpha}")
     result = {
         'is_significant': False,
         'pvalue': 1.0,
@@ -218,23 +243,42 @@ def classify_response_significance(
         result['confidence'] = 'low'
         return result
 
-    # Convert z-score to p-value. NaN means the baseline had no across-trial variance, so
-    # this statistic cannot assess the unit; say so rather than treating it as z = 0.
+    if 'baseline_rates' not in metrics or 'response_rates' not in metrics:
+        warnings.warn(
+            "classify_response_significance: metrics has no per-trial 'baseline_rates' and "
+            "'response_rates', so no test can run; pass the dict compute_response_metrics "
+            "returns. Classified 'undefined'.",
+            UserWarning,
+            stacklevel=2,
+        )
+        result['confidence'] = 'undefined'
+        result['pvalue'] = float('nan')
+        return result
+
+    # NaN means the baseline had no across-trial variance, so the effect size cannot
+    # assess the unit; say so rather than treating it as z = 0.
     zscore = abs(metrics.get('response_zscore', 0.0))
     if np.isnan(zscore):
         result['confidence'] = 'undefined'
         result['pvalue'] = float('nan')
         return result
-    if zscore > 0:
-        pvalue = 2 * (1 - stats.norm.cdf(zscore))
-        result['pvalue'] = pvalue
 
-        if zscore >= zscore_threshold:
-            result['is_significant'] = True
-            if zscore > 3.0:
-                result['confidence'] = 'high'
-            else:
-                result['confidence'] = 'medium'
+    response_rates = np.asarray(metrics['response_rates'], dtype=float)
+    baseline_rates = np.asarray(metrics['baseline_rates'], dtype=float)
+    if response_rates.shape != baseline_rates.shape:
+        raise ValueError(
+            "classify_response_significance: 'response_rates' and 'baseline_rates' differ "
+            f"in shape ({response_rates.shape} and {baseline_rates.shape})"
+        )
+    diffs = response_rates - baseline_rates
+    if np.any(diffs != 0):
+        result['pvalue'] = float(
+            stats.wilcoxon(diffs, zero_method='wilcox', alternative='two-sided').pvalue
+        )
+
+    if zscore >= zscore_threshold and result['pvalue'] < alpha:
+        result['is_significant'] = True
+        result['confidence'] = 'high' if zscore > 3.0 else 'medium'
 
     return result
 

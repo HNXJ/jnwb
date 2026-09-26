@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import statsmodels.formula.api as smf
-from scipy import stats
 
 from jnwb.artifact_repair import detect_band_outliers, repair_lfp_trials
 from jnwb.connectivity import (
@@ -425,21 +424,39 @@ class TestSpectralGrangerIntegratesToTheTimeDomainValue:
 
 
 class TestResponseSignificanceReportsATwoSidedP:
-    def test_the_five_percent_critical_value_returns_five_percent(self):
-        """z = 1.95996 is the two-sided 5% point. One-sided returns 0.025 -- a smaller
-        p from the same z, which reads as a stronger result than the data support."""
-        z = 1.959963984540054
+    def test_eight_positive_differences_give_the_exact_two_sided_p(self):
+        """Eight trials, each response above its baseline by a distinct amount: the exact
+        signed-rank null puts 1/256 on the most extreme arrangement in each tail, so the
+        two-sided p is 2/256. One-sided would return 1/256 -- a smaller p from the same
+        data, which reads as a stronger result than the data support."""
+        base = np.full(8, 10.0)
+        out = classify_response_significance({
+            "response_zscore": 3.5, "response_count": 50,
+            "baseline_rates": base, "response_rates": base + np.arange(1.0, 9.0)})
 
-        out = classify_response_significance(
-            {"response_zscore": z, "response_count": 50})
+        np.testing.assert_allclose(out["pvalue"], 2.0 / 256.0, rtol=1e-12)
 
-        assert out["pvalue"] == pytest.approx(0.05)
+    def test_trials_with_no_difference_are_dropped_before_ranking(self):
+        """zero_method='wilcox': two unchanged trials beside +1..+6 and -2.5 rank as those
+        seven alone. Of the 128 sign patterns on ranks 1..7, five give a negative rank sum of
+        3 or less, so the two-sided p is 10/128; keeping the zeros in the ranking ('pratt' or
+        'zsplit') gives 0.0625."""
+        base = np.full(9, 10.0)
+        resp = base + np.r_[np.arange(1.0, 7.0), -2.5, 0.0, 0.0]
+        out = classify_response_significance({
+            "response_zscore": 3.5, "response_count": 50,
+            "baseline_rates": base, "response_rates": resp})
 
-    def test_a_second_z_matches_the_normal_survival_function(self):
-        out = classify_response_significance(
-            {"response_zscore": 1.0, "response_count": 50})
+        np.testing.assert_allclose(out["pvalue"], 10.0 / 128.0, rtol=1e-12)
 
-        assert out["pvalue"] == pytest.approx(2.0 * stats.norm.sf(1.0))
+    def test_a_suppressed_response_gets_the_same_exact_p(self):
+        base = np.full(8, 10.0)
+        down = classify_response_significance({
+            "response_zscore": -3.5, "response_count": 50,
+            "baseline_rates": base, "response_rates": base - np.arange(1.0, 9.0)})
+
+        np.testing.assert_allclose(down["pvalue"], 2.0 / 256.0, rtol=1e-12)
+        assert down["is_significant"] and down["confidence"] == "high"
 
 
 class TestGaussianSmoothingUsesTheSigmaItWasGiven:

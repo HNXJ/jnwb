@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import stats
 
 from jnwb.spiking import (
     compute_response_metrics,
@@ -51,6 +52,16 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(4 / 0.15)
         assert metrics["response_count"] == 12
 
+    def test_per_trial_rates_are_returned_in_onset_order(self):
+        onsets = np.array([0.0, 10.0, 20.0])
+        spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1
+        m = compute_response_metrics(spikes, onsets)
+        np.testing.assert_allclose(m["baseline_rates"], np.array([1, 2, 0]) / 0.2, rtol=1e-12)
+        np.testing.assert_allclose(m["response_rates"], np.array([2, 0, 1]) / 0.15, rtol=1e-12)
+        silent = compute_response_metrics(np.array([]), onsets)
+        np.testing.assert_array_equal(silent["baseline_rates"], np.zeros(3))
+        np.testing.assert_array_equal(silent["response_rates"], np.zeros(3))
+
     def test_exact_boundary_conditions_right_open(self):
         # Onset at 0.0. Contiguous windows: baseline [-0.2, 0.0), response [0.0, 0.2)
         onsets = np.array([0.0])
@@ -86,14 +97,69 @@ class TestClassifyResponseSignificance:
         assert result["confidence"] == "low"
         assert not result["is_significant"]
 
+    # Twenty trials, every response above its baseline by a distinct amount.
+    BASE = np.tile([10.0, 12.0, 8.0, 11.0, 9.0], 4)
+    RESP = BASE + np.arange(1.0, 21.0)
+
+    def _metrics(self, z, base=BASE, resp=RESP):
+        return {"response_count": 100, "response_zscore": z,
+                "baseline_rates": base, "response_rates": resp}
+
     def test_strong_zscore_is_significant_high_confidence(self):
-        result = classify_response_significance({"response_count": 10, "response_zscore": 4.0})
+        result = classify_response_significance(self._metrics(4.0))
         assert result["is_significant"]
         assert result["confidence"] == "high"
 
     def test_weak_zscore_is_not_significant(self):
-        result = classify_response_significance({"response_count": 10, "response_zscore": 0.5})
+        result = classify_response_significance(self._metrics(0.5))
         assert not result["is_significant"]
+
+    def test_the_p_value_falls_as_trials_accumulate_at_a_fixed_effect(self):
+        """The p derived from an effect size did not depend on the trial count."""
+        base, effect = np.array([10.0, 12.0, 8.0, 11.0, 9.0]), np.array([3.0, 5.0, 1.0, 4.0, 2.0])
+        p = []
+        for k in (1, 2, 4, 8):
+            b = np.tile(base, k)
+            out = classify_response_significance(self._metrics(2.5, b, b + np.tile(effect, k)))
+            np.testing.assert_allclose(
+                out["pvalue"],
+                stats.wilcoxon(np.tile(effect, k), zero_method="wilcox").pvalue, rtol=1e-12)
+            p.append(out["pvalue"])
+        assert all(later < earlier for earlier, later in zip(p, p[1:])), p
+        assert p[0] >= 0.05 and p[-1] < 1e-4, p
+
+    def test_zero_differences_are_not_significant_whatever_the_zscore(self):
+        """The effect-size gate passes at z = 4, but no trial differs from its baseline."""
+        out = classify_response_significance(self._metrics(4.0, self.BASE, self.BASE.copy()))
+        assert out["is_significant"] is False
+        assert out["pvalue"] == 1.0 and out["confidence"] == "none"
+
+    def test_alpha_is_the_level_the_p_value_is_held_to(self):
+        assert classify_response_significance(self._metrics(4.0))["is_significant"]
+        strict = classify_response_significance(self._metrics(4.0), alpha=1e-9)
+        assert strict["is_significant"] is False and strict["confidence"] == "none"
+        with pytest.raises(ValueError, match="alpha"):
+            classify_response_significance(self._metrics(4.0), alpha=0.0)
+
+    def test_a_summary_without_per_trial_rates_is_undefined_with_a_warning(self):
+        with pytest.warns(UserWarning, match="per-trial"):
+            out = classify_response_significance({"response_count": 10, "response_zscore": 4.0})
+        assert out["confidence"] == "undefined" and out["is_significant"] is False
+        assert np.isnan(out["pvalue"])
+
+    def test_at_zero_effect_the_p_value_is_roughly_uniform(self):
+        """A coarse calibration check: homogeneous Poisson units, equal windows."""
+        rng = np.random.default_rng(11)
+        onsets = np.arange(40) * 1.0 + 1.0
+        p = []
+        for _ in range(300):
+            st = np.sort(rng.uniform(0.0, 42.0, rng.poisson(20.0 * 42.0)))
+            m = compute_response_metrics(st, onsets, baseline_window_s=(-0.2, 0.0),
+                                         response_window_s=(0.0, 0.2))
+            p.append(classify_response_significance(m, zscore_threshold=0.0)["pvalue"])
+        p = np.array(p)
+        assert 0.02 <= np.mean(p < 0.05) <= 0.09, np.mean(p < 0.05)
+        assert 0.4 <= np.median(p) <= 0.6, np.median(p)
 
 
 class TestPhaseLockingIndex:

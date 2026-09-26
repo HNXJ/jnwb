@@ -247,7 +247,7 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.classify_response_significance | function | (metrics: Dict[str, float], zscore_threshold: float = 1.96, min_spike_count: int = 5) -> Dict[str, bool | float]<br>*Classify unit response as significant based on metrics.* |
+| jnwb.classify_response_significance | function | (metrics: Dict[str, float], zscore_threshold: float = 1.96, min_spike_count: int = 5, alpha: float = 0.05) -> Dict[str, bool | float]<br>*Classify a unit's response against its baseline from `compute_response_metrics` output.* |
 | jnwb.compute_response_metrics | function | (spike_times: numpy.ndarray, epoch_onsets: numpy.ndarray, baseline_window_s: Tuple[float, float] | None = None, response_window_s: Tuple[float, float] | None = None, z_score: bool = True, baseline_window: Tuple[float, float] | None = None, response_window: Tuple[float, float] | None = None) -> Dict[str, float]<br>*Compute firing rate and spike count metrics for stimulus responses.* |
 | jnwb.gaussian_smooth_rate | function | (rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
 | jnwb.pairwise_phase_consistency | function | (phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
