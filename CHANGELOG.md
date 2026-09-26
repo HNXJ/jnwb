@@ -103,6 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination, whose shape differs from the source's, or that is absent from the source. It fails
   a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
   source; it skipped that group and could return `ok=True` with its timestamps never checked.
+- `compute_response_metrics` raises `ValueError` when either window's start is at or after its
+  stop. A reversed window returned a negative spike count with a positive rate.
 
 ## [0.2.6.1] - 2026-09-25
 

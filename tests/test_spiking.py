@@ -65,6 +65,19 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(1 / 0.2)  # exactly 1 spike at 0.0
         assert metrics["response_count"] == 1  # only spike at 0.0, spike at 0.2 is excluded
 
+    # A reversed window used to return a negative count with a positive rate.
+    @pytest.mark.parametrize("window", [(0.15, 0.0), (0.1, 0.1)])
+    def test_reversed_or_empty_baseline_window_raises(self, window):
+        spikes = np.array([-0.2, -0.1, 0.05, 0.1])
+        with pytest.raises(ValueError, match="baseline_window_s"):
+            compute_response_metrics(spikes, np.array([0.0, 1.0]), baseline_window_s=window)
+
+    @pytest.mark.parametrize("window", [(0.15, 0.0), (0.1, 0.1)])
+    def test_reversed_or_empty_response_window_raises(self, window):
+        spikes = np.array([-0.2, -0.1, 0.05, 0.1])
+        with pytest.raises(ValueError, match="response_window_s"):
+            compute_response_metrics(spikes, np.array([0.0, 1.0]), response_window_s=window)
+
 
 class TestClassifyResponseSignificance:
     def test_below_min_spike_count_is_low_confidence(self):

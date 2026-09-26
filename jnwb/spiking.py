@@ -61,6 +61,9 @@ def compute_response_metrics(
           Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
 
+    Raises:
+        ValueError: a window whose start is at or after its stop.
+
     Example:
         >>> metrics = compute_response_metrics(spike_times, epoch_onsets)
         >>> print(f"Response z-score: {metrics['response_zscore']:.2f}")
@@ -75,6 +78,14 @@ def compute_response_metrics(
         canonical_name="response_window_s", alias_name="response_window",
         func_name="compute_response_metrics", default=(0.0, 0.150),
     )
+    # A reversed window made a negative duration: the count went negative while the rate,
+    # a negative count over a negative duration, came out positive.
+    for name, (start, stop) in (("baseline_window_s", baseline_window_s),
+                                ("response_window_s", response_window_s)):
+        if not start < stop:
+            raise ValueError(
+                f"compute_response_metrics: {name} needs start < stop, got ({start}, {stop})"
+            )
 
     metrics = {
         'baseline_rate': 0.0,
