@@ -82,6 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `n_significant_fdr` counts locations whose Benjamini-Hochberg adjusted p-value, in the new
   `q_values` array from `fdr_correct` over the locations with a finite p, is below 0.05 (0 in
   the same run). `summary` names both counts.
+- `PopulationAnalyzer.pie_chart_data` raises `ValueError` when a `criteria` key names a column
+  the table does not have. The filter was skipped, so the counts covered every unit. It filters
+  through `filter_by_criteria`; the counts for present columns are unchanged.
 
 ### Deprecated
 

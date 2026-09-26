@@ -683,25 +683,25 @@ class PopulationAnalyzer:
 
         Args:
             units: Units DataFrame
-            criteria: Dict of filtering criteria
+            criteria: Dict of filtering criteria, applied by :func:`jnwb.filter_by_criteria`.
 
         Returns:
             Dict with counts and percentages
-        """
-        filtered = units.copy()
 
-        for key, value in (criteria or {}).items():
-            if key not in filtered.columns:
-                continue
-            if isinstance(value, tuple) and len(value) == 2:
-                filtered = filtered[
-                    (pd.to_numeric(filtered[key], errors='coerce') >= value[0]) &
-                    (pd.to_numeric(filtered[key], errors='coerce') <= value[1])
-                ]
-            elif isinstance(value, (list, set)):
-                filtered = filtered[filtered[key].isin(value)]
-            else:
-                filtered = filtered[filtered[key] == value]
+        Raises:
+            ValueError: If a ``criteria`` key names a column ``units`` does not have. The
+                filter used to be skipped, so the counts covered every unit.
+        """
+        # Imported here: jnwb.metadata imports pynwb, which this module otherwise never needs.
+        from .metadata import filter_by_criteria
+
+        try:
+            filtered = filter_by_criteria(units, criteria or {}, unknown="raise")
+        except ValueError as err:
+            raise ValueError(
+                f"pie_chart_data: criteria name column(s) absent from units: "
+                f"{[k for k in criteria if k not in units.columns]!r}"
+            ) from err
 
         found = False
         for col in ('quality_category', 'quality_label'):

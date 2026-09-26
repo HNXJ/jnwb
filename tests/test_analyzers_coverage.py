@@ -266,6 +266,24 @@ class TestPopulationAnalyzerNetwork(unittest.TestCase):
         self.assertLessEqual(result['n_edges'], 3)
 
 
+class TestPopulationAnalyzerPieChartData(unittest.TestCase):
+    """A filter on a column the table lacks refuses; it used to count every unit."""
+
+    UNITS = pd.DataFrame({
+        'area': ['V1', 'V1', 'V4', 'MT'],
+        'quality_label': ['good', 'mua', 'good', 'good'],
+    })
+
+    def test_a_filter_on_an_absent_column_raises(self):
+        with self.assertRaisesRegex(ValueError, r"absent from units: \['areaa'\]"):
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'areaa': 'V1'})
+
+    def test_a_filter_on_a_present_column_counts_only_the_matching_units(self):
+        res = PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': 'V1'})
+        self.assertEqual(res['counts'], {'good': 1, 'mua': 1})
+        self.assertEqual(res['total'], 2)
+
+
 class TestPopulationAnalyzerCompareCriteria(unittest.TestCase):
     """Test PopulationAnalyzer comparison between unit groups."""
 
