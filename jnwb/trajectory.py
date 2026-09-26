@@ -12,6 +12,7 @@ import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._dictlike import RenamedKeyDict
 from ._spread import zscore
 from .gpu_pca import pin_component_signs
 
@@ -95,7 +96,7 @@ def compute_population_trajectory(
     n_components: int = 3,
     quality: Optional[str] = None,
     device: str = 'cpu'
-) -> Dict[str, Union[np.ndarray, List[int], str]]:
+) -> Dict[str, Union[np.ndarray, List[int], float, str]]:
     """
     Compute population trajectory using standardized correlation PCA (SVD).
     Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.
@@ -122,17 +123,22 @@ def compute_population_trajectory(
     Returns:
         Dict with:
         - trajectory: (n_trials, n_components, n_bins) projected coordinates
-        - explained_variance: (n_components,) variance of the z-scored data along each
-          component, ``S**2 / (n_samples - 1)`` with ``n_samples = n_trials * n_bins``
         - explained_variance_ratio: (n_components,) each component's share of the total
-          variance. Its sum is the single fraction ``explained_variance`` held before 0.2.7.
+          variance, as in scikit-learn's PCA
+        - explained_variance_per_component: (n_components,) variance of the z-scored data
+          along each component, ``S**2 / (n_samples - 1)`` with
+          ``n_samples = n_trials * n_bins``; scikit-learn's ``explained_variance_``
+        - explained_variance: float, the fraction the kept components explain together,
+          which is the sum of ``explained_variance_ratio``. Reading it emits a
+          ``FutureWarning``: in the next release this key carries the per-component
+          variance, as in scikit-learn.
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
         - device_used: 'cpu' or 'cuda', the device that performed the SVD
 
         Both variance arrays are NaN for a component that could not be estimated (fewer
-        units or samples than ``n_components``) and everywhere when there is no variance
-        to decompose or no population.
+        units or samples than ``n_components``), and they and ``explained_variance`` are
+        NaN when there is no variance to decompose or no population.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -146,13 +152,14 @@ def compute_population_trajectory(
         # "PCA ran and explained nothing" rather than "PCA did not run". `TFRAnalyzer`
         # already answers NaN for the same condition. Zero stays valid only where zero was
         # estimated from observations.
-        return {
+        return _trajectory_result({
             'trajectory': np.full((n_trials, n_components, n_bins), np.nan),
-            'explained_variance': np.full(n_components, np.nan),
+            'explained_variance': float('nan'),
             'explained_variance_ratio': np.full(n_components, np.nan),
+            'explained_variance_per_component': np.full(n_components, np.nan),
             'unit_ids': [],
             'bin_centers': bin_centers
-        }
+        })
 
     # Reshape X to (n_trials * n_bins, n_units) to perform PCA over the unit dimension
     X_flat = X.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
@@ -202,9 +209,11 @@ def compute_population_trajectory(
     if total_var > 0.0:
         explained_variance = power / (X_flat.shape[0] - 1)
         explained_variance_ratio = power / total_var
+        explained_total = float(np.sum(S_np[:actual_components] ** 2) / total_var)
     else:
         explained_variance = np.full(actual_components, np.nan)
         explained_variance_ratio = np.full(actual_components, np.nan)
+        explained_total = float('nan')
 
     # If requested n_components > actual_components, pad along the component axis
     if actual_components < n_components:
@@ -220,11 +229,25 @@ def compute_population_trajectory(
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
 
-    return {
+    return _trajectory_result({
         'trajectory': trajectory,
-        'explained_variance': explained_variance,
+        'explained_variance': explained_total,
         'explained_variance_ratio': explained_variance_ratio,
+        'explained_variance_per_component': explained_variance,
         'unit_ids': unit_ids,
         'bin_centers': bin_centers,
         'device_used': resolved,
-    }
+    })
+
+
+_EXPLAINED_VARIANCE_CHANGES = (
+    "compute_population_trajectory: 'explained_variance' is the fraction of variance the "
+    "kept components explain together. In the next release it becomes each component's "
+    "variance, as in scikit-learn's PCA. Read 'explained_variance_ratio' (each component's "
+    "share; its sum is this value) or 'explained_variance_per_component' instead."
+)
+
+
+def _trajectory_result(data: dict) -> RenamedKeyDict:
+    """The result dict; reading ``explained_variance`` warns that its meaning changes."""
+    return RenamedKeyDict(data, changing={'explained_variance': _EXPLAINED_VARIANCE_CHANGES})

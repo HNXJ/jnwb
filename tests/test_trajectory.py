@@ -1,5 +1,7 @@
 """Unit tests for the population trajectory analysis module."""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -117,30 +119,67 @@ def test_compute_population_trajectory():
     
     # Check shape: (n_trials, n_components, n_bins) -> (4, 2, 5)
     assert res['trajectory'].shape == (4, 2, 5)
-    assert res['explained_variance'].shape == res['explained_variance_ratio'].shape == (2,)
+    assert res['explained_variance_ratio'].shape == (2,)
+    assert res['explained_variance_per_component'].shape == (2,)
     assert np.all((res['explained_variance_ratio'] >= 0.0) & (res['explained_variance_ratio'] <= 1.0))
 
 
-def test_the_variances_carry_scikit_learns_meanings():
-    """`explained_variance` is each component's variance and `explained_variance_ratio` its
-    share, as in `sklearn.decomposition.PCA`; the scalar this key held is the ratio's sum.
-    The reference is the z-scored matrix built independently of the library's helpers."""
+def _spread_session():
     session = MockSession()
     for k in session.spikes:
         session.spikes[k] = np.sort(np.random.default_rng(k).uniform(1.0, 4.1, 40))
     session.units_df['area'] = 'V1'
-    res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
-                                        time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
-                                        n_components=2)
+    return session
+
+
+def _reference_singular_values(session):
+    """The z-scored matrix, built independently of the library's helpers."""
     X, _, _ = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
                                          time_window_ms=(0.0, 100.0), bin_size_ms=20.0)
     flat = X.transpose(0, 2, 1).reshape(-1, X.shape[1])
     scaled = (flat - flat.mean(axis=0)) / flat.std(axis=0)
-    s = np.linalg.svd(scaled, compute_uv=False)
-    np.testing.assert_allclose(res['explained_variance'], s[:2] ** 2 / (flat.shape[0] - 1),
-                               rtol=1e-12)
-    np.testing.assert_allclose(res['explained_variance_ratio'], s[:2] ** 2 / np.sum(s ** 2),
-                               rtol=1e-12)
+    return np.linalg.svd(scaled, compute_uv=False), flat.shape[0]
+
+
+def test_the_new_keys_carry_scikit_learns_values():
+    """`explained_variance_per_component` is sklearn's `explained_variance_` and
+    `explained_variance_ratio` its `explained_variance_ratio_`."""
+    session = _spread_session()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")          # reading the new keys warns about nothing
+        res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                            time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                            n_components=2)
+        per_component = res['explained_variance_per_component']
+        ratio = res['explained_variance_ratio']
+    s, n_samples = _reference_singular_values(session)
+    np.testing.assert_allclose(per_component, s[:2] ** 2 / (n_samples - 1), rtol=1e-12)
+    np.testing.assert_allclose(ratio, s[:2] ** 2 / np.sum(s ** 2), rtol=1e-12)
+
+
+def test_the_old_key_keeps_the_fraction_and_warns_at_the_callers_line():
+    """For one release `explained_variance` stays the fraction the kept components explain
+    together; reading it says the key becomes the per-component variance and names the
+    new keys, and the warning points at the line that read it."""
+    session = _spread_session()
+    res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                        time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                        n_components=2)
+    s, _ = _reference_singular_values(session)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        value = res['explained_variance']
+        via_get = res.get('explained_variance')
+    assert isinstance(value, float) and via_get == value
+    np.testing.assert_allclose(value, np.sum(s[:2] ** 2) / np.sum(s ** 2), rtol=1e-12)
+    future = [w for w in caught if issubclass(w.category, FutureWarning)]
+    assert len(future) == 2
+    for w in future:
+        assert w.filename == __file__
+        message = str(w.message)
+        assert "explained_variance_ratio" in message
+        assert "explained_variance_per_component" in message
+        assert "next release" in message and "scikit-learn" in message
 
 
 def test_compute_population_trajectory_empty():
@@ -166,9 +205,10 @@ def test_compute_population_trajectory_empty():
 
     assert res['trajectory'].shape == (4, 2, 5)
     assert np.all(np.isnan(res['trajectory']))
-    assert res['explained_variance'].shape == res['explained_variance_ratio'].shape == (2,)
-    assert np.all(np.isnan(res['explained_variance']))
-    assert np.all(np.isnan(res['explained_variance_ratio']))
+    for key in ('explained_variance_ratio', 'explained_variance_per_component'):
+        assert res[key].shape == (2,) and np.all(np.isnan(res[key]))
+    with pytest.warns(FutureWarning):
+        assert np.isnan(res['explained_variance'])
     assert res['unit_ids'] == []
     # The bins themselves were requested, not estimated, so they stay real.
     assert np.all(np.isfinite(res['bin_centers']))
@@ -191,7 +231,7 @@ def test_components_that_could_not_be_estimated_are_not_zero():
     assert 0 < n_real < 8
     assert np.all(np.isfinite(res['trajectory'][:, :n_real, :]))
     assert np.all(np.isnan(res['trajectory'][:, n_real:, :]))
-    for key in ('explained_variance', 'explained_variance_ratio'):
+    for key in ('explained_variance_per_component', 'explained_variance_ratio'):
         assert res[key].shape == (8,)
         assert np.all(np.isfinite(res[key][:n_real])) and np.all(np.isnan(res[key][n_real:]))
 
@@ -208,8 +248,10 @@ def test_a_population_with_no_variance_has_no_explained_variance_ratio():
         bin_size_ms=20.0,
         n_components=2,
     )
-    assert np.all(np.isnan(res['explained_variance']))
+    assert np.all(np.isnan(res['explained_variance_per_component']))
     assert np.all(np.isnan(res['explained_variance_ratio']))
+    with pytest.warns(FutureWarning):
+        assert np.isnan(res['explained_variance'])
 
 
 class TestPopulationTrajectoryEstimandDivergence:

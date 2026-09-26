@@ -25,44 +25,56 @@ from typing import Any, Mapping
 
 
 class RenamedKeyDict(dict):
-    """A result dict whose renamed keys still read under their old names, with a warning.
+    """A result dict whose renamed or changing keys warn when they are read.
 
     ``aliases`` maps each old name to its current one. The old names are not keys:
     iteration, ``len``, ``keys()`` and equality see the current names only, so a caller
     that copies the dict gets the current shape. Reading an old name with ``[]`` or
     ``get`` returns the current key's value and emits a ``DeprecationWarning``; ``in``
     answers True for it, so an existing membership check keeps its branch.
+
+    ``changing`` maps a present key whose meaning changes in the next release to the
+    message that says how. Reading it with ``[]`` or ``get`` returns its current value
+    and emits that message as a ``FutureWarning``.
+
+    Every warning points at the line that read the key.
     """
 
-    def __init__(self, data: Mapping[str, Any], aliases: Mapping[str, str]):
+    def __init__(self, data: Mapping[str, Any], aliases: Mapping[str, str] = (),
+                 changing: Mapping[str, str] = ()):
         super().__init__(data)
-        missing = [new for new in aliases.values() if new not in self]
+        aliases, changing = dict(aliases), dict(changing)
+        missing = [k for k in (*aliases.values(), *changing) if not dict.__contains__(self, k)]
         if missing:
-            raise KeyError(f"alias targets absent from the result: {missing}")
-        self._aliases = dict(aliases)
+            raise KeyError(f"keys named by aliases or changing are absent: {missing}")
+        self._aliases = aliases
+        self._changing = changing
 
-    def _resolve(self, key: object, stacklevel: int) -> Any:
-        new = self._aliases[key]
-        warnings.warn(
-            f"result key {key!r} is deprecated and will be removed in the next release; "
-            f"read {new!r}.",
-            DeprecationWarning,
-            stacklevel=stacklevel,
-        )
-        return dict.__getitem__(self, new)
-
-    def __missing__(self, key: object) -> Any:
-        if isinstance(key, str) and key in self._aliases:
-            # dict.__getitem__ is C code, so the caller's frame is the next one up.
-            return self._resolve(key, stacklevel=3)
-        raise KeyError(key)
-
-    def get(self, key: object, default: Any = None) -> Any:
+    def _read(self, key: object, stacklevel: int) -> Any:
+        """The value for ``key``, warning as the key requires; ``stacklevel`` counts this frame."""
         if dict.__contains__(self, key):
+            if key in self._changing:
+                warnings.warn(self._changing[key], FutureWarning, stacklevel=stacklevel)
             return dict.__getitem__(self, key)
         if isinstance(key, str) and key in self._aliases:
-            return self._resolve(key, stacklevel=3)
-        return default
+            new = self._aliases[key]
+            warnings.warn(
+                f"result key {key!r} is deprecated and will be removed in the next release; "
+                f"read {new!r}.",
+                DeprecationWarning,
+                stacklevel=stacklevel,
+            )
+            return dict.__getitem__(self, new)
+        raise KeyError(key)
+
+    def __getitem__(self, key: object) -> Any:
+        return self._read(key, stacklevel=3)
+
+    def get(self, key: object, default: Any = None) -> Any:
+        try:
+            return self._read(key, stacklevel=3)
+        except KeyError:
+            return default
 
     def __contains__(self, key: object) -> bool:
         return dict.__contains__(self, key) or (isinstance(key, str) and key in self._aliases)

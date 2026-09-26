@@ -1559,8 +1559,8 @@ class TestRowsAgainstTheLiveCall:
          lambda: jnwb.compute_population_trajectory(
              _ProbeSession(), "V1", pd.DataFrame({"start_time": [1.0, 3.0, 5.0, 7.0]}),
              time_window_ms=(-100.0, 200.0)),
-         ["trajectory", "explained_variance", "explained_variance_ratio", "unit_ids",
-          "bin_centers"]),
+         ["trajectory", "explained_variance", "explained_variance_ratio",
+          "explained_variance_per_component", "unit_ids", "bin_centers"]),
         ("jnwb-population", "build_representation_ladder",
          lambda: jnwb.build_representation_ladder(np.random.default_rng(1).normal(size=(4, 3, 5))),
          ["X_rate", "X_vec", "X_structured", "contract"]),

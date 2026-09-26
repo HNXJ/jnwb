@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that cannot be compared, and
   an outer training fold with a single class raise `ValueError`. A call without `groups`
   returns the same numbers as before.
+- `compute_population_trajectory` returns `explained_variance_ratio` (each component's share of
+  the total) and `explained_variance_per_component` (each component's variance,
+  `S**2 / (n_samples - 1)` of the z-scored data), both `(n_components,)` as scikit-learn's
+  `PCA` defines `explained_variance_ratio_` and `explained_variance_`, and NaN where a
+  component could not be estimated.
 
 ### Changed
 
@@ -85,21 +90,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PopulationAnalyzer.pie_chart_data` raises `ValueError` when a `criteria` key names a column
   the table does not have. The filter was skipped, so the counts covered every unit. It filters
   through `filter_by_criteria`; the counts for present columns are unchanged.
-- **`compute_population_trajectory` names its variances as scikit-learn's `PCA` does
-  (breaking).** `explained_variance` was one fraction for all kept components together, while
-  `PopulationAnalyzer.population_trajectory` used the same key for a per-component array of
-  absolute variances. It is now that array, `S**2 / (n_samples - 1)` of the z-scored data, and
-  the new `explained_variance_ratio` holds each component's share; both are `(n_components,)`
-  and NaN where a component could not be estimated. The old value is
-  `explained_variance_ratio.sum()`. No warning is possible, since the key is unchanged: code
-  that reads it as a float fails with `TypeError` for more than one component, and with
-  `n_components=1` reads a variance where it read a fraction.
 - `PopulationAnalyzer.network_connectivity` computes the graph through `network_topology` and
   so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
   diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix
   are unchanged.
 
 ### Deprecated
+
+- The meaning of `compute_population_trajectory`'s `explained_variance`. It is still one
+  fraction for all kept components together, `explained_variance_ratio.sum()`, and reading it
+  emits a `FutureWarning`: in the next release the key carries each component's variance, as in
+  scikit-learn and `PopulationAnalyzer.population_trajectory`. Read
+  `explained_variance_ratio` or `explained_variance_per_component` instead.
 
 - `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
   read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
