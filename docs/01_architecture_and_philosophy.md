@@ -1,6 +1,6 @@
 # 01. Architecture & Design Philosophy
 
-`jnwb` is a Python library for electrophysiology analysis on Neurodata Without Borders (NWB 2.0+) files, written against no particular dataset. This page covers its package boundary and the scientific invariants its operations hold.
+`jnwb` is a Python library for electrophysiology analysis on Neurodata Without Borders (NWB 2.0+) files, written against no particular dataset. This page covers its package boundary and scientific invariants.
 
 ---
 
@@ -39,7 +39,7 @@ import `jnwb`. `jnwb` never imports from them, and a regression gate enforces it
 NWB is a data standard for neurophysiology: an HDF5 layout plus a schema for acquisitions,
 electrodes, units, trials and intervals (Teeters et al., 2015; Rübel et al., 2022). jnwb reads
 NWB files through PyNWB, the reference Python API, which uses HDMF for the schema and HDF5 input
-and output. Public NWB datasets are shared on the DANDI Archive.
+and output.
 
 jnwb-owned NWB reads (`jnwb.nwb_io.read_nwb` and `nwb_read_io`) repair malformed unit and
 index builders through HDMF for that read only; `BuildManager.construct` is not altered at
@@ -52,7 +52,7 @@ rather than synthesizing a value. Citations and links are in
 ## 2. Scientific & Epistemic Invariants
 
 ### A. Signal Class Independence
-* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates (pupil dilation, eye gaze, lick traces) are distinct observables.
+* **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates are distinct observables.
 * **No Modality Pooling**: Signals of distinct modalities are never pooled without an explicit transformation and declared units.
 
 ### B. Estimand Disambiguation
@@ -71,7 +71,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 ### D. Mathematical vs. Analysis-Specific Conventions
 * `jnwb` provides generic mathematical transforms (e.g. `to_db(ratio) = 10 * log10(ratio)`, `compute_psd`, `band_power`).
-* The logarithm comes last: `aggregate_to_db` owns the ratio-aggregate-log sequence and makes the caller name the estimand (`how="mean_of_ratios"` or `"ratio_of_means"`), so the order is enforced without fixing one project's aggregation.
+* The logarithm comes last: `aggregate_to_db` owns the ratio-aggregate-log sequence and makes the caller name the estimand (`how="mean_of_ratios"` or `"ratio_of_means"`).
 
 ### E. Unit of Inference & Hierarchical Structure
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.
