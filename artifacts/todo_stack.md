@@ -46,11 +46,12 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 07-03 blocker candidates |
 | 1 | 07-06, 07-07, 07-08, 07-09 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
+| 2b | 07-14, 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
+| 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
 
 ### 07-01 Findings carried from 0.2.6
 
@@ -212,7 +213,6 @@ Observed while releasing 0.2.6; each is to be checked and either repaired or mov
 - RP-3: `scripts/release_gate.py` stops at its first failing step, and each run takes 12 to 30 minutes; 0.2.6 needed four runs, one lost to a stale `artifacts/state.md`. Check: run the cheap checks (state freshness, the extracted smoke script, the release body) before the suite.
 - RP-4: At release the full CI matrix ran four times on one commit (the `main`, `dev` and tag pushes and the release event), and the release run queued behind the tag run in one concurrency group, about 45 minutes before the PyPI approval was requested. Check: skip a run on a commit whose tree already passed, and measure the saving.
 - RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds.
-- RP-6: Locked entries remain under `.git/worktrees/` from earlier lanes. Check: remove them once no process holds them, stopping the fsmonitor daemons first.
 - RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Check: record peak memory beside wall time in the release gate's suite step.
 
 ### 07-03 Post-release inspection findings
