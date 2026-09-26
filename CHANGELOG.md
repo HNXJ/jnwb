@@ -76,6 +76,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `transfer_entropy` numbers joint states through one integer key per row instead of a
   row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
   p-values and surrogate statistics.
+- `TFRAnalyzer.compare_conditions` reports a corrected count beside the uncorrected one. One
+  t-test per location counts about 5% of locations on null data (796 of 16000 in a seeded
+  run). `n_significant_uncorrected` and `fraction_significant_uncorrected` hold those values;
+  `n_significant_fdr` counts locations whose Benjamini-Hochberg adjusted p-value, in the new
+  `q_values` array from `fdr_correct` over the locations with a finite p, is below 0.05 (0 in
+  the same run). `summary` names both counts.
+
+### Deprecated
+
+- `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
+  read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
+  the result's keys. They are removed in the next release.
 
 ### Removed
 

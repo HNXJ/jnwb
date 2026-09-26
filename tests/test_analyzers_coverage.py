@@ -434,6 +434,56 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                         self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
 
 
+class TestTFRAnalyzerCompareConditions(unittest.TestCase):
+    """One t-test per location is a family; the count that answers "which differ" is corrected."""
+
+    SHAPE = (4, 40, 100)          # 16000 locations
+
+    def _pair(self, seed, effect=0.0):
+        rng = np.random.default_rng(seed)
+        a = rng.normal(size=self.SHAPE + (12,))
+        b = rng.normal(size=self.SHAPE + (14,))
+        b[0, :5] += effect        # 500 locations carry the effect, when there is one
+        return a, b
+
+    def test_null_data_leaves_the_fdr_count_near_zero_and_the_uncorrected_near_alpha_n(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(0))
+        n = res['n_tests']
+        self.assertEqual(n, 16000)
+        # Binomial(16000, 0.05): mean 800, sd 27.6.
+        self.assertLess(abs(res['n_significant_uncorrected'] - 0.05 * n), 4 * 27.6)
+        self.assertLessEqual(res['n_significant_fdr'], 2)
+        self.assertEqual(res['fraction_significant_uncorrected'], res['n_significant_uncorrected'] / n)
+
+    def test_the_fdr_count_is_the_library_correction_of_the_p_values(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(1, effect=2.0))
+        q = StatisticalAnalysis.fdr_correct(res['p_values'])
+        np.testing.assert_allclose(res['q_values'], q, rtol=1e-12)
+        self.assertEqual(res['n_significant_fdr'], int((q < 0.05).sum()))
+        # The effect survives correction: the count is not zero by construction.
+        self.assertGreater(res['n_significant_fdr'], 400)
+
+    def test_a_location_without_a_p_value_is_not_in_the_family(self):
+        a, b = self._pair(2)
+        a[0, 0, 0] = 1.0
+        b[0, 0, 0] = 1.0
+        res = TFRAnalyzer.compare_conditions(a, b)
+        self.assertTrue(np.isnan(res['q_values'][0]))
+        tested = np.isfinite(res['p_values'])
+        np.testing.assert_allclose(res['q_values'][tested],
+                                   StatisticalAnalysis.fdr_correct(res['p_values'][tested]),
+                                   rtol=1e-12)
+
+    def test_the_old_key_names_read_the_uncorrected_values_with_a_warning(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(3))
+        self.assertNotIn('n_significant', list(res))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res['n_significant'], res['n_significant_uncorrected'])
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res.get('fraction_significant'),
+                             res['fraction_significant_uncorrected'])
+        self.assertIn('n_significant', res)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

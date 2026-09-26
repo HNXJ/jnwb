@@ -16,6 +16,7 @@ from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 from ._bins import bins_within, whole_bin_count
+from ._dictlike import RenamedKeyDict
 from .gpu_pca import pin_component_signs
 import pandas as pd
 from scipy import signal, stats
@@ -186,12 +187,21 @@ class TFRAnalyzer:
         Vectorized: runs ttest_ind across all (ch × freq × time) locations at once
         instead of a Python loop, ≈ 100× faster for large arrays.
 
+        One t-test per location is a family of ``n_tests`` tests, so about 5% of locations
+        pass ``p < 0.05`` on null data. ``n_significant_uncorrected`` counts those;
+        ``n_significant_fdr`` counts locations whose Benjamini-Hochberg adjusted p-value
+        (:func:`jnwb.fdr_correct` over the locations with a finite p) is below 0.05.
+
         Args:
             tfr1: TFR from condition 1 (ch × freq × time × trials1)
             tfr2: TFR from condition 2 (ch × freq × time × trials2)
 
         Returns:
-            Dict with mean_diff, n_significant, fraction_significant
+            Dict with ``n_tests``, ``n_significant_uncorrected``,
+            ``fraction_significant_uncorrected``, ``n_significant_fdr``, ``mean_diff``,
+            ``p_values``, ``q_values`` (NaN where p is NaN), ``t_statistics`` and ``summary``.
+            ``n_significant`` and ``fraction_significant`` still read, as the uncorrected
+            values, with a ``DeprecationWarning``; they are removed in the next release.
         """
         if tfr1.shape[:-1] != tfr2.shape[:-1]:
             raise ValueError("TFR spatial shapes must match (ch × freq × time)")
@@ -206,15 +216,27 @@ class TFRAnalyzer:
         n_sig = int((p_val < 0.05).sum())
         n_total = len(p_val)
 
-        return {
+        # A constant location has no p-value and is not a test in the family.
+        tested = np.isfinite(p_val)
+        q_val = np.full(p_val.shape, np.nan)
+        q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
+        n_fdr = int((q_val < 0.05).sum())
+
+        return RenamedKeyDict({
             'n_tests':             n_total,
-            'n_significant':       n_sig,
-            'fraction_significant': n_sig / n_total if n_total > 0 else 0.0,
+            'n_significant_uncorrected': n_sig,
+            'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else 0.0,
+            'n_significant_fdr':   n_fdr,
             'mean_diff':           float(np.mean(tfr1) - np.mean(tfr2)),
             'p_values':            p_val,          # (space,) array
+            'q_values':            q_val,
             't_statistics':        t_stat,
-            'summary': f"{n_sig} / {n_total} locations p < 0.05",
-        }
+            'summary': (f"{n_sig} / {n_total} locations p < 0.05 uncorrected; "
+                        f"{n_fdr} with Benjamini-Hochberg q < 0.05"),
+        }, aliases={
+            'n_significant': 'n_significant_uncorrected',
+            'fraction_significant': 'fraction_significant_uncorrected',
+        })
 
     @staticmethod
     def by_layer(tfr_data: np.ndarray, layer_bounds: Dict) -> Dict:

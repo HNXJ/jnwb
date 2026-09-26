@@ -20,7 +20,52 @@ to get a real dict.
 
 from __future__ import annotations
 
-from typing import Any
+import warnings
+from typing import Any, Mapping
+
+
+class RenamedKeyDict(dict):
+    """A result dict whose renamed keys still read under their old names, with a warning.
+
+    ``aliases`` maps each old name to its current one. The old names are not keys:
+    iteration, ``len``, ``keys()`` and equality see the current names only, so a caller
+    that copies the dict gets the current shape. Reading an old name with ``[]`` or
+    ``get`` returns the current key's value and emits a ``DeprecationWarning``; ``in``
+    answers True for it, so an existing membership check keeps its branch.
+    """
+
+    def __init__(self, data: Mapping[str, Any], aliases: Mapping[str, str]):
+        super().__init__(data)
+        missing = [new for new in aliases.values() if new not in self]
+        if missing:
+            raise KeyError(f"alias targets absent from the result: {missing}")
+        self._aliases = dict(aliases)
+
+    def _resolve(self, key: object, stacklevel: int) -> Any:
+        new = self._aliases[key]
+        warnings.warn(
+            f"result key {key!r} is deprecated and will be removed in the next release; "
+            f"read {new!r}.",
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+        return dict.__getitem__(self, new)
+
+    def __missing__(self, key: object) -> Any:
+        if isinstance(key, str) and key in self._aliases:
+            # dict.__getitem__ is C code, so the caller's frame is the next one up.
+            return self._resolve(key, stacklevel=3)
+        raise KeyError(key)
+
+    def get(self, key: object, default: Any = None) -> Any:
+        if dict.__contains__(self, key):
+            return dict.__getitem__(self, key)
+        if isinstance(key, str) and key in self._aliases:
+            return self._resolve(key, stacklevel=3)
+        return default
+
+    def __contains__(self, key: object) -> bool:
+        return dict.__contains__(self, key) or (isinstance(key, str) and key in self._aliases)
 
 
 class DictAccessMixin:
