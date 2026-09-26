@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 1 | 07-07, 07-08, 07-09 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
+| 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
 | 2b | 07-14, 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
@@ -298,14 +298,15 @@ predicate if they reproduce, and go first.
 ### 07-05 A downstream paper agent can consume jnwb
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-07.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Reads: `artifacts/direction.md` (the four outcomes, Boundary), `artifacts/planned_post_0.2.6.md`, `jnwb/ontology.py`, `jnwb/paths.py`.
 Writes: `jnwb/*.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
 Ruled 2026-09-25: a paper-reproduction agent lives downstream, pinned to a jnwb release, with its
 claim registry, decline tree, reference outputs and scorer. jnwb gains only what that agent cannot
-do without and every NWB consumer can use. The preflight it scores through is 07-07.
-- a. A script scores decline accuracy from the preflight of 07-07 alone: the outcome, the reason
-  and the missing inputs it returns as data.
+do without and every NWB consumer can use. The preflight it scores through is
+`jnwb.preflight`.
+- a. A script scores decline accuracy from `jnwb.preflight` alone: the outcome, the reason and
+  the missing inputs it returns as data.
 - b. A result names the exact input it came from: the NWB file's sha256 (`paths.sha256_file`) and
   the object path. Use `Provenance` or `Lineage` if they can carry it; add a field only if not.
   IA-27's tests for `paths.resolve_nwb_path`, `sha256_file` and `require` land here.
@@ -315,33 +316,6 @@ do without and every NWB consumer can use. The preflight it scores through is 07
 Accept: a test per outcome in (a); a round-trip test in (b) that writes a result's dict and
 re-opens the same file by path and hash; Gate 6 passes.
 Stop: anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/` or `docs/`.
-
-### 07-07 The analysis preflight is a public API
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb. Blocked by: none.
-Reads: `artifacts/direction.md` (the four outcomes), `artifacts/rulings/2026-09-25.md`, `jnwb/ontology.py`.
-Writes: `jnwb/*.py`, `tests/*.py`, `skills/jnwb/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
-Plan step 1, third bullet, made a public API by the ruling of 2026-09-25. Reproduced at `dcb75f12`:
-no name in `jnwb.__all__` takes a planned analysis and returns an outcome. `jnwb.Question`
-(`jnwb/ontology.py:298`) already carries the hypothesis, signals, contrast and inferential unit, so
-the preflight extends it rather than adding a parallel record (fact "Skill creation is
-capability-gated"). The preflight reads goal, data, paradigm, signals, units, axes, conditions,
-inferential unit, missing information, required skills and a verification plan, and returns one of
-the four outcomes of `artifacts/direction.md` with the reason and the missing inputs as data. 07-05
-(a) scores decline accuracy through it.
-Landed as the shared base: `jnwb.ontology.Preflight(outcome, reason, missing)`, unexported, with
-`Preflight.OUTCOMES` the single home of the four outcome names that
-`tests/test_skill_decline_behaviour.py` now reads. Ruled 2026-09-25: `jnwb.preflight(question)`
-is a function; decline and failure are caller-declared, and failure may be returned before
-execution; `signals`, `signal_units`, `contrast` and `inference_unit` are required, else `request`,
-and the other fields are optional. Remains: the function, the optional `Question` fields, the
-export, `docs/api.md`, the router row and `CHANGELOG.md`.
-Accept: one test per outcome drives the preflight from a script and reads the outcome, the reason
-and the missing inputs from the returned object alone; the router names it; Gate 6 passes.
-Stop: the signature or the outcome vocabulary admits two defensible forms, a public API choice under
-`AGENTS.md` section 12; anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/`
-or `docs/`.
 
 ### 07-08 The router composes the minimal skill set a task needs
 
