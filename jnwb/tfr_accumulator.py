@@ -3,13 +3,15 @@
 Accumulates ``n``, ``mean``, ``M2`` (Chan/Golub/LeVeque parallel Welford merge -- numerically
 stable, no catastrophic cancellation on TFR power's large-mean/small-variance profile) alongside
 the two complex accumulators ``sum_z`` (evoked power) and ``sum_unit_z`` (ITC), decided up front
-because phase cannot be recovered from power after the fact.
+because phase cannot be recovered from power after the fact. When each trial is added with its
+own baseline, ``sum_ratio`` sums the per-trial power ratios for the same reason: a mean of
+ratios cannot be recovered from the trial means.
 
 The property the whole design rests on: ``merge(A, B) == summarize(A ∪ B)`` to floating-point
 tolerance. Tested in tests/test_tfr_accumulator.py.
 
 In memory the accumulators are float64 and complex128. ``write`` halves that on the way to
-disk -- ``mean`` and ``M2`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
+disk -- ``mean``, ``M2`` and ``sum_ratio`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
 int32 -- so a summary that has been through HDF5 carries single-precision sufficient
 statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
 The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
@@ -135,6 +137,9 @@ class TFRAccumulator:
         self.M2 = np.zeros(shape, np.float64)
         self.sum_z = np.zeros(shape, np.complex128)
         self.sum_unit_z = np.zeros(shape, np.complex128)
+        # Sum of per-trial power / baseline ratios, allocated by the first add_trial that
+        # passes a baseline. None means no trial carried one.
+        self.sum_ratio: Optional[np.ndarray] = None
 
     @property
     def shape(self) -> tuple:
@@ -155,11 +160,63 @@ class TFRAccumulator:
     def mean(self, value) -> None:
         self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
-    def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
-        """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""
+    def add_trial(
+        self,
+        z: np.ndarray,
+        valid: Optional[np.ndarray] = None,
+        *,
+        baseline: Optional[np.ndarray] = None,
+    ) -> None:
+        """Add ONE trial.
+
+        Args:
+            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial.
+            valid: bool mask, same shape. ``None`` marks every finite coefficient valid.
+            baseline: this trial's own baseline power, ratio-scale and non-negative,
+                broadcastable to the accumulator's shape -- for example ``(n_ch, n_freq, 1)``
+                from the trial's baseline window, or a full ``abs(z_baseline) ** 2``. When
+                given, the trial's ``abs(z) ** 2 / baseline`` is added to :attr:`sum_ratio`
+                at the cells ``valid`` marks, so :meth:`mean_of_ratios` can form the
+                per-trial ratio mean without holding the trials. Either every trial carries
+                a baseline or none does. A zero or NaN baseline at a valid cell propagates
+                ``inf`` or NaN into that cell's mean, as ``aggregate_to_db`` does with
+                ``nan_policy="propagate"``.
+
+        Raises:
+            ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
+                not broadcastable, or if this trial and earlier ones disagree on carrying a
+                baseline.
+        """
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
+        if baseline is not None:
+            b = np.asarray(baseline)
+            if np.iscomplexobj(b):
+                raise ValueError(
+                    "baseline is complex; pass baseline power (abs(z_baseline) ** 2), not "
+                    "coefficients"
+                )
+            b = np.broadcast_to(b.astype(np.float64, copy=False), self.shape)
+            if np.any(b < 0):
+                raise ValueError(
+                    "baseline contains negative values, so it is not ratio-scale power; "
+                    "decibels are never accumulated"
+                )
+            if self.sum_ratio is None:
+                if np.any(self.n > 0):
+                    raise ValueError(
+                        "earlier trials were added without a baseline, so a per-trial ratio "
+                        "mean over all trials cannot be formed; pass baseline= to every trial"
+                    )
+                self.sum_ratio = np.zeros(self.shape, np.float64)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                self.sum_ratio += np.where(valid, p / b, 0.0)
+        elif self.sum_ratio is not None:
+            raise ValueError(
+                "earlier trials carried a baseline; pass baseline= to every trial so the "
+                "per-trial ratio mean covers the same trials as power()"
+            )
 
         # Welford update, masked; an empty cell's running mean starts from zero whatever was
         # assigned to it.
@@ -192,6 +249,18 @@ class TFRAccumulator:
         out._mean = _register_trial_averaged(mean)
         out.sum_z = self.sum_z + other.sum_z
         out.sum_unit_z = self.sum_unit_z + other.sum_unit_z
+        if self.sum_ratio is not None or other.sum_ratio is not None:
+            for acc in (self, other):
+                if acc.sum_ratio is None and np.any(acc.n > 0):
+                    raise ValueError(
+                        "refusing to merge: one accumulator carries per-trial ratios and the "
+                        "other holds trials added without a baseline"
+                    )
+            none = np.zeros(self.shape, np.float64)
+            out.sum_ratio = (
+                (none if self.sum_ratio is None else self.sum_ratio)
+                + (none if other.sum_ratio is None else other.sum_ratio)
+            )
         return out
 
     # ---- derived quantities ----
@@ -202,6 +271,26 @@ class TFRAccumulator:
         """Trial-mean power; NaN where no trial was valid."""
         out = _register_trial_averaged(np.where(self.n > 0, self._mean, np.nan))
         return out.view(_TrialAveragedPower)
+
+    def mean_of_ratios(self) -> np.ndarray:
+        """Mean over trials of each trial's ``abs(z) ** 2 / baseline``; NaN where no trial was valid.
+
+        This is the ``how="mean_of_ratios"`` estimand of ``aggregate_to_db``, formed per trial
+        as the trials stream in, so its decibels are ``to_db(acc.mean_of_ratios())``: the
+        logarithm is taken once, after the mean. :meth:`power` cannot give this estimand,
+        because a ratio of trial means is a ratio of means.
+
+        Raises:
+            ValueError: if no trial was added with ``baseline=``.
+        """
+        if self.sum_ratio is None:
+            raise ValueError(
+                "no trial carried a baseline; pass add_trial(z, valid, baseline=...) for "
+                "every trial to form the per-trial ratio mean"
+            )
+        return np.divide(
+            self.sum_ratio, self.n, out=np.full_like(self.sum_ratio, np.nan), where=self.n > 0
+        )
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)
@@ -236,6 +325,10 @@ class TFRAccumulator:
         h5group.create_dataset(
             "sum_unit_z", data=self.sum_unit_z.astype(np.complex64), chunks=ch, **filt
         )
+        if self.sum_ratio is not None:
+            h5group.create_dataset(
+                "sum_ratio", data=self.sum_ratio.astype(np.float32), chunks=ch, **filt
+            )
         for k, v in meta.items():
             h5group.attrs[k] = v
 

@@ -355,7 +355,9 @@ def aggregate_to_db(
             through ``memoryview`` or ``as_strided`` -- numpy results and ``tolist()``), which has
             already averaged over trials and so can only give a ratio of means. A copy made
             by ``np.array``, by assignment into another array, or read back from
-            ``TFRAccumulator.write`` carries no mark and is not refused.
+            ``TFRAccumulator.write`` carries no mark and is not refused. The streaming form of
+            this estimand is ``to_db(acc.mean_of_ratios())`` after every trial was added with
+            ``add_trial(..., baseline=...)``.
 
     Example:
         >>> import numpy as np
@@ -382,7 +384,9 @@ def aggregate_to_db(
             "how='mean_of_ratios' needs per-trial power, and TFRAccumulator.power() has already "
             "averaged over trials, so a ratio of its output is ratio_of_means whatever `how` "
             "names. Stack per-trial power (abs(tfr.z) ** 2) along a trial axis and pass that "
-            "axis as aggregate_over, or name how='ratio_of_means'."
+            "axis as aggregate_over; or stream it: add each trial with "
+            "TFRAccumulator.add_trial(z, valid, baseline=...) and take "
+            "to_db(acc.mean_of_ratios()); or name how='ratio_of_means'."
         )
     p = np.asarray(power, dtype=float)
     b = np.asarray(baseline, dtype=float)

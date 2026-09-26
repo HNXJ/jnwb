@@ -216,6 +216,116 @@ class TestDerivedQuantities:
         assert np.isnan(restored.power()[1, 2]) and np.isnan(restored.power()[0, 1])
 
 
+def _baselines(n_trials, shape, seed):
+    """Per-trial baseline power, unequal across trials so the two estimands differ."""
+    rng = np.random.default_rng(seed)
+    return rng.uniform(0.5, 3.0, size=(n_trials, *shape))
+
+
+def _summarize_ratios(trials, baselines, valid=None):
+    acc = TFRAccumulator(trials.shape[1:])
+    for i in range(trials.shape[0]):
+        v = None if valid is None else valid[i]
+        acc.add_trial(trials[i], valid=v, baseline=baselines[i])
+    return acc
+
+
+class TestPerTrialRatios:
+    """`add_trial(baseline=)` keeps the per-trial ratio sum that `mean_of_ratios()` reads."""
+
+    def test_mean_of_ratios_against_direct_formula_under_a_mask(self):
+        shape = (2, 3, 4)
+        trials = _random_trials(9, shape, seed=11)
+        baselines = _baselines(9, shape, seed=12)
+        valid = np.random.default_rng(13).random((9, *shape)) > 0.3
+        valid[:, 0, 0, 0] = False
+        acc = _summarize_ratios(trials, baselines, valid)
+
+        reached = acc.n > 0
+        ratios = np.where(valid, np.abs(trials) ** 2 / baselines, np.nan)
+        expected = np.nanmean(ratios[:, reached], axis=0)
+        np.testing.assert_allclose(acc.mean_of_ratios()[reached], expected, rtol=1e-12)
+        assert np.isnan(acc.mean_of_ratios()[0, 0, 0])
+        mean_baseline = np.nanmean(np.where(valid, baselines, np.nan)[:, reached], axis=0)
+        ratio_of_means = acc.power()[reached] / mean_baseline
+        assert np.max(np.abs(acc.mean_of_ratios()[reached] - ratio_of_means)) > 0.05
+
+    def test_a_broadcast_baseline_equals_the_full_one(self):
+        shape = (2, 3, 4)
+        trials = _random_trials(5, shape, seed=14)
+        per_freq = _baselines(5, (2, 3, 1), seed=15)
+        narrow = _summarize_ratios(trials, per_freq)
+        full = _summarize_ratios(trials, np.broadcast_to(per_freq, (5, *shape)))
+        np.testing.assert_array_equal(narrow.mean_of_ratios(), full.mean_of_ratios())
+
+    @pytest.mark.parametrize("split", [0, 1, 6, 12])
+    def test_merge_equals_summarize_union(self, split):
+        shape = (2, 2, 3)
+        trials = _random_trials(12, shape, seed=16)
+        baselines = _baselines(12, shape, seed=17)
+        valid = np.random.default_rng(18).random((12, *shape)) > 0.2
+        a = _summarize_ratios(trials[:split], baselines[:split], valid[:split])
+        b = _summarize_ratios(trials[split:], baselines[split:], valid[split:])
+        direct = _summarize_ratios(trials, baselines, valid)
+        for merged in (a.merge(b), b.merge(a)):
+            mask = direct.n > 0
+            np.testing.assert_allclose(
+                merged.mean_of_ratios()[mask], direct.mean_of_ratios()[mask], rtol=1e-12
+            )
+            assert np.all(np.isnan(merged.mean_of_ratios()[~mask]))
+
+    def test_no_baseline_means_no_estimate(self):
+        acc = _summarize(_random_trials(3, (2, 2), seed=19))
+        assert acc.sum_ratio is None
+        with pytest.raises(ValueError, match="no trial carried a baseline"):
+            acc.mean_of_ratios()
+
+    def test_trials_must_agree_on_carrying_a_baseline(self):
+        shape = (2, 2)
+        trials = _random_trials(2, shape, seed=20)
+        without = _summarize(trials[:1])
+        before = (without.n.copy(), without.power().copy())
+        with pytest.raises(ValueError, match="earlier trials were added without a baseline"):
+            without.add_trial(trials[1], baseline=np.ones(shape))
+        # A refused trial changes nothing.
+        np.testing.assert_array_equal(without.n, before[0])
+        np.testing.assert_array_equal(without.power(), before[1])
+
+        carrying = _summarize_ratios(trials[:1], np.ones((1, *shape)))
+        with pytest.raises(ValueError, match="earlier trials carried a baseline"):
+            carrying.add_trial(trials[1])
+        with pytest.raises(ValueError, match="refusing to merge"):
+            carrying.merge(without)
+        with pytest.raises(ValueError, match="refusing to merge"):
+            without.merge(carrying)
+        # An accumulator with no trial pools with either.
+        empty = TFRAccumulator(shape)
+        np.testing.assert_array_equal(
+            empty.merge(carrying).mean_of_ratios(), carrying.mean_of_ratios()
+        )
+
+    @pytest.mark.parametrize("bad,match", [
+        (np.full((2, 2), 1.0 + 1.0j), "complex"),
+        (np.full((2, 2), -1.0), "negative"),
+    ])
+    def test_a_baseline_that_is_not_power_is_refused(self, bad, match):
+        acc = TFRAccumulator((2, 2))
+        with pytest.raises(ValueError, match=match):
+            acc.add_trial(_random_trials(1, (2, 2), seed=21)[0], baseline=bad)
+        assert acc.sum_ratio is None and not acc.n.any()
+
+    def test_write_stores_the_ratio_sum(self, tmp_path):
+        import h5py
+
+        shape = (2, 3, 4)
+        acc = _summarize_ratios(_random_trials(6, shape, seed=22), _baselines(6, shape, seed=23))
+        with h5py.File(tmp_path / "summary.h5", "w") as f:
+            acc.write(f.create_group("g"), dict(TestAssertMergeable.BASE))
+        with h5py.File(tmp_path / "summary.h5", "r") as f:
+            assert f["g"]["sum_ratio"].dtype == np.float32
+            np.testing.assert_allclose(f["g"]["sum_ratio"][:], acc.sum_ratio, rtol=1e-6)
+
+
 class TestNumericalStability:
     """Spec's stated reason to prefer Chan/Welford over sum/sumsq: catastrophic cancellation
     on large-mean/small-variance power, which is the typical TFR profile."""

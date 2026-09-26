@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `jnwb.Question` gains optional fields, all empty by default so existing constructions are
   unchanged: `signal_units`, `data`, `paradigm`, `axes`, `conditions`, `required_skills`,
   `verification_plan`, `unsupported_inference` and `non_identifiable`. `to_dict()` includes them.
+- `TFRAccumulator.add_trial` takes a keyword-only `baseline=`, the trial's own baseline power,
+  and `TFRAccumulator.mean_of_ratios()` returns the mean over trials of each trial's power
+  ratio, so `to_db(acc.mean_of_ratios())` streams `aggregate_to_db(how="mean_of_ratios")`
+  without holding the trials. Either every trial carries a baseline or none does; `merge` pools
+  the ratio sums and `write` stores them as `sum_ratio`. `aggregate_to_db` still refuses
+  `how="mean_of_ratios"` on `power()`.
 
 ### Changed
 
