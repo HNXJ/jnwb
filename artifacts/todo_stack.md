@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-14, 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
+| 2b | 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -169,7 +169,6 @@ a `deferred-0.2.8` item with the reason it waits.
 - P-322: `get_all_units_metadata(filter_quality=True)` on a file with no `quality` column raises a `KeyError` handled as a read failure, where the CHANGELOG says a `RuntimeWarning`. Waits: loud, and those units would be excluded anyway.
 - P-323: `compute_population_trajectory` leaves out `device_used` when the area has no units. Waits: no trajectory is computed.
 - P-324: `compress_fp32(select=)` on a same-file SoftLink writes an independent float32 copy under the link's name while the target stays float64. Waits: nothing requested is miscast; a test pins the behaviour.
-- P-325: The `FutureWarning` for `compress_fp32` without `select=` advises a path that raises `TypeError` on an int16 LFP, so an int16 LFP has no non-deprecated route. Waits: the floats-only rule is ruled; only the advice is wrong.
 - P-326: `composition_subset_0.2.6.md` still reads "Live defect" for H1-H7, repaired since. Waits: stale internal evidence text.
 - P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Waits: the release runs from a clean tree, checked by hand before tagging.
 - P-328: The workflow pins `actions/checkout`, `setup-python`, `upload-artifact` and `download-artifact` to tags, so the repository's SHA-pin requirement for Actions stays off. Waits: those are GitHub-owned and allow-listed; pin them to commits, then turn the requirement on.
@@ -425,20 +424,6 @@ each invariant that restates a `docs/` definition is replaced by the link; the s
 existing skills does not grow.
 Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
 requires.
-
-### 07-14 `compress_fp32` requires `select=`
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/compression.py`, `tests/test_compression.py`, `skills/jnwb-nwb-data/SKILL.md`, `docs/*.md`, `examples/**/*.py`, `CHANGELOG.md`.
-Ruled 2026-09-22 (06-13): 0.2.6 warns, 0.2.7 requires. Reproduced at `dcb75f12`:
-`inspect.signature(jnwb.compress_fp32)` shows `select=None`, and `jnwb/compression.py:12` says the
-preset path emits `FutureWarning` and that `select=` becomes required in 0.2.7. P-325 of 07-01 (the
-warning's advice raises on an int16 LFP) goes with the warning and is closed by this item.
-Discriminator: a call without `select=` warns before the change and raises after.
-Accept: a call without `select=` raises `TypeError` naming the parameter before anything is written;
-every caller in the repository names it; the routing row binds; `CHANGELOG.md` records the break.
-Stop: a caller in the repository has no float selection to name.
 
 ### 07-15 `aggregate_to_db(how="mean_of_ratios")` from a streaming accumulator
 
