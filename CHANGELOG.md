@@ -108,6 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and that condition for every metric. `hsic`, `mutual_information` and
   `transfer_entropy_histogram_nats` returned 0.0 computed from zero samples, six metrics
   returned NaN and five raised unrelated errors.
+- `nested_cv_linear_svm(rng=None)` draws one seed from a fresh `numpy.random.default_rng()` for
+  its folds, group order and `SVC`. It passed `None` to scikit-learn, which read and advanced
+  NumPy's global `RandomState`. An int `rng` gives the same folds as before.
 
 ## [0.2.6.1] - 2026-09-25
 

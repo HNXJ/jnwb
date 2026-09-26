@@ -172,9 +172,12 @@ def sklearn_random_state(rng: RNGLike, *, func_name: str) -> Optional[int]:
     not take a ``Generator``. An ``int`` is passed through **unchanged** rather than being
     used to seed a ``Generator`` and redrawn, so ``rng=DEFAULT_SEED`` reproduces the
     partitions the hardcoded ``random_state=42`` produced, to the fold.
+
+    ``None`` becomes one int drawn from a fresh ``default_rng()``. Passing ``None`` on would
+    make scikit-learn draw from NumPy's global ``RandomState``, reading and advancing it.
     """
     if rng is None:
-        return None
+        return int(np.random.default_rng().integers(0, 2**32 - 1))
     if isinstance(rng, (int, np.integer)) and not isinstance(rng, bool):
         return int(rng)
     if isinstance(rng, np.random.Generator):

@@ -86,6 +86,41 @@ class TestNestedCvLinearSvm:
             assert key in result
 
 
+def _rng_probe_data():
+    g = np.random.default_rng(0)
+    X = g.normal(size=(60, 5))
+    y = np.repeat([0, 1], 30)
+    X[y == 1, 0] += 1.0
+    return X, y, np.tile(np.arange(6), 10)
+
+
+class TestNestedCvRng:
+    @pytest.mark.parametrize("grouped", [False, True])
+    def test_rng_none_leaves_the_global_random_state_alone(self, grouped):
+        """`rng=None` reached scikit-learn as `random_state=None`, which draws the folds,
+        and the grouped path's group order, from NumPy's global RandomState."""
+        X, y, groups = _rng_probe_data()
+        np.random.seed(123)
+        before = np.random.get_state()
+        nested_cv_linear_svm(X, y, n_splits=3, rng=None,
+                             groups=groups if grouped else None)
+        after = np.random.get_state()
+        assert before[0] == after[0] and before[2:] == after[2:]
+        np.testing.assert_array_equal(before[1], after[1])
+
+    @pytest.mark.parametrize("grouped, folds, f1, auc, c", [
+        (False, [0.8, 0.7, 0.8], 0.75, 0.8788888888888888, 1.0),
+        (True, [0.95, 0.85, 0.85], 0.8852459016393442, 0.9233333333333333, 0.1),
+    ])
+    def test_an_int_rng_reproduces_its_folds(self, grouped, folds, f1, auc, c):
+        """Pinned before `rng=None` stopped passing through: an int seed is unchanged."""
+        X, y, groups = _rng_probe_data()
+        r = nested_cv_linear_svm(X, y, n_splits=3, rng=7, groups=groups if grouped else None)
+        np.testing.assert_allclose(r["fold_accuracies"], folds, rtol=1e-12)
+        np.testing.assert_allclose([r["f1"], r["auc"]], [f1, auc], rtol=1e-12)
+        assert r["best_params"] == {"C": c}
+
+
 def _trials(n_groups=3, n_per_group=2, n_analyses=1):
     rows = []
     trial_id = 0

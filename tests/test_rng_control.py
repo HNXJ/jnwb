@@ -148,8 +148,13 @@ class TestNoneNowMeansFreshEntropy:
         a, _ = ab
         assert SA.bootstrap_ci(a) == SA.bootstrap_ci(a)
 
-    def test_sklearn_random_state_passes_none_through(self):
-        assert sklearn_random_state(None, func_name="t") is None
+    def test_sklearn_random_state_draws_none_from_fresh_entropy(self):
+        """Passing None on let scikit-learn draw from NumPy's global RandomState."""
+        np.random.seed(5)
+        before = np.random.get_state()[1].copy()
+        seed = sklearn_random_state(None, func_name="t")
+        assert isinstance(seed, int)
+        np.testing.assert_array_equal(np.random.get_state()[1], before)
 
 
 class TestOneSpellingAcceptsASeedOrAGenerator:
