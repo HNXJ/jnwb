@@ -23,7 +23,7 @@ Core objects:
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, ClassVar, Tuple
 
 import pandas as pd
 
@@ -327,6 +327,50 @@ class Question:
             'contrast': self.contrast,
             'inference_unit': self.inference_unit,
             'metadata': self.metadata,
+        }
+
+
+@dataclass(frozen=True)
+class Preflight:
+    """
+    The outcome of checking a planned analysis before it runs.
+
+    One of four outcomes, with the reason and, for a request, the inputs it needs:
+
+    - ``"supported"``: the operations exist and the inputs are present; compose and execute.
+    - ``"request"``: an input is missing; ``missing`` names each one.
+    - ``"failure"``: the result would not be identifiable from these inputs.
+    - ``"decline"``: the inference is one no operation supports.
+
+    Every field is plain data, so a script can score outcomes from the object or from
+    ``to_dict()`` alone. ``missing`` is non-empty exactly when ``outcome`` is ``"request"``.
+    """
+    outcome: str
+    reason: str
+    missing: Tuple[str, ...] = ()
+
+    OUTCOMES: ClassVar[Tuple[str, ...]] = ("supported", "request", "failure", "decline")
+
+    def __post_init__(self):
+        if self.outcome not in self.OUTCOMES:
+            raise ValueError(f"outcome={self.outcome!r} is not one of {self.OUTCOMES}")
+        if not isinstance(self.reason, str) or not self.reason.strip():
+            raise ValueError("reason must be a non-empty string")
+        missing = tuple(self.missing)
+        if not all(isinstance(m, str) and m.strip() for m in missing):
+            raise ValueError(f"missing must hold non-empty strings, got {missing!r}")
+        if (self.outcome == "request") != bool(missing):
+            raise ValueError(
+                "missing is non-empty exactly when outcome is 'request'; "
+                f"got outcome={self.outcome!r}, missing={missing!r}"
+            )
+        object.__setattr__(self, "missing", missing)
+
+    def to_dict(self) -> Dict:
+        return {
+            'outcome': self.outcome,
+            'reason': self.reason,
+            'missing': list(self.missing),
         }
 
 

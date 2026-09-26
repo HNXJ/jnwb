@@ -361,6 +361,48 @@ class TestTheModuleImportsOnlyWhatItUses:
         assert hasattr(O, "pd") and hasattr(O, "warnings") and hasattr(O, "datetime")
 
 
+class TestPreflightCarriesItsOutcomeAsData:
+    """A script reads the outcome, the reason and the missing inputs from the object alone."""
+
+    CASES = {
+        "supported": ("the operations exist and every input is present", ()),
+        "request": ("no sampling rate was given", ("fs", "baseline_window")),
+        "failure": ("one class in the labels leaves nothing to decode", ()),
+        "decline": ("lag asymmetry does not establish causation", ()),
+    }
+
+    def test_the_vocabulary_is_the_four_outcomes_in_order(self):
+        assert O.Preflight.OUTCOMES == ("supported", "request", "failure", "decline")
+
+    @pytest.mark.parametrize("outcome", list(CASES))
+    def test_each_outcome_round_trips_through_to_dict(self, outcome):
+        reason, missing = self.CASES[outcome]
+        pf = O.Preflight(outcome=outcome, reason=reason, missing=list(missing))
+        assert (pf.outcome, pf.reason, pf.missing) == (outcome, reason, missing)
+        d = json.loads(json.dumps(pf.to_dict()))
+        assert d == {"outcome": outcome, "reason": reason, "missing": list(missing)}
+
+    @pytest.mark.parametrize(
+        "kwargs, match",
+        [
+            ({"outcome": "non_identifiable", "reason": "r"}, "is not one of"),
+            ({"outcome": "decline", "reason": "  "}, "non-empty string"),
+            ({"outcome": "request", "reason": "r"}, "exactly when"),
+            ({"outcome": "supported", "reason": "r", "missing": ("fs",)}, "exactly when"),
+            ({"outcome": "request", "reason": "r", "missing": ("",)}, "non-empty strings"),
+        ],
+        ids=["unknown-outcome", "blank-reason", "request-names-nothing",
+             "missing-without-request", "blank-missing-name"],
+    )
+    def test_an_inconsistent_record_is_refused(self, kwargs, match):
+        with pytest.raises(ValueError, match=match):
+            O.Preflight(**kwargs)
+
+    def test_it_is_not_yet_exported(self):
+        """Its signature is an open public API choice; exporting it is that choice."""
+        assert "Preflight" not in O.__all__ and "Preflight" not in jnwb.__all__
+
+
 class TestProvenanceRecordsThePackageThatRan:
     """`software_version` is the caller's claim and nothing derived it, so a
     record could name a version that never executed -- and, being frozen, keep it. A

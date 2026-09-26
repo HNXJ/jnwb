@@ -350,6 +350,15 @@ capability-gated"). The preflight reads goal, data, paradigm, signals, units, ax
 inferential unit, missing information, required skills and a verification plan, and returns one of
 the four outcomes of `artifacts/direction.md` with the reason and the missing inputs as data. 07-05
 (a) scores decline accuracy through it.
+Landed as the shared base: `jnwb.ontology.Preflight(outcome, reason, missing)`, unexported, with
+`Preflight.OUTCOMES` the single home of the four outcome names that
+`tests/test_skill_decline_behaviour.py` now reads. Remains, graded no higher than recommended and
+put to Hamm: (1) function `jnwb.preflight(question, ...)` against a method on `Question`, whose
+docstring says it has no methods; (2) whether decline and failure are caller-declared or decided by
+a claim vocabulary jnwb would encode; (3) whether a check before execution may return `failure`,
+which `docs/architecture.md` places after execution; (4) the names of the new `Question` fields,
+where `units` collides with the neural unit of `inference_unit`. Then export, `docs/api.md`, the
+router row and `CHANGELOG.md`.
 Accept: one test per outcome drives the preflight from a script and reads the outcome, the reason
 and the missing inputs from the returned object alone; the router names it; Gate 6 passes.
 Stop: the signature or the outcome vocabulary admits two defensible forms, a public API choice under
