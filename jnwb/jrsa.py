@@ -342,8 +342,9 @@ def jrsa(
         ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
         ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
         raises TypeError rather than being silently ignored. The histogram TE conditions on
-        one past sample of each series, takes no history length, and takes one series per
-        input: a multi-row input raises ValueError.
+        one past sample of each series and takes no history length. ``granger_ssr_ftest``,
+        ``phase_slope`` and ``transfer_entropy_histogram_nats`` take one series per input:
+        a multi-row input raises ValueError.
 
     Returns
     -------
@@ -1836,6 +1837,7 @@ def _grangercausalitytests_compat(data, maxlag):
 def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
     """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "granger_ssr_ftest", "jnwb.granger")
     try:
         a = x1.ravel()
         b = x2.ravel()[:len(a)]
@@ -1876,6 +1878,22 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
         return np.float64(np.nan), None, None, None, None
 
 
+def _require_one_series(x, metric, trial_function):
+    """Refuse an input holding more than one row for a metric that reads temporal order.
+
+    Flattening several rows into one series made the last sample of each row the past of the
+    first sample of the next, so every join between rows entered the estimate as a time step.
+    """
+    if int(np.prod(x.shape[:-1])) > 1:
+        raise ValueError(
+            f"jrsa(metric={metric!r}) takes one series per input; got shape "
+            f"{tuple(x.shape)}. Flattening the rows would count each join between rows as a "
+            "time transition, and pooling the rows or averaging per-row values are different "
+            f"estimators. Pass one row at a time, or use {trial_function}, which takes "
+            "(n_trials, n_times)."
+        )
+
+
 def _entropy(probs):
     """Calculate Shannon entropy in nats from probability array."""
     probs = probs[probs > 0]
@@ -1895,14 +1913,7 @@ def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
     rows was counted as a time transition.
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
-    if int(np.prod(x1.shape[:-1])) > 1:
-        raise ValueError(
-            f"jrsa(metric='transfer_entropy_histogram_nats') takes one series per input; got "
-            f"shape {tuple(x1.shape)}. Flattening the rows would count each join between "
-            "rows as a time transition, and pooling the rows' transitions or averaging "
-            "per-row values are different estimators. Pass one row at a time, or use "
-            "jnwb.transfer_entropy, which takes (n_trials, n_times)."
-        )
+    _require_one_series(x1, "transfer_entropy_histogram_nats", "jnwb.transfer_entropy")
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
     
@@ -1960,6 +1971,7 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
     from .connectivity import phase_slope_index as _psi_impl
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "phase_slope", "jnwb.phase_slope_index")
     a = x1.ravel()
     b = x2.ravel()[: len(a)]
     n = min(len(a), len(b))

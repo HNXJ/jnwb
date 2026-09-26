@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the next, so every join between rows counted as a time transition. It raises `ValueError` for
   an input with more than one row; pass one series per call, or use `jnwb.transfer_entropy` for
   `(n_trials, n_times)`.
+- **`jrsa(metric="granger_ssr_ftest")` and `jrsa(metric="phase_slope")` refuse several rows
+  (breaking).** Both flattened the input into one series, so each join between rows entered as
+  a time step, and the value depended on the order of the rows. Both raise `ValueError` for
+  more than one row; a 1-D or `(1, n)` input gives the value it gave before. For trials use
+  `jnwb.granger` or `jnwb.phase_slope_index`, which take `(n_trials, n_times)`.
 - **`jrsa(nan_policy="omit")` drops the observation of a row metric.** For the six metrics
   above it dropped the last-axis column holding the NaN, which removed a feature from every
   observation; it now drops the row of axis 0. Values change wherever such an input held a NaN.

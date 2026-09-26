@@ -87,6 +87,23 @@ def test_the_histogram_te_counts_no_join_between_rows():
                          stats=False).value) == one
 
 
+@pytest.mark.parametrize("metric, kw", [
+    ("granger_ssr_ftest", {}),
+    ("phase_slope", {"fs": 100.0, "nperseg": 64}),
+])
+def test_series_metrics_count_no_join_between_rows(metric, kw):
+    """x2 in each row equals x1 in the next, so the flattened x2 runs one row ahead of the
+    flattened x1 and each join between rows reads as a lead of x2 over x1. The rows are
+    refused; one row, 1-D or (1, n), gives the same value."""
+    rng = np.random.default_rng(4)
+    rows = rng.normal(size=(9, 256))
+    x1, x2 = rows[:-1], rows[1:]
+    with pytest.raises(ValueError, match="one series per input.*join between rows"):
+        oa.jrsa(x1, x2, metric=metric, stats=False, **kw)
+    one = oa.jrsa(x1[0], x2[0], metric=metric, stats=False, **kw).value
+    assert float(oa.jrsa(x1[:1], x2[:1], metric=metric, stats=False, **kw).value) == float(one)
+
+
 @pytest.mark.parametrize("metric", _all_metrics())
 @pytest.mark.parametrize("shape, nan_policy", [
     ((0, 40), "omit"), ((6, 0), "raise"), ((6, 0), "propagate"),
