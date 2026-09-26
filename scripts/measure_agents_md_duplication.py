@@ -46,7 +46,7 @@ NAMED = [
     "artifacts/direction.md",
     "CONTRIBUTING.md",
     "docs/documentation_form.md",
-    # The published agent page carries a skill table of its own beside section 7's.
+    # The published agent page holds the only table of shipped skills; section 7 points to it.
     "docs/agents.md",
 ]
 PATTERNS = ["skills/*/SKILL.md", "artifacts/skills/*/SKILL.md", "artifacts/agents/*.md"]
