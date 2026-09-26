@@ -124,8 +124,8 @@ fig_dist = jnwb.visual_qc.plot_unit_quality_distribution(units_df, session_ids=[
 # not from LFP segments or spike trains.
 fig_noise = jnwb.visual_qc.plot_noise_vs_signal(units_df)
 
-# Multi-session QC comparison bars. Takes the DataFrame that
-# diagnostics.compare_sessions() returns, not a list of per-session results.
+# Multi-session QC comparison bars: one row per session, with columns session_id,
+# snr_mean and total_units, and optionally snr_good_rate (a fraction, 0 to 1).
 fig_comp = jnwb.visual_qc.compare_session_quality(sessions_comparison_df)
 ```
 

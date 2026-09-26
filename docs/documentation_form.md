@@ -124,10 +124,10 @@ sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2425 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `common_mistakes` | 2427 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1609 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
-| `04_spectral_analysis_and_tfr` | 1873 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
-| `errors` | 1679 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
+| `04_spectral_analysis_and_tfr` | 1917 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
+| `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 

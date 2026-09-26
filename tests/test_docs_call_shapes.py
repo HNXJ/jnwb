@@ -326,6 +326,10 @@ SPEC_CALL = re.compile(r"^[a-z_][A-Za-z0-9_]*\(.*\)$")
 def _spec_table_rows():
     """Data rows of the operation table, as `(operation, module_cell, input_cell)`."""
     text = (ROOT / SPEC_PAGE).read_text(encoding="utf-8")
+    # The operation table is the one under this heading; section 1 carries other tables.
+    heading = "\n## 2. Operation Specifications\n"
+    assert text.count(heading) == 1, f"{SPEC_PAGE} lost its operation-table heading"
+    text = text.split(heading, 1)[1]
     rows = []
     for line in text.splitlines():
         if not line.startswith("|"):
@@ -494,7 +498,8 @@ def test_the_spec_page_does_not_document_zflip_fields_that_do_not_exist(field):
         "replaced by one that checks the documentation mentions it"
     )
     text = (ROOT / SPEC_PAGE).read_text(encoding="utf-8")
-    assert field not in text, (
+    # A word match: `synth_phase_gradient` names a builder, not the field.
+    assert not re.search(rf"\b{field}\b", text), (
         f"the spec page documents ZFlipResult.{field}, which is not a field of the "
         f"result; "
         f"the live fields are {sorted(live)}"

@@ -1,6 +1,6 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` runs representational similarity analysis (RSA) on neural time series: population firing rate tensors, multichannel LFP arrays, or any response tensor.
+`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP.
 
 ---
 
@@ -8,8 +8,8 @@
 
 RSA compares neural population geometry across experimental conditions without fitting a classifier.
 
-The diagram below is the call order. Two response tensors enter, one `JRSAResult` leaves, and
-`summary` and `plot` are read off that result rather than recomputed from the tensors.
+The diagram is the call order: two tensors enter, one `JRSAResult` leaves, and `summary` and
+`plot` read that result.
 
 ```mermaid
 graph LR
@@ -135,21 +135,21 @@ values = np.array([float(r.value) for r in per_window])   # one value per window
 ```
 
 The lag drops 5 of each window's 20 samples, so the circular-shift null runs on 15 and p
-cannot fall below about 1/15.
+cannot fall below about 1/15, which is above 0.05.
 
 Each call forms its own permutation null, so correct the per-window p-values together
 (for example with `jnwb.StatisticalAnalysis.fdr_correct`) before reading any one of them.
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
-- **Missing data (`nan_policy`)**: if conditions lack trials, `nan_policy="omit"` propagates `NaN` across the affected RDM pairs rather than fabricating zeros.
+- **Missing data (`nan_policy`)**: `"omit"` drops every last-axis sample that is `NaN` anywhere in either input, so a condition with no trials leaves nothing: `"pearson"` and `"spearman"` raise `ValueError`; `"cka"` and `"rsa"` return `NaN`.
 - **Preprocessing**: standardizing each condition's pattern before correlation-distance RSA changes nothing, because correlation centers and scales each pattern itself. Z-scoring each feature across conditions does change the RDM.
 
 ---
 
 ## 5. Standalone RDM Operations (`jnwb.rdm`, `jnwb.rdm_similarity`)
 
-To build RDMs or compare precomputed dissimilarity matrices without running `jrsa`:
+To build or compare RDMs without `jrsa`:
 
 ```python
 # Compute pairwise distance matrix (N conditions x D features)

@@ -126,13 +126,13 @@ the log-last rule forbids, and prints all three in dB so the gap is a number rat
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
 ```python
-# Estimate 1/f spectral tilt / exponent from time series
+# Log-log slope of the spectrum from a time series (negative for 1/f; see below)
 tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
 
 # Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
 # freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
 fit_res = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 40.0), mode="fixed")
-# Returns jnwb.AperiodicFitResult with offset, exponent, knee, r_squared, accepted
+# Returns jnwb.AperiodicFitResult with offset, exponent (positive for 1/f decay), knee, r_squared, accepted
 
 # Harmonic distortion analysis
 harmonics = jnwb.harmonic_analysis(lfp_trace, fs=1000.0, harmonic_orders=3)
@@ -161,7 +161,11 @@ is evidence of current entering there, not of which structure supplied it.
 
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
 falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
-aperiodic exponent from it, near -2.
+log-log slope from it, near -2.
+
+**Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
+-exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
+returns the slope, near -2, under the key `exponent`.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 

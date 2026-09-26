@@ -10,15 +10,14 @@ Bootstrap intervals, permutations under a named exchangeability scheme, FDR cont
 
 ### Local RNG Injection & Global RNG Isolation
 
-Resampling functions that draw take an optional `rng: np.random.Generator`. The exceptions
-are `exploratory_compare` and `exploratory_correlate`, whose signatures carry no `rng` and
-no `**kwargs`: passing one raises `TypeError`.
+Resampling functions that draw take `rng`; `exploratory_compare` and `exploratory_correlate`
+take none, and passing one raises `TypeError`. The global RNG state is never read or mutated.
 
-| Property | What it means |
+| Surface | Accepted `rng` |
 |---|---|
-| Isolated determinism | With `rng` omitted, the function builds its own `default_rng(42)`. Python's and NumPy's global RNG state is never read or mutated |
-| Caller control | An independent `np.random.Generator` per worker makes parallel sweeps reproducible |
-| Strict typing | A non-`Generator` object raises `TypeError` rather than being coerced |
+| `StatisticalAnalysis` methods | an `int` seed, a `Generator`, or `None` for fresh entropy; omitted, the seed `42`. Other types raise `TypeError` when drawn from |
+| `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` | a `Generator` only |
+| `build_permutation_plan` | an `int` only |
 
 ```python
 import numpy as np
