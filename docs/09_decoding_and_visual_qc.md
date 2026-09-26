@@ -44,9 +44,9 @@ grouped_res = jnwb.nested_cv_linear_svm(X, labels, n_splits=5, groups=block_id)
 
 | | `groups=None` | `groups=block_id` |
 |---|---|---|
-| Outer folds | `StratifiedKFold` over rows | `StratifiedGroupKFold`: each group in one test fold, class balance kept as far as the groups allow |
-| Inner search for C | `StratifiedKFold` over training rows | `StratifiedGroupKFold` over training groups; `C=1.0` when fewer than two training groups remain |
-| `n_splits` clipped to | minority-class count | group count |
+| Outer folds | `StratifiedKFold` over rows | `StratifiedGroupKFold` over the groups in an order drawn from `rng`: each group in one test fold, class balance kept as far as the groups allow |
+| Inner search for C | `StratifiedKFold` over training rows | `StratifiedGroupKFold` over training groups; `C=1.0` when fewer than two training groups remain or an inner training split would hold one class |
+| `n_splits` clipped to | minority-class count | minority-class count and group count |
 | `cv_scheme` | `"nested_stratified"` | `"nested_stratified_group"` |
 
 A grouped call raises when an outer training fold holds a single class, which a class present

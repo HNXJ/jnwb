@@ -21,6 +21,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, Stratifi
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from sklearn.utils import check_random_state
 
 from ._rng import DEFAULT_SEED, RNGLike, sklearn_random_state
 
@@ -85,19 +86,53 @@ def fold_majority_baseline(y_train: np.ndarray, y_test: np.ndarray) -> float:
     return float(np.mean(y_test == majority_class))
 
 
-def _validate_groups(groups: np.ndarray, n_trials: int) -> np.ndarray:
+def _group_codes(groups: np.ndarray, n_trials: int) -> np.ndarray:
+    """Integer codes 0..n_groups-1 for ``groups``, after refusing ids that name no group.
+
+    The dtype check alone missed NaN in an object array: ``np.unique`` then gave the
+    NaN-bearing entries their own slots, one real group became several, and its trials
+    were split across train and test while the call reported success.
+    """
     groups = np.asarray(groups)
     if groups.shape != (n_trials,):
         raise ValueError(
             f"nested_cv_linear_svm: groups has shape {groups.shape}; it needs one group id "
             f"per trial, shape ({n_trials},)."
         )
-    if groups.dtype.kind in "fc" and not np.all(np.isfinite(groups)):
+    missing = np.asarray(pd.isna(groups), dtype=bool)
+    if groups.dtype.kind in "fc":
+        missing |= ~np.isfinite(groups)
+    if missing.any():
         raise ValueError(
-            "nested_cv_linear_svm: groups contains NaN or infinity. A missing group id is "
-            "not a group; label those trials explicitly or drop them."
+            f"nested_cv_linear_svm: groups contains {int(missing.sum())} missing or "
+            f"non-finite id(s). A missing group id is not a group; label those trials "
+            f"explicitly or drop them."
         )
-    return groups
+    try:
+        codes = np.unique(groups, return_inverse=True)[1]
+    except TypeError as exc:
+        raise ValueError(
+            "nested_cv_linear_svm: groups mixes ids that cannot be compared with each "
+            "other (for example numbers and strings); use one type of id."
+        ) from exc
+    return np.asarray(codes, dtype=np.intp).reshape(n_trials)
+
+
+def _grouped_splits(
+    X: np.ndarray, y: np.ndarray, codes: np.ndarray, n_splits: int, random_state
+) -> list:
+    """``StratifiedGroupKFold`` folds with the group order drawn from ``random_state``.
+
+    ``StratifiedGroupKFold(shuffle=True)`` before scikit-learn 1.8 shuffles the per-group
+    class counts without the matching group ids, so its folds are neither stratified nor
+    the groups it reports on. Relabelling the groups with a random permutation and
+    splitting unshuffled gives the randomized tie-breaking ``shuffle`` intends, on every
+    supported version.
+    """
+    uniq, dense = np.unique(codes, return_inverse=True)
+    perm = check_random_state(random_state).permutation(len(uniq))
+    relabelled = perm[dense.reshape(-1)]
+    return list(StratifiedGroupKFold(n_splits=n_splits, shuffle=False).split(X, y, relabelled))
 
 
 def _single_class_error(fold: str, y_train: np.ndarray, classes: np.ndarray) -> ValueError:
@@ -132,11 +167,12 @@ def nested_cv_linear_svm(
             non-negative, and strings work.
         n_splits: requested number of outer folds; clipped to the minority
             class count when there are too few trials per class, and with
-            ``groups`` to the number of distinct groups instead.
-        groups: optional (n_trials,) group ids (block, cycle, session). When
-            given, outer folds are ``StratifiedGroupKFold``: every group's
-            trials land in one test fold, and class balance across folds is
-            kept as far as the groups allow. The inner search for C is grouped
+            ``groups`` also to the number of distinct groups.
+        groups: optional (n_trials,) group ids (block, cycle, session) of one
+            comparable type, none missing. When given, outer folds are
+            ``StratifiedGroupKFold`` over the groups in an order drawn from
+            ``rng``: every group's trials land in one test fold, and class
+            balance across folds is kept as far as the groups allow. The inner search for C is grouped
             the same way within each outer training set, and falls back to
             ``C=1.0`` when that set has fewer than two groups or an inner
             training split would hold one class. ``None`` (the default) gives
@@ -153,15 +189,16 @@ def nested_cv_linear_svm(
         or ``"nested_stratified_group"`` with ``groups``.
 
     Raises:
-        ValueError: If ``groups`` is not one finite id per trial, or if a
-            grouped outer training set holds a single class.
+        ValueError: If ``groups`` is not one id per trial, has a missing or
+            non-finite id, mixes ids that cannot be compared, or if a grouped
+            outer training set holds a single class.
     """
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)
     grouped = groups is not None
     cv_scheme = "nested_stratified_group" if grouped else "nested_stratified"
     if grouped:
-        groups = _validate_groups(groups, len(labels))
+        groups = _group_codes(groups, len(labels))
         n_groups = len(np.unique(groups))
         if n_groups < 2:
             return {
@@ -212,10 +249,10 @@ def nested_cv_linear_svm(
     if grouped:
         # StratifiedGroupKFold rather than GroupKFold: group integrity is the hard
         # constraint, and it still keeps the class balance the ungrouped folds give,
-        # as far as the groups allow. The fold count cannot exceed the group count.
-        n_outer = min(n_splits, n_groups)
-        outer = StratifiedGroupKFold(n_splits=n_outer, shuffle=True, random_state=random_state)
-        outer_splits = outer.split(X, labels, groups)
+        # as far as the groups allow. The fold count cannot exceed the group count, and
+        # is clipped to the minority-class count exactly as the ungrouped folds are.
+        n_outer = min(n_splits, max_splits, n_groups)
+        outer_splits = _grouped_splits(X, labels, groups, n_outer, random_state)
     else:
         n_outer = min(n_splits, max_splits)
         outer = StratifiedKFold(n_splits=n_outer, shuffle=True, random_state=random_state)
@@ -250,10 +287,8 @@ def nested_cv_linear_svm(
             g_train = groups[train_idx]
             inner_splits = min(inner_splits, len(np.unique(g_train)))
             if inner_splits >= 2:
-                inner_cv = list(
-                    StratifiedGroupKFold(
-                        n_splits=inner_splits, shuffle=True, random_state=random_state
-                    ).split(X_train, y_train, g_train)
+                inner_cv = _grouped_splits(
+                    X_train, y_train, g_train, inner_splits, random_state
                 )
                 if any(len(np.unique(y_train[i_tr])) < 2 for i_tr, _ in inner_cv):
                     inner_splits = 1

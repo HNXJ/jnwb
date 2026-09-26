@@ -262,6 +262,22 @@ def _group_offset_data(n_groups=20, n_per_group=6, n_features=30, seed=0):
     return X, labels, groups
 
 
+def _record_grouped_splits(monkeypatch):
+    """Record every grouped split the decoder draws: trial count, fold count and folds."""
+    import jnwb.decoding as decoding
+
+    calls = []
+    original = decoding._grouped_splits
+
+    def recording(X, y, codes, n_splits, random_state):
+        folds = original(X, y, codes, n_splits, random_state)
+        calls.append({"n": len(codes), "n_splits": n_splits, "folds": folds})
+        return folds
+
+    monkeypatch.setattr(decoding, "_grouped_splits", recording)
+    return calls
+
+
 class TestNestedCvGroups:
     # Computed by running the pre-`groups` implementation (commit 27f400a2) on
     # `_noisy_two_class()`. The data is noisy enough that every fold changes the numbers,
@@ -303,39 +319,95 @@ class TestNestedCvGroups:
         """Asserted on the folds the decoder iterated, captured at the splitter."""
         import jnwb.decoding as decoding
 
-        calls = []
-
-        class Recording(decoding.StratifiedGroupKFold):
-            def split(self, X, y=None, groups=None):
-                folds = list(super().split(X, y, groups))
-                calls.append((np.asarray(groups).copy(), folds))
-                yield from folds
-
-        monkeypatch.setattr(decoding, "StratifiedGroupKFold", Recording)
+        calls = _record_grouped_splits(monkeypatch)
         X, labels, groups = _group_offset_data(n_groups=12)
-        res = nested_cv_linear_svm(X, labels, n_splits=4, groups=groups)
+        ids = np.array([f"block-{g}" for g in groups], dtype=object)  # opaque ids, encoded
+        res = nested_cv_linear_svm(X, labels, n_splits=4, groups=ids)
         assert res["status"] == "success"
         assert res["cv_scheme"] == "nested_stratified_group"
 
-        outer = [c for c in calls if c[0].shape == groups.shape]
+        outer = [c for c in calls if c["n"] == groups.size]
         assert len(outer) == 1, "the outer folds were not drawn by the grouped splitter"
-        outer_groups, outer_folds = outer[0]
-        np.testing.assert_array_equal(outer_groups, groups)
+        outer_folds = outer[0]["folds"]
         assert len(outer_folds) == len(res["fold_accuracies"]) == 4
         tested = np.concatenate([test for _, test in outer_folds])
         assert np.array_equal(np.sort(tested), np.arange(groups.size))
+        # Checked against the caller's ids, not the codes the splitter saw.
         for train, test in outer_folds:
-            assert not set(groups[train]) & set(groups[test])
+            assert not set(ids[train]) & set(ids[test])
 
         # Inner behaviour: C is searched over folds that hold out groups of the outer
         # training set, one grouped search per outer fold.
-        inner = [c for c in calls if c[0].shape != groups.shape]
+        inner = [c for c in calls if c["n"] != groups.size]
         assert len(inner) == len(outer_folds)
-        for (inner_groups, inner_folds), (train, test) in zip(inner, outer_folds):
-            np.testing.assert_array_equal(inner_groups, groups[train])
-            assert not set(inner_groups) & set(groups[test])
-            for i_train, i_test in inner_folds:
-                assert not set(inner_groups[i_train]) & set(inner_groups[i_test])
+        for call, (train, _test) in zip(inner, outer_folds):
+            assert call["n"] == train.size
+            inner_ids = ids[train]
+            for i_train, i_test in call["folds"]:
+                assert not set(inner_ids[i_train]) & set(inner_ids[i_test])
+
+    def test_grouped_outer_folds_keep_class_balance(self):
+        """``StratifiedGroupKFold(shuffle=True)`` before scikit-learn 1.8 shuffled the
+        per-group class counts without their groups, so its folds were not stratified;
+        on 1.3.1 this design averaged 0.218 against 0.106 for the route used here."""
+        import jnwb.decoding as decoding
+
+        groups = np.repeat(np.arange(12), 6)
+        n_class1 = np.tile(np.arange(1, 7), 2)
+        labels = np.concatenate([np.r_[np.ones(k), np.zeros(6 - k)] for k in n_class1]).astype(int)
+        X = np.zeros((groups.size, 1))
+        worst = []
+        for rs in range(40):
+            folds = decoding._grouped_splits(X, labels, groups, 4, rs)
+            worst.append(max(abs(labels[te].mean() - labels.mean()) for _, te in folds))
+        assert np.mean(worst) <= 0.15, np.mean(worst)
+
+    def test_n_splits_is_clipped_to_groups_and_to_the_minority_class(self, monkeypatch):
+        calls = _record_grouped_splits(monkeypatch)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 12)
+        labels = np.tile([0, 1], 18)
+        res = nested_cv_linear_svm(rng.normal(size=(36, 4)), labels, n_splits=10, groups=groups)
+        assert len(res["fold_accuracies"]) == 3 and calls[0]["n_splits"] == 3
+
+        # Two class-1 trials in six groups: the minority count caps the folds, as it does
+        # without groups.
+        calls.clear()
+        groups = np.repeat(np.arange(6), 4)
+        labels = np.zeros(24, dtype=int)
+        labels[[0, 4]] = 1
+        res = nested_cv_linear_svm(rng.normal(size=(24, 4)), labels, n_splits=5, groups=groups)
+        assert len(res["fold_accuracies"]) == 2 and calls[0]["n_splits"] == 2
+
+    def test_inner_folds_are_capped_by_the_training_groups(self, monkeypatch):
+        calls = _record_grouped_splits(monkeypatch)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 12)
+        labels = np.tile([0, 1], 18)
+        nested_cv_linear_svm(rng.normal(size=(36, 4)), labels, n_splits=3, groups=groups)
+        inner = [c for c in calls if c["n"] != groups.size]
+        assert [c["n_splits"] for c in inner] == [2, 2, 2]
+
+    def test_an_inner_split_that_would_hold_one_class_falls_back_to_fixed_c(self, monkeypatch):
+        """Group 2 is all class 0, so an outer fold that trains on groups {1, 2} or {0, 2}
+        has an inner split training on group 2 alone; only the fold that holds out group 2
+        can search C."""
+        import jnwb.decoding as decoding
+
+        searches = []
+
+        class Counting(decoding.GridSearchCV):
+            def fit(self, X, y=None, **kw):
+                searches.append(len(y))
+                return super().fit(X, y, **kw)
+
+        monkeypatch.setattr(decoding, "GridSearchCV", Counting)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 6)
+        labels = np.r_[np.tile([0, 1], 6), np.zeros(6)].astype(int)
+        res = nested_cv_linear_svm(rng.normal(size=(18, 3)), labels, n_splits=3, groups=groups)
+        assert res["status"] == "success" and len(res["fold_accuracies"]) == 3
+        assert searches == [12], searches
 
     def test_grouped_folds_remove_the_group_identity_shortcut(self):
         X, labels, groups = _group_offset_data()
@@ -349,8 +421,18 @@ class TestNestedCvGroups:
         res = nested_cv_linear_svm(X, labels, n_splits=5, groups=np.zeros(len(labels)))
         assert res["status"] == "insufficient_groups_for_cv" and np.isnan(res["accuracy"])
 
-    @pytest.mark.parametrize("bad", [np.arange(47), np.r_[np.arange(47.0), np.nan]])
-    def test_groups_need_one_finite_id_per_trial(self, bad):
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            np.arange(47),
+            np.r_[np.arange(47.0), np.nan],
+            np.array([*range(47), float("nan")], dtype=object),
+            np.array([*range(47), None], dtype=object),
+            np.array([*range(24), *[f"b{i}" for i in range(24)]], dtype=object),
+        ],
+        ids=["short", "float-nan", "object-nan", "object-none", "unorderable"],
+    )
+    def test_groups_need_one_comparable_id_per_trial(self, bad):
         X, labels = _noisy_two_class()
         with pytest.raises(ValueError, match="groups"):
             nested_cv_linear_svm(X, labels, n_splits=5, groups=bad)
