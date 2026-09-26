@@ -176,3 +176,48 @@ class TestConstantRowsDescribeTheValueAndNotItsType:
             if isinstance(obj, str) and obj and obj in cell
         ]
         assert offenders == [], "; ".join(offenders)
+
+
+class TestSignatureCellsCarryParameterKinds:
+    """A keyword-only parameter rendered without its `*` reads as positional, and a call the
+    page shows as valid raises. The gate parses the markers back out of the cell, so it fails
+    when the generator drops them even though page and generator still agree."""
+
+    def test_the_parser_reads_every_marker(self):
+        from scripts.harness_gate import api_md_parameter_kinds
+
+        assert api_md_parameter_kinds(
+            "(a, /, b, *, c: Tuple[int, int] = (1, 2), d: str = 'x,y') -> None<br>*doc*"
+        ) == [("a", "positional_only"), ("b", "positional_or_keyword"),
+              ("c", "keyword_only"), ("d", "keyword_only")]
+        assert api_md_parameter_kinds("(*args, k=1, **kwargs)") == [
+            ("args", "var_positional"), ("k", "keyword_only"), ("kwargs", "var_keyword")]
+        assert api_md_parameter_kinds("*A class docstring.*") is None
+
+    def test_some_export_has_a_keyword_only_parameter(self):
+        """Guard: without one, the page could drop every `*` and the comparison stay vacuous."""
+        kinds = {
+            p.kind for name in jnwb.__all__
+            if callable(obj := getattr(jnwb, name, None)) and not inspect.isclass(obj)
+            for p in _signature_parameters(obj)
+        }
+        assert inspect.Parameter.KEYWORD_ONLY in kinds
+
+    def test_the_gate_fails_when_a_keyword_only_marker_is_dropped(self, tmp_path):
+        from scripts.harness_gate import check_api_md_member_types
+
+        text = API_MD.read_text(encoding="utf-8")
+        assert check_api_md_member_types(REPO_ROOT) == []
+        seeded = re.sub(r"(\| jnwb\.\w+ \| function \| \([^|]*?), \*, ", r"\1, ", text, count=1)
+        assert seeded != text, "no row with a `*` marker was found to seed"
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "api.md").write_text(seeded, encoding="utf-8")
+        violations = check_api_md_member_types(tmp_path)
+        assert len(violations) == 1 and violations[0].startswith("API_KIND"), violations
+
+
+def _signature_parameters(obj):
+    try:
+        return list(inspect.signature(obj).parameters.values())
+    except (TypeError, ValueError):
+        return []
