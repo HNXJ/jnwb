@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-18, 07-19, 07-20 |
+| 2b | 07-18, 07-19 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -246,7 +246,7 @@ predicate if they reproduce, and go first.
 - IA-26: conditional Granger (`granger(Z=...)`) never runs in the suite (`jnwb/connectivity.py:1133-1143`). Check: a common driver passed as `Z` removes a spurious x to y.
 - IA-28: tests that assert too little: `bilinear` checks only a length, the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN, and no test feeds `verify_roundtrip` a corrupted cast. Check: value-pinning tests for IA-04, IA-07 and IA-19.
 - IA-29: unbacked claims and project leftovers ship in the wheel: `nam` cites a missing script and receipts and calls `torch.manual_seed`, which resets the global torch stream; `REWARD_WINDOW_MS` is a task constant no function uses; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project output folders. Check: extend P-296's sweep to these; use a local `torch.Generator`.
-- IA-30: with one correlated block beside an uncorrelated rest, `xflip` places the boundary at the midpoint rather than the true edge; the fit is rejected, so it is a missed boundary rather than a false one (`jnwb/laminar.py:1138-1167`). Check: a boundary-recovery test for one block and background.
+- IA-30: blocker candidate. With one correlated block beside an uncorrelated rest, `xflip` places the boundary toward the midpoint rather than the true edge, and it can accept that wrong cut: 16 contacts, a block of 6 at rho 0.8, 10 seeds put every cut at 7 to 9 and accepted 3 (drops 0.06 to 0.09 above 0.05, p at the floor); an edge at 4 accepted 3 to 4 of 10. The earlier reading that such fits are rejected was false. The cause is the objective, which subtracts the probe-wide mean from every within-block pair and so favours balanced blocks; one candidate, the sum of S_b squared over P_b per block, recovered the edge. Choosing the objective is a scientific choice for Hamm. Check: a ruling, then the two boundary-recovery tests (landed as strict xfail) pass and the calibration receipt is regenerated.
 - IB-03: `docs/10_operation_specifications.md:98` gives `vflip_from_lfp` as `compute_psd(lfp, fs) -> vflip(psd, freqs)`; on channels-by-time input that runs over channels and `vflip` raises; the code uses the time axis. Check: write `axis=-1` into the composition and test it equals `vflip_from_lfp`.
 - IB-04: `README.md:79-80`, `docs/errors.md:137-139`, `226` and `docs/common_mistakes.md:290-291` say `event_onsets` warns when a table has no `codes` column; it does not, and its docstring says so; only `events` warns. Check: correct the pages.
 - IB-05: `docs/07:21` says a non-`Generator` `rng` raises `TypeError`, but `StatisticalAnalysis` accepts and coerces an int or `None`. Check: state the accepted types per surface.
@@ -460,21 +460,6 @@ is empty), while its sibling `zflip` has a worked example that reads its fields.
 Accept: one worked example calls `xflip` and reads its result fields, and `tests/test_tutorials.py`
 or `tests/test_docs_decoding_chain.py` executes it.
 Stop: the example needs a real recording to show a boundary.
-
-### 07-20 A gate reads `artifacts/state.md` when it is present
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`, `CONTRIBUTING.md`.
-Deferred 06-112. Reproduced at `dcb75f12`: `scripts/harness_gate.py` names `artifacts/state.md` only
-in `GENERATED_FROM` (lines 1990-1996), whose `verified_by` is the manual `--check`; no entry of
-`GATES` (line 2777; 19 gates ran) compares its HEAD row with `git rev-parse HEAD`. A regenerating
-gate would recurse, since the generator runs the harness, so the gate is check-only and an absent
-file passes.
-Discriminator: zeroing the HEAD row fails the gate; restoring it, verified by hash, passes.
-Accept: the new gate is in `GATES`, `CONTRIBUTING.md` names it, and `python scripts/harness_gate.py`
-reports every gate PASS on a freshly regenerated tree.
-Stop: the gate would need to regenerate the file.
 
 ### 07-21 A public NWB mutation API
 
