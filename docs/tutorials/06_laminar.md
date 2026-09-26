@@ -1,7 +1,8 @@
 # Laminar Electrophysiology
 
-One-dimensional current source density (CSD), spectrolaminar alignment with vFLIP, and
-inter-contact phase gradient and traveling wave estimation with zFLIP.
+One-dimensional current source density (CSD), spectrolaminar alignment with vFLIP,
+inter-contact phase gradient and traveling wave estimation with zFLIP, and contiguous
+correlation blocks with xFLIP, all on synthetic signals.
 
 Run the executable tutorial:
 

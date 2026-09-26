@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ._dictlike import DictAccessMixin
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
@@ -999,6 +999,10 @@ class XFlipResult(DictAccessMixin):
         n_blocks: Number of detected blocks.
         boundary_drops: Optional dict mapping each interior boundary index to its
             local correlation drop (within-block neighbor correlation minus cross-boundary correlation).
+        surrogate_seed_entropy: The entropy the surrogate generator was built from: the
+            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
+            back as `rng` reproduces `p_values`. None when you supplied a `Generator`, whose
+            stream position cannot be recovered, and when no surrogates were drawn.
     """
 
     corr_matrix: np.ndarray
@@ -1013,6 +1017,7 @@ class XFlipResult(DictAccessMixin):
     n_channels: int
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
+    surrogate_seed_entropy: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1029,6 +1034,7 @@ class XFlipResult(DictAccessMixin):
             "n_channels": int(self.n_channels),
             "n_blocks": int(self.n_blocks),
             "boundary_drops": dict(self.boundary_drops) if self.boundary_drops is not None else {},
+            "surrogate_seed_entropy": self.surrogate_seed_entropy,
         }
 
 
@@ -1121,10 +1127,22 @@ def _optimal_contiguous_partition(
 ) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
     """Find globally optimal contiguous partition using 1D dynamic programming.
 
-    Maximizes modularity sum: W(u, v) = S(u, v) - gamma * P(u, v),
-    where S(u, v) is sum of off-diagonal correlations in [u, v),
-    P(u, v) is number of pairs (v-u)*(v-u-1)/2,
-    and gamma is the probe-wide mean off-diagonal correlation.
+    Maximizes the sum over blocks of W(u, v) = S(u, v)**2 / P(u, v), where S(u, v) is
+    the sum of off-diagonal correlations within [u, v) and P(u, v) = (v-u)*(v-u-1)/2 is
+    their number of pairs. A single-contact block has no pairs and scores 0.
+
+    W is the squared error removed by describing a block's within-block correlations by
+    their mean rather than by 0, so the partition is the block-constant least-squares fit
+    to the within-block correlations. It scores each block against its own mean; an
+    uncorrelated block scores near 0 at any size, which leaves the cut at the edge of a
+    correlated block. Squaring discards the sign: a block of negative mean correlation
+    scores as a positive one of the same magnitude.
+
+    INTENTIONAL BREAK (0.2.7): W was S - gamma * P with gamma the probe-wide mean
+    correlation. Penalising every within-block pair by one probe-wide value favoured
+    blocks of equal size, and beside an uncorrelated background moved the cut toward the
+    middle of the probe, where the surrogate test could still accept it. Cuts can change
+    on existing data.
 
     Returns:
         (block_bounds, boundaries, modularity, labels)
@@ -1133,9 +1151,6 @@ def _optimal_contiguous_partition(
     if n_blocks == 1:
         labels = np.zeros(n, dtype=int)
         return ((0, n),), (), 0.0, labels
-
-    triu_idx = np.triu_indices(n, k=1)
-    gamma = float(np.mean(corr[triu_idx])) if len(triu_idx[0]) > 0 else 0.0
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
@@ -1146,14 +1161,10 @@ def _optimal_contiguous_partition(
     # makes about 93000 of them at n=256 with n_blocks=4, once per surrogate. Prefix-
     # summing the diagonal answers it the way the off-diagonal term is already answered.
     #
-    # This is not bit-identical to re-summing: a difference of two running totals is a
-    # different floating-point operation from a pairwise reduction, and on a real
-    # correlation matrix -- whose diagonal `np.corrcoef` does not always make exactly
-    # 1.0 -- the two disagree by up to 4e-15. It cannot reach the answer. For a fixed
-    # (k, j) every candidate partition tiles [0, j), so the per-block diagonal terms sum
-    # to `f(j) - f(0)` whatever the cuts are: the same constant in every candidate,
-    # cancelling out of the comparison. The returned modularity is computed separately
-    # by `_compute_contrast` from the labels, and never sees `dp` at all.
+    # Subtracting the diagonal's running total removes it from S exactly in real
+    # arithmetic; in floating point a residue of order 1e-15 per block remains, which
+    # the tests that vary the diagonal show does not move a cut. The returned modularity
+    # is computed separately by `_compute_contrast` from the labels, and never sees `dp`.
     diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
 
     def interval_w(u: int, v: int) -> float:
@@ -1164,7 +1175,9 @@ def _optimal_contiguous_partition(
         diag_sub = diag_cum[v] - diag_cum[u]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
-        return float(s_uv - gamma * p_uv)
+        if p_uv == 0:
+            return 0.0
+        return float(s_uv * s_uv / p_uv)
 
     dp = np.full((n_blocks + 1, n + 1), -np.inf, dtype=float)
     parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
@@ -1172,23 +1185,35 @@ def _optimal_contiguous_partition(
     for j in range(min_block_size, n + 1):
         dp[1, j] = interval_w(0, j)
 
+    # Every (split point u, end j) pair of one block count k is scored as one array, rows u
+    # and columns j. Each element goes through the same float64 operations, in the same
+    # order, as `interval_w`, so the scores are bit-identical to a scalar loop's, and
+    # `argmax` down a column returns the first maximum, as a loop keeping only strictly
+    # greater values would. Pairs leaving a last block shorter than `min_block_size`, and
+    # u whose `dp[k - 1, u]` is -inf, score -inf; a column that is -inf throughout records
+    # (-inf, -1).
+    diag_prefix = np.diagonal(prefix)
     for k in range(2, n_blocks + 1):
-        min_j = k * min_block_size
-        for j in range(min_j, n + 1):
-            best_val = -np.inf
-            best_u = -1
-            for u in range((k - 1) * min_block_size, j - min_block_size + 1):
-                if dp[k - 1, u] == -np.inf:
-                    continue
-                w = interval_w(u, j)
-                if w == -np.inf:
-                    continue
-                val = dp[k - 1, u] + w
-                if val > best_val:
-                    best_val = val
-                    best_u = u
-            dp[k, j] = best_val
-            parent[k, j] = best_u
+        j = np.arange(k * min_block_size, n + 1)
+        if j.size == 0:
+            continue
+        u = np.arange((k - 1) * min_block_size, n - min_block_size + 1)
+        sz = j[None, :] - u[:, None]
+        total_sub = (
+            diag_prefix[j][None, :] - prefix[np.ix_(u, j)] - prefix[np.ix_(j, u)].T
+            + diag_prefix[u][:, None]
+        )
+        diag_sub = diag_cum[j][None, :] - diag_cum[u][:, None]
+        s_uv = 0.5 * (total_sub - diag_sub)
+        p_uv = 0.5 * sz * (sz - 1)
+        w = np.divide(s_uv * s_uv, p_uv, out=np.zeros_like(s_uv), where=p_uv > 0)
+        vals = dp[k - 1, u][:, None] + w
+        vals[sz < min_block_size] = -np.inf
+        best = np.argmax(vals, axis=0)
+        best_val = vals[best, np.arange(j.size)]
+        found = best_val > -np.inf
+        dp[k, j] = np.where(found, best_val, -np.inf)
+        parent[k, j] = np.where(found, u[best], -1)
 
     if dp[n_blocks, n] == -np.inf:
         labels = np.zeros(n, dtype=int)
@@ -1293,8 +1318,12 @@ def xflip(
         2. Optimal Contiguous Partitioning:
            When `contiguous=True`, computes the globally optimal segmentation into `n_blocks`
            contiguous intervals :math:`[b_{k-1}, b_k)` via 1D dynamic programming maximizing
-           the modularity contrast over the probe-wide baseline :math:`\\gamma = \\bar{R}`:
-           :math:`W(u, v) = \\sum_{u \\le i < j < v} (R_{ij} - \\gamma)`.
+           :math:`\\sum_b S_b^2 / P_b`, with :math:`S_b = \\sum_{u \\le i < j < v} R_{ij}` and
+           :math:`P_b` its pair count: the block-constant least-squares fit to the
+           within-block correlations. No published method defines this objective; it is
+           jnwb's own criterion, and no reference is cited for it. Before 0.2.7 the
+           objective was :math:`\\sum_{u \\le i < j < v} (R_{ij} - \\bar{R})`, which moved
+           the cut beside an uncorrelated background toward the middle of the probe.
         3. Statistical Null Testing:
            Constructs surrogates preserving each channel's empirical power spectrum and
            temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase
@@ -1326,15 +1355,18 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
-        rng: Optional NumPy Generator or integer seed for surrogate reproducibility.
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy. The entropy
+            used is returned as `surrogate_seed_entropy` for an int or None.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, and `rejection_reason`.
+        `p_values`, `accepted`, `rejection_reason` and `surrogate_seed_entropy`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
             matrix, or contains invalid configuration parameters.
+        TypeError: If `rng` is not an int, a Generator or None; a float or bool seed is
+            refused rather than truncated.
     """
     if method not in ("pearson", "spearman", "partial"):
         raise ValueError(
@@ -1359,6 +1391,15 @@ def xflip(
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    # An int seed draws the stream `default_rng(seed)` always drew; `None` draws fresh OS
+    # entropy and records it, so the result alone reproduces p. A caller's Generator is
+    # used in place and its position is not recoverable, so its entropy stays None.
+    if isinstance(rng, np.random.Generator):
+        gen, seed_entropy = rng, None
+    else:
+        resolve_rng(rng, func_name="xflip")
+        seed_sequence = np.random.SeedSequence(None if rng is None else int(rng))
+        gen, seed_entropy = np.random.default_rng(seed_sequence), int(seed_sequence.entropy)
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1503,7 +1544,6 @@ def xflip(
             labels = np.zeros(n_channels, dtype=int)
 
     # Monte Carlo surrogate null testing
-    gen = np.random.default_rng(rng)
     p_values: Dict[str, float] = {}
 
     if n_surrogates > 0:
@@ -1641,6 +1681,7 @@ def xflip(
         n_channels=n_channels,
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
+        surrogate_seed_entropy=seed_entropy if surrogates_run else None,
     )
 
 

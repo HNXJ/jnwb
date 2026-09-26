@@ -285,7 +285,8 @@ def render(raw: dict) -> str:
         "surrogate test alone controls.",
         f"- `smooth_spatial_gradient` has median, min and max omnibus p all at "
         f"{grad['median_p']:.4f}, the 1/(surrogates+1) floor. Every gradient is maximally "
-        "significant under the permutation test; the 0.000 acceptance rate is produced "
+        "significant under the permutation test; the "
+        f"{grad['false_positive_rate']:.3f} acceptance rate is produced "
         "entirely by the local boundary-drop gate. Reading the rate without this line "
         "inverts what 05-07 established -- the permutation test does not reject gradients, "
         "and when that gate was skipped on the unrestricted path they were accepted 15/15.",

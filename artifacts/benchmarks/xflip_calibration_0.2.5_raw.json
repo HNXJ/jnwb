@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "fea6a0d4d78dc6ec571e8c93f37e78a1e7089e5ddbbac2c187c3ccbfb39e2c5b",
+  "estimator_sha256": "caea3b2cf39de8f293ba130a46dbdcc2f3d549ca0bbcef0ef7106f9643212cef",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
@@ -19,34 +19,34 @@
     "white_noise": {
       "n_seeds": 30,
       "false_positive_rate": 0.0,
-      "median_p": 0.5074626865671641,
-      "min_p": 0.01990049751243781,
-      "max_p": 0.9900497512437811,
-      "median_modularity": 0.010686597580142638
+      "median_p": 0.5970149253731343,
+      "min_p": 0.014925373134328358,
+      "max_p": 0.9950248756218906,
+      "median_modularity": -0.00011664401149449075
     },
     "ar_noise": {
       "n_seeds": 30,
       "false_positive_rate": 0.06666666666666667,
-      "median_p": 0.3880597014925373,
+      "median_p": 0.44527363184079605,
       "min_p": 0.004975124378109453,
-      "max_p": 0.9850746268656716,
-      "median_modularity": 0.0600753394525669
+      "max_p": 0.9751243781094527,
+      "median_modularity": 0.020837939735006257
     },
     "periodic_common_response": {
       "n_seeds": 30,
       "false_positive_rate": 0.0,
-      "median_p": 0.8855721393034826,
-      "min_p": 0.8258706467661692,
-      "max_p": 0.9402985074626866,
-      "median_modularity": 0.008132792533024624
+      "median_p": 0.5472636815920398,
+      "min_p": 0.48258706467661694,
+      "max_p": 0.6417910447761194,
+      "median_modularity": 0.006751805168236924
     },
     "smooth_spatial_gradient": {
       "n_seeds": 30,
-      "false_positive_rate": 0.0,
+      "false_positive_rate": 0.03333333333333333,
       "median_p": 0.004975124378109453,
       "min_p": 0.004975124378109453,
       "max_p": 0.004975124378109453,
-      "median_modularity": 0.322001597904712
+      "median_modularity": 0.31965560204979354
     }
   },
   "alternatives": {
@@ -341,11 +341,11 @@
     ]
   },
   "environment": {
-    "jnwb": "0.2.5",
+    "jnwb": "0.2.6.1",
     "python": "3.14.3",
     "numpy": "2.4.6",
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 134.9
+  "elapsed_s": 128.8
 }
