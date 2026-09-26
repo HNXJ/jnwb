@@ -280,6 +280,7 @@ predicate if they reproduce, and go first.
 - IB-86: `classify_response_significance` returns `undefined` with p NaN when `response_zscore` is NaN even though the signed-rank test is computable from the per-trial rates. Check: Hamm rules whether that outcome reports the test's p.
 - IB-87: `TFRAnalyzer.compare_conditions` counts NaN-p locations in `n_tests` and in the uncorrected fraction's denominator while the FDR family excludes them; `PopulationAnalyzer.population_trajectory` returns zeros as its ratio at zero total variance and truncates short components, where `compute_population_trajectory` returns NaN and pads. Check: one convention for each, with tests.
 - IB-88: the `TFRAccumulator` setter for `n` casts with `np.asarray(..., dtype=np.int64)`, so assigning 2.7 stores 2 silently; `write` only stores integers, so only a hand-built reload reaches it. Check: refuse a non-integral count, with a test.
+- IB-89: under `pytest -n 12` the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) fail intermittently with "Couldn't close or kill browser subprocess" from choreographer and pass alone; seen in four parallel runs on 2026-09-26. A flaky test weakens the push gate. Check: serialize the browser-backed tests (an xdist group or a lock), then show several parallel runs green.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
