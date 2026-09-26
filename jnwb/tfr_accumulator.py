@@ -126,14 +126,27 @@ def _refuse_infinite_baseline(infinite_reaching: np.ndarray) -> None:
 def _refuse_ratio_overflow(overflowed: np.ndarray) -> None:
     """Refuse a ratio that overflowed to inf from finite power and a positive baseline.
 
-    A subnormal baseline divides finite power past the float64 range, so the ratio is inf
-    with only a RuntimeWarning.
+    A baseline small enough relative to the power divides it past the float64 range, or the
+    mean of such ratios passes it, so the ratio is inf with only a RuntimeWarning.
     """
     if np.any(overflowed):
         raise ValueError(
-            "the power / baseline ratio overflows to inf from finite power, so the baseline is "
-            "too small to divide by (a subnormal value, for example). Exclude those cells or "
-            "rescale power and baseline together."
+            "the power / baseline ratio overflows to inf from finite power: the baseline is "
+            "small enough that the ratio, or its mean, passes the float64 range. Exclude those "
+            "cells or rescale power and baseline together."
+        )
+
+
+def _refuse_sum_overflow(overflowed: np.ndarray, name: str) -> None:
+    """Refuse a sum of finite ``name`` values that overflowed to inf in a ratio of means.
+
+    An infinite summed baseline gives a ratio of 0 and -inf dB; an infinite summed power gives
+    +inf dB. Neither is a property of the data.
+    """
+    if np.any(overflowed):
+        raise ValueError(
+            f"the summed {name} overflows to inf from finite values, so the ratio of means "
+            "cannot be formed in float64. Rescale power and baseline together."
         )
 
 
@@ -260,7 +273,8 @@ class TFRAccumulator:
         Raises:
             ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
                 zero or infinite at a cell ``valid`` marks, so small at such a cell that
-                finite power divided by it overflows to inf (a subnormal value), neither a
+                finite power divided by it overflows to inf (a baseline small enough that the
+                ratio overflows), neither a
                 scalar nor of the accumulator's
                 number of dimensions, not
                 broadcastable, or if this trial and earlier ones disagree on carrying a

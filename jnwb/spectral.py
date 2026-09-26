@@ -353,7 +353,9 @@ def aggregate_to_db(
             or an infinity that reaches a ratio (the ratio would be infinite or 0;
             :func:`relative_power` refuses both) -- under ``nan_policy="omit"`` one where
             ``power`` is NaN is omitted with its cell and not refused -- if a ratio formed
-            from finite power overflows to inf (a subnormal baseline), or if any
+            from finite power, or its mean, overflows to inf (a baseline small enough that
+            the ratio overflows), if under ``"ratio_of_means"`` the summed baseline or the
+            summed finite power overflows to inf, or if any
             input is negative. The negativity check is the dB-input tripwire: a ratio-scale power is
             non-negative by definition, whereas decibel arrays routinely carry negative
             values, so passing decibels in here fails loudly instead of computing a plausible
@@ -391,6 +393,7 @@ def aggregate_to_db(
         _refuse_baseline_ndim,
         _refuse_infinite_baseline,
         _refuse_ratio_overflow,
+        _refuse_sum_overflow,
     )
 
     if how == "mean_of_ratios" and any(_is_trial_averaged(arr) for arr in (power, baseline)):
@@ -436,6 +439,13 @@ def aggregate_to_db(
             aggregated = p / b
         elif how == "mean_of_ratios":
             aggregated = mean(p / b, axis=aggregate_over)
+            # Finite ratios can still sum past the float64 range inside the mean; an
+            # infinite power is the input's and is not an overflow.
+            power_inf = np.any(
+                np.isinf(np.broadcast_to(p, np.broadcast_shapes(p.shape, b.shape))),
+                axis=aggregate_over,
+            )
+            _refuse_ratio_overflow(np.isposinf(aggregated) & ~power_inf)
         else:
             b_bc = np.broadcast_to(b, p.shape)
             if nan_policy == "omit":
@@ -448,13 +458,16 @@ def aggregate_to_db(
                 num = total(p, axis=aggregate_over)
                 den = total(b_bc, axis=aggregate_over)
                 aggregated = num / den
-            # The ratio here is formed from sums, so it overflows only when the summed
-            # baseline is that small; an infinite power sum is the input's, not an overflow.
+            # Infinite baselines were refused above and omit drops infinite power, so an
+            # infinite sum here is an overflow of finite values -- except a power sum that
+            # contains an infinite power under propagate, which is the input's.
             power_inf = (
                 np.zeros(np.shape(aggregated), dtype=bool)
                 if nan_policy == "omit"
                 else np.any(np.isinf(p), axis=aggregate_over)
             )
+            _refuse_sum_overflow(np.isposinf(den), "baseline")
+            _refuse_sum_overflow(np.isposinf(num) & ~power_inf, "power")
             _refuse_ratio_overflow(np.isposinf(aggregated) & ~power_inf)
         return to_db(aggregated)
 
@@ -1424,7 +1437,7 @@ def relative_power(
     Raises:
         ValueError: If ``model`` is unrecognized; if any input is empty; if ``power`` or ``baseline``
             contains negative or non-finite (NaN/Inf) values; if ``baseline`` contains zeros causing
-            division by zero; if the ratio overflows to inf (a subnormal baseline); if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
+            division by zero; if the ratio or its mean overflows to inf (a baseline small enough that the ratio overflows); if the summed baseline or summed power overflows under ``"ratio_of_means"``; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
 
     Examples:
         >>> import numpy as np
@@ -1477,18 +1490,24 @@ def relative_power(
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")
 
-    from .tfr_accumulator import _refuse_ratio_overflow
+    from .tfr_accumulator import _refuse_ratio_overflow, _refuse_sum_overflow
 
-    # Inputs are finite here, so an infinite ratio is an overflow past a subnormal baseline.
+    # Inputs are finite here, so an infinite ratio, mean or sum is an overflow.
     with np.errstate(over="ignore"):
         if model == "mean_of_ratios":
             quotient = p_arr / b_broadcast
             _refuse_ratio_overflow(np.isinf(quotient))
             if axis is None:
                 return quotient
-            return np.mean(quotient, axis=axis)
+            averaged = np.mean(quotient, axis=axis)
+            _refuse_ratio_overflow(np.isinf(averaged))
+            return averaged
         elif model == "ratio_of_means":
-            quotient = np.sum(p_arr, axis=axis) / np.sum(b_broadcast, axis=axis)
+            num = np.sum(p_arr, axis=axis)
+            den = np.sum(b_broadcast, axis=axis)
+            _refuse_sum_overflow(np.isinf(den), "baseline")
+            _refuse_sum_overflow(np.isinf(num), "power")
+            quotient = num / den
             _refuse_ratio_overflow(np.isinf(quotient))
             return quotient
         else:  # log_ratio

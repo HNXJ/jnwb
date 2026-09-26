@@ -477,6 +477,35 @@ class TestAggregateToDb:
         assert np.all(np.isfinite(
             aggregate_to_db(power, np.full((1, 2), 1e-300), how=how, aggregate_over=aggregate_over)))
 
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_an_infinite_power_under_propagate_gives_inf_db_without_raising(self, how, aggregate_over):
+        """Infinite power is the input's, not an overflow, so the overflow checks leave it."""
+        out = aggregate_to_db(np.array([[2.0, np.inf]]), np.ones((1, 2)), how=how,
+                              aggregate_over=aggregate_over, nan_policy="propagate")
+        assert np.isposinf(out[0, 1] if aggregate_over is None else out[0])
+
+    def test_a_mean_of_finite_ratios_that_overflows_raises(self):
+        power, baseline = np.array([1e300, 1e300]), np.array([1e-8, 1e-8])
+        with pytest.raises(ValueError, match="overflows"):
+            aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)
+        with pytest.raises(ValueError, match="overflows"):
+            relative_power(power, baseline, model="mean_of_ratios", axis=0)
+
+    def test_a_summed_baseline_that_overflows_raises(self):
+        power, baseline = np.array([1.0, 1.0]), np.array([1e308, 1e308])
+        with pytest.raises(ValueError, match="summed baseline"):
+            aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
+        with pytest.raises(ValueError, match="summed baseline"):
+            relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+    def test_a_summed_power_that_overflows_is_named_and_the_baseline_is_not_blamed(self):
+        power, baseline = np.array([1e308, 1e308]), np.array([1.0, 1.0])
+        with pytest.raises(ValueError, match="summed power"):
+            aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
+        with pytest.raises(ValueError, match="summed power"):
+            relative_power(power, baseline, model="ratio_of_means", axis=0)
+
     @pytest.mark.parametrize("model,axis", [
         ("mean_of_ratios", None), ("mean_of_ratios", 1), ("ratio_of_means", 1), ("log_ratio", None),
     ])

@@ -81,9 +81,11 @@ class VFlipResult(DictAccessMixin):
             (um): ``crossover_contact`` times the contact spacing, measured from the first
             contact of the order the fit used -- `probe_geometry.linear_order`, whose
             direction follows the electrode table's row order, or the row order itself
-            without a geometry. This is the frame :func:`label_layers` places contacts in (its
-            `depth_range_um` compares against rank times pitch), whatever the geometry's
-            z coordinates are. None if rejected or no contact spacing is available.
+            without a geometry. With a `probe_geometry` the spacing is its `nominal_pitch`
+            (a disagreeing `contact_spacing` raises), so this is the frame
+            :func:`label_layers` places contacts in (its `depth_range_um` compares against
+            rank times `nominal_pitch`), whatever the geometry's z coordinates are. None if
+            rejected or no contact spacing is available.
         crossover_z_um: The crossover's z coordinate in the geometry's own frame, in
             micrometers, interpolated between the z of the two contacts either side of it
             along the shaft. It keeps the table's origin and direction, so on a shaft whose
@@ -226,7 +228,8 @@ def vflip(
         freqs: 1D array of strictly increasing frequency coordinates in Hz, shape `(n_freqs,)`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
         orientation: Expected shaft orientation relative to channel indexing:
@@ -246,7 +249,9 @@ def vflip(
 
     Raises:
         ValueError: If input dimensions are invalid, frequencies non-monotonic, bands overlapping
-            or outside frequency range, non-finite parameters provided, or min_support_score is non-finite.
+            or outside frequency range, non-finite parameters provided, min_support_score is
+            non-finite, or `contact_spacing` disagrees with `probe_geometry.nominal_pitch`
+            (the depth would then not be in the frame :func:`label_layers` measures).
     """
     # 1. Parameter validation
     if not np.isfinite(min_support_score):
@@ -313,8 +318,20 @@ def vflip(
                 f"probe_geometry channel count ({len(probe_geometry.channel_ids)}) "
                 f"does not match psd channels ({n_channels})"
             )
+        nominal = getattr(probe_geometry, "nominal_pitch", None)
         if effective_spacing is None:
-            effective_spacing = probe_geometry.nominal_pitch
+            effective_spacing = nominal
+        elif nominal is not None and not np.isclose(
+            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
+        ):
+            # label_layers measures depth as rank times nominal_pitch, so a depth computed
+            # with another spacing would select different contacts through depth_range_um.
+            raise ValueError(
+                f"contact_spacing={contact_spacing} disagrees with probe_geometry.nominal_pitch="
+                f"{nominal}; label_layers measures depth with nominal_pitch, so the crossover "
+                "depth would not be in its frame. Omit contact_spacing, or build the geometry "
+                "with nominal_pitch=contact_spacing."
+            )
         order = getattr(probe_geometry, "linear_order", None)
 
     if effective_spacing is not None:
@@ -636,7 +653,8 @@ def vflip_from_lfp(
             power spectrum (`'spectrum'`). Default: `'density'`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
         orientation: Expected shaft orientation relative to channel indexing:
@@ -658,8 +676,9 @@ def vflip_from_lfp(
         and diagnostic flags.
 
     Raises:
-        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, or parameters
-            violate geometry, frequency, or numerical invariants.
+        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, `contact_spacing`
+            disagrees with `probe_geometry.nominal_pitch`, or parameters violate geometry,
+            frequency, or numerical invariants.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field

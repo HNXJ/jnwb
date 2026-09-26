@@ -1,5 +1,5 @@
 {
- "estimator_sha256": "c561793698e3978e13332544acd94d21dfcc71f2cc1fa7f0734c7e87df1176af",
+ "estimator_sha256": "bde10acd0d47e38e78feee2cd3bcf3f99cda70811f453c3befa0c118bf03b729",
  "default_min_support_score": 3.75,
  "n_seeds": 30,
  "n_samples": 5000,

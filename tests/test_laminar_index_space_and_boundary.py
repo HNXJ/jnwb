@@ -304,6 +304,32 @@ class TestTheCrossoverDepthIsInTheLabellingFrame:
         assert record["crossover_depth_um"] == res.crossover_depth_um
         assert record.get("crossover_z_um") == res.crossover_z_um
 
+    @pytest.mark.parametrize("spacing", [None, PITCH_UM])
+    def test_depth_range_up_to_the_crossover_selects_the_contacts_above_it(self, spacing):
+        freqs, psd = _synthetic_motif()
+        geom = _geometry(self.Z_TOP_UM - PITCH_UM * np.arange(N_CONTACTS))
+        res = vflip(psd, freqs, probe_geometry=geom, contact_spacing=spacing)
+        assert res.accepted and 11.0 < res.crossover_contact < 12.0
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um))
+        selected = [i for i in range(N_CONTACTS) if labels[f"ch_{i}"] != "na"]
+        assert selected == list(range(12))
+
+    @pytest.mark.parametrize("entry", ["vflip", "vflip_from_lfp"])
+    def test_a_contact_spacing_that_disagrees_with_the_geometry_raises(self, entry):
+        """contact_spacing=50 on a 100 um geometry gave depth 575 for contact 11.5, and
+        depth_range_um=(0, 575) then selected 6 contacts where 12 lie above the crossover."""
+        geom = _geometry(PITCH_UM * np.arange(N_CONTACTS))
+        assert geom.nominal_pitch == PITCH_UM
+        if entry == "vflip":
+            freqs, psd = _synthetic_motif()
+            call = lambda: vflip(psd, freqs, probe_geometry=geom, contact_spacing=50.0)  # noqa: E731
+        else:
+            lfp = np.random.default_rng(0).normal(size=(N_CONTACTS, 2000))
+            call = lambda: laminar.vflip_from_lfp(  # noqa: E731
+                lfp, 1000.0, probe_geometry=geom, contact_spacing=50.0)
+        with pytest.raises(ValueError, match="nominal_pitch"):
+            call()
+
     def test_the_depth_bounds_label_layers_on_the_same_contacts(self):
         res, geom = self._fit()
         labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um))

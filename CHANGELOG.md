@@ -71,9 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ratio of 0, and -inf dB, where `relative_power` raised on the same input; it now raises at
   every cell where a zero baseline would, and is ignored where a zero would be (a cell `valid`
   excludes, or NaN power under `nan_policy="omit"`). A NaN baseline keeps its meaning. A
-  subnormal baseline that divides finite power past the float64 range returned +inf dB with
-  only a `RuntimeWarning`; it raises in both, and in `relative_power`, whose values are
-  otherwise unchanged.
+  baseline small enough that the ratio overflows -- finite power over it, or the mean of such
+  ratios, past the float64 range -- returned +inf dB with only a `RuntimeWarning`; it raises in
+  both, and in `relative_power`. Under `"ratio_of_means"` a summed baseline that overflows gave
+  0 (-inf dB) and a summed finite power that overflows gave +inf; each raises, naming the sum
+  that overflowed, in `aggregate_to_db` and `relative_power`. An infinite power under
+  `nan_policy="propagate"` still gives +inf dB. Values are otherwise unchanged.
 - **`network_topology` raises `TypeError` on a complex matrix (breaking).** It cast to float,
   keeping the real part with only a `ComplexWarning`, so a purely imaginary coupling counted as
   no edge. Pass `np.abs(matrix)` to threshold the magnitude. `network_connectivity` already takes
@@ -84,7 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   times pitch; on a shaft whose z falls with depth the two ran in opposite directions. It now
   is `crossover_contact` times the spacing, from the first contact of `linear_order`, whose
   direction follows the table's row order. Callers whose z varied along the shaft and who read
-  it as absolute z read `crossover_z_um` instead.
+  it as absolute z read `crossover_z_um` instead. With a `probe_geometry`, `vflip` and
+  `vflip_from_lfp` raise `ValueError` when `contact_spacing` disagrees with the geometry's
+  `nominal_pitch`, which `label_layers` measures depth with: `contact_spacing=50` on a 100 um
+  geometry gave a depth that selected half the contacts through `depth_range_um`.
 - **`classify_response_significance` tests the response against its baseline (breaking).**
   `pvalue` is the two-sided conditional binomial test of two Poisson counts: with `K_r`
   response and `K_b` baseline spikes summed over trials, `K_r` is Binomial(`K_r + K_b`,
