@@ -13,6 +13,7 @@ from jnwb.addressing import (
     parse_probe_areas,
     probe_geometry,
     ProbeGeometry,
+    _resolve_electrode_row,
 )
 
 
@@ -397,6 +398,50 @@ def test_enrich_units_dataframe_no_fabricated_probeA():
     )
     enriched_probe = enrich_units_dataframe(units, elec_probe)
     assert list(enriched_probe["group_name"]) == ["shank2"]
+
+
+def _probe_table(id_col="channel_id", id_values=None):
+    per, locs = 8, ["V1", "V2, V3", "MT/MST", "VISpm2/3"]
+    d = {"location": [locs[i // per] for i in range(4 * per)],
+         "group_name": [f"p{i // per}" for i in range(4 * per)],
+         "z": np.tile(np.linspace(0.0, 2000.0, per), 4),
+         "depth_unit": "um"}
+    if id_col is not None:
+        d[id_col] = id_values if id_values is not None else np.arange(4 * per) + 100.0
+    return pd.DataFrame(d, index=None if id_col else np.arange(4 * per) * 3 + 1)
+
+
+_DUPLICATE_ID = np.arange(32) + 100.0
+_DUPLICATE_ID[20] = 105.0          # the first match, row 5, must win
+_GAP_ID = np.arange(32) + 100.0
+_GAP_ID[3] = np.nan                # 103 is then found under 'id' instead
+
+
+@pytest.mark.parametrize("elec, n_resolved", [
+    (_probe_table(), 11),
+    (_probe_table(id_values=_DUPLICATE_ID), 11),
+    (_probe_table(id_values=_GAP_ID).assign(id=np.arange(32) + 100), 11),
+    (_probe_table(id_values=(np.arange(32) + 100).astype(np.uint16)), 11),
+    # A text column never equals the integer channel ID, so nothing resolves.
+    (_probe_table(id_values=[str(v) for v in range(100, 132)]), 0),
+    (_probe_table(id_col=None), 7),
+], ids=["float", "duplicate", "fall_through", "uint", "string", "index"])
+def test_enrich_agrees_with_the_per_channel_functions(elec, n_resolved):
+    """enrich resolves each channel once and caches it; every unit must still read what the
+    public per-channel functions return for its own peak channel."""
+    ids = [100.0, 105, "106", 103.0, 111.0, 125.0, 131, 4.0, 7, 999.0, np.nan, None, "x",
+           105.0, 125, 10, 13.0, 16, 118.0, 122, 28, 43.0]
+    got = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+
+    def cells(values):  # a column may hold a missing label as None or NaN
+        return [None if v is None or (isinstance(v, float) and np.isnan(v)) else v
+                for v in values]
+
+    assert cells(got["area"]) == cells(map_peak_channel_to_area(x, elec) for x in ids)
+    assert cells(got["depth_class"]) == [classify_layer_from_depth(x, elec) for x in ids]
+    rows = [_resolve_electrode_row(x, elec)[1] for x in ids]
+    assert cells(got["group_name"]) == [None if r is None else r["group_name"] for r in rows]
+    assert got["area"].notna().sum() == n_resolved
 
 
 # ---------------------------------------------------------------------------------------------

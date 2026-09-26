@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `raster_psth` finds each trial's spikes by binary search on the sorted train instead of
   masking the whole train per onset: 0.44 s to 0.05 s at 200,000 spikes and 2,000 onsets, with
   byte-identical output.
+- `enrich_units_dataframe` resolves and classifies each peak channel once, from one pass over the
+  electrode table, instead of comparing against the whole table three times per unit: 4.5 s to
+  0.13 s at 4,000 units and 1,536 electrodes, with identical output.
 
 ### Removed
 
