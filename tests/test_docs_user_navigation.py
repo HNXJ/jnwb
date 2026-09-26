@@ -96,6 +96,21 @@ def test_no_page_on_the_user_navigation_addresses_contributors():
             )
 
 
+def test_no_published_page_names_the_release_checks_or_links_the_form_contract():
+    """The landing and install pages described jnwb by its release checks, and the glossary
+    linked the contributor contract that the build no longer publishes."""
+    for page, phrase in (("index.md", "gate-enforced"), ("index.md", "release gate"),
+                         ("install.md", "gate-enforced"), ("install.md", "release gate")):
+        assert phrase not in (DOCS / page).read_text(encoding="utf-8"), (
+            f"docs/{page} says {phrase!r}, which describes a repository check, not the library"
+        )
+    pages = [p for p in DOCS.rglob("*.md") if p.name != "documentation_form.md"]
+    assert len(pages) >= 25, f"only {len(pages)} pages read"
+    linking = [p.relative_to(DOCS).as_posix() for p in pages
+               if re.search(r"\]\([^)]*documentation_form", p.read_text(encoding="utf-8"))]
+    assert not linking, f"pages link the unpublished form contract: {linking}"
+
+
 def test_the_specification_page_kept_what_only_it_documented():
     """The split had to preserve section 9.2, not merely move most of it."""
     spec = (DOCS / "10_operation_specifications.md").read_text(encoding="utf-8")
