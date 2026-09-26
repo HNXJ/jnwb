@@ -1127,10 +1127,22 @@ def _optimal_contiguous_partition(
 ) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
     """Find globally optimal contiguous partition using 1D dynamic programming.
 
-    Maximizes modularity sum: W(u, v) = S(u, v) - gamma * P(u, v),
-    where S(u, v) is sum of off-diagonal correlations in [u, v),
-    P(u, v) is number of pairs (v-u)*(v-u-1)/2,
-    and gamma is the probe-wide mean off-diagonal correlation.
+    Maximizes the sum over blocks of W(u, v) = S(u, v)**2 / P(u, v), where S(u, v) is
+    the sum of off-diagonal correlations within [u, v) and P(u, v) = (v-u)*(v-u-1)/2 is
+    their number of pairs. A single-contact block has no pairs and scores 0.
+
+    W is the squared error removed by describing a block's within-block correlations by
+    their mean rather than by 0, so the partition is the block-constant least-squares fit
+    to the within-block correlations. It scores each block against its own mean; an
+    uncorrelated block scores near 0 at any size, which leaves the cut at the edge of a
+    correlated block. Squaring discards the sign: a block of negative mean correlation
+    scores as a positive one of the same magnitude.
+
+    INTENTIONAL BREAK (0.2.7): W was S - gamma * P with gamma the probe-wide mean
+    correlation. Penalising every within-block pair by one probe-wide value favoured
+    blocks of equal size, and beside an uncorrelated background moved the cut toward the
+    middle of the probe, where the surrogate test could still accept it. Cuts can change
+    on existing data.
 
     Returns:
         (block_bounds, boundaries, modularity, labels)
@@ -1139,9 +1151,6 @@ def _optimal_contiguous_partition(
     if n_blocks == 1:
         labels = np.zeros(n, dtype=int)
         return ((0, n),), (), 0.0, labels
-
-    triu_idx = np.triu_indices(n, k=1)
-    gamma = float(np.mean(corr[triu_idx])) if len(triu_idx[0]) > 0 else 0.0
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
@@ -1152,14 +1161,10 @@ def _optimal_contiguous_partition(
     # makes about 93000 of them at n=256 with n_blocks=4, once per surrogate. Prefix-
     # summing the diagonal answers it the way the off-diagonal term is already answered.
     #
-    # This is not bit-identical to re-summing: a difference of two running totals is a
-    # different floating-point operation from a pairwise reduction, and on a real
-    # correlation matrix -- whose diagonal `np.corrcoef` does not always make exactly
-    # 1.0 -- the two disagree by up to 4e-15. It cannot reach the answer. For a fixed
-    # (k, j) every candidate partition tiles [0, j), so the per-block diagonal terms sum
-    # to `f(j) - f(0)` whatever the cuts are: the same constant in every candidate,
-    # cancelling out of the comparison. The returned modularity is computed separately
-    # by `_compute_contrast` from the labels, and never sees `dp` at all.
+    # Subtracting the diagonal's running total removes it from S exactly in real
+    # arithmetic; in floating point a residue of order 1e-15 per block remains, which
+    # the tests that vary the diagonal show does not move a cut. The returned modularity
+    # is computed separately by `_compute_contrast` from the labels, and never sees `dp`.
     diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
 
     def interval_w(u: int, v: int) -> float:
@@ -1170,7 +1175,9 @@ def _optimal_contiguous_partition(
         diag_sub = diag_cum[v] - diag_cum[u]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
-        return float(s_uv - gamma * p_uv)
+        if p_uv == 0:
+            return 0.0
+        return float(s_uv * s_uv / p_uv)
 
     dp = np.full((n_blocks + 1, n + 1), -np.inf, dtype=float)
     parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
@@ -1199,7 +1206,8 @@ def _optimal_contiguous_partition(
         diag_sub = diag_cum[j][None, :] - diag_cum[u][:, None]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
-        vals = dp[k - 1, u][:, None] + (s_uv - gamma * p_uv)
+        w = np.divide(s_uv * s_uv, p_uv, out=np.zeros_like(s_uv), where=p_uv > 0)
+        vals = dp[k - 1, u][:, None] + w
         vals[sz < min_block_size] = -np.inf
         best = np.argmax(vals, axis=0)
         best_val = vals[best, np.arange(j.size)]
@@ -1310,8 +1318,12 @@ def xflip(
         2. Optimal Contiguous Partitioning:
            When `contiguous=True`, computes the globally optimal segmentation into `n_blocks`
            contiguous intervals :math:`[b_{k-1}, b_k)` via 1D dynamic programming maximizing
-           the modularity contrast over the probe-wide baseline :math:`\\gamma = \\bar{R}`:
-           :math:`W(u, v) = \\sum_{u \\le i < j < v} (R_{ij} - \\gamma)`.
+           :math:`\\sum_b S_b^2 / P_b`, with :math:`S_b = \\sum_{u \\le i < j < v} R_{ij}` and
+           :math:`P_b` its pair count: the block-constant least-squares fit to the
+           within-block correlations. No published method defines this objective; it is
+           jnwb's own criterion, and no reference is cited for it. Before 0.2.7 the
+           objective was :math:`\\sum_{u \\le i < j < v} (R_{ij} - \\bar{R})`, which moved
+           the cut beside an uncorrelated background toward the middle of the probe.
         3. Statistical Null Testing:
            Constructs surrogates preserving each channel's empirical power spectrum and
            temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase

@@ -63,9 +63,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
   is unchanged.
+- **`xflip` partitions by a new objective (cuts can change on existing data).** The
+  contiguous search maximises the sum over blocks of S²/P, a block's within-block
+  correlation sum squared over its pair count: the block-constant least-squares fit. It
+  replaces the sum of each within-block correlation minus the probe-wide mean, which favoured
+  blocks of equal size: beside an uncorrelated background it cut toward the middle of the
+  probe, and the surrogate test could still accept that cut (3 of 10 seeds with 16 contacts
+  and a block of 6). Squaring discards sign, so a block of negative mean correlation scores as
+  a positive one. The calibration receipt is regenerated: power on every alternative is
+  unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
+  accepted none, below `alpha=0.05`.
 - `xflip` refuses a float or bool `rng` with `TypeError`, as the other surrogate estimators do.
 - `xflip`'s contiguous partition search scores every split point of a block count as one array.
-  The cuts are identical to the previous loop's. The search is 3 to 29 times faster from 32 to
+  On a given objective the cuts are identical to a scalar loop's. The search is 3 to 29 times faster from 32 to
   256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
   surrogates and their correlation matrices dominate it.
 

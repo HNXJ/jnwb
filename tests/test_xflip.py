@@ -382,12 +382,13 @@ class TestTheContiguousPartitionIsStillTheArgmax:
     """
 
     @staticmethod
-    def _objective(corr, cuts, gamma):
+    def _objective(corr, cuts):
         """The quantity the DP maximises, summed directly from `corr`.
 
-        An oracle written from the docstring -- "S(u, v) is sum of off-diagonal
-        correlations in [u, v), P(u, v) is (v-u)(v-u-1)/2" -- rather than from either
-        implementation, so it cannot inherit a mistake from the code under test.
+        An oracle written from the docstring -- "S(u, v) is the sum of off-diagonal
+        correlations within [u, v), P(u, v) = (v-u)(v-u-1)/2", each block scoring
+        S**2 / P -- rather than from either implementation, so it cannot inherit a
+        mistake from the code under test.
         """
         total = 0.0
         for u, v in cuts:
@@ -395,7 +396,8 @@ class TestTheContiguousPartitionIsStillTheArgmax:
             for i in range(u, v):
                 for j in range(i + 1, v):
                     s += corr[i, j]
-            total += s - gamma * (0.5 * (v - u) * (v - u - 1))
+            pairs = 0.5 * (v - u) * (v - u - 1)
+            total += s * s / pairs if pairs > 0 else 0.0
         return total
 
     @staticmethod
@@ -428,12 +430,10 @@ class TestTheContiguousPartitionIsStillTheArgmax:
             m = rng.uniform(-1.0, 1.0, (n, n))
             corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
             np.fill_diagonal(corr, 1.0)
-            triu = np.triu_indices(n, k=1)
-            gamma = float(np.mean(corr[triu]))
 
             bounds, _, _, _ = _optimal_contiguous_partition(corr, n_blocks, min_size)
-            got = self._objective(corr, bounds, gamma)
-            best = max(self._objective(corr, p, gamma)
+            got = self._objective(corr, bounds)
+            best = max(self._objective(corr, p)
                        for p in self._all_contiguous_partitions(n, n_blocks, min_size))
 
             assert got == pytest.approx(best, rel=1e-12), (
@@ -445,9 +445,8 @@ class TestTheContiguousPartitionIsStillTheArgmax:
         m = rng.uniform(-1.0, 1.0, (12, 12))
         corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
         np.fill_diagonal(corr, 1.0)
-        gamma = float(np.mean(corr[np.triu_indices(12, k=1)]))
 
-        scores = {self._objective(corr, p, gamma)
+        scores = {self._objective(corr, p)
                   for p in self._all_contiguous_partitions(12, 2, 2)}
 
         assert len(scores) > 1, "the oracle gives every partition the same score"
@@ -583,7 +582,6 @@ def _scalar_partition_cuts(corr, n_blocks, min_block_size):
     value, so the two must agree cut for cut, ties included.
     """
     n = corr.shape[0]
-    gamma = float(np.mean(corr[np.triu_indices(n, k=1)]))
     prefix = np.zeros((n + 1, n + 1))
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
     diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
@@ -591,7 +589,9 @@ def _scalar_partition_cuts(corr, n_blocks, min_block_size):
     def w(u, v):
         sz = v - u
         total = prefix[v, v] - prefix[u, v] - prefix[v, u] + prefix[u, u]
-        return float(0.5 * (total - (diag_cum[v] - diag_cum[u])) - gamma * (0.5 * sz * (sz - 1)))
+        s = 0.5 * (total - (diag_cum[v] - diag_cum[u]))
+        pairs = 0.5 * sz * (sz - 1)
+        return float(s * s / pairs) if pairs > 0 else 0.0
 
     dp = np.full((n_blocks + 1, n + 1), -np.inf)
     parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
@@ -702,14 +702,6 @@ class TestXFlipRecordsItsSeed:
             xflip(self._data(), n_surrogates=5, rng=bad)
 
 
-_BOUNDARY_OBJECTIVE_REASON = (
-    "The contiguous objective subtracts the probe-wide mean correlation from every "
-    "within-block pair, which rewards balanced blocks: beside an uncorrelated background "
-    "the cut moves toward the midpoint. Replacing the objective is a scientific choice "
-    "that needs a ruling."
-)
-
-
 def _one_block_beside_background(seed, edge=6, n=16, rho=0.8, n_samples=1000):
     """Contacts 0..edge-1 share one source; contacts edge..n-1 are independent noise."""
     rng = np.random.default_rng(seed)
@@ -720,21 +712,28 @@ def _one_block_beside_background(seed, edge=6, n=16, rho=0.8, n_samples=1000):
 
 
 class TestOneBlockBesideAnUncorrelatedBackground:
-    """The true boundary is the edge of the correlated block."""
+    """The true boundary is the edge of the correlated block.
 
-    @pytest.mark.xfail(strict=True, reason=_BOUNDARY_OBJECTIVE_REASON)
+    An objective that penalises every within-block pair by the probe-wide mean
+    correlation favours blocks of equal size, and cut this case at 7 to 9 in every seed.
+    """
+
     def test_the_boundary_is_found_at_the_block_edge(self):
         for seed in range(3):
             res = xflip(_one_block_beside_background(seed), n_blocks=2, min_block_size=2,
                         n_surrogates=50, rng=seed)
             assert res.boundaries == (6,), f"seed={seed}: cut at {res.boundaries}"
 
-    @pytest.mark.xfail(strict=True, reason=_BOUNDARY_OBJECTIVE_REASON)
     def test_an_accepted_boundary_is_the_block_edge(self):
-        """Worse than missing the edge: a cut inside the background can be accepted,
-        because the omnibus test answers whether any structure exists, not where."""
-        for seed in range(6):
+        """Worse than missing the edge: a cut inside the background was accepted in 3 of
+        these 10 seeds, because the omnibus test answers whether any structure exists,
+        not where it is."""
+        accepted = 0
+        for seed in range(10):
             res = xflip(_one_block_beside_background(seed), n_blocks=2, min_block_size=2,
                         n_surrogates=50, rng=seed)
             if res.accepted:
+                accepted += 1
                 assert res.boundaries == (6,), f"seed={seed}: accepted a cut at {res.boundaries}"
+        # The block is real, so rejecting everything would pass the loop above vacuously.
+        assert accepted >= 8, f"only {accepted} of 10 seeds accepted the block"
