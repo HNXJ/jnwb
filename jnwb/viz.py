@@ -154,7 +154,9 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     # Sorted once so each trial is a binary search, O(log N), rather than a mask over the
     # whole train. side='left' at both ends keeps the window [start, end); a NaN sorts last
     # and is never selected, as the mask never selected it.
-    st = np.sort(np.asarray(st), axis=None)
+    # float64 first: a float32 train would otherwise be compared in float32 by some NumPy
+    # versions and in float64 by others.
+    st = np.sort(np.asarray(st, dtype=float), axis=None)
     lo = np.searchsorted(st, onsets + win_ms[0] / 1000.0, side="left")
     hi = np.searchsorted(st, onsets + win_ms[1] / 1000.0, side="left")
     counts = np.zeros((onsets.size, edges.size - 1))
