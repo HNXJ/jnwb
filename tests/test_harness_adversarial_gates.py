@@ -307,10 +307,8 @@ def summarize_log_normal_effects(unit_db_modulations):
         assert len(violations) == 1
         assert "HARDCODED_TEST_PATH" in violations[0]
 
-    def test_real_repository_passes_all_harness_gates(self):
-        """Integrity Probe: Live repository state must pass all preflight gates."""
-        from scripts.harness_gate import run_full_preflight
-        assert run_full_preflight() is True
+    # The live repository's full gate run is asserted once, with its PASS count, in
+    # tests/test_every_gate_runs.py::test_the_live_repository_passes_every_gate.
 
 
 class TestDocumentationDriftGates:
