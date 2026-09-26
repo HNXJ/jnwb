@@ -14,6 +14,7 @@ Core objects:
 - Alignment: reference frame for epochs
 - EpochCollection: filtered trials
 - Question: scientific hypothesis
+- Preflight: the outcome of ``preflight(question)``, checked before an analysis runs
 - Result: analysis output with statistics
 - Interpretation: meaning and claims
 - Figure: visualization
@@ -302,6 +303,20 @@ class Question:
     Pure data. No methods. No execution.
     Frozen dataclass: immutable, serializable, hashable.
 
+    The fields after ``metadata`` describe a planned analysis for ``preflight`` and all
+    default to empty, so a ``Question`` built from the first five fields alone is unchanged.
+    ``hypothesis`` states the goal.
+
+    - ``signal_units``: the unit of each signal, keyed by the name in ``signals``
+      (``{"lfp": "V"}``). Distinct from ``inference_unit``, the unit of inference.
+    - ``data``, ``paradigm``, ``verification_plan``: free-text descriptions.
+    - ``axes``: the axis order of each signal, keyed by signal name (``{"lfp": "trials x time"}``).
+    - ``conditions``, ``required_skills``: names.
+    - ``unsupported_inference``: set by the caller when the question asks for an inference no
+      operation supports; the text is the reason. ``preflight`` then declines.
+    - ``non_identifiable``: set by the caller when the result cannot be identified from these
+      inputs; the text is the reason. ``preflight`` then reports a failure.
+
     Scientific Contracts:
     - SC-002: Inferential unit must be explicit
     """
@@ -310,6 +325,15 @@ class Question:
     contrast: str  # e.g., "baseline vs response", "AAAB vs AAXB"
     inference_unit: str  # "unit", "session", "subject"
     metadata: Dict[str, Any] = field(default_factory=dict)
+    signal_units: Dict[str, str] = field(default_factory=dict)
+    data: str = ""
+    paradigm: str = ""
+    axes: Dict[str, str] = field(default_factory=dict)
+    conditions: List[str] = field(default_factory=list)
+    required_skills: List[str] = field(default_factory=list)
+    verification_plan: str = ""
+    unsupported_inference: str = ""
+    non_identifiable: str = ""
 
     def __hash__(self):
         """Enable Question as cache key."""
@@ -327,6 +351,15 @@ class Question:
             'contrast': self.contrast,
             'inference_unit': self.inference_unit,
             'metadata': self.metadata,
+            'signal_units': self.signal_units,
+            'data': self.data,
+            'paradigm': self.paradigm,
+            'axes': self.axes,
+            'conditions': self.conditions,
+            'required_skills': self.required_skills,
+            'verification_plan': self.verification_plan,
+            'unsupported_inference': self.unsupported_inference,
+            'non_identifiable': self.non_identifiable,
         }
 
 
@@ -372,6 +405,102 @@ class Preflight:
             'reason': self.reason,
             'missing': list(self.missing),
         }
+
+
+def _stated(value: Any) -> bool:
+    """Whether a field carries content: a non-blank string or a non-empty collection."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return bool(value)
+
+
+#: The four inputs without which no analysis can be composed.
+_PREFLIGHT_REQUIRED: Tuple[str, ...] = ("signals", "signal_units", "contrast", "inference_unit")
+#: Inputs a plan should state; their absence is reported in the reason and requests nothing.
+_PREFLIGHT_OPTIONAL: Tuple[str, ...] = (
+    "hypothesis", "data", "paradigm", "axes", "conditions", "required_skills",
+    "verification_plan",
+)
+
+
+def preflight(question: Question) -> Preflight:
+    """Check a planned analysis before it runs and return one of the four outcomes.
+
+    The checks run in this order, and the first that applies decides the outcome:
+
+    1. ``"decline"`` when ``question.unsupported_inference`` is stated. The caller declares
+       the unsupported inference; jnwb holds no list of claims.
+    2. ``"request"`` when any of ``signals``, ``signal_units``, ``contrast`` or
+       ``inference_unit`` is empty, or a signal in ``signals`` has no entry in
+       ``signal_units``. ``missing`` names each: a field by its name, an absent unit as
+       ``signal_units['<signal>']``.
+    3. ``"failure"`` when ``question.non_identifiable`` is stated: the caller declares
+       that the result cannot be identified from these inputs.
+    4. ``"supported"`` otherwise.
+
+    The reason carries the caller's text for a decline or a failure, and ends by naming
+    the optional fields left empty (``hypothesis``, ``data``, ``paradigm``, ``axes``,
+    ``conditions``, ``required_skills``, ``verification_plan``). An empty optional field
+    never changes the outcome.
+
+    Parameters
+    ----------
+    question : Question
+        The planned analysis.
+
+    Returns
+    -------
+    Preflight
+        ``outcome``, ``reason`` and ``missing``, all plain data.
+
+    Raises
+    ------
+    TypeError
+        If ``question`` is not a ``Question``.
+    """
+    if not isinstance(question, Question):
+        raise TypeError(f"preflight takes a Question, got {type(question).__name__}")
+    if not isinstance(question.signal_units, dict):
+        raise TypeError(
+            "signal_units maps each signal name to its unit, e.g. {'lfp': 'V'}; "
+            f"got {type(question.signal_units).__name__}"
+        )
+
+    absent = [name for name in _PREFLIGHT_OPTIONAL if not _stated(getattr(question, name))]
+    not_stated = f" Not stated: {', '.join(absent)}." if absent else ""
+
+    if _stated(question.unsupported_inference):
+        return Preflight(
+            outcome="decline",
+            reason=f"Unsupported inference: {question.unsupported_inference.strip().rstrip('.')}.{not_stated}",
+        )
+
+    missing = [name for name in _PREFLIGHT_REQUIRED if not _stated(getattr(question, name))]
+    if _stated(question.signals) and _stated(question.signal_units):
+        missing += [
+            f"signal_units[{signal!r}]"
+            for signal in question.signals
+            if not _stated(question.signal_units.get(signal))
+        ]
+    if missing:
+        return Preflight(
+            outcome="request",
+            reason=f"Required inputs are missing: {', '.join(missing)}.{not_stated}",
+            missing=tuple(missing),
+        )
+
+    if _stated(question.non_identifiable):
+        return Preflight(
+            outcome="failure",
+            reason=f"Not identifiable: {question.non_identifiable.strip().rstrip('.')}.{not_stated}",
+        )
+
+    return Preflight(
+        outcome="supported",
+        reason=f"Every required input is present.{not_stated}",
+    )
 
 
 @dataclass(frozen=True)
@@ -523,6 +652,8 @@ __all__ = [
     'Alignment',
     'EpochCollection',
     'Question',
+    'Preflight',
+    'preflight',
     'Result',
     'Interpretation',
     'Figure',

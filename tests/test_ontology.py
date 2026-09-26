@@ -1,4 +1,4 @@
-"""`jnwb.ontology` -- the 11 exported objects, and what they actually promise.
+"""`jnwb.ontology` -- the exported objects, and what they actually promise.
 
 The audit reported this module as 11 public symbols with zero call sites, zero behavioural
 tests, and zero mentions outside `docs/`, and proposed removal. The 2026-09-16 ruling
@@ -39,7 +39,8 @@ import jnwb
 from jnwb import ontology as O
 
 
-EXPORTS = tuple(O.__all__)
+#: The exported classes; `preflight`, the one exported function, has its own tests below.
+EXPORTS = tuple(name for name in O.__all__ if isinstance(getattr(O, name), type))
 DEPRECATED_FACTORIES = ("create_aligned_dataset", "create_result", "create_figure")
 
 
@@ -68,6 +69,7 @@ def parts():
     return {
         "Query": query, "Dataset": dataset, "Alignment": alignment,
         "AlignedDataset": aligned, "EpochCollection": epochs, "Question": question,
+        "Preflight": O.preflight(question),
         "Provenance": provenance, "Lineage": lineage, "Result": result,
         "Interpretation": interpretation, "Figure": figure,
     }
@@ -95,8 +97,8 @@ class TestEveryExportIsReachableAndExercised:
 
     @pytest.mark.parametrize(
         "name",
-        ["Query", "Alignment", "EpochCollection", "Question", "Provenance", "Lineage",
-         "Result", "Interpretation", "Figure"],
+        ["Query", "Alignment", "EpochCollection", "Question", "Preflight", "Provenance",
+         "Lineage", "Result", "Interpretation", "Figure"],
     )
     def test_each_object_with_a_to_dict_round_trips_its_own_fields(self, name, parts):
         """`to_dict` is the one operation these objects share; it must report the object."""
@@ -398,9 +400,145 @@ class TestPreflightCarriesItsOutcomeAsData:
         with pytest.raises(ValueError, match=match):
             O.Preflight(**kwargs)
 
-    def test_it_is_not_yet_exported(self):
-        """Its signature is an open public API choice; exporting it is that choice."""
-        assert "Preflight" not in O.__all__ and "Preflight" not in jnwb.__all__
+
+
+def _plan(**changes) -> O.Question:
+    """A planned analysis with every field stated; `changes` overrides any of them."""
+    fields = dict(
+        hypothesis="the response differs from baseline",
+        signals=["spike_times", "lfp"],
+        contrast="baseline vs response",
+        inference_unit="unit",
+        signal_units={"spike_times": "s", "lfp": "V"},
+        data="one NWB file",
+        paradigm="passive viewing",
+        axes={"spike_times": "events", "lfp": "trials x time"},
+        conditions=["baseline", "response"],
+        required_skills=["jnwb-spiking"],
+        verification_plan="a label permutation null",
+    )
+    fields.update(changes)
+    return O.Question(**fields)
+
+
+REQUIRED = ("signals", "signal_units", "contrast", "inference_unit")
+EMPTY = {"signals": [], "signal_units": {}, "contrast": " ", "inference_unit": ""}
+
+
+class TestPreflightIsThePublicCheck:
+    """`jnwb.preflight(question)`: each outcome read from the returned object alone."""
+
+    def test_both_names_are_exported(self):
+        for name in ("Preflight", "preflight"):
+            assert name in jnwb.__all__ and name in O.__all__
+            assert getattr(jnwb, name) is getattr(O, name)
+
+    def test_supported(self):
+        pf = jnwb.preflight(_plan())
+        assert (pf.outcome, pf.missing) == ("supported", ())
+        assert pf.reason == "Every required input is present."
+
+    @pytest.mark.parametrize("name", REQUIRED)
+    def test_request_names_each_missing_required_input(self, name):
+        pf = jnwb.preflight(_plan(**{name: EMPTY[name]}))
+        assert pf.outcome == "request"
+        assert pf.missing == (name,)
+        assert name in pf.reason
+
+    def test_request_names_a_signal_without_a_unit(self):
+        pf = jnwb.preflight(_plan(signal_units={"spike_times": "s"}))
+        assert pf.outcome == "request"
+        assert pf.missing == ("signal_units['lfp']",)
+
+    def test_request_names_every_missing_input_at_once(self):
+        pf = jnwb.preflight(_plan(**EMPTY))
+        assert pf.outcome == "request" and pf.missing == REQUIRED
+
+    def test_failure(self):
+        pf = jnwb.preflight(_plan(non_identifiable="one class leaves nothing to decode"))
+        assert (pf.outcome, pf.missing) == ("failure", ())
+        assert "one class leaves nothing to decode" in pf.reason
+
+    def test_decline(self):
+        pf = jnwb.preflight(_plan(unsupported_inference="lag asymmetry is not causation"))
+        assert (pf.outcome, pf.missing) == ("decline", ())
+        assert "lag asymmetry is not causation" in pf.reason
+
+    def test_a_declared_decline_beats_missing_inputs(self):
+        pf = jnwb.preflight(_plan(unsupported_inference="x", **EMPTY))
+        assert (pf.outcome, pf.missing) == ("decline", ())
+
+    def test_a_declared_decline_beats_a_declared_failure(self):
+        pf = jnwb.preflight(_plan(unsupported_inference="x", non_identifiable="y"))
+        assert pf.outcome == "decline"
+
+    def test_missing_inputs_beat_a_declared_failure(self):
+        pf = jnwb.preflight(_plan(non_identifiable="y", contrast=""))
+        assert (pf.outcome, pf.missing) == ("request", ("contrast",))
+
+    def test_a_blank_declaration_declares_nothing(self):
+        pf = jnwb.preflight(_plan(unsupported_inference="  ", non_identifiable=""))
+        assert pf.outcome == "supported"
+
+    def test_absent_optional_fields_are_reported_and_change_nothing(self):
+        pf = jnwb.preflight(_plan(data="", paradigm="", axes={}, conditions=[],
+                                  required_skills=[], verification_plan=""))
+        assert pf.outcome == "supported"
+        assert pf.reason.endswith(
+            "Not stated: data, paradigm, axes, conditions, required_skills, "
+            "verification_plan."
+        )
+
+    def test_a_question_built_the_old_way_is_unchanged_and_requests_units(self):
+        q = O.Question("h", ["lfp"], "a vs b", "session", {"run": 1})
+        assert (q.hypothesis, q.signals, q.contrast, q.inference_unit, q.metadata) == (
+            "h", ["lfp"], "a vs b", "session", {"run": 1})
+        assert q.signal_units == {} and q.unsupported_inference == ""
+        pf = jnwb.preflight(q)
+        assert (pf.outcome, pf.missing) == ("request", ("signal_units",))
+
+    def test_the_question_and_the_preflight_round_trip_through_json(self):
+        q = _plan(signal_units={"spike_times": "s"})
+        assert O.Question(**json.loads(json.dumps(q.to_dict()))) == q
+        pf = jnwb.preflight(q)
+        assert O.Preflight(**json.loads(json.dumps(pf.to_dict()))) == pf
+
+    def test_anything_but_a_question_is_refused(self):
+        with pytest.raises(TypeError, match="takes a Question"):
+            jnwb.preflight(_plan().to_dict())
+        with pytest.raises(TypeError, match="signal_units maps"):
+            jnwb.preflight(_plan(signal_units=["s", "V"]))
+
+    def test_a_script_scores_the_four_outcomes_from_the_returned_data(self, tmp_path):
+        """A separate process imports this checkout and prints each outcome's `to_dict()`."""
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        script = tmp_path / "score.py"
+        script.write_text(
+            "import json, jnwb\n"
+            "base = dict(hypothesis='h', signals=['lfp'], contrast='a vs b',\n"
+            "            inference_unit='unit', signal_units={'lfp': 'V'})\n"
+            "cases = {'supported': {}, 'request': {'signal_units': {}},\n"
+            "         'failure': {'non_identifiable': 'r'},\n"
+            "         'decline': {'unsupported_inference': 'r'}}\n"
+            "print(json.dumps({'path': jnwb.__file__, 'scored': {\n"
+            "    k: jnwb.preflight(jnwb.Question(**{**base, **v})).to_dict()\n"
+            "    for k, v in cases.items()}}))\n",
+            encoding="utf-8",
+        )
+        repo = Path(__file__).resolve().parents[1]
+        env = {**os.environ, "PYTHONPATH": str(repo)}
+        out = json.loads(subprocess.run([sys.executable, str(script)], capture_output=True,
+                                        text=True, env=env, check=True).stdout)
+        assert Path(out["path"]).resolve().parent == repo / "jnwb", out["path"]
+        scored = out["scored"]
+        assert {k: v["outcome"] for k, v in scored.items()} == {k: k for k in scored}
+        assert set(scored) == set(O.Preflight.OUTCOMES)
+        assert scored["request"]["missing"] == ["signal_units"]
+        assert all(v["reason"] for v in scored.values())
 
 
 class TestProvenanceRecordsThePackageThatRan:

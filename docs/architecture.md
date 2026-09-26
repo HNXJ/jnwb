@@ -61,6 +61,12 @@ into a plausible finite number or label, and an unsupported question is never tu
 supported-looking answer. Declining is a correct outcome. The library's own refusals, and what
 to pass instead, are listed on [Errors](errors.md).
 
+`jnwb.preflight(question)` runs the checks before execution on a plan written as a
+`jnwb.Question`, in the order drawn above, and returns a `Preflight` whose `outcome`, `reason`
+and `missing` a script can score. The caller declares an unsupported inference
+(`unsupported_inference`) or a non-identifiable result (`non_identifiable`); the required inputs
+are `signals`, `signal_units`, `contrast` and `inference_unit`.
+
 ## From NWB file to result
 
 `jnwb.inspect` reports what a session holds. The loaders read the chosen series, events and

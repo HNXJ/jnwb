@@ -70,6 +70,7 @@ RETURNED_BY = {
                        "directed_connectivity"],
     "EventTable": ["events"],
     "JRSAResult": ["jrsa"],
+    "Preflight": ["preflight"],
     "ProbeGeometry": ["probe_geometry"],
     "VFlipResult": ["vflip", "vflip_from_lfp"],
     "XFlipResult": ["xflip"],

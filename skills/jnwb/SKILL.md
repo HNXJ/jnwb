@@ -22,6 +22,10 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
+Before routing, check the plan:
+
+- `jnwb.preflight(question)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty.
+
 ## 3. Execution
 Operations whose signature takes `device` accept `device='cuda'` and `device='metal'`. A request no GPU can serve warns and runs on the CPU.
 

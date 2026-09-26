@@ -244,6 +244,8 @@ __all__ = [
     'Alignment',
     'EpochCollection',
     'Question',
+    'Preflight',
+    'preflight',
     'Result',
     'Interpretation',
     'Figure',

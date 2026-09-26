@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `jnwb.preflight(question)` and `jnwb.Preflight`: check a planned analysis before it runs.
+  The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
+  with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked
+  in order: a stated `unsupported_inference` declines; an empty `signals`, `signal_units`,
+  `contrast` or `inference_unit`, or a signal without a unit, requests; a stated
+  `non_identifiable` reports a failure; anything else is supported.
+- `jnwb.Question` gains optional fields, all empty by default so existing constructions are
+  unchanged: `signal_units`, `data`, `paradigm`, `axes`, `conditions`, `required_skills`,
+  `verification_plan`, `unsupported_inference` and `non_identifiable`. `to_dict()` includes them.
+
 ### Changed
 
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],

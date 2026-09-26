@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 160 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 162 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -200,10 +200,12 @@ All 160 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.Figure | class | *Visualization: rendering of Result + Interpretation.* |
 | jnwb.Interpretation | class | *Meaning and claims: what does the result mean?* |
 | jnwb.Lineage | class | *Artifact dependencies: where did this come from?* |
+| jnwb.Preflight | class | *The outcome of checking a planned analysis before it runs.* |
 | jnwb.Provenance | class | *Execution context and metadata.* |
 | jnwb.Query | class | *Data selection rules: what subset of data?* |
 | jnwb.Question | class | *Scientific hypothesis: what are we asking?* |
 | jnwb.Result | class | *Analysis output: statistics, provenance, lineage.* |
+| jnwb.preflight | function | (question: jnwb.ontology.Question) -> jnwb.ontology.Preflight<br>*Check a planned analysis before it runs and return one of the four outcomes.* |
 
 ## Module: jnwb.permutation
 

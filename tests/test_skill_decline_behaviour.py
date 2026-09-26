@@ -28,7 +28,7 @@ import pytest
 import jnwb
 
 SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills"
-OUTCOMES = jnwb.ontology.Preflight.OUTCOMES
+OUTCOMES = jnwb.Preflight.OUTCOMES
 
 _ROUTER = (
     "routes to the domain skills and runs no operation of its own; each outcome is tested at "
