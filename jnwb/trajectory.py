@@ -95,7 +95,7 @@ def compute_population_trajectory(
     n_components: int = 3,
     quality: Optional[str] = None,
     device: str = 'cpu'
-) -> Dict[str, Union[np.ndarray, List[int], float]]:
+) -> Dict[str, Union[np.ndarray, List[int], str]]:
     """
     Compute population trajectory using standardized correlation PCA (SVD).
     Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.
@@ -105,8 +105,9 @@ def compute_population_trajectory(
         are centered and z-scored to unit variance before SVD. Units contribute equally
         to total variance regardless of baseline firing rate; a unit whose rate never
         changes contributes nothing. This contrasts with
-        :meth:`jnwb.analyzers.UnitAnalyzer.population_trajectory` which computes
-        unstandardized covariance PCA (centering only).
+        :meth:`jnwb.analyzers.PopulationAnalyzer.population_trajectory` which computes
+        unstandardized covariance PCA (centering only). Both name the variances as
+        scikit-learn's ``PCA`` does.
 
     Args:
         session: session object exposing ``get_units`` and ``get_spike_times``
@@ -121,10 +122,17 @@ def compute_population_trajectory(
     Returns:
         Dict with:
         - trajectory: (n_trials, n_components, n_bins) projected coordinates
-        - explained_variance: explained variance ratio of kept components
+        - explained_variance: (n_components,) variance of the z-scored data along each
+          component, ``S**2 / (n_samples - 1)`` with ``n_samples = n_trials * n_bins``
+        - explained_variance_ratio: (n_components,) each component's share of the total
+          variance. Its sum is the single fraction ``explained_variance`` held before 0.2.7.
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
         - device_used: 'cpu' or 'cuda', the device that performed the SVD
+
+        Both variance arrays are NaN for a component that could not be estimated (fewer
+        units or samples than ``n_components``) and everywhere when there is no variance
+        to decompose or no population.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -140,7 +148,8 @@ def compute_population_trajectory(
         # estimated from observations.
         return {
             'trajectory': np.full((n_trials, n_components, n_bins), np.nan),
-            'explained_variance': float('nan'),
+            'explained_variance': np.full(n_components, np.nan),
+            'explained_variance_ratio': np.full(n_components, np.nan),
             'unit_ids': [],
             'bin_centers': bin_centers
         }
@@ -186,27 +195,35 @@ def compute_population_trajectory(
     # components of opposite sign. See :func:`jnwb.gpu_pca.pin_component_signs`.
     V_np, proj_np = pin_component_signs(V_np, proj_np)
 
-    # Calculate variance explained ratio
+    # Per-component variances, as scikit-learn's PCA names them.
+    power = S_np[:actual_components] ** 2
     total_var = np.sum(S_np ** 2)
-    # No total variance means no ratio, not a ratio of zero.
-    explained_variance = (
-        np.sum(S_np[:actual_components] ** 2) / total_var if total_var > 0.0 else np.nan
-    )
+    # No total variance means no ratio, not a ratio of zero; nor a variance to report.
+    if total_var > 0.0:
+        explained_variance = power / (X_flat.shape[0] - 1)
+        explained_variance_ratio = power / total_var
+    else:
+        explained_variance = np.full(actual_components, np.nan)
+        explained_variance_ratio = np.full(actual_components, np.nan)
 
-    # If requested n_components > actual_components, pad projection along component axis
+    # If requested n_components > actual_components, pad along the component axis
     if actual_components < n_components:
         # These components do not exist -- there were not enough units or samples to
         # estimate them. Zero-padding made them indistinguishable from a component whose
         # projection was measured to be zero.
-        pad_width = ((0, 0), (0, n_components - actual_components))
-        proj_np = np.pad(proj_np, pad_width, mode="constant", constant_values=np.nan)
+        missing = n_components - actual_components
+        proj_np = np.pad(proj_np, ((0, 0), (0, missing)), mode="constant", constant_values=np.nan)
+        explained_variance = np.pad(explained_variance, (0, missing), constant_values=np.nan)
+        explained_variance_ratio = np.pad(explained_variance_ratio, (0, missing),
+                                          constant_values=np.nan)
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
 
     return {
         'trajectory': trajectory,
-        'explained_variance': float(explained_variance),
+        'explained_variance': explained_variance,
+        'explained_variance_ratio': explained_variance_ratio,
         'unit_ids': unit_ids,
         'bin_centers': bin_centers,
         'device_used': resolved,

@@ -85,6 +85,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PopulationAnalyzer.pie_chart_data` raises `ValueError` when a `criteria` key names a column
   the table does not have. The filter was skipped, so the counts covered every unit. It filters
   through `filter_by_criteria`; the counts for present columns are unchanged.
+- **`compute_population_trajectory` names its variances as scikit-learn's `PCA` does
+  (breaking).** `explained_variance` was one fraction for all kept components together, while
+  `PopulationAnalyzer.population_trajectory` used the same key for a per-component array of
+  absolute variances. It is now that array, `S**2 / (n_samples - 1)` of the z-scored data, and
+  the new `explained_variance_ratio` holds each component's share; both are `(n_components,)`
+  and NaN where a component could not be estimated. The old value is
+  `explained_variance_ratio.sum()`. No warning is possible, since the key is unchanged: code
+  that reads it as a float fails with `TypeError` for more than one component, and with
+  `n_components=1` reads a variance where it read a fraction.
 
 ### Deprecated
 

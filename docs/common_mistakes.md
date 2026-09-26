@@ -321,7 +321,7 @@ from observations.
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
 res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs)
 assert np.all(np.isnan(res["trajectory"]))
-assert np.isnan(res["explained_variance"])
+assert np.all(np.isnan(res["explained_variance_ratio"]))
 
 # An empty layer mask. The average over no channels is not zero.
 sup, deep = jnwb.TFRAnalyzer.average_across_channels(tfr, layer_mask=mask)
@@ -332,13 +332,13 @@ So check availability rather than magnitude:
 
 ```python
 # WRONG: an unobserved population and a silent one give the same answer
-if res["explained_variance"] == 0.0:
+if np.nansum(res["explained_variance_ratio"]) == 0.0:
     ...
 
 # CORRECT: the two conditions are distinguishable, so distinguish them
-if np.isnan(res["explained_variance"]):
+if np.all(np.isnan(res["explained_variance_ratio"])):
     ...          # PCA did not run -- nothing was selected
-elif res["explained_variance"] < 0.01:
+elif np.nansum(res["explained_variance_ratio"]) < 0.01:
     ...          # PCA ran and found almost no structure
 ```
 

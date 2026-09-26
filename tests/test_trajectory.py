@@ -117,8 +117,30 @@ def test_compute_population_trajectory():
     
     # Check shape: (n_trials, n_components, n_bins) -> (4, 2, 5)
     assert res['trajectory'].shape == (4, 2, 5)
-    assert isinstance(res['explained_variance'], float)
-    assert 0.0 <= res['explained_variance'] <= 1.0
+    assert res['explained_variance'].shape == res['explained_variance_ratio'].shape == (2,)
+    assert np.all((res['explained_variance_ratio'] >= 0.0) & (res['explained_variance_ratio'] <= 1.0))
+
+
+def test_the_variances_carry_scikit_learns_meanings():
+    """`explained_variance` is each component's variance and `explained_variance_ratio` its
+    share, as in `sklearn.decomposition.PCA`; the scalar this key held is the ratio's sum.
+    The reference is the z-scored matrix built independently of the library's helpers."""
+    session = MockSession()
+    for k in session.spikes:
+        session.spikes[k] = np.sort(np.random.default_rng(k).uniform(1.0, 4.1, 40))
+    session.units_df['area'] = 'V1'
+    res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                        time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                        n_components=2)
+    X, _, _ = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                         time_window_ms=(0.0, 100.0), bin_size_ms=20.0)
+    flat = X.transpose(0, 2, 1).reshape(-1, X.shape[1])
+    scaled = (flat - flat.mean(axis=0)) / flat.std(axis=0)
+    s = np.linalg.svd(scaled, compute_uv=False)
+    np.testing.assert_allclose(res['explained_variance'], s[:2] ** 2 / (flat.shape[0] - 1),
+                               rtol=1e-12)
+    np.testing.assert_allclose(res['explained_variance_ratio'], s[:2] ** 2 / np.sum(s ** 2),
+                               rtol=1e-12)
 
 
 def test_compute_population_trajectory_empty():
@@ -144,7 +166,9 @@ def test_compute_population_trajectory_empty():
 
     assert res['trajectory'].shape == (4, 2, 5)
     assert np.all(np.isnan(res['trajectory']))
-    assert np.isnan(res['explained_variance'])
+    assert res['explained_variance'].shape == res['explained_variance_ratio'].shape == (2,)
+    assert np.all(np.isnan(res['explained_variance']))
+    assert np.all(np.isnan(res['explained_variance_ratio']))
     assert res['unit_ids'] == []
     # The bins themselves were requested, not estimated, so they stay real.
     assert np.all(np.isfinite(res['bin_centers']))
@@ -167,6 +191,9 @@ def test_components_that_could_not_be_estimated_are_not_zero():
     assert 0 < n_real < 8
     assert np.all(np.isfinite(res['trajectory'][:, :n_real, :]))
     assert np.all(np.isnan(res['trajectory'][:, n_real:, :]))
+    for key in ('explained_variance', 'explained_variance_ratio'):
+        assert res[key].shape == (8,)
+        assert np.all(np.isfinite(res[key][:n_real])) and np.all(np.isnan(res[key][n_real:]))
 
 
 def test_a_population_with_no_variance_has_no_explained_variance_ratio():
@@ -181,7 +208,8 @@ def test_a_population_with_no_variance_has_no_explained_variance_ratio():
         bin_size_ms=20.0,
         n_components=2,
     )
-    assert np.isnan(res['explained_variance'])
+    assert np.all(np.isnan(res['explained_variance']))
+    assert np.all(np.isnan(res['explained_variance_ratio']))
 
 
 class TestPopulationTrajectoryEstimandDivergence:
@@ -236,6 +264,6 @@ class TestComputePopulationTrajectoryDeviceFallback:
                 device="cuda",
             )
         assert res['trajectory'].shape == (4, 2, 5)
-        assert 0.0 <= res['explained_variance'] <= 1.0
+        assert np.all((res['explained_variance_ratio'] >= 0.0) & (res['explained_variance_ratio'] <= 1.0))
 
 
