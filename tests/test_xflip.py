@@ -636,6 +636,16 @@ class TestThePartitionSearchMatchesTheScalarLoop:
             tie = np.full((n, n), 0.5)
             np.fill_diagonal(tie, 1.0)
             yield tie
+        # Mirror-symmetric with non-dyadic values: 0.7 on two equal end blocks, 0.3
+        # elsewhere. Mirrored partitions tie in exact arithmetic, so the answer rests on the
+        # last bits of each score, and summing the prefix terms in another order moves the
+        # cut (9 channels did not show it; 10 do). The 0.5 matrix above is exact in binary
+        # and cannot.
+        mirror = np.full((10, 10), 0.3)
+        mirror[:3, :3] = 0.7
+        mirror[7:, 7:] = 0.7
+        np.fill_diagonal(mirror, 1.0)
+        yield mirror
 
     @pytest.mark.parametrize("n_blocks", [2, 3, 4])
     @pytest.mark.parametrize("min_block_size", [1, 2, 3])

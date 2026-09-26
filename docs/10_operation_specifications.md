@@ -21,8 +21,8 @@ resolves `rng`, and the value is checked when the function first draws from it:
 
 | Accepted `rng` | Functions | Other values |
 |---|---|---|
-| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `cluster_permutation_test`, `cross_area_coherence`, `exact_sign_flip`, `granger`, `granger_spectral`, `nested_cv_linear_svm`, `phase_slope_index`, `resample_onsets`, `transfer_entropy` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
-| whatever `np.random.default_rng` takes: an `int` seed, a `Generator`, `None`, a `SeedSequence`, a bit generator, a list of ints, or a `bool` | `cross_modal_comparison`, `jrsa`, `shuffle_r2_ci`, `xflip`, `zflip` and the `testing.synth` builders | `TypeError` for a `float` |
+| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `cluster_permutation_test`, `cross_area_coherence`, `exact_sign_flip`, `granger`, `granger_spectral`, `nested_cv_linear_svm`, `phase_slope_index`, `resample_onsets`, `transfer_entropy`, `xflip` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+| whatever `np.random.default_rng` takes: an `int` seed, a `Generator`, `None`, a `SeedSequence`, a bit generator, a list of ints, or a `bool` | `cross_modal_comparison`, `jrsa`, `shuffle_r2_ci`, `zflip` and the `testing.synth` builders | `TypeError` for a `float` |
 | a `np.random.Generator` only | `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` | `TypeError` from `permute_labels`; `AttributeError` from the other three |
 | an `int` only | `build_permutation_plan`, which records the integer seed of every draw | `TypeError` |
 

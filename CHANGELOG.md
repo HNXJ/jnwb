@@ -78,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a positive one. The calibration receipt is regenerated: power on every alternative is
   unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
   accepted none, below `alpha=0.05`.
-- `xflip` refuses a float or bool `rng` with `TypeError`, as the other surrogate estimators do.
+- `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
+  RandomState now raise TypeError (a float already did).
 - `xflip`'s contiguous partition search scores every split point of a block count as one array.
   On a given objective the cuts are identical to a scalar loop's. The search is 3 to 29 times faster from 32 to
   256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
