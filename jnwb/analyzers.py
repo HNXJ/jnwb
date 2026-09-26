@@ -695,13 +695,10 @@ class PopulationAnalyzer:
         # Imported here: jnwb.metadata imports pynwb, which this module otherwise never needs.
         from .metadata import filter_by_criteria
 
-        try:
-            filtered = filter_by_criteria(units, criteria or {}, unknown="raise")
-        except ValueError as err:
-            raise ValueError(
-                f"pie_chart_data: criteria name column(s) absent from units: "
-                f"{[k for k in criteria if k not in units.columns]!r}"
-            ) from err
+        absent = [k for k in (criteria or {}) if k not in units.columns]
+        if absent:
+            raise ValueError(f"pie_chart_data: criteria name column(s) absent from units: {absent!r}")
+        filtered = filter_by_criteria(units, criteria or {}, unknown="raise")
 
         found = False
         for col in ('quality_category', 'quality_label'):

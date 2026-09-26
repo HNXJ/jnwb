@@ -303,6 +303,12 @@ class TestPopulationAnalyzerPieChartData(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"absent from units: \['areaa'\]"):
             PopulationAnalyzer.pie_chart_data(self.UNITS, {'areaa': 'V1'})
 
+    def test_another_filter_error_is_not_relabelled_as_an_absent_column(self):
+        units = self.UNITS.iloc[:2]
+        with self.assertRaises(ValueError) as err:
+            PopulationAnalyzer.pie_chart_data(units, {'area': np.array(['V1', 'V4', 'MT'])})
+        self.assertNotIn('absent', str(err.exception))
+
     def test_a_filter_on_a_present_column_counts_only_the_matching_units(self):
         res = PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': 'V1'})
         self.assertEqual(res['counts'], {'good': 1, 'mua': 1})
