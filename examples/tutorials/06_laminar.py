@@ -1,4 +1,6 @@
-"""Tutorial 06: Laminar Electrophysiology — CSD, vFLIP Alignment, and zFLIP Waves.
+"""Tutorial 06: Laminar Electrophysiology — CSD, vFLIP Alignment, zFLIP Waves, xFLIP Blocks.
+
+Every signal here is synthetic, generated below.
 
 Run: python examples/tutorials/06_laminar.py
 """
@@ -82,6 +84,43 @@ def main() -> None:
     print(f"  Apparent velocity: {zflip_res.apparent_velocity_m_s}")
     print(f"  Accepted: {zflip_res.accepted}")
     print(f"  Surrogate null p-value: {zflip_res.p_value:.3f}")
+
+    # 5. xFLIP Correlation Blocks
+    # Synthetic: two contiguous blocks of 8 contacts, each driven by its own shared source,
+    # so the true boundary sits between contacts 7 and 8. `xflip` partitions the contacts
+    # into contiguous blocks and tests the partition against phase-randomised surrogates,
+    # which keep each contact's autocorrelation and destroy the cross-contact coupling.
+    n_per_block = 8
+    blocks = np.empty((2 * n_per_block, n_samples))
+    for b in range(2):
+        source = rng.normal(size=n_samples)
+        rows = slice(b * n_per_block, (b + 1) * n_per_block)
+        blocks[rows] = 0.8 * source + 0.6 * rng.normal(size=(n_per_block, n_samples))
+
+    xflip_res = jnwb.xflip(blocks, n_blocks=2, min_block_size=3, n_surrogates=200, rng=0)
+    assert isinstance(xflip_res, jnwb.XFlipResult)
+    # Read `accepted` before any boundary: a rejected partition still carries cuts.
+    assert xflip_res.accepted, xflip_res.rejection_reason
+    assert xflip_res.boundaries == (n_per_block,)
+    print("xFLIP correlation-block result:")
+    print(f"  Accepted: {xflip_res.accepted}")
+    bounds = [(int(start), int(end)) for start, end in xflip_res.block_bounds]
+    print(f"  Block bounds (half-open contact indices): {bounds}")
+    print(f"  Omnibus p-value: {xflip_res.p_values['omnibus']:.4f}")
+    print(f"  Boundary drop at contact {n_per_block}: "
+          f"{xflip_res.boundary_drops[n_per_block]:.3f}")
+
+    # With rng=None the surrogates draw fresh entropy, and the result records it:
+    # passing `surrogate_seed_entropy` back as `rng` reproduces every p-value. Shown on
+    # synthetic white noise, whose p-values vary with the surrogate stream; on the blocks
+    # above every stream gives the floor 1/(n_surrogates + 1).
+    noise = rng.normal(size=(12, 300))
+    fresh = jnwb.xflip(noise, n_blocks=2, min_block_size=3, n_surrogates=50, rng=None)
+    again = jnwb.xflip(noise, n_blocks=2, min_block_size=3, n_surrogates=50,
+                       rng=fresh.surrogate_seed_entropy)
+    assert again.p_values == fresh.p_values
+    print(f"White noise: accepted={fresh.accepted}, omnibus p={fresh.p_values['omnibus']:.3f}, "
+          f"reproduced from surrogate_seed_entropy: {again.p_values == fresh.p_values}")
 
 
 if __name__ == "__main__":

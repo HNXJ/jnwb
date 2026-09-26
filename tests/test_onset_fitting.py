@@ -121,3 +121,43 @@ class TestFitExponentialOnset:
         fit = fit_exponential_onset(t_ms, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))
         assert set(fit.keys()) == {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost", "bound_status"}
         assert fit["bound_status"] is None
+
+
+class TestANoiseOnlyPSTH:
+    """`bound_status` checks t0 alone, so a fit to a PSTH with no response usually reads
+    None; what marks it is `tau` at an end of its bounds and `r2` near 0. The docs state
+    this for the quickstart's PSTH and for noise PSTHs in general; these tests hold both.
+    """
+
+    ONSETS = np.array([1.0, 3.0, 5.0, 7.0])
+    TAU_BOUNDS = (1.0, 150.0)  # the default `tau_bounds_ms`
+
+    def _fit(self, spike_times):
+        from jnwb import raster_psth
+
+        t_ms, rate, _ = raster_psth(spike_times, self.ONSETS, win_ms=(-100.0, 400.0), bin_ms=10.0)
+        return fit_exponential_onset(t_ms, rate, t0_bounds_ms=(0.0, 250.0))
+
+    def _tau_at_a_bound(self, fit):
+        return min(abs(fit["tau"] - b) for b in self.TAU_BOUNDS) < 1e-2
+
+    def test_the_quickstart_psth(self):
+        """The draw `docs/quickstart.md` makes: `default_rng(0)`, after its earlier steps."""
+        rng = np.random.default_rng(0)
+        rng.normal(0, 1, (40, 8, 600))  # step 1, the artifact segment
+        rng.normal(size=1000)           # step 3, sig_a
+        rng.normal(size=1000)           # step 3, sig_b's noise
+        fit = self._fit(np.sort(rng.uniform(0, 10, 200)))
+
+        assert fit["bound_status"] is None
+        assert self._tau_at_a_bound(fit), fit["tau"]
+        assert abs(fit["r2"]) < 0.05, fit["r2"]
+
+    def test_noise_psths_usually_read_none_with_tau_at_a_bound_and_r2_near_zero(self):
+        fits = [self._fit(np.sort(np.random.default_rng(seed).uniform(0, 10, 200)))
+                for seed in range(20)]
+        unflagged = [f for f in fits if f["bound_status"] is None]
+
+        assert len(unflagged) > len(fits) / 2, f"{len(unflagged)} of {len(fits)} read None"
+        assert sum(self._tau_at_a_bound(f) for f in unflagged) > len(unflagged) / 2
+        assert max(f["r2"] for f in unflagged) < 0.2
