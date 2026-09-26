@@ -40,6 +40,7 @@ import builtins
 import importlib
 import inspect
 import re
+import tomllib
 from collections import Counter
 from pathlib import Path
 
@@ -542,6 +543,14 @@ def _free_names(tree):
     return used - bound - BUILTINS
 
 
+#: Calls that export through kaleido, which drives a headless browser. Two browsers at once
+#: under `pytest -n` failed to shut down intermittently, so a block making one of these calls
+#: joins the xdist group `tests/test_vis.py` uses, and `--dist loadgroup` runs the group on
+#: one worker.
+BROWSER_EXPORT_CALLS = ("save_and_seal", "write_image", "to_image")
+BROWSER_EXPORT_GROUP = pytest.mark.xdist_group("browser_export")
+
+
 def _runnable_blocks():
     """Blocks that need nothing but the installed package: no free names, no data, no include."""
     out = []
@@ -554,7 +563,9 @@ def _runnable_blocks():
             except SyntaxError:
                 continue  # already failed by test_every_python_block_in_the_documentation_parses
             if not _free_names(tree):
-                out.append(pytest.param(body, id=f"{page.relative_to(ROOT).as_posix()}#{index}"))
+                marks = [BROWSER_EXPORT_GROUP] if any(c in body for c in BROWSER_EXPORT_CALLS) else []
+                out.append(pytest.param(body, marks=marks,
+                                        id=f"{page.relative_to(ROOT).as_posix()}#{index}"))
     return out
 
 
@@ -564,6 +575,15 @@ RUNNABLE = _runnable_blocks()
 def test_the_documentation_still_contains_blocks_a_reader_can_run():
     """Without this, tightening the runnable filter to zero blocks would read as success."""
     assert len(RUNNABLE) >= 12, f"only {len(RUNNABLE)} runnable documentation blocks found"
+
+
+def test_browser_exports_are_serialized():
+    """The group is inert under plain `--dist load`, so the scheduler option is checked too."""
+    grouped = [p.id for p in RUNNABLE if BROWSER_EXPORT_GROUP in p.marks]
+    assert any(i.startswith("docs/vis.md#") for i in grouped), grouped
+    with open(ROOT / "pyproject.toml", "rb") as handle:
+        addopts = tomllib.load(handle)["tool"]["pytest"]["ini_options"].get("addopts", [])
+    assert "--dist=loadgroup" in addopts, addopts
 
 
 @pytest.mark.parametrize("block", RUNNABLE)

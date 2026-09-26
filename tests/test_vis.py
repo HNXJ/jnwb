@@ -175,6 +175,10 @@ def test_canvas_colorbar_placement():
 # 3. Triple Export & Vector Text Verification Tests
 # ==============================================================================
 
+# kaleido drives a headless browser. Two at once under `pytest -n` failed to shut down
+# intermittently, so every test that exports through it shares one xdist group, which
+# `--dist loadgroup` in pyproject.toml runs on a single worker.
+@pytest.mark.xdist_group("browser_export")
 def test_canvas_save_and_seal_triple_export(tmp_path, sample_argument_data):
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=80.0, rows=1, cols=1, tags=[["A"]])
     canvas.fig.add_trace(go.Scatter(x=[0, 1, 2], y=[10, 20, 15], mode="lines+markers"))

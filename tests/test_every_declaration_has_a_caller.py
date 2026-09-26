@@ -1,8 +1,8 @@
 """A dependency nothing invokes and a script nothing runs are both claims without a caller.
 
 `pytest-cov` was declared in the `test` extra and pulled onto all four CI cells on every push.
-There is no `addopts`, no `--cov` and no coverage configuration anywhere in the repository, so
-it was installed and never invoked. `pytest-xdist` was in the same position until the
+There was no `--cov` and no coverage configuration anywhere in the repository, so it was
+installed and never invoked. `pytest-xdist` was in the same position until the
 installed-wheel leg started passing `-n auto`; it stays, and this file is what would notice if
 that caller went away.
 
