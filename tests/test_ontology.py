@@ -450,6 +450,18 @@ class TestPreflightIsThePublicCheck:
         assert pf.outcome == "request"
         assert pf.missing == ("signal_units['lfp']",)
 
+    def test_a_blank_unit_is_a_missing_unit_and_a_repeated_signal_is_named_once(self):
+        pf = jnwb.preflight(_plan(signals=["spike_times", "lfp", "lfp"],
+                                  signal_units={"spike_times": "s", "lfp": "  "}))
+        assert (pf.outcome, pf.missing) == ("request", ("signal_units['lfp']",))
+
+    @pytest.mark.parametrize("changes", [
+        {"signals": "lfp"}, {"unsupported_inference": True}, {"non_identifiable": ["x"]},
+    ])
+    def test_a_field_of_the_wrong_type_raises(self, changes):
+        with pytest.raises(TypeError):
+            jnwb.preflight(_plan(**changes))
+
     def test_request_names_every_missing_input_at_once(self):
         pf = jnwb.preflight(_plan(**EMPTY))
         assert pf.outcome == "request" and pf.missing == REQUIRED
@@ -477,15 +489,15 @@ class TestPreflightIsThePublicCheck:
         assert (pf.outcome, pf.missing) == ("request", ("contrast",))
 
     def test_a_blank_declaration_declares_nothing(self):
-        pf = jnwb.preflight(_plan(unsupported_inference="  ", non_identifiable=""))
+        pf = jnwb.preflight(_plan(unsupported_inference="  ", non_identifiable="  "))
         assert pf.outcome == "supported"
 
     def test_absent_optional_fields_are_reported_and_change_nothing(self):
-        pf = jnwb.preflight(_plan(data="", paradigm="", axes={}, conditions=[],
+        pf = jnwb.preflight(_plan(hypothesis=" ", data="", paradigm="", axes={}, conditions=[],
                                   required_skills=[], verification_plan=""))
         assert pf.outcome == "supported"
         assert pf.reason.endswith(
-            "Not stated: data, paradigm, axes, conditions, required_skills, "
+            "Not stated: hypothesis, data, paradigm, axes, conditions, required_skills, "
             "verification_plan."
         )
 

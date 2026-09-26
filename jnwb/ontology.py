@@ -435,7 +435,7 @@ def preflight(question: Question) -> Preflight:
     2. ``"request"`` when any of ``signals``, ``signal_units``, ``contrast`` or
        ``inference_unit`` is empty, or a signal in ``signals`` has no entry in
        ``signal_units``. ``missing`` names each: a field by its name, an absent unit as
-       ``signal_units['<signal>']``.
+       ``signal_units[<repr of the signal>]``, once per signal.
     3. ``"failure"`` when ``question.non_identifiable`` is stated: the caller declares
        that the result cannot be identified from these inputs.
     4. ``"supported"`` otherwise.
@@ -458,7 +458,8 @@ def preflight(question: Question) -> Preflight:
     Raises
     ------
     TypeError
-        If ``question`` is not a ``Question``.
+        If ``question`` is not a ``Question``, ``signals`` is a string, ``signal_units`` is
+        not a dict, or ``unsupported_inference`` or ``non_identifiable`` is not a string.
     """
     if not isinstance(question, Question):
         raise TypeError(f"preflight takes a Question, got {type(question).__name__}")
@@ -467,6 +468,11 @@ def preflight(question: Question) -> Preflight:
             "signal_units maps each signal name to its unit, e.g. {'lfp': 'V'}; "
             f"got {type(question.signal_units).__name__}"
         )
+    if isinstance(question.signals, str):
+        raise TypeError(f"signals is a list of signal names, e.g. ['lfp']; got the string {question.signals!r}")
+    for name in ("unsupported_inference", "non_identifiable"):
+        if not isinstance(getattr(question, name), str):
+            raise TypeError(f"{name} is a string; got {type(getattr(question, name)).__name__}")
 
     absent = [name for name in _PREFLIGHT_OPTIONAL if not _stated(getattr(question, name))]
     not_stated = f" Not stated: {', '.join(absent)}." if absent else ""
@@ -481,7 +487,7 @@ def preflight(question: Question) -> Preflight:
     if _stated(question.signals) and _stated(question.signal_units):
         missing += [
             f"signal_units[{signal!r}]"
-            for signal in question.signals
+            for signal in dict.fromkeys(question.signals)
             if not _stated(question.signal_units.get(signal))
         ]
     if missing:
