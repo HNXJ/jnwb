@@ -2104,7 +2104,13 @@ def _codes(cols: List[np.ndarray]) -> np.ndarray:
         if span < 2**62:
             key = np.zeros(arrays[0].size, dtype=np.int64)
             for a, r in zip(arrays, radices):
-                key = key * r + (a - a.min()).astype(np.int64)
+                # Subtract in int64, where a narrower signed dtype cannot wrap; uint64 is
+                # shifted in its own dtype, where the offset is non-negative and below 2**62.
+                if a.dtype == np.uint64:
+                    offset = (a - a.min()).astype(np.int64)
+                else:
+                    offset = a.astype(np.int64) - np.int64(a.min())
+                key = key * r + offset
             return np.asarray(np.unique(key, return_inverse=True)[1]).ravel()
     stacked = np.column_stack(arrays)
     # ravel(): NumPy 2.0 briefly returned a column vector for axis-wise inverse

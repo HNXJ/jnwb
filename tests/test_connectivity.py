@@ -263,27 +263,38 @@ class TestGranger:
             y[:, t] = 0.3 * y[:, t - 1] + 0.4 * x[:, t - 1] + 0.5 * x[:, t - 3] + e[:, t]
         return x[:, burn:], y[:, burn:]
 
+    @pytest.mark.parametrize("n_z", [0, 1, 2])
     @pytest.mark.parametrize("criterion", ["aic", "bic"])
-    def test_order_criteria_are_the_ml_likelihood_on_one_trimmed_sample(self, criterion):
+    def test_order_criteria_are_the_ml_likelihood_on_one_trimmed_sample(self, criterion, n_z):
         """Order selection scores every candidate on the rows left after trimming the largest
         candidate, with the ML variance RSS/N. statsmodels' OLS `aic`/`bic` are -2 log L plus
         the penalty, with log L at the ML variance; on one sample they differ from the
-        criterion only by a constant, so differences across orders must agree."""
+        criterion only by a constant, so differences across orders must agree. Conditioning
+        series enter both the regressors and the parameter count."""
         import statsmodels.api as sm
 
         from jnwb.connectivity import _granger_order_criteria
 
         x, y = self._var3(11, 3, 120)
+        z_rng = np.random.default_rng(12)
+        zs = []
+        for _ in range(n_z):
+            z = z_rng.standard_normal(x.shape)
+            z[:, 1:] += 0.5 * y[:, :-1]  # informative about y's past, so it moves the fit
+            zs.append(z)
         max_order = 6
-        got = _granger_order_criteria(x, y, [], max_order, 0.0, criterion)
+        got = _granger_order_criteria(x, y, zs, max_order, 0.0, criterion)
 
         want = []
         for p in range(1, max_order + 1):
             rows, target = [], []
             for tr in range(x.shape[0]):
                 for t in range(max_order, x.shape[1]):
-                    rows.append([y[tr, t - j] for j in range(1, p + 1)]
-                                + [x[tr, t - j] for j in range(1, p + 1)])
+                    row = [y[tr, t - j] for j in range(1, p + 1)]
+                    row += [x[tr, t - j] for j in range(1, p + 1)]
+                    for z in zs:
+                        row += [z[tr, t - j] for j in range(1, p + 1)]
+                    rows.append(row)
                     target.append(y[tr, t])
             fit = sm.OLS(np.asarray(target), sm.add_constant(np.asarray(rows))).fit()
             want.append(getattr(fit, criterion))
@@ -343,6 +354,33 @@ class TestRowCodes:
         wide = [rng.integers(0, 2**40, size=500, dtype=np.int64) for _ in range(2)]
         wide[0][:250] = wide[0][250:]  # repeated prefixes, so the second column orders them
         np.testing.assert_array_equal(_codes(wide), self._reference(wide))
+
+    @pytest.mark.parametrize("dtype", [np.int8, np.int16])
+    def test_codes_are_exact_for_narrow_signed_dtypes(self, dtype):
+        """The shift to zero must not wrap: int8 100 - (-100) is 200, outside int8."""
+        from jnwb.connectivity import _codes
+
+        info = np.iinfo(dtype)
+        cols = [np.array([-100, 100, 0, -100, 100], dtype=dtype),
+                np.array([0, 1, 0, 1, 0], dtype=dtype)]
+        np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+        rng = np.random.default_rng(2)
+        cols = [rng.integers(info.min, info.max, size=2000, endpoint=True).astype(dtype)
+                for _ in range(3)]
+        np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+
+    def test_codes_are_exact_for_small_ranges_at_large_offsets(self):
+        """Values near 2**61 (and 2**63 unsigned) with a range of four. Without the shift to
+        zero, the key is the correct key plus a constant modulo 2**64; these offsets put that
+        constant 11 below 2**63, so the keys would cross the int64 boundary and reorder."""
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(3)
+        for bases, dtype in (([2**61 - 1, 2**61, 5], np.int64),
+                             ([2**63 + 2**61 - 1, 2**63 + 2**61, 5], np.uint64)):
+            cols = [np.asarray(b, dtype=dtype) + rng.integers(0, 4, size=1000).astype(dtype)
+                    for b in bases]
+            np.testing.assert_array_equal(_codes(cols), self._reference(cols))
 
 
 
