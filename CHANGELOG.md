@@ -33,20 +33,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that cannot be compared, and
   an outer training fold with a single class raise `ValueError`. A call without `groups`
   returns the same numbers as before.
-- `compute_response_metrics` returns `baseline_rates` and `response_rates`: one rate per onset,
-  in onset order, zeros when there are no spikes. No key is removed.
+- `compute_response_metrics` returns the per-trial `baseline_rates`, `response_rates`,
+  `baseline_counts` and `response_counts` (integers), in onset order and zero when there are no
+  spikes, and the window lengths `baseline_duration_s` and `response_duration_s`. No key is
+  removed.
 
 ### Changed
 
 - **`classify_response_significance` tests the response against its baseline (breaking).**
-  `pvalue` is the two-sided Wilcoxon signed-rank test (`scipy.stats.wilcoxon`,
-  `zero_method='wilcox'`) on the per-trial differences `response_rates - baseline_rates`, and
-  falls as trials accumulate. It was a normal p derived from `response_zscore`, an effect size
-  whose p did not depend on the trial count. Significance now needs `p < alpha` (new
-  keyword-only `alpha=0.05`) as well as `|response_zscore| >= zscore_threshold`, so a unit
-  with few trials that passed the z cutoff alone can be classified 'none'. A dict without the
-  per-trial rates, such as one built by hand from summary values, is 'undefined' with a
-  `UserWarning` and a NaN `pvalue`; pass the dict `compute_response_metrics` returns.
+  `pvalue` is the two-sided conditional binomial test of two Poisson counts: with `K_r`
+  response and `K_b` baseline spikes summed over trials, `K_r` is Binomial(`K_r + K_b`,
+  `d_r / (d_r + d_b)`) under equal rates, where `d_r` and `d_b` are the window lengths
+  (`scipy.stats.binomtest`). It is exact for windows of different lengths, assumes Poisson
+  firing within a trial, and falls as trials accumulate. It was a normal p derived from
+  `response_zscore`, an effect size whose p did not depend on the trial count. Significance now
+  needs `p < alpha` (new keyword-only `alpha=0.05`, strict) as well as
+  `|response_zscore| >= zscore_threshold`, so a unit with few trials that passed the z cutoff
+  alone can be classified 'none'. A dict without the per-trial counts and window lengths, such
+  as one built by hand from summary values, is 'undefined' with a `UserWarning` and a NaN
+  `pvalue`; pass the dict `compute_response_metrics` returns. A NaN count is 'undefined';
+  count arrays that are not 1-D or differ in shape raise `ValueError`.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap

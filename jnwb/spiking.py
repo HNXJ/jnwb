@@ -8,7 +8,7 @@ take plain spike-time arrays and caller-supplied epoch windows or LFP phase trac
 
 import logging
 import warnings
-from typing import Optional, Tuple, Dict, List, Union
+from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
 from ._spread import is_constant
@@ -28,7 +28,7 @@ def compute_response_metrics(
     *,
     baseline_window: Optional[Tuple[float, float]] = None,
     response_window: Optional[Tuple[float, float]] = None,
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     """
     Compute firing rate and spike count metrics for stimulus responses.
 
@@ -61,8 +61,11 @@ def compute_response_metrics(
           Poisson rate-ratio test for those units rather than reading NaN as zero.
         - latency: Time to first spike after response window start (or None)
         - baseline_rates, response_rates: float arrays, one rate (spikes/s) per onset, in
-          onset order; the paired samples `classify_response_significance` tests. Zeros for
-          every onset when there are no spikes, and empty with no onsets.
+          onset order. Zeros for every onset when there are no spikes, and empty with no
+          onsets.
+        - baseline_counts, response_counts: integer arrays, one spike count per onset, in
+          the same order; the counts `classify_response_significance` tests.
+        - baseline_duration_s, response_duration_s: each window's length in seconds.
 
     Raises:
         ValueError: a window whose start is at or after its stop.
@@ -103,15 +106,21 @@ def compute_response_metrics(
         'n_trials': len(epoch_onsets),
         'baseline_rates': np.zeros(len(epoch_onsets)),
         'response_rates': np.zeros(len(epoch_onsets)),
+        # Counts travel beside the rates because the test needs integers, and a rate times
+        # its duration need not round-trip to the count exactly in floating point.
+        'baseline_counts': np.zeros(len(epoch_onsets), dtype=np.int64),
+        'response_counts': np.zeros(len(epoch_onsets), dtype=np.int64),
     }
-
-    if len(epoch_onsets) == 0 or len(spike_times) == 0:
-        return metrics
 
     baseline_start, baseline_stop = baseline_window_s
     response_start, response_stop = response_window_s
     baseline_duration = baseline_stop - baseline_start
     response_duration = response_stop - response_start
+    metrics['baseline_duration_s'] = float(baseline_duration)
+    metrics['response_duration_s'] = float(response_duration)
+
+    if len(epoch_onsets) == 0 or len(spike_times) == 0:
+        return metrics
 
     baseline_spikes = []
     response_spikes = []
@@ -153,6 +162,8 @@ def compute_response_metrics(
     response_rates = np.array(response_spikes, dtype=float) / response_duration
     metrics['baseline_rates'] = baseline_rates
     metrics['response_rates'] = response_rates
+    metrics['baseline_counts'] = np.array(baseline_spikes, dtype=np.int64)
+    metrics['response_counts'] = np.array(response_spikes, dtype=np.int64)
 
     # Compute z-score on RATES, not raw counts.
     #
@@ -198,32 +209,43 @@ def classify_response_significance(
     """
     Classify a unit's response against its baseline from `compute_response_metrics` output.
 
-    The p-value is the two-sided signed-rank test of Wilcoxon (1945), Biometrics Bulletin
-    1(6):80-83, doi:10.2307/3001968, on the per-trial differences ``response_rates - baseline_rates``,
-    through ``scipy.stats.wilcoxon(zero_method='wilcox')``, which discards zero differences.
-    It falls as trials accumulate at a fixed effect. ``response_zscore`` is the effect size:
-    a response is significant when ``|response_zscore| >= zscore_threshold`` and
-    ``p < alpha``. Among significant responses, ``|z| > 3`` is 'high' and the rest 'medium'.
+    The p-value is the conditional binomial test of two Poisson counts, Przyborowski and
+    Wilenski (1940), Biometrika 31(3/4):313-323, doi:10.2307/2332612. With ``K_r`` response
+    and ``K_b`` baseline spikes summed over trials, ``N = K_r + K_b``, and ``d_r``, ``d_b``
+    the window durations summed over trials, equal rates give
+    ``K_r ~ Binomial(N, d_r / (d_r + d_b))``; the p-value is
+    ``scipy.stats.binomtest(K_r, N, d_r / (d_r + d_b)).pvalue``, two-sided, and 1.0 when
+    ``N = 0``. Conditioning on the counts makes it exact for any pair of window lengths and
+    keeps it valid when the rate varies from trial to trial. It assumes Poisson firing
+    within a trial; bursting or refractoriness inside a window breaks that assumption.
+    The p-value falls as trials accumulate at a fixed effect.
+
+    ``response_zscore`` is the effect size: a response is significant when
+    ``|response_zscore| >= zscore_threshold`` and ``p < alpha``. Among significant
+    responses, ``|z| > 3`` is 'high' and the rest 'medium'.
 
     Args:
-        metrics: Dict from compute_response_metrics(), carrying `baseline_rates` and
-            `response_rates`.
+        metrics: Dict from compute_response_metrics(), carrying the per-trial
+            `baseline_counts` and `response_counts` and the window lengths
+            `baseline_duration_s` and `response_duration_s`.
         zscore_threshold: Effect-size cutoff on ``|response_zscore|``.
         min_spike_count: Minimum spikes needed in response window.
-        alpha: Significance level for the signed-rank p-value, in (0, 1).
+        alpha: Significance level for the p-value, in (0, 1); ``p < alpha`` is strict.
 
     Returns:
         Dict with:
         - is_significant: bool (both the effect-size cutoff and ``p < alpha`` pass)
-        - pvalue: Wilcoxon signed-rank p-value. 1.0 when every difference is zero, since
-          none is left to rank, and under 'low'; NaN under 'undefined'.
+        - pvalue: the binomial p-value; 1.0 with no spikes in either window and under
+          'low'; NaN under 'undefined'.
         - confidence: 'high', 'medium', 'none', 'low' (fewer than `min_spike_count`
           response spikes), or 'undefined' when `response_zscore` is NaN because the
-          baseline had no across-trial variance, or when `metrics` lacks the per-trial
-          rates (a `UserWarning` says so).
+          baseline had no across-trial variance, when a count is NaN, or when `metrics`
+          lacks the per-trial counts or window lengths (a `UserWarning` says so).
 
     Raises:
-        ValueError: `alpha` outside (0, 1), or per-trial rate arrays of different lengths.
+        ValueError: `alpha` outside (0, 1); count arrays that are not 1-D, differ in
+            shape, or hold a negative or non-integer value; a window length that is not
+            positive and finite.
 
     Example:
         >>> sig = classify_response_significance(metrics)
@@ -243,11 +265,13 @@ def classify_response_significance(
         result['confidence'] = 'low'
         return result
 
-    if 'baseline_rates' not in metrics or 'response_rates' not in metrics:
+    needed = ('baseline_counts', 'response_counts', 'baseline_duration_s', 'response_duration_s')
+    missing = [key for key in needed if key not in metrics]
+    if missing:
         warnings.warn(
-            "classify_response_significance: metrics has no per-trial 'baseline_rates' and "
-            "'response_rates', so no test can run; pass the dict compute_response_metrics "
-            "returns. Classified 'undefined'.",
+            f"classify_response_significance: metrics has no {missing}, so no test can run; "
+            "pass the dict compute_response_metrics returns, which carries the per-trial "
+            "counts. Classified 'undefined'.",
             UserWarning,
             stacklevel=2,
         )
@@ -263,17 +287,44 @@ def classify_response_significance(
         result['pvalue'] = float('nan')
         return result
 
-    response_rates = np.asarray(metrics['response_rates'], dtype=float)
-    baseline_rates = np.asarray(metrics['baseline_rates'], dtype=float)
-    if response_rates.shape != baseline_rates.shape:
+    response_counts = np.asarray(metrics['response_counts'], dtype=float)
+    baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
+    if response_counts.ndim != 1 or baseline_counts.ndim != 1:
         raise ValueError(
-            "classify_response_significance: 'response_rates' and 'baseline_rates' differ "
-            f"in shape ({response_rates.shape} and {baseline_rates.shape})"
+            "classify_response_significance: 'response_counts' and 'baseline_counts' must be "
+            f"1-D, one count per trial; got shapes {response_counts.shape} and "
+            f"{baseline_counts.shape}"
         )
-    diffs = response_rates - baseline_rates
-    if np.any(diffs != 0):
+    if response_counts.shape != baseline_counts.shape:
+        raise ValueError(
+            "classify_response_significance: 'response_counts' and 'baseline_counts' differ "
+            f"in shape ({response_counts.shape} and {baseline_counts.shape})"
+        )
+    if np.isnan(response_counts).any() or np.isnan(baseline_counts).any():
+        result['confidence'] = 'undefined'
+        result['pvalue'] = float('nan')
+        return result
+    for name, counts in (('response_counts', response_counts),
+                         ('baseline_counts', baseline_counts)):
+        if np.any(counts < 0) or np.any(counts != np.round(counts)):
+            raise ValueError(
+                f"classify_response_significance: '{name}' must hold non-negative integers"
+            )
+    d_r = float(metrics['response_duration_s'])
+    d_b = float(metrics['baseline_duration_s'])
+    if not (np.isfinite(d_r) and np.isfinite(d_b) and d_r > 0 and d_b > 0):
+        raise ValueError(
+            "classify_response_significance: window lengths must be positive and finite, got "
+            f"response {d_r} and baseline {d_b}"
+        )
+
+    # Equal trial counts in both arrays, so the summed durations are n * d_r and n * d_b
+    # and the expected response share is d_r / (d_r + d_b).
+    k_r = int(response_counts.sum())
+    n_total = k_r + int(baseline_counts.sum())
+    if n_total > 0:
         result['pvalue'] = float(
-            stats.wilcoxon(diffs, zero_method='wilcox', alternative='two-sided').pvalue
+            stats.binomtest(k_r, n_total, d_r / (d_r + d_b), alternative='two-sided').pvalue
         )
 
     if zscore >= zscore_threshold and result['pvalue'] < alpha:

@@ -424,38 +424,33 @@ class TestSpectralGrangerIntegratesToTheTimeDomainValue:
 
 
 class TestResponseSignificanceReportsATwoSidedP:
-    def test_eight_positive_differences_give_the_exact_two_sided_p(self):
-        """Eight trials, each response above its baseline by a distinct amount: the exact
-        signed-rank null puts 1/256 on the most extreme arrangement in each tail, so the
-        two-sided p is 2/256. One-sided would return 1/256 -- a smaller p from the same
-        data, which reads as a stronger result than the data support."""
-        base = np.full(8, 10.0)
-        out = classify_response_significance({
-            "response_zscore": 3.5, "response_count": 50,
-            "baseline_rates": base, "response_rates": base + np.arange(1.0, 9.0)})
+    # Ten trials, 0.15 s response and 0.20 s baseline windows: under equal rates each of the
+    # N spikes lands in the response with probability q = 3/7.
+    @staticmethod
+    def _metrics(z, base, resp):
+        return {"response_zscore": z, "response_count": 50,
+                "baseline_counts": base, "response_counts": resp,
+                "baseline_duration_s": 0.2, "response_duration_s": 0.15}
 
-        np.testing.assert_allclose(out["pvalue"], 2.0 / 256.0, rtol=1e-12)
+    def test_every_spike_in_the_response_gives_q_to_the_tenth(self):
+        """K_r = N = 10: P(K_r = 10) = q^10, and every outcome in the other tail is more
+        probable, so the two-sided p is q^10 alone."""
+        out = classify_response_significance(
+            self._metrics(3.5, np.zeros(10, dtype=int), np.ones(10, dtype=int)))
 
-    def test_trials_with_no_difference_are_dropped_before_ranking(self):
-        """zero_method='wilcox': two unchanged trials beside +1..+6 and -2.5 rank as those
-        seven alone. Of the 128 sign patterns on ranks 1..7, five give a negative rank sum of
-        3 or less, so the two-sided p is 10/128; keeping the zeros in the ranking ('pratt' or
-        'zsplit') gives 0.0625."""
-        base = np.full(9, 10.0)
-        resp = base + np.r_[np.arange(1.0, 7.0), -2.5, 0.0, 0.0]
-        out = classify_response_significance({
-            "response_zscore": 3.5, "response_count": 50,
-            "baseline_rates": base, "response_rates": resp})
+        np.testing.assert_allclose(out["pvalue"], (3 / 7) ** 10, rtol=1e-12)
 
-        np.testing.assert_allclose(out["pvalue"], 10.0 / 128.0, rtol=1e-12)
+    def test_a_suppressed_response_adds_the_other_tail(self):
+        """K_r = 0 of N = 10: P(0) = (4/7)^10, and in the other tail P(9) and P(10) are no
+        more probable, so the two-sided p is their sum. One-sided would return (4/7)^10 --
+        a smaller p from the same data, which reads as a stronger result than the data
+        support."""
+        down = classify_response_significance(
+            self._metrics(-3.5, np.ones(10, dtype=int), np.zeros(10, dtype=int)))
 
-    def test_a_suppressed_response_gets_the_same_exact_p(self):
-        base = np.full(8, 10.0)
-        down = classify_response_significance({
-            "response_zscore": -3.5, "response_count": 50,
-            "baseline_rates": base, "response_rates": base - np.arange(1.0, 9.0)})
-
-        np.testing.assert_allclose(down["pvalue"], 2.0 / 256.0, rtol=1e-12)
+        q = 3 / 7
+        expected = (1 - q) ** 10 + 10 * q ** 9 * (1 - q) + q ** 10
+        np.testing.assert_allclose(down["pvalue"], expected, rtol=1e-12)
         assert down["is_significant"] and down["confidence"] == "high"
 
 
