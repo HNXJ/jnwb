@@ -2284,6 +2284,25 @@ class TestGate20StateFileHead:
         # recurse, and one that repaired it would hide the staleness it exists to report.
         assert hashlib.sha256(state.read_bytes()).hexdigest() == before
 
+    def test_a_head_differing_only_in_its_last_character_fails(self, tmp_path: Path):
+        """A prefix comparison, such as the 12 characters `--check` prints, passes this."""
+        root, head = self._repo(tmp_path)
+        near = head[:-1] + ("0" if head[-1] != "0" else "1")
+        assert near != head and near[:39] == head[:39]
+        (root / "artifacts" / "state.md").write_text(_state_body(near), encoding="utf-8",
+                                                     newline="\n")
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and near in violations[0] and head in violations[0], violations
+
+    def test_an_unresolvable_head_fails(self, tmp_path: Path, monkeypatch):
+        """Outside any repository the live HEAD is unknown, and unknown is not current."""
+        monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+        (tmp_path / "artifacts").mkdir()
+        (tmp_path / "artifacts" / "state.md").write_text(_state_body("a" * 40),
+                                                         encoding="utf-8", newline="\n")
+        violations = check_state_file_head(tmp_path)
+        assert len(violations) == 1 and "could not resolve" in violations[0], violations
+
     def test_a_file_with_no_head_row_fails(self, tmp_path: Path):
         root, _ = self._repo(tmp_path)
         (root / "artifacts" / "state.md").write_text("# State\n\nno head row\n",
