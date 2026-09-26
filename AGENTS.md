@@ -226,18 +226,10 @@ exercised. What replaced it is stated in `artifacts/goal.md`, not here.
 
 Load the skill before doing the work rather than reinventing its contents.
 
-| Skill | Covers |
-|---|---|
-| `jnwb` | Router, safeguards, entry point |
-| `jnwb-fact-action` (in `artifacts/skills/`; does not ship) | Execution control ($F \to R \to A \to V \to S$), authority loading order, independent verification |
-| `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing |
-| `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, unit QC |
-| `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |
-| `jnwb-statistics` | Bootstrap, permutation, multiple comparisons, RNG |
-| `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
-| `jnwb-connectivity` | Granger, PSI, transfer entropy |
-| `jnwb-figures` | Visual QC, plotting, figure export |
-| `jnwb-landmark-viz` | Plotly publication figures through `jnwb.vis` (optional `vis` extra) |
+The shipped skills under `skills/`, and what each covers, are tabled in `docs/agents.md`.
+One skill is repository-only: `jnwb-fact-action`, in `artifacts/skills/`, which does not
+ship. It covers execution control ($F \to R \to A \to V \to S$), authority loading order and
+independent verification.
 
 ## 8. Changes
 

@@ -283,7 +283,7 @@ harness Gate 2 check, on every run:
 
 A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
 check fails the suite otherwise. Adding a skill also adds its row to the router
-(`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
+(`skills/jnwb/SKILL.md`) and to the skill table in `docs/agents.md`.
 
 ## Repository root freeze and `artifacts/` policy
 
