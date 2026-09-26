@@ -327,6 +327,28 @@ class TestPerTrialRatios:
         expected = np.where(valid, np.abs(z) ** 2 / np.where(valid, baseline, 1.0), np.nan)
         np.testing.assert_allclose(acc.mean_of_ratios(), expected, rtol=1e-12)
 
+    def test_a_masked_zero_baseline_gives_the_stacked_omit_result_and_an_unmasked_one_raises(self):
+        import jnwb
+
+        shape = (2, 3, 4)
+        trials = _random_trials(5, shape, seed=26)
+        baselines = _baselines(5, shape, seed=27)
+        valid = np.ones((5, *shape), bool)
+        baselines[2, 0, 1, 2] = 0.0
+        valid[2, 0, 1, 2] = False
+        power = np.abs(trials) ** 2
+
+        streamed = jnwb.to_db(_summarize_ratios(trials, baselines, valid).mean_of_ratios())
+        stacked = jnwb.aggregate_to_db(np.where(valid, power, np.nan), baselines,
+                                       how="mean_of_ratios", aggregate_over=0, nan_policy="omit")
+        np.testing.assert_allclose(streamed, stacked, rtol=1e-12)
+
+        with pytest.raises(ValueError, match="zero"):
+            _summarize_ratios(trials, baselines)
+        with pytest.raises(ValueError, match="zero"):
+            jnwb.aggregate_to_db(power, baselines, how="mean_of_ratios", aggregate_over=0,
+                                 nan_policy="omit")
+
     def test_a_baseline_of_fewer_dimensions_is_refused_when_the_counts_are_equal(self):
         """A per-frequency (n_freqs,) baseline would divide along time when n_freqs == n_times."""
         acc = TFRAccumulator((2, 3, 3))

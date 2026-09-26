@@ -45,9 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TFRAccumulator.add_trial(baseline=)` refuses the same shapes.
 - **`aggregate_to_db` raises `ValueError` on a zero baseline (breaking).** It returned +inf dB
   there with the divide warning suppressed, where `relative_power` raised on the same input.
-  Exclude those units, or set them to NaN and pass `nan_policy="omit"`.
+  Exclude those units, or set their power to NaN and pass `nan_policy="omit"`: under `"omit"` a
+  zero where power is NaN is omitted with its cell and not refused.
   `TFRAccumulator.add_trial(baseline=)` raises on a zero baseline at a cell `valid` marks; a
-  zero at an invalid cell never enters the sums.
+  zero at an invalid cell never enters the sums, so `to_db(acc.mean_of_ratios())` still equals
+  `aggregate_to_db(nan_policy="omit")` over the stacked trials with invalid power set to NaN.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap

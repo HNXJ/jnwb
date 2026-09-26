@@ -222,6 +222,10 @@ class TFRAccumulator:
                 per-trial ratio mean without holding the trials. Either every trial carries
                 a baseline or none does. A NaN baseline at a valid cell propagates NaN into
                 that cell's mean, as ``aggregate_to_db`` does with ``nan_policy="propagate"``.
+                A zero baseline at a cell ``valid`` excludes is ignored, as
+                ``aggregate_to_db(nan_policy="omit")`` ignores one where power is NaN, so
+                ``to_db(acc.mean_of_ratios())`` equals that call over the stacked trials with
+                the invalid cells' power set to NaN.
 
         Raises:
             ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
