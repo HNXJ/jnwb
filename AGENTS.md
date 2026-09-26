@@ -329,7 +329,10 @@ The problem stack holds only problems not yet triaged. A problem leaves it in on
 |---|---|
 | repaired | the row is deleted |
 | shown false | the row is deleted; the commit message carries the evidence |
-| moved into the todo stack | an item, or a bullet of one, marked `Release: required-0.2.6` when it meets the blocker predicate below and `Release: deferred-0.2.7` otherwise |
+| moved into the todo stack | an item, or a bullet of one, marked `Release: required-<cycle>` when it meets the blocker predicate below and `Release: deferred-<next>` otherwise |
+
+`<cycle>` is the version being released and `<next>` the patch version after it;
+`scripts/release_gate.py` derives both from the declared version.
 
 A problem is **required** for this release if *any* of these hold:
 
@@ -347,7 +350,7 @@ A problem is **deferred** only when *all* of these are established:
 - it does not materially mislead public users or agents;
 - it cannot invalidate any evidence relied upon for this release;
 - leaving it unresolved does not make a required gate unknown;
-- its defect and the reason it waits are preserved in its `deferred-0.2.7` todo entry.
+- its defect and the reason it waits are preserved in its `deferred-<next>` todo entry.
 
 **Path is not a classifier.** A defect in `tests/`, `scripts/` or `artifacts/` blocks exactly as
 hard as one in `jnwb/` when it can invalidate release evidence. The question is never where a
@@ -356,14 +359,14 @@ validity of the evidence used to release it?*
 
 **The fixpoint is blocker-focused.** The terminating condition is that a final independent pass
 finds **no new release-blocking material problem** — not that it finds nothing. A new observation
-of 0.2.7 quality found during that pass becomes a `deferred-0.2.7` todo entry and does not reset
+of next-cycle quality found during that pass becomes a `deferred-<next>` todo entry and does not reset
 closure.
 
 **Deferral must not become backlog laundering.** The classification semantics and their
 discriminators land before any problem is classified; an independent critic classifies; and a
-second independent pass attacks every move to `deferred-0.2.7` with one question — *could this
+second independent pass attacks every move to `deferred-<next>` with one question — *could this
 defect make any evidence used to qualify this release falsely pass?* If yes, it becomes
-`required-0.2.6`.
+`required-<cycle>`.
 
 ### Evidence standards for these conditions
 
