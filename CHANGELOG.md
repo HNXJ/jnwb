@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TFRAccumulator.add_trial` takes a keyword-only `baseline=`, the trial's own baseline power,
   and `TFRAccumulator.mean_of_ratios()` returns the mean over trials of each trial's power
   ratio, so `to_db(acc.mean_of_ratios())` streams `aggregate_to_db(how="mean_of_ratios")`
-  without holding the trials. Either every trial carries a baseline or none does; `merge` pools
+  without holding the trials. With a `valid` mask the stacked equivalent sets the invalid cells
+  to NaN and passes `nan_policy="omit"`. Either every trial carries a baseline or none does; `merge` pools
   the ratio sums and `write` stores them as `sum_ratio`. `aggregate_to_db` still refuses
   `how="mean_of_ratios"` on `power()`.
 

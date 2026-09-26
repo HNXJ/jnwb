@@ -314,6 +314,14 @@ class TestPerTrialRatios:
             acc.add_trial(_random_trials(1, (2, 2), seed=21)[0], baseline=bad)
         assert acc.sum_ratio is None and not acc.n.any()
 
+    def test_a_first_trial_that_raises_leaves_nothing_behind(self):
+        acc = TFRAccumulator((2, 2))
+        z = _random_trials(1, (2, 2), seed=22)[0]
+        with pytest.raises(ValueError):
+            acc.add_trial(z, valid=np.ones((3, 3), bool), baseline=np.ones((2, 2)))
+        assert acc.sum_ratio is None and not acc.n.any()
+        acc.add_trial(z)  # still free to run without baselines
+
     def test_write_stores_the_ratio_sum(self, tmp_path):
         import h5py
 

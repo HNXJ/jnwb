@@ -190,6 +190,7 @@ class TFRAccumulator:
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
+        ratio = None
         if baseline is not None:
             b = np.asarray(baseline)
             if np.iscomplexobj(b):
@@ -203,15 +204,14 @@ class TFRAccumulator:
                     "baseline contains negative values, so it is not ratio-scale power; "
                     "decibels are never accumulated"
                 )
-            if self.sum_ratio is None:
-                if np.any(self.n > 0):
-                    raise ValueError(
-                        "earlier trials were added without a baseline, so a per-trial ratio "
-                        "mean over all trials cannot be formed; pass baseline= to every trial"
-                    )
-                self.sum_ratio = np.zeros(self.shape, np.float64)
+            if self.sum_ratio is None and np.any(self.n > 0):
+                raise ValueError(
+                    "earlier trials were added without a baseline, so a per-trial ratio "
+                    "mean over all trials cannot be formed; pass baseline= to every trial"
+                )
+            # Formed before any state changes, so a trial that raises leaves nothing behind.
             with np.errstate(divide="ignore", invalid="ignore"):
-                self.sum_ratio += np.where(valid, p / b, 0.0)
+                ratio = np.where(valid, p / b, 0.0)
         elif self.sum_ratio is not None:
             raise ValueError(
                 "earlier trials carried a baseline; pass baseline= to every trial so the "
@@ -233,6 +233,10 @@ class TFRAccumulator:
         self.sum_unit_z += np.where(
             valid & (mag > 0), np.divide(z, mag, out=np.zeros_like(z), where=mag > 0), 0
         )
+        if ratio is not None:
+            if self.sum_ratio is None:
+                self.sum_ratio = np.zeros(self.shape, np.float64)
+            self.sum_ratio += ratio
 
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
         """Exact pooling. merge(A, B) == summarize(A union B)."""
