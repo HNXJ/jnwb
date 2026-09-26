@@ -235,10 +235,14 @@ Extending an existing skill is the default.
 |---|---|
 | Trigger | The requests that should load this skill |
 | Routing | One row per operation: `jnwb.fn(args)` and when to use it |
-| Invariants | The scientific constraints composition must respect, each stated once |
+| Invariants & Safeguards | The scientific constraints composition must respect, each stated once |
 | Minimal workflow | One runnable example on synthetic data |
 | Verification | How an agent checks its result |
 | Documentation | Links to the `docs/` pages that define the operations |
+
+Each section is a numbered `## ` heading, in this order. The router, `skills/jnwb/SKILL.md`, has
+the same sections with one more, Execution, after Routing; its Routing rows name skills rather
+than operations, and its Execution section states the device and worker rules every skill shares.
 
 `skills/<name>/agents/openai.yaml` carries `interface.display_name` (equal to `<name>`),
 `interface.description`, and `policy.allow_implicit_invocation: true`.
@@ -263,6 +267,7 @@ State a default only where it changes how the operation must be called, and give
 harness Gate 2 check, on every run:
 
 - the skill directory is in `CANONICAL_SKILLS`, and `skills/` is the only skill tree;
+- each domain skill has the sections above in order, and the router has its own form;
 - frontmatter and `openai.yaml` match the shape above;
 - every routed `jnwb.` symbol is in `jnwb.__all__` and every routing row's arguments bind to
   `inspect.signature` of the live function;
@@ -272,9 +277,6 @@ harness Gate 2 check, on every run:
 A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
 check fails the suite otherwise. Adding a skill also adds its row to the router
 (`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
-
-Routing tests that exercise all four outcomes for every skill are planned for 0.2.7
-(`artifacts/planned_post_0.2.6.md`).
 
 ## Repository root freeze and `artifacts/` policy
 

@@ -25,7 +25,7 @@ Multi-panel publication figures in Plotly: spectrolaminar maps, laminar gradient
 Figures are built from `plotly.graph_objects` and `plotly.subplots.make_subplots`. Dense rasters and continuous LFPs use `go.Scattergl`. Every `save_and_seal` call writes SVG with editable `<text>` (through `kaleido`), 300/600 DPI PNG and interactive HTML, and returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths. The HTML loads plotly.js from a CDN, so it needs a network connection to render.
 
 ### Layout
-Panels occupy disjoint normalized domain rectangles $[x_0, x_1] \times [y_0, y_1] \subset [0, 1]^2$. Panel tags (`A`, `B`, ...) sit at paper coordinates $(x_0 - 0.035, y_1 + 0.015)$ with `xanchor='right'`, `yanchor='bottom'`. Colorbars sit at `x = x_1 + 0.02`, `y = (y_0 + y_1)/2`, `len = (y_1 - y_0) * 0.85`, clear of neighboring panels.
+Panels occupy disjoint paper-domain rectangles. The canvas methods `add_panel_tags` and `get_colorbar_config` place panel tags and colorbars at pixel offsets from each panel's domain, so neither overlaps a neighboring panel; their docstrings give the offsets.
 
 ## 3. Invariants & Safeguards
 - **Confidence intervals**: every summary curve carries a confidence envelope (e.g. 95% bootstrap CI, SEM), drawn with `fill='tonexty'` and a translucent `rgba(...)` fill.
@@ -103,3 +103,6 @@ canvas.save_and_seal(
 - `save_and_seal` writes `.svg`, `.png` and `.html` plus `_argument.json`.
 - Panel titles, axis tick labels and colorbars do not overlap.
 - Every summary curve has a confidence interval.
+
+## 6. Documentation
+- [`docs/vis.md`](../../docs/vis.md)
