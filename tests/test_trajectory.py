@@ -234,6 +234,10 @@ def test_components_that_could_not_be_estimated_are_not_zero():
     for key in ('explained_variance_per_component', 'explained_variance_ratio'):
         assert res[key].shape == (8,)
         assert np.all(np.isfinite(res[key][:n_real])) and np.all(np.isnan(res[key][n_real:]))
+    # The ratio is NaN-padded, so the old scalar is its nansum, not its sum.
+    with pytest.warns(FutureWarning, match=r"np\.nansum"):
+        old = res['explained_variance']
+    np.testing.assert_allclose(old, np.nansum(res['explained_variance_ratio']), rtol=1e-12)
 
 
 def test_a_population_with_no_variance_has_no_explained_variance_ratio():

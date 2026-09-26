@@ -129,7 +129,7 @@ def compute_population_trajectory(
           along each component, ``S**2 / (n_samples - 1)`` with
           ``n_samples = n_trials * n_bins``; scikit-learn's ``explained_variance_``
         - explained_variance: float, the fraction the kept components explain together,
-          which is the sum of ``explained_variance_ratio``. Reading it emits a
+          which is ``np.nansum(explained_variance_ratio)``. Reading it emits a
           ``FutureWarning``: in the next release this key carries the per-component
           variance, as in scikit-learn.
         - unit_ids: unit IDs in analysis
@@ -244,7 +244,7 @@ _EXPLAINED_VARIANCE_CHANGES = (
     "compute_population_trajectory: 'explained_variance' is the fraction of variance the "
     "kept components explain together. In the next release it becomes each component's "
     "variance, as in scikit-learn's PCA. Read 'explained_variance_ratio' (each component's "
-    "share; its sum is this value) or 'explained_variance_per_component' instead."
+    "share; np.nansum of it is this value) or 'explained_variance_per_component' instead."
 )
 
 

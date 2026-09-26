@@ -98,11 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - The meaning of `compute_population_trajectory`'s `explained_variance`. It is still one
-  fraction for all kept components together, `explained_variance_ratio.sum()`, and reading it
-  emits a `FutureWarning`: in the next release the key carries each component's variance, as in
-  scikit-learn and `PopulationAnalyzer.population_trajectory`. Read
-  `explained_variance_ratio` or `explained_variance_per_component` instead.
-
+  fraction for all kept components together, `np.nansum(explained_variance_ratio)`, and reading
+  it emits a `FutureWarning`: in the next release the key carries each component's variance, as
+  in scikit-learn and `PopulationAnalyzer.population_trajectory`. Read
+  `explained_variance_ratio` or `explained_variance_per_component` instead. A copy made through
+  `dict(...)`, iteration or JSON keeps the old value without a warning.
 - `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
   read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
   the result's keys. They are removed in the next release.
