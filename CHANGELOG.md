@@ -12,8 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
   with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked
   in order: a stated `unsupported_inference` declines; an empty `signals`, `signal_units`,
-  `contrast` or `inference_unit`, or a signal without a unit, requests; a stated
-  `non_identifiable` reports a failure; anything else is supported.
+  `contrast` or `inference_unit`, a blank signal name (named as `signals[<index>]`), or a
+  signal without a unit (absent, blank or `None`), requests; a stated `non_identifiable` reports
+  a failure; anything else is supported. A unit in `signal_units` that is neither a string nor
+  `None` raises `TypeError`.
 - `jnwb.Question` gains optional fields, all empty by default so existing constructions are
   unchanged: `signal_units`, `data`, `paradigm`, `axes`, `conditions`, `required_skills`,
   `verification_plan`, `unsupported_inference` and `non_identifiable`. `to_dict()` includes them.
@@ -40,6 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
+  dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
+  per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,
+  silently whenever the two counts were equal. It raises `ValueError`; pass `baseline[:, None]`.
+  `TFRAccumulator.add_trial(baseline=)` refuses the same shapes.
+- **`aggregate_to_db` raises `ValueError` on a zero baseline (breaking).** It returned +inf dB
+  there with the divide warning suppressed, where `relative_power` raised on the same input.
+  Exclude those units, or set their power to NaN and pass `nan_policy="omit"`: under `"omit"` a
+  zero where power is NaN is omitted with its cell and not refused.
+  `TFRAccumulator.add_trial(baseline=)` raises on a zero baseline at a cell `valid` marks; a
+  zero at an invalid cell never enters the sums, so `to_db(acc.mean_of_ratios())` still equals
+  `aggregate_to_db(nan_policy="omit")` over the stacked trials with invalid power set to NaN.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
@@ -107,6 +121,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
+  complex128, as assigning `mean` already did, so a summary read back from `write`'s
+  float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
+  integer `z` to complex128 before any state changes; it raised after the running mean had
+  taken the trial.
+- `TFRAccumulator`: assigning `n` casts to int64. `write` stores `n` as int32, and `merge` of
+  two reloaded accumulators multiplied the counts in int32, which overflows from 46341 trials
+  per cell and returned a wrong `M2` without an error.
 - `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
 - `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
   `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these

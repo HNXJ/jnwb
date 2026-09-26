@@ -328,7 +328,9 @@ def aggregate_to_db(
 
     Args:
         power: signal-interval power, ratio-scale and non-negative. Any shape.
-        baseline: baseline power for the same units, broadcastable against ``power``.
+        baseline: baseline power for the same units, a scalar or an array with ``power``'s
+            number of dimensions that broadcasts against it: a per-frequency baseline for
+            ``(n_freqs, n_times)`` power is ``baseline[:, None]``.
         how: which estimand to form, named explicitly -- no default. ``"mean_of_ratios"``
             weights every unit equally; ``"ratio_of_means"`` weights each unit by its own
             baseline power (see :data:`DB_AGGREGATIONS`). Geometric mean is deliberately not
@@ -344,8 +346,14 @@ def aggregate_to_db(
         Decibel array, reduced along ``aggregate_over``.
 
     Raises:
-        ValueError: if ``how`` or ``nan_policy`` is not recognised, or if any input is
-            negative. The negativity check is the dB-input tripwire: a ratio-scale power is
+        ValueError: if ``how`` or ``nan_policy`` is not recognised, if ``baseline`` is
+            neither a scalar nor of ``power``'s number of dimensions (numpy would align a
+            shorter one with the trailing axes, which puts a per-frequency baseline on the
+            time axis whenever the two counts are equal), if ``baseline`` contains a zero
+            that reaches a ratio (the ratio would be infinite; :func:`relative_power` refuses
+            it too) -- under ``nan_policy="omit"`` a zero where ``power`` is NaN is omitted
+            with its cell and not refused -- or if any
+            input is negative. The negativity check is the dB-input tripwire: a ratio-scale power is
             non-negative by definition, whereas decibel arrays routinely carry negative
             values, so passing decibels in here fails loudly instead of computing a plausible
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
@@ -377,7 +385,7 @@ def aggregate_to_db(
     if nan_policy not in ("propagate", "omit"):
         raise ValueError(f"nan_policy must be 'propagate' or 'omit'; got {nan_policy!r}")
 
-    from .tfr_accumulator import _is_trial_averaged
+    from .tfr_accumulator import _is_trial_averaged, _refuse_baseline_ndim
 
     if how == "mean_of_ratios" and any(_is_trial_averaged(arr) for arr in (power, baseline)):
         raise ValueError(
@@ -390,6 +398,7 @@ def aggregate_to_db(
         )
     p = np.asarray(power, dtype=float)
     b = np.asarray(baseline, dtype=float)
+    _refuse_baseline_ndim(b.ndim, p.ndim, "power")
     for name, arr in (("power", p), ("baseline", b)):
         if arr.size and np.any(arr < 0):
             raise ValueError(
@@ -397,6 +406,16 @@ def aggregate_to_db(
                 "are already decibels, do not aggregate them: pass the underlying power and "
                 "baseline and let this function take the logarithm last."
             )
+    zero = b == 0
+    if nan_policy == "omit":
+        # A cell whose power is NaN is omitted, so its baseline never reaches a ratio.
+        zero = zero & ~np.isnan(p)
+    if np.any(zero):
+        raise ValueError(
+            "baseline contains zero values, so the ratio is infinite there; relative_power "
+            "refuses the same input. Exclude those units, or set their power to NaN and pass "
+            "nan_policy='omit'."
+        )
 
     mean = np.nanmean if nan_policy == "omit" else np.mean
     total = np.nansum if nan_policy == "omit" else np.sum

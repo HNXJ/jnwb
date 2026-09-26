@@ -14,6 +14,9 @@ In memory the accumulators are float64 and complex128. ``write`` halves that on 
 disk -- ``mean``, ``M2`` and ``sum_ratio`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
 int32 -- so a summary that has been through HDF5 carries single-precision sufficient
 statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
+Assigning a read-back array to an accumulator casts it to float64/complex128, and ``n`` to
+int64, so trials added after a reload accumulate at full precision and a merge of reloaded
+groups does not overflow the int32 product of their counts.
 The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
 the binding cost. Nothing here promised otherwise, but nothing said it either.
 """
@@ -91,6 +94,22 @@ def _is_trial_averaged(obj) -> bool:
     return any(np.may_share_memory(obj, buffer) for buffer in list(_TRIAL_AVERAGED_BUFFERS.values()))
 
 
+def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) -> None:
+    """Refuse a baseline that numpy would align with the data's trailing axes.
+
+    A per-frequency baseline of shape ``(n_freqs,)`` against ``(n_freqs, n_times)`` data lands
+    on the time axis, silently whenever the two counts are equal.
+    """
+    if baseline_ndim not in (0, data_ndim):
+        raise ValueError(
+            f"baseline has {baseline_ndim} dimension(s) and {data_name} has {data_ndim}; numpy "
+            "would align the baseline with the trailing axes, so a per-frequency baseline "
+            "would divide along time. Pass a scalar or give the baseline the same number of "
+            "dimensions, e.g. baseline[:, None] for a per-frequency baseline against "
+            "(n_freqs, n_times)."
+        )
+
+
 class TFRAccumulator:
     """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
@@ -160,6 +179,30 @@ class TFRAccumulator:
     def mean(self, value) -> None:
         self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
+    # The other accumulators cast on assignment as `mean` does, so a summary read back from
+    # `write`'s int32/float32/complex64 datasets keeps accumulating in int64/float64/complex128.
+    # An int32 `n` would overflow `self.n * other.n` in `merge` from n = 46341.
+    def _stored(name: str, dtype, optional: bool = False):
+        attr = "_" + name
+
+        def fget(self):
+            return getattr(self, attr)
+
+        def fset(self, value):
+            if optional and value is None:
+                setattr(self, attr, None)
+            else:
+                setattr(self, attr, np.asarray(value, dtype=dtype))
+
+        return property(fget, fset)
+
+    n = _stored("n", np.int64)
+    M2 = _stored("M2", np.float64)
+    sum_z = _stored("sum_z", np.complex128)
+    sum_unit_z = _stored("sum_unit_z", np.complex128)
+    sum_ratio = _stored("sum_ratio", np.float64, optional=True)
+    del _stored
+
     def add_trial(
         self,
         z: np.ndarray,
@@ -170,23 +213,35 @@ class TFRAccumulator:
         """Add ONE trial.
 
         Args:
-            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial.
+            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial. Integer or
+                boolean input is cast to complex128.
             valid: bool mask, same shape. ``None`` marks every finite coefficient valid.
-            baseline: this trial's own baseline power, ratio-scale and non-negative,
-                broadcastable to the accumulator's shape -- for example ``(n_ch, n_freq, 1)``
+            baseline: this trial's own baseline power, ratio-scale and non-negative, a
+                scalar or an array with the accumulator's number of dimensions that
+                broadcasts to its shape -- for example ``(n_ch, n_freq, 1)``
                 from the trial's baseline window, or a full ``abs(z_baseline) ** 2``. When
                 given, the trial's ``abs(z) ** 2 / baseline`` is added to :attr:`sum_ratio`
                 at the cells ``valid`` marks, so :meth:`mean_of_ratios` can form the
                 per-trial ratio mean without holding the trials. Either every trial carries
-                a baseline or none does. A zero or NaN baseline at a valid cell propagates
-                ``inf`` or NaN into that cell's mean, as ``aggregate_to_db`` does with
-                ``nan_policy="propagate"``.
+                a baseline or none does. A NaN baseline at a valid cell propagates NaN into
+                that cell's mean, as ``aggregate_to_db`` does with ``nan_policy="propagate"``.
+                A zero baseline at a cell ``valid`` excludes is ignored, as
+                ``aggregate_to_db(nan_policy="omit")`` ignores one where power is NaN, so
+                ``to_db(acc.mean_of_ratios())`` equals that call over the stacked trials with
+                the invalid cells' power set to NaN.
 
         Raises:
             ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
-                not broadcastable, or if this trial and earlier ones disagree on carrying a
+                zero at a cell ``valid`` marks, neither a scalar nor of the accumulator's
+                number of dimensions, not
+                broadcastable, or if this trial and earlier ones disagree on carrying a
                 baseline.
         """
+        z = np.asarray(z)
+        if z.dtype.kind not in "fc":
+            # Cast before any state changes: an integer z raised in the ITC update, after the
+            # running mean had already taken the trial.
+            z = z.astype(np.complex128)
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
@@ -198,11 +253,18 @@ class TFRAccumulator:
                     "baseline is complex; pass baseline power (abs(z_baseline) ** 2), not "
                     "coefficients"
                 )
+            _refuse_baseline_ndim(b.ndim, len(self.shape), "the accumulator")
             b = np.broadcast_to(b.astype(np.float64, copy=False), self.shape)
             if np.any(b < 0):
                 raise ValueError(
                     "baseline contains negative values, so it is not ratio-scale power; "
                     "decibels are never accumulated"
+                )
+            if np.any(valid & (b == 0)):
+                raise ValueError(
+                    "baseline is zero at a valid cell, so the ratio is infinite there; "
+                    "relative_power and aggregate_to_db refuse the same input. Mark those "
+                    "cells invalid with valid= instead."
                 )
             if self.sum_ratio is None and np.any(self.n > 0):
                 raise ValueError(
