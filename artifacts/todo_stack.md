@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-17 (ruled API change), then 07-18, 07-19, 07-20 |
+| 2b | 07-18, 07-19 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -207,11 +207,11 @@ Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTIN
 Observed while releasing 0.2.6; each is to be checked and either repaired or moved to a
 `deferred-0.2.8` item.
 
-- RP-1: Merging the release pull request deleted `dev`: the repository deletes merged heads, and the `dev` ruleset's deletion rule lets the admin role bypass always. It was restored at the merge commit. Check: switch off automatic deletion of merged heads, or restrict the bypass, and say which in `CONTRIBUTING.md`'s release steps.
+- RP-1: Merging the release pull request deleted `dev`: the repository deletes merged heads, and the `dev` ruleset's deletion rule lets the admin role bypass always. It was restored at the merge commit. Check: switch off automatic deletion of merged heads, or restrict the bypass, and say which in `CONTRIBUTING.md`'s release steps. Ruled 2026-09-25: remove the admin bypass of the `dev` deletion rule; automatic deletion of merged heads stays for feature branches.
 - RP-2: STEP 0e resolved the newest CI run for the commit, a pull-request run still in progress, and refused although the push run for the same commit had passed. Check: whether a concluded green run for the exact commit suffices, and test the choice.
 - RP-3: `scripts/release_gate.py` stops at its first failing step, and each run takes 12 to 30 minutes; 0.2.6 needed four runs, one lost to a stale `artifacts/state.md`. Check: run the cheap checks (state freshness, the extracted smoke script, the release body) before the suite.
 - RP-4: At release the full CI matrix ran four times on one commit (the `main`, `dev` and tag pushes and the release event), and the release run queued behind the tag run in one concurrency group, about 45 minutes before the PyPI approval was requested. Check: skip a run on a commit whose tree already passed, and measure the saving.
-- RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds.
+- RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds. Ruled 2026-09-25: the tag push publishes to TestPyPI, so PyPI publishes only after TestPyPI succeeded.
 - RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Check: record peak memory beside wall time in the release gate's suite step.
 
 ### 07-03 Post-release inspection findings
@@ -224,43 +224,27 @@ one of documentation, skills and the release apparatus. Each bullet carries its 
 the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
 predicate if they reproduce, and go first.
 
-- IA-07: `verify_roundtrip` in `jnwb/compression.py:670` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
 - IA-08: `compute_response_metrics` accepts a reversed window and returns a negative spike count with a positive rate (`jnwb/spiking.py:95-135`). Check: refuse start at or after stop for both windows.
 - IA-09: `aggregate_to_db` turns a zero baseline into +inf dB with warnings suppressed, as `TFRAccumulator.add_trial(baseline=)` now does too, where `relative_power` raises on the same input (`jnwb/spectral.py:400-417`). Check: one policy for both, pinned by a test.
 - IA-10: `TFRAnalyzer.compare_conditions` reports `n_significant` from uncorrected per-location t-tests (792 of 16000 on null data), and no test runs it (`jnwb/analyzers.py:182-217`). Check: correct for multiple comparisons or label the count uncorrected; a null-data test.
 - IA-11: `PopulationAnalyzer.pie_chart_data` silently skips a filter on an absent column, so the counts cover every unit; untested (`jnwb/analyzers.py:671-673`). Check: raise or warn on an unknown key.
 - IA-12: `explained_variance` is a scalar ratio in `compute_population_trajectory` and a per-component array of absolute variances in `PopulationAnalyzer.population_trajectory`; `jnwb/trajectory.py:108` cites a `UnitAnalyzer.population_trajectory` that does not exist. Check: one meaning with a deprecation path; fix the reference.
-- IA-13: `crossover_depth_um` is the absolute z coordinate when z varies along the shank and rank times pitch otherwise, while `label_layers(depth_range_um=)` always uses rank times pitch (`jnwb/laminar.py:488-495`, `965`). Check: one stated frame; a z-descending geometry test.
+- IA-13: `crossover_depth_um` is the absolute z coordinate when z varies along the shank and rank times pitch otherwise, while `label_layers(depth_range_um=)` always uses rank times pitch (`jnwb/laminar.py:488-495`, `965`). Check: one stated frame; a z-descending geometry test. Ruled 2026-09-25: `crossover_depth_um` stays in the rank-times-pitch frame `label_layers` uses, and a separately named field carries absolute z when the geometry has it.
 - IA-14: `_resolve_electrode_row` falls through from `channel_id` to `id` when a value is missing, switching identifier space silently (`jnwb/addressing.py:109-115`). Check: stop at the first identifier column that exists.
 - IA-15: `xflip(rng=None)` seeds from entropy and neither result class records the seed (`jnwb/laminar.py:1276`, `1506`). Check: record the seed; test that it reproduces p.
 - IA-16: `jrsa(nan_policy='omit')` on axis-0 metrics drops a feature column rather than the observation (`jnwb/jrsa.py:632-659`). Check: drop along the observation axis.
-- IA-17: `granger` order selection passes `RSS/(N-k)` to `_info_criterion`, which documents the ML `RSS/N`, and scores each order on a different sample (`jnwb/connectivity.py:1195-1205`, `359-371`). Check: an order-recovery test on a known VAR(p) scored on one trimmed sample.
-- IA-18: `classify_response_significance` turns an effect size (mean difference over per-trial SD) into a normal p-value that does not fall with trial count (`jnwb/spiking.py:149-158`, `212-219`). Check: decide effect size or test; test p against trial count at a fixed effect.
+- IA-18: `classify_response_significance` turns an effect size (mean difference over per-trial SD) into a normal p-value that does not fall with trial count (`jnwb/spiking.py:149-158`, `212-219`). Check: decide effect size or test; test p against trial count at a fixed effect. Ruled 2026-09-25: a real test of response against baseline whose p falls with trial count; the numbers change, with a changelog entry.
 - IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: one model for two classes and a calibration test.
-- IA-20: `np.unique(axis=0)` in `_codes` is 97% of `transfer_entropy` runtime; a mixed-radix integer key gives identical codes 71 times faster (`jnwb/connectivity.py:2023-2029`). Check: frozen-output diff on fixed seeds, with a radix-overflow guard.
 - IA-21: the `xflip` partition search is a pure-Python triple loop per surrogate; vectorising the inner loop gives identical cuts 10 to 45 times faster (`jnwb/laminar.py:1172-1191`). Check: frozen-cut diff, then timing.
 - IA-22: `cluster_permutation_test` sums each cluster with a full-map mask, O(K M) per permutation; `ndimage.sum_labels` gives identical sums (31 ms against 0.8 ms at 1582 clusters) (`jnwb/statistics.py:1900-1912`). Check: diff `max_null_stats` against a frozen run.
 - IA-23: `bootstrap_ci` resamples in a Python loop (11 times slower than vectorised at n 200), and `UnitAnalyzer.psth` calls it every time (`jnwb/statistics.py:1177-1181`). Check: vectorise; the random stream changes, so values move under a fixed seed and need a changelog entry or a ruling. Graded 2026-09-25 recommended: keep the loop now; a vectorised path lands later with a version note.
 - IA-24: `enrich_units_dataframe` makes three row-wise `.apply` passes (4000 units by 1536 electrodes, 4.2 s) (`jnwb/addressing.py:430-449`). Check: a vectorised lookup against a frozen output.
 - IA-25: `raster_psth` masks the whole train per onset (0.43 s against 0.14 s with `searchsorted`), and a list `st` fails with an unrelated `TypeError` (`jnwb/viz.py:155-157`). Check: `searchsorted` and `np.asarray(st)`.
-- IA-26: conditional Granger (`granger(Z=...)`) never runs in the suite (`jnwb/connectivity.py:1133-1143`). Check: a common driver passed as `Z` removes a spurious x to y.
-- IA-28: tests that assert too little: `bilinear` checks only a length, the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN, and no test feeds `verify_roundtrip` a corrupted cast. Check: value-pinning tests for IA-04, IA-07 and IA-19.
+- IA-28: tests that assert too little: `bilinear` checks only a length, and the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN. Check: value-pinning tests for IA-04 and IA-19.
 - IA-29: unbacked claims and project leftovers ship in the wheel: `nam` cites a missing script and receipts and calls `torch.manual_seed`, which resets the global torch stream; `REWARD_WINDOW_MS` is a task constant no function uses; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project output folders. Check: extend P-296's sweep to these; use a local `torch.Generator`.
-- IA-30: with one correlated block beside an uncorrelated rest, `xflip` places the boundary at the midpoint rather than the true edge; the fit is rejected, so it is a missed boundary rather than a false one (`jnwb/laminar.py:1138-1167`). Check: a boundary-recovery test for one block and background.
-- IB-03: `docs/10_operation_specifications.md:98` gives `vflip_from_lfp` as `compute_psd(lfp, fs) -> vflip(psd, freqs)`; on channels-by-time input that runs over channels and `vflip` raises; the code uses the time axis. Check: write `axis=-1` into the composition and test it equals `vflip_from_lfp`.
-- IB-04: `README.md:79-80`, `docs/errors.md:137-139`, `226` and `docs/common_mistakes.md:290-291` say `event_onsets` warns when a table has no `codes` column; it does not, and its docstring says so; only `events` warns. Check: correct the pages.
-- IB-05: `docs/07:21` says a non-`Generator` `rng` raises `TypeError`, but `StatisticalAnalysis` accepts and coerces an int or `None`. Check: state the accepted types per surface.
-- IB-06: `docs/10:18` says every stochastic function accepts an int, a `Generator` or `None`; `shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` fail on an int or `None` with `AttributeError`, and `permute_labels` refuses them. Check: one accepted set, enforced, and the page to match.
-- IB-07: `docs/10:48-49` says the structured returns, `JRSAResult` among them, implement `.to_dict()` and `__getitem__`; `JRSAResult` has neither. Check: add them or exclude it on the page.
-- IB-08: `docs/10:33` says seeds are spawned per worker with `SeedSequence(seed).spawn(n_jobs)`; the code spawns one seed per iteration, which is what makes results independent of `n_jobs`. Check: correct the page.
-- IB-09: `docs/09:116-118` says `compare_session_quality` takes the frame `diagnostics.compare_sessions()` returns; no such function exists, and the columns it reads are unnamed. Check: name the columns and drop the reference.
-- IB-10: `docs/errors.md:94-97` gives two layout bases; an electrode-less `TimeSeries` reports a third, `schema` (`jnwb/nwb_inspect.py:251-252`). Check: list all three.
-- IB-11: `docs/08:186` prints `network["matrix"]` as the net matrix; it is the directed matrix, not antisymmetric. Check: relabel.
-- IB-12: `docs/10:100` gives `testing.synth` an output type of `np.ndarray`; its builders return a receipt, a 3-tuple and a pair. Check: correct the row.
+- IA-30: blocker candidate. With one correlated block beside an uncorrelated rest, `xflip` places the boundary toward the midpoint rather than the true edge, and it can accept that wrong cut: 16 contacts, a block of 6 at rho 0.8, 10 seeds put every cut at 7 to 9 and accepted 3 (drops 0.06 to 0.09 above 0.05, p at the floor); an edge at 4 accepted 3 to 4 of 10. The earlier reading that such fits are rejected was false. The cause is the objective, which subtracts the probe-wide mean from every within-block pair and so favours balanced blocks; one candidate, the sum of S_b squared over P_b per block, recovered the edge. Choosing the objective is a scientific choice for Hamm. Check: a ruling, then the two boundary-recovery tests (landed as strict xfail) pass and the calibration receipt is regenerated. Ruled 2026-09-26: the per-block sum of within-block similarity squared over its pair count.
+- IB-06: stochastic functions resolve `rng` through four accepted sets, which docs/10 section 1 now states as they are: a strict resolver (int, `Generator`, `None`), a lenient one (anything `np.random.default_rng` takes; a float raises), `Generator`-only (`shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` fail on an int or `None` with `AttributeError`; `permute_labels` raises `TypeError`) and int-only (`build_permutation_plan`). Check: one accepted set, enforced through `resolve_rng`, and the docs/10 table and its test collapsed to match.
 - IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
-- IB-16: `docs/03:103` says `nan_policy="omit"` propagates NaN across the affected RDM pairs; one empty condition makes the whole result NaN, and one NaN sample moves the value 0.343 to 0.425. Check: correct the prose or omit pairwise; test one empty condition.
-- IB-23: `docs/04:164` calls a value near -2 the aperiodic exponent while `aperiodic_fit` on the same page returns +2; the sign note lives only in the skill. Check: one sign convention or a named field.
-- IB-24: the `classify_layer_from_depth` docstring summary says it classifies a cortical layer, against `docs/02:89` ("a cut on depth, not a cortical layer"). Check: fix the docstring and regenerate `docs/api.md`.
 - IB-25: `AGENTS.md` section 11 and `artifacts/problem_stack.md:10` write the cycle labels as literals `required-0.2.6` and `deferred-0.2.7`, which STEP 0a derives from the version, so a 0.2.7 triage following the text writes the wrong label. Check: write `required-<cycle>` and `deferred-<next>`, with a test that no standing rule names a literal cycle.
 - IB-26: the module docstring of `scripts/release_gate.py` omits STEPs 0a, 2a, 2b and 8, and `CONTRIBUTING.md:88-96` omits the readiness step. Check: extend `tests/test_module_docstrings_match_their_code.py` to the release gate.
 - IB-28: `docs/documentation_form.md`, an internal contributor contract, is in the user navigation, and `docs/index.md:52` and `docs/install.md:26` say "gate-enforced" and "release gate". Check: move it to `CONTRIBUTING.md` or out of the navigation.
@@ -271,11 +255,9 @@ predicate if they reproduce, and go first.
 - IB-35: `skills/jnwb-connectivity/SKILL.md:50` cites `docs/common_mistakes.md` section 7 for a narrow-band PSI (`net=-2.1e-05`), while that section reports `nan` for the same case at another signal length. Check: one receipt with a stated length, cited by both.
 - IB-36: `CONTRIBUTING.md:111,205,347` states the docs-and-skills lockstep rule three times. Check: keep one.
 - IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
-- IB-38: `AGENTS.md` is about 8k tokens loaded into every session in this repository; section 10's recipes repeat what `docs/` and the skills carry, and section 11's history paragraphs repeat the rulings they cite; 14 tests pin its text, `tests/test_agents_md_recipes.py` among them. Check: move the recipes to a tested docs page and the history to `artifacts/rulings/`, leaving pointers, and move the tests with them.
+- IB-38: `AGENTS.md` is about 8k tokens loaded into every session in this repository; section 10's recipes repeat what `docs/` and the skills carry, and section 11's history paragraphs repeat the rulings they cite; 14 tests pin its text, `tests/test_agents_md_recipes.py` among them. Check: move the recipes to a tested docs page and the history to `artifacts/rulings/`, leaving pointers, and move the tests with them. Ruled 2026-09-25: move both, the recipes to a tested docs page and the history paragraphs to `artifacts/rulings/`, leaving pointers.
 - IB-39: the 0.2.6.1 wording repair was held by a grep, not a gate; "causes", "time delay", "propagation delay" and "latency" can return to `docs/`, `skills/` or a public docstring unnoticed, and gate 14 scans `docs/` only. Check: extend the term scan to the three surfaces with an allowlist of the conditional uses.
 - IB-40: the `bound_status` statement on `docs/06` and `docs/quickstart.md` (a pure-noise PSTH usually reads `None`, with tau at a bound and r2 near 0) is backed by a scratch probe, not a test. Check: a noise-only PSTH test that pins it.
-- IB-41: `docs/10_operation_specifications.md:102` says `zflip` raises for zero imaginary coherency or ill-conditioned cross-spectra; it has neither check (`jnwb/laminar.py`, the validation block of `zflip`). Check: list the raises it has.
-- IB-42: `docs/01_architecture_and_philosophy.md` measures exactly its 1200-word ceiling after the 0.2.6.1 wording repair, so any addition fails the length test. Check: trim, or rule a new ceiling.
 - IB-43: ruled 2026-09-25, the `jrsa` row metrics require a named `null=` from 0.2.7; 0.2.6.1 only warns. Check: remove the default, and move every caller.
 - IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
 - IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
@@ -285,21 +267,24 @@ predicate if they reproduce, and go first.
 - IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
 - IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
 - IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
-- IB-55: the sliding-window recipe on `docs/03` uses 20-sample windows under the circular-shift null, whose p cannot go below about 1/20, and tells readers to correct across windows. Check: state the floor at the recipe, or widen the windows.
 - IB-56: the `quickstart_inputs` fixture in `tests/test_docs_smoke.py` seeds a fresh `default_rng(0)`, so its arrays differ from the ones the quickstart page draws in sequence; a docs-smoke pass says the calls run, not that the page's numbers do. Check: build the inputs by executing the page's own setup lines.
 - IB-57: `tests/test_jrsa.py` reads the quickstart `jrsa` line from the page but still retypes the `print(...)` line after it, which matches the page today by eye only. Check: read both lines from the page.
 - IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics.
 - IB-60: the coherence GPU-fallback test compares only p and the observed spectrum, so a device path that uses a different shift set with the same band counts passes it. Check: record the shift each estimator call receives and assert the fallback's list equals the CPU run's.
 - IB-61: the skill-coverage test excludes `PopulationAnalyzer`, `TFRAnalyzer` and `UnitAnalyzer` as class facades over routed functions, but they compute on their own (`UnitAnalyzer.psth` bins itself, `population_trajectory` runs its own SVD) and the test checks only the module they live in; the router's GPU table names two of their methods that have no routing row. Check: route the analyzers, or state a reason the test can verify.
-- IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only.
+- IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only. Ruled 2026-09-25: drop the checkout-only lines from the shipped router; contributor checks live in `CONTRIBUTING.md`.
 - IB-63: `skills/jnwb-landmark-viz/SKILL.md` routes by `jnwb.vis` module, not by the per-operation `jnwb.fn(args)` rows the template's routing section describes, so no signature check covers its rows. Check: per-function rows for the `vis` extra, checked against `inspect.signature` when plotly is installed.
 - IB-64: an export missing from the computational-order record fails `tests/test_computational_contract_gate.py` but no gate in `scripts/harness_gate.py`, so the gates stay green while the suite is red. Check: run the same check as a gate, or record why the suite alone holds it.
-- IB-65: `jnwb.preflight` counts a blank signal name as a stated signal (`signals=['  '], signal_units={'  ': 'V'}` is supported) and accepts a non-string unit (`{'lfp': 1e-6}` is supported while `{'lfp': 0}` requests). Graded recommended: whether each should request or raise is a public API choice. Check: a ruling, then one test each.
-- IB-66: `jnwb.compression.verify_roundtrip(collapsed=None)` checks two hardcoded groups and reports `ok=True` with the collapsed timestamps never checked, and a cast path absent from the destination is skipped rather than failed (`jnwb/compression.py:664`, `687-688`). `compress_fp32` always passes both, so only direct callers are exposed. Graded recommended. Check: `collapsed` keyword-only and required like `cast`, an absent cast path recorded as a failed check, a test each, a CHANGELOG line.
-- IB-67: `_LFP_MUAE_RE` and `_find_lfp_muae_paths` in `jnwb/compression.py` have no caller in `jnwb/` since `select=` became required; only the selector test class in `tests/test_compression.py` keeps them, and its messages still call the selection a float32 downcast. Graded recommended. Check: delete the helpers and the class, or keep them with messages that match what they do.
-- IB-68: a one-dimensional per-frequency baseline broadcasts onto the time axis when the frequency and time counts are equal, silently, in `TFRAccumulator.add_trial(baseline=)` as in `aggregate_to_db` (plain numpy broadcasting). Graded recommended: refusing a baseline whose `ndim` is neither 0 nor the data's is an API choice. Check: a ruling, then a test with equal counts.
+- IB-65: `jnwb.preflight` counts a blank signal name as a stated signal (`signals=['  '], signal_units={'  ': 'V'}` is supported) and accepts a non-string unit (`{'lfp': 1e-6}` is supported while `{'lfp': 0}` requests). Graded recommended: whether each should request or raise is a public API choice. Check: a ruling, then one test each. Ruled 2026-09-25: a blank signal name gives `request`; a non-string unit raises `TypeError`.
+- IB-68: a one-dimensional per-frequency baseline broadcasts onto the time axis when the frequency and time counts are equal, silently, in `TFRAccumulator.add_trial(baseline=)` as in `aggregate_to_db` (plain numpy broadcasting). Graded recommended: refusing a baseline whose `ndim` is neither 0 nor the data's is an API choice. Check: a ruling, then a test with equal counts. Ruled 2026-09-25: refuse a baseline whose `ndim` is neither 0 nor the data's; the message suggests `baseline[:, None]`.
 - IB-69: a `TFRAccumulator` read back from disk keeps adding in float32 (`M2`, `sum_z`, `sum_unit_z` and now `sum_ratio`), and an integer `z` raises after the running mean has changed. Graded minimal expandable. Check: setters that cast to float64 as `mean`'s does, and the input cast before any state changes, each with a test.
 - IB-70: no CI leg installs the dependency floors `pyproject.toml` declares (for example `scikit-learn>=1.3.1`), so behaviour that differs below the newest release is never exercised: `StratifiedGroupKFold(shuffle=True)` does not stratify on 1.3.1 to 1.7.2 and CI runs only the newest. Can make qualification test the wrong artifact, so it is a blocker candidate. Check: one CI leg on the floor versions, or the floors raised to what is tested.
+- IB-71: private coordination ids (P-, 06-, 07- and IB- numbers) appear in 55 files under `scripts/` and `tests/`, against the surface rule of `AGENTS.md`, and gate 14 scans only `jnwb/` and `docs/`. Check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
+- IB-72: `select_optimal_lag`, reached only from the deprecated `granger_causality(order='auto')`, still scores each order on its own sample (n - p) while `granger` now uses one common trimmed sample. Check: align it with `granger`'s criteria or state the departure in its docstring.
+- IB-73: `spectral_tilt` returns the log-log slope under the key `exponent`, the opposite sign to `aperiodic_fit`'s exponent; docs/04 and the lfp-spectral skill disclose it. Check: rename the key with a deprecation path, which is a public API choice for Hamm.
+- IB-74: `XFlipResult.boundaries` and `block_bounds` hold `np.int64`, so `json.dump` of the result fails. Check: plain ints, with a round-trip test through `to_dict()` and `json`.
+- IB-75: `zflip(rng=None)` draws fresh entropy and `ZFlipResult` records no seed, so the result alone cannot reproduce p; `xflip` now records `surrogate_seed_entropy`. Check: the same field on `ZFlipResult`, with a reproduction test. Graded highly recommended (80).
+- IB-76: `connectivity._surrogate_rng` is retyped in `jnwb/laminar.py` and `jnwb/spectral.py` (invariant 7). Check: one helper in `jnwb/_rng.py` called from all three, outputs unchanged.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
@@ -431,21 +416,6 @@ existing skills does not grow.
 Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
 requires.
 
-### 07-17 Remove the deprecated `layer` column
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/addressing.py`, `jnwb/metadata.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
-Ruled 2026-09-23 (P-21): `layer` duplicates `depth_class` in 0.2.6 and goes in 0.2.7. Reproduced at
-`dcb75f12`: `enrich_units_dataframe` still writes it and warns (`jnwb/addressing.py:354-360`,
-`382-390`, `400-413`, `440-459`), and `get_all_units_metadata` carries the same plumbing
-(`jnwb/metadata.py:96-162`). Drop the warning helper and the plumbing that reports whether `layer`
-was written, and reword the first docstring lines that still say "layer"; the dispatcher regenerates
-`docs/api.md`. IB-24 of 07-03 names one of those docstrings.
-Accept: neither function writes `layer` or warns about it; `_warn_legacy_layer_column` and
-`wrote_layer` no longer occur in `jnwb/`; `CHANGELOG.md` records the removal.
-Stop: a `layer` column supplied on input would be dropped or rewritten.
-
 ### 07-18 Skill examples run in the suite
 
 Release: deferred-0.2.7.
@@ -475,21 +445,6 @@ is empty), while its sibling `zflip` has a worked example that reads its fields.
 Accept: one worked example calls `xflip` and reads its result fields, and `tests/test_tutorials.py`
 or `tests/test_docs_decoding_chain.py` executes it.
 Stop: the example needs a real recording to show a boundary.
-
-### 07-20 A gate reads `artifacts/state.md` when it is present
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`, `CONTRIBUTING.md`.
-Deferred 06-112. Reproduced at `dcb75f12`: `scripts/harness_gate.py` names `artifacts/state.md` only
-in `GENERATED_FROM` (lines 1990-1996), whose `verified_by` is the manual `--check`; no entry of
-`GATES` (line 2777; 19 gates ran) compares its HEAD row with `git rev-parse HEAD`. A regenerating
-gate would recurse, since the generator runs the harness, so the gate is check-only and an absent
-file passes.
-Discriminator: zeroing the HEAD row fails the gate; restoring it, verified by hash, passes.
-Accept: the new gate is in `GATES`, `CONTRIBUTING.md` names it, and `python scripts/harness_gate.py`
-reports every gate PASS on a freshly regenerated tree.
-Stop: the gate would need to regenerate the file.
 
 ### 07-21 A public NWB mutation API
 

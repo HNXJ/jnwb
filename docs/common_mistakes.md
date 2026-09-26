@@ -292,8 +292,8 @@ onsets = jnwb.event_onsets(
 
 The guards are there to be used rather than worked around. Several interval tables and none
 named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
-does not exist raises `ColumnNotFoundError` listing the columns that do; a table with no
-`codes` column returns its onsets and warns that it found no codes. Each message contains
+does not exist raises `ColumnNotFoundError` listing the columns that do; on a table with no
+`codes` column, `events` returns its onsets and warns that it found no codes. Each message contains
 the argument you need, so the fix is to pass it rather than to fall back to a default.
 
 `examples/tutorials/00_your_own_file.py` is this pattern end to end on a file it has never

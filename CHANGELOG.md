@@ -59,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`jnwb.compression.verify_roundtrip` requires `cast=` (breaking).** `cast=` is keyword-only
   with no default and names the datasets to check, normally `stats["cast_paths"]`. Without it
   the function checked the LFP/MUAE preset, reporting arrays a `select=` call never cast.
+- **`jnwb.compression.verify_roundtrip` requires `collapsed=` (breaking).** `collapsed=` is
+  keyword-only with no default, normally `stats["timestamps_collapsed"]`. Without it the
+  function checked two hardcoded groups and reported `ok=True` with the collapsed timestamps
+  never checked. A `cast=` path absent from the destination is now a failed check; it was
+  skipped. Direct callers pass `collapsed=` by keyword; `compress_fp32` is unchanged.
 - **The sdist no longer ships `AGENTS.md` or the `jnwb-fact-action` skill.** Both describe how
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
@@ -78,6 +83,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   On a given objective the cuts are identical to a scalar loop's. The search is 3 to 29 times faster from 32 to
   256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
   surrogates and their correlation matrices dominate it.
+- `unit_census_report`: the warning for a default call on a frame with a `layer` column and no
+  `depth_class` is a `UserWarning`, not a `FutureWarning`. It says the census is not split by
+  depth, that `layer` is not read, and that `enrich_units_dataframe` supplies `depth_class`.
+- `granger(order="auto")` scores every candidate order on one sample, trimmed by the largest
+  candidate, with the maximum-likelihood residual variance `RSS / N` (Lütkepohl 2005, section
+  4.3). It used to divide by `N - k` and fit each order to its own sample, so candidates were
+  compared on different data. Selected orders, and the values computed at them, can change;
+  `granger_spectral(order="auto")` and `directed_connectivity`/`directed_network` with
+  `method="granger"` select through the same path. A fixed `order` is unaffected.
+- `transfer_entropy` numbers joint states through one integer key per row instead of a
+  row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
+  p-values and surrogate statistics.
+
+### Removed
+
+- **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata` (breaking).**
+  Deprecated in 0.2.6, it was an exact copy of `depth_class`; read `depth_class` instead. Code
+  that reads `layer` from their output now raises `KeyError`. The `FutureWarning` about it is
+  gone, and a `layer` column already on the input is returned unchanged, where the electrode
+  path used to overwrite it with the depth class.
 
 ### Fixed
 
@@ -89,6 +114,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback reuses the shifts already drawn, so p equals a CPU run under the same seed and a
   caller's generator advances once. Before, the fallback drew new shifts from the advanced
   generator.
+- `jnwb.compression.verify_roundtrip` (and so `compress_fp32(verify=True)`) requires each cast
+  dataset to equal `source.astype(float32)` exactly. It accepted any destination within an
+  absolute 1e-3, so a zeroed destination passed at volt scale and a correct cast near 5e4, where
+  the float32 spacing is 3.9e-3, failed.
+- `jnwb.compression.verify_roundtrip` fails a cast dataset that is not float32 in the
+  destination, whose shape differs from the source's, or that is absent from the source. It fails
+  a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
+  source; it skipped that group and could return `ok=True` with its timestamps never checked.
 
 ## [0.2.6.1] - 2026-09-25
 

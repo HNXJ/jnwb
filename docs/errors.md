@@ -92,9 +92,12 @@ cannot be epoched by sample index.
 > Channel index 99 out of range for series 'only' with 4 channels (layout time_by_channel, decided by electrode_count)
 
 The message states which axis holds channels and how that was decided:
-`electrode_count` means it was read from the series' electrode region, `shape` means it
-was guessed from which dimension is longer, because the series carries no electrode
-information.
+
+| Basis | How the channel axis was found |
+|---|---|
+| `electrode_count` | read from the series' electrode region |
+| `schema` | the series is a type with no electrode region, such as a plain `TimeSeries`, so it is read time-first as the NWB schema lays it out |
+| `shape` | guessed from which dimension is longer, because the series has no electrode region and its type does not settle the axis |
 
 ### `AmbiguousLayoutError`
 
@@ -134,10 +137,10 @@ A file with a `trials` table *and* five others does not raise: `trials` wins. Pa
 `codes` is a jnwb default, not an NWB requirement — a file from another lab usually calls
 that column `stimulus`, `condition` or `trial_type`.
 
-Omitting `code_column` on a table with no `codes` column is *not* an error: the onsets are
-returned with a warning that no codes were found, because the onsets are what you need
-next. Naming a column that does not exist is an error, because you asked for something
-specific.
+Omitting `code_column` on a table with no `codes` column is *not* an error, because the
+onsets are what you need next: `events` returns them with a warning that names the columns,
+and `event_onsets` without `codes=` returns them without one. Naming a column that does not
+exist is an error, because you asked for something specific.
 
 ### `InvalidOnsetValueError`
 
@@ -223,7 +226,7 @@ usable and the risk is that it is silently wrong.
 | Condition | Raised by | What you get |
 |---|---|---|
 | A length-1 array attribute was collapsed to its scalar: `SqueezedAttributeWarning` | any read | The repaired value. The warning names the attributes, once per read, so a record written from the read can say the file needed repairing |
-| No `codes` column | `events`, `event_onsets` | The onsets, without codes |
+| No `codes` column | `events` | The onsets, without codes. `event_onsets` returns them without the warning |
 | Most epochs entirely outside the data, under `boundary_policy="nan"` | `epoch_continuous` | An array of the right shape and entirely `NaN`, which is what onsets in milliseconds look like when read as seconds. The warning names both spans. See [Common mistakes §11](common_mistakes.md) |
 
 Turn all three into errors while developing:

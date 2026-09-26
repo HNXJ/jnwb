@@ -177,7 +177,7 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
                 f.create_dataset("units/id", data=np.arange(3))
 
         before = list(warnings.filters)
-        verify_roundtrip(src, dst, cast=[])
+        verify_roundtrip(src, dst, collapsed=[], cast=[])
         assert warnings.filters == before, "verify_roundtrip mutated the global filter state"
 
     def test_a_warning_still_fires_after_a_verify(self, tmp_path):
@@ -191,7 +191,7 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
             with h5py.File(p, "w") as f:
                 f.create_dataset("units/id", data=np.arange(3))
 
-        verify_roundtrip(src, dst, cast=[])
+        verify_roundtrip(src, dst, collapsed=[], cast=[])
         with pytest.warns(RuntimeWarning, match="still audible"):
             warnings.warn("still audible", RuntimeWarning)
 
@@ -201,6 +201,259 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
 
         with pytest.raises(TypeError, match="cast"):
             verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5")
+
+
+SECOND_CAST = "acquisition/probe_1_lfp/data"
+SERIES = "acquisition/series"
+
+
+def _cast_pair(tmp_path, src_data, dst_data, extra=None):
+    """A source holding ``src_data`` at LFP and a destination holding ``dst_data`` there.
+
+    ``extra`` maps further paths to ``(src_data, dst_data)``; ``None`` leaves a side absent.
+    """
+    src = tmp_path / "src.h5"
+    dst = tmp_path / "dst.h5"
+    pairs = {LFP: (src_data, dst_data), **(extra or {})}
+    with h5py.File(src, "w") as fs, h5py.File(dst, "w") as fd:
+        for path, (a, b) in pairs.items():
+            if a is not None:
+                fs.create_dataset(path, data=a)
+            if b is not None:
+                fd.create_dataset(path, data=b)
+    return src, dst
+
+
+def _checks_for(result, prefix):
+    """The checks named for ``prefix``, spelled with or without a leading slash.
+
+    Asserts there is at least one, since an empty list passes every ``all(...)``. The overall
+    ``ok`` is asserted beside it: a bare HDF5 fixture fails the pynwb parse identically in both
+    files, which the check accepts as a preserved defect, so ``ok`` reflects the other checks.
+    """
+    key = prefix.lstrip("/")
+    out = [c for c in result["checks"] if c["name"].lstrip("/").startswith(key + " ")]
+    assert out, f"no check names {prefix}: {result['checks']}"
+    return out
+
+
+def _passes(result, prefix):
+    return all(c["ok"] for c in _checks_for(result, prefix))
+
+
+def _named(result, prefix, words):
+    """The one check for ``prefix`` whose name contains ``words``."""
+    out = [c for c in _checks_for(result, prefix) if words in c["name"]]
+    assert len(out) == 1, (words, result["checks"])
+    return out[0]
+
+
+def _one_ulp_off(cast, row=137, col=1):
+    """``cast`` with one element in a non-first row moved to the next float32 up."""
+    moved = cast.copy()
+    moved[row, col] = np.nextafter(moved[row, col], np.float32(np.inf))
+    assert moved.dtype == np.float32 and moved[row, col] != cast[row, col]
+    assert np.array_equal(moved[:row], cast[:row])
+    return moved
+
+
+class TestVerifyRoundtripChecksTheCast:
+    """A float32 cast is deterministic, so the destination must equal ``source.astype(float32)``.
+
+    An absolute tolerance passes whatever lies inside it: at volt scale a zeroed destination is
+    within 1e-3 of every sample, and near 5e4 the float32 spacing is 3.9e-3, so a correct cast
+    exceeds it. One float32 ulp is inside any relative tolerance, so it pins exactness.
+    """
+
+    def test_a_zeroed_destination_at_volt_scale_fails(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(5).normal(0.0, 1e-4, size=(500, 3))
+        assert np.max(np.abs(raw)) < 1e-3, "the fixture must sit inside the old tolerance"
+        src, dst = _cast_pair(tmp_path, raw, np.zeros_like(raw, dtype=np.float32))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert not _passes(result, LFP)
+        assert result["ok"] is False
+
+    def test_a_correct_cast_near_5e4_passes(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = 5e4 + np.random.default_rng(6).uniform(0.0, 1.0, size=(500, 3))
+        cast = raw.astype(np.float32)
+        assert np.max(np.abs(raw - cast)) > 1e-3, "the fixture must exceed the old tolerance"
+        src, dst = _cast_pair(tmp_path, raw, cast)
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert _passes(result, LFP)
+        assert result["ok"] is True
+
+    def test_a_correct_cast_with_a_nan_row_passes(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(8).normal(0.0, 1.0, size=(300, 3))
+        raw[211, :] = np.nan
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert _passes(result, LFP)
+        assert result["ok"] is True
+
+    @pytest.mark.parametrize("spelling", [LFP, "/" + LFP], ids=["bare", "leading-slash"])
+    def test_one_ulp_in_a_later_row_fails(self, tmp_path, spelling):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(9).normal(0.0, 1.0, size=(500, 3))
+        src, dst = _cast_pair(tmp_path, raw, _one_ulp_off(raw.astype(np.float32)))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[spelling])
+        assert _named(result, LFP, "float32 cast")["ok"] is False
+        assert result["ok"] is False
+
+    def test_only_the_second_of_two_cast_paths_corrupted_fails(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        rng = np.random.default_rng(10)
+        a = rng.normal(0.0, 1.0, size=(400, 2))
+        b = rng.normal(0.0, 1.0, size=(400, 2))
+        src, dst = _cast_pair(
+            tmp_path, a, a.astype(np.float32),
+            extra={SECOND_CAST: (b, _one_ulp_off(b.astype(np.float32)))},
+        )
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP, SECOND_CAST])
+        assert _passes(result, LFP)
+        assert not _passes(result, SECOND_CAST)
+        assert result["ok"] is False
+
+    @pytest.mark.parametrize("side", ["destination", "source"])
+    def test_a_missing_path_does_not_end_the_cast_checks(self, tmp_path, side):
+        """A missing path listed first must not stop the path after it from being checked."""
+        from jnwb.compression import verify_roundtrip
+
+        rng = np.random.default_rng(14)
+        a = rng.normal(0.0, 1.0, size=(300, 2))
+        b = rng.normal(0.0, 1.0, size=(300, 2))
+        src, dst = _cast_pair(
+            tmp_path, a, a.astype(np.float32),
+            extra={SECOND_CAST: (b, _one_ulp_off(b.astype(np.float32)))},
+        )
+        with h5py.File(dst if side == "destination" else src, "a") as f:
+            del f[LFP]
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP, SECOND_CAST])
+        assert _named(result, LFP, f"present in the {side}")["ok"] is False
+        assert _named(result, SECOND_CAST, "float32 cast")["ok"] is False
+        assert result["ok"] is False
+
+    @pytest.mark.parametrize("spelling", [LFP, "/" + LFP], ids=["bare", "leading-slash"])
+    @pytest.mark.parametrize("side", ["destination", "source"])
+    def test_a_cast_path_absent_from_either_file_fails(self, tmp_path, spelling, side):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(7).normal(0.0, 1.0, size=(50, 2))
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32))
+        with h5py.File(dst if side == "destination" else src, "a") as f:
+            del f[LFP]
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[spelling])
+        assert _named(result, LFP, f"present in the {side}")["ok"] is False
+        assert result["ok"] is False
+
+    def test_a_float64_destination_holding_the_cast_values_fails(self, tmp_path):
+        """Equal values, wrong storage: only the dtype check can see it."""
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(11).normal(0.0, 1.0, size=(200, 2))
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32).astype(np.float64))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert _named(result, LFP, "float32 cast")["ok"] is True
+        assert _named(result, LFP, "dtype is float32")["ok"] is False
+        assert result["ok"] is False
+
+    def test_a_destination_with_an_extra_row_fails(self, tmp_path):
+        """The rows checked match; only the shape check can see the extra one."""
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(12).normal(0.0, 1.0, size=(200, 2))
+        cast = raw.astype(np.float32)
+        src, dst = _cast_pair(tmp_path, raw, np.vstack([cast, cast[:1]]))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert _named(result, LFP, "float32 cast")["ok"] is True
+        assert _named(result, LFP, "shape matches")["ok"] is False
+        assert result["ok"] is False
+
+    def test_the_collapsed_set_is_required_and_keyword_only(self, tmp_path):
+        """A default checked two hardcoded groups and reported the collapsed arrays as verified."""
+        import inspect
+
+        from jnwb.compression import verify_roundtrip
+
+        param = inspect.signature(verify_roundtrip).parameters["collapsed"]
+        assert param.default is inspect.Parameter.empty
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+        with pytest.raises(TypeError, match="collapsed"):
+            verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5", cast=[])
+
+
+def _ts_pair(tmp_path, starting_time=10.0, rate=1000.0, src_ts=True, ts=None):
+    """Source ``SERIES/timestamps`` (default 10 s + n/1000); destination ``SERIES/starting_time``."""
+    src = tmp_path / "ts_src.h5"
+    dst = tmp_path / "ts_dst.h5"
+    with h5py.File(src, "w") as f:
+        grp = f.create_group(SERIES)
+        if src_ts:
+            grp.create_dataset("timestamps",
+                               data=10.0 + np.arange(1000) / 1000.0 if ts is None else ts)
+    with h5py.File(dst, "w") as f:
+        grp = f.create_group(SERIES)
+        if starting_time is not None:
+            grp.create_dataset("starting_time", data=starting_time)
+            grp["starting_time"].attrs["rate"] = rate
+    return src, dst
+
+
+class TestVerifyRoundtripChecksTheCollapsedTimestamps:
+    """Each collapsed group's source timestamps were deleted, so each must be reconstructed from
+    ``starting_time`` and ``rate``, and a group that cannot be is a failure rather than a skip."""
+
+    @pytest.mark.parametrize("spelling", ["", "/"], ids=["bare", "leading-slash"])
+    def test_a_correct_reconstruction_passes(self, tmp_path, spelling):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path)
+        result = verify_roundtrip(src, dst, collapsed=[(spelling + SERIES + "/timestamps", 1000.0)],
+                                  cast=[])
+        assert _passes(result, SERIES)
+        assert result["ok"] is True
+
+    @pytest.mark.parametrize("starting_time, rate", [(10.001, 1000.0), (10.0, 1001.0)],
+                             ids=["starting_time", "rate"])
+    def test_a_wrong_starting_time_or_rate_fails(self, tmp_path, starting_time, rate):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path, starting_time=starting_time, rate=rate)
+        result = verify_roundtrip(src, dst, collapsed=[(SERIES + "/timestamps", 1000.0)], cast=[])
+        assert _named(result, SERIES, "reconstruction")["ok"] is False
+        assert result["ok"] is False
+
+    def test_drift_past_n_check_rows_fails(self, tmp_path):
+        """``n_check`` bounds the cast sampling only; timestamps are checked over every sample,
+        because drift is smallest at the start."""
+        from jnwb.compression import verify_roundtrip
+
+        n = np.arange(1000)
+        ts = 10.0 + (n / 1000.0) * (1.0 + 1e-5 * n / 1000.0)
+        predicted = 10.0 + n / 1000.0
+        assert np.max(np.abs(ts[:10] - predicted[:10])) < 1e-6 < np.max(np.abs(ts - predicted))
+        src, dst = _ts_pair(tmp_path, ts=ts)
+        result = verify_roundtrip(src, dst, n_check=10,
+                                  collapsed=[(SERIES + "/timestamps", 1000.0)], cast=[])
+        assert _named(result, SERIES, "reconstruction")["ok"] is False
+        assert result["ok"] is False
+
+    @pytest.mark.parametrize("missing", ["starting_time", "timestamps"])
+    def test_a_group_that_cannot_be_reconstructed_fails(self, tmp_path, missing):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path, starting_time=None if missing == "starting_time" else 10.0,
+                            src_ts=missing != "timestamps")
+        result = verify_roundtrip(src, dst, collapsed=[(SERIES + "/timestamps", 1000.0)], cast=[])
+        assert _named(result, SERIES, "present")["ok"] is False
+        assert result["ok"] is False
 
 
 # --------------------------------------------------------------------------------------------
@@ -394,101 +647,6 @@ class TestConvolvedSpikeTrainIsPreservedExactly:
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             assert d[SPIKE_TRAIN_PATH].dtype == s[SPIKE_TRAIN_PATH].dtype == np.int16
             assert np.array_equal(s[SPIKE_TRAIN_PATH][:], d[SPIKE_TRAIN_PATH][:])
-
-
-# --------------------------------------------------------------------------------------------
-# 06-65 / P-29: the corpus pattern must select the group it names, not any path ending in it.
-# --------------------------------------------------------------------------------------------
-
-
-class TestTheSelectorIsAnchored:
-    """P-29. An unanchored `.search()` selected 6 of 6 adversarial names for the IRREVERSIBLE
-    float32 downcast, including a path under `scratch/`.
-
-    The proxy to avoid: "none of the six is selected" passes for a selector that selects nothing
-    at all. Both halves are asserted in every direction -- the six are rejected AND the corpus
-    paths are still chosen, in the same file, from one call.
-    """
-
-    ADVERSARIAL = [
-        "stimulus/probe_0_lfp/data",
-        "analysis/probe_0_lfp/data",
-        "scratch/backup_probe_0_lfp/data",
-        "acquisition/my_probe_0_lfp/data",
-        "general/extra/probe_0_lfp/data",
-        "scratch/probe_0_muae/data",
-        # Beyond the six recorded in P-29. A mutation run showed the six above are all rejected
-        # by the literal `acquisition/` text alone, so they pass a selector that is not actually
-        # anchored -- they could not tell `fullmatch` from `search`. These three can: each embeds
-        # the exact corpus path inside a longer one, at the head or the tail.
-        "scratch/acquisition/probe_0_lfp/data",
-        "my_acquisition/probe_0_lfp/data",
-        "acquisition/probe_0_lfp/datastore",
-    ]
-    CORPUS = [
-        "acquisition/probe_0_lfp/data",
-        "acquisition/probe_1_muae/data",
-        "acquisition/probe_0_lfp/probe_0_lfp_data/data",
-    ]
-
-    @pytest.fixture
-    def selected(self, tmp_path):
-        from jnwb.compression import _find_lfp_muae_paths
-
-        path = tmp_path / "sel.nwb"
-        with h5py.File(path, "w") as f:
-            for p in self.ADVERSARIAL + self.CORPUS:
-                f.create_dataset(p, data=np.zeros((8, 2), dtype=np.float64))
-        with h5py.File(path, "r") as f:
-            return set(_find_lfp_muae_paths(f))
-
-    @pytest.mark.parametrize("path", ADVERSARIAL)
-    def test_a_path_outside_the_named_group_is_rejected(self, selected, path):
-        assert "/" + path not in selected, (
-            f"{path} is selected for an irreversible float32 downcast, but it is not the group "
-            "the corpus pattern names"
-        )
-
-    @pytest.mark.parametrize("path", CORPUS)
-    def test_the_corpus_paths_are_still_selected(self, selected, path):
-        assert "/" + path in selected, (
-            f"{path} stopped being selected; anchoring must not change the corpus selection"
-        )
-
-    def test_the_selector_selects_exactly_the_corpus_set(self, selected):
-        assert selected == {"/" + p for p in self.CORPUS}
-
-    def test_a_renamed_acquisition_group_is_not_reached_by_a_tail_match(self, tmp_path):
-        """`my_probe_0_lfp` is the specific shape of the defect: the corpus name as the TAIL of a
-        longer segment, in the right parent group. A head anchor alone would not reject it."""
-        from jnwb.compression import _find_lfp_muae_paths
-
-        path = tmp_path / "tail.nwb"
-        with h5py.File(path, "w") as f:
-            f.create_dataset("acquisition/my_probe_0_lfp/data", data=np.zeros((4, 2)))
-            f.create_dataset("acquisition/probe_0_lfp_extra/data", data=np.zeros((4, 2)))
-        with h5py.File(path, "r") as f:
-            assert _find_lfp_muae_paths(f) == []
-
-    def test_an_adversarial_file_writes_its_non_corpus_arrays_through_untouched(self, tmp_path):
-        """End to end, not just the selector: the float64 array under `scratch/` must still be
-        float64 in the output, because selection is what licenses the cast."""
-        src = tmp_path / "adv.nwb"
-        dst = tmp_path / "adv.fp32.nwb"
-        rng = np.random.default_rng(11)
-        with h5py.File(src, "w") as f:
-            f.create_dataset("acquisition/probe_0_lfp/data",
-                             data=rng.normal(0, 50, size=(300, 4)).astype(np.float64))
-            f.create_dataset("scratch/backup_probe_0_lfp/data",
-                             data=rng.normal(0, 50, size=(300, 4)).astype(np.float64))
-
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
-
-        with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
-            assert d["acquisition/probe_0_lfp/data"].dtype == np.float32
-            assert d["scratch/backup_probe_0_lfp/data"].dtype == np.float64
-            assert np.array_equal(s["scratch/backup_probe_0_lfp/data"][:],
-                                  d["scratch/backup_probe_0_lfp/data"][:])
 
 
 # --------------------------------------------------------------------------------------------

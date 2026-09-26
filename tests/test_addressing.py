@@ -249,7 +249,7 @@ def test_map_peak_channel_to_area_non_contiguous_probe_indices():
     assert map_peak_channel_to_area(90, elec) == "V2"
 
 
-def test_enrich_units_dataframe_maps_area_layer_and_stability():
+def test_enrich_units_dataframe_maps_area_depth_class_and_stability():
     elec = _electrodes_df()
     units = pd.DataFrame(
         {
@@ -260,12 +260,7 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
         }
     )
 
-    import pytest
-
-    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
-        enriched = enrich_units_dataframe(units, elec)
-    # The warning points at the caller, not at jnwb internals.
-    assert [w.filename for w in record if "depth_class" in str(w.message)] == [__file__]
+    enriched = enrich_units_dataframe(units, elec)
 
     # cluster_id renamed to unit_id (SC-002 terminology alignment)
     assert "unit_id" in enriched.columns
@@ -284,8 +279,6 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert area_values[1] == "PFC"
     assert pd.isna(area_values[2])
     assert list(enriched["depth_class"]) == ["Superficial", "Deep", "Superficial"]
-    # The deprecated copy is equal to it, row for row.
-    assert list(enriched["layer"]) == list(enriched["depth_class"])
 
     # Stability flag: quality >= 1.0; legacy stable_plus alias removed
     assert list(enriched["is_stable"]) == [True, False, True]
@@ -297,31 +290,42 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
 
 
 def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
-    import pytest
-
     units = pd.DataFrame({"peak_channel_id": [0, 1]})
-    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'"):
-        enriched = enrich_units_dataframe(units, None)
+    enriched = enrich_units_dataframe(units, None)
 
     assert enriched["area"].isna().all()
     assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
-    assert list(enriched["layer"]) == ["Unknown", "Unknown"]
     assert enriched["group_name"].isna().all()
     # No quality column provided -> no stability label is invented
     assert "is_stable" not in enriched.columns
     assert "stable_plus" not in enriched.columns
 
 
-def test_a_layer_column_the_caller_supplied_is_kept_and_not_warned_about():
-    """Without electrode geometry the function writes no ``layer``, so it has nothing to warn of."""
+@pytest.mark.parametrize("with_electrodes", [True, False], ids=["electrodes", "no_electrodes"])
+def test_enrich_writes_no_layer_column_and_returns_a_supplied_one_unchanged(with_electrodes):
+    """Neither path writes ``layer`` or warns about it, and a caller's own ``layer`` survives.
+
+    The electrode path is the one that matters for the second half: it computes a depth class,
+    so a copy written there would overwrite the caller's values with 'Superficial'/'Deep'.
+    """
     import warnings
 
-    units = pd.DataFrame({"peak_channel_id": [0, 1], "layer": ["L2/3", "L5"]})
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", FutureWarning)
-        enriched = enrich_units_dataframe(units, None)
-    assert list(enriched["layer"]) == ["L2/3", "L5"]
-    assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
+    elec = _electrodes_df() if with_electrodes else None
+    units = pd.DataFrame({"peak_channel_id": [0, 1]})
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        enriched = enrich_units_dataframe(units, elec)
+        supplied = enrich_units_dataframe(units.assign(layer=["L2/3", "L5"]), elec)
+    about_layer = [
+        str(w.message) for w in record
+        if issubclass(w.category, (FutureWarning, DeprecationWarning)) or "layer" in str(w.message)
+    ]
+    assert about_layer == []
+    assert "layer" not in enriched.columns
+    assert list(supplied["layer"]) == ["L2/3", "L5"]
+    expected = ["Superficial", "Deep"] if with_electrodes else ["Unknown", "Unknown"]
+    assert list(enriched["depth_class"]) == expected
+    assert list(supplied["depth_class"]) == expected
 
 
 def test_enrich_units_dataframe_categorical_quality():

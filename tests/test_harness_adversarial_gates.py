@@ -37,6 +37,7 @@ from scripts.harness_gate import (
     check_api_md_member_types,
     check_stack_form_consistency,
     check_stack_pointers_resolve,
+    check_state_file_head,
     validate_receipt_provenance,
 )
 
@@ -2217,3 +2218,127 @@ class TestApiMdMemberTypes:
             for alias in node.names
         }
         assert not any("generate_api_md" in name for name in names), names
+
+
+# ------------------------------------------------- gate 20: the state file's recorded HEAD
+
+
+def _state_body(head: str) -> str:
+    return f"# State\n\n| Quantity | Value |\n|---|---|\n| HEAD | `{head}` |\n"
+
+
+class TestGate20StateFileHead:
+    """A present `artifacts/state.md` must record the HEAD it describes.
+
+    The fixture is a scratch repository with its own commit, so its HEAD differs from this
+    checkout's: a gate that compared against the wrong repository fails the matching case.
+    """
+
+    ZERO = "0" * 40
+
+    @staticmethod
+    def _repo(tmp_path: Path) -> "tuple[Path, str]":
+        import subprocess
+
+        root = tmp_path / "tree"
+        (root / "artifacts").mkdir(parents=True)
+        git = ["git", "-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
+               "-c", "commit.gpgsign=false"]
+        subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+        (root / "README").write_text("fixture\n", encoding="utf-8", newline="\n")
+        subprocess.run([*git, "add", "README"], cwd=root, check=True)
+        subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
+                              text=True, check=True).stdout.strip()
+        assert re.fullmatch(r"[0-9a-f]{40}", head) and head != TestGate20StateFileHead.ZERO
+        return root, head
+
+    def test_an_absent_file_passes(self, tmp_path: Path):
+        root, _ = self._repo(tmp_path)
+        assert not (root / "artifacts" / "state.md").exists()
+        assert check_state_file_head(root) == []
+
+    def test_a_file_recording_the_live_head_passes(self, tmp_path: Path):
+        """Pristine first: every failure below is a kill only if this passes."""
+        root, head = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text(_state_body(head), encoding="utf-8",
+                                                     newline="\n")
+        assert check_state_file_head(root) == []
+
+    def test_a_zeroed_head_row_fails_naming_both_commits(self, tmp_path: Path):
+        import hashlib
+
+        root, head = self._repo(tmp_path)
+        state = root / "artifacts" / "state.md"
+        state.write_text(_state_body(head), encoding="utf-8", newline="\n")
+        assert check_state_file_head(root) == []
+        state.write_text(_state_body(self.ZERO), encoding="utf-8", newline="\n")
+        before = hashlib.sha256(state.read_bytes()).hexdigest()
+
+        violations = check_state_file_head(root)
+
+        assert len(violations) == 1, violations
+        assert self.ZERO in violations[0] and head in violations[0], violations
+        assert "python scripts/reconstruct_state.py" in violations[0], violations
+        # Read only: the generator runs the harness, so a gate that rewrote the file would
+        # recurse, and one that repaired it would hide the staleness it exists to report.
+        assert hashlib.sha256(state.read_bytes()).hexdigest() == before
+
+    def test_a_head_differing_only_in_its_last_character_fails(self, tmp_path: Path):
+        """A prefix comparison, such as the 12 characters `--check` prints, passes this."""
+        root, head = self._repo(tmp_path)
+        near = head[:-1] + ("0" if head[-1] != "0" else "1")
+        assert near != head and near[:39] == head[:39]
+        (root / "artifacts" / "state.md").write_text(_state_body(near), encoding="utf-8",
+                                                     newline="\n")
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and near in violations[0] and head in violations[0], violations
+
+    def test_an_unresolvable_head_fails(self, tmp_path: Path, monkeypatch):
+        """Outside any repository the live HEAD is unknown, and unknown is not current."""
+        monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+        (tmp_path / "artifacts").mkdir()
+        (tmp_path / "artifacts" / "state.md").write_text(_state_body("a" * 40),
+                                                         encoding="utf-8", newline="\n")
+        violations = check_state_file_head(tmp_path)
+        assert len(violations) == 1 and "could not resolve" in violations[0], violations
+
+    def test_a_file_with_no_head_row_fails(self, tmp_path: Path):
+        root, _ = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text("# State\n\nno head row\n",
+                                                     encoding="utf-8", newline="\n")
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and "no HEAD row" in violations[0], violations
+
+    def test_the_head_row_is_read_by_the_generator_parser(self, tmp_path: Path, monkeypatch):
+        """The gate calls the generator's parser rather than a retyped copy of it."""
+        import scripts.reconstruct_state as generator
+
+        root, head = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text(_state_body(head), encoding="utf-8",
+                                                     newline="\n")
+        monkeypatch.setattr(generator, "recorded_head", lambda text: "f" * 40)
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and "f" * 40 in violations[0], violations
+
+    def test_the_generator_builds_with_the_old_file_removed(self, tmp_path: Path, monkeypatch):
+        """`build()` runs the harness. With a stale file still on disk, this gate would fail
+        inside the build and the new file would record that failure as the tree's verdict."""
+        import scripts.reconstruct_state as generator
+
+        state = tmp_path / "artifacts" / "state.md"
+        state.parent.mkdir()
+        state.write_text(_state_body(self.ZERO), encoding="utf-8", newline="\n")
+        seen = []
+
+        def build() -> str:
+            seen.append(state.exists())
+            return "built\n"
+
+        monkeypatch.setattr(generator, "STATE_PATH", state)
+        monkeypatch.setattr(generator, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(generator, "build", build)
+        monkeypatch.setattr(sys, "argv", ["reconstruct_state.py"])
+        assert generator.main() == 0
+        assert seen == [False], "build() ran while the file it replaces was still on disk"
+        assert state.read_text(encoding="utf-8") == "built\n"

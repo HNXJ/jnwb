@@ -187,7 +187,7 @@ network = jnwb.directed_network(
     rng=0,
 )
 print("Labels:", network["labels"])
-print("Net matrix shape:", network["matrix"].shape)
+print("Directed matrix shape:", network["matrix"].shape)   # M[i, j]: influence of i on j
 ```
 
 ### Graph topology metrics (`network_topology`)

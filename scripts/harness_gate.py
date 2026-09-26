@@ -28,6 +28,7 @@ protected paths to skill-tree uniqueness without the list noticing.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
   18. API member types: each docs/api.md Type cell is true of the runtime object.
   19. Frozen functions: each registered body still hashes to its independently verified value.
+  20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -1991,7 +1992,8 @@ GENERATED_FROM = (
         "derived": "artifacts/state.md",
         "sources": ("<any HEAD move>",),
         "generator": "scripts/reconstruct_state.py",
-        "verified_by": "`--check`, which AGENTS.md section 3 Prepare runs before reading the file",
+        "verified_by": "gate 20, which compares the recorded HEAD with the live one when the "
+                       "file is present, and `--check`, which AGENTS.md section 3 Prepare runs",
         "tracked": False,
     },
 )
@@ -2771,6 +2773,37 @@ def check_frozen_validated(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+def check_state_file_head(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 20 (State File Head): a present artifacts/state.md records the live HEAD.
+
+    Check-only. The generator runs this harness to fill in its gate rows, so a gate that
+    regenerated the file would recurse. It reads the recorded HEAD with the generator's own
+    parser and compares it with ``git rev-parse HEAD``. An absent file passes: the file is
+    generated per tree and gitignored, so a fresh checkout correctly has none. A file with no
+    HEAD row, or a HEAD git cannot resolve, fails, because unknown is not current.
+    """
+    from scripts import reconstruct_state
+
+    root = repo_root or REPO_ROOT
+    relative = reconstruct_state.STATE_PATH.relative_to(reconstruct_state.REPO_ROOT)
+    path = root / relative
+    if not path.is_file():
+        return []
+    name = relative.as_posix()
+    regenerate = "Run: python scripts/reconstruct_state.py"
+    recorded = reconstruct_state.recorded_head(path.read_text(encoding="utf-8"))
+    if recorded is None:
+        return [f"{name} records no HEAD row, so nothing can say it is current. {regenerate}"]
+    done = _run_git(root, "rev-parse", "HEAD")
+    live = done.stdout.strip()
+    if done.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", live):
+        return [f"{name} records HEAD {recorded}, and git could not resolve the live HEAD "
+                f"(exit {done.returncode}), so the file cannot be shown current. {regenerate}"]
+    if recorded != live:
+        return [f"{name} was generated at {recorded} and HEAD is now {live}. {regenerate}"]
+    return []
+
+
 #: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
 #: because two gates compute their message from constants. The numbers are the ones this module's
 #: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
@@ -2839,6 +2872,9 @@ GATES: List[Tuple[int, Any, Any]] = [
               "FAIL: A frozen-validated function no longer matches its verified body:"),
      lambda: "PASS: Every frozen-validated function matches its verified body and names a "
              "killing test that exists."),
+    (20, _one(check_state_file_head, "FAIL: artifacts/state.md does not record the live HEAD:"),
+     lambda: "PASS: artifacts/state.md is absent or records the live HEAD (read only; the "
+             "generator runs this harness, so this gate never regenerates the file)."),
 ]
 
 
