@@ -444,6 +444,36 @@ def test_enrich_agrees_with_the_per_channel_functions(elec, n_resolved):
     assert got["area"].notna().sum() == n_resolved
 
 
+@pytest.mark.parametrize("dtype, stored, asked", [
+    (np.float32, 16777216, 16777217),   # 2**24 + 1 rounds to 2**24 in float32
+    (np.float16, 2048, 2049),           # 2**11 + 1 rounds to 2**11 in float16
+])
+def test_enrich_agrees_on_a_narrow_float_identifier_column(dtype, stored, asked):
+    """`==` rounds the asked ID to the column's mantissa, so the per-channel functions match
+    a neighbouring stored ID; enrich must return the same answer."""
+    values = (np.arange(32) + 100).astype(dtype)
+    values[0] = stored
+    elec = _probe_table(id_values=values)
+    ids = [asked, stored, 101]
+    got = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+    assert list(got["area"]) == [map_peak_channel_to_area(x, elec) for x in ids] == ["V1"] * 3
+    assert list(got["depth_class"]) == [classify_layer_from_depth(x, elec) for x in ids]
+
+
+def test_enrich_applies_the_threshold_it_is_given():
+    """z = 1142.9 um is Deep at the default 1000 um and Superficial at 1500 um."""
+    elec = _probe_table()
+    ids = [100.0, 104.0, 105.0, 107.0]
+    default = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+    raised = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec,
+                                    threshold=1500.0, threshold_unit="um")
+    assert list(default["depth_class"]) == ["Superficial", "Deep", "Deep", "Deep"]
+    assert list(raised["depth_class"]) == ["Superficial", "Superficial", "Superficial", "Deep"]
+    assert list(raised["depth_class"]) == [
+        classify_layer_from_depth(x, elec, threshold=1500.0, threshold_unit="um") for x in ids
+    ]
+
+
 # ---------------------------------------------------------------------------------------------
 # jnwb must behave identically whether or not a project package is importable.
 #

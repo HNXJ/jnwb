@@ -142,16 +142,18 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
     """Return ``val -> (row_index, row)`` agreeing with :func:`_resolve_electrode_row`.
 
     ``val`` is the integer channel ID that function derives. When every identifier column
-    present has a NumPy integer, unsigned, boolean or float dtype, one pass over each column
+    present has a NumPy integer, unsigned, boolean or float64 dtype, one pass over each column
     builds a first-match table, so a lookup is O(1) rather than a comparison over the whole
-    table; a float column is keyed with ``float(val)``, the conversion ``==`` applies. Any
+    table; a float64 column is keyed with ``float(val)``, the conversion ``==`` applies. A
+    narrower float column is excluded because ``==`` rounds ``val`` to that float's mantissa
+    (16777217 equals a float32 16777216), which a table keyed on exact values would miss. Any
     other identifier column, or none, falls back to :func:`_resolve_electrode_row` per call.
     """
     id_cols = [c for c in ('channel_id', 'id', 'electrode_id') if c in electrodes_df.columns]
     fast = bool(id_cols) and all(
         isinstance(electrodes_df[c], pd.Series)
         and isinstance(electrodes_df[c].dtype, np.dtype)
-        and electrodes_df[c].dtype.kind in 'iubf'
+        and (electrodes_df[c].dtype.kind in 'iub' or electrodes_df[c].dtype == np.float64)
         for c in id_cols
     )
     if not fast:
