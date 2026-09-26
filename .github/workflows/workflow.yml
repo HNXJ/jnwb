@@ -64,8 +64,10 @@ jobs:
           python -m pip install ".[test,docs,vis]"
 
       - name: Run pytest
+        # -n auto: one worker per core. The browser-backed export tests share an xdist group,
+        # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         run: |
-          pytest -v tests/
+          pytest -v -n auto tests/
 
   build:
     name: Build & Validate Distribution
