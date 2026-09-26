@@ -177,7 +177,7 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
                 f.create_dataset("units/id", data=np.arange(3))
 
         before = list(warnings.filters)
-        verify_roundtrip(src, dst)
+        verify_roundtrip(src, dst, cast=[])
         assert warnings.filters == before, "verify_roundtrip mutated the global filter state"
 
     def test_a_warning_still_fires_after_a_verify(self, tmp_path):
@@ -191,9 +191,16 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
             with h5py.File(p, "w") as f:
                 f.create_dataset("units/id", data=np.arange(3))
 
-        verify_roundtrip(src, dst)
+        verify_roundtrip(src, dst, cast=[])
         with pytest.warns(RuntimeWarning, match="still audible"):
             warnings.warn("still audible", RuntimeWarning)
+
+    def test_the_cast_set_is_required(self, tmp_path):
+        """A default would verify some other set than the one cast and report it as checked."""
+        from jnwb.compression import verify_roundtrip
+
+        with pytest.raises(TypeError, match="cast"):
+            verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5")
 
 
 # --------------------------------------------------------------------------------------------
@@ -764,6 +771,19 @@ class TestTheSelectionIsExplicit:
     def test_a_selection_that_cannot_be_cast_is_refused(self, src, tmp_path, select, error):
         with pytest.raises(error, match="select="):
             jnwb.compress_fp32(src, tmp_path / "bad.nwb", verify=False, select=select)
+
+    @pytest.mark.parametrize(
+        "select, error",
+        [(["scratch/absent/data"], KeyError), ([COUNTS], TypeError), (5, TypeError)],
+        ids=["absent", "integer", "not-iterable"],
+    )
+    def test_a_refused_selection_creates_no_directory(self, src, tmp_path, select, error):
+        """What would pass while the rule is broken: the raise itself. The destination directory
+        does not exist yet, so a refusal after it is created leaves it behind."""
+        before = sorted(tmp_path.rglob("*"))
+        with pytest.raises(error):
+            jnwb.compress_fp32(src, tmp_path / "new" / "bad.nwb", verify=False, select=select)
+        assert sorted(tmp_path.rglob("*")) == before
 
     @pytest.mark.parametrize("path", [COUNTS, MASK], ids=["integer", "boolean"])
     @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])

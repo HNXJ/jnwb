@@ -58,7 +58,7 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False, select: "'list[str]'") -> 'dict'<br>*Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.* |
+| jnwb.compress_fp32 | function | (src: "'str | Path'", dst: "'str | Path | None'" = None, drop_convolved: 'bool' = False, verify: 'bool' = True, n_check: 'int' = 200000, overwrite: 'bool' = False, select: "'list[str]'") -> 'dict'<br>*Compress one NWB file: cast the select= datasets to float32, chunk, gzip1+shuffle, compact.* |
 
 ## Module: jnwb.connectivity
 
