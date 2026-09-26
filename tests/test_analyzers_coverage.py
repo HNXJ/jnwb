@@ -265,6 +265,64 @@ class TestPopulationAnalyzerNetwork(unittest.TestCase):
         self.assertGreaterEqual(result['n_edges'], 0)
         self.assertLessEqual(result['n_edges'], 3)
 
+    def test_the_graph_is_the_one_network_topology_computes(self):
+        """The method calls the routed function rather than keeping a copy of its rule."""
+        from unittest.mock import patch
+        import jnwb.connectivity as connectivity
+
+        corr = np.random.default_rng(5).uniform(-1, 1, size=(6, 6))
+        with patch.object(connectivity, 'network_topology',
+                          wraps=connectivity.network_topology) as spy:
+            result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        spy.assert_called_once()
+        topology = connectivity.network_topology(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], topology['n_edges'] // 2)
+        self.assertEqual(result['degree_distribution'], topology['in_degrees'])
+
+    def test_a_complex_entry_is_thresholded_on_its_modulus(self):
+        corr = np.array([[1, 0.1 + 0.9j], [0.1 - 0.9j, 1]])
+        result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], 1)
+
+    def test_a_nan_entry_raises_rather_than_reading_as_no_edge(self):
+        corr = np.eye(4)
+        corr[0, 1] = corr[1, 0] = np.nan
+        with self.assertRaisesRegex(ValueError, "NaN or Inf off the diagonal"):
+            PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+
+
+class TestPopulationAnalyzerPieChartData(unittest.TestCase):
+    """A filter on a column the table lacks refuses; it used to count every unit."""
+
+    UNITS = pd.DataFrame({
+        'area': ['V1', 'V1', 'V4', 'MT'],
+        'quality_label': ['good', 'mua', 'good', 'good'],
+    })
+
+    def test_a_filter_on_an_absent_column_raises(self):
+        with self.assertRaisesRegex(ValueError, r"absent from units: \['areaa'\]"):
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'areaa': 'V1'})
+
+    def test_another_filter_error_is_not_relabelled_as_an_absent_column(self):
+        units = self.UNITS.iloc[:2]
+        with self.assertRaises(ValueError) as err:
+            PopulationAnalyzer.pie_chart_data(units, {'area': np.array(['V1', 'V4', 'MT'])})
+        self.assertNotIn('absent', str(err.exception))
+
+    def test_a_filter_on_a_present_column_counts_only_the_matching_units(self):
+        res = PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': 'V1'})
+        self.assertEqual(res['counts'], {'good': 1, 'mua': 1})
+        self.assertEqual(res['total'], 2)
+
+    def test_the_filter_is_filter_by_criteria(self):
+        from unittest.mock import patch
+        import jnwb.metadata as metadata
+
+        with patch.object(metadata, 'filter_by_criteria',
+                          wraps=metadata.filter_by_criteria) as spy:
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': ['V1', 'MT']})
+        spy.assert_called_once()
+
 
 class TestPopulationAnalyzerCompareCriteria(unittest.TestCase):
     """Test PopulationAnalyzer comparison between unit groups."""
@@ -433,6 +491,56 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                         runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
                         self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
 
+
+class TestTFRAnalyzerCompareConditions(unittest.TestCase):
+    """One t-test per location is a family; the count that answers "which differ" is corrected."""
+
+    SHAPE = (4, 40, 100)          # 16000 locations
+
+    def _pair(self, seed, effect=0.0):
+        rng = np.random.default_rng(seed)
+        a = rng.normal(size=self.SHAPE + (12,))
+        b = rng.normal(size=self.SHAPE + (14,))
+        b[0, :5] += effect        # 500 locations carry the effect, when there is one
+        return a, b
+
+    def test_null_data_leaves_the_fdr_count_near_zero_and_the_uncorrected_near_alpha_n(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(0))
+        n = res['n_tests']
+        self.assertEqual(n, 16000)
+        # Binomial(16000, 0.05): mean 800, sd 27.6.
+        self.assertLess(abs(res['n_significant_uncorrected'] - 0.05 * n), 4 * 27.6)
+        self.assertLessEqual(res['n_significant_fdr'], 2)
+        self.assertEqual(res['fraction_significant_uncorrected'], res['n_significant_uncorrected'] / n)
+
+    def test_the_fdr_count_is_the_library_correction_of_the_p_values(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(1, effect=2.0))
+        q = StatisticalAnalysis.fdr_correct(res['p_values'])
+        np.testing.assert_allclose(res['q_values'], q, rtol=1e-12)
+        self.assertEqual(res['n_significant_fdr'], int((q < 0.05).sum()))
+        # The effect survives correction: the count is not zero by construction.
+        self.assertGreater(res['n_significant_fdr'], 400)
+
+    def test_a_location_without_a_p_value_is_not_in_the_family(self):
+        a, b = self._pair(2)
+        a[0, 0, 0] = 1.0
+        b[0, 0, 0] = 1.0
+        res = TFRAnalyzer.compare_conditions(a, b)
+        self.assertTrue(np.isnan(res['q_values'][0]))
+        tested = np.isfinite(res['p_values'])
+        np.testing.assert_allclose(res['q_values'][tested],
+                                   StatisticalAnalysis.fdr_correct(res['p_values'][tested]),
+                                   rtol=1e-12)
+
+    def test_the_old_key_names_read_the_uncorrected_values_with_a_warning(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(3))
+        self.assertNotIn('n_significant', list(res))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res['n_significant'], res['n_significant_uncorrected'])
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res.get('fraction_significant'),
+                             res['fraction_significant_uncorrected'])
+        self.assertIn('n_significant', res)
 
 
 if __name__ == '__main__':

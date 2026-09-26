@@ -16,6 +16,7 @@ from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 from ._bins import bins_within, whole_bin_count
+from ._dictlike import RenamedKeyDict
 from .gpu_pca import pin_component_signs
 import pandas as pd
 from scipy import signal, stats
@@ -186,12 +187,21 @@ class TFRAnalyzer:
         Vectorized: runs ttest_ind across all (ch × freq × time) locations at once
         instead of a Python loop, ≈ 100× faster for large arrays.
 
+        One t-test per location is a family of ``n_tests`` tests, so about 5% of locations
+        pass ``p < 0.05`` on null data. ``n_significant_uncorrected`` counts those;
+        ``n_significant_fdr`` counts locations whose Benjamini-Hochberg adjusted p-value
+        (:func:`jnwb.fdr_correct` over the locations with a finite p) is below 0.05.
+
         Args:
             tfr1: TFR from condition 1 (ch × freq × time × trials1)
             tfr2: TFR from condition 2 (ch × freq × time × trials2)
 
         Returns:
-            Dict with mean_diff, n_significant, fraction_significant
+            Dict with ``n_tests``, ``n_significant_uncorrected``,
+            ``fraction_significant_uncorrected``, ``n_significant_fdr``, ``mean_diff``,
+            ``p_values``, ``q_values`` (NaN where p is NaN), ``t_statistics`` and ``summary``.
+            ``n_significant`` and ``fraction_significant`` still read, as the uncorrected
+            values, with a ``DeprecationWarning``; they are removed in the next release.
         """
         if tfr1.shape[:-1] != tfr2.shape[:-1]:
             raise ValueError("TFR spatial shapes must match (ch × freq × time)")
@@ -206,15 +216,27 @@ class TFRAnalyzer:
         n_sig = int((p_val < 0.05).sum())
         n_total = len(p_val)
 
-        return {
+        # A constant location has no p-value and is not a test in the family.
+        tested = np.isfinite(p_val)
+        q_val = np.full(p_val.shape, np.nan)
+        q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
+        n_fdr = int((q_val < 0.05).sum())
+
+        return RenamedKeyDict({
             'n_tests':             n_total,
-            'n_significant':       n_sig,
-            'fraction_significant': n_sig / n_total if n_total > 0 else 0.0,
+            'n_significant_uncorrected': n_sig,
+            'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else 0.0,
+            'n_significant_fdr':   n_fdr,
             'mean_diff':           float(np.mean(tfr1) - np.mean(tfr2)),
             'p_values':            p_val,          # (space,) array
+            'q_values':            q_val,
             't_statistics':        t_stat,
-            'summary': f"{n_sig} / {n_total} locations p < 0.05",
-        }
+            'summary': (f"{n_sig} / {n_total} locations p < 0.05 uncorrected; "
+                        f"{n_fdr} with Benjamini-Hochberg q < 0.05"),
+        }, aliases={
+            'n_significant': 'n_significant_uncorrected',
+            'fraction_significant': 'fraction_significant_uncorrected',
+        })
 
     @staticmethod
     def by_layer(tfr_data: np.ndarray, layer_bounds: Dict) -> Dict:
@@ -661,25 +683,22 @@ class PopulationAnalyzer:
 
         Args:
             units: Units DataFrame
-            criteria: Dict of filtering criteria
+            criteria: Dict of filtering criteria, applied by :func:`jnwb.filter_by_criteria`.
 
         Returns:
             Dict with counts and percentages
-        """
-        filtered = units.copy()
 
-        for key, value in (criteria or {}).items():
-            if key not in filtered.columns:
-                continue
-            if isinstance(value, tuple) and len(value) == 2:
-                filtered = filtered[
-                    (pd.to_numeric(filtered[key], errors='coerce') >= value[0]) &
-                    (pd.to_numeric(filtered[key], errors='coerce') <= value[1])
-                ]
-            elif isinstance(value, (list, set)):
-                filtered = filtered[filtered[key].isin(value)]
-            else:
-                filtered = filtered[filtered[key] == value]
+        Raises:
+            ValueError: If a ``criteria`` key names a column ``units`` does not have. The
+                filter used to be skipped, so the counts covered every unit.
+        """
+        # Imported here: jnwb.metadata imports pynwb, which this module otherwise never needs.
+        from .metadata import filter_by_criteria
+
+        absent = [k for k in (criteria or {}) if k not in units.columns]
+        if absent:
+            raise ValueError(f"pie_chart_data: criteria name column(s) absent from units: {absent!r}")
+        filtered = filter_by_criteria(units, criteria or {}, unknown="raise")
 
         found = False
         for col in ('quality_category', 'quality_label'):
@@ -712,22 +731,32 @@ class PopulationAnalyzer:
             threshold: |r| > threshold counts as a connection
 
         Returns:
-            Dict with graph metrics (n_nodes, n_edges, density, degree distribution)
-        """
-        binary_adj = np.abs(correlation_matrix) > threshold
-        np.fill_diagonal(binary_adj, False)
+            Dict with graph metrics (n_nodes, n_edges, density, degree distribution).
+            ``n_edges`` counts undirected edges, half the directed count of
+            :func:`jnwb.network_topology`, which thresholds the matrix and supplies the
+            degrees.
 
-        n_nodes  = binary_adj.shape[0]
-        n_edges  = int(binary_adj.sum()) // 2
+        Raises:
+            ValueError: As :func:`jnwb.network_topology` does, for a matrix that is not
+                square 2-D, a NaN or Inf off the diagonal, or a threshold that is not finite.
+        """
+        from .connectivity import network_topology
+
+        # The threshold is on |r|. network_topology casts to float, which would drop the
+        # imaginary part of a complex matrix, so take the modulus here.
+        if np.iscomplexobj(correlation_matrix):
+            correlation_matrix = np.abs(correlation_matrix)
+        topology = network_topology(correlation_matrix, threshold=threshold)
+        n_nodes  = topology['n_nodes']
+        n_edges  = topology['n_edges'] // 2
         density  = 2 * n_edges / (n_nodes * (n_nodes - 1)) if n_nodes > 1 else 0.0
-        degrees  = binary_adj.sum(axis=0)
 
         return {
             'n_nodes':              n_nodes,
             'n_edges':              n_edges,
             'density':              float(density),
-            'mean_degree':          float(np.mean(degrees)),
-            'degree_distribution':  degrees.tolist(),
+            'mean_degree':          topology['mean_degree'],
+            'degree_distribution':  topology['in_degrees'],
             'threshold':            threshold,
         }
 

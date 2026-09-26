@@ -179,7 +179,8 @@ X, unit_ids, bin_centers = jnwb.build_time_resolved_matrix(
 )
 
 # Low-dimensional population trajectory, from the same three inputs.
-# Returns a dict: trajectory (n_trials, n_components, n_bins), explained_variance,
+# Returns a dict: trajectory (n_trials, n_components, n_bins), explained_variance_ratio
+# and explained_variance_per_component (each (n_components,), as in scikit-learn's PCA),
 # unit_ids, bin_centers.
 trajectory_res = jnwb.compute_population_trajectory(
     session, area="V1", epochs_df=trials_df, n_components=3,

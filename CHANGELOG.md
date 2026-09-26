@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from: the seed for an int `rng`, the fresh OS entropy drawn for `rng=None`. Passing it back as
   `rng` reproduces `p_values`. It is `None` for a caller's `Generator` and when no surrogates
   ran. `to_dict()` includes it. An int seed draws the same stream as before.
+- `compute_population_trajectory` returns `explained_variance_ratio` (each component's share of
+  the total) and `explained_variance_per_component` (each component's variance,
+  `S**2 / (n_samples - 1)` of the z-scored data), both `(n_components,)` as scikit-learn's
+  `PCA` defines `explained_variance_ratio_` and `explained_variance_`, and NaN where a
+  component could not be estimated.
 
 ### Changed
 
@@ -110,6 +115,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `transfer_entropy` numbers joint states through one integer key per row instead of a
   row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
   p-values and surrogate statistics.
+- `TFRAnalyzer.compare_conditions` reports a corrected count beside the uncorrected one. One
+  t-test per location counts about 5% of locations on null data (796 of 16000 in a seeded
+  run). `n_significant_uncorrected` and `fraction_significant_uncorrected` hold those values;
+  `n_significant_fdr` counts locations whose Benjamini-Hochberg adjusted p-value, in the new
+  `q_values` array from `fdr_correct` over the locations with a finite p, is below 0.05 (0 in
+  the same run). `summary` names both counts.
+- `PopulationAnalyzer.pie_chart_data` raises `ValueError` when a `criteria` key names a column
+  the table does not have. The filter was skipped, so the counts covered every unit. It filters
+  through `filter_by_criteria`; the counts for present columns are unchanged.
+- `PopulationAnalyzer.network_connectivity` computes the graph through `network_topology` and
+  so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
+  diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix,
+  complex ones included, are unchanged.
+
+### Deprecated
+
+- The meaning of `compute_population_trajectory`'s `explained_variance`. It is still one
+  fraction for all kept components together, `np.nansum(explained_variance_ratio)`, and reading
+  it emits a `FutureWarning`: in the next release the key carries each component's variance, as
+  in scikit-learn and `PopulationAnalyzer.population_trajectory`. Read
+  `explained_variance_ratio` or `explained_variance_per_component` instead. A copy made through
+  `dict(...)`, iteration or JSON keeps the old value without a warning.
+- `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
+  read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
+  the result's keys. They are removed in the next release.
 
 ### Removed
 
