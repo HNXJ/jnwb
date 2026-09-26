@@ -99,6 +99,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dataset to equal `source.astype(float32)` exactly. It accepted any destination within an
   absolute 1e-3, so a zeroed destination passed at volt scale and a correct cast near 5e4, where
   the float32 spacing is 3.9e-3, failed.
+- `jnwb.compression.verify_roundtrip` fails a cast dataset that is not float32 in the
+  destination, whose shape differs from the source's, or that is absent from the source. It fails
+  a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
+  source; it skipped that group and could return `ok=True` with its timestamps never checked.
 
 ## [0.2.6.1] - 2026-09-25
 

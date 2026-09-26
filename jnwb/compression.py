@@ -629,8 +629,10 @@ def verify_roundtrip(
 
     ``cast`` is ``stats["cast_paths"]``, the datasets actually cast, and is required: a check
     over any other set would report arrays that were never cast and skip the ones that were.
-    Each cast dataset must be in the destination and equal the float32 cast of the source over
-    the rows checked; an absent one is a failed check.
+    Each cast dataset must be in both files, be float32, have the source's shape and equal the
+    float32 cast of the source over the rows checked. A cast path absent from either file, or a
+    collapsed group without ``starting_time`` in the destination and ``timestamps`` in the
+    source, is a failed check.
     """
     results = {"ok": True, "checks": []}
 
@@ -641,15 +643,22 @@ def verify_roundtrip(
 
     with h5py.File(src_path, "r") as s, h5py.File(dst_path, "r") as d:
         for path in cast:
+            if path not in s:
+                rec(f"{path} present in the source", False, "MISSING")
+                continue
             if path not in d:
                 rec(f"{path} present in the destination", False, "MISSING")
                 continue
-            n = min(n_check, s[path].shape[0])
+            src_ds, dst_ds = s[path], d[path]
+            rec(f"{path} dtype is float32", dst_ds.dtype == np.float32, str(dst_ds.dtype))
+            rec(f"{path} shape matches the source", dst_ds.shape == src_ds.shape,
+                f"{dst_ds.shape} vs {src_ds.shape}")
+            n = min(n_check, src_ds.shape[0])
             # A cast is deterministic, so the destination must equal it exactly. An absolute
             # tolerance passed a zeroed destination at volt scale and failed a correct cast
             # whose float32 spacing exceeded it.
-            expected = s[path][:n].astype(np.float32)
-            eq = np.array_equal(d[path][:n], expected, equal_nan=True)
+            expected = src_ds[:n].astype(np.float32)
+            eq = np.array_equal(dst_ds[:n], expected, equal_nan=True)
             rec(f"{path} first {n} rows equal the float32 cast", eq, "exact" if eq else "MISMATCH")
 
         if SPIKE_TRAIN_PATH in s and SPIKE_TRAIN_PATH in d:
@@ -686,6 +695,11 @@ def verify_roundtrip(
                     err < 1e-6,
                     f"{err:.6e}",
                 )
+            else:
+                # The source timestamps were deleted, so a group that cannot be reconstructed
+                # is a failure, not a skip.
+                rec(f"{grp} starting_time present in the destination and timestamps in the source",
+                    False, "MISSING")
 
     # The check v1 lacked: does this actually parse as valid NWB. The bar is "does not parse
     # WORSE than the source", not "parses cleanly" -- observed on a large nested-layout session,

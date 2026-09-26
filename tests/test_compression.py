@@ -203,19 +203,58 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
             verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5")
 
 
-def _cast_pair(tmp_path, src_data, dst_data):
-    """A source holding ``src_data`` at LFP and a destination holding ``dst_data`` there."""
+SECOND_CAST = "acquisition/probe_1_lfp/data"
+SERIES = "acquisition/series"
+
+
+def _cast_pair(tmp_path, src_data, dst_data, extra=None):
+    """A source holding ``src_data`` at LFP and a destination holding ``dst_data`` there.
+
+    ``extra`` maps further paths to ``(src_data, dst_data)``; ``None`` leaves a side absent.
+    """
     src = tmp_path / "src.h5"
     dst = tmp_path / "dst.h5"
-    with h5py.File(src, "w") as f:
-        f.create_dataset(LFP, data=src_data)
-    with h5py.File(dst, "w") as f:
-        f.create_dataset(LFP, data=dst_data)
+    pairs = {LFP: (src_data, dst_data), **(extra or {})}
+    with h5py.File(src, "w") as fs, h5py.File(dst, "w") as fd:
+        for path, (a, b) in pairs.items():
+            if a is not None:
+                fs.create_dataset(path, data=a)
+            if b is not None:
+                fd.create_dataset(path, data=b)
     return src, dst
 
 
-def _cast_checks(result):
-    return [c for c in result["checks"] if c["name"].startswith(LFP)]
+def _checks_for(result, prefix):
+    """The checks named for ``prefix``, spelled with or without a leading slash.
+
+    Asserts there is at least one: the overall ``ok`` also carries the pynwb parse, which a bare
+    HDF5 fixture fails, so each test reads the checks for its own path and an empty list would
+    pass every ``all(...)``.
+    """
+    key = prefix.lstrip("/")
+    out = [c for c in result["checks"] if c["name"].lstrip("/").startswith(key + " ")]
+    assert out, f"no check names {prefix}: {result['checks']}"
+    return out
+
+
+def _passes(result, prefix):
+    return all(c["ok"] for c in _checks_for(result, prefix))
+
+
+def _named(result, prefix, words):
+    """The one check for ``prefix`` whose name contains ``words``."""
+    out = [c for c in _checks_for(result, prefix) if words in c["name"]]
+    assert len(out) == 1, (words, result["checks"])
+    return out[0]
+
+
+def _one_ulp_off(cast, row=137, col=1):
+    """``cast`` with one element in a non-first row moved to the next float32 up."""
+    moved = cast.copy()
+    moved[row, col] = np.nextafter(moved[row, col], np.float32(np.inf))
+    assert moved.dtype == np.float32 and moved[row, col] != cast[row, col]
+    assert np.array_equal(moved[:row], cast[:row])
+    return moved
 
 
 class TestVerifyRoundtripChecksTheCast:
@@ -223,7 +262,7 @@ class TestVerifyRoundtripChecksTheCast:
 
     An absolute tolerance passes whatever lies inside it: at volt scale a zeroed destination is
     within 1e-3 of every sample, and near 5e4 the float32 spacing is 3.9e-3, so a correct cast
-    exceeds it.
+    exceeds it. One float32 ulp is inside any relative tolerance, so it pins exactness.
     """
 
     def test_a_zeroed_destination_at_volt_scale_fails(self, tmp_path):
@@ -232,8 +271,7 @@ class TestVerifyRoundtripChecksTheCast:
         raw = np.random.default_rng(5).normal(0.0, 1e-4, size=(500, 3))
         assert np.max(np.abs(raw)) < 1e-3, "the fixture must sit inside the old tolerance"
         src, dst = _cast_pair(tmp_path, raw, np.zeros_like(raw, dtype=np.float32))
-        checks = _cast_checks(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]))
-        assert len(checks) == 1 and checks[0]["ok"] is False, checks
+        assert not _passes(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]), LFP)
 
     def test_a_correct_cast_near_5e4_passes(self, tmp_path):
         from jnwb.compression import verify_roundtrip
@@ -242,20 +280,71 @@ class TestVerifyRoundtripChecksTheCast:
         cast = raw.astype(np.float32)
         assert np.max(np.abs(raw - cast)) > 1e-3, "the fixture must exceed the old tolerance"
         src, dst = _cast_pair(tmp_path, raw, cast)
-        checks = _cast_checks(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]))
-        assert len(checks) == 1 and checks[0]["ok"] is True, checks
+        assert _passes(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]), LFP)
 
-    def test_a_cast_path_absent_from_the_destination_fails(self, tmp_path):
+    def test_a_correct_cast_with_a_nan_row_passes(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(8).normal(0.0, 1.0, size=(300, 3))
+        raw[211, :] = np.nan
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32))
+        assert _passes(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]), LFP)
+
+    @pytest.mark.parametrize("spelling", [LFP, "/" + LFP], ids=["bare", "leading-slash"])
+    def test_one_ulp_in_a_later_row_fails(self, tmp_path, spelling):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(9).normal(0.0, 1.0, size=(500, 3))
+        src, dst = _cast_pair(tmp_path, raw, _one_ulp_off(raw.astype(np.float32)))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[spelling])
+        assert _named(result, LFP, "float32 cast")["ok"] is False
+
+    def test_only_the_second_of_two_cast_paths_corrupted_fails(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        rng = np.random.default_rng(10)
+        a = rng.normal(0.0, 1.0, size=(400, 2))
+        b = rng.normal(0.0, 1.0, size=(400, 2))
+        src, dst = _cast_pair(
+            tmp_path, a, a.astype(np.float32),
+            extra={SECOND_CAST: (b, _one_ulp_off(b.astype(np.float32)))},
+        )
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP, SECOND_CAST])
+        assert _passes(result, LFP)
+        assert not _passes(result, SECOND_CAST)
+
+    @pytest.mark.parametrize("spelling", [LFP, "/" + LFP], ids=["bare", "leading-slash"])
+    @pytest.mark.parametrize("side", ["destination", "source"])
+    def test_a_cast_path_absent_from_either_file_fails(self, tmp_path, spelling, side):
         from jnwb.compression import verify_roundtrip
 
         raw = np.random.default_rng(7).normal(0.0, 1.0, size=(50, 2))
         src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32))
-        with h5py.File(dst, "a") as f:
+        with h5py.File(dst if side == "destination" else src, "a") as f:
             del f[LFP]
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[spelling])
+        assert _named(result, LFP, f"present in the {side}")["ok"] is False
+
+    def test_a_float64_destination_holding_the_cast_values_fails(self, tmp_path):
+        """Equal values, wrong storage: only the dtype check can see it."""
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(11).normal(0.0, 1.0, size=(200, 2))
+        src, dst = _cast_pair(tmp_path, raw, raw.astype(np.float32).astype(np.float64))
         result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
-        checks = _cast_checks(result)
-        assert len(checks) == 1 and checks[0]["ok"] is False, checks
-        assert result["ok"] is False
+        assert _named(result, LFP, "float32 cast")["ok"] is True
+        assert _named(result, LFP, "dtype is float32")["ok"] is False
+
+    def test_a_destination_with_an_extra_row_fails(self, tmp_path):
+        """The rows checked match; only the shape check can see the extra one."""
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(12).normal(0.0, 1.0, size=(200, 2))
+        cast = raw.astype(np.float32)
+        src, dst = _cast_pair(tmp_path, raw, np.vstack([cast, cast[:1]]))
+        result = verify_roundtrip(src, dst, collapsed=[], cast=[LFP])
+        assert _named(result, LFP, "float32 cast")["ok"] is True
+        assert _named(result, LFP, "shape matches")["ok"] is False
 
     def test_the_collapsed_set_is_required_and_keyword_only(self, tmp_path):
         """A default checked two hardcoded groups and reported the collapsed arrays as verified."""
@@ -268,6 +357,54 @@ class TestVerifyRoundtripChecksTheCast:
         assert param.kind is inspect.Parameter.KEYWORD_ONLY
         with pytest.raises(TypeError, match="collapsed"):
             verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5", cast=[])
+
+
+def _ts_pair(tmp_path, starting_time=10.0, rate=1000.0, src_ts=True):
+    """Source ``SERIES/timestamps`` at 10 s + n/1000; destination ``SERIES/starting_time``."""
+    src = tmp_path / "ts_src.h5"
+    dst = tmp_path / "ts_dst.h5"
+    with h5py.File(src, "w") as f:
+        grp = f.create_group(SERIES)
+        if src_ts:
+            grp.create_dataset("timestamps", data=10.0 + np.arange(1000) / 1000.0)
+    with h5py.File(dst, "w") as f:
+        grp = f.create_group(SERIES)
+        if starting_time is not None:
+            grp.create_dataset("starting_time", data=starting_time)
+            grp["starting_time"].attrs["rate"] = rate
+    return src, dst
+
+
+class TestVerifyRoundtripChecksTheCollapsedTimestamps:
+    """Each collapsed group's source timestamps were deleted, so each must be reconstructed from
+    ``starting_time`` and ``rate``, and a group that cannot be is a failure rather than a skip."""
+
+    @pytest.mark.parametrize("spelling", ["", "/"], ids=["bare", "leading-slash"])
+    def test_a_correct_reconstruction_passes(self, tmp_path, spelling):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path)
+        result = verify_roundtrip(src, dst, collapsed=[(spelling + SERIES + "/timestamps", 1000.0)],
+                                  cast=[])
+        assert _passes(result, SERIES)
+
+    @pytest.mark.parametrize("starting_time, rate", [(10.001, 1000.0), (10.0, 1001.0)],
+                             ids=["starting_time", "rate"])
+    def test_a_wrong_starting_time_or_rate_fails(self, tmp_path, starting_time, rate):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path, starting_time=starting_time, rate=rate)
+        result = verify_roundtrip(src, dst, collapsed=[(SERIES + "/timestamps", 1000.0)], cast=[])
+        assert _named(result, SERIES, "reconstruction")["ok"] is False
+
+    @pytest.mark.parametrize("missing", ["starting_time", "timestamps"])
+    def test_a_group_that_cannot_be_reconstructed_fails(self, tmp_path, missing):
+        from jnwb.compression import verify_roundtrip
+
+        src, dst = _ts_pair(tmp_path, starting_time=None if missing == "starting_time" else 10.0,
+                            src_ts=missing != "timestamps")
+        result = verify_roundtrip(src, dst, collapsed=[(SERIES + "/timestamps", 1000.0)], cast=[])
+        assert _named(result, SERIES, "present")["ok"] is False
 
 
 # --------------------------------------------------------------------------------------------
