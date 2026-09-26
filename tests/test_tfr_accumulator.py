@@ -327,6 +327,29 @@ class TestPerTrialRatios:
         expected = np.where(valid, np.abs(z) ** 2 / np.where(valid, baseline, 1.0), np.nan)
         np.testing.assert_allclose(acc.mean_of_ratios(), expected, rtol=1e-12)
 
+    def test_an_infinite_baseline_raises_at_a_valid_cell_and_is_ignored_at_an_invalid_one(self):
+        z = _random_trials(1, (2, 2), seed=25)[0]
+        baseline = np.array([[1.0, np.inf], [2.0, 4.0]])
+        acc = TFRAccumulator((2, 2))
+        with pytest.raises(ValueError, match="baseline is infinite"):
+            acc.add_trial(z, baseline=baseline)
+        assert acc.sum_ratio is None and not acc.n.any()
+
+        valid = np.array([[True, False], [True, True]])
+        acc.add_trial(z, valid=valid, baseline=baseline)
+        expected = np.where(valid, np.abs(z) ** 2 / np.where(valid, baseline, 1.0), np.nan)
+        np.testing.assert_allclose(acc.mean_of_ratios(), expected, rtol=1e-12)
+
+    def test_a_subnormal_baseline_whose_ratio_overflows_raises(self):
+        z = np.full((2, 2), 3.0 + 0.0j)
+        acc = TFRAccumulator((2, 2))
+        with pytest.raises(ValueError, match="overflows"):
+            acc.add_trial(z, baseline=np.array([[1.0, 5e-324], [2.0, 4.0]]))
+        assert acc.sum_ratio is None and not acc.n.any()
+        # A small baseline whose ratio stays in range is still a number.
+        acc.add_trial(z, baseline=np.full((2, 2), 1e-300))
+        assert np.all(np.isfinite(acc.mean_of_ratios()))
+
     def test_a_masked_zero_baseline_gives_the_stacked_omit_result_and_an_unmasked_one_raises(self):
         import jnwb
 

@@ -101,6 +101,13 @@ class TestNetworkTopology:
         result = network_topology(adj, threshold=0.3)
         assert result["n_edges"] == 2
 
+    def test_a_complex_matrix_is_refused_rather_than_cast_to_its_real_part(self):
+        """A purely imaginary coupling of 0.5 cast to float is 0: no edge, only a warning."""
+        adj = np.array([[0.0, 0.5j], [0.5j, 0.0]])
+        with pytest.raises(TypeError, match="complex"):
+            network_topology(adj, threshold=0.3)
+        assert network_topology(np.abs(adj), threshold=0.3)["n_edges"] == 2
+
 
 class TestAsTrials:
     def test_normalizes_1d_2d_and_list_input(self):

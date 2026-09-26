@@ -10,9 +10,9 @@ script being rerun.
 
 This replaces ``xflip_calibration_0.2.3.md``, which was produced under 0.2.3 with no
 generator and could not be regenerated. Two changes had already invalidated it: 0.2.4 made
-``xflip`` reject a zero-variance channel instead of reporting its correlation as 0, and
-05-07 found the smooth-gradient drop gate was skipped on the ``contiguous=False`` path, so
-the null rates it reported were conditional on a setting it did not name.
+``xflip`` reject a zero-variance channel instead of reporting its correlation as 0, and the
+smooth-gradient drop gate turned out to be skipped on the ``contiguous=False`` path, so the
+null rates it reported were conditional on a setting it did not name.
 
 Every number below traces to a seeded computation over ``jnwb.testing`` generators passed
 end to end through ``xflip``. Operating points the old document left unstated -- the
@@ -240,9 +240,9 @@ def render(raw: dict) -> str:
         "",
         "This supersedes `xflip_calibration_0.2.3.md`, which had no generator and could not",
         "be regenerated. Two changes had already invalidated it: 0.2.4 made `xflip` reject a",
-        "zero-variance channel rather than report its correlation as 0, and 05-07 found the",
-        "smooth-gradient drop gate was skipped on the `contiguous=False` path, so the null",
-        "rates it reported were conditional on a setting it did not name.",
+        "zero-variance channel rather than report its correlation as 0, and the smooth-gradient",
+        "drop gate turned out to be skipped on the `contiguous=False` path, so the null rates",
+        "it reported were conditional on a setting it did not name.",
         "",
         "## Operating point",
         "",
@@ -285,11 +285,12 @@ def render(raw: dict) -> str:
         "surrogate test alone controls.",
         f"- `smooth_spatial_gradient` has median, min and max omnibus p all at "
         f"{grad['median_p']:.4f}, the 1/(surrogates+1) floor. Every gradient is maximally "
-        "significant under the permutation test; the "
-        f"{grad['false_positive_rate']:.3f} acceptance rate is produced "
-        "entirely by the local boundary-drop gate. Reading the rate without this line "
-        "inverts what 05-07 established -- the permutation test does not reject gradients, "
-        "and when that gate was skipped on the unrestricted path they were accepted 15/15.",
+        "significant under the permutation test, so it rejects none of them: the rejections "
+        "come from the local boundary-drop gate, and the "
+        f"{grad['false_positive_rate']:.3f} acceptance rate is what that gate lets through. "
+        "Read without this line, the rate suggests the permutation test rejects gradients; "
+        "it does not, and when that gate was skipped on the unrestricted path they were "
+        "accepted 15/15.",
     ]
 
     titles = {

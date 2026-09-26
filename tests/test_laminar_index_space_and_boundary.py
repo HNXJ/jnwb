@@ -271,3 +271,43 @@ class TestTheGranularBoundaryIsPinnedNotEmergent:
         assert labels["ch_14"] == "deep"
         assert labels["ch_10"] == "input"
         assert labels["ch_13"] == "input"
+
+
+class TestTheCrossoverDepthIsInTheLabellingFrame:
+    """`crossover_depth_um` is shaft rank times pitch, the frame `label_layers` uses.
+
+    On a shaft whose z falls along the shaft and carries an origin, the crossover's absolute z
+    and its rank-times-pitch depth are different numbers; the depth used to be the absolute z
+    whenever z varied, so it could not be passed back to `label_layers(depth_range_um=)`.
+    """
+
+    Z_TOP_UM = 5000.0
+
+    def _fit(self):
+        freqs, psd = _synthetic_motif()
+        geom = _geometry(self.Z_TOP_UM - PITCH_UM * np.arange(N_CONTACTS))
+        assert np.array_equal(geom.linear_order, np.arange(N_CONTACTS)), (
+            "fixture must keep the table in shaft order so only the z direction differs"
+        )
+        res = vflip(psd, freqs, probe_geometry=geom)
+        assert res.accepted
+        return res, geom
+
+    def test_depth_is_rank_times_pitch_and_absolute_z_is_its_own_field(self):
+        res, geom = self._fit()
+        c = res.crossover_contact
+        assert res.crossover_depth_um == pytest.approx(c * geom.nominal_pitch, abs=1e-9)
+        assert getattr(res, "crossover_z_um", None) == pytest.approx(
+            self.Z_TOP_UM - PITCH_UM * c, abs=1e-9
+        )
+        record = res.to_dict()
+        assert record["crossover_depth_um"] == res.crossover_depth_um
+        assert record.get("crossover_z_um") == res.crossover_z_um
+
+    def test_the_depth_bounds_label_layers_on_the_same_contacts(self):
+        res, geom = self._fit()
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um))
+        in_range = [i for i in range(N_CONTACTS) if i * geom.nominal_pitch <= res.crossover_depth_um]
+        assert in_range and len(in_range) < N_CONTACTS
+        for i in range(N_CONTACTS):
+            assert (labels[f"ch_{i}"] != "na") == (i in in_range), i

@@ -616,13 +616,22 @@ def network_topology(
     """
     Compute network graph metrics from a correlation or Granger causality matrix.
 
-    The diagonal is ignored.
+    The diagonal is ignored. An edge is an entry whose absolute value exceeds ``threshold``.
 
     Raises:
+        TypeError: If ``adjacency_matrix`` is complex. Casting to float would keep the real
+            part and drop the imaginary one; pass ``np.abs(matrix)`` for the magnitude, or
+            the part you mean.
         ValueError: If ``adjacency_matrix`` is not square 2-D, an off-diagonal entry is NaN or
             Inf, or ``threshold`` is not finite. A NaN entry counted as "no edge", and a
             non-square matrix returned in- and out-degree lists of different lengths.
     """
+    if np.iscomplexobj(adjacency_matrix):
+        raise TypeError(
+            "network_topology: adjacency_matrix is complex, and a float cast would drop its "
+            "imaginary part. Pass np.abs(adjacency_matrix) to threshold the magnitude, or "
+            "the real or imaginary part explicitly."
+        )
     adjacency_matrix = np.asarray(adjacency_matrix, dtype=float)
     if adjacency_matrix.ndim != 2 or adjacency_matrix.shape[0] != adjacency_matrix.shape[1]:
         raise ValueError(

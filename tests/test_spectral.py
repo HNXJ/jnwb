@@ -444,6 +444,46 @@ class TestAggregateToDb:
         with pytest.raises(ValueError, match="baseline contains zero"):
             aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit")
 
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_an_infinite_baseline_raises_as_relative_power_does(self, how, aggregate_over):
+        """power / inf is 0, which returned -inf dB where relative_power raises."""
+        power = np.array([[2.0, 4.0]])
+        baseline = np.array([[1.0, np.inf]])
+        with pytest.raises(ValueError, match="finite"):
+            relative_power(power, baseline)
+        with pytest.raises(ValueError, match="baseline is infinite"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=aggregate_over)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_an_infinite_baseline_under_nan_power_is_exempt_only_under_omit(self, how):
+        power = np.array([[2.0, np.nan]])
+        baseline = np.array([[1.0, np.inf]])
+        with pytest.raises(ValueError, match="baseline is infinite"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="propagate")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit"),
+            [to_db(2.0)], rtol=1e-12)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_a_subnormal_baseline_whose_ratio_overflows_raises(self, how, aggregate_over):
+        """Finite power over the smallest subnormal overflows to +inf dB, with only a warning."""
+        power = np.array([[2.0, 4.0]])
+        tiny = np.full((1, 2), 5e-324)
+        with pytest.raises(ValueError, match="overflows"):
+            aggregate_to_db(power, tiny, how=how, aggregate_over=aggregate_over)
+        # A small baseline whose ratio stays in range is still a number.
+        assert np.all(np.isfinite(
+            aggregate_to_db(power, np.full((1, 2), 1e-300), how=how, aggregate_over=aggregate_over)))
+
+    @pytest.mark.parametrize("model,axis", [
+        ("mean_of_ratios", None), ("mean_of_ratios", 1), ("ratio_of_means", 1), ("log_ratio", None),
+    ])
+    def test_relative_power_refuses_the_same_overflow(self, model, axis):
+        with pytest.raises(ValueError, match="overflows"):
+            relative_power(np.array([[2.0, 4.0]]), np.full((1, 2), 5e-324), model=model, axis=axis)
+
     def test_nan_policy_propagate_vs_omit(self):
         power = np.array([[2.0, np.nan]])
         baseline = np.ones((1, 2))

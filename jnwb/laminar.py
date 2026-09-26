@@ -77,8 +77,18 @@ class VFlipResult(DictAccessMixin):
             crossover reported near either end of the shaft as a bound rather than a point
             estimate, and prefer a probe whose span brackets the transition. Measured in
             `artifacts/benchmarks/vflip_calibration_0.2.4.md`.
-        crossover_depth_um: Physical cortical depth of the crossover in micrometers (um) along
-            the ordered contacts, or None if rejected or contact spacing is unavailable.
+        crossover_depth_um: Depth of the crossover along the ordered contacts in micrometers
+            (um): ``crossover_contact`` times the contact spacing, measured from the first
+            contact of the order the fit used -- `probe_geometry.linear_order`, whose
+            direction follows the electrode table's row order, or the row order itself
+            without a geometry. This is the frame :func:`label_layers` places contacts in (its
+            `depth_range_um` compares against rank times pitch), whatever the geometry's
+            z coordinates are. None if rejected or no contact spacing is available.
+        crossover_z_um: The crossover's z coordinate in the geometry's own frame, in
+            micrometers, interpolated between the z of the two contacts either side of it
+            along the shaft. It keeps the table's origin and direction, so on a shaft whose
+            z falls with depth it falls as ``crossover_depth_um`` rises. None if rejected,
+            if no `probe_geometry` was given, or if z does not vary along the shaft.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,
             and transition sharpness. Returned for both accepted and rejected fits.
         profile: 1D array of shape (n_channels,) containing the spectrolaminar difference
@@ -123,12 +133,14 @@ class VFlipResult(DictAccessMixin):
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
     index_space: str = "channel"
+    crossover_z_um: Optional[float] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
         return {
             "crossover_contact": self.crossover_contact,
             "crossover_depth_um": self.crossover_depth_um,
+            "crossover_z_um": self.crossover_z_um,
             "support_score": float(self.support_score),
             "profile": self.profile.copy(),
             "low_peak_contact": int(self.low_peak_contact) if self.low_peak_contact is not None else None,
@@ -464,6 +476,7 @@ def vflip(
     peak_sep = c_deep - c_sup
 
     crossover_c: Optional[float] = None
+    crossover_depth: Optional[float] = None
     crossover_z: Optional[float] = None
 
     if orientation_matches and peak_sep >= min_peak_distance:
@@ -485,14 +498,16 @@ def vflip(
             # Select candidate maximizing transition steepness
             cross_candidates.sort(key=lambda x: x[1], reverse=True)
             crossover_c = cross_candidates[0][0]
-            if probe_geometry is not None and order is not None:
-                sorted_z = probe_geometry.contact_positions[order, 2]
+            # Depth is always shaft rank times pitch, the frame `label_layers` places
+            # contacts in. The geometry's own z is reported separately: it can run in
+            # either direction along the shaft and carries the table's origin, so it is a
+            # different quantity rather than a more precise depth.
+            if effective_spacing is not None:
+                crossover_depth = float(crossover_c * effective_spacing)
+            if probe_geometry is not None and order is not None and len(order) == n_channels:
+                sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
                 if np.ptp(sorted_z) > 1e-6:
                     crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
-                elif effective_spacing is not None:
-                    crossover_z = float(crossover_c * effective_spacing)
-            elif effective_spacing is not None:
-                crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
     # Density-normalized so the score does not scale with the number of channels.
@@ -555,11 +570,12 @@ def vflip(
 
     # Enforce failure invariants: rejected fit implies None crossover
     final_cross_c = crossover_c if accepted else None
+    final_cross_depth = crossover_depth if accepted else None
     final_cross_z = crossover_z if accepted else None
 
     return VFlipResult(
         crossover_contact=final_cross_c,
-        crossover_depth_um=final_cross_z,
+        crossover_depth_um=final_cross_depth,
         support_score=support_score,
         profile=located_profile,
         low_peak_contact=low_peak,
@@ -571,6 +587,7 @@ def vflip(
         n_missing=n_missing,
         bad_channel_mask=effective_bad_input,
         index_space=index_space,
+        crossover_z_um=final_cross_z,
     )
 
 
@@ -768,7 +785,9 @@ def label_layers(
         bad_channel_mask: Optional boolean array matching `probe_geometry.channel_ids`. Contacts
             flagged True receive ``"na"``. If omitted, defaults to `vflip_result.bad_channel_mask`.
         depth_range_um: Optional (min_depth_um, max_depth_um) tuple bounding valid cortical depth
-            along the shaft. Contacts outside this range receive ``"na"``.
+            along the shaft, in the frame of `vflip_result.crossover_depth_um`: shaft rank
+            times `probe_geometry.nominal_pitch`, from the first contact. Contacts outside this
+            range receive ``"na"``.
         contact_range: Optional (min_contact, max_contact) tuple bounding valid contact indices
             along the ordered linear shaft. Contacts outside this range receive ``"na"``.
 
