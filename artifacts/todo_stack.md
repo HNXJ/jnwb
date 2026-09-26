@@ -5,7 +5,7 @@ Items are deleted when done; git, `CHANGELOG.md` and the receipts hold history. 
 `artifacts/archive/0.2.6/todo_stack_0.2.6.md`, with its closure receipt beside it.
 
 0.2.7 is measured against `artifacts/goal.md` and opens under the three conditions of `AGENTS.md`
-§11. Its authorized input is `artifacts/planned_post_0.2.6.md` (07-04), the findings deferred from
+§11. Its authorized input is `artifacts/planned_post_0.2.6.md` (07-06 to 07-22), the findings deferred from
 0.2.6 (07-01), and what the 0.2.6 release and a post-release inspection observed (07-02, 07-03).
 Everything in 07-01 to 07-03 is to be checked: a packet reproduces a finding against its own tree
 before it repairs anything, and a finding that does not reproduce is deleted. Rulings are in
@@ -47,8 +47,8 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 | Order | Items |
 |---|---|
 | 0 | 07-03 blocker candidates |
-| 1 | 07-04 step 1 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
-| 2 | 07-04 step 2, then the rest of 07-03 |
+| 1 | 07-06, 07-07, 07-08, 07-09 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
+| 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 
@@ -269,7 +269,7 @@ predicate if they reproduce, and go first.
 - IB-30: the live harness runs twice in the suite (`tests/test_every_gate_runs.py:55`, `tests/test_harness_adversarial_gates.py:307`, about 5 s each on six legs) and again in the build job. Check: keep one live-tree run.
 - IB-31: the two slowest tests take 25.6 s and 22.4 s (`test_rng_convention_matches_the_signatures.py[cross_modal_comparison]`, `test_api_md_is_interpreter_independent.py`), about 20% of the parallel wall time. Check: shrink the entropy test's input.
 - IB-32: `scripts/measure_agents_md_duplication.py:37-52` reads gitignored `.claude/agents/*.md`, present on one machine, and skips `docs/agents.md`, where the skill table already differs from `AGENTS.md` section 7 in three rows. Check: tracked files only, including `docs/agents.md`.
-- IB-34: the router calls itself a "memory bank" and sends readers to `AGENTS.md` for agent pitfalls that live in `docs/common_mistakes.md`; `jnwb-landmark-viz` lacks the routing, invariants and doc-link sections of the other domain skills, and its layout constants disagree with `jnwb/vis/canvas.py:226-267`. Check: the shared template of 07-04's first step.
+- IB-34: the router calls itself a "memory bank" and sends readers to `AGENTS.md` for agent pitfalls that live in `docs/common_mistakes.md`; `jnwb-landmark-viz` lacks the routing, invariants and doc-link sections of the other domain skills, and its layout constants disagree with `jnwb/vis/canvas.py:226-267`. Check: the shared template of 07-06.
 - IB-35: `skills/jnwb-connectivity/SKILL.md:50` cites `docs/common_mistakes.md` section 7 for a narrow-band PSI (`net=-2.1e-05`), while that section reports `nan` for the same case at another signal length. Check: one receipt with a stated length, cited by both.
 - IB-36: `CONTRIBUTING.md:111,205,347` states the docs-and-skills lockstep rule three times. Check: keep one.
 - IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
@@ -295,27 +295,17 @@ predicate if they reproduce, and go first.
 - IB-61: the skill-coverage test excludes `PopulationAnalyzer`, `TFRAnalyzer` and `UnitAnalyzer` as class facades over routed functions, but they compute on their own (`UnitAnalyzer.psth` bins itself, `population_trajectory` runs its own SVD) and the test checks only the module they live in; the router's GPU table names two of their methods that have no routing row. Check: route the analyzers, or state a reason the test can verify.
 - IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only.
 
-### 07-04 The planned 0.2.7 sequence
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `artifacts/todo_stack.md`.
-The plan in `artifacts/planned_post_0.2.6.md` is authorized input to this cycle (ruled 2026-09-22). Reproduce
-each of its steps against this tree and turn each into its own item here, with fields, before any
-of it is implemented.
-Accept: every step of the plan is an item of this stack or is recorded as already done.
-
 ### 07-05 A downstream paper agent can consume jnwb
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-04.
+Role: jnwb-developer. Skill: per skill. Blocked by: 07-07.
 Reads: `artifacts/direction.md` (the four outcomes, Boundary), `artifacts/planned_post_0.2.6.md`, `jnwb/ontology.py`, `jnwb/paths.py`.
 Writes: `jnwb/*.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
 Ruled 2026-09-25: a paper-reproduction agent lives downstream, pinned to a jnwb release, with its
 claim registry, decline tree, reference outputs and scorer. jnwb gains only what that agent cannot
-do without and every NWB consumer can use. It waits for the preflight step of 07-04.
-- a. The preflight is a public API that returns one of the four outcomes of `artifacts/direction.md`
-  with the reason and the missing inputs as data, so a script can score decline accuracy.
+do without and every NWB consumer can use. The preflight it scores through is 07-07.
+- a. A script scores decline accuracy from the preflight of 07-07 alone: the outcome, the reason
+  and the missing inputs it returns as data.
 - b. A result names the exact input it came from: the NWB file's sha256 (`paths.sha256_file`) and
   the object path. Use `Provenance` or `Lineage` if they can carry it; add a field only if not.
   IA-27's tests for `paths.resolve_nwb_path`, `sha256_file` and `require` land here.
@@ -325,6 +315,293 @@ do without and every NWB consumer can use. It waits for the preflight step of 07
 Accept: a test per outcome in (a); a round-trip test in (b) that writes a result's dict and
 re-opens the same file by path and hash; Gate 6 passes.
 Stop: anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/` or `docs/`.
+
+### 07-06 One template for every skill, held by a test
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
+Writes: `CONTRIBUTING.md`, `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
+Plan step 1, first bullet. Reproduced at `dcb75f12`: `CONTRIBUTING.md:230-241` already names the
+sections (trigger, routing, invariants, minimal workflow, verification, documentation), but no test
+holds a skill to them; the checks listed at `CONTRIBUTING.md:260-274` cover frontmatter, symbols,
+signatures, defaults and links. `skills/jnwb-landmark-viz/SKILL.md` has five of the six sections (no
+Documentation), and the router `skills/jnwb/SKILL.md` has seven differently named ones.
+`CONTRIBUTING.md:276` still calls the four-outcome routing tests planned for 0.2.7, though
+`tests/test_skill_decline_behaviour.py` runs them. IB-34 of 07-03 is the router and
+`jnwb-landmark-viz` half of the same defect and closes with this item.
+Discriminator: deleting one section heading from a domain skill fails the new test; restoring it,
+verified by hash, passes.
+Accept: every domain skill carries the template's sections in order; the router's own form is stated
+once in `CONTRIBUTING.md` and checked; the stale planned-for-0.2.7 sentence is gone; each
+observation of IB-34 is repaired or shown false.
+Stop: the template needs a section the plan does not name.
+
+### 07-07 The analysis preflight is a public API
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb. Blocked by: none.
+Reads: `artifacts/direction.md` (the four outcomes), `artifacts/rulings/2026-09-25.md`, `jnwb/ontology.py`.
+Writes: `jnwb/*.py`, `tests/*.py`, `skills/jnwb/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
+Plan step 1, third bullet, made a public API by the ruling of 2026-09-25. Reproduced at `dcb75f12`:
+no name in `jnwb.__all__` takes a planned analysis and returns an outcome. `jnwb.Question`
+(`jnwb/ontology.py:298`) already carries the hypothesis, signals, contrast and inferential unit, so
+the preflight extends it rather than adding a parallel record (fact "Skill creation is
+capability-gated"). The preflight reads goal, data, paradigm, signals, units, axes, conditions,
+inferential unit, missing information, required skills and a verification plan, and returns one of
+the four outcomes of `artifacts/direction.md` with the reason and the missing inputs as data. 07-05
+(a) scores decline accuracy through it.
+Accept: one test per outcome drives the preflight from a script and reads the outcome, the reason
+and the missing inputs from the returned object alone; the router names it; Gate 6 passes.
+Stop: the signature or the outcome vocabulary admits two defensible forms, a public API choice under
+`AGENTS.md` section 12; anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/`
+or `docs/`.
+
+### 07-08 The router composes the minimal skill set a task needs
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb. Blocked by: 07-06.
+Writes: `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`.
+Plan step 1, second bullet. Reproduced at `dcb75f12`: section 2 of the router
+(`skills/jnwb/SKILL.md:11-23`) maps each task phrase to one skill, so a task spanning several
+reaches the first match only. The plan's two examples are the acceptance cases: plotting supplied
+arrays reaches `jnwb-figures` and `jnwb-qc`; comparing a band between two conditions reaches
+paradigm, NWB data, spectral, statistics, figures and QC. The `jnwb-paradigm` and `jnwb-qc` rows are
+added by 07-10 and 07-11 in their own changes.
+Accept: `tests/test_skill_router_reach.py` holds a table of tasks and the skill set each requires,
+the plan's two examples among them, and every case passes for the skills that exist; a case naming a
+skill not yet created is `xfail(strict=True)`, so its arrival forces the marker off.
+Stop: a task needs a skill outside the planned set of the fact stack.
+
+### 07-09 Composition tests over the chains the router sequences
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per chain. Blocked by: 07-08.
+Writes: `tests/test_composition_*.py`.
+Plan step 1, fourth bullet. Reproduced at `dcb75f12`: the operation-level chains H1 to H9 of
+`artifacts/evidence/0.2.6/composition_subset_0.2.6.md` are pinned in five
+`tests/test_composition_*.py` modules, and the four-outcome routing tests landed as
+`tests/test_skill_decline_behaviour.py`. Open: no test composes operations of two skills in the
+order the router sequences them, where each call is correct and the order of aggregation, an
+identifier carried across the skill boundary, or a substituted signal class is wrong. Graded
+recommended: the minimal base is the plan's band-comparison task as one chain; further chains follow
+the composed rows 07-08 adds.
+Accept: each new chain runs on unequal dimensions and on inputs where the right and wrong orders
+give separated values, fails on the wrong composition and passes on the right one; a chain correct
+today is pinned as a regression guard with the mutation that kills it recorded in its docstring.
+Stop: a chain is wrong today and its repair needs a path outside `Writes`.
+
+### 07-10 `jnwb-paradigm`: experiment structure, timing and condition semantics
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 07-06.
+Reads: `artifacts/fact_stack.md` (skill creation is capability-gated), `docs/errors.md` (the waived-requirements table).
+Writes: `skills/jnwb-paradigm/SKILL.md`, `skills/jnwb-paradigm/agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `AGENTS.md`, `docs/agents.md`.
+Plan step 2, first bullet. Reproduced at `dcb75f12`: no `skills/jnwb-paradigm/` exists and
+`CANONICAL_SKILLS` (`tests/test_skills_validation.py:34-44`) lists nine skills; the operations it
+would route (`events`, `EventTable`, `resolve_interval_table`, `EpochCollection`,
+`epoch_continuous`, `detect_trial_cycles`) are routed from `skills/jnwb-nwb-data/SKILL.md` (lines
+20-23, 41 and 76) or, for `EpochCollection`, by no skill. The plan's prerequisite, the 06-67
+missingness ruling, was ruled on 2026-09-22 (event flag) and is implemented:
+`jnwb_waived_requirements` is in `jnwb/nwb_io.py` and `docs/errors.md`. Condition meaning comes from
+explicit metadata first and structural inference last; an undocumented code is reported, never
+named.
+Accept: the skill meets the template of 07-06 and all four outcomes in
+`tests/test_skill_decline_behaviour.py`, with an undocumented condition code as its decline case;
+each row it takes over leaves `jnwb-nwb-data`; its router row and its `AGENTS.md` section 7 row
+exist; Gate 2 and Gate 6 pass.
+Stop: the capability gate of the fact stack is not met; a condition vocabulary would enter the
+skill.
+
+### 07-11 `jnwb-qc`: independent scientific and output QC
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 07-06.
+Reads: `artifacts/fact_stack.md` (skill creation is capability-gated).
+Writes: `skills/jnwb-qc/SKILL.md`, `skills/jnwb-qc/agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `AGENTS.md`, `docs/agents.md`.
+Plan step 2, second bullet. Reproduced at `dcb75f12`: no `skills/jnwb-qc/` exists; `visual_qc` is
+routed from `skills/jnwb-figures/SKILL.md:18` and `audit_units` and `audit_electrodes` from
+`skills/jnwb-nwb-data/SKILL.md:71`, while `Result`, `Provenance` and `Lineage` are named by no
+skill. The split makes the skill that draws a figure a different one from the skill that judges it.
+Accept: the skill meets the template of 07-06 and all four outcomes in
+`tests/test_skill_decline_behaviour.py`; `visual_qc`, `audit_units`, `audit_electrodes`, `Result`,
+`Provenance` and `Lineage` each have one routing row, in this skill only; its router row and its
+`AGENTS.md` section 7 row exist; Gate 2 passes.
+Stop: the capability gate of the fact stack is not met.
+
+### 07-12 Route the public exports no skill names
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per skill. Blocked by: 07-10, 07-11.
+Writes: `skills/*/SKILL.md`, `tests/test_skill_symbol_coverage.py`.
+Plan step 2, third bullet (P-63). Reproduced at `dcb75f12` with a word scan of every
+`skills/*/SKILL.md` against `jnwb.__all__`: 25 exports appear in no skill (`AlignedDataset`,
+`Alignment`, `ChannelIndexError`, `DB_AGGREGATIONS`, `DETECTION_TAILS`, `EpochCollection`,
+`Interpretation`, `IntervalTableNotFoundError`, `InvalidOnsetValueError`, `JRSAResult`, `Lineage`,
+`NWBEventError`, `NWBInspectError`, `ProbeGeometry`, `Provenance`, `Query`, `Question`,
+`RELATIVE_POWER_MODELS`, `Result`, `SKILLS_URL`, `SqueezedAttributeWarning`, `TFRAnalyzer`,
+`UnitNotFoundError`, `ZFlipResult`, `assert_mergeable`), and 47 carry no routing call. The count
+correction of P-63 stays with IB-37 of 07-03 and the analyzer exclusions with IB-61; this item
+carries the routing.
+Accept: every export is routed by a call row or excluded in `tests/test_skill_symbol_coverage.py`
+under a category whose assertion holds for it; the excluded set is smaller than at `dcb75f12` and
+each remaining reason is checked by the test.
+Stop: routing an export would restate a mathematical definition that belongs in `docs/`.
+
+### 07-13 Skills say each thing once
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per skill. Blocked by: 07-10, 07-11.
+Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
+Plan step 2, fourth bullet. Reproduced at `dcb75f12`: a scan of normalised lines of 40 characters or
+more finds three shared by two skills: the volume-conduction safeguard in `jnwb` and
+`jnwb-connectivity`, the SVG `<text>` sentence in `jnwb-figures` and `jnwb-landmark-viz`, and one
+`docs/09` link in `jnwb-figures` and `jnwb-population`. Verbatim repetition is small; the scan does
+not see a skill restating a `docs/` definition in other words, which the Surface section of
+`artifacts/direction.md` forbids.
+Accept: a test fails when a normalised invariant line appears in two skills, `docs/` links excluded;
+each invariant that restates a `docs/` definition is replaced by the link; the summed length of the
+existing skills does not grow.
+Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
+requires.
+
+### 07-14 `compress_fp32` requires `select=`
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/compression.py`, `tests/test_compression.py`, `skills/jnwb-nwb-data/SKILL.md`, `docs/*.md`, `examples/**/*.py`, `CHANGELOG.md`.
+Ruled 2026-09-22 (06-13): 0.2.6 warns, 0.2.7 requires. Reproduced at `dcb75f12`:
+`inspect.signature(jnwb.compress_fp32)` shows `select=None`, and `jnwb/compression.py:12` says the
+preset path emits `FutureWarning` and that `select=` becomes required in 0.2.7. P-325 of 07-01 (the
+warning's advice raises on an int16 LFP) goes with the warning and is closed by this item.
+Discriminator: a call without `select=` warns before the change and raises after.
+Accept: a call without `select=` raises `TypeError` naming the parameter before anything is written;
+every caller in the repository names it; the routing row binds; `CHANGELOG.md` records the break.
+Stop: a caller in the repository has no float selection to name.
+
+### 07-15 `aggregate_to_db(how="mean_of_ratios")` from a streaming accumulator
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
+Writes: `jnwb/tfr_accumulator.py`, `jnwb/spectral.py`, `tests/test_tfr_accumulator.py`, `tests/test_composition_aggregation_order.py`, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
+Ruled 2026-09-22 (P-114): refuse in 0.2.6, deliver in 0.2.7. Reproduced at `dcb75f12`:
+`jnwb/spectral.py:378-382` refuses `how="mean_of_ratios"` on trial-averaged input, and
+`TFRAccumulator` (`jnwb/tfr_accumulator.py:99-229`) keeps running moments only, so no path forms the
+per-trial ratio against a baseline in streaming form.
+Accept: on the H6 generator of `tests/test_composition_aggregation_order.py` the new path equals the
+in-memory per-trial `mean_of_ratios` to float tolerance and stays separated from `ratio_of_means` by
+the pinned margin; the refusal on trial-averaged input stays; `CHANGELOG.md` records the addition.
+Stop: the baseline's arrival order admits two designs with a material trade-off, a public API
+choice.
+
+### 07-16 `nested_cv_linear_svm` takes `groups=`
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
+Writes: `jnwb/decoding.py`, `tests/test_decoding.py`, `skills/jnwb-population/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
+Ruled 2026-09-22 (P-122): keyword-only `groups=` for grouped outer folds, through the
+capability-gated route. Reproduced at `dcb75f12`: the signature is `(X, labels, n_splits, rng=42)`,
+and 0.2.6 points grouped designs at `assign_outer_folds`.
+Discriminator: on data where one group's trials carry a group-level offset, ungrouped folds report
+accuracy above chance and grouped folds do not.
+Accept: `groups=` keeps each group's trials in one outer fold; a call without it is numerically
+unchanged under a fixed `rng`; the routing row binds; `CHANGELOG.md` has an Added entry.
+Stop: grouped folds need a stratification choice with two defensible forms.
+
+### 07-17 Remove the deprecated `layer` column
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/addressing.py`, `jnwb/metadata.py`, `tests/*.py`, `skills/*/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
+Ruled 2026-09-23 (P-21): `layer` duplicates `depth_class` in 0.2.6 and goes in 0.2.7. Reproduced at
+`dcb75f12`: `enrich_units_dataframe` still writes it and warns (`jnwb/addressing.py:354-360`,
+`382-390`, `400-413`, `440-459`), and `get_all_units_metadata` carries the same plumbing
+(`jnwb/metadata.py:96-162`). Drop the warning helper and the plumbing that reports whether `layer`
+was written, and reword the first docstring lines that still say "layer"; the dispatcher regenerates
+`docs/api.md`. IB-24 of 07-03 names one of those docstrings.
+Accept: neither function writes `layer` or warns about it; `_warn_legacy_layer_column` and
+`wrote_layer` no longer occur in `jnwb/`; `CHANGELOG.md` records the removal.
+Stop: a `layer` column supplied on input would be dropped or rewritten.
+
+### 07-18 Skill examples run in the suite
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: per skill. Blocked by: 07-06.
+Writes: `skills/*/SKILL.md`, `tests/test_skill_examples_execute.py`.
+Deferred 06-26. Reproduced at `dcb75f12`: no test executes a `SKILL.md` example block (the two
+example tests, `tests/test_examples_quickstart.py` and `tests/test_open_data_example.py`, read no
+skill), and six of nine skills build their inputs from a random generator (`jnwb`,
+`jnwb-connectivity`, `jnwb-lfp-spectral`, `jnwb-population`, `jnwb-spiking`, `jnwb-statistics`). The
+aim is that a routing example never implies inventing data, not that generators vanish.
+Accept: every example block executes in the suite; each declares its input class (real NWB,
+deterministic array, stochastic synthetic, calibration fixture), the test checks the declaration,
+and a normal routing example uses one of the first two.
+Stop: an example needs data the repository does not carry.
+
+### 07-19 A documented call site for `xflip`
+
+Release: deferred-0.2.7.
+Role: docs-harness. Skill: jnwb-lfp-spectral. Blocked by: none.
+Reads: `artifacts/evidence/0.2.6/unconsumed_producers_0.2.6.md`.
+Writes: `docs/06_spikes_psth_and_onset_dynamics.md`, `examples/tutorials/06_laminar.py`, `tests/test_docs_decoding_chain.py`.
+Deferred 06-97, the residue of P-55. Reproduced at `dcb75f12`: `xflip` appears in the module table
+(`docs/01_architecture_and_philosophy.md:104`), the specifications
+(`docs/10_operation_specifications.md:26`, `58`, `101`) and the routing row
+(`skills/jnwb-lfp-spectral/SKILL.md:53`); no page or tutorial calls it (`grep -rln xflip examples/`
+is empty), while its sibling `zflip` has a worked example that reads its fields.
+Accept: one worked example calls `xflip` and reads its result fields, and `tests/test_tutorials.py`
+or `tests/test_docs_decoding_chain.py` executes it.
+Stop: the example needs a real recording to show a boundary.
+
+### 07-20 A gate reads `artifacts/state.md` when it is present
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_harness_adversarial_gates.py`, `CONTRIBUTING.md`.
+Deferred 06-112. Reproduced at `dcb75f12`: `scripts/harness_gate.py` names `artifacts/state.md` only
+in `GENERATED_FROM` (lines 1990-1996), whose `verified_by` is the manual `--check`; no entry of
+`GATES` (line 2777; 19 gates ran) compares its HEAD row with `git rev-parse HEAD`. A regenerating
+gate would recurse, since the generator runs the harness, so the gate is check-only and an absent
+file passes.
+Discriminator: zeroing the HEAD row fails the gate; restoring it, verified by hash, passes.
+Accept: the new gate is in `GATES`, `CONTRIBUTING.md` names it, and `python scripts/harness_gate.py`
+reports every gate PASS on a freshly regenerated tree.
+Stop: the gate would need to regenerate the file.
+
+### 07-21 A public NWB mutation API
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Reads: `artifacts/fact_stack.md` (NWB mutation and execution infrastructure belong in the core).
+Writes: `jnwb/*.py`, `tests/*.py`, `docs/*.md`, `CHANGELOG.md`.
+Plan, capability-gated, first bullet: validate, write, transform, convert, structural repair and
+verified output, then `jnwb-data-engineering` only if the surface warrants one; neither is a
+required endpoint. Reproduced at `dcb75f12`: the only writer is `compress_fp32`, a float32 cast;
+`nwb_read_io` refuses every mode but `'r'` (ruled 2026-09-23); no export validates, writes, repairs
+or verifies an NWB file. Raw-data conversion stays out of 0.2.7 scope. Graded minimal expandable:
+the minimal base is a proposed operation set with signatures and refusals, before code.
+Accept: each landed operation has a test that re-reads its output and one that it refuses an
+ambiguous mapping; API, documentation and tests land before or with any skill.
+Stop: every signature here is a public API choice, so the proposed set goes to Hamm before code;
+anything that infers condition meaning, anatomy or units.
+
+### 07-22 A public execution and cache API
+
+Release: deferred-0.2.7.
+Role: jnwb-developer. Skill: jnwb. Blocked by: none.
+Reads: `artifacts/fact_stack.md` (NWB mutation and execution infrastructure belong in the core), `artifacts/goal.md`.
+Writes: `jnwb/*.py`, `tests/*.py`, `docs/*.md`, `CHANGELOG.md`.
+Plan, capability-gated, second bullet: device, precision, workers and content-addressed checkpoints,
+after numerical identity and performance evidence, then `jnwb-compute` only if the router cannot
+carry it. Reproduced at `dcb75f12`: device and precision are resolved privately in
+`jnwb/_backend.py` (`working_dtype`, lines 156-174); no export sets a precision or worker policy,
+and no module in `jnwb/` mentions a checkpoint or a content address. The order of the fact stack
+binds: numerical identity, then the public abstraction, then performance evidence, then routing.
+Graded minimal expandable: the minimal base is the identity evidence.
+Accept: identity across CPU, parallel CPU and CUDA is shown for every operation the API would cover
+before it is public; a cache key includes the input hash, the parameters and the version, with an
+invalidation test.
+Stop: a control would change a number; the API surface is a public API choice and goes to Hamm
+before code.
 
 ## Out of 0.2.7 scope
 
