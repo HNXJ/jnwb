@@ -86,6 +86,7 @@ nav:
       - Welcome: index.md
       - Installation: install.md
       - Quickstart: quickstart.md
+      - Recipes: recipes.md
       - Analyzing with an Agent: agents.md
 
   - Tutorials:

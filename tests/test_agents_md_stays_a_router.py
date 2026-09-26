@@ -28,7 +28,7 @@ SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 BASELINE_DUPLICATED = 0
 #: Set to the measurement, not above it: 06-64 found a unit of unclaimed slack here, and slack
 #: in a ratchet is a gain someone can give back without the test noticing.
-BASELINE_ECHOED = 6
+BASELINE_ECHOED = 4
 
 #: The thresholds the baselines are counts *of*. Without pinning these, the counts above are
 #: satisfiable by turning a knob: 06-64 demonstrated eight (HIGH, MED) pairs that report fewer

@@ -1,6 +1,7 @@
-"""`AGENTS.md` says "Each call below runs as written on synthetic arrays". Now it does.
+"""The recipe page says its block runs as written on synthetic arrays. Now it does.
 
-Section 10 defined a generator and then called eight functions on names no block bound --
+The recipes lived in section 10 of `AGENTS.md` and now live on `docs/recipes.md`, which
+this file executes. That section defined a generator and then called eight functions on names no block bound --
 `spike_times`, `lfp`, `x`, `g1` -- so nothing in it ran as written. One call was wrong even
 given its inputs: `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios",
 aggregate_over=0)` raises `AxisError: axis 0 is out of bounds for array of dimension 0`,
@@ -21,6 +22,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AGENTS = REPO_ROOT / "AGENTS.md"
+RECIPES = REPO_ROOT / "docs" / "recipes.md"
 
 
 def _python_blocks(text: str) -> list[str]:
@@ -28,16 +30,16 @@ def _python_blocks(text: str) -> list[str]:
 
 
 def test_the_sweep_finds_the_recipe_block():
-    blocks = _python_blocks(AGENTS.read_text(encoding="utf-8"))
-    assert blocks, "AGENTS.md has no ```python block; this file checks nothing"
+    blocks = _python_blocks(RECIPES.read_text(encoding="utf-8"))
+    assert blocks, "docs/recipes.md has no ```python block; this file checks nothing"
 
 
-@pytest.mark.parametrize("index", range(len(_python_blocks(AGENTS.read_text(encoding="utf-8")))))
-def test_every_python_block_in_agents_md_runs_as_written(index, tmp_path, monkeypatch):
+@pytest.mark.parametrize("index", range(len(_python_blocks(RECIPES.read_text(encoding="utf-8")))))
+def test_every_python_block_in_the_recipes_runs_as_written(index, tmp_path, monkeypatch):
     """Executed outside the checkout, so a block reaching for a relative path fails here."""
-    block = _python_blocks(AGENTS.read_text(encoding="utf-8"))[index]
+    block = _python_blocks(RECIPES.read_text(encoding="utf-8"))[index]
     monkeypatch.chdir(tmp_path)
-    exec(compile(block, "AGENTS.md", "exec"), {"__name__": "__agents__"})  # noqa: S102
+    exec(compile(block, "docs/recipes.md", "exec"), {"__name__": "__recipes__"})  # noqa: S102
 
 
 def test_every_repository_path_agents_md_cites_exists():
@@ -98,15 +100,15 @@ def test_agents_md_does_not_point_at_a_todo_item_that_is_not_there():
         )
 
 
-def test_agents_md_and_the_statistics_skill_route_to_one_comparison_entry_point():
+def test_the_recipes_and_the_statistics_skill_route_to_one_comparison_entry_point():
     """Both entry points exist and their return keys differ.
 
-    `AGENTS.md` §10 used `exploratory_compare` while the statistics skill routed to
+    The recipes used `exploratory_compare` while the statistics skill routed to
     `compare_groups`, which also returns `multiple_comparison` and takes an `rng`. An agent
     reading one and calling the other reads keys that are not there. A signature check cannot
     see this: both rows are valid calls.
     """
-    recipes = AGENTS.read_text(encoding="utf-8").split("## 10. Recipes", 1)[1]
+    recipes = RECIPES.read_text(encoding="utf-8")
     skill = (REPO_ROOT / "skills" / "jnwb-statistics" / "SKILL.md").read_text(encoding="utf-8")
     # Calls, not mentions: the skill names the other function in prose to say what it is,
     # which is explanation rather than a route.
@@ -115,7 +117,7 @@ def test_agents_md_and_the_statistics_skill_route_to_one_comparison_entry_point(
     in_skill = set(called.findall(skill))
     for name in ("exploratory_compare", "compare_groups"):
         assert (name in in_recipes) == (name in in_skill), (
-            f"{name} is in one of AGENTS.md §10 and skills/jnwb-statistics and not the other; "
+            f"{name} is in one of docs/recipes.md and skills/jnwb-statistics and not the other; "
             "their returned keys differ, so an agent reading one and calling the other reads "
             "keys that are not there"
         )
