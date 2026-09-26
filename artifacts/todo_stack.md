@@ -293,6 +293,7 @@ predicate if they reproduce, and go first.
 - IB-60: the coherence GPU-fallback test compares only p and the observed spectrum, so a device path that uses a different shift set with the same band counts passes it. Check: record the shift each estimator call receives and assert the fallback's list equals the CPU run's.
 - IB-61: the skill-coverage test excludes `PopulationAnalyzer`, `TFRAnalyzer` and `UnitAnalyzer` as class facades over routed functions, but they compute on their own (`UnitAnalyzer.psth` bins itself, `population_trajectory` runs its own SVD) and the test checks only the module they live in; the router's GPU table names two of their methods that have no routing row. Check: route the analyzers, or state a reason the test can verify.
 - IB-62: the shipped router `skills/jnwb/SKILL.md` links `../../AGENTS.md` as its repository guide and its verification block runs `pytest tests/` and `scripts/docs_build.py`; the sdist carries none of the three, so they work only in a checkout. Graded recommended (ask): whether the router should name checkout-only files at all is a scope question for Hamm. Check: a ruling, then drop the lines or mark them checkout-only.
+- IB-63: `skills/jnwb-landmark-viz/SKILL.md` routes by `jnwb.vis` module, not by the per-operation `jnwb.fn(args)` rows the template's routing section describes, so no signature check covers its rows. Check: per-function rows for the `vis` extra, checked against `inspect.signature` when plotly is installed.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
@@ -331,13 +332,11 @@ the four outcomes of `artifacts/direction.md` with the reason and the missing in
 (a) scores decline accuracy through it.
 Landed as the shared base: `jnwb.ontology.Preflight(outcome, reason, missing)`, unexported, with
 `Preflight.OUTCOMES` the single home of the four outcome names that
-`tests/test_skill_decline_behaviour.py` now reads. Remains, graded no higher than recommended and
-put to Hamm: (1) function `jnwb.preflight(question, ...)` against a method on `Question`, whose
-docstring says it has no methods; (2) whether decline and failure are caller-declared or decided by
-a claim vocabulary jnwb would encode; (3) whether a check before execution may return `failure`,
-which `docs/architecture.md` places after execution; (4) the names of the new `Question` fields,
-where `units` collides with the neural unit of `inference_unit`. Then export, `docs/api.md`, the
-router row and `CHANGELOG.md`.
+`tests/test_skill_decline_behaviour.py` now reads. Ruled 2026-09-25: `jnwb.preflight(question)`
+is a function; decline and failure are caller-declared, and failure may be returned before
+execution; `signals`, `signal_units`, `contrast` and `inference_unit` are required, else `request`,
+and the other fields are optional. Remains: the function, the optional `Question` fields, the
+export, `docs/api.md`, the router row and `CHANGELOG.md`.
 Accept: one test per outcome drives the preflight from a script and reads the outcome, the reason
 and the missing inputs from the returned object alone; the router names it; Gate 6 passes.
 Stop: the signature or the outcome vocabulary admits two defensible forms, a public API choice under
