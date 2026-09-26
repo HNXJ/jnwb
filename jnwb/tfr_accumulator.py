@@ -14,6 +14,8 @@ In memory the accumulators are float64 and complex128. ``write`` halves that on 
 disk -- ``mean``, ``M2`` and ``sum_ratio`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
 int32 -- so a summary that has been through HDF5 carries single-precision sufficient
 statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
+Assigning a read-back array to an accumulator casts it to float64/complex128, so trials added
+after a reload accumulate at full precision.
 The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
 the binding cost. Nothing here promised otherwise, but nothing said it either.
 """
@@ -176,6 +178,28 @@ class TFRAccumulator:
     def mean(self, value) -> None:
         self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
+    # The other accumulators cast on assignment as `mean` does, so a summary read back from
+    # `write`'s float32/complex64 datasets keeps accumulating in float64/complex128.
+    def _stored(name: str, dtype, optional: bool = False):
+        attr = "_" + name
+
+        def fget(self):
+            return getattr(self, attr)
+
+        def fset(self, value):
+            if optional and value is None:
+                setattr(self, attr, None)
+            else:
+                setattr(self, attr, np.asarray(value, dtype=dtype))
+
+        return property(fget, fset)
+
+    M2 = _stored("M2", np.float64)
+    sum_z = _stored("sum_z", np.complex128)
+    sum_unit_z = _stored("sum_unit_z", np.complex128)
+    sum_ratio = _stored("sum_ratio", np.float64, optional=True)
+    del _stored
+
     def add_trial(
         self,
         z: np.ndarray,
@@ -186,7 +210,8 @@ class TFRAccumulator:
         """Add ONE trial.
 
         Args:
-            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial.
+            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial. Integer or
+                boolean input is cast to complex128.
             valid: bool mask, same shape. ``None`` marks every finite coefficient valid.
             baseline: this trial's own baseline power, ratio-scale and non-negative, a
                 scalar or an array with the accumulator's number of dimensions that
@@ -205,6 +230,11 @@ class TFRAccumulator:
                 broadcastable, or if this trial and earlier ones disagree on carrying a
                 baseline.
         """
+        z = np.asarray(z)
+        if z.dtype.kind not in "fc":
+            # Cast before any state changes: an integer z raised in the ITC update, after the
+            # running mean had already taken the trial.
+            z = z.astype(np.complex128)
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2

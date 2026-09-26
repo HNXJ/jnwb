@@ -431,3 +431,38 @@ class TestWriteRoundTrip:
             # values survive the float32/complex64 downcast to a sane tolerance
             np.testing.assert_allclose(g["mean"][:], acc.mean, rtol=1e-6)
             np.testing.assert_allclose(g["sum_z"][:], acc.sum_z, rtol=1e-6)
+
+    def test_a_reloaded_summary_keeps_accumulating_in_double_precision(self, tmp_path):
+        import h5py
+
+        shape = (2, 3, 4)
+        trials = _random_trials(4, shape, seed=56)
+        baselines = _baselines(4, shape, seed=57)
+        acc = _summarize_ratios(trials[:3], baselines[:3])
+        with h5py.File(tmp_path / "summary.h5", "w") as f:
+            acc.write(f.create_group("g"), dict(TestAssertMergeable.BASE))
+        restored = TFRAccumulator(shape)
+        with h5py.File(tmp_path / "summary.h5", "r") as f:
+            stored = {name: f["g"][name][:] for name in f["g"]}
+        for name, value in stored.items():
+            setattr(restored, name, value)
+        restored.add_trial(trials[3], baseline=baselines[3])
+
+        for name, dtype in (("M2", np.float64), ("sum_z", np.complex128),
+                            ("sum_unit_z", np.complex128), ("sum_ratio", np.float64)):
+            assert getattr(restored, name).dtype == dtype, name
+        np.testing.assert_allclose(
+            restored.sum_ratio,
+            stored["sum_ratio"].astype(np.float64) + np.abs(trials[3]) ** 2 / baselines[3],
+            rtol=1e-12)
+        np.testing.assert_allclose(
+            restored.sum_z, stored["sum_z"].astype(np.complex128) + trials[3], rtol=1e-12)
+
+    def test_an_integer_trial_is_cast_before_any_state_changes(self):
+        shape = (2, 3)
+        z_int = np.arange(1, 7).reshape(shape)
+        as_int, as_complex = TFRAccumulator(shape), TFRAccumulator(shape)
+        as_int.add_trial(z_int)
+        as_complex.add_trial(z_int.astype(np.complex128))
+        for name in ("n", "mean", "M2", "sum_z", "sum_unit_z"):
+            np.testing.assert_array_equal(getattr(as_int, name), getattr(as_complex, name))

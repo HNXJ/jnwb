@@ -93,6 +93,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
+  complex128, as assigning `mean` already did, so a summary read back from `write`'s
+  float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
+  integer `z` to complex128 before any state changes; it raised after the running mean had
+  taken the trial.
 - `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
 - `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
   `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these
