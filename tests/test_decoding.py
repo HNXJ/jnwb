@@ -362,6 +362,24 @@ class TestNestedCvGroups:
             worst.append(max(abs(labels[te].mean() - labels.mean()) for _, te in folds))
         assert np.mean(worst) <= 0.15, np.mean(worst)
 
+    def test_grouped_folds_are_pinned_per_seed_and_differ_between_seeds(self):
+        """The same held-out groups on every supported scikit-learn: checked on 1.3.1
+        and 1.8.0. A seed that stopped reaching the folds, or a splitter left to shuffle
+        on its own, changes them."""
+        import jnwb.decoding as decoding
+
+        groups = np.repeat(np.arange(12), 6)
+        n_class1 = np.tile(np.arange(1, 7), 2)
+        labels = np.concatenate([np.r_[np.ones(k), np.zeros(6 - k)] for k in n_class1]).astype(int)
+        X = np.zeros((groups.size, 1))
+
+        def held_out(rs):
+            folds = decoding._grouped_splits(X, labels, groups, 4, rs)
+            return [sorted(set(groups[te].tolist())) for _, te in folds]
+
+        assert held_out(0) == [[3, 9, 11], [1, 5, 7], [0, 2, 10], [4, 6, 8]]
+        assert held_out(1) == [[0, 2, 11], [1, 5, 9], [6, 8, 10], [3, 4, 7]]
+
     def test_n_splits_is_clipped_to_groups_and_to_the_minority_class(self, monkeypatch):
         calls = _record_grouped_splits(monkeypatch)
         rng = np.random.default_rng(0)

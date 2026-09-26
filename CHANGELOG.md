@@ -29,7 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from `rng`, `n_splits` is clipped to the minority-class count and the group count, and
   `cv_scheme` is `"nested_stratified_group"`. The inner search falls back to `C=1.0` when an
   inner training split would hold one class. Fewer than two groups returns status
-  `"insufficient_groups_for_cv"`; a missing or non-finite id, ids that cannot be compared, and
+  `"insufficient_groups_for_cv"`; a missing id, NaN or infinity in a float array of ids, ids
+  that cannot be compared, and
   an outer training fold with a single class raise `ValueError`. A call without `groups`
   returns the same numbers as before.
 

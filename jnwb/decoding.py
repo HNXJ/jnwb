@@ -172,8 +172,9 @@ def nested_cv_linear_svm(
             comparable type, none missing. When given, outer folds are
             ``StratifiedGroupKFold`` over the groups in an order drawn from
             ``rng``: every group's trials land in one test fold, and class
-            balance across folds is kept as far as the groups allow. The inner search for C is grouped
-            the same way within each outer training set, and falls back to
+            balance across folds is kept as far as the groups allow. The inner
+            search for C is grouped the same way within each outer training
+            set, and falls back to
             ``C=1.0`` when that set has fewer than two groups or an inner
             training split would hold one class. ``None`` (the default) gives
             row-wise ``StratifiedKFold`` folds, unchanged.
@@ -189,8 +190,9 @@ def nested_cv_linear_svm(
         or ``"nested_stratified_group"`` with ``groups``.
 
     Raises:
-        ValueError: If ``groups`` is not one id per trial, has a missing or
-            non-finite id, mixes ids that cannot be compared, or if a grouped
+        ValueError: If ``groups`` is not one id per trial, has a missing id or
+            a NaN or infinity in a float array, mixes ids that cannot be
+            compared, or if a grouped
             outer training set holds a single class.
     """
     X = np.asarray(X, dtype=float)
