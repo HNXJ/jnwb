@@ -1,18 +1,23 @@
 """Deterministic Release Gate for jnwb.
 
-Pipeline:
+Pipeline, in the order the steps run:
+  0a. Release readiness: the problem stack is empty, no todo item is still required this
+      cycle, and the blocker-focused closure receipt reports zero for this commit
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
   0e. CI concluded success, per required leg, for the exact commit being qualified
-  1. Full test suite execution (pytest tests/)
+  1. Full test suite execution (pytest tests/), in parallel, with its wall time
   2. Harness pre-flight gates
+  2a. Recorded mutation gaps still hold at HEAD
+  2b. API docs generator drift check, on this interpreter and on the Python floor
   3. Clean distribution build (sdist + wheel)
   4. Manifest & forbidden-content inspection (no _unused, no omission, no artifacts)
   5. Distribution metadata & README validation (twine check)
   6. Isolated environment wheel installation & pip check
   7. Installed-package smoke verification without omission
+  8. Every numbered tutorial runs against the installed wheel
 
 Exits 0 on complete verified success; non-zero otherwise.
 """

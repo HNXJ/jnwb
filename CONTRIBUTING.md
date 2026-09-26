@@ -87,8 +87,10 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — runs the suite in parallel and prints its wall time and ten slowest
-  tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+- **`release_gate.py`** — first refuses the release while the problem stack holds a row, a
+  todo item is still required for this cycle, or the closure receipt is missing or nonzero
+  (`AGENTS.md` §11, condition 3). It then runs the suite in parallel and prints its wall time
+  and ten slowest tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
@@ -96,7 +98,8 @@ python scripts/release_gate.py
   dependency fails. Run it before tagging, not before pushing: it needs network access to
   build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
   it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
-  calls its `main`.
+  calls its `main`. The script's module docstring lists every step in the order it runs, and
+  `tests/test_module_docstrings_match_their_code.py` holds that list to the steps.
 
   If `gh` is unavailable, unauthenticated, or the commit has no finished run, the CI step
   reports *unresolved* and the gate stops. That is deliberate: the alternative passes hardest
