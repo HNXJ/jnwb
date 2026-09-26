@@ -463,9 +463,11 @@ class TestPreflightIsThePublicCheck:
         pf = jnwb.preflight(_plan(signal_units={"spike_times": "s", "lfp": None}))
         assert (pf.outcome, pf.missing) == ("request", ("signal_units['lfp']",))
 
-    def test_a_unit_that_is_not_a_string_raises(self):
+    @pytest.mark.parametrize("unit", [1e-6, 0, 0.0, False])
+    def test_a_unit_that_is_not_a_string_raises(self, unit):
+        """A falsy non-string unit raises too; only None means not stated."""
         with pytest.raises(TypeError, match=r"signal_units\['lfp'\] is a unit string"):
-            jnwb.preflight(_plan(signal_units={"spike_times": "s", "lfp": 1e-6}))
+            jnwb.preflight(_plan(signal_units={"spike_times": "s", "lfp": unit}))
 
     @pytest.mark.parametrize("changes", [
         {"signals": "lfp"}, {"unsupported_inference": True}, {"non_identifiable": ["x"]},

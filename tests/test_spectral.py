@@ -426,6 +426,24 @@ class TestAggregateToDb:
         with pytest.raises(ValueError, match="baseline contains zero"):
             aggregate_to_db(power, baseline, how=how, aggregate_over=aggregate_over)
 
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_a_zero_baseline_under_nan_power_is_exempt_only_under_omit(self, how):
+        power = np.array([[2.0, np.nan]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="propagate")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit"),
+            [to_db(2.0)], rtol=1e-12)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_a_zero_baseline_under_infinite_power_raises_under_omit(self, how):
+        """+inf power is not omitted, so its zero baseline reaches the ratio."""
+        power = np.array([[2.0, np.inf]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit")
+
     def test_nan_policy_propagate_vs_omit(self):
         power = np.array([[2.0, np.nan]])
         baseline = np.ones((1, 2))
