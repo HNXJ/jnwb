@@ -314,6 +314,14 @@ class TestPerTrialRatios:
             acc.add_trial(_random_trials(1, (2, 2), seed=21)[0], baseline=bad)
         assert acc.sum_ratio is None and not acc.n.any()
 
+    def test_a_baseline_of_fewer_dimensions_is_refused_when_the_counts_are_equal(self):
+        """A per-frequency (n_freqs,) baseline would divide along time when n_freqs == n_times."""
+        acc = TFRAccumulator((2, 3, 3))
+        z = _random_trials(1, (2, 3, 3), seed=24)[0]
+        with pytest.raises(ValueError, match=r"baseline\[:, None\]"):
+            acc.add_trial(z, baseline=np.array([1.0, 2.0, 4.0]))
+        assert acc.sum_ratio is None and not acc.n.any()
+
     def test_a_first_trial_that_raises_leaves_nothing_behind(self):
         acc = TFRAccumulator((2, 2))
         z = _random_trials(1, (2, 2), seed=22)[0]

@@ -436,7 +436,7 @@ class TestAggregateToDb:
 
         # 2D array test with broadcasting
         p2 = np.array([[10.0, np.nan], [20.0, 30.0]])
-        b2 = np.array([10.0, 10.0])
+        b2 = np.array([[10.0, 10.0]])
         # For column 1, row 0 is NaN in p2, so only row 1 is valid (30.0 / 10.0 = 3.0)
         omitted2 = aggregate_to_db(p2, b2, how="ratio_of_means", aggregate_over=0, nan_policy="omit")
         # col 0: (10 + 20) / (10 + 10) = 30 / 20 = 1.5 -> to_db(1.5)
@@ -450,11 +450,22 @@ class TestAggregateToDb:
         np.testing.assert_allclose(
             aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline))
 
-    def test_broadcasts_baseline_against_power(self):
+    @pytest.mark.parametrize("baseline", [np.array([[2.0, 4.0]]), np.array([[2.0], [4.0]]), 2.0])
+    def test_broadcasts_baseline_against_power(self, baseline):
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        baseline = np.array([2.0, 4.0])
         np.testing.assert_allclose(
-            aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline))
+            aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline),
+            rtol=1e-12)
+
+    def test_a_baseline_of_fewer_dimensions_is_refused_when_the_counts_are_equal(self):
+        """(n_freqs,) against (n_freqs, n_times) with n_freqs == n_times would divide time."""
+        power = np.arange(1.0, 10.0).reshape(3, 3)
+        per_freq = np.array([1.0, 2.0, 4.0])
+        with pytest.raises(ValueError, match=r"baseline\[:, None\]"):
+            aggregate_to_db(power, per_freq, how="mean_of_ratios")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, per_freq[:, None], how="mean_of_ratios"),
+            to_db(power / per_freq[:, None]), rtol=1e-12)
 
     def test_aggregations_constant_is_the_documented_pair(self):
         assert DB_AGGREGATIONS == ("mean_of_ratios", "ratio_of_means")

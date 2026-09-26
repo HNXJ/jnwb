@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
+  dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
+  per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,
+  silently whenever the two counts were equal. It raises `ValueError`; pass `baseline[:, None]`.
+  `TFRAccumulator.add_trial(baseline=)` refuses the same shapes.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
