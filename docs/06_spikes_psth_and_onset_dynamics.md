@@ -48,9 +48,9 @@ metrics = jnwb.compute_response_metrics(
 
 # Classification consumes the metrics computed above -- not the spike times again.
 # The two calls compose in one direction only: measure, then classify.
-# pvalue is the two-sided conditional binomial test of the response and baseline
-# spike counts summed over trials: exact for windows of different lengths, it
-# assumes Poisson firing within a trial and falls as trials accumulate. A
+# pvalue is the two-sided conditional binomial test on the spike counts summed
+# over trials: exact for unequal windows, it assumes Poisson firing within a
+# trial and falls as trials accumulate. A
 # significant response needs both |response_zscore| >= zscore_threshold (the
 # effect size) and pvalue < alpha.
 sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58, alpha=0.01)
