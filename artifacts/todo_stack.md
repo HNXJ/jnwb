@@ -224,7 +224,7 @@ one of documentation, skills and the release apparatus. Each bullet carries its 
 the probes are in the inspection reports. Bullets marked blocker candidate would meet the blocker
 predicate if they reproduce, and go first.
 
-- IA-07: `verify_roundtrip` in `jnwb/compression.py:694` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
+- IA-07: `verify_roundtrip` in `jnwb/compression.py:670` passes a cast under an absolute error of 1e-3, so an all-zero destination passes at volt scale and a correct float32 cast near 5e4 fails. Check: a tolerance relative to max|x| times float32 epsilon; a negative test with a zeroed destination.
 - IA-08: `compute_response_metrics` accepts a reversed window and returns a negative spike count with a positive rate (`jnwb/spiking.py:95-135`). Check: refuse start at or after stop for both windows.
 - IA-09: `aggregate_to_db` turns a zero baseline into +inf dB with warnings suppressed, where `relative_power` raises on the same input (`jnwb/spectral.py:400-417`). Check: one policy for both, pinned by a test.
 - IA-10: `TFRAnalyzer.compare_conditions` reports `n_significant` from uncorrected per-location t-tests (792 of 16000 on null data), and no test runs it (`jnwb/analyzers.py:182-217`). Check: correct for multiple comparisons or label the count uncorrected; a null-data test.
@@ -295,6 +295,8 @@ predicate if they reproduce, and go first.
 - IB-63: `skills/jnwb-landmark-viz/SKILL.md` routes by `jnwb.vis` module, not by the per-operation `jnwb.fn(args)` rows the template's routing section describes, so no signature check covers its rows. Check: per-function rows for the `vis` extra, checked against `inspect.signature` when plotly is installed.
 - IB-64: an export missing from the computational-order record fails `tests/test_computational_contract_gate.py` but no gate in `scripts/harness_gate.py`, so the gates stay green while the suite is red. Check: run the same check as a gate, or record why the suite alone holds it.
 - IB-65: `jnwb.preflight` counts a blank signal name as a stated signal (`signals=['  '], signal_units={'  ': 'V'}` is supported) and accepts a non-string unit (`{'lfp': 1e-6}` is supported while `{'lfp': 0}` requests). Graded recommended: whether each should request or raise is a public API choice. Check: a ruling, then one test each.
+- IB-66: `jnwb.compression.verify_roundtrip(collapsed=None)` checks two hardcoded groups and reports `ok=True` with the collapsed timestamps never checked, and a cast path absent from the destination is skipped rather than failed (`jnwb/compression.py:664`, `687-688`). `compress_fp32` always passes both, so only direct callers are exposed. Graded recommended. Check: `collapsed` keyword-only and required like `cast`, an absent cast path recorded as a failed check, a test each, a CHANGELOG line.
+- IB-67: `_LFP_MUAE_RE` and `_find_lfp_muae_paths` in `jnwb/compression.py` have no caller in `jnwb/` since `select=` became required; only the selector test class in `tests/test_compression.py` keeps them, and its messages still call the selection a float32 downcast. Graded recommended. Check: delete the helpers and the class, or keep them with messages that match what they do.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
