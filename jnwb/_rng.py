@@ -20,7 +20,7 @@ Both resolvers accept the same three things -- an ``int`` seed, a ``Generator``,
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
@@ -32,6 +32,7 @@ __all__ = [
     "resolve_rng",
     "resolve_seed_alias",
     "sklearn_random_state",
+    "surrogate_rng",
 ]
 
 
@@ -163,6 +164,24 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
         f"{func_name}: rng must be an int seed, a numpy.random.Generator, or None "
         f"for fresh entropy; got {type(rng).__name__}."
     )
+
+
+def surrogate_rng(
+    rng: RNGLike, func_name: str
+) -> Tuple[np.random.Generator, Optional[int]]:
+    """The surrogate generator, and the entropy that rebuilds it.
+
+    An ``int`` seed draws the stream ``default_rng(seed)`` always drew, and its entropy is
+    the seed. ``None`` draws fresh OS entropy and returns it, so ``rng=<entropy>``
+    reproduces the draws. A ``Generator`` is used in place, advancing the caller's
+    stream; its position is not recoverable, so the entropy is ``None``. A float or bool
+    raises ``TypeError`` through :func:`resolve_rng` rather than being truncated.
+    """
+    if isinstance(rng, np.random.Generator):
+        return rng, None
+    resolve_rng(rng, func_name=func_name)
+    sequence = np.random.SeedSequence(None if rng is None else int(rng))
+    return np.random.default_rng(sequence), int(sequence.entropy)
 
 
 def sklearn_random_state(rng: RNGLike, *, func_name: str) -> int:

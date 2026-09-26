@@ -21,7 +21,7 @@ import numpy as np
 
 from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
-from ._rng import Default, RNGLike, resolve_seed_alias
+from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 from ._spread import is_constant, zscore
 
 # ---------------------------------------------------------------------------
@@ -319,8 +319,9 @@ def jrsa(
         interval are identical. `execution['batch_size']` records what ran, which is
         always None, on the same rule as `backend` and `device`: `parameters` carries the
         request, `execution` carries what happened.
-    random_state : int or None
+    random_state : int, numpy.random.Generator or None
         Random seed for reproducibility, for both the permutation null and the bootstrap.
+        Any other type raises ``TypeError``.
         May also be passed as ``seed``, the spelling used by the rest of the package;
         passing both is an error. Leaving it None seeds from OS entropy, so the p-value
         and confidence interval will differ between runs on identical input.
@@ -430,7 +431,7 @@ def jrsa(
     )
 
     # --- pipeline -------------------------------------------------------------
-    rng = np.random.default_rng(random_state)
+    rng = resolve_rng(random_state, func_name="jrsa")
     # `device` used to be recorded verbatim, so `device='bogus_device'` ran and was
     # reported as the device, while all 15 `resolve_device` sites raise for the same
     # string. Routing it here makes jrsa refuse an unknown device like every other

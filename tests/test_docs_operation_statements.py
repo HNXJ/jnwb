@@ -144,11 +144,6 @@ def _public_rng_parameters():
                 yield qualname, param
 
 
-def _annotation(param) -> str:
-    ann = param.annotation
-    return ann if isinstance(ann, str) else getattr(ann, "__name__", repr(ann))
-
-
 def _synth_rng_builders():
     import jnwb.testing.synth as synth
 
@@ -164,10 +159,6 @@ def _stochastic_surfaces() -> set[str]:
 
 RNG_TABLE_ROWS = {
     "strict": "an `int` seed, a `Generator`, or `None`",
-    "default_rng": "whatever `np.random.default_rng` takes: an `int` seed, a `Generator`, `None`, "
-                   "a `SeedSequence`, a bit generator, a list of ints, or a `bool`",
-    "generator": "a `np.random.Generator` only",
-    "int": "an `int` only",
 }
 
 
@@ -189,20 +180,22 @@ def _rng_rows():
     return {key: _table_row(page, first) for key, first in RNG_TABLE_ROWS.items()}
 
 
-def test_the_rng_table_places_every_stochastic_function_in_exactly_one_row():
+def test_the_rng_table_names_every_stochastic_function_in_its_one_row():
     surfaces = _stochastic_surfaces()
     assert len(surfaces) >= 25, f"the signature walk found only {len(surfaces)}"
-    rows = {key: _row_functions(cells[1]) for key, cells in _rng_rows().items()}
-    placed = [name for names in rows.values() for name in names]
-    assert len(placed) == len(set(placed)), "a function sits in two rows"
-    assert set(placed) == surfaces, (sorted(surfaces - set(placed)), sorted(set(placed) - surfaces))
+    page = _page("docs/10_operation_specifications.md")
+    section = page.split("### 1. RNG Convention", 1)[1].split("###", 1)[0]
+    lines = section.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.startswith("| Accepted `rng`"))
+    rows = []
+    for ln in lines[start:]:
+        if not ln.startswith("|"):
+            break
+        rows.append(ln)
+    assert len(rows) == 3, f"the RNG table should be a header, a rule and one row: {rows}"
+    placed = _row_functions(_rng_rows()["strict"][1])
+    assert placed == surfaces, (sorted(surfaces - placed), sorted(placed - surfaces))
     assert set(_rng_probes()) == surfaces, "a stochastic function has no probe below"
-    for qualname, param in _public_rng_parameters():
-        ann = _annotation(param)
-        if qualname in rows["generator"]:
-            assert ann == "np.random.Generator", (qualname, ann)
-        if qualname in rows["int"]:
-            assert ann == "int", (qualname, ann)
 
 
 def _rng_probes():
@@ -278,11 +271,11 @@ RNG_KINDS = {
 }
 
 
-@pytest.mark.parametrize("row_key", ["strict", "default_rng"])
-def test_each_rng_row_accepts_and_refuses_what_it_says(row_key):
+def test_the_rng_row_accepts_and_refuses_what_it_says():
     """Every kind of value appears in exactly one of the row's two cells; each named as
     accepted is accepted by every function of the row, each in the other cell raises
     `TypeError` from every one."""
+    row_key = "strict"
     cells = _rng_rows()[row_key]
     accepted_cell, refused_cell = cells[0], cells[2]
     probes = _rng_probes()
@@ -302,28 +295,6 @@ def test_each_rng_row_accepts_and_refuses_what_it_says(row_key):
             if outcome != expected:
                 wrong.append(f"{name} with {kind}: {outcome}, the page says {expected}")
     assert not wrong, "\n".join(wrong)
-
-
-def test_a_generator_only_surface_refuses_an_int_and_none():
-    cells = _rng_rows()["generator"]
-    assert cells[2] == "`TypeError` from `permute_labels`; `AttributeError` from the other three"
-    probes = _rng_probes()
-    for name in sorted(_row_functions(cells[1])):
-        probes[name](np.random.default_rng(0))
-        expected = TypeError if name == "permute_labels" else AttributeError
-        for value in (0, None):
-            with pytest.raises(expected):
-                probes[name](value)
-
-
-def test_build_permutation_plan_takes_only_an_int():
-    cells = _rng_rows()["int"]
-    assert cells[2] == "`TypeError`"
-    call = _rng_probes()["build_permutation_plan"]
-    call(4)
-    for value in (None, np.random.default_rng(4), 2.5):
-        with pytest.raises(TypeError):
-            call(value)
 
 
 def test_the_statistics_page_states_the_default_seed_and_links_the_table():

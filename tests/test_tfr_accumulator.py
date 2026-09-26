@@ -518,6 +518,18 @@ class TestWriteRoundTrip:
         np.testing.assert_allclose(merged.M2, [expected], rtol=1e-12)
         assert merged.n.dtype == np.int64 and merged.n[0] == 2 * count
 
+    @pytest.mark.parametrize("bad", [2.7, np.array([3.0, 2.5]), np.nan, np.inf])
+    def test_a_count_that_is_not_a_whole_number_is_refused(self, bad):
+        acc = TFRAccumulator((2,))
+        for whole in (3.0, np.array([3.0, 4.0], np.float32), 5, np.array([6, 7], np.int32)):
+            acc.n = whole
+            assert acc.n.dtype == np.int64
+            np.testing.assert_array_equal(acc.n, np.asarray(whole).astype(np.int64))
+        acc.n = np.zeros(2, np.int64)
+        with pytest.raises(ValueError, match="integral"):
+            acc.n = bad
+        np.testing.assert_array_equal(acc.n, [0, 0])
+
     def test_an_integer_trial_is_cast_before_any_state_changes(self):
         shape = (2, 3)
         z_int = np.arange(1, 7).reshape(shape)

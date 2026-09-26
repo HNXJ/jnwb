@@ -19,7 +19,7 @@ from ._dictlike import DictAccessMixin
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
-from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import DEFAULT_SEED, RNGLike, surrogate_rng
 from ._spread import is_constant as _is_constant
 
 log = logging.getLogger(__name__)
@@ -771,21 +771,9 @@ def cross_area_coherence(
     # uniform and the floor it implies is reported. Pass n_surrogates=10 for the old
     # cost.
     # The seed is in the signature, not here: `inspect.signature` reports the stream a
-    # bare call draws. `SeedSequence` is kept because it is the only route to the entropy
-    # `surrogate_seed_entropy` reports -- including for `rng=None`, where it captures the
-    # OS entropy that was drawn so the caller can reproduce a fresh-entropy run.
-    # `resolve_rng` is called for its type contract (a float or bool seed is refused
-    # rather than truncated); its Generator is discarded because the disclosing one is
-    # built from the sequence.
-    seed_entropy = None
-    if not isinstance(rng, np.random.Generator):
-        # An int seed or None. A caller-supplied Generator is used as-is instead, so
-        # successive calls advance one stream rather than restarting it, and its position
-        # is not recoverable -- surrogate_seed_entropy stays None for that case alone.
-        resolve_rng(rng, func_name="cross_area_coherence")
-        seed_sequence = np.random.SeedSequence(rng)
-        seed_entropy = int(seed_sequence.entropy)
-        rng = np.random.default_rng(seed_sequence)
+    # bare call draws. The entropy is what `surrogate_seed_entropy` reports -- including
+    # for `rng=None`, so the caller can reproduce a fresh-entropy run.
+    rng, seed_entropy = surrogate_rng(rng, "cross_area_coherence")
 
     result = {
         'coherence_spectrum': np.array([]),

@@ -16,6 +16,7 @@ import pandas as pd
 from scipy import signal
 
 from ..addressing import ProbeGeometry, probe_geometry
+from .._rng import resolve_rng
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ def synth_white_noise(
     scale = float(scale)
     if scale < 0 or not np.isfinite(scale):
         raise ValueError(f"scale must be non-negative and finite, got {scale}")
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_white_noise")
     return gen.normal(loc=float(mean), scale=scale, size=shape)
 
 
@@ -121,7 +122,7 @@ def synth_ar_noise(
         phi = float(np.exp(-1.0 / (fs * 0.05)))
         ar_coeffs = np.array([phi])
 
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_ar_noise")
     burn_in = max(200, len(ar_coeffs) * 20)
     total_samples = n_samples + burn_in
 
@@ -179,7 +180,7 @@ def synth_periodic_response(
     if freq_hz <= 0 or freq_hz >= fs / 2.0:
         raise ValueError(f"freq_hz must be in (0, Nyquist); got {freq_hz}")
 
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_periodic_response")
     t = np.arange(n_samples, dtype=float) / float(fs)
 
     jitters = (
@@ -267,7 +268,7 @@ def synth_correlation_blocks(
 
     # Cholesky factor
     L = np.linalg.cholesky(true_corr)
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_correlation_blocks")
     z = gen.normal(0.0, 1.0, size=(n_channels, n_samples))
     data = L @ z
 
@@ -309,7 +310,7 @@ def synth_phase_gradient(
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive, got {fs}")
 
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_phase_gradient")
     t = np.arange(n_samples, dtype=float) / float(fs)
     data = np.empty((n_channels, n_samples), dtype=float)
 
@@ -351,7 +352,7 @@ def synth_unequal_groups(
     if n_features <= 0:
         raise ValueError("n_features must be strictly positive")
 
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_unequal_groups")
     g1 = gen.normal(0.0, noise_std, size=(n_trials_1, n_features))
     g2 = gen.normal(float(effect_size) * noise_std, noise_std, size=(n_trials_2, n_features))
     return g1, g2
@@ -401,7 +402,7 @@ def synth_laminar_motif(
     if orientation not in ("superficial_to_deep", "deep_to_superficial"):
         raise ValueError(f"Unknown orientation '{orientation}'")
 
-    gen = np.random.default_rng(rng)
+    gen = resolve_rng(rng, func_name="synth_laminar_motif")
     t = np.arange(n_samples, dtype=float) / float(fs)
 
     # 1. Background 1/f-like noise across all contacts

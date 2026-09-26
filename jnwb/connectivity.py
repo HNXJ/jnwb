@@ -57,7 +57,7 @@ from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
-from ._rng import Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias, surrogate_rng
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -969,25 +969,10 @@ def bin_spikes(
     return out
 
 
-def _surrogate_rng(
-    rng: RNGLike, func_name: str
-) -> Tuple[np.random.Generator, Optional[int]]:
-    """The surrogate generator, and the entropy that rebuilds it.
-
-    An ``int`` seed draws the stream ``default_rng(seed)`` always drew, and its entropy is
-    the seed. ``None`` draws fresh OS entropy and returns it, so ``rng=<entropy>``
-    reproduces the p-values. A ``Generator`` is used in place, advancing the caller's
-    stream; its position is not recoverable, so the entropy is ``None``. A float or bool
-    raises ``TypeError`` through ``resolve_rng`` rather than being truncated.
-
-    INTENTIONAL BREAK (0.2.6.1): ``None`` meant seed 0 and was recorded as ``seed=None``,
-    a ``Generator`` raised ``TypeError`` and ``2.7`` ran as seed 2.
-    """
-    if isinstance(rng, np.random.Generator):
-        return rng, None
-    resolve_rng(rng, func_name=func_name)
-    sequence = np.random.SeedSequence(None if rng is None else int(rng))
-    return np.random.default_rng(sequence), int(sequence.entropy)
+#: The surrogate generator and the entropy that rebuilds it (``jnwb._rng.surrogate_rng``).
+#: INTENTIONAL BREAK (0.2.6.1): ``None`` meant seed 0 and was recorded as ``seed=None``,
+#: a ``Generator`` raised ``TypeError`` and ``2.7`` ran as seed 2.
+_surrogate_rng = surrogate_rng
 
 
 #: Fewest trials for which the surrogates re-pair trials instead of shifting them.

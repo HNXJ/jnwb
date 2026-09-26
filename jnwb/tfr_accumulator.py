@@ -182,7 +182,7 @@ class TFRAccumulator:
     # The other accumulators cast on assignment as `mean` does, so a summary read back from
     # `write`'s int32/float32/complex64 datasets keeps accumulating in int64/float64/complex128.
     # An int32 `n` would overflow `self.n * other.n` in `merge` from n = 46341.
-    def _stored(name: str, dtype, optional: bool = False):
+    def _stored(name: str, dtype, optional: bool = False, integral: bool = False):
         attr = "_" + name
 
         def fget(self):
@@ -191,12 +191,23 @@ class TFRAccumulator:
         def fset(self, value):
             if optional and value is None:
                 setattr(self, attr, None)
-            else:
-                setattr(self, attr, np.asarray(value, dtype=dtype))
+                return
+            # A cast alone truncates: n = 2.7 was stored as 2.
+            if integral:
+                raw = np.asarray(value)
+                if raw.dtype.kind not in "biu" and not (
+                    raw.dtype.kind == "f" and np.all(np.isfinite(raw))
+                    and np.all(raw == np.round(raw))
+                ):
+                    raise ValueError(
+                        f"{name} must hold integral counts; got {raw.dtype} values that are "
+                        "not whole numbers."
+                    )
+            setattr(self, attr, np.asarray(value, dtype=dtype))
 
         return property(fget, fset)
 
-    n = _stored("n", np.int64)
+    n = _stored("n", np.int64, integral=True)
     M2 = _stored("M2", np.float64)
     sum_z = _stored("sum_z", np.complex128)
     sum_unit_z = _stored("sum_unit_z", np.complex128)
