@@ -431,12 +431,11 @@ def aggregate_to_db(
 
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         if aggregate_over is None or how == "mean_of_ratios":
-            elementwise = p / b
-            _refuse_ratio_overflow(np.isinf(elementwise) & np.isfinite(p))
+            _refuse_ratio_overflow(np.isinf(p / b) & np.isfinite(p))
         if aggregate_over is None:
-            aggregated = elementwise
+            aggregated = p / b
         elif how == "mean_of_ratios":
-            aggregated = mean(elementwise, axis=aggregate_over)
+            aggregated = mean(p / b, axis=aggregate_over)
         else:
             b_bc = np.broadcast_to(b, p.shape)
             if nan_policy == "omit":
@@ -1483,20 +1482,20 @@ def relative_power(
     # Inputs are finite here, so an infinite ratio is an overflow past a subnormal baseline.
     with np.errstate(over="ignore"):
         if model == "mean_of_ratios":
-            ratio = p_arr / b_broadcast
-            _refuse_ratio_overflow(np.isinf(ratio))
+            quotient = p_arr / b_broadcast
+            _refuse_ratio_overflow(np.isinf(quotient))
             if axis is None:
-                return ratio
-            return np.mean(ratio, axis=axis)
+                return quotient
+            return np.mean(quotient, axis=axis)
         elif model == "ratio_of_means":
-            ratio = np.sum(p_arr, axis=axis) / np.sum(b_broadcast, axis=axis)
-            _refuse_ratio_overflow(np.isinf(ratio))
-            return ratio
+            quotient = np.sum(p_arr, axis=axis) / np.sum(b_broadcast, axis=axis)
+            _refuse_ratio_overflow(np.isinf(quotient))
+            return quotient
         else:  # log_ratio
-            ratio = p_arr / b_broadcast
-            _refuse_ratio_overflow(np.isinf(ratio))
+            quotient = p_arr / b_broadcast
+            _refuse_ratio_overflow(np.isinf(quotient))
             with np.errstate(divide="ignore", invalid="ignore"):
-                return 10.0 * np.log10(ratio)
+                return 10.0 * np.log10(quotient)
 
 
 def band_power(
