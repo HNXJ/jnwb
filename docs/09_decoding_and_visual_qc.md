@@ -12,7 +12,7 @@ graph LR
     Trials[Trial table: trial_id, session, analysis, slot_key, cycle] --> Outer[assign_outer_folds: leave-one-group-out]
     Outer --> Inner[build_inner_validation_partitions]
     Inner --> Apply[Caller indexes its own X and labels by trial_id, and fits its own estimator]
-    Feats[X: n_samples x n_features, with labels: n_samples] --> Train[nested_cv_linear_svm: stratified folds over rows]
+    Feats[X: n_samples x n_features, with labels: n_samples] --> Train[nested_cv_linear_svm: stratified folds, over rows or over groups]
     Feats --> Base[majority_baseline / fold_majority_baseline]
     Raster[Raster: n_trials x n_space x n_time] --> Ladder[build_representation_ladder: R0/R1/R2 contracts]
 ```
@@ -32,20 +32,31 @@ print("F1 Score:", decode_res["f1"])
 print("ROC-AUC:", decode_res["auc"])
 ```
 
-**This call does not hold out groups.** `nested_cv_linear_svm(X, labels, n_splits, rng)`
-takes no `groups` argument: its folds are drawn over rows. When rows are trials from the
-same block, cycle or session, neighboring trials share slow drift and a fold boundary
-inside a block leaks it, so the accuracy is above what the same decoder would reach on a
-held-out block.
+**Without `groups` this call does not hold out groups**: its folds are drawn over rows. When
+rows are trials from the same block, cycle or session, neighboring trials share slow drift and
+a fold boundary inside a block leaks it, so the accuracy is above what the same decoder would
+reach on a held-out block. Pass one group id per trial to hold out whole groups:
 
-`assign_outer_folds` and `build_inner_validation_partitions` below compute the
-group-held-out partitions, and **no jnwb call applies them.** The decoder declares no
+```python
+# block_id: (n_samples,) block, cycle or session of each trial
+grouped_res = jnwb.nested_cv_linear_svm(X, labels, n_splits=5, groups=block_id)
+```
+
+| | `groups=None` | `groups=block_id` |
+|---|---|---|
+| Outer folds | `StratifiedKFold` over rows | `StratifiedGroupKFold`: each group in one test fold, class balance kept as far as the groups allow |
+| Inner search for C | `StratifiedKFold` over training rows | `StratifiedGroupKFold` over training groups; `C=1.0` when fewer than two training groups remain |
+| `n_splits` clipped to | minority-class count | group count |
+| `cv_scheme` | `"nested_stratified"` | `"nested_stratified_group"` |
+
+A grouped call raises when an outer training fold holds a single class, which a class present
+in only one group always causes. Read either accuracy against `majority_baseline_accuracy`,
+which is returned for that purpose and is not 0.5 unless the classes are balanced.
+
+`assign_outer_folds` and `build_inner_validation_partitions` below compute leave-one-group-out
+partitions within strata, and **no jnwb call applies them.** The decoder declares no
 parameter that takes a partition table, and it returns metrics rather than a fitted
-estimator, so a caller cannot score a held-out group with it either. Applying them means
-fitting your own estimator over the trial ids they list. Treat what this function returns
-as a row-wise upper bound on the grouped number and report it as one, read against
-`majority_baseline_accuracy`, which is returned for that purpose and is not 0.5 unless the
-classes are balanced.
+estimator. Applying them means fitting your own estimator over the trial ids they list.
 
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.png#only-light)
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.dark.png#only-dark)

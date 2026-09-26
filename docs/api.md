@@ -94,7 +94,7 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.build_representation_ladder | function | (raster: 'np.ndarray', modality: 'str' = 'SPK', spatial_axis_metadata: 'Union[Mapping[str, object], None]' = None) -> 'Dict[str, object]'<br>*Return R0/R1/R2 representation contracts without fitting a model.* |
 | jnwb.fold_majority_baseline | function | (y_train: 'np.ndarray', y_test: 'np.ndarray') -> 'float'<br>*Accuracy of predicting the training-fold majority class on the held-out fold.* |
 | jnwb.majority_baseline | function | (labels: 'np.ndarray') -> 'float'<br>*Accuracy of always predicting the most frequent class in ``labels``.* |
-| jnwb.nested_cv_linear_svm | function | (X: 'np.ndarray', labels: 'np.ndarray', n_splits: 'int', rng: 'RNGLike' = 42) -> 'Dict[str, Union[float, np.ndarray, dict, str]]'<br>*Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.* |
+| jnwb.nested_cv_linear_svm | function | (X: 'np.ndarray', labels: 'np.ndarray', n_splits: 'int', rng: 'RNGLike' = 42, groups: 'Union[np.ndarray, None]' = None) -> 'Dict[str, Union[float, np.ndarray, dict, str]]'<br>*Outer stratified CV; inner GridSearchCV for C. No synthetic metrics.* |
 
 ## Module: jnwb.filtering
 

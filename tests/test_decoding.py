@@ -238,3 +238,124 @@ class TestCrossValidationIsolation:
         # An 80/20 split decodes at the baseline here, so accuracy alone would read as a
         # strong result. The baseline on the same splits is what makes that visible.
         assert out["accuracy"] == pytest.approx(out["majority_baseline_accuracy"], abs=0.1)
+
+
+def _noisy_two_class():
+    rng = np.random.default_rng(20260925)
+    labels = np.array([0] * 26 + [1] * 22)
+    X = rng.normal(size=(48, 6))
+    X[labels == 1, :2] += 0.6
+    return X, labels
+
+
+def _group_offset_data(n_groups=20, n_per_group=6, n_features=30, seed=0):
+    """Labels constant within a group, features a per-group offset with no class signal.
+
+    A decoder that has seen other trials of the test trial's group can identify the
+    group, and through it the label; one that has not can only guess.
+    """
+    rng = np.random.default_rng(seed)
+    groups = np.repeat(np.arange(n_groups), n_per_group)
+    labels = np.repeat(np.arange(n_groups) % 2, n_per_group)
+    offsets = rng.normal(scale=3.0, size=(n_groups, n_features))
+    X = offsets[groups] + rng.normal(scale=0.3, size=(groups.size, n_features))
+    return X, labels, groups
+
+
+class TestNestedCvGroups:
+    # Computed by running the pre-`groups` implementation (commit 27f400a2) on
+    # `_noisy_two_class()`. The data is noisy enough that every fold changes the numbers,
+    # so a changed partition cannot reproduce them.
+    PINNED = {
+        42: dict(
+            accuracy=0.7244444444444443,
+            fold_accuracies=[0.8, 0.7, 0.9, 0.7777777777777778, 0.4444444444444444],
+            f1=0.7111111111111111, auc=0.7797202797202797, C=0.1,
+            majority=0.5422222222222223,
+        ),
+        7: dict(
+            accuracy=0.6666666666666666,
+            fold_accuracies=[0.8, 0.5, 0.7, 0.5555555555555556, 0.7777777777777778],
+            f1=0.5789473684210527, auc=0.736013986013986, C=0.1,
+            majority=0.5422222222222223,
+        ),
+    }
+
+    @pytest.mark.parametrize("seed", [42, 7])
+    @pytest.mark.parametrize("pass_none", [False, True])
+    def test_a_call_without_groups_is_numerically_unchanged(self, seed, pass_none):
+        X, labels = _noisy_two_class()
+        kwargs = {"groups": None} if pass_none else {}
+        if seed != 42:
+            kwargs["rng"] = seed
+        res = nested_cv_linear_svm(X, labels, n_splits=5, **kwargs)
+        want = self.PINNED[seed]
+        exact = dict(rel=0, abs=1e-12)
+        assert res["status"] == "success" and res["cv_scheme"] == "nested_stratified"
+        assert res["fold_accuracies"].tolist() == pytest.approx(want["fold_accuracies"], **exact)
+        assert res["accuracy"] == pytest.approx(want["accuracy"], **exact)
+        assert res["f1"] == pytest.approx(want["f1"], **exact)
+        assert res["auc"] == pytest.approx(want["auc"], **exact)
+        assert res["best_params"] == {"C": want["C"]}
+        assert res["majority_baseline_accuracy"] == pytest.approx(want["majority"], **exact)
+
+    def test_grouped_folds_never_split_a_group(self, monkeypatch):
+        """Asserted on the folds the decoder iterated, captured at the splitter."""
+        import jnwb.decoding as decoding
+
+        calls = []
+
+        class Recording(decoding.StratifiedGroupKFold):
+            def split(self, X, y=None, groups=None):
+                folds = list(super().split(X, y, groups))
+                calls.append((np.asarray(groups).copy(), folds))
+                yield from folds
+
+        monkeypatch.setattr(decoding, "StratifiedGroupKFold", Recording)
+        X, labels, groups = _group_offset_data(n_groups=12)
+        res = nested_cv_linear_svm(X, labels, n_splits=4, groups=groups)
+        assert res["status"] == "success"
+        assert res["cv_scheme"] == "nested_stratified_group"
+
+        outer = [c for c in calls if c[0].shape == groups.shape]
+        assert len(outer) == 1, "the outer folds were not drawn by the grouped splitter"
+        outer_groups, outer_folds = outer[0]
+        np.testing.assert_array_equal(outer_groups, groups)
+        assert len(outer_folds) == len(res["fold_accuracies"]) == 4
+        tested = np.concatenate([test for _, test in outer_folds])
+        assert np.array_equal(np.sort(tested), np.arange(groups.size))
+        for train, test in outer_folds:
+            assert not set(groups[train]) & set(groups[test])
+
+        # Inner behaviour: C is searched over folds that hold out groups of the outer
+        # training set, one grouped search per outer fold.
+        inner = [c for c in calls if c[0].shape != groups.shape]
+        assert len(inner) == len(outer_folds)
+        for (inner_groups, inner_folds), (train, test) in zip(inner, outer_folds):
+            np.testing.assert_array_equal(inner_groups, groups[train])
+            assert not set(inner_groups) & set(groups[test])
+            for i_train, i_test in inner_folds:
+                assert not set(inner_groups[i_train]) & set(inner_groups[i_test])
+
+    def test_grouped_folds_remove_the_group_identity_shortcut(self):
+        X, labels, groups = _group_offset_data()
+        rowwise = nested_cv_linear_svm(X, labels, n_splits=5)
+        grouped = nested_cv_linear_svm(X, labels, n_splits=5, groups=groups)
+        assert rowwise["accuracy"] > 0.9, rowwise["accuracy"]
+        assert grouped["accuracy"] < 0.7, grouped["accuracy"]
+
+    def test_fewer_than_two_groups_is_a_status(self):
+        X, labels = _noisy_two_class()
+        res = nested_cv_linear_svm(X, labels, n_splits=5, groups=np.zeros(len(labels)))
+        assert res["status"] == "insufficient_groups_for_cv" and np.isnan(res["accuracy"])
+
+    @pytest.mark.parametrize("bad", [np.arange(47), np.r_[np.arange(47.0), np.nan]])
+    def test_groups_need_one_finite_id_per_trial(self, bad):
+        X, labels = _noisy_two_class()
+        with pytest.raises(ValueError, match="groups"):
+            nested_cv_linear_svm(X, labels, n_splits=5, groups=bad)
+
+    def test_groups_is_keyword_only(self):
+        X, labels = _noisy_two_class()
+        with pytest.raises(TypeError):
+            nested_cv_linear_svm(X, labels, 5, 42, np.arange(len(labels)) % 4)

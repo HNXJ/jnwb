@@ -333,12 +333,14 @@ def _():
 
 @case("jnwb-population", "decline")
 def _():
-    assert_states("jnwb-population", "it takes no `groups` and no fold column, so it cannot hold out whole blocks")
+    assert_states("jnwb-population", "decoding across groups needs each class in at least two groups")
     rng = np.random.default_rng(0)
-    with pytest.raises(TypeError, match="groups"):
-        jnwb.nested_cv_linear_svm(
-            rng.normal(size=(12, 4)), np.array([0, 1] * 6), n_splits=3, groups=np.arange(12) % 3
-        )
+    # Class 1 lives only in group 0, so holding that group out leaves no class-1 trial to
+    # train on: a cross-group accuracy for it cannot be estimated, and the call says so.
+    labels = np.array([1] * 4 + [0] * 8)
+    groups = np.repeat([0, 1, 2], 4)
+    with pytest.raises(ValueError, match="at least two groups"):
+        jnwb.nested_cv_linear_svm(rng.normal(size=(12, 4)), labels, n_splits=3, groups=groups)
 
 
 # --------------------------------------------------------------------------------- nwb-data

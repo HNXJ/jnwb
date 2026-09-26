@@ -21,9 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `TFRAccumulator.mean_of_ratios()` returns the mean over trials of each trial's power
   ratio, so `to_db(acc.mean_of_ratios())` streams `aggregate_to_db(how="mean_of_ratios")`
   without holding the trials. With a `valid` mask the stacked equivalent sets the invalid cells
-  to NaN and passes `nan_policy="omit"`. Either every trial carries a baseline or none does; `merge` pools
-  the ratio sums and `write` stores them as `sum_ratio`. `aggregate_to_db` still refuses
-  `how="mean_of_ratios"` on `power()`.
+  to NaN and passes `nan_policy="omit"`. Either every trial carries a baseline or none does;
+  `merge` pools the ratio sums and `write` stores them as `sum_ratio`. `aggregate_to_db` still
+  refuses `how="mean_of_ratios"` on `power()`.
+- `nested_cv_linear_svm` takes keyword-only `groups=` (one id per trial) to hold out whole
+  groups. Outer and inner folds become `StratifiedGroupKFold`, `n_splits` is clipped to the
+  group count, and `cv_scheme` is `"nested_stratified_group"`. Fewer than two groups returns
+  status `"insufficient_groups_for_cv"`; an outer training fold with a single class raises
+  `ValueError`. A call without `groups` returns the same numbers as before.
 
 ### Changed
 
