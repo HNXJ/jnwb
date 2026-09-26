@@ -2,8 +2,9 @@
 
 Published sources for the methods jnwb implements. Each row names the result jnwb implements and
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
-a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 and matched
-the title, authors and year of its Crossref record (DataCite for the arXiv entry). Where jnwb
+a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
+2005 on 2026-09-25) and matched the title, authors and year of its Crossref record (DataCite for
+the arXiv entry). Where jnwb
 departs from the published result, the row and the docstring say how.
 
 ## Signal processing
@@ -43,6 +44,7 @@ treatment in these two books, checked on Open Library:
 | Granger, C. W. J. (1969). Investigating causal relations by econometric models and cross-spectral methods. *Econometrica* 37(3), 424. [doi:10.2307/1912791](https://doi.org/10.2307/1912791) | Granger causality: X Granger-predicts Y when the past of X improves the prediction of Y beyond the past of Y, a temporal-lag asymmetry rather than a causal effect | `granger`, `granger_causality` |
 | Geweke, J. (1982). Measurement of linear dependence and feedback between multiple time series. *Journal of the American Statistical Association* 77(378), 304-313. [doi:10.1080/01621459.1982.10477803](https://doi.org/10.1080/01621459.1982.10477803) | The measure of linear feedback, the log ratio of restricted to unrestricted residual variance, and its frequency decomposition through the transfer function of the fitted VAR | `granger`, `granger_spectral` |
 | Geweke, J. F. (1984). Measures of conditional linear dependence and feedback between time series. *Journal of the American Statistical Association* 79(388), 907-915. [doi:10.1080/01621459.1984.10477110](https://doi.org/10.1080/01621459.1984.10477110) | The conditional measure: the past of Z enters both the restricted and the unrestricted model (`Z=`) | `granger` |
+| Lütkepohl, H. (2005). *New Introduction to Multiple Time Series Analysis*. Springer. [doi:10.1007/978-3-540-27752-1](https://doi.org/10.1007/978-3-540-27752-1) | VAR order selection (section 4.3): AIC, HQ and SC from the maximum-likelihood residual variance, every candidate order fitted to the same sample. jnwb scores the equation of the predicted signal rather than the full residual covariance | `granger` |
 | Nolte, G., et al. (2008). Robustly estimating the flow direction of information in complex physical systems. *Physical Review Letters* 100(23), 234101. [doi:10.1103/PhysRevLett.100.234101](https://doi.org/10.1103/PhysRevLett.100.234101) | The phase slope index, eq. 3, on the coherency of eq. 4 with the cross-spectrum of eq. 2; positive means X leads Y. `z` is the normalization of eq. 6. The paper's jackknife leaves out one epoch at a time; jnwb's leaves out one Welch segment | `phase_slope_index` |
 | Schreiber, T. (2000). Measuring information transfer. *Physical Review Letters* 85(2), 461-464. [doi:10.1103/PhysRevLett.85.461](https://doi.org/10.1103/PhysRevLett.85.461) | Transfer entropy, eq. 4, with target history `k` and source history `l` | `transfer_entropy` |
 | Marschinski, R., & Kantz, H. (2002). *The European Physical Journal B* 30(2), 275-281. [doi:10.1140/epjb/e2002-00379-2](https://doi.org/10.1140/epjb/e2002-00379-2) | Effective transfer entropy: the raw value minus the mean over surrogates (`bias_corrected_*`). jnwb's surrogates permute trials or circularly shift the source, keeping its autocorrelation | `transfer_entropy` |

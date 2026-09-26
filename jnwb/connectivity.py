@@ -1079,6 +1079,34 @@ def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float) -> Tuple[float, np
     return float(np.dot(resid, resid)), resid
 
 
+def _granger_order_criteria(
+    src: np.ndarray,
+    tgt: np.ndarray,
+    z_list: List[np.ndarray],
+    max_order: int,
+    ridge: float,
+    criterion: str,
+) -> np.ndarray:
+    """Information criterion of the unrestricted model for each order 1..``max_order``.
+
+    Every order is scored on one sample: the rows left after trimming ``max_order``
+    presample values from each trial, so the criteria differ only through the model. The
+    residual variance is the maximum-likelihood ``RSS / N``. Element ``p - 1`` holds order
+    ``p``; an order with no more rows than parameters scores ``inf``.
+    """
+    sources = [tgt, src] + list(z_list)
+    design, yy = _stack_var_design(tgt, sources, max_order)
+    n_obs = design.shape[0]
+    scores = np.full(max_order, np.inf)
+    for p in range(1, max_order + 1):
+        cols = [0] + [1 + s * max_order + j for s in range(len(sources)) for j in range(p)]
+        if n_obs <= len(cols):
+            break
+        rss, _ = _ols_rss(design[:, cols], yy, ridge)
+        scores[p - 1] = _info_criterion(n_obs, rss / n_obs, len(cols), criterion)
+    return scores
+
+
 def granger(
     X,
     Y,
@@ -1106,7 +1134,9 @@ def granger(
 
     Args:
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
-        order: VAR lag order, or ``'auto'`` to select by ``criterion``
+        order: VAR lag order, or ``'auto'`` to select by ``criterion``. Every candidate
+            order is scored on one sample, trimmed by the largest candidate, with the
+            maximum-likelihood residual variance ``RSS / N``
         max_lag: upper bound for automatic order selection
         criterion: ``'bic'`` (default, conservative) | ``'aic'`` | ``'hqic'``
         Z: optional conditioning signal(s) — same shape as X, or a list of such
@@ -1150,6 +1180,10 @@ def granger(
         Geweke, J. F. (1984). Measures of conditional linear dependence and feedback
         between time series. J. Am. Stat. Assoc. doi:10.1080/01621459.1984.10477110
         -- the conditional measure, with the past of `Z` in both models.
+        Lütkepohl, H. (2005). New Introduction to Multiple Time Series Analysis. Springer.
+        doi:10.1007/978-3-540-27752-1 -- order selection, section 4.3: AIC, HQ and SC
+        (``'bic'``) from the maximum-likelihood residual covariance, every candidate order
+        fitted to the same sample.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='granger')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "granger")
@@ -1231,20 +1265,8 @@ def granger(
     def _select_order(src: np.ndarray, tgt: np.ndarray) -> int:
         n_free = n_trials * n_times
         cap = max(1, min(int(max_lag), (n_times - 2) // 3, n_free // (8 * (2 + len(z_list)))))
-        best_ic, best_p = float("inf"), 1
-        n_src = 2 + len(z_list)
-        for p in range(1, cap + 1):
-            d_u, yy = _stack_var_design(tgt, [tgt, src] + z_list, p)
-            if d_u.shape[0] <= d_u.shape[1]:
-                break
-            rss_u, _ = _ols_rss(d_u, yy, ridge)
-            n_obs = d_u.shape[0]
-            n_par = 1 + p * n_src
-            rss_var = rss_u / max(n_obs - n_par, 1)
-            ic = _info_criterion(n_obs, rss_var, n_par, criterion)
-            if ic < best_ic:
-                best_ic, best_p = ic, p
-        return best_p
+        scores = _granger_order_criteria(src, tgt, z_list, cap, ridge, criterion)
+        return int(np.argmin(scores)) + 1
 
     if order == "auto":
         order_xy = _select_order(x, y)
@@ -2062,10 +2084,29 @@ def _discretize(a: np.ndarray, bins: int, strategy: str) -> np.ndarray:
 
 
 def _codes(cols: List[np.ndarray]) -> np.ndarray:
-    """Row-wise integer codes for a list of equal-length integer vectors."""
+    """Row-wise integer codes for a list of equal-length integer vectors.
+
+    Codes number the distinct rows in lexicographic order, first column most significant,
+    which is the order ``np.unique(axis=0)`` gives. Each column is shifted to start at zero
+    and the row becomes one mixed-radix integer, first column the most significant digit,
+    so a 1-D ``np.unique`` of the keys yields the same codes without sorting rows. When
+    the product of the radices would not fit in int64, the row-wise ``np.unique`` runs
+    instead.
+    """
     if len(cols) == 1:
         return np.asarray(np.unique(cols[0], return_inverse=True)[1]).ravel()
-    stacked = np.column_stack(cols)
+    arrays = [np.asarray(c).ravel() for c in cols]
+    if all(np.issubdtype(a.dtype, np.integer) for a in arrays) and arrays[0].size > 0:
+        radices = [int(a.max()) - int(a.min()) + 1 for a in arrays]
+        span = 1
+        for r in radices:
+            span *= r
+        if span < 2**62:
+            key = np.zeros(arrays[0].size, dtype=np.int64)
+            for a, r in zip(arrays, radices):
+                key = key * r + (a - a.min()).astype(np.int64)
+            return np.asarray(np.unique(key, return_inverse=True)[1]).ravel()
+    stacked = np.column_stack(arrays)
     # ravel(): NumPy 2.0 briefly returned a column vector for axis-wise inverse
     return np.asarray(np.unique(stacked, axis=0, return_inverse=True)[1]).ravel()
 

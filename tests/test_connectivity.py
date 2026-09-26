@@ -251,6 +251,99 @@ class TestGranger:
         assert result.x_to_y == pytest.approx(0.0, abs=0.01)
         assert result.y_to_x == pytest.approx(0.0, abs=0.01)
 
+    @staticmethod
+    def _var3(seed, n_trials, n_times):
+        """y depends on x at lags 1 and 3 and on its own lag 1: a VAR of order 3."""
+        rng = np.random.default_rng(seed)
+        burn = 100
+        x = rng.standard_normal((n_trials, n_times + burn))
+        e = rng.standard_normal(x.shape)
+        y = np.zeros_like(x)
+        for t in range(3, n_times + burn):
+            y[:, t] = 0.3 * y[:, t - 1] + 0.4 * x[:, t - 1] + 0.5 * x[:, t - 3] + e[:, t]
+        return x[:, burn:], y[:, burn:]
+
+    @pytest.mark.parametrize("criterion", ["aic", "bic"])
+    def test_order_criteria_are_the_ml_likelihood_on_one_trimmed_sample(self, criterion):
+        """Order selection scores every candidate on the rows left after trimming the largest
+        candidate, with the ML variance RSS/N. statsmodels' OLS `aic`/`bic` are -2 log L plus
+        the penalty, with log L at the ML variance; on one sample they differ from the
+        criterion only by a constant, so differences across orders must agree."""
+        import statsmodels.api as sm
+
+        from jnwb.connectivity import _granger_order_criteria
+
+        x, y = self._var3(11, 3, 120)
+        max_order = 6
+        got = _granger_order_criteria(x, y, [], max_order, 0.0, criterion)
+
+        want = []
+        for p in range(1, max_order + 1):
+            rows, target = [], []
+            for tr in range(x.shape[0]):
+                for t in range(max_order, x.shape[1]):
+                    rows.append([y[tr, t - j] for j in range(1, p + 1)]
+                                + [x[tr, t - j] for j in range(1, p + 1)])
+                    target.append(y[tr, t])
+            fit = sm.OLS(np.asarray(target), sm.add_constant(np.asarray(rows))).fit()
+            want.append(getattr(fit, criterion))
+        want = np.asarray(want)
+        np.testing.assert_allclose(got - got[0], want - want[0], rtol=0, atol=1e-8)
+
+    def test_auto_order_recovers_a_known_var_order(self):
+        x, y = self._var3(5, 10, 400)
+        result = granger(x, y, order="auto", criterion="bic", max_lag=8)
+        assert result.params["order_x_to_y"] == 3
+
+    def test_conditioning_on_a_common_driver_removes_a_spurious_lead(self):
+        """z drives x at lag 1 and y at lag 2, and x has no influence on y. Without z, the
+        past of x predicts y because it carries the past of z; with z in both models, the
+        x-to-y temporal-lag asymmetry disappears."""
+        rng = np.random.default_rng(8)
+        n_trials, n_times = 10, 400
+        z = rng.standard_normal((n_trials, n_times))
+        x = np.zeros_like(z)
+        y = np.zeros_like(z)
+        x[:, 1:] = 0.8 * z[:, :-1]
+        y[:, 2:] = 0.8 * z[:, :-2]
+        x += 0.5 * rng.standard_normal(x.shape)
+        y += 0.5 * rng.standard_normal(y.shape)
+
+        without = granger(x, y, order=3)
+        with_z = granger(x, y, order=3, Z=z)
+
+        assert without.p_x_to_y < 1e-10
+        assert without.x_to_y > 0.1
+        assert with_z.p_x_to_y > 0.01
+        assert with_z.x_to_y < 0.01
+        assert with_z.params["n_conditioning"] == 1
+
+
+class TestRowCodes:
+    """The row codes behind transfer entropy's joint states number distinct rows in
+    lexicographic order, the numbering `np.unique(axis=0)` gives."""
+
+    @staticmethod
+    def _reference(cols):
+        return np.unique(np.column_stack(cols), axis=0, return_inverse=True)[1].ravel()
+
+    def test_codes_equal_the_row_wise_unique_numbering(self):
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            n_cols = int(rng.integers(2, 6))
+            cols = [rng.integers(-3, int(rng.integers(1, 9)), size=3000) for _ in range(n_cols)]
+            np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+
+    def test_codes_are_exact_when_the_radix_product_overflows_int64(self):
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(1)
+        wide = [rng.integers(0, 2**40, size=500, dtype=np.int64) for _ in range(2)]
+        wide[0][:250] = wide[0][250:]  # repeated prefixes, so the second column orders them
+        np.testing.assert_array_equal(_codes(wide), self._reference(wide))
+
 
 
 class TestPhaseSlopeIndex:

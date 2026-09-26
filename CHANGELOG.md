@@ -62,6 +62,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `unit_census_report`: the warning for a default call on a frame with a `layer` column and no
   `depth_class` is a `UserWarning`, not a `FutureWarning`. It says the census is not split by
   depth, that `layer` is not read, and that `enrich_units_dataframe` supplies `depth_class`.
+- `granger(order="auto")` scores every candidate order on one sample, trimmed by the largest
+  candidate, with the maximum-likelihood residual variance `RSS / N` (Lütkepohl 2005, section
+  4.3). It used to divide by `N - k` and fit each order to its own sample, so candidates were
+  compared on different data. Selected orders, and the values computed at them, can change;
+  `granger_spectral(order="auto")` and `directed_connectivity`/`directed_network` with
+  `method="granger"` select through the same path. A fixed `order` is unaffected.
+- `transfer_entropy` numbers joint states through one integer key per row instead of a
+  row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
+  p-values and surrogate statistics.
 
 ### Removed
 
