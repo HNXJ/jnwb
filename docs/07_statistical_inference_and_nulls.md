@@ -12,12 +12,8 @@ Bootstrap intervals, permutations under a named exchangeability scheme, FDR cont
 
 Resampling functions that draw take `rng`; `exploratory_compare` and `exploratory_correlate`
 take none, and passing one raises `TypeError`. The global RNG state is never read or mutated.
-
-| Surface | Accepted `rng` |
-|---|---|
-| `StatisticalAnalysis` methods | an `int` seed, a `Generator`, or `None` for fresh entropy; omitted, the seed `42`. Other types raise `TypeError` when drawn from |
-| `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` | a `Generator` only |
-| `build_permutation_plan` | an `int` only |
+The `StatisticalAnalysis` methods default to the seed `42`. The values each function accepts are
+listed in [Operation Specifications](10_operation_specifications.md#1-rng-convention).
 
 ```python
 import numpy as np

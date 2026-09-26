@@ -498,8 +498,8 @@ def test_the_spec_page_does_not_document_zflip_fields_that_do_not_exist(field):
         "replaced by one that checks the documentation mentions it"
     )
     text = (ROOT / SPEC_PAGE).read_text(encoding="utf-8")
-    # A word match: `synth_phase_gradient` names a builder, not the field.
-    assert not re.search(rf"\b{field}\b", text), (
+    # Substring match, except after `synth_`: `synth_phase_gradient` names a builder.
+    assert not re.search(rf"(?<!synth_){field}", text), (
         f"the spec page documents ZFlipResult.{field}, which is not a field of the "
         f"result; "
         f"the live fields are {sorted(live)}"

@@ -16,11 +16,13 @@ Every operation added in 0.2 follows these conventions.
 
 ### 1. RNG Convention
 
-Functions consuming stochasticity take `rng`, and accept one of three sets of values:
+Functions consuming stochasticity take `rng`. What a function accepts depends on how it
+resolves `rng`, and the value is checked when the function first draws from it:
 
-| Accepted `rng` | Functions | Anything else |
+| Accepted `rng` | Functions | Other values |
 |---|---|---|
-| an `int` seed, a `np.random.Generator`, or `None` | every public function with an `rng` parameter not named below | `TypeError` once the function draws, a `float` seed included |
+| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `cluster_permutation_test`, `cross_area_coherence`, `exact_sign_flip`, `granger`, `granger_spectral`, `nested_cv_linear_svm`, `phase_slope_index`, `resample_onsets`, `transfer_entropy` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+| whatever `np.random.default_rng` takes: an `int` seed, a `Generator`, `None`, a `SeedSequence`, a bit generator, a list of ints, or a `bool` | `cross_modal_comparison`, `jrsa`, `shuffle_r2_ci`, `xflip`, `zflip` and the `testing.synth` builders | `TypeError` for a `float` |
 | a `np.random.Generator` only | `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` | `TypeError` from `permute_labels`; `AttributeError` from the other three |
 | an `int` only | `build_permutation_plan`, which records the integer seed of every draw | `TypeError` |
 
@@ -38,7 +40,13 @@ Functions consuming stochasticity take `rng`, and accept one of three sets of va
   local_rng = rng if isinstance(rng, np.random.Generator) else np.random.default_rng(rng)
   ```
 - **Prohibited**: Never call `np.random.seed()`, `random.seed()`, or manipulate global RNG state.
-- **Parallel Workers**: Before any worker starts, one child seed per iteration is spawned from the caller's generator: one integer drawn from `rng` seeds `np.random.SeedSequence(entropy).spawn(n_iterations)`. Each iteration's randomness is fixed by its index, not by the worker that runs it, so the result is identical at every `n_jobs`.
+- **Parallel Workers**: a result computed across workers is fixed by iteration index and identical at every `n_jobs`, because every draw an iteration needs is made from the caller's `rng` before any worker starts:
+
+| Function | Drawn from `rng` before the workers start |
+|---|---|
+| `cluster_permutation_test` | one child seed per permutation, from `jnwb._parallel.spawn_seeds`: one integer drawn from `rng` seeds `np.random.SeedSequence(entropy).spawn(n_permutations)` |
+| `jrsa` | one integer seed per permutation |
+| `cross_area_coherence` | every surrogate shift |
 
 ### 2. Device Convention
 - Functions with a `device` argument accept `device: str = "cpu"`, `"cuda"` or `"metal"`.
@@ -53,8 +61,8 @@ Functions consuming stochasticity take `rng`, and accept one of three sets of va
 - **Non-Identifiability**: When mathematically valid data fails to support an empirical fit (e.g. support score below threshold, diverging parameter optimization, zero variance across contacts), the function must **not raise an unhandled exception** and must **never return fabricated numbers or silently substitute fallbacks**. Instead, it returns an explicit structured state with `accepted=False`, boundary status flags, and `crossover_contact=None` or layer label `'na'`.
 
 ### 4. Structured Return Types
-- Complex multi-parameter estimators return dataclasses (e.g. `VFlipResult`, `AperiodicFitResult`, `DirectedResult`, `JRSAResult`).
-- To preserve backwards compatibility with tuple/dictionary unpacking and ensure serializability, structured return objects implement `.to_dict()` and standard mapping access (`__getitem__`). `JRSAResult` is the exception: it has neither, so read its fields as attributes (`result.value`, `result.p`).
+- Complex multi-parameter estimators return dataclasses (e.g. `VFlipResult`, `AperiodicFitResult`, `DirectedResult`, `JRSAResult`, `ComplexTFR`, `EventTable`).
+- `AperiodicFitResult`, `DirectedResult`, `VFlipResult`, `XFlipResult` and `ZFlipResult` implement `.to_dict()` and mapping access (`__getitem__`), so they unpack like the dictionaries they replaced and serialize. `ComplexTFR`, `EventTable`, `JRSAResult`, `ProbeGeometry` and `SynthLaminarReceipt` are attribute-only: read their fields as attributes (`result.value`, `result.p`).
 
 ### 5. Axis & Dimension Vocabulary
 - Array dimensions follow standard named tensor shapes:
