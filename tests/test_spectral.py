@@ -416,6 +416,16 @@ class TestAggregateToDb:
         with pytest.raises(ValueError, match="baseline contains negative"):
             aggregate_to_db(np.ones(3), -np.ones(3), how="mean_of_ratios")
 
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_a_zero_baseline_raises_as_relative_power_does(self, how, aggregate_over):
+        power = np.array([[2.0, 4.0]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            relative_power(power, baseline)
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=aggregate_over)
+
     def test_nan_policy_propagate_vs_omit(self):
         power = np.array([[2.0, np.nan]])
         baseline = np.ones((1, 2))

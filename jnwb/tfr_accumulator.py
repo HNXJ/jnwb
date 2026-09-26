@@ -220,13 +220,13 @@ class TFRAccumulator:
                 given, the trial's ``abs(z) ** 2 / baseline`` is added to :attr:`sum_ratio`
                 at the cells ``valid`` marks, so :meth:`mean_of_ratios` can form the
                 per-trial ratio mean without holding the trials. Either every trial carries
-                a baseline or none does. A zero or NaN baseline at a valid cell propagates
-                ``inf`` or NaN into that cell's mean, as ``aggregate_to_db`` does with
-                ``nan_policy="propagate"``.
+                a baseline or none does. A NaN baseline at a valid cell propagates NaN into
+                that cell's mean, as ``aggregate_to_db`` does with ``nan_policy="propagate"``.
 
         Raises:
             ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
-                neither a scalar nor of the accumulator's number of dimensions, not
+                zero at a cell ``valid`` marks, neither a scalar nor of the accumulator's
+                number of dimensions, not
                 broadcastable, or if this trial and earlier ones disagree on carrying a
                 baseline.
         """
@@ -252,6 +252,12 @@ class TFRAccumulator:
                 raise ValueError(
                     "baseline contains negative values, so it is not ratio-scale power; "
                     "decibels are never accumulated"
+                )
+            if np.any(valid & (b == 0)):
+                raise ValueError(
+                    "baseline is zero at a valid cell, so the ratio is infinite there; "
+                    "relative_power and aggregate_to_db refuse the same input. Mark those "
+                    "cells invalid with valid= instead."
                 )
             if self.sum_ratio is None and np.any(self.n > 0):
                 raise ValueError(

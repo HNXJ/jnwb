@@ -349,8 +349,9 @@ def aggregate_to_db(
         ValueError: if ``how`` or ``nan_policy`` is not recognised, if ``baseline`` is
             neither a scalar nor of ``power``'s number of dimensions (numpy would align a
             shorter one with the trailing axes, which puts a per-frequency baseline on the
-            time axis whenever the two counts are equal), or if any input is
-            negative. The negativity check is the dB-input tripwire: a ratio-scale power is
+            time axis whenever the two counts are equal), if ``baseline`` contains a zero
+            (the ratio would be infinite; :func:`relative_power` refuses it too), or if any
+            input is negative. The negativity check is the dB-input tripwire: a ratio-scale power is
             non-negative by definition, whereas decibel arrays routinely carry negative
             values, so passing decibels in here fails loudly instead of computing a plausible
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
@@ -403,6 +404,12 @@ def aggregate_to_db(
                 "are already decibels, do not aggregate them: pass the underlying power and "
                 "baseline and let this function take the logarithm last."
             )
+    if np.any(b == 0):
+        raise ValueError(
+            "baseline contains zero values, so the ratio is infinite there; relative_power "
+            "refuses the same input. Exclude those units, or set them to NaN and pass "
+            "nan_policy='omit'."
+        )
 
     mean = np.nanmean if nan_policy == "omit" else np.mean
     total = np.nansum if nan_policy == "omit" else np.sum

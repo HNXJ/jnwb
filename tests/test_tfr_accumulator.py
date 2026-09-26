@@ -314,6 +314,19 @@ class TestPerTrialRatios:
             acc.add_trial(_random_trials(1, (2, 2), seed=21)[0], baseline=bad)
         assert acc.sum_ratio is None and not acc.n.any()
 
+    def test_a_zero_baseline_raises_at_a_valid_cell_and_is_ignored_at_an_invalid_one(self):
+        z = _random_trials(1, (2, 2), seed=25)[0]
+        baseline = np.array([[1.0, 0.0], [2.0, 4.0]])
+        acc = TFRAccumulator((2, 2))
+        with pytest.raises(ValueError, match="zero at a valid cell"):
+            acc.add_trial(z, baseline=baseline)
+        assert acc.sum_ratio is None and not acc.n.any()
+
+        valid = np.array([[True, False], [True, True]])
+        acc.add_trial(z, valid=valid, baseline=baseline)
+        expected = np.where(valid, np.abs(z) ** 2 / np.where(valid, baseline, 1.0), np.nan)
+        np.testing.assert_allclose(acc.mean_of_ratios(), expected, rtol=1e-12)
+
     def test_a_baseline_of_fewer_dimensions_is_refused_when_the_counts_are_equal(self):
         """A per-frequency (n_freqs,) baseline would divide along time when n_freqs == n_times."""
         acc = TFRAccumulator((2, 3, 3))
