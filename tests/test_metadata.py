@@ -60,7 +60,12 @@ class TestDepthClassColumn:
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             units = get_all_units_metadata(paths)
-        assert [str(w.message) for w in record if "layer" in str(w.message)] == []
+        about_layer = [
+            str(w.message) for w in record
+            if issubclass(w.category, (FutureWarning, DeprecationWarning))
+            or "layer" in str(w.message)
+        ]
+        assert about_layer == []
         assert "layer" not in units.columns
         assert set(units["session_id"]) == {1, 2}
         # The synthetic units carry no peak channel, so the class is the honest 'Unknown'.
@@ -283,7 +288,7 @@ class TestUnitCensusReport:
     def test_a_default_call_on_a_frame_with_only_layer_warns_that_depth_is_not_split(self):
         units = _synthetic_units().drop(columns="depth_class")
         units["layer"] = ["Superficial", "Deep", "Superficial", "Deep"]
-        with pytest.warns(FutureWarning, match=r"'depth_class'.*'layer'"):
+        with pytest.warns(UserWarning, match=r"'depth_class'.*'layer' column is not read"):
             census = unit_census_report(units)
         assert "layer" not in census.columns
 

@@ -102,7 +102,7 @@ Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to u
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
 
-`jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. Neither function writes a `layer` column.
+`jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. None of these writes a `layer` column.
 
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 

@@ -59,11 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
   is unchanged.
+- `unit_census_report`: the warning for a default call on a frame with a `layer` column and no
+  `depth_class` is a `UserWarning`, not a `FutureWarning`. It says the census is not split by
+  depth, that `layer` is not read, and that `enrich_units_dataframe` supplies `depth_class`.
 
 ### Removed
 
-- **Breaking: the `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`,**
-  deprecated in 0.2.6. It was an exact copy of `depth_class`; read `depth_class` instead. Code
+- **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata` (breaking).**
+  Deprecated in 0.2.6, it was an exact copy of `depth_class`; read `depth_class` instead. Code
   that reads `layer` from their output now raises `KeyError`. The `FutureWarning` about it is
   gone, and a `layer` column already on the input is returned unchanged, where the electrode
   path used to overwrite it with the depth class.
