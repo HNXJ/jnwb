@@ -72,7 +72,6 @@ from __future__ import annotations
 import posixpath
 import sys
 import time
-import re
 from pathlib import Path
 
 import h5py
@@ -92,29 +91,9 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 # write corrects it.
 CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
 
-# The float32 cast is exactly `select=`; nothing in the conversion or its verification uses the
-# pattern below. It matches the LFP/MUAE datasets of the two known layouts (flat
-# `acquisition/probe_N_lfp/data`, or one extra `probe_N_lfp_data` level via a backreference),
-# directly under `acquisition/`, with `probe_N_lfp` a whole path segment, and not the
-# electrodes-region-index dataset nested inside the LFP group. `^` and `$` are redundant under
-# `fullmatch` and keep the anchoring if a call site switches to `search`.
-_LFP_MUAE_RE = re.compile(r"^acquisition/(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
-
-
-def _find_lfp_muae_paths(f: h5py.File) -> list[str]:
-    paths: list[str] = []
-
-    def w(name, obj):
-        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.fullmatch(name):
-            paths.append("/" + name)
-
-    f.visititems(w)
-    return sorted(set(paths))
-
-
 SPIKE_TRAIN_PATH = "processing/spike_train/spike_train_data/data"
 CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/data"
-# Verified identical across audited multi-session files unlike LFP/MUAE above,
+# Verified identical across audited multi-session files, unlike the LFP/MUAE layouts,
 # so these stay as constants -- but convert() asserts they exist rather than silently skipping,
 # so a fourth session with yet another convention fails LOUDLY instead of repeating the LFP bug.
 
