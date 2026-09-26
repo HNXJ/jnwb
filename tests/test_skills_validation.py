@@ -1806,12 +1806,27 @@ def test_the_router_has_the_form_contributing_states():
     _assert_form(text, _router_template(), "jnwb")
 
 
-def test_a_skill_missing_one_section_fails_the_form_check():
-    """The check above sees a deleted heading rather than passing on whatever is left."""
-    text = (SKILLS_DIR / "jnwb-statistics" / "SKILL.md").read_text(encoding="utf-8")
-    template = _skill_template()
-    lines = [line for line in text.splitlines() if not line.startswith("## ")]
-    kept = [f"## {n}. {name}" for n, name in enumerate(template[1:], start=1)]
-    with pytest.raises(AssertionError):
-        _assert_form("\n".join(lines + kept), template, "mutant")
+def _numbered(names: List[str], first: int = 1) -> str:
+    return "\n".join(f"## {n}. {name}" for n, name in enumerate(names, start=first))
 
+
+def test_the_form_check_accepts_the_template_and_ignores_fenced_headings():
+    template = _skill_template()
+    assert _assert_form(_numbered(template), template, "template") is None
+    fenced = "```\n## 1. Inside a fence\n```\n" + _numbered(template)
+    assert _assert_form(fenced, template, "fenced") is None
+
+
+@pytest.mark.parametrize("case", ["deleted", "swapped", "unnumbered", "misnumbered", "renamed"])
+def test_a_skill_off_the_template_fails_the_form_check(case):
+    """Each case keeps the section count or the names intact, so no weaker check passes them all."""
+    template = _skill_template()
+    text = {
+        "deleted": _numbered(template[1:]),
+        "swapped": _numbered([template[1], template[0]] + template[2:]),
+        "unnumbered": _numbered(template).replace("## 1. ", "## ", 1),
+        "misnumbered": _numbered(template, first=2),
+        "renamed": _numbered(template[:-1] + [template[-1] + " notes"]),
+    }[case]
+    with pytest.raises(AssertionError):
+        _assert_form(text, template, case)
