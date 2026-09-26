@@ -46,7 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 1 | 07-06, 07-07, 07-08, 07-09 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
+| 1 | 07-07, 07-08, 07-09 (skill architecture and the preflight), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
 | 2b | 07-14, 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
@@ -269,7 +269,6 @@ predicate if they reproduce, and go first.
 - IB-30: the live harness runs twice in the suite (`tests/test_every_gate_runs.py:55`, `tests/test_harness_adversarial_gates.py:307`, about 5 s each on six legs) and again in the build job. Check: keep one live-tree run.
 - IB-31: the two slowest tests take 25.6 s and 22.4 s (`test_rng_convention_matches_the_signatures.py[cross_modal_comparison]`, `test_api_md_is_interpreter_independent.py`), about 20% of the parallel wall time. Check: shrink the entropy test's input.
 - IB-32: `scripts/measure_agents_md_duplication.py:37-52` reads gitignored `.claude/agents/*.md`, present on one machine, and skips `docs/agents.md`, where the skill table already differs from `AGENTS.md` section 7 in three rows. Check: tracked files only, including `docs/agents.md`.
-- IB-34: the router calls itself a "memory bank" and sends readers to `AGENTS.md` for agent pitfalls that live in `docs/common_mistakes.md`; `jnwb-landmark-viz` lacks the routing, invariants and doc-link sections of the other domain skills, and its layout constants disagree with `jnwb/vis/canvas.py:226-267`. Check: the shared template of 07-06.
 - IB-35: `skills/jnwb-connectivity/SKILL.md:50` cites `docs/common_mistakes.md` section 7 for a narrow-band PSI (`net=-2.1e-05`), while that section reports `nan` for the same case at another signal length. Check: one receipt with a stated length, cited by both.
 - IB-36: `CONTRIBUTING.md:111,205,347` states the docs-and-skills lockstep rule three times. Check: keep one.
 - IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
@@ -316,26 +315,6 @@ Accept: a test per outcome in (a); a round-trip test in (b) that writes a result
 re-opens the same file by path and hash; Gate 6 passes.
 Stop: anything that names a study, a paradigm or a DANDI id in `jnwb/`, `skills/` or `docs/`.
 
-### 07-06 One template for every skill, held by a test
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `CONTRIBUTING.md`, `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
-Plan step 1, first bullet. Reproduced at `dcb75f12`: `CONTRIBUTING.md:230-241` already names the
-sections (trigger, routing, invariants, minimal workflow, verification, documentation), but no test
-holds a skill to them; the checks listed at `CONTRIBUTING.md:260-274` cover frontmatter, symbols,
-signatures, defaults and links. `skills/jnwb-landmark-viz/SKILL.md` has five of the six sections (no
-Documentation), and the router `skills/jnwb/SKILL.md` has seven differently named ones.
-`CONTRIBUTING.md:276` still calls the four-outcome routing tests planned for 0.2.7, though
-`tests/test_skill_decline_behaviour.py` runs them. IB-34 of 07-03 is the router and
-`jnwb-landmark-viz` half of the same defect and closes with this item.
-Discriminator: deleting one section heading from a domain skill fails the new test; restoring it,
-verified by hash, passes.
-Accept: every domain skill carries the template's sections in order; the router's own form is stated
-once in `CONTRIBUTING.md` and checked; the stale planned-for-0.2.7 sentence is gone; each
-observation of IB-34 is repaired or shown false.
-Stop: the template needs a section the plan does not name.
-
 ### 07-07 The analysis preflight is a public API
 
 Release: deferred-0.2.7.
@@ -368,7 +347,7 @@ or `docs/`.
 ### 07-08 The router composes the minimal skill set a task needs
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb. Blocked by: 07-06.
+Role: jnwb-developer. Skill: jnwb. Blocked by: none.
 Writes: `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`.
 Plan step 1, second bullet. Reproduced at `dcb75f12`: section 2 of the router
 (`skills/jnwb/SKILL.md:11-23`) maps each task phrase to one skill, so a task spanning several
@@ -402,7 +381,7 @@ Stop: a chain is wrong today and its repair needs a path outside `Writes`.
 ### 07-10 `jnwb-paradigm`: experiment structure, timing and condition semantics
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 07-06.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Reads: `artifacts/fact_stack.md` (skill creation is capability-gated), `docs/errors.md` (the waived-requirements table).
 Writes: `skills/jnwb-paradigm/SKILL.md`, `skills/jnwb-paradigm/agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `AGENTS.md`, `docs/agents.md`.
 Plan step 2, first bullet. Reproduced at `dcb75f12`: no `skills/jnwb-paradigm/` exists and
@@ -414,7 +393,7 @@ missingness ruling, was ruled on 2026-09-22 (event flag) and is implemented:
 `jnwb_waived_requirements` is in `jnwb/nwb_io.py` and `docs/errors.md`. Condition meaning comes from
 explicit metadata first and structural inference last; an undocumented code is reported, never
 named.
-Accept: the skill meets the template of 07-06 and all four outcomes in
+Accept: the skill meets the template in `CONTRIBUTING.md` and all four outcomes in
 `tests/test_skill_decline_behaviour.py`, with an undocumented condition code as its decline case;
 each row it takes over leaves `jnwb-nwb-data`; its router row and its `AGENTS.md` section 7 row
 exist; Gate 2 and Gate 6 pass.
@@ -424,14 +403,14 @@ skill.
 ### 07-11 `jnwb-qc`: independent scientific and output QC
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 07-06.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Reads: `artifacts/fact_stack.md` (skill creation is capability-gated).
 Writes: `skills/jnwb-qc/SKILL.md`, `skills/jnwb-qc/agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `AGENTS.md`, `docs/agents.md`.
 Plan step 2, second bullet. Reproduced at `dcb75f12`: no `skills/jnwb-qc/` exists; `visual_qc` is
 routed from `skills/jnwb-figures/SKILL.md:18` and `audit_units` and `audit_electrodes` from
 `skills/jnwb-nwb-data/SKILL.md:71`, while `Result`, `Provenance` and `Lineage` are named by no
 skill. The split makes the skill that draws a figure a different one from the skill that judges it.
-Accept: the skill meets the template of 07-06 and all four outcomes in
+Accept: the skill meets the template in `CONTRIBUTING.md` and all four outcomes in
 `tests/test_skill_decline_behaviour.py`; `visual_qc`, `audit_units`, `audit_electrodes`, `Result`,
 `Provenance` and `Lineage` each have one routing row, in this skill only; its router row and its
 `AGENTS.md` section 7 row exist; Gate 2 passes.
@@ -534,7 +513,7 @@ Stop: a `layer` column supplied on input would be dropped or rewritten.
 ### 07-18 Skill examples run in the suite
 
 Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-06.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/*/SKILL.md`, `tests/test_skill_examples_execute.py`.
 Deferred 06-26. Reproduced at `dcb75f12`: no test executes a `SKILL.md` example block (the two
 example tests, `tests/test_examples_quickstart.py` and `tests/test_open_data_example.py`, read no
