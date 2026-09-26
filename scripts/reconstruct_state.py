@@ -13,11 +13,16 @@ disappears rather than lingering.
     python scripts/reconstruct_state.py --check     # exit 1 if the file is stale
 
 `--check` is what `AGENTS.md` section 3 Prepare runs before reading the file, and what
-`tests/test_state_basis_is_checked.py` runs on every suite run. No harness gate calls it, and
-the prose this script emits must keep saying so: P-65 is what happened when it claimed
-otherwise. Staleness is HEAD having moved since the file was written, so that is all it
-compares: a full-text comparison would fail on every uncommitted edit, and a check that fails
-all day is one people stop running. It runs no probes and no gate.
+`tests/test_state_basis_is_checked.py` runs on every suite run. Harness gate 20 makes the same
+comparison through `recorded_head` whenever the file is present; it never regenerates, because
+this script runs the harness, and the prose this script emits must say exactly that much: P-65
+is what happened when it claimed more. Staleness is HEAD having moved since the file was
+written, so that is all it compares: a full-text comparison would fail on every uncommitted
+edit, and a check that fails all day is one people stop running. It runs no probes and no gate.
+
+Writing removes the previous file before building the new one. The build runs the harness,
+and gate 20 would otherwise read the file being replaced, fail on its old HEAD, and record that
+failure in the file that replaces it.
 """
 
 from __future__ import annotations
@@ -127,10 +132,9 @@ def build() -> str:
 The `state` slot of `X = {{goal, state, fact, problem, todo}}`: verified mutable truth about
 this working tree. Regenerate with `python scripts/reconstruct_state.py`; `--check` compares the
 HEAD recorded below against the live one and exits 1 when they differ, and the suite runs that
-same comparison whenever this file is present. Gate 15 resolves this file's entry in
-`GENERATED_FROM` -- it checks that the generator named above still exists, and deliberately does
-not require the file itself, which is untracked. So nothing mechanical reads the *contents*
-below, and a copy nobody has regenerated since HEAD moved still reads like a current one.
+same comparison whenever this file is present, as does harness gate 20. Gate 20 reads only the
+HEAD row, and passes when the file is absent, which is correct for an untracked file. Nothing
+mechanical reads the other rows below: they are as current as that HEAD, and no more.
 
 Every value here is `observed` -- a command and its output, re-resolved on each run. Nothing is
 transcribed and nothing survives a regeneration that stops being true. This file is not
@@ -204,6 +208,8 @@ def main() -> int:
 
     if not args.check:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # build() runs the harness; see the module docstring for why the old file goes first.
+        STATE_PATH.unlink(missing_ok=True)
         STATE_PATH.write_text(build(), encoding="utf-8", newline="\n")
         print(f"wrote {STATE_PATH.relative_to(REPO_ROOT)}")
         return 0
