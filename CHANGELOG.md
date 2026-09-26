@@ -103,6 +103,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination, whose shape differs from the source's, or that is absent from the source. It fails
   a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
   source; it skipped that group and could return `ok=True` with its timestamps never checked.
+- `jrsa`: an input with no samples left on the last axis, as when `nan_policy="omit"` drops
+  every sample because one condition is NaN throughout, raises `ValueError` naming the metric
+  and that condition for every metric. `hsic`, `mutual_information` and
+  `transfer_entropy_histogram_nats` returned 0.0 computed from zero samples, six metrics
+  returned NaN and five raised unrelated errors.
 
 ## [0.2.6.1] - 2026-09-25
 

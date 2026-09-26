@@ -19,6 +19,24 @@ def test_jrsa_nan_omission_paired():
     assert np.allclose(res.aligned_x2, np.array([10.0, 40.0, 50.0]))
 
 
+def _all_metrics():
+    from jnwb.jrsa import _METRIC_DISPATCH
+    return sorted(_METRIC_DISPATCH)
+
+
+@pytest.mark.parametrize("metric", _all_metrics())
+def test_jrsa_omit_leaving_no_samples_raises_for_every_metric(metric):
+    """A condition that is NaN throughout makes `omit` drop every sample. hsic,
+    mutual_information and transfer_entropy_histogram_nats returned 0.0 from zero samples,
+    others NaN or an unrelated error; every metric must raise and say why."""
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(6, 40))
+    x2 = rng.normal(size=(6, 40))
+    x1[2, :] = np.nan
+    with pytest.raises(ValueError, match=rf"metric='{metric}'.*no samples remain.*\(2,\)"):
+        oa.jrsa(x1, x2, metric=metric, stats=False, nan_policy="omit")
+
+
 def test_jrsa_preprocessing_conflict_warning():
     """Verify that simultaneous normalize=True and standardize=True raises a warning."""
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])

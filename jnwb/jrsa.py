@@ -227,7 +227,8 @@ def jrsa(
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
-        omit | raise | propagate.
+        omit | raise | propagate. ``'omit'`` drops every sample of the last axis that is NaN
+        in any condition. An input with no samples left raises ValueError for every metric.
     stats : bool
         Compute inferential statistics.
     permutations : int
@@ -454,7 +455,7 @@ def jrsa(
     bk = _get_backend(backend, resolved_device)
 
     x1, x2 = _prepare_inputs(x1, x2, bk)
-    x1, x2 = _validate_inputs(x1, x2, nan_policy)
+    x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
     x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
     x1, x2, aligned_axes = _align_dimensions(
         x1, x2, axis_map, align, align_mode, verbose
@@ -690,9 +691,10 @@ def _prepare_inputs(x1, x2, backend_ctx: dict):
     return x1, x2
 
 
-def _validate_inputs(x1, x2, nan_policy: str):
+def _validate_inputs(x1, x2, nan_policy: str, metric=None):
     """Shape checks and NaN handling on both CPU and GPU namespaces."""
     xp1 = _get_xp(x1)
+    n_before = x1.shape[-1] if x1.ndim >= 1 else 0
     if x1.ndim < 1:
         raise ValueError("x1 must have at least 1 dimension.")
     if nan_policy == "raise" and xp1.any(xp1.isnan(x1)):
@@ -742,6 +744,27 @@ def _validate_inputs(x1, x2, nan_policy: str):
             valid_indices = xp1.where(~any_nan)[0]
             x1 = xp1.take(x1, valid_indices, axis=-1)
     # propagate: do nothing, let downstream handle
+    # No samples left -- an empty input, or `omit` dropping every sample because some condition
+    # is NaN throughout. The metrics disagreed here: hsic, mutual_information and
+    # transfer_entropy_histogram_nats returned 0.0 computed from nothing, which reads as "no
+    # dependence", six others returned NaN and five raised. Every metric now raises.
+    if x1.shape[-1] == 0:
+        detail = ""
+        if nan_policy == "omit" and n_before > 0:
+            empty = [] if x1.ndim < 2 else sorted(
+                tuple(int(i) for i in idx)
+                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=-1))
+            )
+            detail = (
+                f" nan_policy='omit' dropped every sample, because each one is NaN in at least "
+                f"one condition"
+                + (f"; condition(s) {empty} of the leading axes are NaN throughout" if empty else "")
+                + "."
+            )
+        raise ValueError(
+            f"jrsa(metric={metric!r}): no samples remain along the last axis, so the metric "
+            f"has nothing to compute from.{detail}"
+        )
     return x1, x2
 
 

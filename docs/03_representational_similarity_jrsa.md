@@ -142,7 +142,7 @@ Each call forms its own permutation null, so correct the per-window p-values tog
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
-- **Missing data (`nan_policy`)**: `"omit"` drops every last-axis sample that is `NaN` anywhere in either input, so a condition with no trials leaves nothing: `"pearson"` and `"spearman"` raise `ValueError`; `"cka"` and `"rsa"` return `NaN`.
+- **Missing data (`nan_policy`)**: `nan_policy="omit"` drops each last-axis sample that is `NaN` in any condition; if none remain, every metric raises `ValueError`.
 - **Preprocessing**: standardizing each condition's pattern before correlation-distance RSA changes nothing, because correlation centers and scales each pattern itself. Z-scoring each feature across conditions does change the RDM.
 
 ---
