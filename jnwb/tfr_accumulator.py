@@ -14,8 +14,9 @@ In memory the accumulators are float64 and complex128. ``write`` halves that on 
 disk -- ``mean``, ``M2`` and ``sum_ratio`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
 int32 -- so a summary that has been through HDF5 carries single-precision sufficient
 statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
-Assigning a read-back array to an accumulator casts it to float64/complex128, so trials added
-after a reload accumulate at full precision.
+Assigning a read-back array to an accumulator casts it to float64/complex128, and ``n`` to
+int64, so trials added after a reload accumulate at full precision and a merge of reloaded
+groups does not overflow the int32 product of their counts.
 The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
 the binding cost. Nothing here promised otherwise, but nothing said it either.
 """
@@ -179,7 +180,8 @@ class TFRAccumulator:
         self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
     # The other accumulators cast on assignment as `mean` does, so a summary read back from
-    # `write`'s float32/complex64 datasets keeps accumulating in float64/complex128.
+    # `write`'s int32/float32/complex64 datasets keeps accumulating in int64/float64/complex128.
+    # An int32 `n` would overflow `self.n * other.n` in `merge` from n = 46341.
     def _stored(name: str, dtype, optional: bool = False):
         attr = "_" + name
 
@@ -194,6 +196,7 @@ class TFRAccumulator:
 
         return property(fget, fset)
 
+    n = _stored("n", np.int64)
     M2 = _stored("M2", np.float64)
     sum_z = _stored("sum_z", np.complex128)
     sum_unit_z = _stored("sum_unit_z", np.complex128)

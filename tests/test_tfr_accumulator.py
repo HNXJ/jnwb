@@ -481,17 +481,42 @@ class TestWriteRoundTrip:
             stored = {name: f["g"][name][:] for name in f["g"]}
         for name, value in stored.items():
             setattr(restored, name, value)
-        restored.add_trial(trials[3], baseline=baselines[3])
+        z = trials[3]
+        restored.add_trial(z, baseline=baselines[3])
 
-        for name, dtype in (("M2", np.float64), ("sum_z", np.complex128),
-                            ("sum_unit_z", np.complex128), ("sum_ratio", np.float64)):
-            assert getattr(restored, name).dtype == dtype, name
+        # The same update formed in double precision from the stored values. A float32
+        # accumulator rounds each sum near 6e-8 relative, far outside rtol=1e-12.
+        p = np.abs(z) ** 2
+        n1 = stored["n"].astype(np.int64) + 1
+        delta = p - stored["mean"].astype(np.float64)
+        mean1 = stored["mean"].astype(np.float64) + delta / n1
         np.testing.assert_allclose(
-            restored.sum_ratio,
-            stored["sum_ratio"].astype(np.float64) + np.abs(trials[3]) ** 2 / baselines[3],
+            restored.M2, stored["M2"].astype(np.float64) + delta * (p - mean1), rtol=1e-12)
+        np.testing.assert_allclose(
+            restored.sum_unit_z, stored["sum_unit_z"].astype(np.complex128) + z / np.abs(z),
             rtol=1e-12)
         np.testing.assert_allclose(
-            restored.sum_z, stored["sum_z"].astype(np.complex128) + trials[3], rtol=1e-12)
+            restored.sum_ratio, stored["sum_ratio"].astype(np.float64) + p / baselines[3],
+            rtol=1e-12)
+        np.testing.assert_allclose(
+            restored.sum_z, stored["sum_z"].astype(np.complex128) + z, rtol=1e-12)
+        for name, dtype in (("n", np.int64), ("M2", np.float64), ("sum_z", np.complex128),
+                            ("sum_unit_z", np.complex128), ("sum_ratio", np.float64)):
+            assert getattr(restored, name).dtype == dtype, name
+
+    def test_merging_reloaded_counts_does_not_overflow_int32(self):
+        """write() stores n as int32; merge multiplies the two counts, 50000**2 > 2**31."""
+        count = 50_000
+        a, b = TFRAccumulator((1,)), TFRAccumulator((1,))
+        for acc, mean, m2 in ((a, 2.0, 3.0), (b, 5.0, 7.0)):
+            acc.n = np.array([count], np.int32)
+            acc.mean = np.array([mean], np.float32)
+            acc.M2 = np.array([m2], np.float32)
+        merged = a.merge(b)
+        # Chan et al. with int64 counts: M2a + M2b + delta**2 * na * nb / (na + nb).
+        expected = 3.0 + 7.0 + 3.0**2 * (count * count) / (2 * count)
+        np.testing.assert_allclose(merged.M2, [expected], rtol=1e-12)
+        assert merged.n.dtype == np.int64 and merged.n[0] == 2 * count
 
     def test_an_integer_trial_is_cast_before_any_state_changes(self):
         shape = (2, 3)

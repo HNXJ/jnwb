@@ -106,6 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
   integer `z` to complex128 before any state changes; it raised after the running mean had
   taken the trial.
+- `TFRAccumulator`: assigning `n` casts to int64. `write` stores `n` as int32, and `merge` of
+  two reloaded accumulators multiplied the counts in int32, which overflows from 46341 trials
+  per cell and returned a wrong `M2` without an error.
 - `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
 - `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
   `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these
