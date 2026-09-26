@@ -69,6 +69,75 @@ jobs:
         run: |
           pytest -v -n auto tests/
 
+  test-floors:
+    # The matrix legs install the newest release of every dependency, so the `>=` floors in
+    # pyproject.toml are claims no other leg exercises. This leg resolves each core dependency
+    # to the lowest release that installs alongside the others, on the floor interpreter, and
+    # runs the suite there. A floor that resolves higher is named with a warning.
+    #
+    # continue-on-error keeps a floor failure from turning every run red while the floors are
+    # being settled. The job still concludes failure, and scripts/release_gate.py requires
+    # every unconditional job to succeed, so a failing floor still blocks a release.
+    name: Test (dependency floors, Python 3.12 on ubuntu-latest)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    env:
+      FLOOR_PYTHON: "3.12"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.FLOOR_PYTHON }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.FLOOR_PYTHON }}
+
+      - name: Resolve the declared floors
+        # The floors are read with scripts/release_gate.py's parser rather than a second one.
+        # Only the core dependencies are pinned; the test tooling resolves around them.
+        run: |
+          python -m pip install --upgrade pip uv
+          python - <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = [(name, floor) for extra, name, floor in declared_dependency_floors() if not extra]
+          pathlib.Path('/tmp/floors.in').write_text(''.join(f'{n}>={f}\n' for n, f in core))
+          PY
+          uv pip compile --python-version "$FLOOR_PYTHON" --resolution lowest-direct \
+            /tmp/floors.in -o /tmp/floors.lock
+          python - <<'PY'
+          import re, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = {n.lower(): f for extra, n, f in declared_dependency_floors() if not extra}
+          pins = {}
+          for line in open('/tmp/floors.lock'):
+              m = re.match(r'([A-Za-z0-9_.\-]+)==(\S+)', line)
+              if m and m.group(1).lower() in core:
+                  pins[m.group(1).lower()] = m.group(2)
+          missing = sorted(set(core) - set(pins))
+          if missing:
+              sys.exit(f'no resolved version for {missing}')
+          with open('/tmp/floors.txt', 'w') as out:
+              for name in sorted(pins):
+                  out.write(f'{name}=={pins[name]}\n')
+                  print(f'{name}: declared >={core[name]}, installed {pins[name]}')
+                  if pins[name] != core[name]:
+                      print(f'::warning::{name}>={core[name]} resolves to {pins[name]} beside the '
+                            f'other floors, so the declared floor itself is not tested')
+          PY
+
+      - name: Install dependencies at the floors
+        run: |
+          python -m pip install ".[test,docs,vis]" -c /tmp/floors.txt
+          python -m pip list
+
+      - name: Run pytest
+        run: |
+          pytest -v -n auto tests/
+
   build:
     name: Build & Validate Distribution
     needs: test

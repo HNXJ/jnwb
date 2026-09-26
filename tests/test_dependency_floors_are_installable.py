@@ -205,6 +205,24 @@ def test_the_gate_actually_runs_the_floor_check_before_it_builds_anything() -> N
     assert checked_at < min(built_at), "the floors are checked after the build"
 
 
+def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> None:
+    """Installable is not tested. The matrix legs install the newest releases, so without
+    this leg a floor is a claim no run exercises."""
+    yaml = pytest.importorskip("yaml")
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"]["test-floors"]
+    assert "if" not in job, "a conditional job is not required by the release gate"
+    with open(ROOT / "pyproject.toml", "rb") as fh:
+        declared = tomllib.load(fh)["project"]["requires-python"]
+    floor = re.search(r">=\s*(\d+\.\d+)", declared).group(1)
+    assert str(job["env"]["FLOOR_PYTHON"]) == floor
+    body = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    for required in ["declared_dependency_floors", "--resolution lowest-direct",
+                     "-c /tmp/floors.txt", "pytest"]:
+        assert required in body, f"the floors leg no longer contains {required!r}"
+
+
 def test_the_scipy_floor_covers_the_scipy_api_this_package_calls() -> None:
     """`scipy.stats.false_discovery_control` arrived in 1.11. The floor said 1.8.0.
 
