@@ -434,7 +434,8 @@ def preflight(question: Question) -> Preflight:
        the unsupported inference; jnwb holds no list of claims.
     2. ``"request"`` when any of ``signals``, ``signal_units``, ``contrast`` or
        ``inference_unit`` is empty, a signal name in ``signals`` is blank, or a signal in
-       ``signals`` has no entry in ``signal_units``. ``missing`` names each: a field by its
+       ``signals`` has no unit in ``signal_units`` (no entry, a blank string or ``None``).
+       ``missing`` names each: a field by its
        name, a blank signal name by its position as ``signals[<index>]``, an absent unit as
        ``signal_units[<repr of the signal>]``, once per signal.
     3. ``"failure"`` when ``question.non_identifiable`` is stated: the caller declares
@@ -460,7 +461,7 @@ def preflight(question: Question) -> Preflight:
     ------
     TypeError
         If ``question`` is not a ``Question``, ``signals`` is a string, ``signal_units`` is
-        not a dict or holds a unit that is not a string, or ``unsupported_inference`` or
+        not a dict or holds a unit that is neither a string nor ``None``, or ``unsupported_inference`` or
         ``non_identifiable`` is not a string.
     """
     if not isinstance(question, Question):
@@ -476,7 +477,7 @@ def preflight(question: Question) -> Preflight:
         if not isinstance(getattr(question, name), str):
             raise TypeError(f"{name} is a string; got {type(getattr(question, name)).__name__}")
     for signal, unit in question.signal_units.items():
-        if not isinstance(unit, str):
+        if unit is not None and not isinstance(unit, str):
             raise TypeError(
                 f"signal_units[{signal!r}] is a unit string, e.g. 'V'; got {type(unit).__name__}"
             )

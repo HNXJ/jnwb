@@ -459,6 +459,10 @@ class TestPreflightIsThePublicCheck:
         pf = jnwb.preflight(_plan(signals=["lfp", "  "], signal_units={"lfp": "V", "  ": "V"}))
         assert (pf.outcome, pf.missing) == ("request", ("signals[1]",))
 
+    def test_a_none_unit_is_not_stated(self):
+        pf = jnwb.preflight(_plan(signal_units={"spike_times": "s", "lfp": None}))
+        assert (pf.outcome, pf.missing) == ("request", ("signal_units['lfp']",))
+
     def test_a_unit_that_is_not_a_string_raises(self):
         with pytest.raises(TypeError, match=r"signal_units\['lfp'\] is a unit string"):
             jnwb.preflight(_plan(signal_units={"spike_times": "s", "lfp": 1e-6}))
