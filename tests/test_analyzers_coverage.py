@@ -279,6 +279,11 @@ class TestPopulationAnalyzerNetwork(unittest.TestCase):
         self.assertEqual(result['n_edges'], topology['n_edges'] // 2)
         self.assertEqual(result['degree_distribution'], topology['in_degrees'])
 
+    def test_a_complex_entry_is_thresholded_on_its_modulus(self):
+        corr = np.array([[1, 0.1 + 0.9j], [0.1 - 0.9j, 1]])
+        result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], 1)
+
     def test_a_nan_entry_raises_rather_than_reading_as_no_edge(self):
         corr = np.eye(4)
         corr[0, 1] = corr[1, 0] = np.nan

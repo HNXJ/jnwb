@@ -92,8 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through `filter_by_criteria`; the counts for present columns are unchanged.
 - `PopulationAnalyzer.network_connectivity` computes the graph through `network_topology` and
   so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
-  diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix
-  are unchanged.
+  diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix,
+  complex ones included, are unchanged.
 
 ### Deprecated
 
