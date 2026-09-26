@@ -664,10 +664,12 @@ def verify_roundtrip(
             if path not in d:
                 continue
             n = min(n_check, s[path].shape[0])
-            raw = s[path][:n]
-            conv = d[path][:n].astype(np.float64)
-            err = float(np.max(np.abs(raw - conv)))
-            rec(f"{path} first {n} rows max abs err", err < 1e-3, f"{err:.6e}")
+            # A cast is deterministic, so the destination must equal it exactly. An absolute
+            # tolerance passed a zeroed destination at volt scale and failed a correct cast
+            # whose float32 spacing exceeded it.
+            expected = s[path][:n].astype(np.float32)
+            eq = np.array_equal(d[path][:n], expected, equal_nan=True)
+            rec(f"{path} first {n} rows equal the float32 cast", eq, "exact" if eq else "MISMATCH")
 
         if SPIKE_TRAIN_PATH in s and SPIKE_TRAIN_PATH in d:
             n = min(n_check, s[SPIKE_TRAIN_PATH].shape[0])

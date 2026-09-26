@@ -90,6 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback reuses the shifts already drawn, so p equals a CPU run under the same seed and a
   caller's generator advances once. Before, the fallback drew new shifts from the advanced
   generator.
+- `jnwb.compression.verify_roundtrip` (and so `compress_fp32(verify=True)`) requires each cast
+  dataset to equal `source.astype(float32)` exactly. It accepted any destination within an
+  absolute 1e-3, so a zeroed destination passed at volt scale and a correct cast near 5e4, where
+  the float32 spacing is 3.9e-3, failed.
 
 ## [0.2.6.1] - 2026-09-25
 

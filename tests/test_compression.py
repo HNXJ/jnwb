@@ -203,6 +203,49 @@ class TestVerifyRoundtripDoesNotDisableWarnings:
             verify_roundtrip(tmp_path / "a.h5", tmp_path / "b.h5")
 
 
+def _cast_pair(tmp_path, src_data, dst_data):
+    """A source holding ``src_data`` at LFP and a destination holding ``dst_data`` there."""
+    src = tmp_path / "src.h5"
+    dst = tmp_path / "dst.h5"
+    with h5py.File(src, "w") as f:
+        f.create_dataset(LFP, data=src_data)
+    with h5py.File(dst, "w") as f:
+        f.create_dataset(LFP, data=dst_data)
+    return src, dst
+
+
+def _cast_checks(result):
+    return [c for c in result["checks"] if c["name"].startswith(LFP)]
+
+
+class TestVerifyRoundtripChecksTheCast:
+    """A float32 cast is deterministic, so the destination must equal ``source.astype(float32)``.
+
+    An absolute tolerance passes whatever lies inside it: at volt scale a zeroed destination is
+    within 1e-3 of every sample, and near 5e4 the float32 spacing is 3.9e-3, so a correct cast
+    exceeds it.
+    """
+
+    def test_a_zeroed_destination_at_volt_scale_fails(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = np.random.default_rng(5).normal(0.0, 1e-4, size=(500, 3))
+        assert np.max(np.abs(raw)) < 1e-3, "the fixture must sit inside the old tolerance"
+        src, dst = _cast_pair(tmp_path, raw, np.zeros_like(raw, dtype=np.float32))
+        checks = _cast_checks(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]))
+        assert len(checks) == 1 and checks[0]["ok"] is False, checks
+
+    def test_a_correct_cast_near_5e4_passes(self, tmp_path):
+        from jnwb.compression import verify_roundtrip
+
+        raw = 5e4 + np.random.default_rng(6).uniform(0.0, 1.0, size=(500, 3))
+        cast = raw.astype(np.float32)
+        assert np.max(np.abs(raw - cast)) > 1e-3, "the fixture must exceed the old tolerance"
+        src, dst = _cast_pair(tmp_path, raw, cast)
+        checks = _cast_checks(verify_roundtrip(src, dst, collapsed=[], cast=[LFP]))
+        assert len(checks) == 1 and checks[0]["ok"] is True, checks
+
+
 # --------------------------------------------------------------------------------------------
 # 06-79 / P-47: the chunk shape must follow the dataset's rank.
 # --------------------------------------------------------------------------------------------
