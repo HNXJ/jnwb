@@ -285,6 +285,8 @@ predicate if they reproduce, and go first.
 - IB-74: `XFlipResult.boundaries` and `block_bounds` hold `np.int64`, so `json.dump` of the result fails. Check: plain ints, with a round-trip test through `to_dict()` and `json`.
 - IB-75: `zflip(rng=None)` draws fresh entropy and `ZFlipResult` records no seed, so the result alone cannot reproduce p; `xflip` now records `surrogate_seed_entropy`. Check: the same field on `ZFlipResult`, with a reproduction test. Graded highly recommended (80).
 - IB-76: `connectivity._surrogate_rng` is retyped in `jnwb/laminar.py` and `jnwb/spectral.py` (invariant 7). Check: one helper in `jnwb/_rng.py` called from all three, outputs unchanged.
+- IB-77: `nested_cv_linear_svm(rng=None)` now draws a fresh seed, and its result records none, so such a run cannot be reproduced from the result (invariant 5: report what was used). Check: a recorded seed in the result, with a reproduction test; an additive result key.
+- IB-78: `jrsa`'s `transfer_entropy_histogram_nats` and `mutual_information` flatten the whole array, so for multi-row input transfer entropy counts row-to-row joins as time transitions. Check: compute per row and combine, or refuse multi-row input, with a test that a join between rows is not counted.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
