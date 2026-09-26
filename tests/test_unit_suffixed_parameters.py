@@ -40,6 +40,9 @@ def _assert_metrics_equal(a, b):
         x, y = a[key], b[key]
         if isinstance(x, float) and isinstance(y, float) and np.isnan(x) and np.isnan(y):
             continue
+        if isinstance(x, np.ndarray) or isinstance(y, np.ndarray):  # the per-trial rates
+            assert np.array_equal(x, y), f"{key}: {x!r} != {y!r}"
+            continue
         assert x == y, f"{key}: {x!r} != {y!r}"
 
 

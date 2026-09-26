@@ -34,10 +34,11 @@ bins are right-open, which is why a spike on a bin edge falls in the later bin.
 ### Response Metrics & Significance Classification
 
 ```python
-# Returns baseline_rate, response_rate, response_count, response_zscore, latency
-# and n_trials. The windows are in SECONDS, as their names say; raster_psth(win_ms=)
-# above is in milliseconds, and both take a float 2-tuple, so the suffix is the
-# only guard against a factor of 1000.
+# Returns baseline_rate, response_rate, response_count, response_zscore, latency,
+# n_trials, the per-trial rates and counts of each window, and the window lengths.
+# The windows are in SECONDS, as their names say; raster_psth(win_ms=) above is in
+# milliseconds, and both take a float 2-tuple, so the suffix is the only guard
+# against a factor of 1000.
 metrics = jnwb.compute_response_metrics(
     spike_times=spike_times_s,
     epoch_onsets=trial_onsets_s,
@@ -47,11 +48,14 @@ metrics = jnwb.compute_response_metrics(
 
 # Classification consumes the metrics computed above -- not the spike times again.
 # The two calls compose in one direction only: measure, then classify.
-# zscore_threshold is the cutoff on the response z-score; 2.58 is the two-sided
-# 99% cutoff, the equivalent of alpha = 0.01.
-sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58)
+# pvalue is the two-sided conditional binomial test of the response and baseline
+# spike counts summed over trials: exact for windows of different lengths, it
+# assumes Poisson firing within a trial and falls as trials accumulate. A
+# significant response needs both |response_zscore| >= zscore_threshold (the
+# effect size) and pvalue < alpha.
+sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58, alpha=0.01)
 print("Significant:", sig_result["is_significant"])
-print("Approximate p-value:", sig_result["pvalue"])
+print("Binomial p-value:", sig_result["pvalue"])
 # "undefined" means the baseline had no across-trial variance, so the z-score is
 # NaN and no classification was made. It is not a weak response.
 print("Confidence:", sig_result["confidence"])

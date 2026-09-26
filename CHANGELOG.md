@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `S**2 / (n_samples - 1)` of the z-scored data), both `(n_components,)` as scikit-learn's
   `PCA` defines `explained_variance_ratio_` and `explained_variance_`, and NaN where a
   component could not be estimated.
+- `compute_response_metrics` returns the per-trial `baseline_rates`, `response_rates`,
+  `baseline_counts` and `response_counts` (integers), in onset order and zero when there are no
+  spikes, and the window lengths `baseline_duration_s` and `response_duration_s`. No key is
+  removed.
 
 ### Changed
 
@@ -59,6 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TFRAccumulator.add_trial(baseline=)` raises on a zero baseline at a cell `valid` marks; a
   zero at an invalid cell never enters the sums, so `to_db(acc.mean_of_ratios())` still equals
   `aggregate_to_db(nan_policy="omit")` over the stacked trials with invalid power set to NaN.
+- **`classify_response_significance` tests the response against its baseline (breaking).**
+  `pvalue` is the two-sided conditional binomial test of two Poisson counts: with `K_r`
+  response and `K_b` baseline spikes summed over trials, `K_r` is Binomial(`K_r + K_b`,
+  `d_r / (d_r + d_b)`) under equal rates, where `d_r` and `d_b` are the window lengths
+  (`scipy.stats.binomtest`). It is exact for windows of different lengths, assumes Poisson
+  firing within a trial, and falls as trials accumulate. It was a normal p derived from
+  `response_zscore`, an effect size whose p did not depend on the trial count. Significance now
+  needs `p < alpha` (new keyword-only `alpha=0.05`, strict) as well as
+  `|response_zscore| >= zscore_threshold`, so a unit with few trials that passed the z cutoff
+  alone can be classified 'none'. A dict without the per-trial counts and window lengths, such
+  as one built by hand from summary values, is 'undefined' with a `UserWarning` and a NaN
+  `pvalue`; pass the dict `compute_response_metrics` returns. A NaN count is 'undefined';
+  count arrays that are not 1-D or differ in shape, a negative or fractional count, and a
+  window length that is not positive and finite raise `ValueError`.
 - `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
   dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
   its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
@@ -128,6 +146,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
   diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix,
   complex ones included, are unchanged.
+- `raster_psth` finds each trial's spikes by binary search on the sorted train instead of
+  masking the whole train per onset: 0.44 s to 0.05 s at 200,000 spikes and 2,000 onsets, with
+  byte-identical output under NumPy 2. Spike times are compared in float64; NumPy 1.x compared
+  a float32 train in float32, so a spike within float32 rounding of a window edge can move.
+- `enrich_units_dataframe` resolves and classifies each peak channel once, from one pass over the
+  electrode table, instead of comparing against the whole table three times per unit: 4.5 s to
+  0.13 s at 4,000 units and 1,536 electrodes, with identical output.
 
 ### Deprecated
 
@@ -185,6 +210,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its folds, group order and `SVC`. It passed `None` to scikit-learn, which read and advanced
   NumPy's global `RandomState`. An int `rng` gives the same folds as before. A global
   `np.random.seed` no longer makes `rng=None` reproducible; pass an int.
+- `compute_response_metrics` raises `ValueError` when either window's start is at or after its
+  stop. A reversed window returned a negative spike count with a positive rate.
+- `raster_psth` accepts a list of spike times; it raised an unrelated `TypeError`.
 
 ## [0.2.6.1] - 2026-09-25
 

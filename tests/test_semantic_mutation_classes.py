@@ -418,8 +418,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "H8",
         "area-joined-by-row-position-not-channel-identifier",
         "jnwb/addressing.py",
-        "        df['area'] = df['peak_channel_id'].apply("
-        "lambda x: map_peak_channel_to_area(x, electrodes_df))\n",
+        "        df['area'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[0])\n",
         "        df['area'] = [map_peak_channel_to_area(electrodes_df.index[i], electrodes_df) "
         "for i in range(len(df))]\n",
         (
