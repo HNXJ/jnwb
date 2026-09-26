@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-15, 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
+| 2b | 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -427,21 +427,6 @@ each invariant that restates a `docs/` definition is replaced by the link; the s
 existing skills does not grow.
 Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
 requires.
-
-### 07-15 `aggregate_to_db(how="mean_of_ratios")` from a streaming accumulator
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `jnwb/tfr_accumulator.py`, `jnwb/spectral.py`, `tests/test_tfr_accumulator.py`, `tests/test_composition_aggregation_order.py`, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
-Ruled 2026-09-22 (P-114): refuse in 0.2.6, deliver in 0.2.7. Reproduced at `dcb75f12`:
-`jnwb/spectral.py:378-382` refuses `how="mean_of_ratios"` on trial-averaged input, and
-`TFRAccumulator` (`jnwb/tfr_accumulator.py:99-229`) keeps running moments only, so no path forms the
-per-trial ratio against a baseline in streaming form.
-Accept: on the H6 generator of `tests/test_composition_aggregation_order.py` the new path equals the
-in-memory per-trial `mean_of_ratios` to float tolerance and stays separated from `ratio_of_means` by
-the pinned margin; the refusal on trial-averaged input stays; `CHANGELOG.md` records the addition.
-Stop: the baseline's arrival order admits two designs with a material trade-off, a public API
-choice.
 
 ### 07-16 `nested_cv_linear_svm` takes `groups=`
 
