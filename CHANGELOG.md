@@ -76,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `transfer_entropy` numbers joint states through one integer key per row instead of a
   row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
   p-values and surrogate statistics.
+- `raster_psth` finds each trial's spikes by binary search on the sorted train instead of
+  masking the whole train per onset: 0.44 s to 0.05 s at 200,000 spikes and 2,000 onsets, with
+  byte-identical output.
 
 ### Removed
 
@@ -105,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source; it skipped that group and could return `ok=True` with its timestamps never checked.
 - `compute_response_metrics` raises `ValueError` when either window's start is at or after its
   stop. A reversed window returned a negative spike count with a positive rate.
+- `raster_psth` accepts a list of spike times; it raised an unrelated `TypeError`.
 
 ## [0.2.6.1] - 2026-09-25
 
