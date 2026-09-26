@@ -204,6 +204,9 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
+- **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
+  contract for tables, vocabulary, length, navigation and figures. It is kept off the
+  published site.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py

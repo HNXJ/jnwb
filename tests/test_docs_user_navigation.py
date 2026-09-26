@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
@@ -57,11 +59,30 @@ def test_no_page_is_listed_twice():
     assert not duplicates, f"listed more than once on the nav: {sorted(duplicates)}"
 
 
+def _excluded_from_the_site():
+    """The `exclude_docs` entries of `mkdocs.yml`: files under `docs/` the build does not publish."""
+    config = yaml.safe_load(MKDOCS.read_text(encoding="utf-8")) or {}
+    return {line.strip() for line in (config.get("exclude_docs") or "").splitlines()
+            if line.strip() and not line.strip().startswith("#")}
+
+
 def test_no_page_is_orphaned():
+    """Every published page is on the nav. A page the build excludes is not published."""
     on_nav = set(_nav_targets())
+    excluded = _excluded_from_the_site()
     present = {p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")}
-    assert present - on_nav == set(), (
-        f"pages exist but are on no nav entry: {sorted(present - on_nav)}"
+    orphans = present - on_nav - excluded
+    assert orphans == set(), f"pages exist but are on no nav entry: {sorted(orphans)}"
+
+
+def test_no_excluded_page_is_on_the_nav():
+    """An excluded page on the nav is a dead link on the site, and would hide a user page."""
+    excluded = _excluded_from_the_site()
+    assert "documentation_form.md" in excluded, (
+        "the exclusion list was not read, or the contributor contract is published again"
+    )
+    assert not excluded & set(_nav_targets()), (
+        f"excluded from the build but on the nav: {sorted(excluded & set(_nav_targets()))}"
     )
 
 

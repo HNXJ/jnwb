@@ -17,9 +17,9 @@ Four kinds of page, with different rules, because a tutorial and an API page fai
 | Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, and `01`–`10` (21 pages) | the Markdown page itself |
 | Generated | `api.md` | `scripts/generate_api_md.py` |
 | Included | the 10 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
-| Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling |
+| Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling. It is kept off the published site and the nav |
 
-The four rows cover all 33 pages in the nav, this one included.
+The first three rows cover all 32 pages in the nav.
 
 **Generated and included pages are governed through their source, never by editing the page.**
 An edit to one of those eleven pages is discarded by the next build, silently. A change that
@@ -139,7 +139,7 @@ sentence the rule asks for:
 | N4 | A top-level group is named for the question a reader arrives with, not for the material it contains. | review |
 | N5 | Every nav target resolves to a file on disk. | parse `mkdocs.yml` against the tree |
 
-All five hold today: six groups, depth two, 33 targets, all resolving, none holding one page.
+All five hold today: six groups, depth two, 32 targets, all resolving, none holding one page.
 
 N4 was the open one until the nav was reordered by arrival rather than by the order the pages
 were written. "Getting started" carried the public API reference, the bibliography and this
