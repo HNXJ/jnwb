@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
   with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked
   in order: a stated `unsupported_inference` declines; an empty `signals`, `signal_units`,
-  `contrast` or `inference_unit`, or a signal without a unit, requests; a stated
-  `non_identifiable` reports a failure; anything else is supported.
+  `contrast` or `inference_unit`, a blank signal name (named as `signals[<index>]`), or a
+  signal without a unit, requests; a stated `non_identifiable` reports a failure; anything else
+  is supported. A unit in `signal_units` that is not a string raises `TypeError`.
 - `jnwb.Question` gains optional fields, all empty by default so existing constructions are
   unchanged: `signal_units`, `data`, `paradigm`, `axes`, `conditions`, `required_skills`,
   `verification_plan`, `unsupported_inference` and `non_identifiable`. `to_dict()` includes them.

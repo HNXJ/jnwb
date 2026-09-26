@@ -433,8 +433,9 @@ def preflight(question: Question) -> Preflight:
     1. ``"decline"`` when ``question.unsupported_inference`` is stated. The caller declares
        the unsupported inference; jnwb holds no list of claims.
     2. ``"request"`` when any of ``signals``, ``signal_units``, ``contrast`` or
-       ``inference_unit`` is empty, or a signal in ``signals`` has no entry in
-       ``signal_units``. ``missing`` names each: a field by its name, an absent unit as
+       ``inference_unit`` is empty, a signal name in ``signals`` is blank, or a signal in
+       ``signals`` has no entry in ``signal_units``. ``missing`` names each: a field by its
+       name, a blank signal name by its position as ``signals[<index>]``, an absent unit as
        ``signal_units[<repr of the signal>]``, once per signal.
     3. ``"failure"`` when ``question.non_identifiable`` is stated: the caller declares
        that the result cannot be identified from these inputs.
@@ -459,7 +460,8 @@ def preflight(question: Question) -> Preflight:
     ------
     TypeError
         If ``question`` is not a ``Question``, ``signals`` is a string, ``signal_units`` is
-        not a dict, or ``unsupported_inference`` or ``non_identifiable`` is not a string.
+        not a dict or holds a unit that is not a string, or ``unsupported_inference`` or
+        ``non_identifiable`` is not a string.
     """
     if not isinstance(question, Question):
         raise TypeError(f"preflight takes a Question, got {type(question).__name__}")
@@ -473,6 +475,11 @@ def preflight(question: Question) -> Preflight:
     for name in ("unsupported_inference", "non_identifiable"):
         if not isinstance(getattr(question, name), str):
             raise TypeError(f"{name} is a string; got {type(getattr(question, name)).__name__}")
+    for signal, unit in question.signal_units.items():
+        if not isinstance(unit, str):
+            raise TypeError(
+                f"signal_units[{signal!r}] is a unit string, e.g. 'V'; got {type(unit).__name__}"
+            )
 
     absent = [name for name in _PREFLIGHT_OPTIONAL if not _stated(getattr(question, name))]
     not_stated = f" Not stated: {', '.join(absent)}." if absent else ""
@@ -484,10 +491,14 @@ def preflight(question: Question) -> Preflight:
         )
 
     missing = [name for name in _PREFLIGHT_REQUIRED if not _stated(getattr(question, name))]
-    if _stated(question.signals) and _stated(question.signal_units):
+    signals = list(question.signals) if _stated(question.signals) else []
+    blank = [i for i, signal in enumerate(signals) if isinstance(signal, str) and not signal.strip()]
+    missing += [f"signals[{i}]" for i in blank]
+    if _stated(question.signal_units):
+        named = [signal for i, signal in enumerate(signals) if i not in blank]
         missing += [
             f"signal_units[{signal!r}]"
-            for signal in dict.fromkeys(question.signals)
+            for signal in dict.fromkeys(named)
             if not _stated(question.signal_units.get(signal))
         ]
     if missing:
