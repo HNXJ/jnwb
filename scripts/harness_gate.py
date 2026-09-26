@@ -30,6 +30,8 @@ protected paths to skill-tree uniqueness without the list noticing.
       true of the runtime object.
   19. Frozen functions: each registered body still hashes to its independently verified value.
   20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
+  21. Computational contract: execution switches select, precision requests are honoured, and
+      every export has a recorded computational order.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -2889,6 +2891,26 @@ def check_state_file_head(repo_root: Optional[Path] = None) -> List[str]:
     return []
 
 
+def check_computational_contract() -> List[str]:
+    """Gate 21 (Computational Contract): execution switches select, precision requests are
+    honoured, and every export has a recorded computational order.
+
+    Runs the three checks of `scripts/computational_contract_gate.py` on the imported package.
+    The suite runs them too (`tests/test_computational_contract_gate.py`), but an export added
+    without a recorded order left the suite red while every gate here stayed green, and the
+    gates are what the build job and a release read first. Each violation is prefixed with the
+    check that found it; a check that raised is reported as that check's violation.
+    """
+    import jnwb
+    from scripts import computational_contract_gate
+
+    return [
+        f"{name}: {violation}"
+        for name, violations, _ in computational_contract_gate.run_checks(jnwb)
+        for violation in violations
+    ]
+
+
 #: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
 #: because two gates compute their message from constants. The numbers are the ones this module's
 #: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
@@ -2960,6 +2982,11 @@ GATES: List[Tuple[int, Any, Any]] = [
     (20, _one(check_state_file_head, "FAIL: artifacts/state.md does not record the live HEAD:"),
      lambda: "PASS: artifacts/state.md is absent or records the live HEAD (read only; the "
              "generator runs this harness, so this gate never regenerates the file)."),
+    (21, _one(check_computational_contract,
+              "FAIL: The computational contract is broken:"),
+     lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
+             "reaches its deciding mechanism, every precision request is honoured or refused, "
+             "and every export has a recorded computational order)."),
 ]
 
 
