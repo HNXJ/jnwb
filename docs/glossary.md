@@ -16,4 +16,4 @@ Each pair below names two different things. Every page uses these terms in these
 | epoch | the window of data cut around one trial; `epoch_continuous` turns trials into epochs | a trial |
 
 `units`, `electrodes`, `acquisition` and `trials` are NWB's own names and are used as NWB
-defines them. The spelling rules every page follows are on [Documentation Form](documentation_form.md).
+defines them.

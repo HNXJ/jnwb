@@ -23,7 +23,7 @@ Install an extra with `pip install "jnwb[<extra>]"`; combine them as `"jnwb[torc
 | `mcp` | Model Context Protocol server tooling |
 | `vis` | the Plotly figure engine `jnwb.vis`, with kaleido for SVG/PNG export |
 | `docs` | the MkDocs documentation builder |
-| `test` | pytest and pytest-xdist, plus the build and notebook tooling the release gate and the tutorial tests need |
+| `test` | pytest and pytest-xdist, plus the packaging and notebook tooling used to test a build and the tutorials |
 | `all` | every extra above |
 
 `jnwb.vis` is the one export that needs an extra. Without `vis` installed, `import jnwb` and

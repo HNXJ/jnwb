@@ -173,3 +173,15 @@ def test_a_built_sdist_carries_every_skill() -> None:
     assert shipped == expected, f"sdist carries {sorted(shipped)}, repository has {sorted(expected)}"
     assert not any(name.endswith("/AGENTS.md") for name in names), "the sdist has AGENTS.md"
     assert not any("/artifacts/" in name for name in names), "the sdist has artifacts/"
+
+
+def test_the_router_names_no_file_only_a_checkout_has() -> None:
+    """The router ships in the sdist; `AGENTS.md`, `tests/` and `scripts/` do not.
+
+    It linked `AGENTS.md` and told the reader to run the suite and the docs build, three
+    instructions that fail everywhere but a clone. Contributor checks live in `CONTRIBUTING.md`.
+    """
+    text = (SKILLS / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
+    assert "## 6. Verification" in text, "the router's verification section was not read"
+    present = [m for m in ("AGENTS.md", "tests/", "scripts/") if m in text]
+    assert not present, f"skills/jnwb/SKILL.md names checkout-only paths: {present}"

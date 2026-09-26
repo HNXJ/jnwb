@@ -12,7 +12,7 @@ the four outcomes a skill can end a task in.
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
 | MCP server | yes (needs the `mcp` extra) | File inspection only — three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
-| `AGENTS.md` | **no** (source checkout only) | Repository map, working rules, recipes |
+| `AGENTS.md` | **no** (source checkout only) | Repository map and working rules; the recipes are on [Recipes](recipes.md) |
 
 An agent given only the installed package can discover the API from docstrings and
 [the public API page](api.md). What it will not discover is the part that stops it producing

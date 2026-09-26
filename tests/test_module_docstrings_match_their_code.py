@@ -32,6 +32,7 @@ VERSION_HOOK = REPO_ROOT / "scripts" / "mkdocs_version_hook.py"
 CONNECTIVITY = REPO_ROOT / "jnwb" / "connectivity.py"
 ARTIFACT_DETECTION = REPO_ROOT / "jnwb" / "artifact_detection.py"
 TFR_ACCUMULATOR = REPO_ROOT / "jnwb" / "tfr_accumulator.py"
+RELEASE_GATE = REPO_ROOT / "scripts" / "release_gate.py"
 
 #: A numbered line in a module docstring's list of gates: "  7. Package & metadata ...".
 DOCSTRING_GATE = re.compile(r"^ {2}(\d+)\. ", re.M)
@@ -310,6 +311,51 @@ class TestTheHarnessGateListsTheGatesItRuns:
             f"  entries in GATES:         {declared}\n"
             f"  'PASS: ' literals:        {printed}"
         )
+
+
+#: A step the release gate announces as it starts it: `log.info("=== STEP 2a: ...")`.
+RUNNER_STEP = re.compile(r"=== STEP (\d+[a-z]?)\b")
+#: A step in the release gate's module docstring: "  2a. Recorded mutation gaps ...".
+DOCSTRING_STEP = re.compile(r"^ {2}(\d+[a-z]?)\. ", re.M)
+
+
+def release_steps_run(source: str) -> "list[str]":
+    """Each step label the gate announces, once, in source order."""
+    labels = []
+    for label in RUNNER_STEP.findall(source):
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def release_steps_documented(doc: str) -> "list[str]":
+    return DOCSTRING_STEP.findall(doc)
+
+
+class TestTheReleaseGateListsTheStepsItRuns:
+    """Its docstring listed twelve steps while the gate ran sixteen; readiness ran first, unlisted."""
+
+    def test_the_docstring_lists_every_step_in_the_order_it_runs(self):
+        source = RELEASE_GATE.read_text(encoding="utf-8")
+        run = release_steps_run(source)
+        assert len(run) >= 12 and "0a" in run and "8" in run, (
+            f"only {run} parsed from the gate; the sweep is wrong"
+        )
+        documented = release_steps_documented(module_docstring(RELEASE_GATE))
+        assert documented == run, (
+            f"the module docstring lists steps {documented} but the gate runs {run}"
+        )
+
+    def test_a_missing_step_is_found(self):
+        """Built to carry the defect: a gate that runs 2a with a docstring that omits it."""
+        source = (
+            'log.info("=== STEP 1: suite ===")\n'
+            'log.info("=== STEP 2: gates ===")\n'
+            'log.info("=== STEP 2a: gaps ===")\n'
+        )
+        doc = "Pipeline:\n  1. Suite\n  2. Gates\n"
+        assert release_steps_run(source) == ["1", "2", "2a"]
+        assert release_steps_documented(doc) == ["1", "2"]
 
 
 class TestTheVersionHookQuotesTheRealRequiresPython:

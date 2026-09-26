@@ -87,8 +87,10 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — runs the suite in parallel and prints its wall time and ten slowest
-  tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+- **`release_gate.py`** — first refuses the release while the problem stack holds a row, a
+  todo item is still required for this cycle, or the closure receipt is missing or nonzero
+  (`AGENTS.md` §11, condition 3). It then runs the suite in parallel and prints its wall time
+  and ten slowest tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
@@ -96,7 +98,8 @@ python scripts/release_gate.py
   dependency fails. Run it before tagging, not before pushing: it needs network access to
   build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
   it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
-  calls its `main`.
+  calls its `main`. The script's module docstring lists every step in the order it runs, and
+  `tests/test_module_docstrings_match_their_code.py` holds that list to the steps.
 
   If `gh` is unavailable, unauthenticated, or the commit has no finished run, the CI step
   reports *unresolved* and the gate stops. That is deliberate: the alternative passes hardest
@@ -204,7 +207,9 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
-- **Lockstep Updates**: Any modification to a public symbol must update both the relevant documentation guide (`docs/`) and repository skill (`skills/`) in the same commit.
+- **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
+  contract for tables, vocabulary, length, navigation and figures. It is kept off the
+  published site.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py
@@ -278,7 +283,7 @@ harness Gate 2 check, on every run:
 
 A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
 check fails the suite otherwise. Adding a skill also adds its row to the router
-(`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
+(`skills/jnwb/SKILL.md`) and to the skill table in `docs/agents.md`.
 
 ## Repository root freeze and `artifacts/` policy
 
@@ -348,7 +353,7 @@ Every contributor adheres to these scientific invariants:
        │
 5. Test Full     Run pytest tests/ ensuring zero regressions.
        │
-6. Reconcile     Update docs/ and skills/ in lockstep with code changes.
+6. Reconcile     Update docs/ and skills/ (see "What goes in a change").
        │
 7. mkdocs strict Verify warning-free documentation compilation.
        │

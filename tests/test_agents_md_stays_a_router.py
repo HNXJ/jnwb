@@ -28,7 +28,7 @@ SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 BASELINE_DUPLICATED = 0
 #: Set to the measurement, not above it: 06-64 found a unit of unclaimed slack here, and slack
 #: in a ratchet is a gain someone can give back without the test noticing.
-BASELINE_ECHOED = 6
+BASELINE_ECHOED = 3
 
 #: The thresholds the baselines are counts *of*. Without pinning these, the counts above are
 #: satisfiable by turning a knob: 06-64 demonstrated eight (HIGH, MED) pairs that report fewer
@@ -81,6 +81,30 @@ def test_the_thresholds_the_counts_are_counts_of_are_pinned():
         "file counts pairs above them, so changing one silently rescales all of them. If the move "
         "is deliberate, update EXPECTED_HIGH/EXPECTED_MED and re-record the baselines together."
     )
+
+
+def _loaded_script():
+    spec = importlib.util.spec_from_file_location("_measure_corpus", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    with contextlib.redirect_stdout(io.StringIO()):
+        spec.loader.exec_module(module)
+    return module
+
+
+def test_the_corpus_is_tracked_files_and_includes_the_published_agent_page():
+    """An ignored file present on one machine made the counts a property of that checkout.
+
+    The published agent page carries a skill table of its own, and it was not measured, so a
+    second home for the skill table went unseen.
+    """
+    module = _loaded_script()
+    tracked = set(subprocess.run(["git", "ls-files"], cwd=REPO_ROOT, capture_output=True,
+                                 text=True, check=True).stdout.splitlines())
+    corpus = [path.relative_to(REPO_ROOT).as_posix() for path in module.OTHERS]
+    assert len(corpus) >= 15, f"only {len(corpus)} files in the corpus: {corpus}"
+    assert "docs/agents.md" in corpus, "the published agent page is not measured"
+    untracked = [rel for rel in corpus if rel not in tracked]
+    assert not untracked, f"the corpus reads files git does not track: {untracked}"
 
 
 def test_the_script_measures_the_tree_it_lives_in(measurement):

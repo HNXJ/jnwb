@@ -61,15 +61,12 @@ tfr = jnwb.complex_tfr(data, fs=1000.0, freqs=freqs)
 ```
 
 ## 6. Verification
-`jnwb.__all__` is the public surface; run these rather than quoting counts.
+`jnwb.__all__` is the public surface; run this rather than quoting counts.
 
 ```bash
 python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
-python -m pytest tests/ -q
-python scripts/docs_build.py
 ```
 
 ## 7. Documentation
 - [`docs/api.md`](../../docs/api.md) — every public symbol.
 - [`docs/common_mistakes.md`](../../docs/common_mistakes.md) — the failure modes jnwb guards against.
-- [AGENTS.md](../../AGENTS.md) — repository map, working rules and recipes.
