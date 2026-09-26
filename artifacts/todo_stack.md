@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 |---|---|
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
-| 2b | 07-16, 07-17 (ruled API changes), then 07-18, 07-19, 07-20 |
+| 2b | 07-17 (ruled API change), then 07-18, 07-19, 07-20 |
 | 3 | 07-01, triaged against the blocker predicate |
 | 4 | 07-02 |
 | 5 | 07-21, 07-22: the proposal or identity evidence first; Hamm rules before any public API |
@@ -430,20 +430,6 @@ each invariant that restates a `docs/` definition is replaced by the link; the s
 existing skills does not grow.
 Stop: removing a restatement leaves a routing row that no longer states a dimension its operation
 requires.
-
-### 07-16 `nested_cv_linear_svm` takes `groups=`
-
-Release: deferred-0.2.7.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/decoding.py`, `tests/test_decoding.py`, `skills/jnwb-population/SKILL.md`, `docs/*.md`, `CHANGELOG.md`.
-Ruled 2026-09-22 (P-122): keyword-only `groups=` for grouped outer folds, through the
-capability-gated route. Reproduced at `dcb75f12`: the signature is `(X, labels, n_splits, rng=42)`,
-and 0.2.6 points grouped designs at `assign_outer_folds`.
-Discriminator: on data where one group's trials carry a group-level offset, ungrouped folds report
-accuracy above chance and grouped folds do not.
-Accept: `groups=` keeps each group's trials in one outer fold; a call without it is numerically
-unchanged under a fixed `rng`; the routing row binds; `CHANGELOG.md` has an Added entry.
-Stop: grouped folds need a stratification choice with two defensible forms.
 
 ### 07-17 Remove the deprecated `layer` column
 
