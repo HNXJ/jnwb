@@ -168,6 +168,11 @@ def nested_cv_linear_svm(
         n_splits: requested number of outer folds; clipped to the minority
             class count when there are too few trials per class, and with
             ``groups`` also to the number of distinct groups.
+        rng: seed for the folds, the group order and ``SVC``. An int is handed to
+            scikit-learn unchanged, a ``Generator`` gives one int drawn from it, and
+            ``None`` one int drawn from a fresh ``default_rng()``; NumPy's global state
+            is neither read nor advanced, so ``np.random.seed`` does not make ``None``
+            reproducible.
         groups: optional (n_trials,) group ids (block, cycle, session) of one
             comparable type, none missing. When given, outer folds are
             ``StratifiedGroupKFold`` over the groups in an order drawn from

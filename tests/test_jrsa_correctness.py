@@ -24,17 +24,33 @@ def _all_metrics():
     return sorted(_METRIC_DISPATCH)
 
 
+def _nan_condition(paired):
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(6, 40))
+    x1[2, :] = np.nan
+    return x1, (rng.normal(size=(6, 40)) if paired else None)
+
+
 @pytest.mark.parametrize("metric", _all_metrics())
-def test_jrsa_omit_leaving_no_samples_raises_for_every_metric(metric):
+@pytest.mark.parametrize("paired", [True, False])
+def test_jrsa_omit_leaving_no_samples_raises_for_every_metric(metric, paired):
     """A condition that is NaN throughout makes `omit` drop every sample. hsic,
     mutual_information and transfer_entropy_histogram_nats returned 0.0 from zero samples,
     others NaN or an unrelated error; every metric must raise and say why."""
-    rng = np.random.default_rng(0)
-    x1 = rng.normal(size=(6, 40))
-    x2 = rng.normal(size=(6, 40))
-    x1[2, :] = np.nan
+    x1, x2 = _nan_condition(paired)
     with pytest.raises(ValueError, match=rf"metric='{metric}'.*no samples remain.*\(2,\)"):
         oa.jrsa(x1, x2, metric=metric, stats=False, nan_policy="omit")
+
+
+@pytest.mark.parametrize("metric", _all_metrics())
+@pytest.mark.parametrize("shape, nan_policy", [
+    ((0, 40), "omit"), ((6, 0), "raise"), ((6, 0), "propagate"),
+])
+def test_jrsa_empty_input_raises_for_every_metric(metric, shape, nan_policy):
+    """A zero-length axis anywhere, under any nan_policy, has no values to compute from."""
+    x = np.empty(shape)
+    with pytest.raises(ValueError, match=rf"metric='{metric}'.*no samples remain"):
+        oa.jrsa(x, x.copy(), metric=metric, stats=False, nan_policy=nan_policy)
 
 
 def test_jrsa_preprocessing_conflict_warning():

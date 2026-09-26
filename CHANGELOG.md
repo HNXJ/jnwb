@@ -103,14 +103,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination, whose shape differs from the source's, or that is absent from the source. It fails
   a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
   source; it skipped that group and could return `ok=True` with its timestamps never checked.
-- `jrsa`: an input with no samples left on the last axis, as when `nan_policy="omit"` drops
-  every sample because one condition is NaN throughout, raises `ValueError` naming the metric
-  and that condition for every metric. `hsic`, `mutual_information` and
+- `jrsa`: an input with no values left, from a zero-length axis under any `nan_policy` or from
+  `nan_policy="omit"` dropping every sample because one condition is NaN throughout, raises
+  `ValueError` naming the metric, and under `omit` that condition, for every metric. `hsic`,
+  `mutual_information` and
   `transfer_entropy_histogram_nats` returned 0.0 computed from zero samples, six metrics
   returned NaN and five raised unrelated errors.
 - `nested_cv_linear_svm(rng=None)` draws one seed from a fresh `numpy.random.default_rng()` for
   its folds, group order and `SVC`. It passed `None` to scikit-learn, which read and advanced
-  NumPy's global `RandomState`. An int `rng` gives the same folds as before.
+  NumPy's global `RandomState`. An int `rng` gives the same folds as before. A global
+  `np.random.seed` no longer makes `rng=None` reproducible; pass an int.
 
 ## [0.2.6.1] - 2026-09-25
 

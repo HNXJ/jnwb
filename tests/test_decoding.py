@@ -108,6 +108,17 @@ class TestNestedCvRng:
         assert before[0] == after[0] and before[2:] == after[2:]
         np.testing.assert_array_equal(before[1], after[1])
 
+    def test_rng_none_is_not_reproduced_by_the_global_seed(self):
+        """A fixed seed standing in for None would pass the test above; resetting the
+        global seed before each call must not make the partitions repeat."""
+        X, y, _ = _rng_probe_data()
+        seen = set()
+        for _ in range(5):
+            np.random.seed(0)
+            r = nested_cv_linear_svm(X, y, n_splits=3, rng=None)
+            seen.add((tuple(r["fold_accuracies"]), r["f1"], r["auc"]))
+        assert len(seen) > 1
+
     @pytest.mark.parametrize("grouped, folds, f1, auc, c", [
         (False, [0.8, 0.7, 0.8], 0.75, 0.8788888888888888, 1.0),
         (True, [0.95, 0.85, 0.85], 0.8852459016393442, 0.9233333333333333, 0.1),

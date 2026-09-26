@@ -20,7 +20,7 @@ Both resolvers accept the same three things -- an ``int`` seed, a ``Generator``,
 
 from __future__ import annotations
 
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import numpy as np
 
@@ -165,7 +165,7 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
     )
 
 
-def sklearn_random_state(rng: RNGLike, *, func_name: str) -> Optional[int]:
+def sklearn_random_state(rng: RNGLike, *, func_name: str) -> int:
     """Return what scikit-learn's ``random_state=`` accepts, for ``rng``.
 
     scikit-learn estimators take an ``int``, a legacy ``RandomState`` or ``None``; they do

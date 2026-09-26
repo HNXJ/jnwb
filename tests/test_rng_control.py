@@ -155,6 +155,8 @@ class TestNoneNowMeansFreshEntropy:
         seed = sklearn_random_state(None, func_name="t")
         assert isinstance(seed, int)
         np.testing.assert_array_equal(np.random.get_state()[1], before)
+        np.random.seed(5)
+        assert len({sklearn_random_state(None, func_name="t") for _ in range(5)}) > 1
 
 
 class TestOneSpellingAcceptsASeedOrAGenerator:
