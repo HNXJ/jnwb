@@ -103,7 +103,7 @@ DEVICE_CALLS = {
     "rdm": lambda d: jnwb.rdm(POP[:30], device=d),
     "vflip": lambda d: jnwb.vflip(np.abs(LAMINAR[:, :64]) + 1.0, np.linspace(1, 200, 64), device=d),
     "vflip_from_lfp": lambda d: jnwb.vflip_from_lfp(LAMINAR, FS, device=d),
-    "jrsa": lambda d: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, device=d),
+    "jrsa": lambda d: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, device=d),
 }
 
 #: Exports whose ``device`` is a record of what ran, not a request; they select nothing.
@@ -296,13 +296,13 @@ class TestAnUnavailableDeviceIsAnnounced:
 
     def test_jrsa_says_an_accelerator_backend_was_not_used(self):
         result, messages = _runtime_messages(
-            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, backend="cupy"))
+            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, backend="cupy"))
         assert any("backend='cupy'" in m and "CPU" in m for m in messages), messages
         assert result.execution["backend"] == "numpy"
 
     def test_jrsa_is_silent_about_a_cpu_backend(self):
         _, messages = _runtime_messages(
-            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, backend="numpy"))
+            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, backend="numpy"))
         assert not [m for m in messages if "backend=" in m]
 
     def test_parallel_map_says_it_ran_serially_without_joblib(self, monkeypatch):

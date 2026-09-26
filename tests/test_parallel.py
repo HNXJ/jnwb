@@ -229,7 +229,7 @@ class TestTheDefaultIsSerialEverywhere:
 
         rng = np.random.default_rng(0)
         res = jrsa(rng.standard_normal((20, 4)), rng.standard_normal((20, 4)),
-                   metric="cka", permutations=20, rng=np.random.default_rng(0))
+                   metric="cka", permutations=20, null="iid", rng=np.random.default_rng(0))
 
         assert np.isfinite(np.asarray(res.statistic)).all()
 
@@ -281,9 +281,9 @@ class TestTheDefaultIsSerialEverywhere:
         rng = np.random.default_rng(0)
         x1, x2 = rng.standard_normal((30, 5)), rng.standard_normal((30, 5))
 
-        serial = jrsa(x1, x2, metric="cka", permutations=100, n_jobs=1,
+        serial = jrsa(x1, x2, metric="cka", permutations=100, null="iid", n_jobs=1,
                       rng=np.random.default_rng(7))
-        workers = jrsa(x1, x2, metric="cka", permutations=100, n_jobs=2,
+        workers = jrsa(x1, x2, metric="cka", permutations=100, null="iid", n_jobs=2,
                        rng=np.random.default_rng(7))
 
         assert np.array_equal(np.asarray(serial.statistic),

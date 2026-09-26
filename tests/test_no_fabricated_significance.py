@@ -36,14 +36,14 @@ class TestNoFabricatedSignificance:
         rng = np.random.default_rng(0)
         x = np.full((60, 12), 1.0)
         x[0, 0] = bad
-        res = jrsa(x, rng.normal(size=(60, 12)), metric="cka", permutations=1000)
+        res = jrsa(x, rng.normal(size=(60, 12)), metric="cka", permutations=1000, null="iid")
         p = np.atleast_1d(res.p)
         assert np.all(np.isnan(p)), f"expected NaN, got {p}"
 
     def test_jrsa_p_is_unchanged_on_finite_input(self):
         rng = np.random.default_rng(1)
         a, b = rng.normal(size=(60, 12)), rng.normal(size=(60, 12))
-        res = jrsa(a, b, metric="cka", permutations=500, random_state=3)
+        res = jrsa(a, b, metric="cka", permutations=500, null="iid", random_state=3)
         p = float(np.atleast_1d(res.p)[0])
         assert np.isfinite(p) and 0.0 < p <= 1.0
 

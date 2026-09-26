@@ -227,8 +227,10 @@ def jrsa(
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
-        omit | raise | propagate. ``'omit'`` drops every sample of the last axis that is NaN
-        in any condition. An input with no samples left raises ValueError for every metric.
+        omit | raise | propagate. ``'omit'`` drops every observation that is NaN anywhere:
+        a sample of the last axis for the paired metrics, a row of axis 0 for rsa, cka, rv,
+        hsic, distance_correlation and procrustes (the axes of `null`). An input with no
+        observations left raises ValueError for every metric.
     stats : bool
         Compute inferential statistics.
     permutations : int
@@ -278,12 +280,13 @@ def jrsa(
         - ``'iid'`` permutes single samples, which is exchangeable only when the samples
           are independent. On a time axis it must be named: on two independent AR(1)
           series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
-        - ``None`` (default) is ``'circular_shift'`` for the paired metrics and ``'iid'``
-          for the observation-axis metrics, whose rows are conditions or observations.
-          For those metrics the default warns (UserWarning) whenever a null is formed:
-          when axis 0 is time the i.i.d. row permutation is invalid -- cka and rv rejected
-          every one of 40 independent AR(1) pairs at p <= 0.05 -- and from 0.2.7 `null`
-          must be named for them. Naming any scheme, ``'iid'`` included, silences it.
+        - ``None`` (default) is ``'circular_shift'`` for the paired metrics. The
+          observation-axis metrics have no default: forming a null for them without naming
+          `null` raises ValueError, because whether their rows are exchangeable depends on
+          what the rows are. Name ``'iid'`` for exchangeable conditions or observations and
+          ``'circular_shift'`` when axis 0 is time, where the i.i.d. row permutation is
+          invalid -- cka and rv rejected every one of 40 independent AR(1) pairs at
+          p <= 0.05. ``'block'`` is not calibrated for these metrics (see above).
 
         ``execution['null']`` records the scheme that ran, or None when no permutation null
         was formed. Before 0.2.6.1 every metric used ``'iid'``.
@@ -339,7 +342,8 @@ def jrsa(
         ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
         ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
         raises TypeError rather than being silently ignored. The histogram TE conditions on
-        one past sample of each series and takes no history length.
+        one past sample of each series, takes no history length, and takes one series per
+        input: a multi-row input raises ValueError.
 
     Returns
     -------
@@ -502,17 +506,18 @@ def jrsa(
     # Paired metrics compare samples along the aligned axis, usually time, where single
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
-    null_scheme = null if null is not None else ("iid" if perm_axis == 0 else "circular_shift")
     if perm_axis == 0 and null is None and permutation_p:
-        warnings.warn(
-            f"jrsa(metric={metric!r}): the default null permutes the rows of axis 0 as "
-            "exchangeable. If axis 0 is time, name null='circular_shift' or null='block': on "
-            "independent AR(1) series the default rejected every pair for cka and rv. From "
-            "0.2.7 `null` must be named for this metric; null='iid' keeps the current result "
-            "and silences this warning.",
-            UserWarning,
-            stacklevel=2,
+        raise ValueError(
+            f"jrsa(metric={metric!r}) needs a named null=: its permutation null resamples the "
+            "rows of axis 0, and whether they are exchangeable depends on what they are. Name "
+            "null='iid' when the rows are exchangeable conditions or observations, and "
+            "null='circular_shift' when axis 0 is time: on independent AR(1) series the i.i.d. "
+            "row permutation rejected every pair for cka and rv. null='block' is not "
+            "calibrated for this metric: with block_len=20 it rejected cka at p <= 0.05 for "
+            "0.30 of independent AR(1) pairs (coefficient 0.9, 200 samples). Without a "
+            "permutation null (stats=False or permutations=0) no scheme is needed."
         )
+    null_scheme = null if null is not None else "circular_shift"
     if bootstrap > 0 and perm_axis == -1 and null != "iid":
         raise ValueError(
             f"jrsa(metric={metric!r}): bootstrap resamples single samples of the last axis, "
@@ -715,34 +720,21 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
             f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
             f"observation count nor the feature count is truncated to match."
         )
+    # The observation axis: axis 0 for the metrics that read rows as observations, the last
+    # axis for the paired metrics. Dropping along the last axis for every metric removed a
+    # feature column of cka or rsa instead of the observation that held the NaN.
+    obs_axis = 0 if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS else x1.ndim - 1
     if nan_policy == "omit":
+        # Keep an observation only when neither input is NaN anywhere in it.
+        nan_mask = xp1.isnan(x1)
         if x2 is not None:
-            xp2 = _get_xp(x2)
-            # Find joint valid mask (neither is NaN) along the last axis
-            # For multi-dimensional inputs, we assume the last axis contains the paired samples.
-            # We want to keep samples where both x1 and x2 are not NaN.
-            nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
-            # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
-            # In general, if there are multiple dimensions, we project the mask down to the last axis.
-            if x1.ndim > 1:
-                # Collapse over non-last axes to find any NaN position
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
-            x2 = xp2.take(x2, valid_indices, axis=-1)
-        else:
-            nan_mask = xp1.isnan(x1)
-            if x1.ndim > 1:
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
+            nan_mask = nan_mask | _get_xp(x2).isnan(x2)
+        other_axes = tuple(ax for ax in range(x1.ndim) if ax != obs_axis)
+        any_nan = nan_mask.any(axis=other_axes) if other_axes else nan_mask
+        valid_indices = xp1.where(~any_nan)[0]
+        x1 = xp1.take(x1, valid_indices, axis=obs_axis)
+        if x2 is not None:
+            x2 = _get_xp(x2).take(x2, valid_indices, axis=obs_axis)
     # propagate: do nothing, let downstream handle
     # No values left -- an input with a zero-length axis, or `omit` dropping every sample
     # because some condition is NaN throughout. The metrics disagreed here: hsic,
@@ -754,12 +746,12 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
         if nan_policy == "omit" and size_before > 0:
             empty = [] if x1.ndim < 2 else sorted(
                 tuple(int(i) for i in idx)
-                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=-1))
+                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=obs_axis))
             )
             detail = (
-                f" nan_policy='omit' dropped every sample, because each one is NaN in at least "
-                f"one condition"
-                + (f"; condition(s) {empty} of the leading axes are NaN throughout" if empty else "")
+                f" nan_policy='omit' dropped every observation (axis {obs_axis}), because each "
+                f"one is NaN somewhere"
+                + (f"; position(s) {empty} of the other axes are NaN throughout" if empty else "")
                 + "."
             )
         raise ValueError(
@@ -1897,8 +1889,20 @@ def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
     used to be declared here and never read, so `jrsa(..., k=5)` passed the keyword check
     and returned the one-sample answer; without it, `k` is refused like any unknown option.
     `jnwb.transfer_entropy` takes the target and source history lengths.
+
+    Only one series per input is accepted. Flattening several rows into one series made the
+    last sample of each row the past of the first sample of the next, so every join between
+    rows was counted as a time transition.
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    if int(np.prod(x1.shape[:-1])) > 1:
+        raise ValueError(
+            f"jrsa(metric='transfer_entropy_histogram_nats') takes one series per input; got "
+            f"shape {tuple(x1.shape)}. Flattening the rows would count each join between "
+            "rows as a time transition, and pooling the rows' transitions or averaging "
+            "per-row values are different estimators. Pass one row at a time, or use "
+            "jnwb.transfer_entropy, which takes (n_trials, n_times)."
+        )
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
     

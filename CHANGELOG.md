@@ -51,6 +51,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`jrsa` row metrics need a named `null=` to form a permutation null (breaking).** For `rsa`,
+  `cka`, `rv`, `hsic`, `distance_correlation` and `procrustes`, `null=None` with `stats=True`
+  and `permutations > 0` raises `ValueError`; in 0.2.6.1 it warned and permuted the rows as
+  exchangeable. `rsa` is the default metric, so a bare `jrsa(x1, x2)` raises. Name
+  `null="iid"` for exchangeable conditions, which gives the 0.2.6.1 numbers, and
+  `null="circular_shift"` when axis 0 is time. The guidance no longer offers `"block"` for these
+  metrics: at `block_len=20` it rejected `cka` for 0.30 of independent AR(1) pairs.
+- **`jrsa(metric="transfer_entropy_histogram_nats")` refuses several rows (breaking).** It
+  flattened the input, which made the last sample of each row the past of the first sample of
+  the next, so every join between rows counted as a time transition. It raises `ValueError` for
+  an input with more than one row; pass one series per call, or use `jnwb.transfer_entropy` for
+  `(n_trials, n_times)`.
+- **`jrsa(nan_policy="omit")` drops the observation of a row metric.** For the six metrics
+  above it dropped the last-axis column holding the NaN, which removed a feature from every
+  observation; it now drops the row of axis 0. Values change wherever such an input held a NaN.
 - **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
   dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
   per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,

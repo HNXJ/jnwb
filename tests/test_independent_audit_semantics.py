@@ -187,8 +187,8 @@ class TestJrsaMetricIdentity:
 
     def test_transfer_entropy_histogram_nats_differs_from_connectivity_bits(self):
         rng = np.random.default_rng(42)
-        x = rng.normal(size=(3, 50))
-        y = rng.normal(size=(3, 50))
+        x = rng.normal(size=150)
+        y = rng.normal(size=150)
         jr = jnwb.jrsa(x, y, metric="transfer_entropy_histogram_nats", stats=False)
         te = jnwb.transfer_entropy(x, y, n_surrogates=0)
         assert not np.isclose(float(jr.value), float(te.x_to_y), rtol=0.05, atol=0.05)
