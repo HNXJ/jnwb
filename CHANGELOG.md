@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that cannot be compared, and
   an outer training fold with a single class raise `ValueError`. A call without `groups`
   returns the same numbers as before.
+- `XFlipResult.surrogate_seed_entropy` records the entropy the surrogate generator was built
+  from: the seed for an int `rng`, the fresh OS entropy drawn for `rng=None`. Passing it back as
+  `rng` reproduces `p_values`. It is `None` for a caller's `Generator` and when no surrogates
+  ran. `to_dict()` includes it. An int seed draws the same stream as before.
 
 ### Changed
 
@@ -59,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
   is unchanged.
+- `xflip` refuses a float or bool `rng` with `TypeError`, as the other surrogate estimators do.
+- `xflip`'s contiguous partition search scores every split point of a block count as one array.
+  The cuts are identical to the previous loop's. The search is 3 to 29 times faster from 32 to
+  256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
+  surrogates and their correlation matrices dominate it.
 
 ### Fixed
 

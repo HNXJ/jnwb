@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ._dictlike import DictAccessMixin
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
@@ -999,6 +999,10 @@ class XFlipResult(DictAccessMixin):
         n_blocks: Number of detected blocks.
         boundary_drops: Optional dict mapping each interior boundary index to its
             local correlation drop (within-block neighbor correlation minus cross-boundary correlation).
+        surrogate_seed_entropy: The entropy the surrogate generator was built from: the
+            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
+            back as `rng` reproduces `p_values`. None when you supplied a `Generator`, whose
+            stream position cannot be recovered, and when no surrogates were drawn.
     """
 
     corr_matrix: np.ndarray
@@ -1013,6 +1017,7 @@ class XFlipResult(DictAccessMixin):
     n_channels: int
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
+    surrogate_seed_entropy: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1029,6 +1034,7 @@ class XFlipResult(DictAccessMixin):
             "n_channels": int(self.n_channels),
             "n_blocks": int(self.n_blocks),
             "boundary_drops": dict(self.boundary_drops) if self.boundary_drops is not None else {},
+            "surrogate_seed_entropy": self.surrogate_seed_entropy,
         }
 
 
@@ -1172,23 +1178,34 @@ def _optimal_contiguous_partition(
     for j in range(min_block_size, n + 1):
         dp[1, j] = interval_w(0, j)
 
+    # Every (split point u, end j) pair of one block count k is scored as one array, rows u
+    # and columns j. Each element goes through the same float64 operations, in the same
+    # order, as `interval_w`, so the scores are bit-identical to a scalar loop's, and
+    # `argmax` down a column returns the first maximum, as a loop keeping only strictly
+    # greater values would. Pairs leaving a last block shorter than `min_block_size`, and
+    # u whose `dp[k - 1, u]` is -inf, score -inf; a column that is -inf throughout records
+    # (-inf, -1).
+    diag_prefix = np.diagonal(prefix)
     for k in range(2, n_blocks + 1):
-        min_j = k * min_block_size
-        for j in range(min_j, n + 1):
-            best_val = -np.inf
-            best_u = -1
-            for u in range((k - 1) * min_block_size, j - min_block_size + 1):
-                if dp[k - 1, u] == -np.inf:
-                    continue
-                w = interval_w(u, j)
-                if w == -np.inf:
-                    continue
-                val = dp[k - 1, u] + w
-                if val > best_val:
-                    best_val = val
-                    best_u = u
-            dp[k, j] = best_val
-            parent[k, j] = best_u
+        j = np.arange(k * min_block_size, n + 1)
+        if j.size == 0:
+            continue
+        u = np.arange((k - 1) * min_block_size, n - min_block_size + 1)
+        sz = j[None, :] - u[:, None]
+        total_sub = (
+            diag_prefix[j][None, :] - prefix[np.ix_(u, j)] - prefix[np.ix_(j, u)].T
+            + diag_prefix[u][:, None]
+        )
+        diag_sub = diag_cum[j][None, :] - diag_cum[u][:, None]
+        s_uv = 0.5 * (total_sub - diag_sub)
+        p_uv = 0.5 * sz * (sz - 1)
+        vals = dp[k - 1, u][:, None] + (s_uv - gamma * p_uv)
+        vals[sz < min_block_size] = -np.inf
+        best = np.argmax(vals, axis=0)
+        best_val = vals[best, np.arange(j.size)]
+        found = best_val > -np.inf
+        dp[k, j] = np.where(found, best_val, -np.inf)
+        parent[k, j] = np.where(found, u[best], -1)
 
     if dp[n_blocks, n] == -np.inf:
         labels = np.zeros(n, dtype=int)
@@ -1326,15 +1343,18 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
-        rng: Optional NumPy Generator or integer seed for surrogate reproducibility.
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy. The entropy
+            used is returned as `surrogate_seed_entropy` for an int or None.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, and `rejection_reason`.
+        `p_values`, `accepted`, `rejection_reason` and `surrogate_seed_entropy`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
             matrix, or contains invalid configuration parameters.
+        TypeError: If `rng` is not an int, a Generator or None; a float or bool seed is
+            refused rather than truncated.
     """
     if method not in ("pearson", "spearman", "partial"):
         raise ValueError(
@@ -1359,6 +1379,15 @@ def xflip(
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    # An int seed draws the stream `default_rng(seed)` always drew; `None` draws fresh OS
+    # entropy and records it, so the result alone reproduces p. A caller's Generator is
+    # used in place and its position is not recoverable, so its entropy stays None.
+    if isinstance(rng, np.random.Generator):
+        gen, seed_entropy = rng, None
+    else:
+        resolve_rng(rng, func_name="xflip")
+        seed_sequence = np.random.SeedSequence(None if rng is None else int(rng))
+        gen, seed_entropy = np.random.default_rng(seed_sequence), int(seed_sequence.entropy)
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1503,7 +1532,6 @@ def xflip(
             labels = np.zeros(n_channels, dtype=int)
 
     # Monte Carlo surrogate null testing
-    gen = np.random.default_rng(rng)
     p_values: Dict[str, float] = {}
 
     if n_surrogates > 0:
@@ -1641,6 +1669,7 @@ def xflip(
         n_channels=n_channels,
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
+        surrogate_seed_entropy=seed_entropy if surrogates_run else None,
     )
 
 
