@@ -77,7 +77,7 @@ Python workflows call the functions directly.
 
 ### Compression and storage
 
-- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select=None)`: `select=` lists the dataset paths to cast to float32. `select=None` falls back to the anchored LFP/MUAE preset and emits `FutureWarning`; `select=` becomes required in 0.2.7. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written. A regular `timestamps` array that another link also opens (pynwb's shared timestamps) is kept as it is, so the link stays valid. With `verify=True` a failed check raises `RuntimeError` naming it, and the written `dst` is left for inspection.
+- `jnwb.compress_fp32(src, dst=None, *, drop_convolved=False, verify=True, select)`: `select=` is required and lists the floating-point dataset paths to cast to float32; `select=[]` casts nothing and still compresses the file. Omitting it or passing `None` raises `TypeError` before anything is written. Naming `spike_train` or `convolved_spike_train`, a regular `timestamps` array (replaced by `starting_time` and `rate`), a missing path, a group, a scalar dataset, or a dataset whose dtype is not floating (integer and boolean included) raises before anything is written. A regular `timestamps` array that another link also opens (pynwb's shared timestamps) is kept as it is, so the link stays valid. With `verify=True` a failed check raises `RuntimeError` naming it, and the written `dst` is left for inspection.
 - `jnwb.stream_npz_array(file_path, key, slice_tuple=(slice(None, None, None),))`: Memory-bounded slice out of an NPZ archive, compressed or not, without materializing the array.
 
 ## 3. Invariants & Safeguards
@@ -88,7 +88,7 @@ Python workflows call the functions directly.
    which would report a label such as `'probeA'` as the brain area, indistinguishable from a
    real one.
 3. **Compression:** `compress_fp32` casts exactly the datasets named in `select=` to fp32,
-   irreversibly; name them rather than relying on the preset, and verify with `verify=True`
+   irreversibly; name only floating-point arrays, and verify with `verify=True`
    before deleting sources.
 
 ## 4. Minimal Workflow

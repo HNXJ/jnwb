@@ -10,9 +10,7 @@ import jnwb
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# Most tests here exercise the preset on purpose, so its deprecation warning is expected noise.
-# `TestTheSelectionIsExplicit` asserts the warning itself, under filters it sets locally.
-pytestmark = pytest.mark.filterwarnings("ignore:no select= given:FutureWarning")
+LFP = "acquisition/probe_0_lfp/data"
 
 # No `assert jnwb.__file__ is under REPO_ROOT` here, deliberately. Import provenance is real --
 # a by-path probe silently imports the INSTALLED jnwb from site-packages -- but asserting it in
@@ -25,7 +23,7 @@ pytestmark = pytest.mark.filterwarnings("ignore:no select= given:FutureWarning")
 
 def test_compress_fp32_missing_src_raises_file_not_found():
     with pytest.raises(FileNotFoundError):
-        jnwb.compress_fp32("non_existent_file_path_12345.nwb")
+        jnwb.compress_fp32("non_existent_file_path_12345.nwb", select=[])
 
 
 def test_compress_fp32_dst_exists_raises_file_exists(tmp_path):
@@ -35,7 +33,7 @@ def test_compress_fp32_dst_exists_raises_file_exists(tmp_path):
     dst.write_bytes(b"dummy")
 
     with pytest.raises(FileExistsError):
-        jnwb.compress_fp32(src, dst, overwrite=False)
+        jnwb.compress_fp32(src, dst, overwrite=False, select=[])
 
 
 def test_compress_fp32_unrecognized_processing_raises_key_error(tmp_path):
@@ -47,7 +45,7 @@ def test_compress_fp32_unrecognized_processing_raises_key_error(tmp_path):
         proc.create_group("unknown_module")
 
     with pytest.raises(KeyError, match="not found in unrecognized.nwb"):
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
 
 
 def test_compress_fp32_synthetic_hdf5_conversion(tmp_path):
@@ -75,7 +73,7 @@ def test_compress_fp32_synthetic_hdf5_conversion(tmp_path):
         conv_group = proc.create_group("convolved_spike_train").create_group("convolved_spike_train_data")
         conv_group.create_dataset("data", data=rng.normal(0, 1, size=(n_samples, 4)).astype(np.float64))
 
-    stats = jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+    stats = jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
     assert dst.exists()
     assert stats["src_bytes"] > 0
@@ -233,7 +231,7 @@ class TestChunkShapeFollowsTheDatasetRank:
         src = _lfp_only_file(tmp_path / "r.nwb", shape)
         dst = tmp_path / "r.fp32.nwb"
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(dst, "r") as f:
             ds = f["acquisition/probe_0_lfp/data"]
@@ -288,7 +286,7 @@ class TestChunkShapeFollowsTheDatasetRank:
             for path in self.ALL_THREE:
                 f.create_dataset(path, data=rng.normal(0, 1, size=shape).astype(np.float64))
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(dst, "r") as f:
             for path in self.ALL_THREE:
@@ -304,7 +302,7 @@ class TestChunkShapeFollowsTheDatasetRank:
         src = _lfp_only_file(tmp_path / "v.nwb", (2000, 6), seed=7)
         dst = tmp_path / "v.fp32.nwb"
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             expected = s["acquisition/probe_0_lfp/data"][:].astype(np.float32)
@@ -354,7 +352,7 @@ class TestConvolvedSpikeTrainIsPreservedExactly:
         src = _file_with_convolved(tmp_path / "c.nwb", conv_dtype)
         dst = tmp_path / "c.fp32.nwb"
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             assert d[CONVOLVED_PATH].dtype == s[CONVOLVED_PATH].dtype == np.dtype(conv_dtype), (
@@ -371,7 +369,7 @@ class TestConvolvedSpikeTrainIsPreservedExactly:
         src = _file_with_convolved(tmp_path / "c.nwb", conv_dtype)
         dst = tmp_path / "c.fp32.nwb"
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             assert np.array_equal(s[CONVOLVED_PATH][:], d[CONVOLVED_PATH][:])
@@ -384,7 +382,7 @@ class TestConvolvedSpikeTrainIsPreservedExactly:
         src = _file_with_convolved(tmp_path / "c.nwb", np.float64)
         dst = tmp_path / "c.fp32.nwb"
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             assert d[SPIKE_TRAIN_PATH].dtype == s[SPIKE_TRAIN_PATH].dtype == np.int16
@@ -477,7 +475,7 @@ class TestTheSelectorIsAnchored:
             f.create_dataset("scratch/backup_probe_0_lfp/data",
                              data=rng.normal(0, 50, size=(300, 4)).astype(np.float64))
 
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
 
         with h5py.File(src, "r") as s, h5py.File(dst, "r") as d:
             assert d["acquisition/probe_0_lfp/data"].dtype == np.float32
@@ -560,7 +558,7 @@ class TestWrittenProvenanceResolves:
     def written(self, tmp_path):
         src = _file_with_convolved(tmp_path / "prov.nwb", np.float64)
         dst = tmp_path / "prov.fp32.nwb"
-        jnwb.compress_fp32(src, dst, verify=False, overwrite=True)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[LFP])
         return dst
 
     def test_the_conversion_script_stamp_resolves(self, written):
@@ -655,9 +653,8 @@ def _cast_notes(path):
 
 
 class TestTheSelectionIsExplicit:
-    """A call that names no selection keeps the anchored preset and warns that `select=` becomes
-    required; `select=` casts exactly the paths it names; a path the conversion rewrites at its
-    source dtype afterwards is refused.
+    """A call that names no selection raises before anything is written; `select=` casts exactly
+    the paths it names; a path the conversion rewrites at its source dtype afterwards is refused.
 
     The proxy to avoid: "the output has a float32 dataset with a cast note" passes while the note
     sits on a dataset that was restored to float64 -- the false receipt this repair removes. So the
@@ -676,22 +673,50 @@ class TestTheSelectionIsExplicit:
 
         monkeypatch.setattr(compression.time, "strftime", lambda fmt, *a: "2000-01-01")
 
-    def test_a_call_without_select_warns_that_it_becomes_required(self, src, tmp_path):
-        with pytest.warns(FutureWarning, match=r"select= becomes required in 0\.2\.7"):
-            jnwb.compress_fp32(src, tmp_path / "silent.nwb", verify=False)
+    @pytest.mark.parametrize("how", ["omitted", "None"])
+    @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])
+    def test_a_call_without_select_raises_before_anything_is_written(
+        self, src, tmp_path, how, entry
+    ):
+        """What would pass while the rule is broken: a raise after the destination directory or
+        the temporary file exists, or a raise that does not name the parameter. So the output
+        sits in a directory that does not exist yet, and nothing may appear under `tmp_path`."""
+        from jnwb.compression import convert
 
-    def test_naming_the_preset_does_not_warn_and_writes_the_same_bytes(self, src, tmp_path):
-        import warnings
+        before = sorted(tmp_path.rglob("*"))
+        out = tmp_path / "out" / "none.nwb"
+        kwargs = {} if how == "omitted" else {"select": None}
+        with pytest.raises(TypeError, match="select"):
+            if entry == "convert":
+                convert(src, out, **kwargs)
+            else:
+                jnwb.compress_fp32(src, out, verify=False, **kwargs)
+        assert sorted(tmp_path.rglob("*")) == before
 
-        silent, named = tmp_path / "silent.nwb", tmp_path / "named.nwb"
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", FutureWarning)
-            jnwb.compress_fp32(src, silent, verify=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", FutureWarning)
-            jnwb.compress_fp32(src, named, verify=False, select=PRESET)
-        assert silent.read_bytes() == named.read_bytes()
-        assert set(_cast_notes(named)) == set(PRESET)
+    def test_select_has_no_default(self):
+        import inspect
+
+        from jnwb.compression import convert
+
+        for fn in (jnwb.compress_fp32, convert):
+            param = inspect.signature(fn).parameters["select"]
+            assert param.default is inspect.Parameter.empty, fn.__name__
+            assert param.kind is inspect.Parameter.KEYWORD_ONLY, fn.__name__
+
+    def test_the_refusal_names_a_route_for_an_integer_lfp(self, tmp_path):
+        """An int16 LFP cannot be cast, so the advice given for `select=None` must not be to name
+        it; `select=[]` compresses the file and leaves the array at its source dtype and values."""
+        src = _lfp_only_file(tmp_path / "i.nwb", (300, 2))
+        with h5py.File(src, "a") as f:
+            del f[LFP]
+            f.create_dataset(LFP, data=np.arange(600, dtype=np.int16).reshape(300, 2))
+        with pytest.raises(TypeError, match=r"select=\[\] to cast nothing"):
+            jnwb.compress_fp32(src, tmp_path / "i.fp32.nwb", verify=False, select=None)
+        stats = jnwb.compress_fp32(src, tmp_path / "i.fp32.nwb", verify=False, select=[])
+        assert stats["cast_paths"] == []
+        with h5py.File(src, "r") as s, h5py.File(tmp_path / "i.fp32.nwb", "r") as d:
+            assert d[LFP].dtype == np.int16
+            assert np.array_equal(s[LFP][:], d[LFP][:])
 
     def test_select_casts_exactly_what_it_names(self, src, tmp_path):
         dst = tmp_path / "other.nwb"
@@ -763,7 +788,7 @@ class TestTheSelectionIsExplicit:
             assert str(d[OTHER].attrs["stored_dtype_note"]).startswith("cast from float64 to float32")
 
     def test_every_cast_note_sits_on_a_float32_dataset(self, src, tmp_path):
-        for i, select in enumerate([None, PRESET, [OTHER, HALF]]):
+        for i, select in enumerate([PRESET, [OTHER, HALF]]):
             dst = tmp_path / f"sweep{i}.nwb"
             jnwb.compress_fp32(src, dst, verify=False, select=select)
             notes = _cast_notes(dst)
@@ -777,15 +802,9 @@ class TestTheSelectionIsExplicit:
         assert not any(n.startswith("/" + p) for p in PRESET for n in names), names
 
     def test_convert_takes_the_same_selection(self, src, tmp_path):
-        import warnings
-
         from jnwb.compression import convert
 
-        with pytest.warns(FutureWarning, match="select= becomes required"):
-            convert(src, tmp_path / "c1.nwb")
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", FutureWarning)
-            stats = convert(src, tmp_path / "c2.nwb", select=[OTHER])
+        stats = convert(src, tmp_path / "c2.nwb", select=[OTHER])
         assert stats["cast_paths"] == ["/" + OTHER]
         with pytest.raises(ValueError, match="source dtype"):
             from jnwb.compression import CONVOLVED_PATH

@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `'relative'`) with no default, label the depth axis from it, and raise `ValueError` for any
   other value. They used to infer the unit from the largest depth, so a 0 to 1.55 mm probe was
   labelled relative depth. Callers add `depth_unit=` to each call.
+- **`compress_fp32` requires `select=` (breaking).** `select=` is keyword-only with no default;
+  a call that omits it, or passes `select=None`, raises `TypeError` before anything is written.
+  The anchored LFP/MUAE preset and its `FutureWarning` are removed. Callers name the
+  floating-point datasets to cast, or pass `select=[]` to cast nothing, which is also the route
+  for a file whose LFP is stored as integers.
 - **The sdist no longer ships `AGENTS.md` or the `jnwb-fact-action` skill.** Both describe how
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel

@@ -8,8 +8,8 @@ Public entry point: :func:`compress_fp32`.
     stats = jnwb.compress_fp32(src, dst, select=lfp)                        # explicit destination
     stats = jnwb.compress_fp32(src, dst, select=lfp, verify=False)          # skip verification
 
-``select=`` names the datasets to cast to float32. A call without it falls back to the anchored
-LFP/MUAE preset below and emits ``FutureWarning``; ``select=`` becomes required in 0.2.7.
+``select=`` is required and names the datasets to cast to float32; ``select=[]`` casts nothing
+and still chunks, compresses and compacts the file.
 
 Implements nwb_tfr_storage_spec.md Part 1 -- float64->float32 for LFP/MUAE, chunking,
 gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
@@ -72,7 +72,6 @@ import posixpath
 import sys
 import time
 import re
-import warnings
 from pathlib import Path
 
 import h5py
@@ -152,15 +151,17 @@ CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/da
 # returning that no-op.
 _GUARDED_PATHS = frozenset({SPIKE_TRAIN_PATH, CONVOLVED_PATH})
 
-_PRESET_WARNING = (
-    "no select= given, so the float32 cast falls back to the anchored LFP/MUAE preset "
-    "(acquisition/probe_N_lfp and acquisition/probe_N_muae). select= becomes required in "
-    "0.2.7: pass the dataset paths to cast, e.g. select=['acquisition/probe_0_lfp/data']."
-)
+def _require_selection(select) -> None:
+    """Refuse ``select=None`` before any file is opened or written."""
+    if select is None:
+        raise TypeError(
+            "select= is required: pass the floating-point dataset paths to cast to float32, "
+            "e.g. select=['acquisition/probe_0_lfp/data'], or select=[] to cast nothing"
+        )
 
 
 def _resolve_selection(src: h5py.File, select) -> list[str]:
-    """The datasets to cast: the preset when ``select`` is None, otherwise exactly ``select``.
+    """The datasets to cast: exactly ``select``.
 
     Every named path must be a dataset in ``src`` with a floating dtype, and
     must not be a path convert() rewrites afterwards. Anything else raises before a byte is
@@ -173,8 +174,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
     refusals also compare the object itself (h5py objects compare equal when they are the same
     HDF5 object), because a hard or soft link opens its target under the link's own name.
     """
-    if select is None:
-        return _find_lfp_muae_paths(src)
+    _require_selection(select)
     if isinstance(select, (str, bytes)):
         raise TypeError(
             "select= takes a list of dataset paths, not one string; write select=[path]"
@@ -477,10 +477,9 @@ def compact(src_path: Path, dst_path: Path) -> int:
         return _structural_copy(s, d)
 
 
-def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False, *, select=None) -> dict:
+def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False, *, select) -> dict:
     """Convert ``src_path`` into ``dst_path``; ``select`` is as in :func:`compress_fp32`."""
-    if select is None:
-        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
+    _require_selection(select)
     return _convert(src_path, dst_path, drop_convolved, select)
 
 
@@ -780,7 +779,7 @@ def compress_fp32(
     verify: bool = True,
     n_check: int = 200_000,
     overwrite: bool = False,
-    select: "list[str] | None" = None,
+    select: "list[str]",
 ) -> dict:
     """Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.
 
@@ -791,8 +790,8 @@ def compress_fp32(
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
             nothing. Each path is checked, cast and reported under the name of the dataset it
             opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is
-            IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE preset and emits
-            ``FutureWarning``; ``select=`` becomes required in 0.2.7.
+            IRREVERSIBLE. Required: omitting it or passing ``None`` raises ``TypeError``
+            before anything is written.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
             to regenerate it from) -- see point 7 in the module docstring. Warns loudly.
@@ -820,11 +819,12 @@ def compress_fp32(
             conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset. A
             hard or soft link to either of the first two is refused like its target. Every
             ``select`` refusal comes before anything is written.
-        TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
-            not floating, an integer or boolean one included.
+        TypeError: ``select`` is omitted, ``None`` or a single string, or names a group or a
+            dataset whose dtype is not floating, an integer or boolean one included.
         RuntimeError: ``verify`` is True and a verification check failed. ``dst`` has been
             written and is left in place for inspection; the message names every failed check.
     """
+    _require_selection(select)
     src = Path(src)
     if not src.exists():
         raise FileNotFoundError(f"source NWB not found: {src}")
@@ -833,8 +833,6 @@ def compress_fp32(
         raise FileExistsError(f"destination exists (pass overwrite=True): {dst}")
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    if select is None:
-        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
     stats = _convert(src, dst, drop_convolved, select)
     stats["ratio"] = stats["src_bytes"] / stats["dst_bytes"] if stats["dst_bytes"] else float("nan")
     stats["src_path"] = str(src)
