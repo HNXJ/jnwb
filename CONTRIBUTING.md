@@ -204,7 +204,6 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
-- **Lockstep Updates**: Any modification to a public symbol must update both the relevant documentation guide (`docs/`) and repository skill (`skills/`) in the same commit.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py
@@ -348,7 +347,7 @@ Every contributor adheres to these scientific invariants:
        │
 5. Test Full     Run pytest tests/ ensuring zero regressions.
        │
-6. Reconcile     Update docs/ and skills/ in lockstep with code changes.
+6. Reconcile     Update docs/ and skills/ (see "What goes in a change").
        │
 7. mkdocs strict Verify warning-free documentation compilation.
        │
