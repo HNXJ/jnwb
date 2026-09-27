@@ -57,7 +57,7 @@ from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias, surrogate_rng
+from ._rng import Default, REQUIRED, RNGLike, recorded_rng, resolve_seed_alias
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -384,6 +384,12 @@ def select_optimal_lag(
     """
     Select optimal VAR order p using AIC, BIC, or HQIC on the unrestricted model.
 
+    Every candidate order is scored on one sample, the ``n - max_order`` targets left after
+    trimming ``max_order`` presample values, where ``max_order`` is ``max_lag`` capped at
+    ``(n - 2) // 3``. The criteria then differ only through the model, as in
+    :func:`granger` (Lütkepohl 2005, section 4.3). Each order used to be scored on its own
+    ``n - p`` targets, so a higher order was compared on fewer samples.
+
     ``ran_on``, when given, receives the device of every fit, as in
     :func:`fit_var_bivariate`.
     """
@@ -405,10 +411,12 @@ def select_optimal_lag(
                      "the GPU)")
         resolved = CPU
 
+    # Dropping the first `actual_max - p` samples leaves the targets x[actual_max:] for every p.
+    n_samples = n - actual_max
     for p in range(1, actual_max + 1):
         _, var_unrestricted = fit_var_bivariate(
-            x, y, p, device=resolved, ridge=ridge, context=context, ran_on=ran_on)
-        n_samples = n - p
+            x[actual_max - p:], y[actual_max - p:], p, device=resolved, ridge=ridge,
+            context=context, ran_on=ran_on)
         n_params = 2 * p + 1
         ic = _info_criterion(n_samples, var_unrestricted, n_params, criterion)
         if ic < best_ic:
@@ -978,10 +986,13 @@ def bin_spikes(
     return out
 
 
-#: The surrogate generator and the entropy that rebuilds it (``jnwb._rng.surrogate_rng``).
+#: The surrogate generator and the seed that rebuilds it (``jnwb._rng.recorded_rng``).
 #: INTENTIONAL BREAK (0.2.6.1): ``None`` meant seed 0 and was recorded as ``seed=None``,
 #: a ``Generator`` raised ``TypeError`` and ``2.7`` ran as seed 2.
-_surrogate_rng = surrogate_rng
+#: INTENTIONAL BREAK (0.2.7): a ``Generator`` was used in place and recorded
+#: ``surrogate_seed_entropy=None``, so the result alone could not reproduce its p-values. It
+#: now gives up one draw, a child seed that the surrogates run on and the result records.
+_surrogate_rng = recorded_rng
 
 
 #: Fewest trials for which the surrogates re-pair trials instead of shifting them.
@@ -1144,10 +1155,10 @@ def granger(
             trial is circularly shifted by 10-90% of its length, because a few trials
             admit too few re-pairings for a null. ``params['surrogate_scheme']`` records
             which ran.
-        rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator`` used
-            in place, or ``None`` for fresh OS entropy; a float is refused. Passing
-            ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
-            p-values (``seed`` is the old spelling and still works)
+        rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator``, from
+            which one child seed is drawn and used, or ``None`` for fresh OS entropy; a
+            float is refused. Passing ``params['surrogate_seed_entropy']`` back as ``rng``
+            reproduces the p-values (``seed`` is the old spelling and still works)
 
     Returns:
         DirectedResult with ``unit='log variance ratio'``. ``p_*`` are analytic
@@ -2217,8 +2228,9 @@ def transfer_entropy(
         bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
-        rng: surrogate randomness: an ``int`` seed (default 0), a ``Generator`` used
-            in place, or ``None`` for fresh OS entropy; a float is refused. Passing
+        rng: surrogate randomness, as in :func:`granger`: an ``int`` seed (default 0), a
+            ``Generator``, from which one child seed is drawn and used, or ``None`` for
+            fresh OS entropy; a float is refused. Passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the
             p-values (``seed`` is the old spelling and still works)
         detrend: usually ``None``; TE is invariant to monotone rescaling under

@@ -13,7 +13,7 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ._bins import whole_bin_count
+from ._bins import onset_locked_counts, whole_bin_count
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
@@ -151,22 +151,11 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     if onsets.size == 0:
         # No trials, so no trial average. This returned zeros, which reads as a silent unit.
         return centers, np.full_like(centers, np.nan), np.full_like(centers, np.nan)
-    # Sorted once so each trial is a binary search, O(log N), rather than a mask over the
-    # whole train. side='left' at both ends keeps the window [start, end); a NaN sorts last
-    # and is never selected, as the mask never selected it.
-    # float64 first: a float32 train would otherwise be compared in float32 by some NumPy
+    # The window is [start, end), selected in seconds and binned in ms. The train is sorted
+    # in float64 first: a float32 train would otherwise be compared in float32 by some NumPy
     # versions and in float64 by others.
-    st = np.sort(np.asarray(st, dtype=float), axis=None)
-    lo = np.searchsorted(st, onsets + win_ms[0] / 1000.0, side="left")
-    hi = np.searchsorted(st, onsets + win_ms[1] / 1000.0, side="left")
-    counts = np.zeros((onsets.size, edges.size - 1))
-    for i, t0 in enumerate(onsets):
-        # The selection above is in seconds and the binning in ms, and the conversion can
-        # round a selected spike just outside the edges: onset 2.0 s with a spike at
-        # 1.9 s gives -100.00000000000009 ms against a first edge of -100. Clipping to the
-        # outer edges counts every selected spike; values already inside are unchanged.
-        s = np.clip((st[lo[i]:hi[i]] - t0) * 1000.0, edges[0], edges[-1])
-        counts[i], _ = np.histogram(s, bins=edges)
+    counts = onset_locked_counts(st, onsets, win_ms[0] / 1000.0, win_ms[1] / 1000.0, edges,
+                                 1000.0, right_closed=False)
     rate = counts / (bin_ms / 1000.0)
     mean = rate.mean(axis=0)
     # NaN, not zeros. One trial has no dispersion to measure, and a returned 0.0 reads as

@@ -12,6 +12,7 @@ Focus areas:
 import contextlib
 import sys
 import unittest
+import warnings
 import numpy as np
 import pandas as pd
 
@@ -203,11 +204,12 @@ class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
         self.assertGreater(len(result['acg']), 0)
 
 
-class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
+class TestAutocorrelogramRefractoryTestIsRemoved(unittest.TestCase):
     """The test took the Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre
-    about 6 ms), so an over-filled bin read as a single unit and an empty one did not."""
+    about 6 ms), so an over-filled bin read as a single unit and an empty one did not. Its
+    keys were NaN with a FutureWarning for one release and are now gone."""
 
-    KEYS = ('refractory_period_violation', 'refr_count', 'baseline_count')
+    REMOVED = ('refractory_period_violation', 'is_single_unit', 'refr_count', 'baseline_count')
 
     @staticmethod
     def _trains():
@@ -219,15 +221,15 @@ class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
         clean = np.cumsum(0.010 + rng.exponential(0.05, 12000))
         return {'contaminated': contaminated, 'clean dip': clean}
 
-    def test_no_train_reads_as_a_single_unit_and_the_keys_are_withdrawn(self):
+    def test_the_keys_are_removed_and_nothing_warns(self):
         for name, train in self._trains().items():
             with self.subTest(train=name):
-                with self.assertWarnsRegex(FutureWarning, r"inverted.*0\.2\.7.*quality_metrics"):
+                with warnings.catch_warnings():
+                    warnings.simplefilter('error')
                     result = UnitAnalyzer.autocorrelogram(train, max_lag_ms=50, bin_size_ms=1)
-                self.assertIsNone(result['is_single_unit'])
-                for key in self.KEYS:
-                    self.assertIsInstance(result[key], float)
-                    self.assertTrue(np.isnan(result[key]), key)
+                self.assertEqual(set(result), {'acg', 'lag_times_ms', 'device_used'})
+                for key in self.REMOVED:
+                    self.assertNotIn(key, result)
                 self.assertEqual(len(result['acg']), 50)
                 np.testing.assert_allclose(result['lag_times_ms'], np.arange(1, 51))
                 self.assertEqual(result['device_used'], 'cpu')
@@ -439,6 +441,36 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
                 self.assertEqual(result.shape[1], 3)
 
 
+class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
+    """The window is [onset + pre, onset + post], both edges inclusive, but spike - onset
+    rounded a spike on either edge just outside the outer bin edges and np.histogram dropped
+    it: on these onsets, 114 of 405 at the left edge and 147 of 405 at the right."""
+
+    ONSETS = 2.0 + 0.7 * np.arange(405)
+
+    def _counts(self, spikes):
+        res = UnitAnalyzer.psth(spikes, self.ONSETS, bin_size_ms=10, window_ms=(-100, 200))
+        return np.rint(res['psth'] * 0.010 * len(self.ONSETS))
+
+    def test_a_spike_on_the_left_edge_counts_in_the_first_bin(self):
+        spikes = self.ONSETS - 0.1
+        self.assertGreater(np.sum(spikes - self.ONSETS < -0.1), 0)  # the fixture rounds out
+        counts = self._counts(spikes)
+        self.assertEqual(counts[0], len(self.ONSETS))
+        self.assertEqual(counts.sum(), len(self.ONSETS))
+
+    def test_a_spike_on_the_right_edge_counts_in_the_last_bin(self):
+        spikes = self.ONSETS + 0.2
+        self.assertGreater(np.sum(spikes - self.ONSETS > 0.2), 0)  # the fixture rounds out
+        counts = self._counts(spikes)
+        self.assertEqual(counts[-1], len(self.ONSETS))
+        self.assertEqual(counts.sum(), len(self.ONSETS))
+
+    def test_a_spike_past_either_edge_is_not_counted(self):
+        spikes = np.concatenate([self.ONSETS - 0.1 - 1e-6, self.ONSETS + 0.2 + 1e-6])
+        self.assertEqual(self._counts(spikes).sum(), 0)
+
+
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
     """Test UnitAnalyzer quality assessment."""
 
@@ -450,6 +482,17 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertIn('refr_violations_pct', result)
         self.assertIn('fano_factor', result)
+
+    def test_spike_order_does_not_change_any_metric(self):
+        """Unsorted, a backward step was a negative interval counted as a violation, and the
+        first and last entries were read as the span: 51% violations where there were 1%."""
+        rng = np.random.default_rng(0)
+        st = np.sort(rng.uniform(0.0, 100.0, 500))
+        ref = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        expected_pct = 100.0 * np.sum(np.diff(st) * 1000 < 2) / (len(st) - 1)
+        self.assertEqual(ref['refr_violations_pct'], expected_pct)
+        shuffled = UnitAnalyzer.quality_metrics(rng.permutation(st), 300.0, 5.0)
+        self.assertEqual(shuffled, ref)
 
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
