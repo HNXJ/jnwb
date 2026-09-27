@@ -26,6 +26,12 @@ def is_git_checkout(root: Path = ROOT) -> bool:
     return (root / ".git").exists()
 
 
+@pytest.fixture
+def git_checkout_probe():
+    """:func:`is_git_checkout`, for a test that exercises it without importing this file."""
+    return is_git_checkout
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", f"{MARK}: reads this repository's git data; skipped where there is no .git"
