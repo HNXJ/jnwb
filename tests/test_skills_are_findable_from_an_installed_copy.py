@@ -106,6 +106,7 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_there_is_exactly_one_skill_tree() -> None:
     """The ruling's hard constraint, and harness gate 2's: no copy under jnwb/.
 

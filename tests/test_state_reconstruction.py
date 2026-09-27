@@ -55,6 +55,7 @@ def generated() -> str:
     return build()
 
 
+@pytest.mark.requires_git_checkout
 def test_the_state_file_is_not_committed():
     """Committing mutable truth makes it record the commit before its own.
 
@@ -96,6 +97,7 @@ def test_an_unresolved_row_says_why(generated: str):
         )
 
 
+@pytest.mark.requires_git_checkout
 def test_it_reports_the_slots_a_packet_needs(generated: str):
     for expected in (
         "| Branch |",
@@ -112,6 +114,7 @@ def test_it_reports_the_slots_a_packet_needs(generated: str):
         assert expected in generated, f"state.md no longer reports {expected!r}"
 
 
+@pytest.mark.requires_git_checkout
 def test_the_measured_values_match_the_tree(generated: str):
     """The generator must read the tree, not restate constants.
 
@@ -147,6 +150,7 @@ def test_the_measured_values_match_the_tree(generated: str):
     assert recorded_head(generated) == run("git", "rev-parse", "HEAD")
 
 
+@pytest.mark.requires_git_checkout
 def test_a_moved_head_reads_as_stale(tmp_path: pathlib.Path, generated: str):
     """``--check`` exists to stop a stale basis being read as a current one."""
     stale = HEAD_ROW_RE.sub("| HEAD | `" + "0" * 40 + "` |", generated)

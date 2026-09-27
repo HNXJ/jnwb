@@ -138,6 +138,7 @@ class TestAgentsMdResolvesItsOwnCrossReferences:
         assert section_numbering_gaps(doc) == [2]
 
 
+@pytest.mark.requires_git_checkout
 class TestAgentsMdResolvesTheFilesItNames:
     """The existing sweep requires a directory prefix, so a bare filename is invisible to it.
 
@@ -165,6 +166,7 @@ class TestAgentsMdResolvesTheFilesItNames:
         assert "pyproject.toml" in tracked
 
 
+@pytest.mark.requires_git_checkout
 class TestTheFactStackResolves:
     """The fact stack is human-authorized and never rewritten in passing, which is exactly
     why nothing notices when the tree moves out from under it."""

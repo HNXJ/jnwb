@@ -42,6 +42,7 @@ def _tracked_root_files() -> set[str]:
     return names
 
 
+@pytest.mark.requires_git_checkout
 def test_agents_md_is_the_only_tracked_root_instruction_file() -> None:
     tracked = _tracked_root_files()
     extra = sorted(name for name in ASSISTANT_INSTRUCTION_FILES if name in tracked)
@@ -52,6 +53,7 @@ def test_agents_md_is_the_only_tracked_root_instruction_file() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_a_local_claude_md_is_ignored_rather_than_forbidden() -> None:
     """Ignored, so a contributor's own copy neither lands in the repository nor trips a gate."""
     result = subprocess.run(

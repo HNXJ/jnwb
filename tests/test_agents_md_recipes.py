@@ -42,6 +42,7 @@ def test_every_python_block_in_the_recipes_runs_as_written(index, tmp_path, monk
     exec(compile(block, "docs/recipes.md", "exec"), {"__name__": "__recipes__"})  # noqa: S102
 
 
+@pytest.mark.requires_git_checkout
 def test_every_repository_path_agents_md_cites_exists():
     """A pointer to a file that is not there is the same defect as a stale signature."""
     # A line that says what a path would be *elsewhere* is not a claim about this repository:
@@ -76,6 +77,7 @@ def _is_generated_by_a_script(rel_path: str) -> bool:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_the_generated_path_exemption_does_not_excuse_an_ordinary_missing_file():
     """The discriminator for the carve-out above, so it cannot widen into a blanket excuse."""
     assert not _is_generated_by_a_script("artifacts/not_a_real_artifact.md"), (

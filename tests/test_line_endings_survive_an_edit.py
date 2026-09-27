@@ -164,6 +164,7 @@ class TestTheConventionHelper:
         assert "mixes conventions" in violations[0]
 
 
+@pytest.mark.requires_git_checkout
 def test_the_live_tree_passes():
     """Both rules, against the repository this file lives in."""
     assert check_line_ending_consistency() == []

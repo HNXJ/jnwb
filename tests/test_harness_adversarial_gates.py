@@ -307,6 +307,7 @@ def summarize_log_normal_effects(unit_db_modulations):
         assert len(violations) == 1
         assert "HARDCODED_TEST_PATH" in violations[0]
 
+    @pytest.mark.requires_git_checkout
     def test_real_repository_passes_all_harness_gates(self):
         """Integrity Probe: Live repository state must pass all preflight gates."""
         from scripts.harness_gate import run_full_preflight
@@ -1817,6 +1818,7 @@ def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
     return root
 
 
+@pytest.mark.requires_git_checkout
 class TestGate16LineEndingConsistency:
     """P-124: eight tracked files carried both conventions, and nothing declared one.
 

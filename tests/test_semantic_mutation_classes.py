@@ -740,6 +740,7 @@ def _describe(mutation: SemanticMutation, verdict: Verdict) -> list[str]:
     return problems
 
 
+@pytest.mark.requires_git_checkout
 def test_every_class_is_demonstrated_over_the_declared_subset(tmp_path_factory) -> None:
     """Each class, on its chain: selector proven pristine, mutant observed, restore in bytes.
 
@@ -846,6 +847,7 @@ def _assert_the_checkout_was_never_written() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_the_mutation_targets_are_clean_in_this_checkout() -> None:
     """A precondition, named as one: a dirty target makes the clone the wrong bytes.
 
