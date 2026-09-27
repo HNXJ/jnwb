@@ -273,6 +273,116 @@ class TestTheGranularBoundaryIsPinnedNotEmergent:
         assert labels["ch_13"] == "input"
 
 
+class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
+    """With `depth_axis` and `shallow_end`, depth runs from the shallow contact into tissue.
+
+    Without the declaration the frame follows the table's row order: the same probe listed
+    shallow-first and deep-first gave depths of 400 and 350 um. The declaration anchors both
+    `vflip` and `label_layers`; `ProbeGeometry` itself is left as it was.
+    """
+
+    DECLARED = {"depth_axis": "z", "shallow_end": "min"}
+
+    @staticmethod
+    def _table(perm):
+        """One probe, z increasing into tissue, listed in the row order `perm`."""
+        z = PITCH_UM * np.arange(N_CONTACTS)
+        frame = pd.DataFrame({
+            "x": np.zeros(N_CONTACTS), "y": np.zeros(N_CONTACTS), "z": z,
+            "channel_id": [f"ch_{i}" for i in range(N_CONTACTS)],
+        }).iloc[perm].reset_index(drop=True)
+        return jnwb.probe_geometry(frame, units="um")
+
+    def _fit(self, perm, **declared):
+        freqs, psd = _synthetic_motif()  # row i of psd is the contact at z = i * pitch
+        geom = self._table(perm)
+        res = vflip(psd[perm], freqs, probe_geometry=geom, **declared)
+        assert res.accepted
+        return res, geom
+
+    @staticmethod
+    def _orders():
+        return {
+            "in_order": np.arange(N_CONTACTS),
+            "reversed": np.arange(N_CONTACTS)[::-1],
+            "permuted": np.random.default_rng(3).permutation(N_CONTACTS),
+        }
+
+    def test_the_same_probe_in_any_row_order_gives_one_depth_and_one_labelling(self):
+        fits = {name: self._fit(perm, **self.DECLARED) for name, perm in self._orders().items()}
+        depths = {name: res.crossover_depth_um for name, (res, _) in fits.items()}
+        labels = {name: label_layers(res, geom, **self.DECLARED) for name, (res, geom) in fits.items()}
+        assert all(res.depth_anchor == "shallowest" for res, _ in fits.values())
+        for name in ("reversed", "permuted"):
+            assert depths[name] == pytest.approx(depths["in_order"], abs=1e-9), depths
+            assert labels[name] == labels["in_order"], name
+        # Anchored at z = 0, the depth is the crossover's z on this probe.
+        assert depths["in_order"] == pytest.approx(fits["in_order"][0].crossover_z_um, abs=1e-9)
+
+    @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
+    def test_depth_range_to_the_crossover_selects_exactly_the_contacts_above_it(self, order_name):
+        res, geom = self._fit(self._orders()[order_name], **self.DECLARED)
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um), **self.DECLARED)
+        selected = {ch for ch, lab in labels.items() if lab != "na"}
+        above = {f"ch_{i}" for i in range(N_CONTACTS) if i * PITCH_UM <= res.crossover_depth_um}
+        assert selected == above and 0 < len(above) < N_CONTACTS
+
+    def test_without_a_declaration_the_row_order_frame_is_kept_and_recorded(self):
+        res_in, _ = self._fit(self._orders()["in_order"])
+        res_rev, _ = self._fit(self._orders()["reversed"])
+        assert res_in.depth_anchor == res_rev.depth_anchor == "row_order"
+        assert res_in.to_dict()["depth_anchor"] == "row_order"
+        # Deep-first rows keep the frame measured from the deep end.
+        assert res_rev.crossover_depth_um == pytest.approx(
+            (N_CONTACTS - 1) * PITCH_UM - res_in.crossover_depth_um, abs=1e-6)
+
+    def test_probe_geometry_is_not_reoriented(self):
+        """linear_order and orientation stay in row order, byte for byte, through both calls."""
+        geom = self._table(self._orders()["reversed"])
+        before = (geom.linear_order.tobytes(), geom.orientation.tobytes(),
+                  geom.contact_positions.tobytes())
+        np.testing.assert_array_equal(geom.linear_order, np.arange(N_CONTACTS))
+        np.testing.assert_array_equal(geom.orientation, [0.0, 0.0, -1.0])
+        freqs, psd = _synthetic_motif()
+        perm = self._orders()["reversed"]
+        res = vflip(psd[perm], freqs, probe_geometry=geom, **self.DECLARED)
+        label_layers(res, geom, **self.DECLARED)
+        after = (geom.linear_order.tobytes(), geom.orientation.tobytes(),
+                 geom.contact_positions.tobytes())
+        assert after == before
+
+    @pytest.mark.parametrize("declared, match", [
+        ({"depth_axis": "w", "shallow_end": "min"}, "depth_axis must be one of"),
+        ({"depth_axis": "z", "shallow_end": "top"}, "shallow_end must be one of"),
+        ({"depth_axis": "z"}, "declared together"),
+        ({"shallow_end": "min"}, "declared together"),
+        ({"depth_axis": "x", "shallow_end": "min"}, "does not change"),
+    ])
+    def test_an_invalid_declaration_raises_in_both_functions(self, declared, match):
+        freqs, psd = _synthetic_motif()
+        geom = self._table(np.arange(N_CONTACTS))
+        with pytest.raises(ValueError, match=match):
+            vflip(psd, freqs, probe_geometry=geom, **declared)
+        res = vflip(psd, freqs, probe_geometry=geom)
+        with pytest.raises(ValueError, match=match):
+            label_layers(res, geom, **declared)
+
+    def test_a_declaration_without_a_geometry_raises(self):
+        freqs, psd = _synthetic_motif()
+        with pytest.raises(ValueError, match="needs a probe_geometry"):
+            vflip(psd, freqs, contact_spacing=PITCH_UM, **self.DECLARED)
+
+    def test_label_layers_refuses_a_declaration_the_fit_was_not_made_with(self):
+        res_declared, geom = self._fit(self._orders()["reversed"], **self.DECLARED)
+        res_plain, _ = self._fit(self._orders()["reversed"])
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_declared, geom)
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_plain, geom, **self.DECLARED)
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_declared, geom, depth_axis="z", shallow_end="max")
+
+
 class TestTheCrossoverDepthIsInTheLabellingFrame:
     """`crossover_depth_um` is shaft rank times pitch, the frame `label_layers` uses.
 
