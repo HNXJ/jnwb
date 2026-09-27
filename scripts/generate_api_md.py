@@ -246,7 +246,13 @@ def _format_cell(obj: Any, kind: str) -> str:
         return _canonical_type_name(type(obj).__module__, type(obj).__qualname__)
     sig = _format_signature(obj)
     desc = _first_doc_line(obj)
-    if desc and not sig.startswith("*"):
+    if sig.startswith("*"):
+        return sig
+    # A code span, so Markdown reads the signature literally: a bare `*` marker otherwise
+    # opens emphasis that runs to the next `*`, and a `|` in `str | None` ends the table cell.
+    fence = "``" if "`" in sig else "`"
+    sig = f"{fence}{sig}{fence}"
+    if desc:
         return f"{sig}<br>*{desc}*"
     return sig
 

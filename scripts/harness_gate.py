@@ -2542,7 +2542,8 @@ def api_md_parameter_kinds(cell: str) -> Optional[List[Tuple[str, str]]]:
     Parsed here rather than taken from ``scripts.generate_api_md``, for the reason gate 18 gives:
     a generator that drops a marker would otherwise write the same wrong kinds on both sides.
     """
-    text = cell.strip()
+    # The page renders a signature as a Markdown code span; the backticks are markup.
+    text = cell.strip().lstrip("`")
     if not text.startswith("("):
         return None
     depth, quote, end = 0, "", -1

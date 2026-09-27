@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 
+import pytest
+
 import jnwb
 
 # No `sys.path.insert(0, REPO_ROOT)` here, deliberately. Prepending the checkout re-shadows the
@@ -193,6 +195,41 @@ class TestSignatureCellsCarryParameterKinds:
         assert api_md_parameter_kinds("(*args, k=1, **kwargs)") == [
             ("args", "var_positional"), ("k", "keyword_only"), ("kwargs", "var_keyword")]
         assert api_md_parameter_kinds("*A class docstring.*") is None
+        assert api_md_parameter_kinds("`(a, *, b: str | None = None) -> int`<br>*doc*") == [
+            ("a", "positional_or_keyword"), ("b", "keyword_only")]
+
+    def test_the_rendered_page_keeps_every_signature_intact(self):
+        """What a reader sees is the HTML, not the Markdown. A bare `*` opened `<em>` and
+        swallowed the marker, and the `|` of `str | None` ended the cell, cutting the rest of
+        the signature off; a code span keeps both literal."""
+        markdown = pytest.importorskip("markdown")
+        html = markdown.markdown(API_MD.read_text(encoding="utf-8"), extensions=["tables"])
+        cells = {
+            m.group(1): m.group(2)
+            for m in re.finditer(r"<tr>\s*<td>(jnwb\.\w+)</td>\s*<td>function</td>\s*"
+                                 r"<td>(.*?)</td>\s*</tr>", html, re.S)
+        }
+        assert len(cells) >= 100, f"only {len(cells)} function rows rendered; the parse broke"
+        emphasised, uncoded, cut = [], [], []
+        signed = 0
+        for name, cell in cells.items():
+            obj = getattr(jnwb, name.removeprefix("jnwb."))
+            try:
+                parameters = inspect.signature(obj).parameters.values()
+            except (TypeError, ValueError):
+                continue  # rendered as a description, not a signature
+            signed += 1
+            signature = cell.split("<br")[0].rstrip()
+            if "<em>" in signature:
+                emphasised.append(name)
+            if not (signature.startswith("<code>(") and signature.endswith("</code>")):
+                uncoded.append(name)
+            if any(param.name not in signature for param in parameters):
+                cut.append(name)
+        assert signed >= 100, f"only {signed} rows carry a signature; the sweep is wrong"
+        assert emphasised == [], f"<em> opens inside the signature of {emphasised}"
+        assert uncoded == [], f"the signature of {uncoded} is not one code span"
+        assert cut == [], f"the rendered signature of {cut} lost parameters"
 
     def test_some_export_has_a_keyword_only_parameter(self):
         """Guard: without one, the page could drop every `*` and the comparison stay vacuous."""
@@ -208,7 +245,7 @@ class TestSignatureCellsCarryParameterKinds:
 
         text = API_MD.read_text(encoding="utf-8")
         assert check_api_md_member_types(REPO_ROOT) == []
-        seeded = re.sub(r"(\| jnwb\.\w+ \| function \| \([^|]*?), \*, ", r"\1, ", text, count=1)
+        seeded = re.sub(r"(\| jnwb\.\w+ \| function \| `\([^|`]*?), \*, ", r"\1, ", text, count=1)
         assert seeded != text, "no row with a `*` marker was found to seed"
         (tmp_path / "docs").mkdir()
         (tmp_path / "docs" / "api.md").write_text(seeded, encoding="utf-8")
