@@ -618,11 +618,10 @@ ACCEPTED_CHAIN_ELSE = {
 ACCEPTED_HANDLER_RECOVERY = {
     ("analyzers.py", "Exception", ("acg",), False):
         "The handler sets acg = None. Absence, not a plausible substitute.",
-    ("analyzers.py", "Exception",
-     ("X_gpu", "device_used", "explained_variance", "explained_variance_ratio",
-      "gpu_success", "projection", "s", "total_variance", "u", "vt"), True):
-        "cupy -> torch -> CPU SVD. The path is recorded: device_used and gpu_success are "
-        "rebound by the handler and device_used is returned, so the label follows the value.",
+    ("analyzers.py", "Exception", ("X_gpu", "s", "u", "vt"), True):
+        "cupy -> torch -> CPU SVD. The path is recorded: the torch branch returns "
+        "device_used='cuda' with its own SVD, and a CPU result is labelled 'cpu' after "
+        "warn_device_fallback, so the label follows the value.",
     ("gpu_pca.py", "Exception", ("S_np", "V_np", "proj_np"), False):
         "GPU SVD -> NumPy SVD, announced by warn_device_fallback, which is jnwb's declared "
         "mechanism for saying that a CPU and GPU path may disagree numerically.",

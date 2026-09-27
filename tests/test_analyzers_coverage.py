@@ -477,9 +477,29 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.assertIn('device_used', res)
         self.assertIn(res['device_used'], ('cpu', 'cuda'))
 
+    def test_fallback_warning_when_gpu_fails(self):
+        import warnings
+        from unittest.mock import patch
+
+        with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
+            with blocked_import("cupy"):
+                with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter("always")
+                        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
+                        self.assertEqual(res['device_used'], 'cpu')
+                        runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
+                        self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
+
+
+class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
+    """Components and variances that cannot be estimated are NaN, as in
+    compute_population_trajectory."""
+
     def test_components_that_could_not_be_estimated_are_nan_not_missing(self):
         # Two units support two components; the other two do not exist.
-        res = PopulationAnalyzer.population_trajectory(self.X_f64[:, :2], n_components=4)
+        X = np.random.default_rng(42).standard_normal((50, 2))
+        res = PopulationAnalyzer.population_trajectory(X, n_components=4)
         self.assertEqual(res['projection'].shape, (50, 4))
         self.assertEqual(res['components'].shape, (4, 2))
         self.assertTrue(np.all(np.isfinite(res['projection'][:, :2])))
@@ -495,20 +515,6 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(res['explained_variance_ratio'])))
         self.assertTrue(np.all(np.isnan(res['explained_variance'])))
         self.assertEqual(res['explained_variance_ratio'].shape, (2,))
-
-    def test_fallback_warning_when_gpu_fails(self):
-        import warnings
-        from unittest.mock import patch
-
-        with patch("jnwb.analyzers.resolve_device", return_value="cuda"):
-            with blocked_import("cupy"):
-                with patch("jnwb.analyzers.torch_cuda_available", return_value=False):
-                    with warnings.catch_warnings(record=True) as w:
-                        warnings.simplefilter("always")
-                        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
-                        self.assertEqual(res['device_used'], 'cpu')
-                        runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
-                        self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
 
 
 class TestTFRAnalyzerCompareConditions(unittest.TestCase):
