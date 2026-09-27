@@ -1,14 +1,16 @@
 """Deterministic Release Gate for jnwb.
 
 Pipeline, in the order the steps run:
-  0a. Release readiness: the problem stack is empty, no todo item is still required this
-      cycle, and the blocker-focused closure receipt reports zero for this commit
+  0a. Release readiness: the working tree is clean, the problem stack is empty, no todo item
+      is still required this cycle, and the blocker-focused closure receipt reports zero for
+      this commit
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
   0e. CI concluded success, per required leg, for the exact commit being qualified
-  1. Full test suite execution (pytest tests/), in parallel, with its wall time
+  1. Full test suite execution (pytest tests/), in parallel, with its wall time, and the
+     peak memory of a fixed set of representative operations, recorded
   2. Harness pre-flight gates
   2a. Recorded mutation gaps still hold at HEAD
   2b. API docs generator drift check, on this interpreter and on the Python floor
@@ -1652,6 +1654,9 @@ def main() -> None:
     run_cmd([sys.executable, "-m", "pytest", "-q", "-n", "auto", "--durations=10",
              "-p", "no:cacheprovider", "tests/"])
     log.info("Suite wall time: %.0f s", time.monotonic() - started)
+    # Peak memory is the other cost measured before a release. Recorded, with no threshold,
+    # into artifacts/benchmarks/peak_memory.json for the release commit to carry.
+    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py"), "--write"])
 
     log.info("=== STEP 2: Running harness pre-flight verification gate ===")
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])

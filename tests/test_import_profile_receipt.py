@@ -171,3 +171,36 @@ def test_the_probe_agrees_with_an_independent_wall_clock():
             f"{attempts} attempts (ratios {[round(r, 2) for r in ratios]}); something in "
             f"the probe is being measured too"
         )
+
+
+# --- peak memory of the representative operations, recorded before each release -----------
+
+def test_the_peak_memory_instrument_resolves_a_known_allocation():
+    """The control operation allocates and touches 256 MiB and nothing else. What would pass
+    while the instrument is wrong: a current-RSS reading (the block is freed before it is
+    read, so it reports about 0), a unit slip of 1024, or a literal."""
+    from scripts.measure_peak_memory import measure
+
+    added = measure("control_256mib")["added_mib"]
+    assert 230.0 <= added <= 290.0, f"256 MiB allocated, {added} MiB recorded"
+
+
+def test_every_operation_in_the_fixed_set_runs():
+    """The release gate runs the set late; an operation broken by an API change fails here."""
+    import numpy as np
+
+    from scripts.measure_peak_memory import OPERATIONS
+
+    assert len(OPERATIONS) >= 5 and "control_256mib" in OPERATIONS
+    for name, build in OPERATIONS.items():
+        build(np.random.default_rng(0))()
+
+
+def test_the_release_gate_records_peak_memory_beside_the_suite_wall_time():
+    source = (ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+    main = source[source.index("def main("):]
+    step_1 = main.partition("=== STEP 1:")[2].partition("=== STEP 2:")[0]
+    assert "Suite wall time" in step_1, "STEP 1 no longer records the suite wall time"
+    call = re.search(r"run_cmd\(\[sys\.executable, str\(REPO_ROOT / \"scripts\" / "
+                     r"\"measure_peak_memory\.py\"\), \"--write\"\]\)", step_1)
+    assert call, "STEP 1 does not run scripts/measure_peak_memory.py --write"
