@@ -73,14 +73,11 @@ jobs:
     # The matrix legs install the newest release of every dependency, so the `>=` floors in
     # pyproject.toml are claims no other leg exercises. This leg resolves each core dependency
     # to the lowest release that installs alongside the others, on the floor interpreter, and
-    # runs the suite there. A floor that resolves higher is named with a warning.
-    #
-    # continue-on-error keeps a floor failure from turning every run red while the floors are
-    # being settled. The job still concludes failure, and scripts/release_gate.py requires
-    # every unconditional job to succeed, so a failing floor still blocks a release.
+    # runs the suite there. A floor that resolves higher is named with a warning. A failure
+    # here means a declared floor no longer holds, and scripts/release_gate.py requires this
+    # job to succeed like every other unconditional job.
     name: Test (dependency floors, Python 3.12 on ubuntu-latest)
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 60
     env:
       FLOOR_PYTHON: "3.12"
