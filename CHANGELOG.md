@@ -176,6 +176,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `map_peak_channel_to_area`, `classify_layer_from_depth` and `enrich_units_dataframe` look a
+  channel up in the first identifier column present (`channel_id`, then `id`, then
+  `electrode_id`) and nowhere else. A channel missing from `channel_id` was looked up in `id`,
+  which can number channels differently, and returned another channel's area and depth; it now
+  resolves to nothing.
 - `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
   complex128, as assigning `mean` already did, so a summary read back from `write`'s
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an

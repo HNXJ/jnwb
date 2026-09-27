@@ -88,9 +88,11 @@ def parse_probe_areas(label: str) -> tuple:
 def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     """Resolve an electrode row from electrodes_df by channel ID.
 
-    Checks explicit identifier columns ('channel_id', 'id', 'electrode_id') first
-    to avoid row index / channel ID substitution when DataFrame index is reset or non-default,
-    falling back to DataFrame index lookup.
+    The ID is looked up in the first identifier column present, in the order 'channel_id',
+    'id', 'electrode_id', so a reset or non-default DataFrame index is never read as a channel
+    ID. Only that column is searched: the columns can number channels differently, so an ID
+    missing from it resolves to nothing rather than to a row of another numbering. The
+    DataFrame index is used only when no identifier column exists.
 
     Returns:
         (row_index, row_series) or (None, None) if not found.
@@ -103,21 +105,26 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     except (ValueError, TypeError, OverflowError):
         return None, None
 
-    # 1. Check explicit channel identifier columns first
-    has_explicit_id_col = False
-    for id_col in ['channel_id', 'id', 'electrode_id']:
-        if id_col in electrodes_df.columns:
-            has_explicit_id_col = True
-            matches = electrodes_df.index[electrodes_df[id_col] == val]
-            if len(matches) > 0:
-                idx = matches[0]
-                return idx, electrodes_df.loc[idx]
+    id_col = _identifier_column(electrodes_df)
+    if id_col is not None:
+        matches = electrodes_df.index[electrodes_df[id_col] == val]
+        if len(matches) > 0:
+            idx = matches[0]
+            return idx, electrodes_df.loc[idx]
+        return None, None
 
-    # 2. Fall back to DataFrame index ONLY IF no explicit channel ID column was present
-    if not has_explicit_id_col and val in electrodes_df.index:
+    if val in electrodes_df.index:
         return val, electrodes_df.loc[val]
 
     return None, None
+
+
+def _identifier_column(electrodes_df: pd.DataFrame) -> Optional[str]:
+    """The channel identifier column :func:`_resolve_electrode_row` searches, or None."""
+    for id_col in ('channel_id', 'id', 'electrode_id'):
+        if id_col in electrodes_df.columns:
+            return id_col
+    return None
 
 
 def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame) -> Optional[str]:
@@ -141,37 +148,34 @@ _MISSING = object()
 def _electrode_row_resolver(electrodes_df: pd.DataFrame):
     """Return ``val -> (row_index, row)`` agreeing with :func:`_resolve_electrode_row`.
 
-    ``val`` is the integer channel ID that function derives. When every identifier column
-    present has a NumPy integer, unsigned, boolean or float64 dtype, one pass over each column
+    ``val`` is the integer channel ID that function derives. When the identifier column it
+    searches has a NumPy integer, unsigned, boolean or float64 dtype, one pass over the column
     builds a first-match table, so a lookup is O(1) rather than a comparison over the whole
     table; a float64 column is keyed with ``float(val)``, the conversion ``==`` applies. A
     narrower float column is excluded because ``==`` rounds ``val`` to that float's mantissa
     (16777217 equals a float32 16777216), which a table keyed on exact values would miss. Any
     other identifier column, or none, falls back to :func:`_resolve_electrode_row` per call.
     """
-    id_cols = [c for c in ('channel_id', 'id', 'electrode_id') if c in electrodes_df.columns]
-    fast = bool(id_cols) and all(
-        isinstance(electrodes_df[c], pd.Series)
-        and isinstance(electrodes_df[c].dtype, np.dtype)
-        and (electrodes_df[c].dtype.kind in 'iub' or electrodes_df[c].dtype == np.float64)
-        for c in id_cols
+    id_col = _identifier_column(electrodes_df)
+    fast = id_col is not None and (
+        isinstance(electrodes_df[id_col], pd.Series)
+        and isinstance(electrodes_df[id_col].dtype, np.dtype)
+        and (electrodes_df[id_col].dtype.kind in 'iub'
+             or electrodes_df[id_col].dtype == np.float64)
     )
     if not fast:
         return lambda val: _resolve_electrode_row(val, electrodes_df)
 
-    tables = []
-    for c in id_cols:
-        col = electrodes_df[c]
-        first: dict = {}
-        for key, idx in zip(col.to_numpy().tolist(), electrodes_df.index):
-            first.setdefault(key, idx)
-        tables.append((first, col.dtype.kind == 'f'))
+    col = electrodes_df[id_col]
+    first: dict = {}
+    for key, idx in zip(col.to_numpy().tolist(), electrodes_df.index):
+        first.setdefault(key, idx)
+    is_float = col.dtype.kind == 'f'
 
     def resolve(val):
-        for first, is_float in tables:
-            idx = first.get(float(val) if is_float else val, _MISSING)
-            if idx is not _MISSING:
-                return idx, electrodes_df.loc[idx]
+        idx = first.get(float(val) if is_float else val, _MISSING)
+        if idx is not _MISSING:
+            return idx, electrodes_df.loc[idx]
         return None, None
 
     return resolve
