@@ -186,6 +186,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a positive one. The calibration receipt is regenerated: power on every alternative is
   unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
   accepted none, below `alpha=0.05`.
+- **`xflip(n_blocks=None)` chooses the block count by the partition objective (the count can
+  change on existing data).** Of the counts from 2 to `min(4, n_channels // min_block_size)`,
+  it takes the one whose partition scores highest on the same S²/P objective the contiguous
+  search maximises, the smaller count on a tie. It took the one with the highest contrast,
+  which rises when a weakly correlated block is split: two blocks of 8 correlating at 0.8 and
+  0.2 were cut into three. The objective counts only within-block pairs, so blocks that
+  correlate strongly with each other score higher merged. Calls with an integer `n_blocks`
+  are unchanged.
 - `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
   RandomState now raise TypeError (a float already did).
 - **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,

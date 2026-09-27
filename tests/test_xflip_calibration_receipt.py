@@ -2,7 +2,7 @@
 
 `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so it could not be
 regenerated, and two changes had already invalidated it: 0.2.4 made `xflip` reject a
-zero-variance channel rather than report its correlation as 0, and 05-07 found the
+zero-variance channel rather than report its correlation as 0, and 0.2.5 found the
 smooth-gradient drop gate was skipped on the `contiguous=False` path, so its null rates were
 conditional on a setting it did not name. It is replaced by `xflip_calibration_0.2.5.md`
 and a generator, and the receipt records a hash of the estimator; changing the estimator
@@ -73,7 +73,7 @@ def test_receipt_and_generator_exist():
 
 
 def test_the_receipt_without_a_generator_is_gone():
-    """The defect 05-60 repaired was a receipt nobody could reproduce, not its contents."""
+    """The defect repaired in 0.2.5 was a receipt nobody could reproduce, not its contents."""
     for stale in ("xflip_calibration_0.2.3.md", "xflip_calibration_raw.json"):
         assert not (ROOT / "artifacts" / "benchmarks" / stale).exists(), (
             f"{stale} is a calibration receipt with no generator; it was replaced by "
@@ -119,10 +119,10 @@ def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():
     """A 0.000 acceptance rate on the gradient null invites the opposite conclusion.
 
     Every gradient is maximally significant under the omnibus permutation test -- median,
-    min and max p all sit at the 1/(surrogates+1) floor -- and the rate is produced entirely
-    by the local boundary-drop gate. 05-07 found that gate skipped on the unrestricted path,
-    where the same nulls were accepted 15/15. A receipt that prints 0.000 without that
-    sentence reads as though the permutation test rejects gradients.
+    min and max p all sit at the 1/(surrogates+1) floor -- and the local boundary-drop gate
+    produces the rejections, not the acceptances. That gate was once skipped on the
+    unrestricted path, where the same nulls were accepted 15/15. A receipt that prints the
+    rate without that sentence reads as though the permutation test rejects gradients.
     """
     raw = _raw()
     grad = raw["nulls"]["smooth_spatial_gradient"]
@@ -133,4 +133,12 @@ def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():
         "the gradient null is no longer pinned at the permutation floor, so the explanation "
         "in the report no longer describes the measurement; rerun the generator"
     )
-    assert "boundary-drop gate" in REPORT.read_text(encoding="utf-8")
+    n = raw["n_seeds"]
+    assert grad["n_rejected_by_surrogates"] == 0
+    assert grad["n_rejected_by_boundary_drop"] == n - round(grad["false_positive_rate"] * n)
+    report = " ".join(REPORT.read_text(encoding="utf-8").split())
+    assert (
+        f"the local boundary-drop gate rejects {grad['n_rejected_by_boundary_drop']} of {n}"
+        in report
+    )
+    assert "acceptance rate is produced" not in report

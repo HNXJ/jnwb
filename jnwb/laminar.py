@@ -1120,6 +1120,24 @@ def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
     return mean_within - mean_between
 
 
+def _partition_objective(corr: np.ndarray, labels: np.ndarray) -> float:
+    """The objective `_optimal_contiguous_partition` maximises, scored for any labelling.
+
+    The sum over blocks of S_b**2 / P_b, S_b the sum of the block's off-diagonal
+    correlations and P_b their pair count; a single-contact block scores 0.
+    """
+    total = 0.0
+    for block in np.unique(labels):
+        members = np.flatnonzero(labels == block)
+        pairs = 0.5 * members.size * (members.size - 1)
+        if pairs == 0:
+            continue
+        sub = corr[np.ix_(members, members)]
+        s_b = 0.5 * (float(np.sum(sub)) - float(np.trace(sub)))
+        total += s_b * s_b / pairs
+    return float(total)
+
+
 def _optimal_contiguous_partition(
     corr: np.ndarray,
     n_blocks: int,
@@ -1341,7 +1359,11 @@ def xflip(
             or `'partial'` (default: `'pearson'`).
         contiguous: If True, partitions into contiguous contact segments along the probe
             shaft (default: True). If False, performs unrestricted clustering.
-        n_blocks: Number of blocks to partition into, or None to evaluate over 2..K (default: 2).
+        n_blocks: Number of blocks to partition into (default: 2), or None to take the count
+            in 2..min(4, n_channels // min_block_size) whose partition scores highest on the
+            partition objective of step 2, the smaller count on a tie. The objective counts
+            only within-block pairs, so blocks that correlate strongly with each other score
+            higher merged. The surrogate test then uses the chosen count.
         min_block_size: Minimum channel count required per block (default: 2).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
@@ -1514,8 +1536,12 @@ def xflip(
         else:
             b_bounds, boundaries, obs_q, labels = _unrestricted_partition(corr, target_k)
     else:
+        # INTENTIONAL BREAK (0.2.7): the block count is the one whose partition scores highest
+        # on the partition objective, where it was the one with the highest contrast. Contrast
+        # rises when a weakly correlated block is split, so a (8, 8) probe whose second block
+        # correlates at 0.2 was cut into three. The count can change on existing data.
         max_k = min(4, n_channels // min_block_size)
-        best_q = -np.inf
+        best_score = -np.inf
         best_res = None
         target_k = 2
         for k_cand in range(2, max_k + 1):
@@ -1523,8 +1549,9 @@ def xflip(
                 bb, bnd, q_cand, lbl = _optimal_contiguous_partition(corr, k_cand, min_block_size)
             else:
                 bb, bnd, q_cand, lbl = _unrestricted_partition(corr, k_cand)
-            if q_cand > best_q:
-                best_q = q_cand
+            score = _partition_objective(corr, lbl)
+            if score > best_score:
+                best_score = score
                 best_res = (bb, bnd, q_cand, lbl)
                 target_k = k_cand
         if best_res is not None:

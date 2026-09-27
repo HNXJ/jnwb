@@ -11,7 +11,7 @@ script being rerun.
 This replaces ``xflip_calibration_0.2.3.md``, which was produced under 0.2.3 with no
 generator and could not be regenerated. Two changes had already invalidated it: 0.2.4 made
 ``xflip`` reject a zero-variance channel instead of reporting its correlation as 0, and
-05-07 found the smooth-gradient drop gate was skipped on the ``contiguous=False`` path, so
+0.2.5 found the smooth-gradient drop gate was skipped on the ``contiguous=False`` path, so
 the null rates it reported were conditional on a setting it did not name.
 
 Every number below traces to a seeded computation over ``jnwb.testing`` generators passed
@@ -72,7 +72,6 @@ N_SAMPLES = 400
 FS = 1000.0
 MIN_BLOCK_SIZE = 3
 ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
-
 
 def estimator_sources() -> list[tuple[str, str]]:
     """`xflip` and every module-level function in `jnwb.laminar` it can reach.
@@ -152,17 +151,24 @@ NULLS = {
 def run_nulls(n_seeds: int, n_surrogates: int) -> dict:
     out = {}
     for name, build in NULLS.items():
-        accepted, p_values, modularity = 0, [], []
+        accepted, by_surrogates, by_drop, p_values, modularity = 0, 0, 0, [], []
         for s in range(n_seeds):
             data, extra = build(s)
             res = xflip(data, n_blocks=2, min_block_size=MIN_BLOCK_SIZE,
                         n_surrogates=n_surrogates, rng=s + 6000, **extra)
             accepted += bool(res.accepted)
+            # Read from the reasons `xflip` gives rather than re-deciding its gates here. A
+            # seed can fail several gates; each counts every seed it rejects.
+            reason = res.rejection_reason or ""
+            by_surrogates += "Non-significant modularity" in reason
+            by_drop += "Boundary drop below" in reason
             p_values.append(float(res.p_values["omnibus"]))
             modularity.append(float(res.modularity))
         out[name] = {
             "n_seeds": n_seeds,
             "false_positive_rate": accepted / n_seeds,
+            "n_rejected_by_surrogates": int(by_surrogates),
+            "n_rejected_by_boundary_drop": int(by_drop),
             "median_p": float(np.median(p_values)),
             "min_p": float(np.min(p_values)),
             "max_p": float(np.max(p_values)),
@@ -240,7 +246,7 @@ def render(raw: dict) -> str:
         "",
         "This supersedes `xflip_calibration_0.2.3.md`, which had no generator and could not",
         "be regenerated. Two changes had already invalidated it: 0.2.4 made `xflip` reject a",
-        "zero-variance channel rather than report its correlation as 0, and 05-07 found the",
+        "zero-variance channel rather than report its correlation as 0, and 0.2.5 found the",
         "smooth-gradient drop gate was skipped on the `contiguous=False` path, so the null",
         "rates it reported were conditional on a setting it did not name.",
         "",
@@ -285,11 +291,11 @@ def render(raw: dict) -> str:
         "surrogate test alone controls.",
         f"- `smooth_spatial_gradient` has median, min and max omnibus p all at "
         f"{grad['median_p']:.4f}, the 1/(surrogates+1) floor. Every gradient is maximally "
-        "significant under the permutation test; the "
-        f"{grad['false_positive_rate']:.3f} acceptance rate is produced "
-        "entirely by the local boundary-drop gate. Reading the rate without this line "
-        "inverts what 05-07 established -- the permutation test does not reject gradients, "
-        "and when that gate was skipped on the unrestricted path they were accepted 15/15.",
+        f"significant under the permutation test, which rejects {grad['n_rejected_by_surrogates']} "
+        f"of {n}; the local boundary-drop gate rejects {grad['n_rejected_by_boundary_drop']} of "
+        f"{n}, and the {grad['false_positive_rate']:.3f} acceptance rate is the gradients it "
+        "lets through. When that gate was skipped on the unrestricted path, gradients were "
+        "accepted 15/15.",
     ]
 
     titles = {
@@ -320,6 +326,8 @@ def render(raw: dict) -> str:
         "",
         "- Only `contiguous=True`. The unrestricted path is exercised by",
         "  `tests/test_xflip_calibration.py::TestXFlipGradientGateOnBothPaths`, not here.",
+        "- `n_blocks=None`. Every cell passes the true block count, so the choice of count is",
+        "  not calibrated here.",
         "- One correlation method (`pearson`) and one surrogate method per family.",
         "- Non-contiguous and overlapping block structure.",
         "- Real recordings. Every family is synthetic.",

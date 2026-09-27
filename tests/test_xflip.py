@@ -203,6 +203,21 @@ class TestXFlipContiguousPartitioning:
         assert res.n_blocks == 2
         assert res.boundaries == (8,)
 
+    def test_auto_block_count_follows_the_partition_objective_not_contrast(self):
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        # Two blocks of 8, the second weakly correlated. Splitting the weak block raises the
+        # contrast, so a count chosen by contrast cuts the probe into three.
+        corr = np.zeros((16, 16))
+        corr[:8, :8] = 0.8
+        corr[8:, 8:] = 0.2
+        np.fill_diagonal(corr, 1.0)
+        _, _, q2, _ = _optimal_contiguous_partition(corr, 2, 3)
+        _, _, q3, _ = _optimal_contiguous_partition(corr, 3, 3)
+        assert q3 > q2
+        res = xflip(corr, n_blocks=None, min_block_size=3, n_surrogates=0, is_corr_matrix=True)
+        assert res.boundaries == (8,)
+
 
 class TestXFlipSurrogatesAndInference:
     """Test autocorrelation preservation, p-value resolution, and determinism."""
