@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "caea3b2cf39de8f293ba130a46dbdcc2f3d549ca0bbcef0ef7106f9643212cef",
+  "estimator_sha256": "d347860c5b0ddada4c2f9daacfa2058a025dc81e5cd282d638c5258cdc32c933",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
@@ -347,5 +347,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 128.8
+  "elapsed_s": 112.9
 }

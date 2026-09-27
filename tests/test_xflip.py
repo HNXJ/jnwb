@@ -358,6 +358,26 @@ class TestXFlipContainer:
         assert "p_values" in d
         assert "accepted" in d
 
+    def test_boundaries_are_plain_ints_and_survive_json(self):
+        import json
+
+        data, _, _ = synth_correlation_blocks([4, 4, 4], n_samples=400, rng=2)
+        res = xflip(data, n_blocks=3, n_surrogates=5, rng=0)
+        assert len(res.boundaries) == 2
+        assert all(type(b) is int for b in res.boundaries)
+        assert all(type(v) is int for pair in res.block_bounds for v in pair)
+
+        # Arrays are encoded explicitly; any NumPy scalar left in the result raises.
+        def arrays_only(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            raise TypeError(type(obj).__name__)
+
+        back = json.loads(json.dumps(res.to_dict(), default=arrays_only))
+        assert back["boundaries"] == list(res.boundaries)
+        assert back["block_bounds"] == [list(pair) for pair in res.block_bounds]
+        assert back["boundary_drops"] == {str(b): v for b, v in res.boundary_drops.items()}
+
 
 class TestTheContiguousPartitionIsStillTheArgmax:
     """`interval_w` answered its off-diagonal term from a 2-D prefix sum in

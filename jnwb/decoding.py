@@ -186,13 +186,17 @@ def nested_cv_linear_svm(
 
     Returns:
         dict with accuracy, fold_accuracies, best_params, status, cv_scheme,
-        f1, auc, majority_baseline_accuracy. ``status`` is
+        f1, auc, majority_baseline_accuracy, seed. ``status`` is
         ``"insufficient_trials_for_cv"`` (all metrics NaN) when the minority
         class has fewer than 2 trials, ``"insufficient_classes_for_cv"`` when
         fewer than two distinct labels are present,
         ``"insufficient_groups_for_cv"`` when ``groups`` names fewer than two
         groups, else ``"success"``. ``cv_scheme`` is ``"nested_stratified"``,
-        or ``"nested_stratified_group"`` with ``groups``.
+        or ``"nested_stratified_group"`` with ``groups``. ``seed`` is the int the
+        folds, the group order and ``SVC`` were seeded with: ``rng`` itself for an int,
+        the int drawn for a ``Generator`` or ``None``. Passing it back as ``rng``
+        reproduces the folds and scores. It is ``None`` when the status is not
+        ``"success"``, where nothing was drawn.
 
     Raises:
         ValueError: If ``groups`` is not one id per trial, has a missing id or
@@ -217,6 +221,7 @@ def nested_cv_linear_svm(
                 "f1": float("nan"),
                 "auc": float("nan"),
                 "majority_baseline_accuracy": float("nan"),
+                "seed": None,
             }
     # This was `np.bincount(labels.astype(int)).min()`, which counts every integer
     # below the maximum as a class -- including ones that are absent. Labels {1, 2} scored
@@ -234,6 +239,7 @@ def nested_cv_linear_svm(
             "f1": float("nan"),
             "auc": float("nan"),
             "majority_baseline_accuracy": float("nan"),
+            "seed": None,
         }
     max_splits = int(n_per_class.min())
     if max_splits < 2:
@@ -246,6 +252,7 @@ def nested_cv_linear_svm(
             "f1": float("nan"),
             "auc": float("nan"),
             "majority_baseline_accuracy": float("nan"),
+            "seed": None,
         }
 
     # The partition was fixed at `random_state=42` in four places with no way to
@@ -367,6 +374,7 @@ def nested_cv_linear_svm(
         "f1": f1,
         "auc": auc,
         "majority_baseline_accuracy": float(np.mean(fold_majority_accs)),
+        "seed": random_state,
     }
 
 

@@ -306,7 +306,7 @@ def paired_fire_prob_test(
     fires_null: np.ndarray,
     n_shuffles: int,
     n_bootstrap: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
 ) -> Dict:
     """Paired binary test: P(fire | target window) vs P(fire | paired baseline window).
 
@@ -325,13 +325,14 @@ def paired_fire_prob_test(
         fires_null: (n,) bool array, the paired baseline/control condition.
         n_shuffles: number of sign-flip draws for the shuffle-null p-value.
         n_bootstrap: number of paired-bootstrap draws for the risk-difference CI.
-        rng: explicit numpy.random.Generator.
+        rng: an int seed, a numpy.random.Generator, or None for fresh OS entropy.
 
     Returns:
         dict with p_fire_target, p_fire_baseline, risk_difference (+ CI),
         odds_ratio (+ CI), p_value_fire_shuffle, n_trials. All-NaN/p=1.0 when fewer than 2
         paired trials are available.
     """
+    rng = resolve_rng(rng, func_name="paired_fire_prob_test")
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
     # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of
@@ -461,7 +462,7 @@ def shuffle_pvalue_paired(
     a: np.ndarray,
     b: np.ndarray,
     n_shuffles: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
     alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.
@@ -474,6 +475,7 @@ def shuffle_pvalue_paired(
         ValueError: If ``a`` and ``b`` differ in length (they were truncated to the shorter,
             pairing unrelated trials), contain NaN or Inf, or ``n_shuffles`` < 1.
     """
+    rng = resolve_rng(rng, func_name="shuffle_pvalue_paired")
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     if len(a) != len(b):
@@ -521,7 +523,7 @@ def shuffle_pvalue_unpaired(
     a: np.ndarray,
     b: np.ndarray,
     n_shuffles: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
     alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
@@ -536,6 +538,7 @@ def shuffle_pvalue_unpaired(
     Raises:
         ValueError: If ``a`` or ``b`` contains NaN or Inf, or ``n_shuffles`` < 1.
     """
+    rng = resolve_rng(rng, func_name="shuffle_pvalue_unpaired")
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
@@ -654,7 +657,7 @@ def shuffle_r2_ci(
         "shuffle_r2_ci",
     )
     r2_obs = _r2(y_true, y_score)
-    rng = np.random.default_rng(random_state)
+    rng = resolve_rng(random_state, func_name="shuffle_r2_ci")
     null = np.empty(n_shuffle)
     scheme = "global" if groups is None else "within_group"
     for i in range(n_shuffle):
@@ -1665,7 +1668,7 @@ def cross_modal_comparison(
     # 600-sample series holds only about six non-overlapping windows of 101 lags: whichever
     # window contains the global maximum wins, so the restricted p cannot resolve below
     # about 1/6. The full-circle null measured 4.0%.
-    gen = np.random.default_rng(seed)
+    gen = resolve_rng(seed, func_name="cross_modal_comparison")
     null_max = np.empty(int(n_permutations), dtype=float)
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))

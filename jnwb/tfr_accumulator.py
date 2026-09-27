@@ -110,6 +110,42 @@ def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) ->
         )
 
 
+_INT64_MAX = int(np.iinfo(np.int64).max)
+
+
+def _as_counts(value, name: str) -> np.ndarray:
+    """``value`` as int64 counts, refusing anything a cast would change.
+
+    A bare ``astype(int64)`` truncates 2.7 to 2, reads True as 1, wraps
+    ``np.uint64(2**64 - 1)`` to -1 and accepts a negative count.
+    """
+    def refuse(why: str):
+        return ValueError(f"{name} must hold non-negative integral counts within int64; {why}.")
+
+    raw = np.asarray(value)  # an int beyond int64 becomes an object array, handled below
+    kind = raw.dtype.kind
+    if kind == "O":
+        flat = raw.ravel().tolist()
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in flat):
+            raise refuse(f"got {raw.dtype} values that are not all integers")
+        if any(v < 0 or v > _INT64_MAX for v in flat):
+            raise refuse("got a negative value or one beyond int64")
+        return np.array(flat, dtype=np.int64).reshape(raw.shape)
+    if kind == "b":
+        raise refuse("got booleans")
+    if kind not in ("f", "i", "u"):
+        raise refuse(f"got {raw.dtype}")
+    if kind == "f" and not (np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))):
+        raise refuse(f"got {raw.dtype} values that are not whole numbers")
+    # Floats compare below 2**63, the first float past int64; integers compare exactly.
+    top = np.max(raw) if raw.size else 0
+    if (float(top) >= 2.0**63) if kind == "f" else (int(top) > _INT64_MAX):
+        raise refuse("got a value beyond int64")
+    if raw.size and np.min(raw) < 0:
+        raise refuse("got a negative value")
+    return raw.astype(np.int64)
+
+
 class TFRAccumulator:
     """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
@@ -182,7 +218,7 @@ class TFRAccumulator:
     # The other accumulators cast on assignment as `mean` does, so a summary read back from
     # `write`'s int32/float32/complex64 datasets keeps accumulating in int64/float64/complex128.
     # An int32 `n` would overflow `self.n * other.n` in `merge` from n = 46341.
-    def _stored(name: str, dtype, optional: bool = False):
+    def _stored(name: str, dtype, optional: bool = False, integral: bool = False):
         attr = "_" + name
 
         def fget(self):
@@ -191,12 +227,15 @@ class TFRAccumulator:
         def fset(self, value):
             if optional and value is None:
                 setattr(self, attr, None)
-            else:
-                setattr(self, attr, np.asarray(value, dtype=dtype))
+                return
+            if integral:
+                setattr(self, attr, _as_counts(value, name))
+                return
+            setattr(self, attr, np.asarray(value, dtype=dtype))
 
         return property(fget, fset)
 
-    n = _stored("n", np.int64)
+    n = _stored("n", np.int64, integral=True)
     M2 = _stored("M2", np.float64)
     sum_z = _stored("sum_z", np.complex128)
     sum_unit_z = _stored("sum_unit_z", np.complex128)

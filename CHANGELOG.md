@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from: the seed for an int `rng`, the fresh OS entropy drawn for `rng=None`. Passing it back as
   `rng` reproduces `p_values`. It is `None` for a caller's `Generator` and when no surrogates
   ran. `to_dict()` includes it. An int seed draws the same stream as before.
+- `ZFlipResult.surrogate_seed_entropy`, on the same rule as `XFlipResult`'s: passing it back as
+  `rng` reproduces `p_value`; `None` for a caller's `Generator` and when no surrogates ran.
+  `to_dict()` includes it. An int seed draws the same stream as before.
+- `nested_cv_linear_svm` returns `seed`, the int its folds, group order and `SVC` were seeded
+  with: `rng` itself for an int, the int drawn for a `Generator` or `None`. Passing it back as
+  `rng` reproduces the folds and scores. It is `None` for a status other than `"success"`.
 - `compute_population_trajectory` returns `explained_variance_ratio` (each component's share of
   the total) and `explained_variance_per_component` (each component's variance,
   `S**2 / (n_samples - 1)` of the z-scored data), both `(n_components,)` as scikit-learn's
@@ -175,6 +181,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accepted none, below `alpha=0.05`.
 - `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
   RandomState now raise TypeError (a float already did).
+- **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
+  bit generator, list or RandomState now raises `TypeError` (a float already did). An int, a
+  Generator and None draw the same streams as before.
+- **`jrsa` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
+  bit generator, list or RandomState now raises `TypeError`, under every spelling of the
+  argument. An int, a Generator and None draw the same streams as before.
+- **`cross_modal_comparison` accepts only an int, a Generator or None as `rng` (breaking).** A
+  bool, SeedSequence, bit generator, list or RandomState now raises `TypeError` when the lag
+  sweep draws its null. An int, a Generator and None draw the same streams as before.
+- **`shuffle_r2_ci` accepts only an int, a Generator or None as `rng` (breaking).** A bool,
+  SeedSequence, bit generator, list or RandomState now raises `TypeError`. An int, a Generator
+  and None draw the same streams as before.
+- **The `jnwb.testing.synth` builders accept only an int, a Generator or None as `rng`
+  (breaking).** `synth_white_noise`, `synth_ar_noise`, `synth_periodic_response`,
+  `synth_correlation_blocks`, `synth_phase_gradient`, `synth_unequal_groups` and
+  `synth_laminar_motif` raise `TypeError` for a bool, SeedSequence, bit generator, list or
+  RandomState. An int, a Generator and None give the same data as before.
+- **`jnwb.testing.build_canonical_tutorial_nwb(seed=)` and `build_synth_nwb` with
+  `SynthNWBBuildOptions(seed=)` accept only an int, a Generator or None as `seed`
+  (breaking).** A bool, SeedSequence, bit generator, list or RandomState now raises
+  `TypeError`. An int and a Generator build the same file as before.
+- `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired` and
+  `paired_fire_prob_test` accept an int seed or None as `rng` as well as a Generator. An int
+  seed draws the stream `np.random.default_rng(seed)` draws, and a Generator is advanced as
+  before. `rng` is still required. A float, bool, SeedSequence or list raises `TypeError`
+  where the last three raised `AttributeError`.
+- **`shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` refuse a legacy
+  `np.random.RandomState` (breaking).** They called its `choice` and `shuffle` methods, so it
+  ran; it now raises `TypeError`. Pass `np.random.default_rng(seed)` or the int seed.
+- `build_permutation_plan` accepts a Generator or None as `rng` as well as an int. Either gives
+  one int base seed, drawn from the Generator or from a fresh `default_rng()`, which the plan
+  returns as `seed`; passing it back as `rng` reproduces the manifest. An int is the base
+  seed as before. `rng` is still required.
 - `xflip`'s contiguous partition search scores every split point of a block count as one array.
   On a given objective the cuts are identical to a scalar loop's. The search is 3 to 29 times faster from 32 to
   256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
@@ -249,9 +288,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
   integer `z` to complex128 before any state changes; it raised after the running mean had
   taken the trial.
-- `TFRAccumulator`: assigning `n` casts to int64. `write` stores `n` as int32, and `merge` of
-  two reloaded accumulators multiplied the counts in int32, which overflows from 46341 trials
-  per cell and returned a wrong `M2` without an error.
+- `TFRAccumulator`: assigning `n` stores an int64 copy of non-negative whole counts within
+  int64, and raises `ValueError` for anything else.
+  - `write` stores `n` as int32, and `merge` of two reloaded accumulators multiplied the counts
+    in int32, which overflows from 46341 trials per cell and returned a wrong `M2` without an
+    error.
+  - Refused: a fraction (2.7 was stored as 2), NaN or inf, a negative count, a boolean (True was
+    stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
+    -1), and a larger integer or float, which raised `OverflowError` or wrapped. An object array
+    is accepted only when every element is a non-negative Python int within int64; any other
+    object array is refused (a float element such as 2.5 was cast to 2).
+  - A whole float such as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
+  - An int64 array was stored as the caller's own array, so writing to that array afterwards
+    changed the accumulator's counts.
+- `XFlipResult.boundaries` and `block_bounds` hold Python ints. They held NumPy int64 from the
+  contiguous search, so `json.dumps` of `to_dict()` failed on them and on the `boundary_drops`
+  keys.
 - `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
 - `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
   `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these

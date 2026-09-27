@@ -263,8 +263,8 @@ def _():
         jnwb.permute_labels(y, rng=np.random.default_rng(0))
     with pytest.raises(ValueError, match="requires groups"):
         jnwb.permute_labels(y, scheme="within_group", rng=np.random.default_rng(0))
-    with pytest.raises(TypeError, match="explicit numpy.random.Generator"):
-        jnwb.permute_labels(y, scheme="global", rng=0)
+    with pytest.raises(TypeError, match="rng must be an int seed"):
+        jnwb.permute_labels(y, scheme="global", rng=0.5)
 
 
 @case("jnwb-statistics", "failure")

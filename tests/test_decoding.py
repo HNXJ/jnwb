@@ -131,6 +131,36 @@ class TestNestedCvRng:
         np.testing.assert_allclose([r["f1"], r["auc"]], [f1, auc], rtol=1e-12)
         assert r["best_params"] == {"C": c}
 
+    @staticmethod
+    def _scores(r):
+        return (tuple(r["fold_accuracies"]), r["f1"], r["auc"], r["best_params"]["C"])
+
+    @pytest.mark.parametrize("kind", ["none", "generator"])
+    def test_the_recorded_seed_reproduces_the_folds_and_scores(self, kind, monkeypatch):
+        X, y, groups = _rng_probe_data()
+        rng = None if kind == "none" else np.random.default_rng(11)
+        calls = _record_grouped_splits(monkeypatch)
+        first = nested_cv_linear_svm(X, y, n_splits=3, rng=rng, groups=groups)
+        assert isinstance(first["seed"], int)
+        first_folds = [[(tr.tolist(), te.tolist()) for tr, te in c["folds"]] for c in calls]
+        calls.clear()
+        again = nested_cv_linear_svm(X, y, n_splits=3, rng=first["seed"], groups=groups)
+        assert again["seed"] == first["seed"]
+        assert [[(tr.tolist(), te.tolist()) for tr, te in c["folds"]] for c in calls] == first_folds
+        assert self._scores(again) == self._scores(first)
+
+    def test_the_reproduction_is_not_vacuous(self):
+        """Fresh draws must partition differently, or equal scores prove nothing."""
+        X, y, _ = _rng_probe_data()
+        runs = [nested_cv_linear_svm(X, y, n_splits=3, rng=None) for _ in range(5)]
+        assert len({r["seed"] for r in runs}) == 5
+        assert len({self._scores(r) for r in runs}) > 1
+
+    def test_an_int_rng_is_recorded_as_given(self):
+        X, y, _ = _rng_probe_data()
+        assert nested_cv_linear_svm(X, y, n_splits=3, rng=7)["seed"] == 7
+        assert nested_cv_linear_svm(X[:1], y[:1], n_splits=3)["seed"] is None
+
 
 def _trials(n_groups=3, n_per_group=2, n_analyses=1):
     rows = []

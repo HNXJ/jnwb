@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ._dictlike import DictAccessMixin
-from ._rng import Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias, surrogate_rng
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
@@ -1222,7 +1222,7 @@ def _optimal_contiguous_partition(
     cuts = []
     curr_j = n
     for k in range(n_blocks, 1, -1):
-        u = parent[k, curr_j]
+        u = int(parent[k, curr_j])
         cuts.append(u)
         curr_j = u
     cuts.reverse()
@@ -1391,15 +1391,7 @@ def xflip(
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
-    # An int seed draws the stream `default_rng(seed)` always drew; `None` draws fresh OS
-    # entropy and records it, so the result alone reproduces p. A caller's Generator is
-    # used in place and its position is not recoverable, so its entropy stays None.
-    if isinstance(rng, np.random.Generator):
-        gen, seed_entropy = rng, None
-    else:
-        resolve_rng(rng, func_name="xflip")
-        seed_sequence = np.random.SeedSequence(None if rng is None else int(rng))
-        gen, seed_entropy = np.random.default_rng(seed_sequence), int(seed_sequence.entropy)
+    gen, seed_entropy = surrogate_rng(rng, "xflip")
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1730,6 +1722,10 @@ class ZFlipResult(DictAccessMixin):
         pitch_um: Inter-contact spacing in micrometers, if supplied.
         orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
             superficial) or ``'deep_to_superficial'`` (row 0 deep).
+        surrogate_seed_entropy: The entropy the surrogate generator was built from: the
+            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
+            back as `rng` reproduces `p_value`. None when you supplied a `Generator`, whose
+            stream position cannot be recovered, and when no surrogates were drawn.
     """
 
     adjacent_wpli: np.ndarray
@@ -1747,6 +1743,7 @@ class ZFlipResult(DictAccessMixin):
     n_channels: int
     pitch_um: Optional[float] = None
     orientation: Optional[str] = None
+    surrogate_seed_entropy: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1766,6 +1763,7 @@ class ZFlipResult(DictAccessMixin):
             "n_channels": int(self.n_channels),
             "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
             "orientation": self.orientation,
+            "surrogate_seed_entropy": self.surrogate_seed_entropy,
         }
 
 
@@ -1850,14 +1848,16 @@ def zflip(
             attainable p-value is ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
-        rng: Random seed, Generator, or None for fresh entropy, for surrogate
-            evaluation (``seed`` is the old spelling and still works).
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy, for surrogate
+            evaluation (``seed`` is the old spelling and still works). The entropy used is
+            returned as `surrogate_seed_entropy` for an int or None.
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
 
     Raises:
-        TypeError: If `orientation` is not given.
+        TypeError: If `orientation` is not given, or `rng` is not an int, a Generator or
+            None.
         ValueError: If `orientation` is not one of the two orders, input is not
             a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
@@ -1871,6 +1871,7 @@ def zflip(
         phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
+    gen, seed_entropy = surrogate_rng(seed, "zflip")
     if orientation not in _ZFLIP_ORIENTATIONS:
         raise ValueError(
             f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
@@ -2024,12 +2025,12 @@ def zflip(
         directionality = "unidentifiable"
 
     # Monte Carlo surrogate null test
-    rng = np.random.default_rng(seed)
     p_val = float("nan")
-    if n_surrogates > 0 and not flat_contacts:
+    surrogates_run = n_surrogates > 0 and not flat_contacts
+    if surrogates_run:
         exceed_count = 0
         for _ in range(n_surrogates):
-            surr_lfp = _surrogate_phase_randomize(lfp, rng)
+            surr_lfp = _surrogate_phase_randomize(lfp, gen)
             _, _, Z_surr = signal.stft(
                 surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
             )
@@ -2081,6 +2082,7 @@ def zflip(
         n_channels=n_channels,
         pitch_um=pitch_um,
         orientation=orientation,
+        surrogate_seed_entropy=seed_entropy if surrogates_run else None,
     )
 
 

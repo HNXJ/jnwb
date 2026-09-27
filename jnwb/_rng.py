@@ -20,7 +20,7 @@ Both resolvers accept the same three things -- an ``int`` seed, a ``Generator``,
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
@@ -32,6 +32,7 @@ __all__ = [
     "resolve_rng",
     "resolve_seed_alias",
     "sklearn_random_state",
+    "surrogate_rng",
 ]
 
 
@@ -142,7 +143,7 @@ def resolve_seed_alias(
     return resolved
 
 
-def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
+def resolve_rng(rng: RNGLike, *, func_name: str, name: str = "rng") -> np.random.Generator:
     """Return a ``Generator`` for ``rng``.
 
     Args:
@@ -150,6 +151,7 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
             successive calls advance one stream rather than restarting it), or ``None``
             for fresh OS entropy.
         func_name: The calling function, so a wrong type names the caller.
+        name: The argument as the caller spelled it, so the error names it.
 
     Raises:
         TypeError: For anything else. A ``float`` seed is refused rather than truncated,
@@ -160,9 +162,27 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
     if isinstance(rng, (int, np.integer)) and not isinstance(rng, bool):
         return np.random.default_rng(int(rng))
     raise TypeError(
-        f"{func_name}: rng must be an int seed, a numpy.random.Generator, or None "
+        f"{func_name}: {name} must be an int seed, a numpy.random.Generator, or None "
         f"for fresh entropy; got {type(rng).__name__}."
     )
+
+
+def surrogate_rng(
+    rng: RNGLike, func_name: str
+) -> Tuple[np.random.Generator, Optional[int]]:
+    """The surrogate generator, and the entropy that rebuilds it.
+
+    An ``int`` seed draws the stream ``default_rng(seed)`` always drew, and its entropy is
+    the seed. ``None`` draws fresh OS entropy and returns it, so ``rng=<entropy>``
+    reproduces the draws. A ``Generator`` is used in place, advancing the caller's
+    stream; its position is not recoverable, so the entropy is ``None``. A float or bool
+    raises ``TypeError`` through :func:`resolve_rng` rather than being truncated.
+    """
+    if isinstance(rng, np.random.Generator):
+        return rng, None
+    resolve_rng(rng, func_name=func_name)
+    sequence = np.random.SeedSequence(None if rng is None else int(rng))
+    return np.random.default_rng(sequence), int(sequence.entropy)
 
 
 def sklearn_random_state(rng: RNGLike, *, func_name: str) -> int:

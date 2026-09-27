@@ -317,3 +317,39 @@ def test_zflip_container_access_and_to_dict():
     assert "mean_wpli" in d
     assert "adjacent_delays_s" in d
     assert "directionality" in d
+
+
+def _zflip_noise(rng, n_surrogates=30):
+    # White noise, so the p-value sits away from the 1/(n_surrogates+1) floor and a
+    # different surrogate stream gives a different p.
+    data = np.random.default_rng(8).normal(size=(4, 2000))
+    return jnwb.zflip(data, 1000.0, orientation="superficial_to_deep",
+                      n_surrogates=n_surrogates, rng=rng)
+
+
+def test_zflip_the_entropy_recorded_for_rng_none_reproduces_p():
+    first = _zflip_noise(None)
+    assert isinstance(first.surrogate_seed_entropy, int)
+    again = _zflip_noise(first.surrogate_seed_entropy)
+    assert again.p_value == first.p_value
+    assert again.surrogate_seed_entropy == first.surrogate_seed_entropy
+    assert first.to_dict()["surrogate_seed_entropy"] == first.surrogate_seed_entropy
+    # Fresh draws must disagree somewhere, or equal p-values prove nothing.
+    assert len({_zflip_noise(None).p_value for _ in range(4)} | {first.p_value}) > 1
+
+
+def test_zflip_an_int_seed_is_recorded_as_given_and_draws_the_same_stream():
+    res = _zflip_noise(123)
+    assert res.surrogate_seed_entropy == 123
+    assert res.p_value == _zflip_noise(np.random.default_rng(123)).p_value
+
+
+def test_zflip_a_generator_and_an_untested_fit_record_none():
+    assert _zflip_noise(np.random.default_rng(1)).surrogate_seed_entropy is None
+    assert _zflip_noise(3, n_surrogates=0).surrogate_seed_entropy is None
+
+
+@pytest.mark.parametrize("bad", [2.7, True, np.random.SeedSequence(3), [1, 2]])
+def test_zflip_refuses_an_rng_outside_int_generator_none(bad):
+    with pytest.raises(TypeError, match="rng"):
+        _zflip_noise(bad, n_surrogates=5)

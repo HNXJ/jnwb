@@ -211,8 +211,8 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'int' = <required>, seed: 'Any' = <required>) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
-| jnwb.permute_labels | function | `(y, *, groups = None, scheme: 'str', rng: 'np.random.Generator')`<br>*Permute labels under an explicitly named exchangeability scheme.* |
+| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'RNGLike' = <required>, seed: 'Any' = <required>) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
+| jnwb.permute_labels | function | `(y, *, groups = None, scheme: 'str', rng: 'RNGLike')`<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
 ## Module: jnwb.rsa
 
@@ -268,10 +268,10 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |
 | jnwb.fires_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms) -> 'bool'`<br>*True iff >=1 spike falls in [onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000).* |
 | jnwb.mann_whitney_p_floor | function | `(n1: 'int', n2: 'int', alternative: 'str' = 'two-sided') -> 'float'`<br>*Attainable minimal non-zero p-value floor for a Mann-Whitney U test without ties.* |
-| jnwb.paired_fire_prob_test | function | `(fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'np.random.Generator') -> 'Dict'`<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
+| jnwb.paired_fire_prob_test | function | `(fires_target: 'np.ndarray', fires_null: 'np.ndarray', n_shuffles: 'int', n_bootstrap: 'int', rng: 'RNGLike') -> 'Dict'`<br>*Paired binary test: P(fire | target window) vs P(fire | paired baseline window).* |
 | jnwb.rate_in_window | function | `(spike_times: 'np.ndarray', onset_s: 'float', window_ms: 'Tuple[float, float]') -> 'float'`<br>*Firing rate (Hz) in ``[onset_s + window_ms[0]/1000, onset_s + window_ms[1]/1000)``.* |
-| jnwb.shuffle_pvalue_paired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
-| jnwb.shuffle_pvalue_unpaired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'np.random.Generator', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
+| jnwb.shuffle_pvalue_paired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.* |
+| jnwb.shuffle_pvalue_unpaired | function | `(a: 'np.ndarray', b: 'np.ndarray', n_shuffles: 'int', rng: 'RNGLike', alternative: 'str' = 'two-sided') -> 'Tuple[float, float]'`<br>*Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.* |
 | jnwb.shuffle_r2_ci | function | `(y_true: 'np.ndarray', y_score: 'np.ndarray', groups: 'Optional[np.ndarray]' = None, n_shuffle: 'int' = 200, rng: 'RNGLike' = 42, *, random_state: 'Any' = 42) -> 'Dict[str, float]'`<br>*R^2 (squared Pearson correlation) between a continuous score and a 0/1 label, with a shuffle-null 95% CI.* |
 
 ## Module: jnwb.tfr

@@ -17,7 +17,9 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import (
+    Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias, sklearn_random_state,
+)
 import pandas as pd
 
 SCHEMES = ("within_group", "global")
@@ -28,7 +30,7 @@ def permute_labels(
     *,
     groups=None,
     scheme: str,
-    rng: np.random.Generator,
+    rng: RNGLike,
 ):
     """Permute labels under an explicitly named exchangeability scheme.
 
@@ -46,7 +48,8 @@ def permute_labels(
             when there is no grouping structure the CV scheme depends on; passing this scheme
             for grouped/LOCO-style CV reproduces the exchangeability mismatch and should be
             treated as a code-review red flag, not a default).
-        rng: an explicit numpy.random.Generator -- no implicit global RNG state.
+        rng: required. An int seed, a numpy.random.Generator (advanced in place), or None
+            for fresh OS entropy; NumPy's global state is never read.
 
     Returns:
         A permuted copy of `y`, same shape and dtype.
@@ -54,8 +57,7 @@ def permute_labels(
     y = np.asarray(y)
     if scheme not in SCHEMES:
         raise ValueError(f"scheme must be one of {SCHEMES}, got {scheme!r}")
-    if not isinstance(rng, np.random.Generator):
-        raise TypeError("rng must be an explicit numpy.random.Generator (e.g. np.random.default_rng(seed))")
+    rng = resolve_rng(rng, func_name="permute_labels")
 
     if scheme == "global":
         return rng.permutation(y)
@@ -98,7 +100,7 @@ def build_permutation_plan(
     groups: Iterable[object],
     *,
     n_permutations: int,
-    rng: int = Default(REQUIRED),
+    rng: RNGLike = Default(REQUIRED),
     seed: Any = Default(REQUIRED),
 ) -> dict:
     """Create an explicit within-group null plan (a manifest of digested draws); no model
@@ -111,24 +113,25 @@ def build_permutation_plan(
         labels: label array, any dtype.
         groups: group id per sample, same length as ``labels``.
         n_permutations: number of permutation draws to generate.
-        rng: base seed, an ``int``. Unlike the rest of the package this one cannot take a
-            ``Generator`` or ``None``: the plan's whole product is a manifest of integer
-            per-draw seeds, ``rng + i``, which a Generator cannot name and fresh entropy
-            would make unreproducible. (``seed`` is the old spelling and still works.)
+        rng: required. An ``int`` base seed, a ``Generator`` or ``None`` for fresh OS
+            entropy. Draw ``i`` is seeded with ``base + i``. An int is the base itself; a
+            Generator gives one int drawn from it and ``None`` one int from a fresh
+            ``default_rng()``. The base used is returned as ``seed``, and passing it back
+            as ``rng`` reproduces the plan. (``seed`` is the old spelling and still works.)
 
     Returns:
         dict with ``draw_manifest`` (DataFrame: permutation, seed, label_digest, n_samples,
-        n_groups), ``scheme`` (always "within_group"), ``seed``, ``n_permutations``, and
-        ``group_composition_preserved`` (always True).
+        n_groups), ``scheme`` (always "within_group"), ``seed`` (the int base seed used),
+        ``n_permutations``, and ``group_composition_preserved`` (always True).
+
+    Raises:
+        TypeError: If ``rng`` is not an int, a Generator or None.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed',
                               func_name='build_permutation_plan')
-    if not isinstance(seed, (int, np.integer)) or isinstance(seed, bool):
-        raise TypeError(
-            "build_permutation_plan: rng must be an int base seed, because the plan "
-            "records the integer seed `rng + i` of every draw; got "
-            f"{type(seed).__name__}."
-        )
+    # The manifest names every draw by an integer seed, so a Generator or None is turned
+    # into one int base seed first, and an int is used as given.
+    seed = sklearn_random_state(seed, func_name="build_permutation_plan")
     y = np.asarray(list(labels))
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:

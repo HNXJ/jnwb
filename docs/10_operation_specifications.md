@@ -16,15 +16,18 @@ Every operation added in 0.2 follows these conventions.
 
 ### 1. RNG Convention
 
-Functions consuming stochasticity take `rng`. What a function accepts depends on how it
-resolves `rng`, and the value is checked when the function first draws from it:
+Functions consuming stochasticity take `rng` and resolve it through
+`jnwb._rng.resolve_rng`, so every one accepts the same values. The value is checked no later
+than the function's first draw from it:
 
 | Accepted `rng` | Functions | Other values |
 |---|---|---|
-| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `cluster_permutation_test`, `cross_area_coherence`, `exact_sign_flip`, `granger`, `granger_spectral`, `nested_cv_linear_svm`, `phase_slope_index`, `resample_onsets`, `transfer_entropy`, `xflip` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
-| whatever `np.random.default_rng` takes: an `int` seed, a `Generator`, `None`, a `SeedSequence`, a bit generator, a list of ints, or a `bool` | `cross_modal_comparison`, `jrsa`, `shuffle_r2_ci`, `zflip` and the `testing.synth` builders | `TypeError` for a `float` |
-| a `np.random.Generator` only | `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` | `TypeError` from `permute_labels`; `AttributeError` from the other three |
-| an `int` only | `build_permutation_plan`, which records the integer seed of every draw | `TypeError` |
+| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `build_permutation_plan`, `cluster_permutation_test`, `cross_area_coherence`, `cross_modal_comparison`, `exact_sign_flip`, `granger`, `granger_spectral`, `jrsa`, `nested_cv_linear_svm`, `paired_fire_prob_test`, `permute_labels`, `phase_slope_index`, `resample_onsets`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci`, `transfer_entropy`, `xflip`, `zflip`, the `testing.synth` builders and `testing.SynthNWBBuildOptions` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+
+`build_canonical_tutorial_nwb` and `SynthNWBBuildOptions` spell the argument `seed`.
+
+`build_permutation_plan` names each draw by an integer seed: a `Generator` or `None` gives one
+integer base seed, which the plan returns as `seed`.
 
 - **The default you see is the seed you get.** Most `rng` parameters default to the seed the
   function will use -- `42`, `0`, or no default at all where the caller must choose -- so
