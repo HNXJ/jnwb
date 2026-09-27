@@ -281,8 +281,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that reads `layer` from their output now raises `KeyError`. The `FutureWarning` about it is
   gone, and a `layer` column already on the input is returned unchanged, where the electrode
   path used to overwrite it with the depth class.
+- **`JRSAResult.p[0]` and `JRSAResult.q[0]` on a single-lag result (breaking).** `p` and `q`
+  are plain 0-d arrays like `value`, so `[0]` raises `IndexError` where it returned the scalar
+  with a `FutureWarning`. Use `float(result.p)` or `result.p[()]`.
 
 ### Fixed
+
+- `jrsa` raises `ValueError` for a `reduction` key that names no axis of `adim`, and the
+  message lists the axes that exist. The key was skipped, so the unreduced value came back while
+  `parameters['reduction']` recorded the request: with `adim=(-3, -2)` the keys are `"axis_-3"`
+  and `"axis_-2"`, and `{"axis_0": "mean"}` or `{0: "mean"}` reduced nothing.
+- `jrsa`'s `mutual_information`, `granger_ssr_ftest`, `transfer_entropy_histogram_nats` and
+  `phase_slope` estimators raise `ValueError` when the two inputs differ in shape. They paired
+  the flattened samples by truncating the second input to the length of the first and returned
+  a number. `jrsa` already refused the mismatch at its entry; matched inputs give the same values.
 
 - `jrsa`: a `reduction` over axis 0 of `rsa`, `cka`, `rv`, `hsic`, `distance_correlation` or
   `procrustes` removes that axis, so the next axis becomes the observations. It kept the axis
