@@ -48,11 +48,12 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 07-23: the deferral attack, then the apparatus work |
+| 0 | 07-23: the deferral attack, then the apparatus work; 07-31 |
 | 1 | 07-03: the lanes in flight and the bullets ruled 2026-09-27, then the rest |
 | 2 | 07-01, P-345 first |
-| 3 | 07-24, and 07-25 with IB-52 of 07-03 |
+| 3 | 07-24, 07-25, 07-30 |
 | 4 | 07-02 |
+| 5 | 07-29, by hand before the release pull request merges |
 
 The 0.2.8 items are not scheduled in this cycle.
 
@@ -63,16 +64,22 @@ Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
 Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6 and meets the blocker
 predicate by the independent classification of 2026-09-27; the findings that do not are in 07-26
-under 0.2.8. A packet takes one finding and narrows the write set to its paths. P-345 leads.
+under 0.2.8. The second pass of that date added P-240 and clauses of P-241, P-331 and P-332,
+and folded clauses of P-336 and P-348 into P-327 and P-349. A packet takes one finding and
+narrows the write set to its paths. P-345 leads.
 
-- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Waits: 06-146 is verified on 3.12.0 by hand; the durable leg changes the CI matrix and Gate 8. Required for 0.2.7 (R5, R4, classified 2026-09-27): `requires-python >=3.12` while CI installs the newest 3.12 patch, and behaviour differs on 3.12.0 (06-146, P-317); fold into IB-70's floors leg of 07-03 or raise the floor.
-- P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Waits: neither is an item under the stack's format, the basis of P-302. Required for 0.2.7 (R4, classified 2026-09-27): the readiness step cannot see a required bullet inside a deferred item.
-- P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Waits: the removal is scheduled by the ruling. Required for 0.2.7 (R3, classified 2026-09-27): `jnwb/analyzers.py:414` and `:446` promise the removal in 0.2.7; P-319 is moot after it.
-- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Waits: the release runs from a clean tree, checked by hand before tagging. Required for 0.2.7 (R4, classified 2026-09-27): the release gate accepts a receipt at HEAD over a dirty tree.
+- P-240: With transparent figure backgrounds, legends lost their opaque box and overlap data: fig07 panel A (text over bars 4-5, both variants) and fig10 panel B. Required for 0.2.7 (condition 1, second pass 2026-09-27): Hamm ruled on 2026-09-27 that overlapping legends fail condition 1; fix fig07 panel A and fig10 panel B.
+- P-241: IB-73 of 07-03 changes `spectral_tilt`'s `exponent`, which `docs/generate_figures.py:244-251` reads for fig04, so fig04 is regenerated in 0.2.7, and the contrast check in `tests/test_figure_form.py` cannot vouch for a dark variant (the parser gap is in 07-26). Required for 0.2.7 (condition 1, second pass 2026-09-27): every regenerated figure's dark variant gets an eye-check, recorded.
+- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Required for 0.2.7 (R5, R4, classified 2026-09-27): `requires-python >=3.12` while CI installs the newest 3.12 patch, and behaviour differs on 3.12.0 (06-146, P-317); fold into IB-70's floors leg of 07-03 or raise the floor.
+- P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Required for 0.2.7 (R4, classified 2026-09-27): the readiness step cannot see a required bullet inside a deferred item.
+- P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Required for 0.2.7 (R3, classified 2026-09-27): `jnwb/analyzers.py:414` and `:446` promise the removal in 0.2.7; P-319 is moot after it.
+- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Folded from P-336 on 2026-09-27: STEP 0a reads a failed `git status` as clean, and a mutant doing so survives 100 tests; a test for it joins this check. Required for 0.2.7 (R4, classified 2026-09-27): the release gate accepts a receipt at HEAD over a dirty tree.
+- P-331: `phase_slope_index`'s jackknife has no zero-spread guard: a periodic X with Y equal to X gives z = -2e13, p = 0 and `ok_for_interpretation=True` with no warning (invariant 8). Required for 0.2.7 (R1, second pass 2026-09-27): the minimal repair is a zero-spread guard.
 - P-332: Two observations of the closure pass at `1d5e8b81`: `UnitAnalyzer.quality_metrics` accepts unsorted spike times, counting negative inter-spike intervals as violations and reading a wrong duration (`jnwb/analyzers.py:580-593`); and `cross_modal_comparison` does not report its seed (`jnwb/statistics.py:1689-1710`, invariant 5). Required for 0.2.7 (R1, classified 2026-09-27): fold the seed with IB-75, IB-76 and IB-77 of 07-03. The other observations of this row are in 07-26.
-- P-339: The MCP tool `prepare_signal_reference` tells an agent to slice raw `/data` without `conversion`, `channel_conversion`, `offset` or `starting_time`, and guesses layout from the shape. Waits: unchanged since it shipped, and `acquisition_channel` is the documented reader. Required for 0.2.7 (R2, classified 2026-09-27): `jnwb/mcp_server/nwb_tools.py:80-86` tells an agent to slice raw `/data` without conversion, offset or `starting_time`.
-- P-345: Other permutation nulls miss draws that reproduce the observed statistic in a different summation order, so p comes out too small: `jrsa`'s `_p_from_null` when x1 has ties (p 0.035 to 0.039 where the exact p is 0.05), `shuffle_r2_ci` with tied scores, `cross_modal_comparison` with periodic spikes (up to 72x), `cluster_permutation_test` when a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` with identical trials, and `xflip` at small n (23 of 200 cross 0.05 at n=6). Repairs per site: a tolerance relative to the statistic, `math.fsum`, or sorted rows. Waits: deferred under the 2026-09-23 closure ruling as not a regression from the fourteen repairs; the §11 predicate alone would call it required, so it leads the 0.2.7 work. Required for 0.2.7 (R1, classified 2026-09-27): anti-conservative p across permutation nulls.
-- P-349: `zflip` still reports `adjacent_identifiable=True` and a finite delay from rounding residue for a pair with a constant contact, though `accepted` is now False (invariant 8). Required for 0.2.7 (R1, classified 2026-09-27): reproduce first. The other two observations of this row are in 07-26.
+- P-332: `UnitAnalyzer.psth` drops spikes at the window edges, 168 of 405 at the left edge and 108 of 405 at the right, while its docstring says the right edge is inclusive; the defect class of IB-81 in 07-03. Required for 0.2.7 (R1, second pass 2026-09-27): bin so that no selected spike falls outside the edges, with both edges as the test.
+- P-339: The MCP tool `prepare_signal_reference` tells an agent to slice raw `/data` without `conversion`, `channel_conversion`, `offset` or `starting_time`, and guesses layout from the shape. Required for 0.2.7 (R2, classified 2026-09-27): `jnwb/mcp_server/nwb_tools.py:80-86` tells an agent to slice raw `/data` without conversion, offset or `starting_time`.
+- P-345: Other permutation nulls miss draws that reproduce the observed statistic in a different summation order, so p comes out too small: `jrsa`'s `_p_from_null` when x1 has ties (p 0.035 to 0.039 where the exact p is 0.05), `shuffle_r2_ci` with tied scores, `cross_modal_comparison` with periodic spikes (up to 72x), `cluster_permutation_test` when a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` with identical trials, and `xflip` at small n (23 of 200 cross 0.05 at n=6). Repairs per site: a tolerance relative to the statistic, `math.fsum`, or sorted rows. Required for 0.2.7 (R1, classified 2026-09-27): anti-conservative p across permutation nulls.
+- P-349: `zflip` still reports `adjacent_identifiable=True` and a finite delay from rounding residue for a pair with a constant contact, though `accepted` is now False (invariant 8). Required for 0.2.7 (R1, classified 2026-09-27): reproduce first. Folded from P-348 on 2026-09-27: no test pins the exactness of `zflip`'s constancy check (a `ptp < 1e-6` mutant survives); one joins this check. The other two observations of this row are in 07-26.
 - P-353: The readiness check treats any item deleted after the receipt as done, so it cannot tell a finished item from a dropped one (closure pass at `f0d905bf`). Required for 0.2.7 (R4, classified 2026-09-27). The other two edges of this row are in 07-26.
 
 ### 07-02 Release-process observations from 0.2.6
@@ -80,10 +87,12 @@ under 0.2.8. A packet takes one finding and narrows the write set to its paths. 
 Release: required-0.2.7.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTING.md`.
-Observed while releasing 0.2.6. The observation below meets the blocker predicate by the
-independent classification of 2026-09-27; the others are in 07-27 under 0.2.8.
+Observed while releasing 0.2.6. RP-5 meets the blocker predicate by the independent
+classification of 2026-09-27, and RP-7's minimal check is Hamm's ruling of that date; the rest
+is in 07-27 under 0.2.8, and RP-1's ruled bypass removal is the release step 07-29.
 
 - RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds. Ruled 2026-09-25: the tag push publishes to TestPyPI, so PyPI publishes only after TestPyPI succeeded. Required for 0.2.7 (R5, R3, classified 2026-09-27): TestPyPI before PyPI, as `artifacts/fact_stack.md` records and 2026-09-25 ruled.
+- RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Required for 0.2.7 (Hamm ruled 2026-09-27, a minimal check): a script measures peak RSS for a fixed set of representative operations and records it before the release, with no threshold yet. `artifacts/goal.md` section 8 names 07-02 as the carrier.
 
 ### 07-03 Post-release inspection findings
 
@@ -98,8 +107,7 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 
 - IA-13: `crossover_depth_um` is the absolute z coordinate when z varies along the shank and rank times pitch otherwise, while `label_layers(depth_range_um=)` always uses rank times pitch (`jnwb/laminar.py:488-495`, `965`). Check: one stated frame; a z-descending geometry test. Ruled 2026-09-25: `crossover_depth_um` stays in the rank-times-pitch frame `label_layers` uses, and a separately named field carries absolute z when the geometry has it.
 - IA-14: `_resolve_electrode_row` falls through from `channel_id` to `id` when a value is missing, switching identifier space silently (`jnwb/addressing.py:109-115`). Check: stop at the first identifier column that exists.
-- IA-16: `jrsa(nan_policy='omit')` on axis-0 metrics drops a feature column rather than the observation (`jnwb/jrsa.py:632-659`). Check: drop along the observation axis.
-- IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: one model for two classes and a calibration test. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is to correct or remove the "calibrated probabilities" claim at `jnwb/bilinear.py:31`; the one-model redesign is deferred.
+- IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: the documentation stops calling it calibrated, or the claim is removed. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is to correct or remove the "calibrated probabilities" claim at `jnwb/bilinear.py:31`; the one-model redesign is in 07-28.
 - IA-22: `cluster_permutation_test` sums each cluster with a full-map mask, O(K M) per permutation; `ndimage.sum_labels` gives identical sums (31 ms against 0.8 ms at 1582 clusters) (`jnwb/statistics.py:1900-1912`). Check: diff `max_null_stats` against a frozen run.
 - IB-06: stochastic functions resolve `rng` through four accepted sets, which docs/10 section 1 now states as they are: a strict resolver (int, `Generator`, `None`), a lenient one (anything `np.random.default_rng` takes; a float raises), `Generator`-only (`shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `paired_fire_prob_test` fail on an int or `None` with `AttributeError`; `permute_labels` raises `TypeError`) and int-only (`build_permutation_plan`). Check: one accepted set, enforced through `resolve_rng`, and the docs/10 table and its test collapsed to match.
 - IB-15: `docs/api.md` drops every keyword-only `*` marker (34 exports have keyword-only parameters, no row shows one), so it shows calls that raise (`scripts/generate_api_md.py:158-181`). Check: render `inspect.signature` and compare parameter kinds in gate 18.
@@ -110,13 +118,8 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 - IB-37: P-63's count is stale (25 of 160 exports are named in no skill, not 30), and a git-less export of the tag, which is what GitHub archives and Zenodo store, fails 30 tests and errors on 7, every one a git call. Check: correct P-63; skip git-dependent tests when there is no `.git`.
 - IB-39: the 0.2.6.1 wording repair was held by a grep, not a gate; "causes", "time delay", "propagation delay" and "latency" can return to `docs/`, `skills/` or a public docstring unnoticed, and gate 14 scans `docs/` only. Check: extend the term scan to the three surfaces with an allowlist of the conditional uses.
 - IB-40: the `bound_status` statement on `docs/06` and `docs/quickstart.md` (a pure-noise PSTH usually reads `None`, with tau at a bound and r2 near 0) is backed by a scratch probe, not a test. Check: a noise-only PSTH test that pins it.
-- IB-43: ruled 2026-09-25, the `jrsa` row metrics require a named `null=` from 0.2.7; 0.2.6.1 only warns. Check: remove the default, and move every caller.
 - IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed. Graded 2026-09-25 highly recommended: record a child seed so the result alone reproduces p. Required for 0.2.7 (R1, classified 2026-09-27): invariant 5; fold with IB-75 and IB-77.
-- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag. Graded 2026-09-25 minimal expandable: refuse a non-default `adim` when a null or `lag` is used; following `adim` waits. Required for 0.2.7 (R1, classified 2026-09-27): with the IA-16 follow-up; resolve jointly with IB-58.
-- IB-50: the 0.2.6.1 row-metric warning points axis-0-time users at `'block'` as well as `'circular_shift'`, but `block` is fragile for the row metrics: at AR(1) coefficient 0.9, `block_len=20` rejected `cka` for 0.30 of independent pairs. Check: calibrate `block` for the row metrics, or point the warning at `'circular_shift'` only.
-- IB-51: about 75 suite warnings come from existing tests that call the `jrsa` row metrics without naming `null=`; after IB-43 they fail. Check: name the scheme in each.
-- IB-52: `tests/test_prose_version_claims_are_live.py` excuses the jrsa page's two forward-looking 0.2.7 notes permanently, and its version pattern reads 0.2.6.1 as 0.2.6; version notes in `jnwb/` docstrings are read by no test. Check: forward mentions that fail once the version reaches them, a four-part version pattern, and the same check over docstrings.
-- IB-57: `tests/test_jrsa.py` reads the quickstart `jrsa` line from the page but still retypes the `print(...)` line after it, which matches the page today by eye only. Check: read both lines from the page.
+- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag. Graded 2026-09-25 minimal expandable: refuse a non-default `adim` when a null or `lag` is used; following `adim` waits. Required for 0.2.7 (R1, classified 2026-09-27): resolve jointly with IB-58.
 - IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics. Required for 0.2.7 (R1, classified 2026-09-27): reproduced: `jrsa(x, y, metric='cka', window=(0, 20))` on (200, 40) input windows the features, not the observations, silently.
 - IB-64: an export missing from the computational-order record fails `tests/test_computational_contract_gate.py` but no gate in `scripts/harness_gate.py`, so the gates stay green while the suite is red. Check: run the same check as a gate, or record why the suite alone holds it.
 - IB-70: no CI leg installs the dependency floors `pyproject.toml` declares (for example `scikit-learn>=1.3.1`), so behaviour that differs below the newest release is never exercised: `StratifiedGroupKFold(shuffle=True)` does not stratify on 1.3.1 to 1.7.2 and CI runs only the newest. Can make qualification test the wrong artifact, so it is a blocker candidate. Check: one CI leg on the floor versions, or the floors raised to what is tested.
@@ -126,7 +129,6 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 - IB-75: `zflip(rng=None)` draws fresh entropy and `ZFlipResult` records no seed, so the result alone cannot reproduce p; `xflip` now records `surrogate_seed_entropy`. Check: the same field on `ZFlipResult`, with a reproduction test. Graded highly recommended (80).
 - IB-76: `connectivity._surrogate_rng` is retyped in `jnwb/laminar.py` and `jnwb/spectral.py` (invariant 7). Check: one helper in `jnwb/_rng.py` called from all three, outputs unchanged.
 - IB-77: `nested_cv_linear_svm(rng=None)` now draws a fresh seed, and its result records none, so such a run cannot be reproduced from the result (invariant 5: report what was used). Check: a recorded seed in the result, with a reproduction test; an additive result key.
-- IB-78: `jrsa`'s `transfer_entropy_histogram_nats` and `mutual_information` flatten the whole array, so for multi-row input transfer entropy counts row-to-row joins as time transitions. Check: compute per row and combine, or refuse multi-row input, with a test that a join between rows is not counted.
 - IB-79: `relative_power` still broadcasts a 1-D baseline onto trailing axes silently (pinned by `tests/test_spectral.py`), while `aggregate_to_db` and `add_trial` refuse a baseline of another ndim. Ruled 2026-09-27: warn with `FutureWarning` now, raise next release. Check: the warning, its test replacing the broadcast pin, a changelog entry.
 - IB-80: a `+inf` baseline makes `aggregate_to_db` return `-inf` dB where `relative_power` raises on non-finite values, and a subnormal baseline overflows to `+inf` dB with only a RuntimeWarning. Check: one finite-baseline policy across the three, with tests.
 - IB-81: `raster_psth` selects a spike exactly at `onset + win_ms[0]/1000`, but `(t - t0)*1000` can round below the first edge and `np.histogram` drops it (onset 2.0 s, window (-100, 100) ms: rel -100.00000000000009, counted 0). Check: bin on the selected index range, with that case as the test.
@@ -142,8 +144,8 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 
 Release: required-0.2.7.
 Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa.py`, `CHANGELOG.md`.
-Classified required on 2026-09-27 (R3): the shim's docstring and warning (`jnwb/jrsa.py:2051-2083`)
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa.py`, `tests/test_prose_version_claims_are_live.py`, `CHANGELOG.md`.
+Classified required on 2026-09-27 (R3): the shim's docstring and warning (`jnwb/jrsa.py:2119-2151`)
 say a `JRSAResult` field answers `[0]` with a `FutureWarning` until 0.2.7 and raises `IndexError`
 in 0.2.7, and no item carried the removal. P-234, under 07-26, is moot once this lands.
 Check: each field is a plain 0-d value with no `[0]` path; the warning and the tests that pin it
@@ -156,14 +158,54 @@ Stop: a caller in `jnwb/`, `docs/` or `skills/` still indexes a field and needs 
 
 Release: required-0.2.7.
 Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `docs/03_representational_similarity_jrsa.md`.
-Classified required on 2026-09-27 (R3): `jnwb/jrsa.py:242`, `jnwb/jrsa.py:522` and
-`docs/03_representational_similarity_jrsa.md:107` say the block bootstrap for the paired metrics
-is planned for 0.2.7, and IB-44, which carries it, is deferred to 0.2.8 in 07-28. Rides in the
-IB-52 lane of 07-03, whose check makes a forward version note fail once the version reaches it.
-Check: the three sentences name 0.2.8, or state the current refusal with no version.
+Writes: `jnwb/jrsa.py`, `docs/03_representational_similarity_jrsa.md`, `tests/test_prose_version_claims_are_live.py`.
+Classified required on 2026-09-27 (R3): `jnwb/jrsa.py:253`, `jnwb/jrsa.py:542` and
+`docs/03_representational_similarity_jrsa.md:105` say the block bootstrap for the paired metrics
+is planned for 0.2.7, and IB-44, which carries it, is deferred to 0.2.8 in 07-28. The version scan
+merged at 79af4407 pins the three sentences in `tests/test_prose_version_claims_are_live.py` as
+forward mentions of 0.2.7, and fails once the version reaches it.
+Check: the three sentences name 0.2.8, or state the current refusal with no version; their pinned
+entries change with them.
 Accept: no text in `jnwb/` or `docs/` promises the block bootstrap for 0.2.7.
 Stop: the retarget would need IB-44's calibration.
+
+### 07-30 `jrsa` refuses a reduction over an axis it does not have
+
+Release: required-0.2.7.
+Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
+Writes: `jnwb/jrsa.py`, `tests/test_jrsa_correctness.py`, `CHANGELOG.md`.
+Found on 2026-09-27 (R1): `_reduce_dimensions` skips a `reduction` key that names no axis of `adim`
+(`if ax is None: continue`). With `adim=(-3, -2)` the keys are `axis_-3` and `axis_-2`, so
+`{"axis_0": "mean"}` or the int key `{0: "mean"}` returns the unreduced value while
+`parameters['reduction']` records the request.
+Check: raise `ValueError` naming the key and the axes that exist.
+Accept: a test for each of the two keys above that raises, and the named-axis reduction unchanged.
+Stop: a caller in `jnwb/`, `docs/` or `skills/` relies on the skip.
+
+### 07-31 Gate 15's code-span mask stops at a quoted field label
+
+Release: required-0.2.7.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/harness_gate.py`, `tests/test_stack_metadata_contradictions.py`.
+Found on 2026-09-27 (R4): the contradiction check of gate 15 cuts a quoted label from its name to the
+next full stop, which removes the closing backtick, so the code-span mask runs on over the
+following bullets. At 3d1cb353 it hid three sentences of the todo stack from the check, and they
+were reworded by hand. Repairing an existing gate is allowed under the freeze.
+Check: excise the label without breaking a code span, with a case in the existing test class.
+Accept: the new case fails on the current gate and passes on the repair; gate 15 passes on the
+live stack.
+Stop: the repair needs a new gate or a new test file.
+
+### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
+
+Release: release-step-0.2.7.
+Role: human. Skill: none. Blocked by: none.
+Split from RP-1 of 07-27 on 2026-09-27: an action done by hand in the repository settings, before
+the release pull request merges.
+
+- RP-1: Remove the admin role's bypass of the `dev` ruleset's deletion rule (ruled 2026-09-25), so
+  merging the release pull request cannot delete `dev`; automatic deletion of merged heads stays for
+  feature branches. Check: read the ruleset's bypass actors before the merge.
 
 ### 07-23 Bound the cycle and simplify the apparatus
 
@@ -287,10 +329,8 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: the live stated count is correct.
 - P-238: `scripts/mutation_harness.py`'s `collect_selector` drops every node id containing a space, so such a parametrized discriminator cannot be named in `must_fail`. Deferred: it fails closed (the selector is rejected) and cannot produce a false kill.
   deferred-0.2.8: fails closed; no false kill.
-- P-240: With transparent figure backgrounds, legends lost their opaque box and overlap data: fig07 panel A (text over bars 4-5, both variants) and fig10 panel B. Deferred: legibility only; no value or label changes.
-  deferred-0.2.8: legibility only; condition-1 judgment for Hamm.
-- P-241: The contrast check in `tests/test_figure_form.py` exempts each generator's `THEMES` table and parses only 6-digit hex and `white/black/k/w`, so a dark `fg` of `#202020` or a named color such as `navy` passes. Deferred: this release's dark variants were checked by eye, all 11 legible.
-  deferred-0.2.8: no figure changed since v0.2.6, whose dark variants were eye-checked.
+- P-241: The contrast check in `tests/test_figure_form.py` exempts each generator's `THEMES` table and parses only 6-digit hex and `white/black/k/w`, so a dark `fg` of `#202020` or a named color such as `navy` passes. Deferred: widening the parser. The eye-check of each regenerated dark variant is required, in 07-01.
+  deferred-0.2.8: widening the parser; each figure regenerated this cycle is eye-checked under the required half, in 07-01.
 - P-242: `unit_census_report` with the default grouping, on a frame lacking `area` or `depth_class` and with no `layer`, drops those columns without a warning. Deferred: this matches the documented filter to available columns and gives no wrong number; an explicit `group_by` warns.
   deferred-0.2.8: matches documented filter.
 - P-244: `apply_tight_auto_axis` floors the y lower limit at 0, so negative values in signed data (z-scores, LFP) are drawn outside the axes. Deferred: display only; the docstring and skill row state it.
@@ -345,6 +385,8 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: loud TypeError.
 - P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence. Merged here on 2026-09-27: P-209 and IB-71, which count the same identifiers. IB-71's check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
   deferred-0.2.8: non-shipping; merge IB-71 and P-209 here.
+- P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
+  deferred-0.2.8: fails closed only.
 - P-287: The trial-mean view check reads a list one level deep: `[[P[0]],[P[1]]]` and a list of memoryviews pass. Deferred: `np.asarray` copies these, under the copy limit ruled acceptable on 2026-09-23.
   deferred-0.2.8: copies under ruled limit.
 - P-288: `scripts/docs_form_gate.py` leaves `docs/tutorials/*.md` outside F1, F5 and F2, and misses a `####` heading indented one to three spaces. Deferred: measured with the gate's own functions, the live tree has 0 violations of either.
@@ -369,8 +411,6 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: rare hard-link layout; receipt consistent.
 - P-299: `inspect` reports `packaging` `direct` for wrapped behavior and `FilteredEphys` containers whose `data_path` is nested. Deferred: vocabulary only.
   deferred-0.2.8: vocabulary only.
-- P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
-  deferred-0.2.8: fails closed only.
 - P-300: The STEP 0a message truncates item titles. Waits: wording only. Removed on 2026-09-27 as subsumed by the `AGENTS.md` draft of 07-23: the "P-153's row carries why" pointer.
   deferred-0.2.8: wording only; subsumed by 07-23 AGENTS draft.
 - P-301: No test pins the removal of an external project's name from `jnwb/vis/sidecar.py`; the author-year check cannot see a project name. Waits: the live tree is clean.
@@ -419,9 +459,9 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: outside stated exact-equality rule.
 - P-330: STEP 0a matches items by id across the receipt, so renaming a required item's id to a new deferred one after the receipt reads as one item done and one added. Waits: it takes a deliberate rename; P-327's clean-tree check and a rule against new ids after the receipt would close it.
   deferred-0.2.8: needs a deliberate rename; 07-23 compaction keeps ids.
-- P-331: Zero-spread guards that exact equality cannot reach: the PSI jackknife gives z about 2.5e10 and p 0 for identical segments, `jrsa` standardises the residue of a detrended constant or linear row, the coherence and Granger residual-variance `> 0` guards see the same residue, and `bilinear`'s `std < 1e-9` cutoff is a fixed tolerance. Waits: each needs a numerical tolerance, which is a choice, and identical segments are degenerate input.
+- P-331: Zero-spread guards that exact equality cannot reach: `jrsa` standardises the residue of a detrended constant or linear row, the coherence and Granger residual-variance `> 0` guards see the same residue, and `bilinear`'s `std < 1e-9` cutoff is a fixed tolerance. Waits: each needs a numerical tolerance, which is a choice, and identical segments are degenerate input. The PSI jackknife clause is required, in 07-01.
   deferred-0.2.8: degenerate identical segments; tolerance is a choice.
-- P-332: Nine observations of the closure pass at `1d5e8b81`: flat input in `fit_exponential_onset`, `population_trajectory` and `rdm`; `UnitAnalyzer.psth` right-edge rounding and the sklearn multi-class error; the docs/10 `zflip` row says it raises on zero imaginary coherency; `cka` and `rv` give about 1e-33 on a constant pattern; project-history text in `nam.py` and `bilinear.py`; the `imaginary_coherency` docstring and docs/04 sign sentence; `_phase_slope`'s docstring says normal-approximation p where the code uses t; `plot_sorted_heatmap(category_labels)` is ignored; `jrsa(align='bogus')` is accepted when lengths are equal. Waits: each is loud, degenerate input, display or wording. Removed as stale on 2026-09-27: the wPLI and icoh flat-channel observation, repaired (a probe returns all NaN). The `quality_metrics` and seed observations are required, in 07-01.
+- P-332: Observations of the closure pass at `1d5e8b81`: flat input in `fit_exponential_onset`, `population_trajectory` and `rdm`; the `UnitAnalyzer` sklearn multi-class error; `cka` and `rv` give about 1e-33 on a constant pattern; project-history text in `nam.py` and `bilinear.py`; the `imaginary_coherency` docstring and docs/04 sign sentence; `_phase_slope`'s docstring says normal-approximation p where the code uses t; `plot_sorted_heatmap(category_labels)` is ignored; `jrsa(align='bogus')` is accepted when lengths are equal. Waits: each is loud, degenerate input, display or wording. Removed as stale on 2026-09-27: the wPLI and icoh flat-channel observation, repaired (a probe returns all NaN), and the docs/10 `zflip` row said to raise on zero imaginary coherency (`docs/10_operation_specifications.md:118` makes no such claim). The `quality_metrics`, seed and `psth` edge observations are required, in 07-01.
   deferred-0.2.8: loud, degenerate, display or wording; wPLI/icoh clause stale.
 - P-333: No test catches `is_constant(ignore_nan=True)` regressing to plain max/min, because its NaN case sits in a row whose std is exactly 0. Waits: the code is verified correct.
   deferred-0.2.8: code verified correct.
@@ -429,8 +469,8 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: non-finite input only.
 - P-335: Review the omission project's laminar curation pull request (ruled 2026-09-24): composable public parts plus a thin orchestrator, every threshold a parameter with a cited default, new WM and outside-cortex labels, a discriminator per rule, units in micrometres, and no project vocabulary. Waits: new capability, arriving after the 0.2.6 tag.
   deferred-0.2.8: new capability (external PR review).
-- P-336: Two refusals have no test: `acquisition_channel` on a `channel_conversion` whose length is not the channel count (a mutant removing the check survived 121 tests), and STEP 0a when `git status` itself fails (a mutant reading that as clean survived 100). Waits: both behave correctly today, and the stacks are read from HEAD either way.
-  deferred-0.2.8: both behave correctly.
+- P-336: A refusal has no test: `acquisition_channel` on a `channel_conversion` whose length is not the channel count (a mutant removing the check survived 121 tests). Waits: it behaves correctly today. Folded into P-327 in 07-01 on 2026-09-27: the STEP 0a `git status` clause.
+  deferred-0.2.8: it behaves correctly.
 - P-337: `acquisition_channel`'s unit-contradiction warning names only `conversion=` although `channel_conversion` is applied too, and its `starting_time` warning points at `nwb_inspect.py` rather than the caller's line. Waits: the messages are true and complete in substance.
   deferred-0.2.8: messages true.
 - P-338: `compress_fp32(select=)` can still cast an irregular timestamps array that a second link opens; through a hard link the two names then disagree by up to 2.4e-7 s. Waits: opt-in, unchanged since 0.2.5, and recorded in `stored_dtype_note`.
@@ -449,7 +489,7 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: conservative, unphysical range.
 - P-347: `TFRAccumulator.mean` returns a copy, so `acc.mean[...] = x` no longer writes through; nothing in the repository does this. Waits: stated in the docstring.
   deferred-0.2.8: stated; no user.
-- P-348: Four verified behaviours have no test that would catch a regression: `compress_fp32` resolving a relative soft link from its own group, the `select=` message for a soft-linked regular timestamps array, the constant-channel NaN of `wpli` and `imaginary_coherency` on CUDA, and the exactness of `zflip`'s constancy check (a `ptp < 1e-6` mutant survives). Waits: each was observed correct at `c7949748`.
+- P-348: Three verified behaviours have no test that would catch a regression: `compress_fp32` resolving a relative soft link from its own group, the `select=` message for a soft-linked regular timestamps array, and the constant-channel NaN of `wpli` and `imaginary_coherency` on CUDA. Waits: each was observed correct at `c7949748`. Folded into P-349 in 07-01 on 2026-09-27: the `zflip` constancy-check clause.
   deferred-0.2.8: observed correct.
 - P-349: CPU and CUDA `wpli` differ for a channel one ulp from constant; the `starting_time` alignment patterns in README and docs/common_mistakes raise `TypeError` for a series stored with timestamps. Waits: the first predates this cycle's repairs and the second fails loudly. The `zflip` constant-contact observation is required, in 07-01.
   deferred-0.2.8: one-ulp device edge; docs pattern fails loudly.
@@ -470,16 +510,16 @@ Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTIN
 Split from 07-02 on 2026-09-27. Observed while releasing 0.2.6; each observation below meets
 every deferral condition of `AGENTS.md` section 11 and carries its reason.
 
-- RP-1: Merging the release pull request deleted `dev`: the repository deletes merged heads, and the `dev` ruleset's deletion rule lets the admin role bypass always. It was restored at the merge commit. Check: switch off automatic deletion of merged heads, or restrict the bypass, and say which in `CONTRIBUTING.md`'s release steps. Ruled 2026-09-25: remove the admin bypass of the `dev` deletion rule; automatic deletion of merged heads stays for feature branches.
-  deferred-0.2.8: repository setting; no artifact/evidence effect; do the ruled bypass removal by hand before the release merge.
+- RP-1: Merging the release pull request deleted `dev`: the repository deletes merged heads, and the `dev` ruleset's deletion rule lets the admin role bypass always. It was restored at the merge commit. Check: switch off automatic deletion of merged heads, or restrict the bypass, and say which in `CONTRIBUTING.md`'s release steps. Ruled 2026-09-25: remove the admin bypass of the `dev` deletion rule, which is the release step 07-29; automatic deletion of merged heads stays for feature branches. What stays here is saying so in `CONTRIBUTING.md`'s release steps.
+  deferred-0.2.8: repository setting; no artifact or evidence effect; the ruled bypass removal is the release step 07-29.
 - RP-2: STEP 0e resolved the newest CI run for the commit, a pull-request run still in progress, and refused although the push run for the same commit had passed. Check: whether a concluded green run for the exact commit suffices, and test the choice.
   deferred-0.2.8: fails closed (false refusal).
 - RP-3: `scripts/release_gate.py` stops at its first failing step, and each run takes 12 to 30 minutes; 0.2.6 needed four runs, one lost to a stale `artifacts/state.md`. Check: run the cheap checks (state freshness, the extracted smoke script, the release body) before the suite.
   deferred-0.2.8: release-gate speed only.
 - RP-4: At release the full CI matrix ran four times on one commit (the `main`, `dev` and tag pushes and the release event), and the release run queued behind the tag run in one concurrency group, about 45 minutes before the PyPI approval was requested. Check: skip a run on a commit whose tree already passed, and measure the saving.
   deferred-0.2.8: CI cost only.
-- RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Check: record peak memory beside wall time in the release gate's suite step.
-  deferred-0.2.8: goal section 8 records the gap itself.
+- RP-7: A threshold on the peak memory the 0.2.7 check records, and its place beside wall time in the release gate's suite step. The minimal measurement is required, in 07-02.
+  deferred-0.2.8: a threshold needs the measurements the 0.2.7 check records first.
 
 ### 07-28 Post-release inspection findings, deferred to 0.2.8
 
@@ -489,6 +529,8 @@ Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills
 Split from 07-03 on 2026-09-27. From the two read-only inspections at `e66e70a9`; each bullet
 below meets every deferral condition of `AGENTS.md` section 11 and carries its reason.
 
+- IA-19: The one-model redesign of two-class `bilinear` `predict_proba`, which is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582): one model for two classes and a calibration test (`jnwb/bilinear.py:134-138`). Correcting the "calibrated" claim is required, in 07-03.
+  deferred-0.2.8: experimental and outside `__all__`; the required half corrects the calibration claim.
 - IA-23: `bootstrap_ci` resamples in a Python loop (11 times slower than vectorised at n 200), and `UnitAnalyzer.psth` calls it every time (`jnwb/statistics.py:1177-1181`). Check: vectorise; the random stream changes, so values move under a fixed seed and need a changelog entry or a ruling. Graded 2026-09-25 recommended: keep the loop now; a vectorised path lands later with a version note.
   deferred-0.2.8: graded keep 2026-09-25; same order, constant factor; RNG stream change needs a version note.
 - IA-28: tests that assert too little: `bilinear` checks only a length, and the `jrsa` multi-lag test checks a shape over a fixture that evaluates to NaN. Check: value-pinning tests for IA-04 and IA-19.
