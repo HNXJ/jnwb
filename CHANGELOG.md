@@ -25,7 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   raises `ValueError`. `ProbeGeometry` is unchanged.
 - A declared fit whose motif resolves as `"deep_to_superficial"`, which puts the deep layers
   at the declared shallow end, is rejected with `rejection_reason="declaration_contradicted"`;
-  `label_layers` then labels every channel `'na'`. Undeclared fits are unaffected.
+  `label_layers` then labels every channel `'na'`. The reason is checked after every other
+  acceptance test, so a fit without support reports `"insufficient_support"` and an
+  `orientation` argument the peaks disagree with reports `"orientation_mismatch"`. A
+  declaration passed with `orientation="deep_to_superficial"` raises `ValueError` before any
+  fitting, in `vflip` and `vflip_from_lfp`. Undeclared fits are unaffected.
 - `jnwb.preflight(question)` and `jnwb.Preflight`: check a planned analysis before it runs.
   The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
   with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked

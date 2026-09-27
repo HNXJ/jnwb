@@ -362,6 +362,64 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
         assert res.crossover_z_um is None
         assert set(label_layers(res, geom, **declared).values()) == {"na"}
 
+    def test_noise_under_a_correct_declaration_is_never_called_a_contradiction(self):
+        """On noise the peak order is a coin toss; an unsupported fit reports its lack of support."""
+        freqs, _ = _synthetic_motif()
+        perm = self._orders()["reversed"]
+        geom = self._table(perm)
+        reasons, deep_first = [], []
+        for seed in range(200):
+            psd = np.random.default_rng(seed).exponential(1.0, (N_CONTACTS, freqs.size))
+            res = vflip(psd[perm], freqs, probe_geometry=geom, **self.DECLARED)
+            reasons.append(res.rejection_reason)
+            if res.orientation == "deep_to_superficial":
+                deep_first.append(res.rejection_reason)
+        assert "declaration_contradicted" not in reasons
+        # The case is built: many noise fits resolve deep-first and reach the support test.
+        assert deep_first.count("insufficient_support") >= 20, sorted(set(deep_first))
+
+    def test_orientation_mismatch_is_reported_before_a_contradiction(self):
+        """A stated orientation the peaks disagree with is a mismatch, not a contradiction.
+
+        The two reasons cannot both apply: a declaration refuses a stated deep-first
+        orientation upfront, a stated superficial-first one fixes the resolved orientation,
+        and "auto" mismatches only when it resolves nothing. The mismatch is checked first,
+        as it is without a declaration.
+        """
+        declared = {"depth_axis": "z", "shallow_end": "max"}  # the deep end, on this probe
+        stated, _ = self._fit(self._orders()["reversed"], accepted=False,
+                              orientation="superficial_to_deep", **declared)
+        assert stated.rejection_reason == "orientation_mismatch"
+        resolved, _ = self._fit(self._orders()["reversed"], accepted=False, **declared)
+        assert resolved.rejection_reason == "declaration_contradicted"
+
+    @pytest.mark.parametrize("declared", [
+        {"depth_axis": "z", "shallow_end": "min"},
+        {"depth_axis": "z"},
+    ])
+    def test_a_declaration_with_a_deep_first_orientation_raises_before_fitting(
+        self, declared, monkeypatch
+    ):
+        def fitted(*args, **kwargs):
+            raise AssertionError("the fit ran")
+
+        monkeypatch.setattr(laminar, "_unit_range", fitted)  # the fit's first step
+        freqs, psd = _synthetic_motif()
+        geom = self._table(self._orders()["in_order"])
+        match = r"orientation='deep_to_superficial'.*depth_axis='z'"
+        with pytest.raises(ValueError, match=match):
+            vflip(psd, freqs, probe_geometry=geom, orientation="deep_to_superficial", **declared)
+        # vflip_from_lfp refuses itself, before the PSD is computed and vflip is reached.
+        monkeypatch.setattr(laminar, "vflip", fitted)
+        lfp = np.random.default_rng(0).standard_normal((N_CONTACTS, 2000))
+        with pytest.raises(ValueError, match=match):
+            jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom,
+                                orientation="deep_to_superficial", **declared)
+        # Undeclared, the same orientation is a stated expectation and still fits.
+        monkeypatch.undo()
+        assert vflip(psd[::-1], freqs, probe_geometry=self._table(self._orders()["reversed"]),
+                     orientation="deep_to_superficial").rejection_reason != "declaration_contradicted"
+
     def test_vflip_from_lfp_forwards_the_declaration(self):
         geom = self._table(self._orders()["reversed"])
         lfp = np.random.default_rng(11).standard_normal((N_CONTACTS, 4000))

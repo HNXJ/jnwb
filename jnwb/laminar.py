@@ -104,7 +104,8 @@ class VFlipResult(DictAccessMixin):
             acceptance criteria (support score >= threshold, valid monotonic crossover).
         rejection_reason: Diagnostic reason string if rejected, or None if accepted.
             ``"declaration_contradicted"`` means a depth declaration put the shallow contact
-            first and the motif resolved as ``"deep_to_superficial"`` in that frame.
+            first and a motif that passed every other acceptance test resolved as
+            ``"deep_to_superficial"`` in that frame.
         n_channels: Total number of evaluated contacts along the probe shaft.
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
@@ -185,6 +186,19 @@ class VFlipResult(DictAccessMixin):
 # and which end of that axis is shallow.
 _DEPTH_AXES = ("x", "y", "z")
 _SHALLOW_ENDS = ("min", "max")
+
+
+def _refuse_a_deep_first_declaration(
+    orientation: str, depth_axis: Optional[str], shallow_end: Optional[str], func_name: str
+) -> None:
+    """A depth declaration puts the shallow contact first, so contact 0 cannot also be deep."""
+    if orientation == "deep_to_superficial" and (depth_axis is not None or shallow_end is not None):
+        raise ValueError(
+            f"{func_name}: orientation='deep_to_superficial' says contact 0 is deep, but "
+            f"depth_axis={depth_axis!r} with shallow_end={shallow_end!r} puts the shallow "
+            "contact first. Pass orientation='auto' or 'superficial_to_deep' with the "
+            "declaration, or drop the declaration."
+        )
 
 
 def _depth_anchored_order(
@@ -326,8 +340,9 @@ def vflip(
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
-              Under a depth declaration a fit that resolves this way is rejected with
-              ``rejection_reason="declaration_contradicted"``.
+              Raises ValueError with a depth declaration, which puts the shallow contact
+              first; with ``"auto"``, a declared fit that resolves this way is rejected
+              (see `shallow_end`).
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
@@ -349,6 +364,10 @@ def vflip(
             does not infer it, because coordinate conventions differ between files. A
             motif that places the deep layers at the declared shallow end rejects the fit
             (``rejection_reason="declaration_contradicted"``) rather than overriding either.
+            That reason is reported only for a fit that passes every other acceptance test,
+            so a fit without support reports ``"insufficient_support"``; an
+            ``orientation`` argument that the peaks disagree with reports
+            ``"orientation_mismatch"`` first.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
@@ -358,7 +377,8 @@ def vflip(
         ValueError: If input dimensions are invalid, frequencies non-monotonic, bands overlapping
             or outside frequency range, non-finite parameters provided, min_support_score is
             non-finite, `contact_spacing` disagrees with `probe_geometry.nominal_pitch`
-            (the depth would then not be in the frame :func:`label_layers` measures), or the
+            (the depth would then not be in the frame :func:`label_layers` measures),
+            ``orientation="deep_to_superficial"`` comes with a depth declaration, or the
             depth declaration is incomplete, names an unknown axis or end, comes without a
             `probe_geometry`, or names an axis that does not change along the shaft.
     """
@@ -369,6 +389,7 @@ def vflip(
     valid_orientations = ("auto", "superficial_to_deep", "deep_to_superficial")
     if orientation not in valid_orientations:
         raise ValueError(f"orientation must be one of {valid_orientations}, got {orientation!r}")
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip")
 
     # Validate device. `laminar.py` contains no cupy or torch call anywhere, so a
     # `device='cuda'` request can never be honoured here -- the resolver's answer used
@@ -690,11 +711,6 @@ def vflip(
     if not orientation_matches:
         accepted = False
         rejection_reason = "orientation_mismatch"
-    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
-        # Rank 0 is the declared shallow contact, and the motif says it is the deep one: the
-        # declaration and the data disagree, and either could be wrong.
-        accepted = False
-        rejection_reason = "declaration_contradicted"
     elif peak_sep < min_peak_distance:
         accepted = False
         rejection_reason = "insufficient_peak_distance"
@@ -704,6 +720,12 @@ def vflip(
     elif support_score < min_support_score:
         accepted = False
         rejection_reason = "insufficient_support"
+    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
+        # Checked last: only a motif that passes every other test can contradict the
+        # declaration. On noise the peak order is a coin toss, and reporting it as a
+        # contradiction would name the wrong reason for a fit that has no support.
+        accepted = False
+        rejection_reason = "declaration_contradicted"
 
     # Enforce failure invariants: rejected fit implies None crossover
     final_cross_c = crossover_c if accepted else None
@@ -788,6 +810,7 @@ def vflip_from_lfp(
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Raises ValueError with a depth declaration, before the PSD is computed.
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
@@ -825,6 +848,7 @@ def vflip_from_lfp(
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive and finite (Hz), got {fs}")
 
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip_from_lfp")
     lfp_arr = np.asarray(lfp, dtype=np.float64)
     if lfp_arr.ndim != 2:
         raise ValueError(f"lfp must be a 2D array of shape (n_channels, n_times), got ndim={lfp_arr.ndim}")
