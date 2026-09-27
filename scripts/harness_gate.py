@@ -1749,6 +1749,36 @@ def _unwrapped_sentences(text: str) -> List[str]:
     return [flat[a:b].strip() for a, b in spans]
 
 
+def _excise_blocked_by(body: str) -> str:
+    """`body` with every `Blocked by:` declaration replaced by a space, code spans left whole.
+
+    A declaration runs to the first newline or the first `.` outside a code span. A label quoted
+    inside a code span runs only to that span's closing backtick. Cutting a quoted label to the
+    next full stop removed the closing backtick, the unwrapped text then paired the orphaned
+    opening backtick with the next one, and the sentences in between merged into one span whose
+    suppression covered all of them.
+    """
+    mask = _code_span_mask(body)
+    pieces, last = [], 0
+    for label in re.finditer(r"Blocked by:", body):
+        if label.start() < last:
+            continue
+        index = label.end()
+        if mask[label.start()]:
+            while index < len(body) and body[index] != "`":
+                index += 1
+        else:
+            while index < len(body) and body[index] != "\n" and (
+                body[index] != "." or mask[index]
+            ):
+                index += 1
+        pieces.append(body[last:label.start()])
+        pieces.append(" ")
+        last = index
+    pieces.append(body[last:])
+    return "".join(pieces)
+
+
 def _blocked_by_none_contradictions(
     text: str,
 ) -> Tuple[List[Tuple[int, str, str]], List[Tuple[int, str, str, str]]]:
@@ -1783,7 +1813,7 @@ def _blocked_by_none_contradictions(
         # matches the phrase list on its own, and a first draft flagged 33 of 52 live items on
         # nothing but their own metadata. Removing only the first left a second declaration --
         # which a malformed item can carry -- readable as prose.
-        prose = re.sub(r"Blocked by:\s*[^.\n]*", " ", body)
+        prose = _excise_blocked_by(body)
         flat, spans = _unwrapped_spans(prose)
         stops = _stop_clause_spans(flat)
         for start, end in spans:
