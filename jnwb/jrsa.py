@@ -191,6 +191,15 @@ def jrsa(
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
+        A reduced axis stays at length 1, except axis 0 for rsa, cka, rv, hsic,
+        distance_correlation and procrustes: that axis is removed, so averaging the trials
+        of a (trials, conditions, units) input compares conditions, as ``x.mean(0)`` would.
+        `lag`, the null and `window` then number the axes of the reduced input, and a
+        `window` on the removed axis raises. `result.axes` keeps the input's numbering.
+        ``nan_policy='omit'`` acts on the input's axis 0 (the trials) before the reduction:
+        a NaN drops its whole trial, so the result differs from ``nanmean`` over trials, and
+        a condition that is NaN in every trial leaves no trial and raises. `bootstrap`, like
+        the null, resamples the reduced input's axis 0 (the conditions).
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
@@ -227,8 +236,10 @@ def jrsa(
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
-        omit | raise | propagate. ``'omit'`` drops every sample of the last axis that is NaN
-        in any condition. An input with no samples left raises ValueError for every metric.
+        omit | raise | propagate. ``'omit'`` drops every observation that is NaN anywhere:
+        a sample of the last axis for the paired metrics, a row of axis 0 for rsa, cka, rv,
+        hsic, distance_correlation and procrustes (the axes of `null`). An input with no
+        observations left raises ValueError for every metric.
     stats : bool
         Compute inferential statistics.
     permutations : int
@@ -278,12 +289,13 @@ def jrsa(
         - ``'iid'`` permutes single samples, which is exchangeable only when the samples
           are independent. On a time axis it must be named: on two independent AR(1)
           series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
-        - ``None`` (default) is ``'circular_shift'`` for the paired metrics and ``'iid'``
-          for the observation-axis metrics, whose rows are conditions or observations.
-          For those metrics the default warns (UserWarning) whenever a null is formed:
-          when axis 0 is time the i.i.d. row permutation is invalid -- cka and rv rejected
-          every one of 40 independent AR(1) pairs at p <= 0.05 -- and from 0.2.7 `null`
-          must be named for them. Naming any scheme, ``'iid'`` included, silences it.
+        - ``None`` (default) is ``'circular_shift'`` for the paired metrics. The
+          observation-axis metrics have no default: forming a null for them without naming
+          `null` raises ValueError, because whether their rows are exchangeable depends on
+          what the rows are. Name ``'iid'`` for exchangeable conditions or observations and
+          ``'circular_shift'`` when axis 0 is time, where the i.i.d. row permutation is
+          invalid -- cka and rv rejected every one of 40 independent AR(1) pairs at
+          p <= 0.05. ``'block'`` is not calibrated for these metrics (see above).
 
         ``execution['null']`` records the scheme that ran, or None when no permutation null
         was formed. Before 0.2.6.1 every metric used ``'iid'``.
@@ -339,7 +351,9 @@ def jrsa(
         ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
         ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
         raises TypeError rather than being silently ignored. The histogram TE conditions on
-        one past sample of each series and takes no history length.
+        one past sample of each series and takes no history length. ``granger_ssr_ftest``,
+        ``phase_slope`` and ``transfer_entropy_histogram_nats`` take one series per input:
+        a multi-row input raises ValueError.
 
     Returns
     -------
@@ -460,10 +474,15 @@ def jrsa(
     x1, x2, aligned_axes = _align_dimensions(
         x1, x2, axis_map, align, align_mode, verbose
     )
+    window_axes = axis_map
     if reduction is not None:
         x1, x2 = _reduce_dimensions(x1, x2, axis_map, reduction)
+        if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS:
+            x1, x2, window_axes = _drop_reduced_observation_axis(
+                x1, x2, axis_map, reduction, window, metric
+            )
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
-    x1, x2, windows = _make_windows(x1, x2, axis_map, window, sliding)
+    x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
     # --- dispatch metric ------------------------------------------------------
     _LEGACY_JRSA_METRIC_NAMES = {
         "granger": "granger_ssr_ftest",
@@ -502,17 +521,18 @@ def jrsa(
     # Paired metrics compare samples along the aligned axis, usually time, where single
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
-    null_scheme = null if null is not None else ("iid" if perm_axis == 0 else "circular_shift")
     if perm_axis == 0 and null is None and permutation_p:
-        warnings.warn(
-            f"jrsa(metric={metric!r}): the default null permutes the rows of axis 0 as "
-            "exchangeable. If axis 0 is time, name null='circular_shift' or null='block': on "
-            "independent AR(1) series the default rejected every pair for cka and rv. From "
-            "0.2.7 `null` must be named for this metric; null='iid' keeps the current result "
-            "and silences this warning.",
-            UserWarning,
-            stacklevel=2,
+        raise ValueError(
+            f"jrsa(metric={metric!r}) needs a named null=: its permutation null resamples the "
+            "rows of axis 0, and whether they are exchangeable depends on what they are. Name "
+            "null='iid' when the rows are exchangeable conditions or observations, and "
+            "null='circular_shift' when axis 0 is time: on independent AR(1) series the i.i.d. "
+            "row permutation rejected every pair for cka and rv. null='block' is not "
+            "calibrated for this metric: with block_len=20 it rejected cka at p <= 0.05 for "
+            "0.30 of independent AR(1) pairs (coefficient 0.9, 200 samples). Without a "
+            "permutation null (stats=False or permutations=0) no scheme is needed."
         )
+    null_scheme = null if null is not None else "circular_shift"
     if bootstrap > 0 and perm_axis == -1 and null != "iid":
         raise ValueError(
             f"jrsa(metric={metric!r}): bootstrap resamples single samples of the last axis, "
@@ -715,34 +735,21 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
             f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
             f"observation count nor the feature count is truncated to match."
         )
+    # The observation axis: axis 0 for the metrics that read rows as observations, the last
+    # axis for the paired metrics. Dropping along the last axis for every metric removed a
+    # feature column of cka or rsa instead of the observation that held the NaN.
+    obs_axis = 0 if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS else x1.ndim - 1
     if nan_policy == "omit":
+        # Keep an observation only when neither input is NaN anywhere in it.
+        nan_mask = xp1.isnan(x1)
         if x2 is not None:
-            xp2 = _get_xp(x2)
-            # Find joint valid mask (neither is NaN) along the last axis
-            # For multi-dimensional inputs, we assume the last axis contains the paired samples.
-            # We want to keep samples where both x1 and x2 are not NaN.
-            nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
-            # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
-            # In general, if there are multiple dimensions, we project the mask down to the last axis.
-            if x1.ndim > 1:
-                # Collapse over non-last axes to find any NaN position
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
-            x2 = xp2.take(x2, valid_indices, axis=-1)
-        else:
-            nan_mask = xp1.isnan(x1)
-            if x1.ndim > 1:
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
+            nan_mask = nan_mask | _get_xp(x2).isnan(x2)
+        other_axes = tuple(ax for ax in range(x1.ndim) if ax != obs_axis)
+        any_nan = nan_mask.any(axis=other_axes) if other_axes else nan_mask
+        valid_indices = xp1.where(~any_nan)[0]
+        x1 = xp1.take(x1, valid_indices, axis=obs_axis)
+        if x2 is not None:
+            x2 = _get_xp(x2).take(x2, valid_indices, axis=obs_axis)
     # propagate: do nothing, let downstream handle
     # No values left -- an input with a zero-length axis, or `omit` dropping every sample
     # because some condition is NaN throughout. The metrics disagreed here: hsic,
@@ -754,12 +761,12 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
         if nan_policy == "omit" and size_before > 0:
             empty = [] if x1.ndim < 2 else sorted(
                 tuple(int(i) for i in idx)
-                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=-1))
+                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=obs_axis))
             )
             detail = (
-                f" nan_policy='omit' dropped every sample, because each one is NaN in at least "
-                f"one condition"
-                + (f"; condition(s) {empty} of the leading axes are NaN throughout" if empty else "")
+                f" nan_policy='omit' dropped every observation (axis {obs_axis}), because each "
+                f"one is NaN somewhere"
+                + (f"; position(s) {empty} of the other axes are NaN throughout" if empty else "")
                 + "."
             )
         raise ValueError(
@@ -955,6 +962,44 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
     return x1, x2
 
 
+def _window_axis_name(axis_map):
+    """The `axis_map` entry `window` applies to: ``'aligned'``, else the first `adim` axis."""
+    return "aligned" if "aligned" in axis_map else list(axis_map)[0]
+
+
+def _drop_reduced_observation_axis(x1, x2, axis_map, reduction, window, metric):
+    """Remove axis 0 of a row metric's input when `reduction` reduced it.
+
+    The row metrics read axis 0 as observations. A reduction keeps the reduced axis at
+    length 1, which left one observation and a NaN (cka) or an error (rsa): averaging trials
+    of a (trials, conditions, units) input gave NaN where cka on ``x.mean(0)`` gave 0.69. The
+    axis is removed instead, so the next axis becomes the observations, and `lag` and the
+    permutation null act on it. Returns the axis numbering `window` reads after the removal;
+    `axis_map` itself, which the result records, keeps the numbering of the input.
+    """
+    reduced = {axis_map[name] for name in reduction if name in axis_map}
+    if 0 not in reduced:
+        return x1, x2, axis_map
+    if x1.ndim < 2:
+        raise ValueError(
+            f"jrsa(metric={metric!r}): the reduction removes axis 0 of a 1-D input, which "
+            "leaves no observation axis."
+        )
+    if window is not None:
+        target = _window_axis_name(axis_map)
+        if axis_map[target] == 0:
+            raise ValueError(
+                f"jrsa(metric={metric!r}): `window` applies to axis {target!r}, which the "
+                "reduction removed. Window the input before reducing it, or name the axis to "
+                "window first in `adim`."
+            )
+    xp = _get_xp(x1)
+    x1 = xp.squeeze(x1, axis=0)
+    if x2 is not None:
+        x2 = _get_xp(x2).squeeze(x2, axis=0)
+    return x1, x2, {name: ax - 1 for name, ax in axis_map.items() if ax != 0}
+
+
 def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
     """Apply per-array preprocessing in place on CPU or GPU."""
     if normalize and standardize:
@@ -1006,7 +1051,7 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     """
     if window is None:
         return x1, x2, None
-    ax = axis_map.get("aligned", axis_map.get(list(axis_map.keys())[0], -1))
+    ax = axis_map[_window_axis_name(axis_map)]
     n = x1.shape[ax]
     if isinstance(window, (int, float)):
         half = int(window) // 2
@@ -1844,6 +1889,7 @@ def _grangercausalitytests_compat(data, maxlag):
 def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
     """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "granger_ssr_ftest", "jnwb.granger")
     try:
         a = x1.ravel()
         b = x2.ravel()[:len(a)]
@@ -1884,6 +1930,22 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
         return np.float64(np.nan), None, None, None, None
 
 
+def _require_one_series(x, metric, trial_function):
+    """Refuse an input holding more than one row for a metric that reads temporal order.
+
+    Flattening several rows into one series made the last sample of each row the past of the
+    first sample of the next, so every join between rows entered the estimate as a time step.
+    """
+    if int(np.prod(x.shape[:-1])) > 1:
+        raise ValueError(
+            f"jrsa(metric={metric!r}) takes one series per input; got shape "
+            f"{tuple(x.shape)}. Flattening the rows would count each join between rows as a "
+            "time transition, and pooling the rows or averaging per-row values are different "
+            f"estimators. Pass one row at a time, or use {trial_function}, which takes "
+            "(n_trials, n_times)."
+        )
+
+
 def _entropy(probs):
     """Calculate Shannon entropy in nats from probability array."""
     probs = probs[probs > 0]
@@ -1897,8 +1959,13 @@ def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
     used to be declared here and never read, so `jrsa(..., k=5)` passed the keyword check
     and returned the one-sample answer; without it, `k` is refused like any unknown option.
     `jnwb.transfer_entropy` takes the target and source history lengths.
+
+    Only one series per input is accepted. Flattening several rows into one series made the
+    last sample of each row the past of the first sample of the next, so every join between
+    rows was counted as a time transition.
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "transfer_entropy_histogram_nats", "jnwb.transfer_entropy")
     a = x1.ravel()
     b = x2.ravel()[:len(a)]
     
@@ -1956,6 +2023,7 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
     from .connectivity import phase_slope_index as _psi_impl
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "phase_slope", "jnwb.phase_slope_index")
     a = x1.ravel()
     b = x2.ravel()[: len(a)]
     n = min(len(a), len(b))

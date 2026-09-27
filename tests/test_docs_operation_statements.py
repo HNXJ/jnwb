@@ -567,8 +567,14 @@ def test_the_page_says_every_metric_raises_when_no_sample_remains():
 
 @pytest.mark.parametrize("metric", sorted(importlib.import_module("jnwb.jrsa")._METRIC_DISPATCH))
 def test_an_empty_condition_raises_for_every_metric(metric):
+    """A slice NaN throughout that every observation crosses: a condition for the paired
+    metrics, whose observations are last-axis samples, and a unit for the row metrics,
+    whose observations are the conditions of axis 0."""
     x1, x2 = _conditions()
-    x1[2] = np.nan
+    if metric in importlib.import_module("jnwb.jrsa")._OBSERVATION_AXIS_0_METRICS:
+        x1[:, 2] = np.nan
+    else:
+        x1[2] = np.nan
     with pytest.raises(ValueError):
         jnwb.jrsa(x1, x2, metric=metric, stats=False, rng=0)
 
