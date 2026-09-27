@@ -1,13 +1,13 @@
 # Goal
 
-Ruled 2026-09-19 by Hamm (06-01); revised by Hamm 2026-09-22; version-specific lines updated on
-his instruction 2026-09-24, when 0.2.7 opened. The statement jnwb is measured against, from 0.2.6
-on. Subject to `artifacts/direction.md`, which it does not restate. Durable rules it relies on live
-in `artifacts/fact_stack.md`; release acceptance is `AGENTS.md` §11. The 0.2.7 sequence is
-`artifacts/planned_post_0.2.6.md`.
+Ruled 2026-09-19 by Hamm; revised by Hamm 2026-09-22 and 2026-09-27. The statement jnwb is
+measured against, from 0.2.6 on. Subject to `artifacts/direction.md`, which it does not restate.
+Durable rules it relies on live in `artifacts/fact_stack.md`; release acceptance is `AGENTS.md`
+§11. A cycle's scope is its version section of `artifacts/todo_stack.md` (section 9).
 
 Each section states one goal and the check that holds it. A goal with no check is a preference,
-and is recorded as work in `artifacts/todo_stack.md` until it has one.
+and is recorded as work in `artifacts/todo_stack.md` until it has one. A "Held by" line names
+checks, never item ids.
 
 ## 1. Entry topology
 
@@ -40,8 +40,7 @@ scientific choices are explicit caller inputs, and refusal boundaries are real. 
 execute operations; it may not decide scientific assumptions. Every skill ends a task in one of
 the four outcomes of `artifacts/direction.md`, declining included.
 
-Held by: the refusal tests of each module, and skill routing tests for all four outcomes
-(06-25; kept in 0.2.6 by ruling R-2 of 2026-09-22).
+Held by: the refusal tests of each module, and skill routing tests for all four outcomes.
 
 ## 4. No invented data or metadata
 
@@ -53,8 +52,7 @@ field by naming it -- `read_nwb(path, allow_missing=("session_description",))` -
 does not produce a plausible value. The default is refusal, and the default does not move. Where
 an upstream constructor requires the field to exist, as pynwb does for `session_description`, the
 waived field reads `""` and `jnwb_waived_requirements` records the waiver that actually happened
-on that read, so a waived field and a genuinely empty one are distinguishable (ruled 2026-09-22,
-06-67 option (d); implemented by 06-82).
+on that read, so a waived field and a genuinely empty one are distinguishable (ruled 2026-09-22).
 
 Held by: `tests/test_nwb_read_tolerance_and_visibility.py`, which carries one test per row of the
 missingness table in `docs/errors.md`.
@@ -64,10 +62,9 @@ missingness table in `docs/errors.md`.
 "Dynamic" means adaptation to unfamiliar NWB datasets, metadata, structures, and explicit caller
 inputs. Generic structural NWB operations -- validate, write, convert, repair a representation
 whose intent is identifiable -- may enter the core under the boundary in
-`artifacts/fact_stack.md`, each with API, documentation and tests before its skill. None was added
-in 0.2.6; any in 0.2.7 enters through the capability-gated section of
-`artifacts/planned_post_0.2.6.md`. Ambiguous scientific meaning is detected and never resolved by
-jnwb.
+`artifacts/fact_stack.md`, each with API, documentation and tests before its skill. None entered
+in 0.2.6 or enters in 0.2.7; the public NWB mutation and execution APIs are 0.2.8 work in the todo
+stack. Ambiguous scientific meaning is detected and never resolved by jnwb.
 
 Held by: the fact-stack boundary and Gate 6, which keeps study tokens out of `jnwb/`, `skills/`
 and `docs/`.
@@ -102,18 +99,51 @@ Held by: `tests/test_skills_validation.py` (skill shape and routing), Gate 4 (re
 ## 8. Economy
 
 Computational order is condition 2 of `AGENTS.md` §11; an order is recorded as an upper bound
-justified by its published reference (ruled 2026-09-22, P-34). Tests are the fewest and
-smallest that reach the coverage required, shared across the items that need them rather than
-added per item; a new check extends an existing module or gate before it creates one. Suite wall
-time and peak memory are costs: measured before each release and not grown without a recorded
-reason.
+justified by its published reference (ruled 2026-09-22). Tests are the fewest and smallest that
+reach the coverage required, shared across the items that need them rather than added per item.
+Suite wall time and peak memory are costs: measured before each release and not grown without a
+recorded reason.
 
 Held by: `AGENTS.md` §11 condition 2 for computational order, and `scripts/release_gate.py` STEP 1,
-which records suite wall time and the ten slowest tests. Peak memory has no check yet (07-02).
+which records suite wall time and the ten slowest tests. Peak memory is recorded before release
+from 0.2.7, with no threshold yet.
+
+## 9. Bounded cycles and version
+
+A cycle carries only the items marked required for it: work in flight when it opens, the rulings
+made for it, and findings that meet the blocker predicate of `AGENTS.md` §11. Everything else
+waits under the next version with its reason. Scope is set when the cycle opens and changes only
+by ruling. `dev` keeps the last released version until the release step, which sets the version,
+the CHANGELOG heading and the import profile in one commit.
+
+Held by: `scripts/release_gate.py` STEP 0a, which derives the cycle from the declared version and
+refuses an item without a release mark, and the tests that hold the CHANGELOG heading and the
+forward-promised versions to the declared one.
+
+## 10. Proportionate verification
+
+Verification depth follows consequence. Shipped scientific or API behaviour is reviewed by an
+agent that did not write it, with a mutant shown killed. Documentation and process changes pass
+the gates and the full suite. The apparatus does not grow: a new gate or process test lands only
+by replacing one.
+
+Held by: Gate 19 and `artifacts/frozen_validated.json` for independently verified functions.
+The apparatus bound has no check yet.
+
+## 11. Execution and precision
+
+Precision switches between 32-bit and 64-bit through one mechanism, and execution between CPU,
+parallel CPU, CUDA and JAX Metal through one mechanism. Device and worker count change no number
+beyond a tolerance the function states. Paths not exercised on a development machine are declared
+unverified rather than claimed.
+
+Held by: the computational-contract gate in `scripts/harness_gate.py`, which traces every device,
+backend and `n_jobs` argument to its deciding mechanism and every precision request to being
+honoured or refused.
 
 ## Supported interpreters
 
 Python 3.12, 3.13 and 3.14. Every claimed version is exercised in CI; `requires-python`,
 classifiers, the CI matrix, the install documentation, the README and release material converge
-on this set. Held by gate 8, which is widened to read `README.md` and `docs/install.md` (ruled
-2026-09-22, P-68).
+on this set. Held by gate 8, which reads `README.md` and `docs/install.md` as well (ruled
+2026-09-22).
