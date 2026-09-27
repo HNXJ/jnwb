@@ -46,8 +46,6 @@ metrics = jnwb.compute_response_metrics(
     response_window_s=(0.0, 0.4),
 )
 
-# Classification consumes the metrics computed above -- not the spike times again.
-# The two calls compose in one direction only: measure, then classify.
 # pvalue is the two-sided conditional binomial test on the spike counts summed
 # over trials: exact for unequal windows, it assumes Poisson firing within a
 # trial and falls as trials accumulate. Bursting makes it too small: with no
@@ -57,9 +55,8 @@ metrics = jnwb.compute_response_metrics(
 sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58, alpha=0.01)
 print("Significant:", sig_result["is_significant"])
 print("Binomial p-value:", sig_result["pvalue"])
-# "undefined" means the baseline had no across-trial variance, so the z-score is
-# NaN and no classification was made. It is not a weak response. pvalue still
-# carries the counts test, which needs no baseline variance.
+# "undefined" means the baseline had no across-trial variance: the z-score is
+# NaN and no classification was made. pvalue still reports the counts test.
 print("Confidence:", sig_result["confidence"])
 ```
 

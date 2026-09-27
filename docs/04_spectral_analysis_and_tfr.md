@@ -118,9 +118,8 @@ one; nothing converts silently between linear and decibel.
 
 `baseline` is a scalar or has `power`'s number of dimensions; a per-frequency baseline against
 `(n_freqs, n_times)` power is `baseline[:, None]`. A baseline with fewer dimensions aligns with
-the trailing axes, so a per-frequency baseline would divide along time. `relative_power` still
-broadcasts it, with a `FutureWarning`, and the next release raises `ValueError`, as
-`aggregate_to_db` and `TFRAccumulator.add_trial` already do.
+the trailing axes and is broadcast with a `FutureWarning`; the next release raises
+`ValueError`, as `aggregate_to_db` does.
 
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
@@ -172,8 +171,8 @@ log-log slope from it, near -2.
 
 **Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
 -exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
-returns the slope, near -2, under the key `slope`. Its key `exponent` reads the same slope
-with a `DeprecationWarning` and goes in the next release.
+returns the slope, near -2, under the key `slope`; `exponent` reads it with a
+`DeprecationWarning` until the next release.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 
