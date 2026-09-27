@@ -55,7 +55,8 @@ python scripts/docs_build.py
 ```
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
-  change touches anything version-sensitive.
+  change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
+  `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
 - **`harness_gate.py`** — 21 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
