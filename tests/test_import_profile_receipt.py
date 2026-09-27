@@ -196,6 +196,19 @@ def test_every_operation_in_the_fixed_set_runs():
         build(np.random.default_rng(0))()
 
 
+def test_the_committed_peak_memory_record_measures_the_fixed_set():
+    """A changed set with a record left from the old one would compare unlike operations."""
+    from scripts.measure_peak_memory import OPERATIONS, RECORD_PATH
+
+    record = json.loads(RECORD_PATH.read_text(encoding="utf-8"))
+    assert list(record["operations"]) == list(OPERATIONS), (
+        "peak_memory.json was taken with another operation set; rerun "
+        "`python scripts/measure_peak_memory.py --write`")
+    assert record["unit"] == "MiB"
+    for name, row in record["operations"].items():
+        assert row["peak_mib"] >= row["added_mib"] >= 0.0, (name, row)
+
+
 def test_the_release_gate_records_peak_memory_beside_the_suite_wall_time():
     source = (ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
     main = source[source.index("def main("):]
