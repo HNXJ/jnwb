@@ -276,7 +276,7 @@ class TestDirectedEstimatorsHonourRng:
         assert _null_of(again) == _null_of(first)
 
     def test_an_int_seed_is_recorded_and_keeps_its_stream(self, name, monkeypatch):
-        """An int seed draws `default_rng(seed)`, the stream it drew before 06-203: the null
+        """An int seed draws `default_rng(seed)`, the stream it has always drawn: the null
         of a `default_rng(0)` Generator consumed in place, as the helper did before."""
         res = DIRECTED[name](0)
         assert res.params["seed"] == 0 and res.params["surrogate_seed_entropy"] == 0
