@@ -121,6 +121,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   function checked two hardcoded groups and reported `ok=True` with the collapsed timestamps
   never checked. A `cast=` path absent from the destination is now a failed check; it was
   skipped. Direct callers pass `collapsed=` by keyword; `compress_fp32` is unchanged.
+- **`TFRAnalyzer.compare_conditions` counts only locations with a p-value (breaking).**
+  `n_tests` and the denominator of `fraction_significant_uncorrected` now use the family the FDR
+  correction already used, so a location constant in both conditions no longer counts as a test
+  that could not pass. With no such location the fraction is NaN; it was 0.0.
+- **`PopulationAnalyzer.population_trajectory` returns `n_components` components (breaking).**
+  A requested component beyond `min(n_time_bins, n_units)` is a NaN column of `projection`, a
+  NaN row of `components` and NaN variances, as in `compute_population_trajectory`; the arrays
+  were shorter than `n_components`.
+- **`PopulationAnalyzer.population_trajectory` has no variances without variance (breaking).**
+  With no total variance `explained_variance` and `explained_variance_ratio` are NaN; both were
+  zeros. `explained_variance_ratio` is now `S**2 / sum(S**2)`, as in
+  `compute_population_trajectory`, which can change its last digit.
 - **The sdist no longer ships `AGENTS.md` or the `jnwb-fact-action` skill.** Both describe how
   the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
   analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
@@ -173,6 +185,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `enrich_units_dataframe` resolves and classifies each peak channel once, from one pass over the
   electrode table, instead of comparing against the whole table three times per unit: 4.5 s to
   0.13 s at 4,000 units and 1,536 electrodes, with identical output.
+- `cluster_permutation_test` sums each cluster from one sort of the suprathreshold points
+  instead of masking the whole map once per cluster, and a permutation draw builds no masks:
+  20.0 s to 2.6 s on a 200 by 200 map with about 10,000 clusters and 20 permutations. Cluster
+  statistics, p-values and `max_null_stats` are bitwise identical.
 
 ### Deprecated
 

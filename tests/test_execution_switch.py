@@ -319,6 +319,19 @@ class TestTheResultRecordsTheDevice:
         result, _ = _runtime_messages(lambda: DEVICE_CALLS[name]("cpu"))
         assert RECORD[name](result) == "cpu"
 
+    def test_covariance_pca_records_cuda_on_its_pytorch_path(self, monkeypatch):
+        """With CuPy absent the covariance PCA runs its SVD through PyTorch, and a result
+        computed there says so."""
+        if not _torch_has_cuda_in_a_fresh_process():
+            pytest.skip("PyTorch is absent or reaches no CUDA device, in a fresh process")
+        # One key, restored alone: clearing sys.modules evicts a torch loaded inside.
+        monkeypatch.setitem(sys.modules, "cupy", None)
+        result, messages = _runtime_messages(
+            lambda: jnwb.PopulationAnalyzer.population_trajectory(POP, device="cuda"))
+        assert result["device_used"] == "cuda", messages
+        cpu = jnwb.PopulationAnalyzer.population_trajectory(POP, device="cpu")
+        assert _worst_relative_gap(cpu, result) <= CUDA_RTOL
+
     def test_covariance_pca_pins_each_component_sign_on_the_cpu(self):
         components = jnwb.PopulationAnalyzer.population_trajectory(POP, device="cpu")["components"]
         pivots = components[np.arange(components.shape[0]), np.argmax(np.abs(components), axis=1)]

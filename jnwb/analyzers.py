@@ -17,7 +17,7 @@ import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 from ._bins import bins_within, whole_bin_count
 from ._dictlike import RenamedKeyDict
-from .gpu_pca import pin_component_signs
+from .trajectory import _kept_components
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -187,10 +187,13 @@ class TFRAnalyzer:
         Vectorized: runs ttest_ind across all (ch × freq × time) locations at once
         instead of a Python loop, ≈ 100× faster for large arrays.
 
-        One t-test per location is a family of ``n_tests`` tests, so about 5% of locations
-        pass ``p < 0.05`` on null data. ``n_significant_uncorrected`` counts those;
-        ``n_significant_fdr`` counts locations whose Benjamini-Hochberg adjusted p-value
-        (:func:`jnwb.fdr_correct` over the locations with a finite p) is below 0.05.
+        One t-test per location with a finite p-value is a family of ``n_tests`` tests, so
+        about 5% of them pass ``p < 0.05`` on null data. ``n_significant_uncorrected``
+        counts those and ``fraction_significant_uncorrected`` divides by ``n_tests`` (NaN
+        when no location has a p-value); ``n_significant_fdr`` counts locations whose
+        Benjamini-Hochberg adjusted p-value (:func:`jnwb.fdr_correct` over the same family)
+        is below 0.05. A location without a p-value, such as one constant in both
+        conditions, is in none of these.
 
         Args:
             tfr1: TFR from condition 1 (ch × freq × time × trials1)
@@ -213,11 +216,11 @@ class TFRAnalyzer:
         # Vectorized independent t-test across all locations simultaneously
         t_stat, p_val = stats.ttest_ind(t1, t2, axis=1)
 
-        n_sig = int((p_val < 0.05).sum())
-        n_total = len(p_val)
-
-        # A constant location has no p-value and is not a test in the family.
+        # A constant location has no p-value and is not a test in the family, for the
+        # count, the uncorrected fraction and the FDR correction alike.
         tested = np.isfinite(p_val)
+        n_total = int(tested.sum())
+        n_sig = int((p_val[tested] < 0.05).sum())
         q_val = np.full(p_val.shape, np.nan)
         q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
         n_fdr = int((q_val < 0.05).sum())
@@ -225,7 +228,7 @@ class TFRAnalyzer:
         return RenamedKeyDict({
             'n_tests':             n_total,
             'n_significant_uncorrected': n_sig,
-            'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else 0.0,
+            'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else float('nan'),
             'n_significant_fdr':   n_fdr,
             'mean_diff':           float(np.mean(tfr1) - np.mean(tfr2)),
             'p_values':            p_val,          # (space,) array
@@ -796,39 +799,35 @@ class PopulationAnalyzer:
             sign, and cuSOLVER and LAPACK pick each component's sign independently, so
             without the pin a CUDA component and its projection could have the opposite sign
             to the CPU one.
+
+            As in :func:`jnwb.compute_population_trajectory`, a component beyond
+            ``min(n_time_bins, n_units)`` does not exist, so its projection column,
+            component row and variances are NaN, and with no total variance both variance
+            arrays are NaN.
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
 
-        device_used = CPU
+        def _result(s: np.ndarray, vt: np.ndarray, device_used: str) -> Dict[str, np.ndarray]:
+            vt = vt[:n_components, :]
+            projection, vt, explained_variance, explained_variance_ratio, _ = _kept_components(
+                s, vt, X_centered @ vt.T, n_samples, n_components)
+            return {
+                'projection': projection,
+                'components': vt,
+                'explained_variance': explained_variance,
+                'explained_variance_ratio': explained_variance_ratio,
+                'device_used': device_used,
+            }
+
         if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
-            gpu_success = False
             last_exc = None
             try:
                 import cupy as cp
                 X_gpu = cp.asarray(X_centered)
                 u, s, vt = cp.linalg.svd(X_gpu, full_matrices=False)
-
-                u = cp.asnumpy(u)
-                s = cp.asnumpy(s)
-                vt = cp.asnumpy(vt)
-
-                projection = X_centered @ vt.T[:, :n_components]
-                vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-                explained_variance = (s ** 2) / (n_samples - 1)
-                total_variance = np.sum(explained_variance)
-                explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-                device_used = CUDA
-                gpu_success = True
-                return {
-                    'projection': projection[:, :n_components],
-                    'components': vt[:n_components, :],
-                    'explained_variance': explained_variance[:n_components],
-                    'explained_variance_ratio': explained_variance_ratio[:n_components],
-                    'device_used': device_used,
-                }
+                return _result(cp.asnumpy(s), cp.asnumpy(vt), CUDA)
             except Exception as e:
                 last_exc = e
                 log.warning(f"GPU trajectory SVD via cupy failed: {e}. Trying PyTorch...")
@@ -838,45 +837,14 @@ class PopulationAnalyzer:
                         X_gpu = torch.as_tensor(X_centered, device='cuda')
                         if not X_gpu.is_floating_point():
                             X_gpu = X_gpu.to(torch.float64)
-                        u, s, v = torch.linalg.svd(X_gpu, full_matrices=False)
-
-                        u = u.cpu().numpy()
-                        s = s.cpu().numpy()
-                        vt = v.cpu().numpy()
-
-                        projection = X_centered @ vt.T[:, :n_components]
-                        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-                        explained_variance = (s ** 2) / (n_samples - 1)
-                        total_variance = np.sum(explained_variance)
-                        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-                        device_used = CUDA
-                        gpu_success = True
-                        return {
-                            'projection': projection[:, :n_components],
-                            'components': vt[:n_components, :],
-                            'explained_variance': explained_variance[:n_components],
-                            'explained_variance_ratio': explained_variance_ratio[:n_components],
-                            'device_used': device_used,
-                        }
+                        u, s, vt = torch.linalg.svd(X_gpu, full_matrices=False)
+                        return _result(s.cpu().numpy(), vt.cpu().numpy(), CUDA)
                 except Exception as e2:
                     last_exc = e2
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
 
-            if not gpu_success and last_exc is not None:
+            if last_exc is not None:
                 warn_device_fallback("population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
-        projection = X_centered @ vt.T[:, :n_components]
-        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-        explained_variance = (s ** 2) / (n_samples - 1)
-        total_variance = np.sum(explained_variance)
-        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-        return {
-            'projection': projection[:, :n_components],
-            'components': vt[:n_components, :],
-            'explained_variance': explained_variance[:n_components],
-            'explained_variance_ratio': explained_variance_ratio[:n_components],
-            'device_used': device_used,
-        }
+        return _result(s, vt, CPU)

@@ -1172,6 +1172,64 @@ def test_cluster_t_map_recognises_constant_points_whatever_the_value():
     assert np.all(np.isfinite(np.delete(unpaired, [2, 3])))
 
 
+@pytest.mark.parametrize("tail", ["both", "greater", "less"])
+def test_each_cluster_statistic_is_the_sum_of_its_mask_bitwise(tail):
+    """Cluster sums come from one sort of the labelled points, not a mask per cluster; each
+    must still equal ``np.sum(stat_map[mask])`` to the last bit, for many small clusters and
+    for clusters past numpy's 8- and 128-element pairwise-summation blocks."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(11)
+    X, Y = rng.normal(size=(10, 60, 70)), rng.normal(size=(10, 60, 70))
+    X[:, 5:25, 5:30] += 1.5          # 500 points
+    X[:, 35:55, 40:65] -= 1.5
+    res = cluster_permutation_test(X, Y, paired=True, threshold=0.7, n_permutations=5,
+                                   tail=tail, rng=0)
+    clusters = res["clusters"]
+    sizes = [int(c["mask"].sum()) for c in clusters]
+    assert len(clusters) > 50 and max(sizes) > 128 and min(sizes) < 8
+    for c in clusters:
+        assert c["statistic"].hex() == float(np.sum(res["stat_map"][c["mask"]])).hex()
+    covered = np.sum([c["mask"] for c in clusters], axis=0)
+    expected = {"both": np.abs(res["stat_map"]) > 0.7, "greater": res["stat_map"] > 0.7,
+                "less": res["stat_map"] < -0.7}[tail]
+    np.testing.assert_array_equal(covered, expected.astype(int))
+
+
+def test_the_null_is_the_extremal_cluster_of_each_tail():
+    """Swapping X and Y negates every paired t map exactly under the same sign flips, so the
+    'less' null is the negated 'greater' null of the swapped data, and 'both' takes the
+    larger magnitude of the two at each draw."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(12)
+    X, Y = rng.normal(size=(9, 40, 30)), rng.normal(size=(9, 40, 30))
+    X[:, 3:15, 3:12] += 1.2
+    X[:, 25:35, 15:28] -= 1.2
+    kw = dict(paired=True, threshold=0.8, n_permutations=40, rng=3)
+    null = {tail: cluster_permutation_test(X, Y, tail=tail, **kw)["max_null_stats"]
+            for tail in ("both", "greater", "less")}
+    swapped = cluster_permutation_test(Y, X, tail="greater", **kw)["max_null_stats"]
+    assert np.all(null["less"] < 0) and np.all(null["greater"] > 0)
+    np.testing.assert_array_equal(null["less"], -swapped)
+    np.testing.assert_array_equal(null["both"], np.maximum(null["greater"], -null["less"]))
+
+
+@pytest.mark.parametrize("tail", ["both", "greater", "less"])
+def test_a_null_draw_with_no_cluster_contributes_zero(tail):
+    """No point crosses the threshold in any draw, so every null statistic is 0.0 and no
+    cluster is reported."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(13)
+    X, Y = rng.normal(size=(8, 50)), rng.normal(size=(8, 50))
+    res = cluster_permutation_test(X, Y, paired=True, threshold=1e6, n_permutations=25,
+                                   tail=tail, rng=0)
+    assert res["clusters"] == []
+    assert res["max_null_stats"].shape == (25,)
+    assert np.array_equal(res["max_null_stats"], np.zeros(25))
+
+
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("a, b", [(-np.inf, -np.inf), (np.inf, np.inf), (-np.inf, 1.0),
                                   (1.0, np.inf)])

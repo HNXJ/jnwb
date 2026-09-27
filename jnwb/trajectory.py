@@ -197,34 +197,8 @@ def compute_population_trajectory(
     else:
         proj_np, V_np, S_np = _svd_numpy()
 
-    # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
-    # and cuSOLVER happened to pick for each component, which showed up as trajectory
-    # components of opposite sign. See :func:`jnwb.gpu_pca.pin_component_signs`.
-    V_np, proj_np = pin_component_signs(V_np, proj_np)
-
-    # Per-component variances, as scikit-learn's PCA names them.
-    power = S_np[:actual_components] ** 2
-    total_var = np.sum(S_np ** 2)
-    # No total variance means no ratio, not a ratio of zero; nor a variance to report.
-    if total_var > 0.0:
-        explained_variance = power / (X_flat.shape[0] - 1)
-        explained_variance_ratio = power / total_var
-        explained_total = float(np.sum(S_np[:actual_components] ** 2) / total_var)
-    else:
-        explained_variance = np.full(actual_components, np.nan)
-        explained_variance_ratio = np.full(actual_components, np.nan)
-        explained_total = float('nan')
-
-    # If requested n_components > actual_components, pad along the component axis
-    if actual_components < n_components:
-        # These components do not exist -- there were not enough units or samples to
-        # estimate them. Zero-padding made them indistinguishable from a component whose
-        # projection was measured to be zero.
-        missing = n_components - actual_components
-        proj_np = np.pad(proj_np, ((0, 0), (0, missing)), mode="constant", constant_values=np.nan)
-        explained_variance = np.pad(explained_variance, (0, missing), constant_values=np.nan)
-        explained_variance_ratio = np.pad(explained_variance_ratio, (0, missing),
-                                          constant_values=np.nan)
+    proj_np, _, explained_variance, explained_variance_ratio, explained_total = (
+        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components))
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
@@ -238,6 +212,53 @@ def compute_population_trajectory(
         'bin_centers': bin_centers,
         'device_used': resolved,
     })
+
+
+def _kept_components(
+    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    """Pin signs, name the variances and pad to ``n_components``, from one SVD.
+
+    Args:
+        S: every singular value of the centred (or standardised) data.
+        Vt: the kept right singular vectors, ``(n_kept, n_features)``.
+        projection: the data projected on them, ``(n_samples, n_kept)``.
+        n_samples: rows of the decomposed data.
+        n_components: components requested; ``n_kept`` may be fewer.
+
+    Returns:
+        ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
+        The variances are per component, as scikit-learn's PCA names them, and
+        ``explained_total`` is the kept components' share together. With no total variance
+        there is no ratio and no variance, so all three are NaN. A requested component
+        beyond ``n_kept`` does not exist -- too few features or samples -- so its column of
+        ``projection``, its row of ``Vt`` and its variances are NaN; zero would read as a
+        component measured to be zero.
+    """
+    # CPU and CUDA SVDs agree to 1e-13 in float64 except in the sign each picks per
+    # component. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    Vt, projection = pin_component_signs(Vt, projection)
+    n_kept = Vt.shape[0]
+    dtype = np.asarray(S).dtype
+    power = S[:n_kept] ** 2
+    total_var = np.sum(S ** 2)
+    if total_var > 0.0:
+        explained_variance = power / (n_samples - 1)
+        explained_variance_ratio = power / total_var
+        explained_total = float(np.sum(power) / total_var)
+    else:
+        explained_variance = np.full(n_kept, np.nan, dtype=dtype)
+        explained_variance_ratio = np.full(n_kept, np.nan, dtype=dtype)
+        explained_total = float('nan')
+
+    missing = n_components - n_kept
+    if missing > 0:
+        projection = np.pad(projection, ((0, 0), (0, missing)), constant_values=np.nan)
+        Vt = np.pad(Vt, ((0, missing), (0, 0)), constant_values=np.nan)
+        explained_variance = np.pad(explained_variance, (0, missing), constant_values=np.nan)
+        explained_variance_ratio = np.pad(explained_variance_ratio, (0, missing),
+                                          constant_values=np.nan)
+    return projection, Vt, explained_variance, explained_variance_ratio, explained_total
 
 
 _EXPLAINED_VARIANCE_CHANGES = (
