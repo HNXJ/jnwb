@@ -89,10 +89,12 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — first refuses the release while the problem stack holds a row, a
-  todo item is still required for this cycle, or the closure receipt is missing or nonzero
-  (`AGENTS.md` §11, condition 3). It then runs the suite in parallel and prints its wall time
-  and ten slowest tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+- **`release_gate.py`** — first refuses the release while the working tree has an uncommitted
+  change, the problem stack holds a row, a todo item is still required for this cycle, or the
+  closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3). It then runs the suite
+  in parallel and prints its wall time and ten slowest tests, records the peak memory of a
+  fixed set of operations in `artifacts/benchmarks/peak_memory.json`
+  (`scripts/measure_peak_memory.py`, no threshold yet), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
