@@ -1897,19 +1897,46 @@ def cluster_permutation_test(
         constant = _is_constant(x1, axis=0) & _is_constant(x2, axis=0)
         return _finite_t(m1 - m2, se, constant, x1[0] - x2[0])
 
+    def _labelled_maps(t_map: np.ndarray) -> List[Tuple[np.ndarray, int]]:
+        maps = []
+        if tail in ("both", "greater"):
+            maps.append(ndimage.label(t_map > threshold))
+        if tail in ("both", "less"):
+            maps.append(ndimage.label(t_map < -threshold))
+        return maps
+
+    def _cluster_sums(t_map: np.ndarray, labeled: np.ndarray, n_labels: int) -> List[float]:
+        """The sum of ``t_map`` over each label ``1..n_labels``, in label order.
+
+        One stable sort of the S labelled points and one sum per contiguous run: O(M + S
+        log S) for a map of M points, where a full-map mask per cluster was O(K M). The
+        stable sort keeps each cluster's points in C order, so each run is the array
+        ``t_map[labeled == i]`` itself and its sum is bitwise the same.
+        """
+        flat = labeled.ravel()
+        points = np.flatnonzero(flat)
+        points = points[np.argsort(flat[points], kind="stable")]
+        values = t_map.ravel()[points]
+        bounds = np.concatenate(([0], np.cumsum(np.bincount(flat[points], minlength=n_labels + 1)[1:])))
+        return [float(np.sum(values[bounds[i]:bounds[i + 1]])) for i in range(n_labels)]
+
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []
-        if tail in ("both", "greater"):
-            pos_labeled, n_pos = ndimage.label(t_map > threshold)
-            for i in range(1, n_pos + 1):
-                c_mask = (pos_labeled == i)
-                found.append((float(np.sum(t_map[c_mask])), c_mask))
-        if tail in ("both", "less"):
-            neg_labeled, n_neg = ndimage.label(t_map < -threshold)
-            for i in range(1, n_neg + 1):
-                c_mask = (neg_labeled == i)
-                found.append((float(np.sum(t_map[c_mask])), c_mask))
+        for labeled, n_labels in _labelled_maps(t_map):
+            sums = _cluster_sums(t_map, labeled, n_labels)
+            found.extend((s, labeled == i) for i, s in enumerate(sums, start=1))
         return found
+
+    def _extremal_cluster_stat(t_map: np.ndarray) -> float:
+        sums = [s for labeled, n_labels in _labelled_maps(t_map)
+                for s in _cluster_sums(t_map, labeled, n_labels)]
+        if len(sums) == 0:
+            return 0.0
+        if tail == "greater":
+            return max(sums)
+        if tail == "less":
+            return min(sums)
+        return max(abs(s) for s in sums)
 
     # 1. Observed statistic map and clusters
     obs_t = _calc_t_paired(diff) if paired else _calc_t_unpaired(X_arr, Y_arr)
@@ -1949,14 +1976,8 @@ def cluster_permutation_test(
             idx1 = np.flatnonzero(p_labels == 1)
             p_t = _calc_t_unpaired(pooled[idx0], pooled[idx1])
 
-        p_clusters = _extract_clusters(p_t)
-        if len(p_clusters) == 0:
-            return 0.0
-        if tail == "greater":
-            return max(c[0] for c in p_clusters)
-        if tail == "less":
-            return min(c[0] for c in p_clusters)
-        return max(abs(c[0]) for c in p_clusters)
+        # A null draw needs only the extremal sum, never a cluster mask.
+        return _extremal_cluster_stat(p_t)
 
     max_null_stats = np.asarray(
         parallel_map(_one_permutation, permutation_seeds, n_jobs=n_jobs), dtype=float

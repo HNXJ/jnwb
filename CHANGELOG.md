@@ -153,6 +153,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `enrich_units_dataframe` resolves and classifies each peak channel once, from one pass over the
   electrode table, instead of comparing against the whole table three times per unit: 4.5 s to
   0.13 s at 4,000 units and 1,536 electrodes, with identical output.
+- `cluster_permutation_test` sums each cluster from one sort of the suprathreshold points
+  instead of masking the whole map once per cluster, and a permutation draw builds no masks:
+  20.0 s to 2.6 s on a 200 by 200 map with about 10,000 clusters and 20 permutations. Cluster
+  statistics, p-values and `max_null_stats` are bitwise identical.
 
 ### Deprecated
 
