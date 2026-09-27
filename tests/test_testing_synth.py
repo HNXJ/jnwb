@@ -324,3 +324,16 @@ class TestElectrodeRegionInvariant:
         """
         with pytest.raises(ValueError, match="cannot represent the tutorial laminar crossover"):
             build_canonical_tutorial_nwb(n_channels=8, duration_s=2.0, n_trials=4, seed=7)
+
+
+@pytest.mark.parametrize("builder, argument", [
+    (lambda s: build_canonical_tutorial_nwb(duration_s=2.0, n_trials=2, seed=s), "seed"),
+    (lambda s: jnwb.testing.build_synth_nwb(jnwb.testing.SynthNWBBuildOptions(seed=s)),
+     "SynthNWBBuildOptions.seed"),
+], ids=["build_canonical_tutorial_nwb", "build_synth_nwb"])
+def test_a_refused_seed_is_named_as_the_caller_spelled_it(builder, argument):
+    with pytest.raises(TypeError) as info:
+        builder(True)
+    message = str(info.value)
+    assert f"{argument} must be an int seed" in message
+    assert "rng must be" not in message

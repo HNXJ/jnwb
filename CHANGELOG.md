@@ -228,6 +228,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
   -1), and a larger integer or float, which raised `OverflowError` or wrapped. A whole float such
   as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
+- `TFRAccumulator`: assigning `n` stores a copy. An int64 array was stored as the caller's
+  own array, so writing to that array afterwards changed the accumulator's counts.
+- `TFRAccumulator`: an object array assigned to `n` is accepted when every element is a
+  non-negative Python int within int64, and stored as int64; any other object array raises
+  `ValueError` (a float element such as 2.5 was cast to 2).
 - `XFlipResult.boundaries` and `block_bounds` hold Python ints. They held NumPy int64 from the
   contiguous search, so `json.dumps` of `to_dict()` failed on them and on the `boundary_drops`
   keys.

@@ -122,10 +122,7 @@ def _as_counts(value, name: str) -> np.ndarray:
     def refuse(why: str):
         return ValueError(f"{name} must hold non-negative integral counts within int64; {why}.")
 
-    try:
-        raw = np.asarray(value)
-    except OverflowError as exc:
-        raise refuse("got a value beyond int64") from exc
+    raw = np.asarray(value)  # an int beyond int64 becomes an object array, handled below
     kind = raw.dtype.kind
     if kind == "O":
         flat = raw.ravel().tolist()

@@ -556,7 +556,7 @@ def build_canonical_tutorial_nwb(
     from datetime import datetime
     from dateutil.tz import tzutc
 
-    rng = resolve_rng(seed, func_name="build_canonical_tutorial_nwb")
+    rng = resolve_rng(seed, func_name="build_canonical_tutorial_nwb", name="seed")
     n_samples = int(duration_s * fs)
 
     # The laminar crossover is an analytically known ground truth at a fixed CONTACT, so it does

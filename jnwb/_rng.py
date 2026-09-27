@@ -143,7 +143,7 @@ def resolve_seed_alias(
     return resolved
 
 
-def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
+def resolve_rng(rng: RNGLike, *, func_name: str, name: str = "rng") -> np.random.Generator:
     """Return a ``Generator`` for ``rng``.
 
     Args:
@@ -151,6 +151,7 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
             successive calls advance one stream rather than restarting it), or ``None``
             for fresh OS entropy.
         func_name: The calling function, so a wrong type names the caller.
+        name: The argument as the caller spelled it, so the error names it.
 
     Raises:
         TypeError: For anything else. A ``float`` seed is refused rather than truncated,
@@ -161,7 +162,7 @@ def resolve_rng(rng: RNGLike, *, func_name: str) -> np.random.Generator:
     if isinstance(rng, (int, np.integer)) and not isinstance(rng, bool):
         return np.random.default_rng(int(rng))
     raise TypeError(
-        f"{func_name}: rng must be an int seed, a numpy.random.Generator, or None "
+        f"{func_name}: {name} must be an int seed, a numpy.random.Generator, or None "
         f"for fresh entropy; got {type(rng).__name__}."
     )
 

@@ -112,7 +112,7 @@ def _synthetic_lfp(
     fs_hz: float,
     seed: int,
 ) -> np.ndarray:
-    rng = resolve_rng(seed, func_name="build_synth_nwb")
+    rng = resolve_rng(seed, func_name="build_synth_nwb", name="SynthNWBBuildOptions.seed")
     t = np.arange(n_samples, dtype=np.float64) / fs_hz
     data = np.empty((n_samples, n_channels), dtype=np.float32)
     for ch in range(n_channels):
