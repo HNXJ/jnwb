@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `jnwb.vflip`, `jnwb.vflip_from_lfp` and `jnwb.label_layers` take keyword-only
+  `depth_axis=` (`"x"`, `"y"` or `"z"`, the geometry column that is depth) and `shallow_end=`
+  (`"min"` or `"max"`, the end of that column nearest the surface), declared together.
+  `"x"`, `"y"` and `"z"` are columns 0, 1 and 2 of `contact_positions`, so `"z"` is `rel_z`
+  for a table without `x`/`y`/`z`. With a declaration the fit runs from the shallow contact:
+  `crossover_contact`, `low_peak_contact`, `high_peak_contact`, `profile`, the `orientation`
+  argument and result, and `crossover_depth_um` are all in that order, so the same probe
+  gives one fit, one depth and one labelling whatever order the electrode table lists it in.
+  `VFlipResult` records `depth_anchor` (`"shallowest"`, or `"row_order"` without a
+  declaration) with the `depth_axis` and `shallow_end` it used. Without a declaration nothing
+  changes: depth runs from the first contact of `linear_order`, which follows the table's
+  rows. An unknown axis or end, only one of the two, a declaration without a
+  `probe_geometry`, an axis whose values at the two end contacts are within 1e-6 um of each
+  other, or a `label_layers` declaration that differs from the one the fit was made with
+  raises `ValueError`. `ProbeGeometry` is unchanged.
+- A declared fit whose motif resolves as `"deep_to_superficial"`, which puts the deep layers
+  at the declared shallow end, is rejected with `rejection_reason="declaration_contradicted"`;
+  `label_layers` then labels every channel `'na'`. The reason is checked after every other
+  acceptance test, so a fit without support reports `"insufficient_support"` and an
+  `orientation` argument the peaks disagree with reports `"orientation_mismatch"`. A
+  declaration passed with `orientation="deep_to_superficial"` raises `ValueError` before any
+  fitting, in `vflip` and `vflip_from_lfp`. Undeclared fits are unaffected.
 - `jnwb.preflight(question)` and `jnwb.Preflight`: check a planned analysis before it runs.
   The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
   with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked
@@ -54,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `baseline_counts` and `response_counts` (integers), in onset order and zero when there are no
   spikes, and the window lengths `baseline_duration_s` and `response_duration_s`. No key is
   removed.
+- `VFlipResult.crossover_z_um`: the crossover's z coordinate in the probe geometry's own frame
+  (um), interpolated along the shaft. `None` without a `probe_geometry`, when z does not vary
+  along the shaft, or when the fit is rejected. `to_dict()` includes it.
 
 ### Changed
 
@@ -122,6 +147,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TFRAccumulator.add_trial(baseline=)` raises on a zero baseline at a cell `valid` marks; a
   zero at an invalid cell never enters the sums, so `to_db(acc.mean_of_ratios())` still equals
   `aggregate_to_db(nan_policy="omit")` over the stacked trials with invalid power set to NaN.
+- **`aggregate_to_db` and `TFRAccumulator.add_trial(baseline=)` raise `ValueError` on an
+  infinite baseline and on a ratio that overflows (breaking).** An infinite baseline gave a
+  ratio of 0, and -inf dB, where `relative_power` raised on the same input; it now raises at
+  every cell where a zero baseline would, and is ignored where a zero would be (a cell `valid`
+  excludes, or NaN power under `nan_policy="omit"`). A NaN baseline keeps its meaning. A
+  baseline small enough that the ratio overflows -- finite power over it, or the mean of such
+  ratios, past the float64 range -- returned +inf dB with only a `RuntimeWarning`; it raises in
+  both, and in `relative_power`. Under `"ratio_of_means"` a summed baseline that overflows gave
+  0 (-inf dB) and a summed finite power that overflows gave +inf; each raises, naming the sum
+  that overflowed, in `aggregate_to_db` and `relative_power`. An infinite power under
+  `nan_policy="propagate"` still gives +inf dB. Values are otherwise unchanged.
+- **`network_topology` raises `TypeError` on a complex matrix (breaking).** It cast to float,
+  keeping the real part with only a `ComplexWarning`, so a purely imaginary coupling counted as
+  no edge. Pass `np.abs(matrix)` to threshold the magnitude. `network_connectivity` already takes
+  the magnitude first and is unchanged.
+- **`VFlipResult.crossover_depth_um` is always shaft rank times contact spacing (breaking).**
+  When the geometry's z varied along the shaft it was the absolute z, which carries the
+  table's origin and direction, while `label_layers(depth_range_um=)` compares against rank
+  times pitch; on a shaft whose z falls with depth the two ran in opposite directions. It now
+  is `crossover_contact` times the spacing, from the first contact of `linear_order`, whose
+  direction follows the table's row order. Callers whose z varied along the shaft and who read
+  it as absolute z read `crossover_z_um` instead. With a `probe_geometry`, `vflip` and
+  `vflip_from_lfp` raise `ValueError` when `contact_spacing` disagrees with the geometry's
+  `nominal_pitch`, which `label_layers` measures depth with: `contact_spacing=50` on a 100 um
+  geometry gave a depth that selected half the contacts through `depth_range_um`.
 - **`classify_response_significance` tests the response against its baseline (breaking).**
   `pvalue` is the two-sided conditional binomial test of two Poisson counts: with `K_r`
   response and `K_b` baseline spikes summed over trials, `K_r` is Binomial(`K_r + K_b`,
@@ -290,6 +340,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   units)` input returned NaN for `cka` (0.69 on `x.mean(0)`) and raised for `rsa`. The value now
   equals the metric of `x.mean(0)`; `lag`, the null and `window` act on the reduced input, and
   a `window` on the removed axis raises `ValueError`. The paired metrics are unchanged.
+- `raster_psth` counts every spike its window selects. The selection is in seconds and the
+  binning in ms, and the conversion could round a selected spike just past an outer edge:
+  onset 2.0 s and a spike at 1.9 s gave -100.00000000000009 ms against a first edge of -100, and
+  the spike was dropped. Only such spikes move, into the first or last bin.
 - `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
   complex128, as assigning `mean` already did, so a summary read back from `write`'s
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an

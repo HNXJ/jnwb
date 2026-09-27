@@ -745,8 +745,8 @@ class PopulationAnalyzer:
         """
         from .connectivity import network_topology
 
-        # The threshold is on |r|. network_topology casts to float, which would drop the
-        # imaginary part of a complex matrix, so take the modulus here.
+        # The threshold is on |r|. network_topology refuses a complex matrix, so take the
+        # modulus here.
         if np.iscomplexobj(correlation_matrix):
             correlation_matrix = np.abs(correlation_matrix)
         topology = network_topology(correlation_matrix, threshold=threshold)

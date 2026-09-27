@@ -1021,8 +1021,12 @@ class TestVFlipRecoveryAndRejectionBroad:
         res_shuffled = vflip(psd_shuffled, freqs, probe_geometry=geom_shuffled, orientation="auto")
         labels_shuffled = label_layers(res_shuffled, geom_shuffled)
 
-        # Invariant 1: Physical crossover depth in um is strictly invariant (within 1e-4 um)
-        assert res_ordered.crossover_depth_um == pytest.approx(res_shuffled.crossover_depth_um, abs=1e-4)
+        # Invariant 1: the crossover's z in the geometry frame is invariant (within 1e-4 um).
+        # crossover_depth_um is rank times pitch from the first contact of linear_order, whose
+        # direction follows the table's row order, so it is checked in each table's own frame.
+        assert res_ordered.crossover_z_um == pytest.approx(res_shuffled.crossover_z_um, abs=1e-4)
+        for res in (res_ordered, res_shuffled):
+            assert res.crossover_depth_um == pytest.approx(res.crossover_contact * pitch, abs=1e-9)
         assert res_ordered.accepted == res_shuffled.accepted
         assert res_ordered.support_score == pytest.approx(res_shuffled.support_score, abs=1e-4)
 

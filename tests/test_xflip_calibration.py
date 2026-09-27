@@ -41,7 +41,7 @@ class TestXFlipNullCalibration:
         assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_ar_noise_fpr_controlled(self):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = 0
         for s in range(n_seeds):
             ar = synth_ar_noise(600, n_channels=16, fs=1000.0, tau_s=0.030, rng=s + 700)
@@ -55,10 +55,10 @@ class TestXFlipNullCalibration:
             )
             if res.accepted:
                 accepted += 1
-        # 0.07 at 15 seeds admits exactly one acceptance, which is what this asserts.
-        # Correlated noise is the one family whose rate the surrogate test alone
-        # controls, and the receipt measures it at 0.067 over 30 seeds.
-        assert accepted <= 1, f"{accepted}/{n_seeds} AR null seeds accepted"
+        # Correlated noise is the one family whose rate the surrogate test alone controls,
+        # so it is held to the same rate bound as the others: these seeds accept 3 of 60,
+        # at the bound.
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} AR null seeds accepted"
 
     def test_acceptance_requires_the_surrogate_test_to_pass(self):
         """The gate these tests are named for, asserted rather than assumed.
