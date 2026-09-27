@@ -143,7 +143,7 @@ location = electrodes_df.loc[10, "location"]
 In high-density probes where noisy or non-connected channels are removed, `electrodes_df` has non-contiguous channel IDs or a standard `0..N-1` `RangeIndex`. Looking up by integer index returns the wrong contact or throws a `KeyError`.
 
 ### The Correct Pattern
-Use `jnwb`'s robust channel resolution functions, which prioritize explicit identifier columns (`channel_id`, `id`, `electrode_id`) before falling back to index lookup:
+Use `jnwb`'s channel resolution functions. They search one identifier column, the first of `channel_id`, `id` and `electrode_id` present, and a channel missing from it resolves to `None`; the row index is read only when the table has none of the three:
 
 ```python
 # CORRECT: Robust addressing handles filtered, non-contiguous, or multi-area probes
@@ -184,9 +184,10 @@ print(f"Y -> X log variance ratio: {gc.y_to_x:.4f} (p = {gc.p_y_to_x:.4f})")
 Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or very narrowband signal as evidence of no directional lead:
 
 ```python
-# TRAP (receipt, seed=42, n_surrogates=50): a 20 Hz sinusoid with 10 ms delay
-# in a 19–21 Hz band gives net PSI = nan and band z = nan (single frequency bin).
-# The same delay on 15–30 Hz broadband noise gives net ≈ 0.93 and band z ≈ 9.8.
+# TRAP (receipt: 2000 samples at 1 kHz, seed=42, n_surrogates=50): a 20 Hz sinusoid
+# with 10 ms delay in a 19–21 Hz band gives net PSI = nan and band z = nan (one 2 Hz bin
+# at the default nperseg of 500). The same delay on 15–30 Hz broadband noise gives
+# net ≈ 0.93 and band z ≈ 9.8.
 ```
 
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).

@@ -52,6 +52,7 @@ def _seed_one_failing_gate(monkeypatch, number: int) -> None:
     monkeypatch.setattr(harness_gate, "GATES", seeded)
 
 
+@pytest.mark.requires_git_checkout
 def test_the_live_repository_passes_every_gate(capsys):
     assert harness_gate.run_full_preflight() is True
     out = capsys.readouterr().out
@@ -59,6 +60,7 @@ def test_the_live_repository_passes_every_gate(capsys):
     assert "ALL HARNESS GATES PASSED." in out
 
 
+@pytest.mark.requires_git_checkout
 def test_a_failure_at_gate_2_does_not_stop_the_gates_after_it(capsys):
     """The exact shape of the incident: gate 2 failed and gate 4's defect stayed invisible."""
     with pytest.MonkeyPatch.context() as monkeypatch:

@@ -142,12 +142,22 @@ class TestANoiseOnlyPSTH:
         return min(abs(fit["tau"] - b) for b in self.TAU_BOUNDS) < 1e-2
 
     def test_the_quickstart_psth(self):
-        """The draw `docs/quickstart.md` makes: `default_rng(0)`, after its earlier steps."""
-        rng = np.random.default_rng(0)
-        rng.normal(0, 1, (40, 8, 600))  # step 1, the artifact segment
-        rng.normal(size=1000)           # step 3, sig_a
-        rng.normal(size=1000)           # step 3, sig_b's noise
-        fit = self._fit(np.sort(rng.uniform(0, 10, 200)))
+        """The page's own code blocks, run in order up to its onset fit, so the draw is the
+        page's and not a retyped copy that can fall out of step with it."""
+        import contextlib
+        import io
+        import re
+        from pathlib import Path
+
+        page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(
+            encoding="utf-8")
+        blocks = re.findall(r"```python\n(.*?)```", page, flags=re.S)
+        upto = next(i for i, b in enumerate(blocks) if "fit_exponential_onset" in b)
+        namespace: dict = {}
+        with contextlib.redirect_stdout(io.StringIO()):
+            for block in blocks[:upto + 1]:
+                exec(compile(block, "docs/quickstart.md", "exec"), namespace)
+        fit = namespace["onset_fit"]
 
         assert fit["bound_status"] is None
         assert self._tau_at_a_bound(fit), fit["tau"]

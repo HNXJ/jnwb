@@ -103,6 +103,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   A CI job now installs these floors on Python 3.12 and runs the suite, so a floor that stops
   holding fails the build.
+- **`map_peak_channel_to_area`, `classify_layer_from_depth` and `enrich_units_dataframe` search
+  only the first identifier column present (breaking).** The order is `channel_id`, then `id`,
+  then `electrode_id`. A channel missing from `channel_id` was looked up in `id`, which can
+  number channels differently, and returned another channel's area and depth; it now resolves
+  to `None` and its depth class to `"Unknown"`. Where the two columns do number the same
+  channels, fill the gaps before the call to keep the old result:
+  `electrodes_df["channel_id"] = electrodes_df["channel_id"].fillna(electrodes_df["id"])`.
 - **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
   dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
   per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,

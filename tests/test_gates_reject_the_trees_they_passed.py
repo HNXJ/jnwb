@@ -457,6 +457,7 @@ class TestGate4AllowlistCarriesNoDeadEntries:
         for stale in ["_audit_dist", "_audit_dist2", "_audit_dist_build"]:
             assert stale not in EPHEMERAL_ROOT_DIRS, f"{stale} is still allowlisted"
 
+    @pytest.mark.requires_git_checkout
     def test_every_allowlisted_file_is_tracked_or_deliberately_ignored(self):
         """Two entries are intentionally untracked, and the reason is written where they live.
 

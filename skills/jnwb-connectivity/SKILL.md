@@ -49,7 +49,7 @@ assert res.x_to_y >= 0.0
 
 ## 5. Verification
 - Granger asymmetry $F_{X \to Y} > F_{Y \to X}$ on synthetic unidirectional autoregressive simulations.
-- PSI is positive for the driver and negative for the receiver **over a band wide enough to hold several frequency bins**, on broadband input rather than a sinusoid: a 20 Hz sine delayed by 10 ms gives `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` on the same data -- the narrow band reports nothing, with the wrong sign. At one discrete frequency a delay and a constant phase offset are the same thing, so there is no slope to estimate; see `docs/common_mistakes.md` section 7.
+- PSI is positive for the driver and negative for the receiver **over a band wide enough to hold several frequency bins**, on broadband input rather than a sinusoid. On 2000 samples at 1 kHz with a 10 ms delay, a 20 Hz sine over `(19.0, 21.0)` gives `net = nan`, since the band holds one 2 Hz bin (`nperseg` of 500), while broadband noise over `(15.0, 30.0)` gives `net ≈ 0.93`. At one discrete frequency a delay and a constant phase offset are the same thing, so there is no slope to estimate; `docs/common_mistakes.md` section 7 runs this receipt.
 
 ## 6. Documentation
 - [`docs/08_directed_connectivity_and_information.md`](../../docs/08_directed_connectivity_and_information.md)
