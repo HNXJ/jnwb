@@ -21,6 +21,7 @@ Tests:
 from __future__ import annotations
 
 import json
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -178,17 +179,63 @@ def test_canvas_colorbar_placement():
 # kaleido drives a headless browser. Two at once under `pytest -n` failed to shut down
 # intermittently, so every test that exports through it shares one xdist group, which
 # `--dist loadgroup` in pyproject.toml runs on a single worker.
+BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
+
+
+def retry_browser_shutdown(call, attempts=3):
+    """Runs `call`, again when only the browser's shutdown timed out, as it can on a loaded
+    machine even alone on its worker. Any other error is raised at once; each retry warns, so
+    the log shows it fired. `tests/test_docs_call_shapes.py` keeps the same helper."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return call()
+        except RuntimeError as err:
+            if BROWSER_SHUTDOWN_TIMEOUT not in str(err) or attempt == attempts:
+                raise
+            warnings.warn(f"browser shutdown timed out; attempt {attempt + 1} of {attempts}",
+                          RuntimeWarning, stacklevel=2)
+
+
+def test_only_a_browser_shutdown_timeout_is_retried():
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)
+        return "exported"
+
+    with pytest.warns(RuntimeWarning, match="shutdown timed out"):
+        assert retry_browser_shutdown(flaky) == "exported"
+    assert len(calls) == 3
+
+    def always():
+        raise RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)
+
+    with pytest.warns(RuntimeWarning), pytest.raises(RuntimeError):
+        retry_browser_shutdown(always)
+
+    def broken():
+        calls.append(1)
+        raise RuntimeError("the figure is wrong")
+
+    calls.clear()
+    with pytest.raises(RuntimeError, match="the figure is wrong"):
+        retry_browser_shutdown(broken)
+    assert len(calls) == 1
+
+
 @pytest.mark.xdist_group("browser_export")
 def test_canvas_save_and_seal_triple_export(tmp_path, sample_argument_data):
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=80.0, rows=1, cols=1, tags=[["A"]])
     canvas.fig.add_trace(go.Scatter(x=[0, 1, 2], y=[10, 20, 15], mode="lines+markers"))
 
-    out_paths = canvas.save_and_seal(
+    out_paths = retry_browser_shutdown(lambda: canvas.save_and_seal(
         output_dir=tmp_path,
         basename="test_figure",
         argument_object=sample_argument_data,
         png_dpi=150,
-    )
+    ))
 
     assert "svg" in out_paths and out_paths["svg"].exists()
     assert "png" in out_paths and out_paths["png"].exists()

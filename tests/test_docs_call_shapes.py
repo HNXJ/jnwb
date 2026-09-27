@@ -41,6 +41,7 @@ import importlib
 import inspect
 import re
 import tomllib
+import warnings
 from collections import Counter
 from pathlib import Path
 
@@ -549,6 +550,21 @@ def _free_names(tree):
 #: one worker.
 BROWSER_EXPORT_CALLS = ("save_and_seal", "write_image", "to_image")
 BROWSER_EXPORT_GROUP = pytest.mark.xdist_group("browser_export")
+BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
+
+
+def retry_browser_shutdown(call, attempts=3):
+    """Runs `call`, again when only the browser's shutdown timed out, as it can on a loaded
+    machine even alone on its worker. Any other error is raised at once; each retry warns, so
+    the log shows it fired. `tests/test_vis.py` keeps the same helper."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return call()
+        except RuntimeError as err:
+            if BROWSER_SHUTDOWN_TIMEOUT not in str(err) or attempt == attempts:
+                raise
+            warnings.warn(f"browser shutdown timed out; attempt {attempt + 1} of {attempts}",
+                          RuntimeWarning, stacklevel=2)
 
 
 def _runnable_blocks():
@@ -601,4 +617,5 @@ def test_runnable_documentation_blocks_execute_outside_the_checkout(block, tmp_p
     difference between the two is the defect.
     """
     monkeypatch.chdir(tmp_path)
-    exec(compile(block, "documentation", "exec"), {"__name__": "__doc_block__"})  # noqa: S102
+    code = compile(block, "documentation", "exec")
+    retry_browser_shutdown(lambda: exec(code, {"__name__": "__doc_block__"}))  # noqa: S102
