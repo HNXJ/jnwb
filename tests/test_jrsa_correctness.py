@@ -152,6 +152,28 @@ class TestReducingTheObservationAxisOfARowMetric:
             float(oa.jrsa(m1[2:10], m2[2:10], metric=metric, stats=False).value), rtol=1e-12)
         assert windowed.axes == (1, 0)
 
+    def test_a_paired_metric_keeps_the_reduced_axis(self):
+        """Only the row metrics lose axis 0; pearson keeps it at length 1, as it always did."""
+        x1, x2 = self._trials()
+        res = oa.jrsa(x1, x2, metric="pearson", stats=False, return_input=True, **self.KW)
+        assert res.aligned_x1.shape == (1, 12, 6)
+        ref = oa.jrsa(x1.mean(0, keepdims=True), x2.mean(0, keepdims=True), metric="pearson",
+                      stats=False)
+        assert float(res.value) == float(ref.value)
+
+    @pytest.mark.parametrize("reduced, shape", [
+        ({"axis_1": "mean"}, (10, 1, 6)),
+        ({"axis_2": "mean"}, (10, 12, 1)),
+        ({"axis_0": "mean", "axis_2": "mean"}, (12, 1)),
+    ])
+    def test_only_axis_0_is_removed(self, reduced, shape):
+        """Another reduced axis stays at length 1, alone or beside a removed axis 0."""
+        x1, x2 = self._trials()
+        res = oa.jrsa(x1, x2, metric="cka", stats=False, return_input=True,
+                      adim=(0, 1, 2), reduction=reduced)
+        assert res.aligned_x1.shape == shape
+        assert res.aligned_x2.shape == shape
+
     def test_a_window_on_the_removed_axis_raises(self):
         x1, x2 = self._trials()
         with pytest.raises(ValueError, match="`window` applies to axis 'axis_0', which the "

@@ -196,6 +196,10 @@ def jrsa(
         of a (trials, conditions, units) input compares conditions, as ``x.mean(0)`` would.
         `lag`, the null and `window` then number the axes of the reduced input, and a
         `window` on the removed axis raises. `result.axes` keeps the input's numbering.
+        ``nan_policy='omit'`` acts on the input's axis 0 (the trials) before the reduction:
+        a NaN drops its whole trial, so the result differs from ``nanmean`` over trials, and
+        a condition that is NaN in every trial leaves no trial and raises. `bootstrap`, like
+        the null, resamples the reduced input's axis 0 (the conditions).
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
@@ -958,6 +962,11 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
     return x1, x2
 
 
+def _window_axis_name(axis_map):
+    """The `axis_map` entry `window` applies to: ``'aligned'``, else the first `adim` axis."""
+    return "aligned" if "aligned" in axis_map else list(axis_map)[0]
+
+
 def _drop_reduced_observation_axis(x1, x2, axis_map, reduction, window, metric):
     """Remove axis 0 of a row metric's input when `reduction` reduced it.
 
@@ -977,7 +986,7 @@ def _drop_reduced_observation_axis(x1, x2, axis_map, reduction, window, metric):
             "leaves no observation axis."
         )
     if window is not None:
-        target = "aligned" if "aligned" in axis_map else next(iter(axis_map))
+        target = _window_axis_name(axis_map)
         if axis_map[target] == 0:
             raise ValueError(
                 f"jrsa(metric={metric!r}): `window` applies to axis {target!r}, which the "
@@ -1042,7 +1051,7 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     """
     if window is None:
         return x1, x2, None
-    ax = axis_map.get("aligned", axis_map.get(list(axis_map.keys())[0], -1))
+    ax = axis_map[_window_axis_name(axis_map)]
     n = x1.shape[ax]
     if isinstance(window, (int, float)):
         half = int(window) // 2
