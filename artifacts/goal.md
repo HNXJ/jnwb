@@ -132,10 +132,9 @@ The apparatus bound has no check yet.
 
 ## 11. Execution and precision
 
-Precision switches between 32-bit and 64-bit through one mechanism, and execution between CPU,
-parallel CPU, CUDA and JAX Metal through one mechanism. Device and worker count change no number
-beyond a tolerance the function states. Paths not exercised on a development machine are declared
-unverified rather than claimed.
+The precision and execution switches are condition 2 of `AGENTS.md` §11. Across them, device and
+worker count change no number beyond a tolerance the function states, and a path no development
+machine exercises is declared unverified rather than claimed.
 
 Held by: the computational-contract gate in `scripts/harness_gate.py`, which traces every device,
 backend and `n_jobs` argument to its deciding mechanism and every precision request to being

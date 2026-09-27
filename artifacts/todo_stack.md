@@ -48,7 +48,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 07-23: the deferral attack, then the apparatus work; 07-31 |
+| 0 | 07-23: the deferral attack, then the apparatus work |
 | 1 | 07-03: the lanes in flight and the bullets ruled 2026-09-27, then the rest |
 | 2 | 07-01, P-345 first |
 | 3 | 07-02 |
@@ -112,23 +112,9 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 - IB-72: `select_optimal_lag`, reached only from the deprecated `granger_causality(order='auto')`, still scores each order on its own sample (n - p) while `granger` now uses one common trimmed sample. Check: align it with `granger`'s criteria or state the departure in its docstring. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is a common sample for the order selection, or the departure stated.
 - IB-73: `spectral_tilt` returns the log-log slope under the key `exponent`, the opposite sign to `aperiodic_fit`'s exponent. Ruled 2026-09-27: add a `slope` key, keep `exponent` one release behind a `DeprecationWarning`. Check: the key, the warning, docs/04 and the lfp-spectral skill updated, changelog entry.
 - IB-79: `relative_power` still broadcasts a 1-D baseline onto trailing axes silently (pinned by `tests/test_spectral.py`), while `aggregate_to_db` and `add_trial` refuse a baseline of another ndim. Ruled 2026-09-27: warn with `FutureWarning` now, raise next release. Check: the warning, its test replacing the broadcast pin, a changelog entry.
-- IB-84: `xflip` follow-ups: the calibration receipt's generated sentence says the acceptance rate is produced by the boundary-drop gate, where the gate produces the rejections (`scripts/calibrate_xflip.py` `render()`); `test_ar_noise_fpr_controlled` still asserts at most 1 of 15 (0.067, above alpha) where the ruled form is a rate bound, measured at 3 of 60; with `n_blocks=None` the block count is chosen by contrast, where 2026-09-27 ruled the calibration objective. Check: fix the sentence, convert the AR test, select the block count by the objective, changelog entry, regenerate the receipt.
+- IB-84: `xflip` with `n_blocks=None` chooses the block count by a criterion that is biased as a selector, and its omnibus p ignores that choice, so the p is anti-conservative (AR null 0.097 at `n_blocks=None` against 0.049 at a fixed count, 1000 seeds). The partition objective merges true blocks once they share a background correlation of 0.2 to 0.3 and goes to the largest count on noise with no shared background. Ruled 2026-09-27: choose the count by the smallest surrogate p across the candidate counts, with the same selection repeated on every surrogate. The receipt sentence and the AR rate bound are already repaired on `dev`. Check: the `n_blocks=None` null rate at or below alpha over enough seeds on the AR and white nulls, a tie-break test, the docstring's bias sentence replaced, a changelog entry, the receipt regenerated.
 - IB-86: `classify_response_significance` returns `undefined` with p NaN when `response_zscore` is NaN (a silent baseline), though the conditional binomial test is computable from the per-trial counts (40 trials of 3 response spikes over a zero baseline: p = 7e-45). Bursting firing inflates the p at zero effect to about 0.3. Ruled 2026-09-27: report the p, keep `is_significant` False and `confidence` `undefined`. Check: that, a test, and the bursting limit stated where the p is documented.
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
-
-### 07-31 Gate 15's code-span mask stops at a quoted field label
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py`, `tests/test_stack_metadata_contradictions.py`.
-Found on 2026-09-27 (R4): the contradiction check of gate 15 cuts a quoted label from its name to the
-next full stop, which removes the closing backtick, so the code-span mask runs on over the
-following bullets. At 3d1cb353 it hid three sentences of the todo stack from the check, and they
-were reworded by hand. Repairing an existing gate is allowed under the freeze.
-Check: excise the label without breaking a code span, with a case in the existing test class.
-Accept: the new case fails on the current gate and passes on the repair; gate 15 passes on the
-live stack.
-Stop: the repair needs a new gate or a new test file.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
