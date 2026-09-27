@@ -196,6 +196,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `jrsa`: a `reduction` over axis 0 of `rsa`, `cka`, `rv`, `hsic`, `distance_correlation` or
+  `procrustes` removes that axis, so the next axis becomes the observations. It kept the axis
+  at length 1, which left one observation: averaging the trials of a `(trials, conditions,
+  units)` input returned NaN for `cka` (0.69 on `x.mean(0)`) and raised for `rsa`. The value now
+  equals the metric of `x.mean(0)`; `lag`, the null and `window` act on the reduced input, and
+  a `window` on the removed axis raises `ValueError`. The paired metrics are unchanged.
 - `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
   complex128, as assigning `mean` already did, so a summary read back from `write`'s
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an

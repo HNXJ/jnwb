@@ -191,6 +191,11 @@ def jrsa(
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
+        A reduced axis stays at length 1, except axis 0 for rsa, cka, rv, hsic,
+        distance_correlation and procrustes: that axis is removed, so averaging the trials
+        of a (trials, conditions, units) input compares conditions, as ``x.mean(0)`` would.
+        `lag`, the null and `window` then number the axes of the reduced input, and a
+        `window` on the removed axis raises. `result.axes` keeps the input's numbering.
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
@@ -465,10 +470,15 @@ def jrsa(
     x1, x2, aligned_axes = _align_dimensions(
         x1, x2, axis_map, align, align_mode, verbose
     )
+    window_axes = axis_map
     if reduction is not None:
         x1, x2 = _reduce_dimensions(x1, x2, axis_map, reduction)
+        if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS:
+            x1, x2, window_axes = _drop_reduced_observation_axis(
+                x1, x2, axis_map, reduction, window, metric
+            )
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
-    x1, x2, windows = _make_windows(x1, x2, axis_map, window, sliding)
+    x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
     # --- dispatch metric ------------------------------------------------------
     _LEGACY_JRSA_METRIC_NAMES = {
         "granger": "granger_ssr_ftest",
@@ -946,6 +956,39 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
         if x2 is not None:
             x2 = _reduce_one(x2, op_str, ax)
     return x1, x2
+
+
+def _drop_reduced_observation_axis(x1, x2, axis_map, reduction, window, metric):
+    """Remove axis 0 of a row metric's input when `reduction` reduced it.
+
+    The row metrics read axis 0 as observations. A reduction keeps the reduced axis at
+    length 1, which left one observation and a NaN (cka) or an error (rsa): averaging trials
+    of a (trials, conditions, units) input gave NaN where cka on ``x.mean(0)`` gave 0.69. The
+    axis is removed instead, so the next axis becomes the observations, and `lag` and the
+    permutation null act on it. Returns the axis numbering `window` reads after the removal;
+    `axis_map` itself, which the result records, keeps the numbering of the input.
+    """
+    reduced = {axis_map[name] for name in reduction if name in axis_map}
+    if 0 not in reduced:
+        return x1, x2, axis_map
+    if x1.ndim < 2:
+        raise ValueError(
+            f"jrsa(metric={metric!r}): the reduction removes axis 0 of a 1-D input, which "
+            "leaves no observation axis."
+        )
+    if window is not None:
+        target = "aligned" if "aligned" in axis_map else next(iter(axis_map))
+        if axis_map[target] == 0:
+            raise ValueError(
+                f"jrsa(metric={metric!r}): `window` applies to axis {target!r}, which the "
+                "reduction removed. Window the input before reducing it, or name the axis to "
+                "window first in `adim`."
+            )
+    xp = _get_xp(x1)
+    x1 = xp.squeeze(x1, axis=0)
+    if x2 is not None:
+        x2 = _get_xp(x2).squeeze(x2, axis=0)
+    return x1, x2, {name: ax - 1 for name, ax in axis_map.items() if ax != 0}
 
 
 def _apply_preprocessing(x1, x2, normalize, standardize, detrend):

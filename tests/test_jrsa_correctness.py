@@ -104,6 +104,64 @@ def test_series_metrics_count_no_join_between_rows(metric, kw):
     assert float(oa.jrsa(x1[:1], x2[:1], metric=metric, stats=False, **kw).value) == float(one)
 
 
+class TestReducingTheObservationAxisOfARowMetric:
+    """A reduction kept the reduced axis at length 1. For the row metrics that was axis 0,
+    their observations, so averaging the trials of a (trials, conditions, units) input left
+    one observation: cka returned NaN where cka on ``x.mean(0)`` gave 0.69. The axis is now
+    removed and the next axis, the conditions, becomes the observations."""
+
+    ROW = ["cka", "distance_correlation", "hsic", "procrustes", "rsa", "rv"]
+    KW = {"adim": (0, 1), "reduction": {"axis_0": "mean"}}
+
+    @staticmethod
+    def _trials():
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(10, 12, 6))
+        return x1, x1 + 0.8 * rng.normal(size=x1.shape)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_the_value_is_the_metric_of_the_trial_mean(self, metric):
+        x1, x2 = self._trials()
+        got = oa.jrsa(x1, x2, metric=metric, stats=False, **self.KW)
+        ref = oa.jrsa(x1.mean(0), x2.mean(0), metric=metric, stats=False)
+        assert np.isfinite(float(got.value))
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_lag_null_and_window_number_the_reduced_axes(self, metric):
+        """`lag` and the null act on the conditions, `window` on the axis `adim` names first
+        once renumbered, and `result.axes` keeps the input's numbering."""
+        x1, x2 = self._trials()
+        m1, m2 = x1.mean(0), x2.mean(0)
+        lagged = oa.jrsa(x1, x2, metric=metric, stats=False, lag=2, **self.KW)
+        assert lagged.execution["n_overlap"] == 10
+        np.testing.assert_allclose(
+            float(lagged.value),
+            float(oa.jrsa(m1, m2, metric=metric, stats=False, lag=2).value), rtol=1e-12)
+        tested = oa.jrsa(x1, x2, metric=metric, permutations=50, null="iid", rng=1,
+                         return_null=True, **self.KW)
+        by_hand = oa.jrsa(m1, m2, metric=metric, permutations=50, null="iid", rng=1,
+                          return_null=True)
+        np.testing.assert_allclose(tested.null_distribution, by_hand.null_distribution,
+                                   rtol=1e-12)
+        assert float(tested.p) == float(by_hand.p)
+        windowed = oa.jrsa(x1, x2, metric=metric, stats=False, window=(2, 10), adim=(1, 0),
+                           reduction={"axis_0": "mean"})
+        np.testing.assert_allclose(
+            float(windowed.value),
+            float(oa.jrsa(m1[2:10], m2[2:10], metric=metric, stats=False).value), rtol=1e-12)
+        assert windowed.axes == (1, 0)
+
+    def test_a_window_on_the_removed_axis_raises(self):
+        x1, x2 = self._trials()
+        with pytest.raises(ValueError, match="`window` applies to axis 'axis_0', which the "
+                                             "reduction removed"):
+            oa.jrsa(x1, x2, metric="cka", stats=False, window=(2, 10), **self.KW)
+        with pytest.raises(ValueError, match="leaves no observation axis"):
+            oa.jrsa(x1[:, 0, 0], x2[:, 0, 0], metric="cka", stats=False, adim=0,
+                    reduction={"aligned": "mean"})
+
+
 @pytest.mark.parametrize("metric", _all_metrics())
 @pytest.mark.parametrize("shape, nan_policy", [
     ((0, 40), "omit"), ((6, 0), "raise"), ((6, 0), "propagate"),
