@@ -55,27 +55,38 @@ def test_no_phase_measure_row_claims_more_than_reduced_sensitivity() -> None:
 
 
 def test_narrowband_psi_really_does_report_nothing() -> None:
-    """The connectivity skill's verification instruction fails on a band it did not exclude."""
+    """The connectivity skill and `docs/common_mistakes.md` section 7 quote one receipt, at
+    one stated length; this runs it and holds both pages to the numbers it gives."""
+    rng = np.random.default_rng(42)
     fs = 1000.0
-    t = np.arange(0, 20.0, 1 / fs)
-    x = np.sin(2 * np.pi * 20.0 * t)
-    y = np.sin(2 * np.pi * 20.0 * (t - 0.010))  # x leads y by 10 ms
-
-    narrow = jnwb.phase_slope_index(x, y, fs, (19.0, 21.0))
-    broad = jnwb.phase_slope_index(x, y, fs, (15.0, 30.0))
-
-    assert abs(narrow.net) < 1e-3, f"narrowband PSI is not degenerate here: {narrow.net}"
-    assert broad.net > 0, f"broadband PSI lost the direction: {broad.net}"
-    assert abs(broad.net) > 100 * abs(narrow.net), (
-        f"the two bands are not distinguishable: {narrow.net} vs {broad.net}"
+    n = 2000
+    t = np.arange(n) / fs
+    x = np.sin(2 * np.pi * 20 * t)
+    y = np.roll(x, int(0.01 * fs))  # x leads y by 10 ms
+    narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
+    noise_x = rng.normal(size=n)
+    noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=n)
+    broad = jnwb.phase_slope_index(
+        noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
     )
 
-    page = (SKILLS / "jnwb-connectivity" / "SKILL.md").read_text(encoding="utf-8")
-    section = page.partition("## 5. Verification")[2]
-    assert section.strip(), "the connectivity skill has no verification section"
+    assert np.isnan(narrow.net), f"narrowband PSI is not degenerate here: {narrow.net}"
+    assert fs / narrow.params["nperseg"] == 2.0
+    assert f"{broad.net:.2f}" == "0.93", broad.net
+
+    skill = (SKILLS / "jnwb-connectivity" / "SKILL.md").read_text(encoding="utf-8")
+    section = skill.partition("## 5. Verification")[2]
     assert "frequency bins" in section, (
         "the PSI verification instruction does not require a band with several bins"
     )
+    mistakes = (ROOT / "docs" / "common_mistakes.md").read_text(encoding="utf-8")
+    seven = mistakes.partition("## 7.")[2].partition("\n## ")[0]
+    psi_row = next(line for line in section.splitlines() if "(19.0, 21.0)" in line)
+    for page, text in (("skill", psi_row), ("section 7", seven)):
+        assert "2000 samples at 1 kHz" in text, f"the {page} does not state the length"
+        assert "2 Hz bin" in text, f"the {page} does not state the bin width"
+        assert "net = nan" in text or "net PSI = nan" in text, f"the {page} misquotes narrow"
+        assert "net ≈ 0.93" in text, f"the {page} misquotes the broadband net"
 
 
 @pytest.mark.parametrize("tau_ms, stated_ms", [(25.0, 17), (50.0, 34)])
