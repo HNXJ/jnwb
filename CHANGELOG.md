@@ -236,14 +236,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a positive one. The calibration receipt is regenerated: power on every alternative is
   unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
   accepted none, below `alpha=0.05`.
-- **`xflip(n_blocks=None)` chooses the block count by the partition objective (the count can
-  change on existing data).** Of the counts from 2 to `min(4, n_channels // min_block_size)`,
-  it takes the one whose partition scores highest on the same S²/P objective the contiguous
-  search maximises, the smaller count on a tie. It took the one with the highest contrast,
-  which rises when a weakly correlated block is split: two blocks of 8 correlating at 0.8 and
-  0.2 were cut into three. The objective counts only within-block pairs, so blocks that
-  correlate strongly with each other score higher merged. Calls with an integer `n_blocks`
-  are unchanged.
+- **`xflip(n_blocks=None)` chooses the block count by the smallest surrogate p, and its p
+  accounts for the choice (the count and p can change on existing data).** Each count from 2
+  to `min(4, n_channels // min_block_size)` is partitioned and tested against the same
+  surrogates, the count with the smallest p is reported, and the omnibus p repeats that
+  choice on every surrogate. It took the count with the highest contrast and reported that
+  count's p as though it had been fixed in advance, so the p was too small: on an AR(1) null,
+  0.097 of 1000 seeds had p at or below 0.05. With the choice repeated the rate is 0.060,
+  against 0.054 at a fixed count of 2 on the same seeds, and on white noise 0.030 against
+  0.040. Ties at the smallest p go to
+  the count whose contrast lies the most surrogate standard deviations above the surrogate
+  mean, then to the smallest count. On 16 to 18 contacts at a within-block correlation of 0.8,
+  the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at a shared background
+  correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and rejected. A call
+  costs one partition per candidate count per surrogate, up to three times a fixed count.
+  Calls with an integer `n_blocks` return the same values as before.
 - `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
   RandomState now raise TypeError (a float already did).
 - **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,

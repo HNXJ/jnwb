@@ -203,20 +203,40 @@ class TestXFlipContiguousPartitioning:
         assert res.n_blocks == 2
         assert res.boundaries == (8,)
 
-    def test_auto_block_count_follows_the_partition_objective_not_contrast(self):
-        from jnwb.laminar import _optimal_contiguous_partition
+    def test_auto_block_count_recovers_blocks_that_share_a_background(self):
+        # Four blocks sharing a background correlation of 0.3: a selector that scores only
+        # within-block pairs merges them.
+        data, _, _ = synth_correlation_blocks(
+            (4, 4, 4, 4), within_corr=0.8, between_corr=0.3, n_samples=400, rng=7
+        )
+        res = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=107)
+        assert res.accepted is True
+        assert res.boundaries == (4, 8, 12)
 
-        # Two blocks of 8, the second weakly correlated. Splitting the weak block raises the
-        # contrast, so a count chosen by contrast cuts the probe into three.
-        corr = np.zeros((16, 16))
-        corr[:8, :8] = 0.8
-        corr[8:, 8:] = 0.2
+    def test_auto_block_count_p_accounts_for_the_choice(self):
+        # Every surrogate repeats the choice of count, so the reported p is never below the
+        # chosen count's own p on the same surrogates, and exceeds it when another count
+        # would have been chosen on some surrogate.
+        strictly_above = 0
+        for seed in range(6):
+            data = synth_white_noise(shape=(16, 400), rng=seed + 40)
+            auto = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=seed)
+            k = len(auto.block_bounds)
+            fixed = xflip(data, n_blocks=k, min_block_size=3, n_surrogates=40, rng=seed)
+            assert fixed.boundaries == auto.boundaries
+            assert auto.p_values["omnibus"] >= fixed.p_values["omnibus"]
+            strictly_above += auto.p_values["omnibus"] > fixed.p_values["omnibus"]
+        assert strictly_above > 0
+
+    def test_auto_block_count_tie_goes_to_the_smallest_count(self):
+        # All off-diagonal correlations equal: every count has p = 1 and no contrast above its
+        # surrogates, so the tie-break alone decides, and it takes the least structure.
+        corr = np.full((12, 12), 0.5)
         np.fill_diagonal(corr, 1.0)
-        _, _, q2, _ = _optimal_contiguous_partition(corr, 2, 3)
-        _, _, q3, _ = _optimal_contiguous_partition(corr, 3, 3)
-        assert q3 > q2
-        res = xflip(corr, n_blocks=None, min_block_size=3, n_surrogates=0, is_corr_matrix=True)
-        assert res.boundaries == (8,)
+        res = xflip(corr, n_blocks=None, min_block_size=3, n_surrogates=20, rng=0,
+                    is_corr_matrix=True)
+        assert len(res.boundaries) == 1
+        assert res.p_values["omnibus"] == 1.0
 
 
 class TestXFlipSurrogatesAndInference:

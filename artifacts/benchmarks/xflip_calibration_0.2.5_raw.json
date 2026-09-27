@@ -1,12 +1,12 @@
 {
-  "estimator_sha256": "b8b72b29bc34b1056d9e71fc5bef553ad0d8fbdbcef91520989b084dcf411c39",
+  "estimator_sha256": "d3042521e89d44ff675b5f918945ff4a207c20f62078bd6327d733e35068f2d2",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
     "_label_change_boundaries",
     "_optimal_contiguous_partition",
     "_partition_is_contiguous",
-    "_partition_objective",
+    "_select_count_by_min_p",
     "_surrogate_phase_randomize",
     "_unrestricted_partition",
     "xflip"
@@ -356,5 +356,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 154.2
+  "elapsed_s": 160.6
 }
