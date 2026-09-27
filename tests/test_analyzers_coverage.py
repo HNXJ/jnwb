@@ -477,6 +477,25 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.assertIn('device_used', res)
         self.assertIn(res['device_used'], ('cpu', 'cuda'))
 
+    def test_components_that_could_not_be_estimated_are_nan_not_missing(self):
+        # Two units support two components; the other two do not exist.
+        res = PopulationAnalyzer.population_trajectory(self.X_f64[:, :2], n_components=4)
+        self.assertEqual(res['projection'].shape, (50, 4))
+        self.assertEqual(res['components'].shape, (4, 2))
+        self.assertTrue(np.all(np.isfinite(res['projection'][:, :2])))
+        self.assertTrue(np.all(np.isnan(res['projection'][:, 2:])))
+        self.assertTrue(np.all(np.isnan(res['components'][2:])))
+        for key in ('explained_variance', 'explained_variance_ratio'):
+            self.assertEqual(res[key].shape, (4,))
+            self.assertTrue(np.all(np.isfinite(res[key][:2])) and np.all(np.isnan(res[key][2:])))
+        np.testing.assert_allclose(np.nansum(res['explained_variance_ratio']), 1.0, rtol=1e-12)
+
+    def test_a_population_with_no_variance_has_no_explained_variance(self):
+        res = PopulationAnalyzer.population_trajectory(np.full((20, 5), 3.0), n_components=2)
+        self.assertTrue(np.all(np.isnan(res['explained_variance_ratio'])))
+        self.assertTrue(np.all(np.isnan(res['explained_variance'])))
+        self.assertEqual(res['explained_variance_ratio'].shape, (2,))
+
     def test_fallback_warning_when_gpu_fails(self):
         import warnings
         from unittest.mock import patch
@@ -531,6 +550,19 @@ class TestTFRAnalyzerCompareConditions(unittest.TestCase):
         np.testing.assert_allclose(res['q_values'][tested],
                                    StatisticalAnalysis.fdr_correct(res['p_values'][tested]),
                                    rtol=1e-12)
+        # The count and the uncorrected fraction use the family the FDR correction uses.
+        self.assertEqual(res['n_tests'], int(tested.sum()))
+        self.assertEqual(res['n_tests'], 16000 - 1)
+        self.assertEqual(res['fraction_significant_uncorrected'],
+                         res['n_significant_uncorrected'] / res['n_tests'])
+
+    def test_no_location_with_a_p_value_is_an_empty_family(self):
+        a = np.ones((2, 3, 4, 5))
+        res = TFRAnalyzer.compare_conditions(a, a.copy())
+        self.assertEqual(res['n_tests'], 0)
+        self.assertEqual(res['n_significant_uncorrected'], 0)
+        self.assertEqual(res['n_significant_fdr'], 0)
+        self.assertTrue(np.isnan(res['fraction_significant_uncorrected']))
 
     def test_the_old_key_names_read_the_uncorrected_values_with_a_warning(self):
         res = TFRAnalyzer.compare_conditions(*self._pair(3))

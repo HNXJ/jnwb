@@ -157,6 +157,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of masking the whole map once per cluster, and a permutation draw builds no masks:
   20.0 s to 2.6 s on a 200 by 200 map with about 10,000 clusters and 20 permutations. Cluster
   statistics, p-values and `max_null_stats` are bitwise identical.
+- `TFRAnalyzer.compare_conditions`: `n_tests` and the denominator of
+  `fraction_significant_uncorrected` count only locations with a finite p-value, the family the
+  FDR correction already used. A location constant in both conditions counted as a test that
+  could not pass. With no such location the fraction is NaN; it was 0.0.
+- `PopulationAnalyzer.population_trajectory` follows `compute_population_trajectory` in two
+  cases. A requested component beyond `min(n_time_bins, n_units)` is returned as a NaN column of
+  `projection`, a NaN row of `components` and NaN variances, where the arrays were silently
+  shorter than `n_components`. With no total variance `explained_variance` and
+  `explained_variance_ratio` are NaN; both were zeros. `explained_variance_ratio` is now
+  `S**2 / sum(S**2)`, as in `compute_population_trajectory`, which can change its last digit.
 
 ### Deprecated
 
