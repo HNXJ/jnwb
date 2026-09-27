@@ -3,6 +3,8 @@ cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 
+import warnings
+
 import jnwb
 import numpy as np
 import pytest
@@ -219,7 +221,21 @@ class TestSpectralTilt:
         pink = np.cumsum(white)
         pink -= pink.mean()
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
-        assert result["exponent"] < 0
+        assert result["slope"] < 0
+
+    def test_the_exponent_key_is_the_slope_behind_a_deprecation_warning(self):
+        """`exponent` held the signed slope, the opposite sign of `aperiodic_fit`'s exponent.
+        `slope` carries it; `exponent` still reads it for one release, with a warning, and
+        is not a key of the dict."""
+        pink = np.cumsum(np.random.default_rng(0).standard_normal(20000))
+        result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
+        assert "slope" in result and "exponent" not in list(result)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            slope = result["slope"]
+        with pytest.warns(DeprecationWarning, match="'exponent' is deprecated.*read 'slope'"):
+            old = result["exponent"]
+        np.testing.assert_allclose(old, slope, rtol=1e-12)
 
     def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
         """INTENTIONAL BREAK (0.2.4).
@@ -232,13 +248,13 @@ class TestSpectralTilt:
             warnings.simplefilter("always")
             result = spectral_tilt(np.zeros(1000), sampling_rate=1000.0)
             assert len(record) == 0, f"Expected zero warnings, got: {[r.message for r in record]}"
-        assert np.isnan(result["exponent"])
+        assert np.isnan(result["slope"])
         assert np.isnan(result["offset"])
         assert np.isnan(result["fit_quality"])
 
     def test_constant_signal_has_undefined_tilt(self):
         result = spectral_tilt(np.full(1000, 5.0), sampling_rate=1000.0)
-        assert np.isnan(result["exponent"])
+        assert np.isnan(result["slope"])
         assert np.isnan(result["offset"])
         assert np.isnan(result["fit_quality"])
 
@@ -596,7 +612,7 @@ class TestSpectralSamplingRateResolution:
         # 3. spectral_tilt
         res_tilt_fs = spectral_tilt(sig1, fs=fs)
         res_tilt_sr = spectral_tilt(sig1, sampling_rate=fs)
-        assert res_tilt_fs["exponent"] == pytest.approx(res_tilt_sr["exponent"])
+        assert res_tilt_fs["slope"] == pytest.approx(res_tilt_sr["slope"])
         assert res_tilt_fs["fit_quality"] == pytest.approx(res_tilt_sr["fit_quality"])
 
         # 4. band_power
@@ -1220,18 +1236,23 @@ class TestRelativePower:
         expected = (2.0 + 4.0 + 6.0 + 8.0) / (1.0 + 2.0 + 3.0 + 4.0)  # 20 / 10 = 2.0
         assert res == pytest.approx(expected)
 
-    def test_broadcasting_scalar_and_array_baselines(self):
-        """Scalar baseline broadcasts across multidimensional power tensor."""
+    def test_a_scalar_or_same_ndim_baseline_broadcasts_without_a_warning(self):
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        res_scalar = relative_power(power, 2.0, model="mean_of_ratios", axis=None)
-        expected = np.array([[1.0, 2.0], [4.0, 8.0]])
-        np.testing.assert_allclose(res_scalar, expected)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            res_scalar = relative_power(power, 2.0, model="mean_of_ratios", axis=None)
+            res_column = relative_power(power, np.array([[2.0], [4.0]]), model="mean_of_ratios")
+        np.testing.assert_allclose(res_scalar, [[1.0, 2.0], [4.0, 8.0]], rtol=1e-12)
+        np.testing.assert_allclose(res_column, [[1.0, 2.0], [2.0, 4.0]], rtol=1e-12)
 
-        # 1D baseline broadcasting along axis 0
-        baseline_1d = np.array([2.0, 4.0])
-        res_broadcast = relative_power(power, baseline_1d, model="mean_of_ratios", axis=None)
-        expected_bc = np.array([[1.0, 1.0], [4.0, 4.0]])
-        np.testing.assert_allclose(res_broadcast, expected_bc)
+    def test_a_baseline_of_fewer_dimensions_warns_that_it_will_be_refused(self):
+        """A (2,) baseline against (2, 2) power aligns with the trailing axis, dividing each
+        column, where aggregate_to_db and TFRAccumulator.add_trial refuse it. It still
+        broadcasts this release."""
+        power = np.array([[2.0, 4.0], [8.0, 16.0]])
+        with pytest.warns(FutureWarning, match=r"baseline\[:, None\].*next release raises"):
+            res = relative_power(power, np.array([2.0, 4.0]), model="mean_of_ratios")
+        np.testing.assert_allclose(res, [[1.0, 1.0], [4.0, 4.0]], rtol=1e-12)
 
     def test_preservation_of_linear_scale(self):
         """Linear ratios are never converted to decibels unless model='log_ratio'."""
@@ -1879,7 +1900,7 @@ class TestSpectralTiltBandIsHonest:
         x = self._pink()
         low = spectral_tilt(x, fs=1000.0, freq_range=(0.1, 100.0))
         at_floor = spectral_tilt(x, fs=1000.0, freq_range=(0.5, 100.0))
-        assert low["exponent"] == at_floor["exponent"]
+        assert low["slope"] == at_floor["slope"]
         assert low["fitted_band_hz"] == at_floor["fitted_band_hz"]
         assert low["fitted_band_hz"][0] > 0.5
         assert low["n_bins_fitted"] == at_floor["n_bins_fitted"] > 0
@@ -1888,13 +1909,13 @@ class TestSpectralTiltBandIsHonest:
         """A band with bins but no positive power is a different condition from a band
         with too few bins: the tilt is undefined, which is NaN, not a malformed request."""
         res = spectral_tilt(np.ones(4000), fs=1000.0)
-        assert np.isnan(res["exponent"])
+        assert np.isnan(res["slope"])
         assert np.isnan(res["offset"])
 
     def test_a_wide_band_still_recovers_a_plausible_exponent(self):
         res = spectral_tilt(self._pink(), fs=1000.0, freq_range=(1.0, 100.0))
-        assert np.isfinite(res["exponent"])
-        assert -3.0 < res["exponent"] < 0.0
+        assert np.isfinite(res["slope"])
+        assert -3.0 < res["slope"] < 0.0
         assert res["n_bins_fitted"] >= 6
 
 

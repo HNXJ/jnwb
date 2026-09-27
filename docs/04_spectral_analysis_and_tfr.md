@@ -116,6 +116,11 @@ rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
 The model names are in `jnwb.RELATIVE_POWER_MODELS`. The returned estimand is the requested
 one; nothing converts silently between linear and decibel.
 
+`baseline` is a scalar or has `power`'s number of dimensions; a per-frequency baseline against
+`(n_freqs, n_times)` power is `baseline[:, None]`. A baseline with fewer dimensions aligns with
+the trailing axes and is broadcast with a `FutureWarning`; the next release raises
+`ValueError`, as `aggregate_to_db` does.
+
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
 
@@ -128,6 +133,7 @@ the log-last rule forbids, and prints all three in dB so the gap is a number rat
 ```python
 # Log-log slope of the spectrum from a time series (negative for 1/f; see below)
 tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
+slope = tilt_res["slope"]
 
 # Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
 # freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
@@ -165,7 +171,8 @@ log-log slope from it, near -2.
 
 **Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
 -exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
-returns the slope, near -2, under the key `exponent`.
+returns the slope, near -2, under the key `slope`; `exponent` reads it with a
+`DeprecationWarning` until the next release.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 

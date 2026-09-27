@@ -1599,14 +1599,14 @@ class TestRowsAgainstTheLiveCall:
             direct.accepted, direct.crossover_contact)
 
     def test_the_two_exponents_have_opposite_signs_and_a_batch_is_a_list(self):
-        """`exponent` means a positive decay rate in one function and a signed slope in the
-        other. A 1/f-like trace must give opposite signs, or the row's warning is wrong."""
+        """`aperiodic_fit`'s `exponent` is a positive decay rate and `spectral_tilt`'s `slope`
+        a signed slope. A 1/f-like trace must give opposite signs, or the row is wrong."""
         trace = np.random.default_rng(21).normal(size=4000).cumsum()
         tilt = jnwb.spectral_tilt(trace, fs=1000.0)
         freqs, psd = jnwb.compute_psd(trace, 1000.0)
         freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit refuses the 0 Hz bin
         fit = jnwb.aperiodic_fit(freqs, psd, (2.0, 100.0))
-        assert fit.accepted and fit.exponent > 0 > tilt["exponent"], (fit, tilt)
+        assert fit.accepted and fit.exponent > 0 > tilt["slope"], (fit, tilt)
 
         batch = jnwb.aperiodic_fit(freqs, np.stack([psd, psd, psd]), (2.0, 100.0))
         assert isinstance(batch, list) and len(batch) == 3

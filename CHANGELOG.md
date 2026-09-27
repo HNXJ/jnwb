@@ -82,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `classify_response_significance` reports the conditional binomial `pvalue` when
+  `response_zscore` is NaN, a baseline with no across-trial variance; it returned NaN. The test
+  needs no baseline variance: 40 trials of 3 response spikes over a silent baseline give
+  p = 7e-45 at the default windows. `confidence` stays `'undefined'` and `is_significant` False, because the
+  effect-size cutoff cannot be evaluated. Malformed counts or window lengths now raise
+  `ValueError` in that case too, where the NaN z-score returned before they were checked. The
+  docstring states the bursting limit: with no effect, 5 Hz firing in bursts of four spikes over
+  200 trials puts about 30% of units below p = 0.05.
 - **`jrsa` row metrics need a named `null=` to form a permutation null (breaking).** For `rsa`,
   `cka`, `rv`, `hsic`, `distance_correlation` and `procrustes`, `null=None` with `stats=True`
   and `permutations > 0` raises `ValueError`; in 0.2.6.1 it warned and permuted the rows as
@@ -323,6 +331,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
   read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
   the result's keys. They are removed in the next release.
+- `spectral_tilt`'s key `exponent`. The log-log slope is now under `slope`, negative for a 1/f
+  decay; `exponent` still reads the same value with a `DeprecationWarning` and is removed in the
+  next release, so that `exponent` means the positive decay rate `aperiodic_fit` reports, which
+  is `-slope`. `exponent` is no longer listed among the result's keys, so a copy made through
+  `dict(...)`, iteration or JSON carries `slope` only.
+- A `relative_power` baseline with fewer dimensions than `power`, other than a scalar. numpy
+  aligns it with the trailing axes, so a `(n_freqs,)` baseline against `(n_freqs, n_times)` power
+  divided along time. It is still broadcast, with a `FutureWarning`, and raises `ValueError` in
+  the next release, as `aggregate_to_db` and `TFRAccumulator.add_trial` already do. Pass
+  `baseline[:, None]` for a per-frequency baseline.
 
 ### Removed
 

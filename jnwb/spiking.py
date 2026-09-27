@@ -218,7 +218,10 @@ def classify_response_significance(
     ``N = 0``. Conditioning on the counts makes it exact for any pair of window lengths and
     keeps it valid when the rate varies from trial to trial. It assumes Poisson firing
     within a trial; bursting or refractoriness inside a window breaks that assumption.
-    The p-value falls as trials accumulate at a fixed effect.
+    Bursting makes the p-value too small: with no effect, 5 Hz firing in bursts of four
+    spikes over 200 trials puts about 30% of units below p = 0.05, because the test counts
+    each spike of a burst as an independent event. The p-value falls as trials accumulate
+    at a fixed effect.
 
     ``response_zscore`` is the effect size: a response is significant when
     ``|response_zscore| >= zscore_threshold`` and ``p < alpha``. Among significant
@@ -236,11 +239,14 @@ def classify_response_significance(
         Dict with:
         - is_significant: bool (both the effect-size cutoff and ``p < alpha`` pass)
         - pvalue: the binomial p-value; 1.0 with no spikes in either window and under
-          'low'; NaN under 'undefined'.
+          'low'. Under 'undefined' it is still the binomial p when only `response_zscore`
+          is NaN, since the test needs no baseline variance, and NaN otherwise.
         - confidence: 'high', 'medium', 'none', 'low' (fewer than `min_spike_count`
           response spikes), or 'undefined' when `response_zscore` is NaN because the
           baseline had no across-trial variance, when a count is NaN, or when `metrics`
           lacks the per-trial counts or window lengths (a `UserWarning` says so).
+          `is_significant` is False under 'undefined' whatever the p, because the
+          effect-size cutoff cannot be evaluated.
 
     Raises:
         ValueError: `alpha` outside (0, 1); count arrays that are not 1-D, differ in
@@ -279,13 +285,7 @@ def classify_response_significance(
         result['pvalue'] = float('nan')
         return result
 
-    # NaN means the baseline had no across-trial variance, so the effect size cannot
-    # assess the unit; say so rather than treating it as z = 0.
     zscore = abs(metrics.get('response_zscore', 0.0))
-    if np.isnan(zscore):
-        result['confidence'] = 'undefined'
-        result['pvalue'] = float('nan')
-        return result
 
     response_counts = np.asarray(metrics['response_counts'], dtype=float)
     baseline_counts = np.asarray(metrics['baseline_counts'], dtype=float)
@@ -326,6 +326,13 @@ def classify_response_significance(
         result['pvalue'] = float(
             stats.binomtest(k_r, n_total, d_r / (d_r + d_b), alternative='two-sided').pvalue
         )
+
+    # NaN means the baseline had no across-trial variance, so the effect-size gate cannot be
+    # evaluated; say so rather than treating it as z = 0. The counts test does not need that
+    # variance, so its p stands.
+    if np.isnan(zscore):
+        result['confidence'] = 'undefined'
+        return result
 
     if zscore >= zscore_threshold and result['pvalue'] < alpha:
         result['is_significant'] = True

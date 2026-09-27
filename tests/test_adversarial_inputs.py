@@ -46,7 +46,7 @@ class TestSpectralSummaries:
     def test_constant_trace_has_no_tilt_no_fundamental_and_no_band_power(self, level):
         flat = np.full(4096, level)
         tilt = jnwb.spectral_tilt(flat, fs=FS)
-        assert all(np.isnan(tilt[k]) for k in ("exponent", "offset", "fit_quality"))
+        assert all(np.isnan(tilt[k]) for k in ("slope", "offset", "fit_quality"))
         harmonics = jnwb.harmonic_analysis(flat, fs=FS)
         assert np.isnan(harmonics["fundamental_freq"]) and harmonics["harmonics"] == {}
         assert jnwb.band_power(flat, fs=FS, freq_range=(8.0, 30.0), normalize=False) == 0.0

@@ -87,7 +87,7 @@ class TestSpectralTiltIsFittedOnTwoDecimalLogAxes:
 
         out = spectral_tilt(brownian, fs=1000.0, freq_range=(5.0, 100.0))
 
-        assert out["exponent"] == pytest.approx(-2.0, abs=0.25), out["exponent"]
+        assert out["slope"] == pytest.approx(-2.0, abs=0.25), out["slope"]
 
     def test_the_offset_is_reported_in_linear_power(self):
         """`offset` is 10**intercept, so it is positive whatever the trace's scale."""

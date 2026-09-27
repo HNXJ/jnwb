@@ -94,20 +94,28 @@ def _is_trial_averaged(obj) -> bool:
     return any(np.may_share_memory(obj, buffer) for buffer in list(_TRIAL_AVERAGED_BUFFERS.values()))
 
 
-def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) -> None:
-    """Refuse a baseline that numpy would align with the data's trailing axes.
+def _baseline_ndim_problem(baseline_ndim: int, data_ndim: int, data_name: str) -> Optional[str]:
+    """What is wrong with a baseline numpy would align with the data's trailing axes, or None.
 
     A per-frequency baseline of shape ``(n_freqs,)`` against ``(n_freqs, n_times)`` data lands
     on the time axis, silently whenever the two counts are equal.
     """
-    if baseline_ndim not in (0, data_ndim):
-        raise ValueError(
-            f"baseline has {baseline_ndim} dimension(s) and {data_name} has {data_ndim}; numpy "
-            "would align the baseline with the trailing axes, so a per-frequency baseline "
-            "would divide along time. Pass a scalar or give the baseline the same number of "
-            "dimensions, e.g. baseline[:, None] for a per-frequency baseline against "
-            "(n_freqs, n_times)."
-        )
+    if baseline_ndim in (0, data_ndim):
+        return None
+    return (
+        f"baseline has {baseline_ndim} dimension(s) and {data_name} has {data_ndim}; numpy "
+        "would align the baseline with the trailing axes, so a per-frequency baseline "
+        "would divide along time. Pass a scalar or give the baseline the same number of "
+        "dimensions, e.g. baseline[:, None] for a per-frequency baseline against "
+        "(n_freqs, n_times)."
+    )
+
+
+def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) -> None:
+    """Raise ``ValueError`` for a baseline :func:`_baseline_ndim_problem` objects to."""
+    problem = _baseline_ndim_problem(baseline_ndim, data_ndim, data_name)
+    if problem is not None:
+        raise ValueError(problem)
 
 
 _INT64_MAX = int(np.iinfo(np.int64).max)
