@@ -132,7 +132,7 @@ def build_permutation_plan(
     # The manifest names every draw by an integer seed, so a Generator or None is turned
     # into one int base seed first, and an int is used as given.
     seed = sklearn_random_state(seed, func_name="build_permutation_plan")
-    y =np.asarray(list(labels))
+    y = np.asarray(list(labels))
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:
         raise ValueError("labels and groups must be one-dimensional and equally sized")

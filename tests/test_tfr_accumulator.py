@@ -7,6 +7,8 @@ import pytest
 
 from jnwb.tfr_accumulator import TFRAccumulator, assert_mergeable
 
+_INT64_MAX = int(np.iinfo(np.int64).max)
+
 
 def _summarize(trials: np.ndarray, valid: np.ndarray = None) -> TFRAccumulator:
     """Direct, one-shot summary of a (n_trials, n_ch, n_freq, n_time) complex array."""
@@ -529,6 +531,22 @@ class TestWriteRoundTrip:
         with pytest.raises(ValueError, match="integral"):
             acc.n = bad
         np.testing.assert_array_equal(acc.n, [0, 0])
+
+    @pytest.mark.parametrize("bad", [
+        -1, np.array([2, -3]), -1.0, True, np.array([True, False]),
+        2**63, np.uint64(2**64 - 1), np.array([1, 2**63], np.uint64), 1e19,
+    ], ids=["neg-int", "neg-array", "neg-float", "bool", "bool-array", "int-2**63",
+            "uint64-max", "uint64-array", "float-1e19"])
+    def test_a_negative_boolean_or_out_of_range_count_is_refused(self, bad):
+        """A cast read True as 1, wrapped uint64 2**64-1 to -1 and raised OverflowError past
+        int64; each is a count no trial loop can produce."""
+        acc = TFRAccumulator((2,))
+        acc.n = np.array([4, 5])
+        with pytest.raises(ValueError, match="integral"):
+            acc.n = bad
+        np.testing.assert_array_equal(acc.n, [4, 5])
+        acc.n = np.array([_INT64_MAX, 0], np.uint64)
+        assert acc.n.dtype == np.int64 and int(acc.n[0]) == _INT64_MAX
 
     def test_an_integer_trial_is_cast_before_any_state_changes(self):
         shape = (2, 3)

@@ -144,17 +144,61 @@ def _public_rng_parameters():
                 yield qualname, param
 
 
+#: The spellings of a randomness argument. A surface spelled `seed` resolves the same set.
+RANDOMNESS_PARAMETERS = ("rng", "seed")
+
+
+def _takes_randomness(obj) -> bool:
+    try:
+        params = inspect.signature(obj).parameters
+    except (TypeError, ValueError):
+        return False
+    return any(p in params for p in RANDOMNESS_PARAMETERS)
+
+
 def _synth_rng_builders():
     import jnwb.testing.synth as synth
 
     return {f"synth.{n}": f for n, f in vars(synth).items()
             if inspect.isfunction(f) and f.__module__ == synth.__name__
-            and not n.startswith("_") and "rng" in inspect.signature(f).parameters}
+            and not n.startswith("_") and _takes_randomness(f)}
+
+
+def _testing_seed_surfaces():
+    """`jnwb.testing` exports outside `testing.synth` that take `rng` or `seed`, a
+    class counted by its constructor."""
+    import jnwb.testing as testing
+
+    return {f"testing.{n}" for n in testing.__all__
+            if getattr(getattr(testing, n), "__module__", "") != "jnwb.testing.synth"
+            and callable(getattr(testing, n)) and _takes_randomness(getattr(testing, n))}
+
+
+def _seed_only_public_surfaces():
+    """Public API callables spelling the argument `seed` with no `rng` beside it."""
+    out = set()
+    for name in jnwb.__all__:
+        obj = getattr(jnwb, name, None)
+        if callable(obj) and not inspect.isclass(obj):
+            try:
+                params = inspect.signature(obj).parameters
+            except (TypeError, ValueError):
+                continue
+            if "seed" in params and "rng" not in params:
+                out.add(name)
+    return out
 
 
 def _stochastic_surfaces() -> set[str]:
-    """Every public function with an `rng` parameter, from signatures alone."""
-    return {q for q, _ in _public_rng_parameters()} | set(_synth_rng_builders())
+    """Every public surface with an `rng` or `seed` parameter, from signatures alone."""
+    return ({q for q, _ in _public_rng_parameters()} | set(_synth_rng_builders())
+            | _testing_seed_surfaces() | _seed_only_public_surfaces())
+
+
+def test_the_surface_walk_reaches_the_seed_spelled_builders():
+    """Both spell the argument `seed`; a walk over `rng` alone missed them."""
+    surfaces = _stochastic_surfaces()
+    assert {"synth.build_canonical_tutorial_nwb", "testing.SynthNWBBuildOptions"} <= surfaces
 
 
 RNG_TABLE_ROWS = {
@@ -201,6 +245,7 @@ def test_the_rng_table_names_every_stochastic_function_in_its_one_row():
 def _rng_probes():
     """One minimal call per stochastic function, large enough that it draws from `rng`."""
     import jnwb.testing.synth as synth
+    from jnwb.testing import SynthNWBBuildOptions, build_synth_nwb
 
     g = np.random.default_rng(9)
     a, b = g.normal(size=30), g.normal(size=30)
@@ -255,6 +300,10 @@ def _rng_probes():
         "synth.synth_phase_gradient": lambda r: synth.synth_phase_gradient(3, 100, 1000.0, rng=r),
         "synth.synth_unequal_groups": lambda r: synth.synth_unequal_groups(3, 4, 2, rng=r),
         "synth.synth_laminar_motif": lambda r: synth.synth_laminar_motif(16, 2000, rng=r),
+        "synth.build_canonical_tutorial_nwb": lambda r: synth.build_canonical_tutorial_nwb(
+            seed=r, duration_s=2.0, n_trials=2),
+        "testing.SynthNWBBuildOptions": lambda r: build_synth_nwb(
+            SynthNWBBuildOptions(seed=r, n_events_per_table=3)),
     }
 
 

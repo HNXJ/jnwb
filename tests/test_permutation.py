@@ -67,6 +67,13 @@ class TestPermuteLabelsContract:
             again = build_permutation_plan(labels, groups, n_permutations=4, rng=plan["seed"])
             assert again["draw_manifest"].equals(plan["draw_manifest"])
 
+    def test_rng_none_draws_a_fresh_base_seed_per_call(self):
+        """A fixed base seed standing in for None would still replay above."""
+        labels, groups = [0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 1, 1]
+        seeds = {build_permutation_plan(labels, groups, n_permutations=1, rng=None)["seed"]
+                 for _ in range(3)}
+        assert len(seeds) == 3
+
     def test_groups_length_mismatch_raises(self):
         rng = np.random.default_rng(0)
         with pytest.raises(ValueError, match="length"):

@@ -22,7 +22,9 @@ than the function's first draw from it:
 
 | Accepted `rng` | Functions | Other values |
 |---|---|---|
-| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `build_permutation_plan`, `cluster_permutation_test`, `cross_area_coherence`, `cross_modal_comparison`, `exact_sign_flip`, `granger`, `granger_spectral`, `jrsa`, `nested_cv_linear_svm`, `paired_fire_prob_test`, `permute_labels`, `phase_slope_index`, `resample_onsets`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci`, `transfer_entropy`, `xflip`, `zflip` and the `testing.synth` builders | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `build_permutation_plan`, `cluster_permutation_test`, `cross_area_coherence`, `cross_modal_comparison`, `exact_sign_flip`, `granger`, `granger_spectral`, `jrsa`, `nested_cv_linear_svm`, `paired_fire_prob_test`, `permute_labels`, `phase_slope_index`, `resample_onsets`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci`, `transfer_entropy`, `xflip`, `zflip`, the `testing.synth` builders and `testing.SynthNWBBuildOptions` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+
+`build_canonical_tutorial_nwb` and `SynthNWBBuildOptions` spell the argument `seed`.
 
 `build_permutation_plan` names each draw by an integer seed: a `Generator` or `None` gives one
 integer base seed, which the plan returns as `seed`.

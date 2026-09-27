@@ -110,6 +110,47 @@ def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) ->
         )
 
 
+_INT64_MAX = int(np.iinfo(np.int64).max)
+
+
+def _as_counts(value, name: str) -> np.ndarray:
+    """``value`` as int64 counts, refusing anything a cast would change.
+
+    A bare ``astype(int64)`` truncates 2.7 to 2, reads True as 1, wraps
+    ``np.uint64(2**64 - 1)`` to -1 and accepts a negative count.
+    """
+    def refuse(why: str):
+        return ValueError(f"{name} must hold non-negative integral counts within int64; {why}.")
+
+    try:
+        raw = np.asarray(value)
+    except OverflowError as exc:
+        raise refuse("got a value beyond int64") from exc
+    kind = raw.dtype.kind
+    if kind == "O":
+        flat = raw.ravel().tolist()
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in flat):
+            raise refuse(f"got {raw.dtype} values that are not all integers")
+        if any(v < 0 or v > _INT64_MAX for v in flat):
+            raise refuse("got a negative value or one beyond int64")
+        return np.array(flat, dtype=np.int64).reshape(raw.shape)
+    if kind == "b":
+        raise refuse("got booleans")
+    if kind == "f":
+        if not (np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))):
+            raise refuse(f"got {raw.dtype} values that are not whole numbers")
+        if raw.size and float(np.max(raw)) >= 2.0**63:
+            raise refuse("got a value beyond int64")
+    elif kind == "u":
+        if raw.size and int(np.max(raw)) > _INT64_MAX:
+            raise refuse("got an unsigned value beyond int64")
+    elif kind != "i":
+        raise refuse(f"got {raw.dtype}")
+    if raw.size and np.min(raw) < 0:
+        raise refuse("got a negative value")
+    return raw.astype(np.int64)
+
+
 class TFRAccumulator:
     """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
@@ -192,17 +233,9 @@ class TFRAccumulator:
             if optional and value is None:
                 setattr(self, attr, None)
                 return
-            # A cast alone truncates: n = 2.7 was stored as 2.
             if integral:
-                raw = np.asarray(value)
-                if raw.dtype.kind not in "biu" and not (
-                    raw.dtype.kind == "f" and np.all(np.isfinite(raw))
-                    and np.all(raw == np.round(raw))
-                ):
-                    raise ValueError(
-                        f"{name} must hold integral counts; got {raw.dtype} values that are "
-                        "not whole numbers."
-                    )
+                setattr(self, attr, _as_counts(value, name))
+                return
             setattr(self, attr, np.asarray(value, dtype=dtype))
 
         return property(fget, fset)

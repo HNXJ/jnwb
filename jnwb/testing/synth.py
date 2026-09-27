@@ -546,7 +546,8 @@ def build_canonical_tutorial_nwb(
         fs: Sampling frequency in Hz.
         duration_s: Total recording duration in seconds.
         n_trials: Number of task trials.
-        seed: Random seed for analytical reproducibility.
+        seed: An int seed, a NumPy Generator, or None for fresh OS entropy. Any other
+            type raises ``TypeError``.
 
     Returns:
         `(nwbfile, ground_truth)`: The PyNWB NWBFile instance and ground-truth parameters dictionary.
@@ -555,7 +556,7 @@ def build_canonical_tutorial_nwb(
     from datetime import datetime
     from dateutil.tz import tzutc
 
-    rng = np.random.default_rng(seed)
+    rng = resolve_rng(seed, func_name="build_canonical_tutorial_nwb")
     n_samples = int(duration_s * fs)
 
     # The laminar crossover is an analytically known ground truth at a fixed CONTACT, so it does

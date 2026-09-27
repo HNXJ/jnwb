@@ -140,6 +140,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `synth_correlation_blocks`, `synth_phase_gradient`, `synth_unequal_groups` and
   `synth_laminar_motif` raise `TypeError` for a bool, SeedSequence, bit generator, list or
   RandomState. An int, a Generator and None give the same data as before.
+- **`jnwb.testing.build_canonical_tutorial_nwb(seed=)` and `build_synth_nwb` with
+  `SynthNWBBuildOptions(seed=)` accept only an int, a Generator or None as `seed`
+  (breaking).** A bool, SeedSequence, bit generator, list or RandomState now raises
+  `TypeError`. An int and a Generator build the same file as before.
 - `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired` and
   `paired_fire_prob_test` accept an int seed or None as `rng` as well as a Generator. An int
   seed draws the stream `np.random.default_rng(seed)` draws, and a Generator is advanced as
@@ -219,9 +223,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TFRAccumulator`: assigning `n` casts to int64. `write` stores `n` as int32, and `merge` of
   two reloaded accumulators multiplied the counts in int32, which overflows from 46341 trials
   per cell and returned a wrong `M2` without an error.
-- `TFRAccumulator`: assigning `n` a count that is not a whole number, such as 2.7, NaN or inf,
-  raises `ValueError`. The cast stored 2.7 as 2. A whole float such as 3.0 is stored as the
-  int64 3, and an integer is unchanged.
+- `TFRAccumulator`: assigning `n` anything but non-negative whole counts within int64 raises
+  `ValueError`: a fraction (2.7 was stored as 2), NaN or inf, a negative count, a boolean (True
+  was stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
+  -1), and a larger integer or float, which raised `OverflowError` or wrapped. A whole float such
+  as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
 - `XFlipResult.boundaries` and `block_bounds` hold Python ints. They held NumPy int64 from the
   contiguous search, so `json.dumps` of `to_dict()` failed on them and on the `boundary_drops`
   keys.
