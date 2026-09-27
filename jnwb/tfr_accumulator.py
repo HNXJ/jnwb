@@ -136,16 +136,14 @@ def _as_counts(value, name: str) -> np.ndarray:
         return np.array(flat, dtype=np.int64).reshape(raw.shape)
     if kind == "b":
         raise refuse("got booleans")
-    if kind == "f":
-        if not (np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))):
-            raise refuse(f"got {raw.dtype} values that are not whole numbers")
-        if raw.size and float(np.max(raw)) >= 2.0**63:
-            raise refuse("got a value beyond int64")
-    elif kind == "u":
-        if raw.size and int(np.max(raw)) > _INT64_MAX:
-            raise refuse("got an unsigned value beyond int64")
-    elif kind != "i":
+    if kind not in ("f", "i", "u"):
         raise refuse(f"got {raw.dtype}")
+    if kind == "f" and not (np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))):
+        raise refuse(f"got {raw.dtype} values that are not whole numbers")
+    # Floats compare below 2**63, the first float past int64; integers compare exactly.
+    top = np.max(raw) if raw.size else 0
+    if (float(top) >= 2.0**63) if kind == "f" else (int(top) > _INT64_MAX):
+        raise refuse("got a value beyond int64")
     if raw.size and np.min(raw) < 0:
         raise refuse("got a negative value")
     return raw.astype(np.int64)
