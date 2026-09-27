@@ -96,17 +96,14 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
         hint.append(f"Sample i is at {timestamps_path}[i] s in session time.")
     else:
         hint.append("The file records no timing for this dataset.")
-    if layout == "time":
-        hint.append("The dataset is one-dimensional: axis 0 is time.")
-    elif layout == "unknown":
-        hint.append(
-            "The layout is unknown: nothing in the file says which axis holds channels. "
-            "Establish it before slicing by channel."
-        )
-    else:
-        axes = "axis 0 is time and axis 1 is channels" if layout == "time_by_channel" \
-            else "axis 0 is channels and axis 1 is time"
-        hint.append(f"Layout {layout}: {axes}, decided by {_LAYOUT_BASIS[basis]}.")
+    decided = f", decided by {_LAYOUT_BASIS[basis]}." if basis in _LAYOUT_BASIS else "."
+    hint.append({
+        "time": "The dataset is one-dimensional: axis 0 is time.",
+        "unknown": "The layout is unknown: nothing in the file says which axis holds channels. "
+                   "Establish it before slicing by channel.",
+        "time_by_channel": "Layout time_by_channel: axis 0 is time and axis 1 is channels" + decided,
+        "channel_by_time": "Layout channel_by_time: axis 0 is channels and axis 1 is time" + decided,
+    }[layout])
 
     return {
         "series_path": group.name,
