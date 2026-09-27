@@ -284,20 +284,29 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
     DECLARED = {"depth_axis": "z", "shallow_end": "min"}
 
     @staticmethod
-    def _table(perm):
-        """One probe, z increasing into tissue, listed in the row order `perm`."""
-        z = PITCH_UM * np.arange(N_CONTACTS)
+    def _table(perm, layout="rising"):
+        """One probe listed in the row order `perm`; contact i is i pitches into tissue.
+
+        rising: z increases into tissue (shallow end "min"); falling: z decreases into
+        tissue (shallow end "max"); staggered: y decreases into tissue along the shaft and
+        z alternates 0 / 30 um across it, so z is largest at the deep end of 24 contacts.
+        """
+        i = np.arange(N_CONTACTS)
+        x, y, z = np.zeros(N_CONTACTS), np.zeros(N_CONTACTS), PITCH_UM * i
+        if layout == "falling":
+            z = PITCH_UM * (N_CONTACTS - 1 - i)
+        elif layout == "staggered":
+            y, z = -PITCH_UM * i, 30.0 * (i % 2)
         frame = pd.DataFrame({
-            "x": np.zeros(N_CONTACTS), "y": np.zeros(N_CONTACTS), "z": z,
-            "channel_id": [f"ch_{i}" for i in range(N_CONTACTS)],
+            "x": x, "y": y, "z": z, "channel_id": [f"ch_{k}" for k in i],
         }).iloc[perm].reset_index(drop=True)
         return jnwb.probe_geometry(frame, units="um")
 
-    def _fit(self, perm, **declared):
-        freqs, psd = _synthetic_motif()  # row i of psd is the contact at z = i * pitch
-        geom = self._table(perm)
+    def _fit(self, perm, layout="rising", accepted=True, **declared):
+        freqs, psd = _synthetic_motif()  # row i of psd is the contact i pitches into tissue
+        geom = self._table(perm, layout)
         res = vflip(psd[perm], freqs, probe_geometry=geom, **declared)
-        assert res.accepted
+        assert res.accepted is accepted, res.rejection_reason
         return res, geom
 
     @staticmethod
@@ -308,16 +317,67 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
             "permuted": np.random.default_rng(3).permutation(N_CONTACTS),
         }
 
-    def test_the_same_probe_in_any_row_order_gives_one_depth_and_one_labelling(self):
-        fits = {name: self._fit(perm, **self.DECLARED) for name, perm in self._orders().items()}
+    @pytest.mark.parametrize("layout, depth_axis, shallow_end", [
+        ("rising", "z", "min"),
+        ("falling", "z", "max"),
+        ("staggered", "y", "max"),
+    ])
+    def test_the_same_probe_in_any_row_order_gives_one_depth_and_one_labelling(
+        self, layout, depth_axis, shallow_end
+    ):
+        declared = {"depth_axis": depth_axis, "shallow_end": shallow_end}
+        fits = {name: self._fit(perm, layout, **declared) for name, perm in self._orders().items()}
         depths = {name: res.crossover_depth_um for name, (res, _) in fits.items()}
-        labels = {name: label_layers(res, geom, **self.DECLARED) for name, (res, geom) in fits.items()}
+        labels = {name: label_layers(res, geom, **declared) for name, (res, geom) in fits.items()}
         assert all(res.depth_anchor == "shallowest" for res, _ in fits.values())
-        for name in ("reversed", "permuted"):
-            assert depths[name] == pytest.approx(depths["in_order"], abs=1e-9), depths
+        assert all((res.depth_axis, res.shallow_end) == (depth_axis, shallow_end)
+                   for res, _ in fits.values())
+        # Every declared fit is the shallow-first fit: the undeclared fit of the rising probe
+        # listed shallow-first, crossover, peaks, profile and depth alike.
+        reference, _ = self._fit(self._orders()["in_order"])
+        for name, (res, _) in fits.items():
+            assert res.crossover_contact == pytest.approx(reference.crossover_contact, abs=1e-9), name
+            assert (res.low_peak_contact, res.high_peak_contact) == (
+                reference.low_peak_contact, reference.high_peak_contact), name
+            np.testing.assert_allclose(res.profile, reference.profile, atol=1e-12)
+            assert depths[name] == pytest.approx(reference.crossover_depth_um, abs=1e-9), depths
             assert labels[name] == labels["in_order"], name
-        # Anchored at z = 0, the depth is the crossover's z on this probe.
-        assert depths["in_order"] == pytest.approx(fits["in_order"][0].crossover_z_um, abs=1e-9)
+        if layout == "rising":  # anchored at z = 0, the depth is the crossover's z
+            assert depths["in_order"] == pytest.approx(fits["in_order"][0].crossover_z_um, abs=1e-9)
+
+    @pytest.mark.parametrize("layout, depth_axis, shallow_end", [
+        ("rising", "z", "max"),     # the wrong end of the right axis
+        ("falling", "z", "min"),
+        ("staggered", "z", "max"),  # the stagger column: its largest value is at the deep end
+    ])
+    @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
+    def test_a_declaration_the_motif_contradicts_rejects_the_fit(
+        self, layout, depth_axis, shallow_end, order_name
+    ):
+        declared = {"depth_axis": depth_axis, "shallow_end": shallow_end}
+        res, geom = self._fit(self._orders()[order_name], layout, accepted=False, **declared)
+        assert res.rejection_reason == "declaration_contradicted"
+        assert res.orientation == "deep_to_superficial" and res.depth_anchor == "shallowest"
+        assert res.crossover_contact is None and res.crossover_depth_um is None
+        assert res.crossover_z_um is None
+        assert set(label_layers(res, geom, **declared).values()) == {"na"}
+
+    def test_vflip_from_lfp_forwards_the_declaration(self):
+        geom = self._table(self._orders()["reversed"])
+        lfp = np.random.default_rng(11).standard_normal((N_CONTACTS, 4000))
+        res = jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom, **self.DECLARED)
+        assert (res.depth_anchor, res.depth_axis, res.shallow_end) == ("shallowest", "z", "min")
+        assert jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom).depth_anchor == "row_order"
+
+    def test_a_fit_rejected_for_too_few_channels_records_the_declaration(self):
+        freqs, psd = _synthetic_motif()
+        geom = self._table(self._orders()["reversed"])
+        mask = np.ones(N_CONTACTS, dtype=bool)
+        mask[:3] = False
+        res = vflip(psd[::-1], freqs, probe_geometry=geom, bad_channel_mask=mask, **self.DECLARED)
+        assert res.rejection_reason == "insufficient_channels"
+        assert (res.depth_anchor, res.depth_axis, res.shallow_end) == ("shallowest", "z", "min")
+        assert set(label_layers(res, geom, **self.DECLARED).values()) == {"na"}
 
     @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
     def test_depth_range_to_the_crossover_selects_exactly_the_contacts_above_it(self, order_name):

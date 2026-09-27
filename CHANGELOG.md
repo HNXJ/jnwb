@@ -10,15 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `jnwb.vflip`, `jnwb.vflip_from_lfp` and `jnwb.label_layers` take keyword-only
   `depth_axis=` (`"x"`, `"y"` or `"z"`, the geometry column that is depth) and `shallow_end=`
-  (`"min"` or `"max"`, the end of that column nearest the surface), declared together. With
-  them, `crossover_depth_um` and the layer orientation are measured from the shallow contact,
-  so the same probe gives one depth and one labelling whatever order the electrode table lists
-  it in. `VFlipResult` records `depth_anchor` (`"shallowest"`, or `"row_order"` without a
+  (`"min"` or `"max"`, the end of that column nearest the surface), declared together.
+  `"x"`, `"y"` and `"z"` are columns 0, 1 and 2 of `contact_positions`, so `"z"` is `rel_z`
+  for a table without `x`/`y`/`z`. With a declaration the fit runs from the shallow contact:
+  `crossover_contact`, `low_peak_contact`, `high_peak_contact`, `profile`, the `orientation`
+  argument and result, and `crossover_depth_um` are all in that order, so the same probe
+  gives one fit, one depth and one labelling whatever order the electrode table lists it in.
+  `VFlipResult` records `depth_anchor` (`"shallowest"`, or `"row_order"` without a
   declaration) with the `depth_axis` and `shallow_end` it used. Without a declaration nothing
-  changes: depth runs from the table's first row. An unknown axis or end, only one of the two,
-  a declaration without a `probe_geometry`, an axis that does not change along the shaft, or a
-  `label_layers` declaration that differs from the one the fit was made with raises
-  `ValueError`. `ProbeGeometry` is unchanged.
+  changes: depth runs from the first contact of `linear_order`, which follows the table's
+  rows. An unknown axis or end, only one of the two, a declaration without a
+  `probe_geometry`, an axis whose values at the two end contacts are within 1e-6 um of each
+  other, or a `label_layers` declaration that differs from the one the fit was made with
+  raises `ValueError`. `ProbeGeometry` is unchanged.
+- A declared fit whose motif resolves as `"deep_to_superficial"`, which puts the deep layers
+  at the declared shallow end, is rejected with `rejection_reason="declaration_contradicted"`;
+  `label_layers` then labels every channel `'na'`. Undeclared fits are unaffected.
 - `jnwb.preflight(question)` and `jnwb.Preflight`: check a planned analysis before it runs.
   The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
   with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked

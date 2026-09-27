@@ -103,6 +103,8 @@ class VFlipResult(DictAccessMixin):
         accepted: Boolean flag indicating whether the spectrolaminar motif satisfies all
             acceptance criteria (support score >= threshold, valid monotonic crossover).
         rejection_reason: Diagnostic reason string if rejected, or None if accepted.
+            ``"declaration_contradicted"`` means a depth declaration put the shallow contact
+            first and the motif resolved as ``"deep_to_superficial"`` in that frame.
         n_channels: Total number of evaluated contacts along the probe shaft.
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
@@ -110,9 +112,12 @@ class VFlipResult(DictAccessMixin):
         index_space: Which axis ``crossover_contact``, ``profile``, ``low_peak_contact`` and
             ``high_peak_contact`` are indexed on.
 
-            - ``"shaft_rank"``: position along the physical shaft, superficial end first.
-              Produced when `vflip` was given a `probe_geometry` carrying a usable
-              `linear_order`, which reorders the PSD rows before the fit.
+            - ``"shaft_rank"``: position along the physical shaft, starting from the end
+              `depth_anchor` names: the declared shallow contact under ``"shallowest"``,
+              the first contact of `linear_order` (which follows the table's row order and
+              may be the deep one) under ``"row_order"``. Produced when `vflip` was given a
+              `probe_geometry` carrying a usable `linear_order`, which reorders the PSD rows
+              before the fit.
             - ``"channel"``: the row order of the PSD array as supplied. Produced when no
               geometry was given, so no reordering happened.
 
@@ -314,10 +319,15 @@ def vflip(
             `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, whose
+            contact 0 is the declared shallow contact under a depth declaration, the first
+            contact of `probe_geometry.linear_order` otherwise, and PSD row 0 without a
+            geometry:
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Under a depth declaration a fit that resolves this way is rejected with
+              ``rejection_reason="declaration_contradicted"``.
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
@@ -331,9 +341,14 @@ def vflip(
             ``crossover_depth_um`` are anchored there and do not depend on the table's row
             order; the result records ``depth_anchor="shallowest"``. Without it they follow
             `linear_order` as given (``depth_anchor="row_order"``), unchanged. The geometry
-            is never modified.
+            is never modified. ``"x"``, ``"y"`` and ``"z"`` name columns 0, 1 and 2 of
+            `contact_positions`, so ``"z"`` is the table's ``rel_z`` when it has no
+            ``x``/``y``/``z`` columns. The axis is refused when its values at the two end
+            contacts of the shaft are within 1e-6 um of each other.
         shallow_end: Which end of `depth_axis` is shallow: ``"min"`` or ``"max"``. jnwb
-            does not infer it, because coordinate conventions differ between files.
+            does not infer it, because coordinate conventions differ between files. A
+            motif that places the deep layers at the declared shallow end rejects the fit
+            (``rejection_reason="declaration_contradicted"``) rather than overriding either.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
@@ -675,6 +690,11 @@ def vflip(
     if not orientation_matches:
         accepted = False
         rejection_reason = "orientation_mismatch"
+    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
+        # Rank 0 is the declared shallow contact, and the motif says it is the deep one: the
+        # declaration and the data disagree, and either could be wrong.
+        accepted = False
+        rejection_reason = "declaration_contradicted"
     elif peak_sep < min_peak_distance:
         accepted = False
         rejection_reason = "insufficient_peak_distance"
@@ -762,7 +782,9 @@ def vflip_from_lfp(
             `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, as in
+            :func:`vflip` (contact 0 is the declared shallow contact under a depth
+            declaration):
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
