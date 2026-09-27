@@ -23,6 +23,7 @@ from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 from ._spread import is_constant, zscore
+from .permutation import _count_at_least_as_extreme
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -1307,12 +1308,7 @@ def _p_from_null(value, null_dist, alternative):
     n = len(null_dist)
     if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
         return np.asarray(np.nan, dtype=np.float64)
-    if alternative == "two-sided":
-        k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
-    elif alternative == "greater":
-        k = int(np.sum(null_dist >= obs))
-    else:
-        k = int(np.sum(null_dist <= obs))
+    k = _count_at_least_as_extreme(null_dist, obs, alternative)
     p = (1 + k) / (n + 1)
     return np.asarray(p, dtype=np.float64)
 

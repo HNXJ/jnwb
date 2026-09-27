@@ -37,7 +37,7 @@ from ._spread import is_constant as _is_constant
 import pandas as pd
 from scipy import stats
 
-from .permutation import permute_labels
+from .permutation import _count_at_least_as_extreme, permute_labels
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +192,6 @@ def exact_sign_flip(
         n_total = 1 << n
         chunk_size = min(n_total, 65536)
         count = 0
-        obs_abs = abs(obs_mean)
 
         for start in range(0, n_total, chunk_size):
             end = min(start + chunk_size, n_total)
@@ -200,13 +199,7 @@ def exact_sign_flip(
             bits = (indices >> np.arange(n, dtype=np.uint32)) & 1
             signs = np.where(bits, 1.0, -1.0)
             null_means = (signs @ arr) / float(n)
-
-            if alt == "two-sided":
-                count += int(np.sum(np.abs(null_means) >= obs_abs - tol))
-            elif alt == "greater":
-                count += int(np.sum(null_means >= obs_mean - tol))
-            else:  # less
-                count += int(np.sum(null_means <= obs_mean + tol))
+            count += _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
 
         p_value = float(count / n_total)
     else:
@@ -220,12 +213,7 @@ def exact_sign_flip(
         null_means = (signs @ arr) / float(n)
 
         # Exact finite Monte Carlo p-value with (1 + k) / (B + 1)
-        if alt == "two-sided":
-            k = int(np.sum(np.abs(null_means) >= abs(obs_mean) - tol))
-        elif alt == "greater":
-            k = int(np.sum(null_means >= obs_mean - tol))
-        else:  # less
-            k = int(np.sum(null_means <= obs_mean + tol))
+        k = _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
 
         p_value = float((1.0 + k) / (float(n_mc) + 1.0))
         p_floor = float(1.0 / (float(n_mc) + 1.0))
@@ -369,7 +357,8 @@ def paired_fire_prob_test(
 
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null_dist = flips @ diff / n
-    p_value = (1.0 + np.sum(null_dist >= obs)) / (n_shuffles + 1.0)
+    k = _count_at_least_as_extreme(null_dist, obs, "greater", atol=_tie_tolerance(diff))
+    p_value = (1.0 + k) / (n_shuffles + 1.0)
 
     boot_idx = rng.integers(0, n, size=(n_bootstrap, n))
     boot_diffs = diff[boot_idx].mean(axis=1)
@@ -491,14 +480,8 @@ def shuffle_pvalue_paired(
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
-    tol = _tie_tolerance(diff)
-    if alt == "greater":
-        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
-    elif alt == "less":
-        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
-    return obs, float(p)
+    k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(diff))
+    return obs, float((1.0 + k) / (n_shuffles + 1.0))
 
 
 def _require_alternative(alternative: str, func_name: str) -> str:
@@ -553,14 +536,8 @@ def shuffle_pvalue_unpaired(
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
-    tol = _tie_tolerance(pooled)
-    if alt == "greater":
-        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
-    elif alt == "less":
-        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
-    return obs, float(p)
+    k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(pooled))
+    return obs, float((1.0 + k) / (n_shuffles + 1.0))
 
 
 def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
@@ -664,7 +641,7 @@ def shuffle_r2_ci(
         y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
     # Every comparison against a NaN is False, which would put p at its floor, 1/(B+1).
-    k = int(np.sum(null >= r2_obs))
+    k = _count_at_least_as_extreme(null, r2_obs, "greater")
     p_val = float((1 + k) / (n_shuffle + 1)) if np.isfinite(r2_obs) else float("nan")
     return {
         "r2_observed": r2_obs,
@@ -1270,7 +1247,8 @@ class StatisticalAnalysis:
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff) - _tie_tolerance(combined)))
+        k = _count_at_least_as_extreme(perm_diffs, obs_diff, "two-sided",
+                                       atol=_tie_tolerance(combined))
         p_value = (1 + k) / (n_permutations + 1)
 
         return {
@@ -1673,7 +1651,10 @@ def cross_modal_comparison(
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))
         null_max[b] = max(_abs_pearson(*_lag_align(x, y_null, sh)) for sh in shifts)
-    lag_corrected_p = float((1 + np.sum(null_max >= best_abs_r)) / (int(n_permutations) + 1))
+    lag_corrected_p = float(
+        (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
+        / (int(n_permutations) + 1)
+    )
 
     # How small a corrected p this configuration can even produce. A circular shift lands a
     # genuine peak back inside the searched window with probability about
@@ -1737,10 +1718,12 @@ def cluster_permutation_test(
 
     Finite Monte Carlo p-values are computed with exact pseudo-count correction:
         p = (1 + k) / (B + 1)
-    where k is the number of permutation draws at least as extreme as the observed cluster:
-        - For tail='greater': k = sum(max_null_stats >= observed_stat)
-        - For tail='less':    k = sum(max_null_stats <= observed_stat)
-        - For tail='both':    k = sum(max_null_stats >= abs(observed_stat))
+    where k is the number of permutation draws at least as extreme as the observed cluster,
+    with tol = 100 * eps * |observed_stat| so that a draw reproducing the observed split with
+    its sum taken in another order counts:
+        - For tail='greater': k = sum(max_null_stats >= observed_stat - tol)
+        - For tail='less':    k = sum(max_null_stats <= observed_stat + tol)
+        - For tail='both':    k = sum(max_null_stats >= abs(observed_stat) - tol)
 
     Args:
         X: Sample array for condition 1, shape (n_samples_X, ...).
@@ -1989,12 +1972,11 @@ def cluster_permutation_test(
     # 3. Exact finite Monte Carlo p-values with (1 + k) / (B + 1)
     cluster_results: List[Dict[str, Union[float, np.ndarray]]] = []
     for stat, mask in obs_clusters:
-        if tail == "greater":
-            k = int(np.sum(max_null_stats >= stat))
-        elif tail == "less":
-            k = int(np.sum(max_null_stats <= stat))
-        else:  # both
-            k = int(np.sum(max_null_stats >= abs(stat)))
+        # 'both' compares |stat| with a null that is already a maximum of |sums|.
+        if tail == "less":
+            k = _count_at_least_as_extreme(max_null_stats, stat, "less")
+        else:
+            k = _count_at_least_as_extreme(max_null_stats, abs(stat), "greater")
         p_val = (1.0 + k) / (n_permutations + 1.0)
         cluster_results.append({
             'statistic': stat,

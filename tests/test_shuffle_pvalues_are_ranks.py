@@ -200,6 +200,156 @@ class TestACommonOffsetLeavesThePValueUnchanged:
         assert self._p(name, 1e9) == p0
 
 
+class TestTheTieRuleCountsRoundOffAndNothingWider:
+    """The one rule every null above and below counts draws with."""
+
+    def test_a_draw_an_ulp_below_counts_and_one_a_part_in_1e12_below_does_not(self):
+        from jnwb.permutation import _count_at_least_as_extreme
+
+        obs = 0.3
+        null = np.array([np.nextafter(obs, 0.0), obs * (1 - 1e-12), obs])
+        assert _count_at_least_as_extreme(null, obs, "greater") == 2
+        assert _count_at_least_as_extreme(-null, -obs, "less") == 2
+        assert _count_at_least_as_extreme(-null, obs, "two-sided") == 2
+
+    def test_untied_data_count_what_a_bare_comparison_counts(self):
+        from jnwb.permutation import _count_at_least_as_extreme
+
+        rng = np.random.default_rng(0)
+        for _ in range(200):
+            null = rng.normal(size=1000)
+            obs = float(rng.normal())
+            assert _count_at_least_as_extreme(null, obs, "greater") == int(np.sum(null >= obs))
+            assert _count_at_least_as_extreme(null, obs, "two-sided") == int(
+                np.sum(np.abs(null) >= abs(obs))
+            )
+
+
+class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
+    """Each null below has draws that reproduce the observed statistic with its terms summed
+    in another order. Counted with a bare comparison, the ones landing an ulp below were
+    skipped and p came out too small; each case is held to an exact p. Where every draw
+    reproduces the statistic the exact p is 1.0 and is compared exactly."""
+
+    def test_jrsa_with_ties_in_x1(self):
+        # x1 is binary, so r is increasing in the sum of x2 over x1 == 1. The observed sum is
+        # 4 + 5 + 6 = 15, the largest, reached by 3! * 3! of the 720 orderings: p = 0.05.
+        from jnwb.jrsa import jrsa
+
+        x1 = np.array([0.0, 0, 0, 1, 1, 1])
+        x2 = np.array([2.0, 1, 3, 4, 5, 6])
+        sums = [sum(c) for c in itertools.combinations(x2, 3)]
+        exact = float(np.mean(np.array(sums) >= 15))
+        assert exact == 0.05
+        res = jrsa(x1, x2, metric="pearson", permutations=N_SHUFFLES, alternative="greater",
+                   rng=0, correction="none", null="iid")
+        assert float(res.p) == pytest.approx(exact, abs=0.01), float(res.p)
+
+    def test_shuffle_r2_ci_with_tied_scores(self):
+        # Scores k / 3 with integer k: r^2 is increasing in |8 * S1 - 4 * K|, S1 the sum of
+        # k over the four positions labelled 1 and K the total, so the exact p is a count
+        # over the 70 placements in integers.
+        from jnwb.statistics import shuffle_r2_ci
+
+        k = np.array([2, 3, 2, 2, 0, 2, 2, 2])
+        y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+        dev = [abs(8 * sum(c) - 4 * k.sum()) for c in itertools.combinations(k, 4)]
+        obs_dev = abs(8 * k[4:].sum() - 4 * k.sum())
+        exact = float(np.mean(np.array(dev) >= obs_dev))
+        p = shuffle_r2_ci(y, k / 3.0, n_shuffle=N_SHUFFLES, rng=0)["p_val"]
+        assert p == pytest.approx(exact, abs=0.01), (p, exact)
+
+    def test_cross_modal_comparison_with_periodic_spikes(self):
+        # Period 10 and eleven searched lags: every circular shift of the spike train puts
+        # some searched lag in phase, so every draw reaches the observed |r| = 1.
+        from jnwb.statistics import cross_modal_comparison
+
+        spikes = (np.arange(400) % 10 == 0).astype(float)
+        tfr = 3.0 * np.roll(spikes, 2) + 1.0
+        res = cross_modal_comparison(tfr, spikes, lag_range_ms=(-50, 50), bin_ms=10,
+                                     n_permutations=500, rng=0)
+        assert res["lag_corrected_pvalue"] == 1.0
+
+    def test_cluster_permutation_test_when_a_row_of_x_equals_a_row_of_y(self):
+        # One point, so the cluster statistic is the Welch t where |t| > 2 and the null is
+        # every split of the eight rows. Swapping the two equal rows reproduces a split.
+        from scipy import stats as sps
+
+        from jnwb.statistics import cluster_permutation_test
+
+        X = np.array([[3.8], [2.5], [4.1], [2.5]])
+        Y = np.array([[1.9], [-0.1], [1.4], [2.5]])
+        pooled = np.concatenate([X, Y])[:, 0]
+        obs = abs(sps.ttest_ind(X[:, 0], Y[:, 0], equal_var=False).statistic)
+        null = []
+        for idx in itertools.combinations(range(8), 4):
+            rest = [i for i in range(8) if i not in idx]
+            t = abs(sps.ttest_ind(pooled[list(idx)], pooled[rest], equal_var=False).statistic)
+            null.append(t if t > 2.0 else 0.0)
+        exact = float(np.mean(np.array(null) >= obs * (1 - 1e-9)))
+        res = cluster_permutation_test(X, Y, n_permutations=N_SHUFFLES,
+                                       rng=np.random.default_rng(0))
+        p = res["clusters"][0]["p_value"]
+        assert p == pytest.approx(exact, abs=0.01), (p, exact)
+
+    @staticmethod
+    def _one_side_identical(n_times: int, identical: str):
+        rng = np.random.default_rng(1)
+        common = rng.normal(size=n_times)
+        varied = rng.normal(size=(8, n_times)) + 0.8 * np.roll(common, -1)[None, :]
+        same = np.tile(common, (8, 1))
+        return (same, varied) if identical == "x" else (varied, same)
+
+    def test_granger_when_the_target_trials_are_identical(self):
+        # A trial permutation of X pairs the same eight trials with the same Y trial.
+        from jnwb.connectivity import granger
+
+        x, y = self._one_side_identical(200, identical="y")
+        assert granger(x, y, order=2, n_surrogates=200, rng=0).p_x_to_y == 1.0
+
+    def test_granger_spectral_when_the_target_trials_are_identical(self):
+        from jnwb.connectivity import granger_spectral
+
+        x, y = self._one_side_identical(200, identical="y")
+        res = granger_spectral(x, y, fs=100.0, order=2, n_surrogates=100, rng=0,
+                               bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
+        assert res.p_x_to_y == 1.0
+        assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
+
+    def test_phase_slope_index_when_the_source_trials_are_identical(self):
+        # The surrogate permutes the trials of Y against one repeated X trial.
+        from jnwb.connectivity import phase_slope_index
+
+        x, y = self._one_side_identical(256, identical="x")
+        assert phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0).p_net == 1.0
+        res = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0,
+                                bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
+        assert res.p_net == 1.0
+        assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
+
+    def test_xflip_channel_permutation_at_six_channels(self):
+        # Exact p over all 720 channel orders, a draw tying the observed contrast when it
+        # agrees to nine digits; permutations inside the two blocks reorder the sums.
+        from jnwb.laminar import _optimal_contiguous_partition, xflip
+
+        rng = np.random.default_rng(96)
+        a = rng.uniform(-0.2, 0.9, size=(6, 6))
+        corr = (a + a.T) / 2
+        corr[:3, :3] += 0.5
+        corr[3:, 3:] += 0.5
+        corr = np.clip(corr, -1.0, 1.0)
+        np.fill_diagonal(corr, 1.0)
+        obs = _optimal_contiguous_partition(corr, 2, 2)[2]
+        qs = np.array([
+            _optimal_contiguous_partition(corr[np.ix_(p, p)], 2, 2)[2]
+            for p in map(list, itertools.permutations(range(6)))
+        ])
+        exact = float(np.mean(qs >= obs - 1e-9 * abs(obs)))
+        res = xflip(corr, n_surrogates=N_SHUFFLES, rng=0, is_corr_matrix=True)
+        assert res.p_values["omnibus"] == pytest.approx(exact, abs=0.015), (
+            res.p_values["omnibus"], exact)
+
+
 class TestTheIncidentalGuardIsStillThere:
     """If the folding test's guard is ever relaxed, this file is what remains."""
 

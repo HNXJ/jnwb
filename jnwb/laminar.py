@@ -35,6 +35,7 @@ from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from ._spread import is_constant
+from .permutation import _TIE_RTOL, _count_at_least_as_extreme
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -1556,7 +1557,9 @@ def xflip(
            (when a precomputed correlation matrix is provided).
         4. Monte Carlo P-value Resolution:
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
-           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q)}{1 + S}`.
+           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q - \\epsilon)}{1 + S}`,
+           with :math:`\\epsilon` 100 machine epsilons, so a surrogate that reproduces
+           :math:`Q` with its correlations summed in another order counts.
            No p-value can resolve to 0.0 under finite surrogate sampling.
 
     Args:
@@ -1787,8 +1790,10 @@ def xflip(
             else:
                 _, _, surr_q, _ = _unrestricted_partition(surr_corr, target_k)
 
-            if surr_q >= obs_q:
-                count_exceed += 1
+            # A channel permutation inside a block reproduces obs_q with its correlations
+            # summed in another order. Q is a difference of means of correlations, so its
+            # round-off scales with |r| <= 1 rather than with Q, which can cancel to ~0.
+            count_exceed += _count_at_least_as_extreme([surr_q], obs_q, "greater", atol=_TIE_RTOL)
 
             for b in boundaries:
                 left_st = 0
@@ -1804,8 +1809,9 @@ def xflip(
                 local_lbl[b - left_st:] = 1
                 local_surr_q = _compute_contrast(surr_corr[left_st:right_en, left_st:right_en], local_lbl)
                 local_obs_q = _compute_contrast(corr[left_st:right_en, left_st:right_en], local_lbl)
-                if local_surr_q >= local_obs_q:
-                    boundary_exceed[b] += 1
+                boundary_exceed[b] += _count_at_least_as_extreme(
+                    [local_surr_q], local_obs_q, "greater", atol=_TIE_RTOL
+                )
 
         p_omnibus = (1 + count_exceed) / (1 + n_surrogates)
         p_values["omnibus"] = float(p_omnibus)
@@ -2263,8 +2269,9 @@ def zflip(
             for i in range(n_channels - 1):
                 w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
                 surr_adj_wpli[i] = float(np.mean(w_s[mask]))
-            if np.mean(surr_adj_wpli) >= mean_wpli_val:
-                exceed_count += 1
+            exceed_count += _count_at_least_as_extreme(
+                [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
+            )
         p_val = float((1 + exceed_count) / (1 + n_surrogates))
 
     # No test performed means no inferential acceptance.

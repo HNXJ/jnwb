@@ -355,6 +355,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Permutation and surrogate p-values count a null draw that reproduces the observed statistic
+  as reaching it when the two agree to within 100 machine epsilons of the observed value, the
+  width `scipy.stats.permutation_test` uses. A draw that swaps tied values sums the same terms
+  in another order and can land an ulp short of the observed value; a bare comparison skipped
+  it, so p came out too small. **p-values move upward on tied or repeated input**:
+  `jrsa` with ties in `x1` (0.006 to 0.013 where the exact p is 0.05), `shuffle_r2_ci` with
+  tied scores, `cross_modal_comparison` with periodic spikes, `cluster_permutation_test` when
+  a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` when one
+  signal's trials are identical, and `xflip` on a precomputed matrix. `transfer_entropy`,
+  the band surrogates of `cross_area_coherence`, `zflip`, `paired_fire_prob_test`,
+  `shuffle_pvalue_paired`,
+  `shuffle_pvalue_unpaired`, `exact_sign_flip` and `StatisticalAnalysis.permutation_test` use
+  the same rule; the mean-difference tests keep their existing width, which is wider. Untied
+  continuous input counts the same draws as before.
+- `phase_slope_index` reports `z` and `sd` as NaN, the jackknife p as None and
+  `ok_for_interpretation=False`, with a `RuntimeWarning`, when the leave-one-segment-out
+  replicates agree to rounding. Identical segments (a periodic signal) with Y equal to X gave
+  sd 8e-32, z -7.8e13, p 0.0 and `ok_for_interpretation=True`. The width is
+  `8 * eps * n_segments * (n_bins - 1)`, twice the rounding bound of a replicate whose
+  coherencies have magnitude at most 1.
 - `jrsa` raises `ValueError` for a `reduction` key that names no axis of `adim`, and the
   message lists the axes that exist. The key was skipped, so the unreduced value came back while
   `parameters['reduction']` recorded the request: with `adim=(-3, -2)` the keys are `"axis_-3"`

@@ -129,6 +129,8 @@ For continuous time series, spectra, and time-frequency representations (TFRs), 
 
 $$p = \frac{1 + k}{B + 1}$$
 
+$k$ counts draws beyond or within $100\,\epsilon\,|\text{observed}|$ of the observed statistic, as `scipy.stats.permutation_test` does, so a draw that reproduces it in another summation order counts. Every jnwb permutation p does this.
+
 ```python
 # X, Y: (n_trials, n_freqs, n_times) or (n_trials, n_times)
 # 1. Paired differences (sign-flip exchangeability)

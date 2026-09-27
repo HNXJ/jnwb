@@ -20,6 +20,7 @@ from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
 from ._rng import DEFAULT_SEED, RNGLike, surrogate_rng
+from .permutation import _count_at_least_as_extreme
 from ._spread import is_constant as _is_constant
 
 log = logging.getLogger(__name__)
@@ -947,7 +948,8 @@ def cross_area_coherence(
                 float(np.mean(spectrum[mask])) if len(spectrum) > 0 else 0.0
                 for spectrum in surrogate_spectra
             ])
-            p_val = (np.sum(surrogate_cohs >= mean_coh_val) + 1) / (int(n_surrogates) + 1)
+            k = _count_at_least_as_extreme(surrogate_cohs, mean_coh_val, "greater")
+            p_val = (k + 1) / (int(n_surrogates) + 1)
             out['band_significance'][band_name] = float(p_val)
 
         return out

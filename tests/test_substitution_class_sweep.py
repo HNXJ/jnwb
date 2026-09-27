@@ -44,6 +44,7 @@ from jnwb.addressing import enrich_units_dataframe
 from jnwb.continuous import epoch_continuous
 from jnwb.laminar import VFlipResult, label_layers
 from jnwb.laminar import vflip as laminar_vflip
+from jnwb.permutation import _count_at_least_as_extreme
 from jnwb.spectral import relative_power
 from jnwb.statistics import _require_alternative, cluster_permutation_test
 
@@ -594,25 +595,15 @@ ACCEPTED_CHAIN_ELSE = {
     ("continuous.py", "boundary_policy", ("drop", "error")):
         "boundary_policy is checked against ('nan', 'error', 'drop') and raises; the else "
         "is the 'nan' branch.",
-    ("jrsa.py", "alternative", ("greater", "two-sided")):
-        "REPAIRED BY THIS SWEEP: alternative is now checked against jrsa.ALTERNATIVES at "
-        "the top of _p_from_null and raises; the else is the 'less' branch.",
+    ("permutation.py", "alternative", ("greater", "less")):
+        "_count_at_least_as_extreme checks alternative against _TAILS and raises; the else "
+        "is the 'two-sided' branch.",
     ("laminar.py", "orientation", ("auto", "superficial_to_deep")):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
     ("spectral.py", "model", ("mean_of_ratios", "ratio_of_means")):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
-    ("statistics.py", "alt", ("greater", "less")):
-        "alt is the return of _require_alternative, which normalizes and raises; the else "
-        "is the two-sided branch.",
-    ("statistics.py", "tail", ("greater", "less")):
-        "tail is checked against ('both', 'greater', 'less') and raises; the else is the "
-        "'both' branch.",
-    ("statistics.py", "alt", ("greater", "two-sided")):
-        "exact_sign_flip checks alt against ('two-sided', 'greater', 'less') and raises; the "
-        "else is the 'less' branch. Two sites (exact enumeration, Monte Carlo) share this key; "
-        "both sit inside an `if n <= 20` arm, which hid them until nested chains were scanned.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
@@ -754,6 +745,8 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         ("spectral.model", lambda: relative_power(
             np.array([1.0, 2.0]), np.array([1.0, 1.0]), model="bogus")),
         ("statistics.alternative", lambda: _require_alternative("bogus", "sweep")),
+        ("permutation.alternative", lambda: _count_at_least_as_extreme(
+            np.zeros(3), 0.0, "bogus")),
         ("statistics.exact_sign_flip.alt", lambda: jnwb.exact_sign_flip(
             np.array([0.1, -0.2, 0.3]), alternative="bogus")),
         ("statistics.tail", lambda: cluster_permutation_test(
