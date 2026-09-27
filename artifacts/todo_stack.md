@@ -51,9 +51,8 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 | 0 | 07-23: the deferral attack, then the apparatus work; 07-31 |
 | 1 | 07-03: the lanes in flight and the bullets ruled 2026-09-27, then the rest |
 | 2 | 07-01, P-345 first |
-| 3 | 07-24, 07-25, 07-30 |
-| 4 | 07-02 |
-| 5 | 07-29, by hand before the release pull request merges |
+| 3 | 07-02 |
+| 4 | 07-29, by hand before the release pull request merges |
 
 The 0.2.8 items are not scheduled in this cycle.
 
@@ -115,50 +114,7 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 - IB-79: `relative_power` still broadcasts a 1-D baseline onto trailing axes silently (pinned by `tests/test_spectral.py`), while `aggregate_to_db` and `add_trial` refuse a baseline of another ndim. Ruled 2026-09-27: warn with `FutureWarning` now, raise next release. Check: the warning, its test replacing the broadcast pin, a changelog entry.
 - IB-84: `xflip` follow-ups: the calibration receipt's generated sentence says the acceptance rate is produced by the boundary-drop gate, where the gate produces the rejections (`scripts/calibrate_xflip.py` `render()`); `test_ar_noise_fpr_controlled` still asserts at most 1 of 15 (0.067, above alpha) where the ruled form is a rate bound, measured at 3 of 60; with `n_blocks=None` the block count is chosen by contrast, where 2026-09-27 ruled the calibration objective. Check: fix the sentence, convert the AR test, select the block count by the objective, changelog entry, regenerate the receipt.
 - IB-86: `classify_response_significance` returns `undefined` with p NaN when `response_zscore` is NaN (a silent baseline), though the conditional binomial test is computable from the per-trial counts (40 trials of 3 response spikes over a zero baseline: p = 7e-45). Bursting firing inflates the p at zero effect to about 0.3. Ruled 2026-09-27: report the p, keep `is_significant` False and `confidence` `undefined`. Check: that, a test, and the bursting limit stated where the p is documented.
-- IB-90: `jnwb/jrsa.py` pairs its information measures by `x2.ravel()[:len(a)]` (four sites, from `_mutual_information` at line 1848), so a second input of another shape is truncated silently and a number is returned. Check: a shape mismatch raises `ValueError` at every site, one test per site, matched inputs unchanged.
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
-
-### 07-24 Remove the `JRSAResult` 0-d shim
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa.py`, `tests/test_prose_version_claims_are_live.py`, `CHANGELOG.md`.
-Classified required on 2026-09-27 (R3): the shim's docstring and warning (`jnwb/jrsa.py:2119-2151`)
-say a `JRSAResult` field answers `[0]` with a `FutureWarning` until 0.2.7 and raises `IndexError`
-in 0.2.7, and no item carried the removal. P-234, under 07-26, is moot once this lands.
-Check: each field is a plain 0-d value with no `[0]` path; the warning and the tests that pin it
-are removed; a changelog entry.
-Accept: a test that indexing a `JRSAResult` field raises `IndexError`, and none that expects the
-`FutureWarning`.
-Stop: a caller in `jnwb/`, `docs/` or `skills/` still indexes a field and needs a path outside `Writes`.
-
-### 07-25 Retarget the block-bootstrap promise made for 0.2.7
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `docs/03_representational_similarity_jrsa.md`, `tests/test_prose_version_claims_are_live.py`.
-Classified required on 2026-09-27 (R3): `jnwb/jrsa.py:253`, `jnwb/jrsa.py:542` and
-`docs/03_representational_similarity_jrsa.md:105` say the block bootstrap for the paired metrics
-is planned for 0.2.7, and IB-44, which carries it, is deferred to 0.2.8 in 07-28. The version scan
-merged at 79af4407 pins the three sentences in `tests/test_prose_version_claims_are_live.py` as
-forward mentions of 0.2.7, and fails once the version reaches it.
-Check: the three sentences name 0.2.8, or state the current refusal with no version; their pinned
-entries change with them.
-Accept: no text in `jnwb/` or `docs/` promises the block bootstrap for 0.2.7.
-Stop: the retarget would need IB-44's calibration.
-
-### 07-30 `jrsa` refuses a reduction over an axis it does not have
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa.py`, `tests/test_jrsa_correctness.py`, `CHANGELOG.md`.
-Found on 2026-09-27 (R1): `_reduce_dimensions` skips a `reduction` key that names no axis of `adim`
-(`if ax is None: continue`). With `adim=(-3, -2)` the keys are `axis_-3` and `axis_-2`, so
-`{"axis_0": "mean"}` or the int key `{0: "mean"}` returns the unreduced value while
-`parameters['reduction']` records the request.
-Check: raise `ValueError` naming the key and the axes that exist.
-Accept: a test for each of the two keys above that raises, and the named-axis reduction unchanged.
-Stop: a caller in `jnwb/`, `docs/` or `skills/` relies on the skip.
 
 ### 07-31 Gate 15's code-span mask stops at a quoted field label
 
@@ -301,8 +257,6 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: comment only; code correct.
 - P-232: Gate 15 and gate 17 read only `###` item headings while STEP 0a reads items at any heading depth, so they disagree on an item under `####`. Deferred: STEP 0a is the wider reader, so the gates can only under-read; the repair shares one parser. Removed as stale on 2026-09-27: the premise that the gates read only `06-` ids (`scripts/harness_gate.py:1682` reads any two-digit cycle).
   deferred-0.2.8: gates can only under-read `####`, the stack has none; premise partly stale.
-- P-234: The `JRSAResult` 0-d shim warns under the name `JRSAResult.p` when a copied `q` is indexed, and `p[-1]` raises without a deprecation warning. Deferred: values, dtype and arithmetic are unaffected; carried with the shim's removal.
-  deferred-0.2.8: moot once the JRSAResult shim is removed (07-24).
 - P-235: The stated-gate-count test scans the instruction surfaces but not `skills/` or `docs/`, and matches digits but not number words or "Gates 1 to N". Deferred: the one live stated count is covered and correct.
   deferred-0.2.8: the live stated count is correct.
 - P-238: `scripts/mutation_harness.py`'s `collect_selector` drops every node id containing a space, so such a parametrized discriminator cannot be named in `must_fail`. Deferred: it fails closed (the selector is rejected) and cannot produce a false kill.
@@ -524,7 +478,7 @@ below meets every deferral condition of `AGENTS.md` section 11 and carries its r
 - IA-29: unbacked claims and project leftovers ship in the wheel: `nam` cites a missing script and receipts and calls `torch.manual_seed`, which resets the global torch stream; `REWARD_WINDOW_MS` is a task constant no function uses; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project output folders. Check: extend P-296's sweep to these; use a local `torch.Generator`.
   deferred-0.2.8: non-exported modules; 07-23 inventory lists them; nam.py:114 global torch seed is an invariant-5 smell, fixing changes values.
 - IB-44: ruled 2026-09-25, a calibrated block bootstrap for the `jrsa` paired metrics replaces the 0.2.6.1 refusal. Check: coverage of a 95% interval near 0.95 on independent AR(1) pairs at phi 0.9, with a stated block rule.
-  deferred-0.2.8: current refusal is correct; requires 07-25.
+  deferred-0.2.8: current refusal is correct, and its text names no version.
 - IB-45: `directed_network` with an int `rng` (the default 0) gives every pair the same surrogate stream, while a `Generator` draws one seed per pair. Check: one scheme for both, recorded per pair.
   deferred-0.2.8: each pair's permutation p stays valid; only cross-pair dependence changes.
 - IB-48: `jrsa` accepts `device='cuda'` and `backend='cupy'` but its permutation loop never reaches the CuPy branch and records `cpu`/`numpy`. Check: route it or drop the branch, and say which in the docstring.

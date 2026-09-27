@@ -101,8 +101,8 @@ all 40 independent AR(1) pairs at p ≤ 0.05. `"block"` is not calibrated for th
 
 `bootstrap > 0` with a paired metric raises unless `null="iid"` is named. The bootstrap resamples
 single samples, which undercovers on autocorrelated data: on independent AR(1) pairs with
-coefficient 0.9 the 95% interval of `"pearson"` covered 0 for 0.475 of pairs. A block bootstrap
-is planned for 0.2.7. The axis-0 metrics' bootstrap is unchanged.
+coefficient 0.9 the 95% interval of `"pearson"` covered 0 for 0.475 of pairs. No block bootstrap
+is implemented. The axis-0 metrics' bootstrap is unchanged.
 
 ```python
 # x1, x2: (12 conditions, 100 units, 50 timepoints); five blocks of 10 on the time axis

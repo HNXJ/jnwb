@@ -191,6 +191,9 @@ def jrsa(
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
+        Each key names an axis of `adim`: a label, ``"axis_<d>"`` for an unlabelled int
+        `d` of a tuple (``adim=(-3, -2)`` gives ``"axis_-3"`` and ``"axis_-2"``), or
+        ``"aligned"`` for a single int. Any other key raises.
         A reduced axis stays at length 1, except axis 0 for rsa, cka, rv, hsic,
         distance_correlation and procrustes: that axis is removed, so averaging the trials
         of a (trials, conditions, units) input compares conditions, as ``x.mean(0)`` would.
@@ -250,7 +253,7 @@ def jrsa(
         raises unless ``null='iid'`` is named, declaring the samples exchangeable: on
         autocorrelated data single-sample resampling undercovers, and on independent AR(1)
         pairs with coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs.
-        A block bootstrap is planned for 0.2.7.
+        No block bootstrap is implemented.
     correction : str
         Multiple-comparison correction: none | bonferroni | holm |
         holm-sidak | fdr_bh | fdr_by.
@@ -539,8 +542,7 @@ def jrsa(
             f"jrsa(metric={metric!r}): bootstrap resamples single samples of the last axis, "
             "which undercovers on autocorrelated data: on independent AR(1) pairs with "
             "coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs. Name "
-            "null='iid' to declare the samples exchangeable, or set bootstrap=0. A block "
-            "bootstrap is planned for 0.2.7."
+            "null='iid' to declare the samples exchangeable, or set bootstrap=0."
         )
 
     if verbose:
@@ -954,9 +956,14 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
                 f"jrsa: unrecognized reduction {op_str!r} for axis {name!r}. "
                 f"Valid options: {list(REDUCTION_OPS)}."
             )
-        ax = axis_map.get(name)
-        if ax is None:
-            continue
+        if name not in axis_map:
+            # Skipping it returned the unreduced value while `parameters['reduction']`
+            # recorded the request.
+            raise ValueError(
+                f"jrsa: reduction key {name!r} names no axis of `adim`. The axes are "
+                f"{list(axis_map)}."
+            )
+        ax = axis_map[name]
         x1 = _reduce_one(x1, op_str, ax)
         if x2 is not None:
             x2 = _reduce_one(x2, op_str, ax)
@@ -1848,8 +1855,9 @@ def _distance_correlation(x1, x2, axis=-1, **kwargs):
 def _mutual_information(x1, x2, axis=-1, bins=32, **kwargs):
     """Mutual information via histogram estimator."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_paired_shape(x1, x2, "mutual_information")
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()
     c_xy, xe, ye = np.histogram2d(a, b, bins=bins)
     c_xy = c_xy / c_xy.sum()
     c_x = c_xy.sum(axis=1)
@@ -1891,9 +1899,10 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
     """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     _require_one_series(x1, "granger_ssr_ftest", "jnwb.granger")
+    _require_paired_shape(x1, x2, "granger_ssr_ftest")
     try:
         a = x1.ravel()
-        b = x2.ravel()[:len(a)]
+        b = x2.ravel()
         data = np.column_stack([a, b])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -1947,6 +1956,19 @@ def _require_one_series(x, metric, trial_function):
         )
 
 
+def _require_paired_shape(x1, x2, metric):
+    """Refuse two inputs of different shapes for a metric that pairs their flattened samples.
+
+    Pairing by ``x2.ravel()[:len(a)]`` truncated a longer second input and returned a
+    number computed on the samples that happened to line up.
+    """
+    if x1.shape != x2.shape:
+        raise ValueError(
+            f"jrsa(metric={metric!r}) pairs the samples of x1 and x2 one to one, so both "
+            f"need the same shape; got {tuple(x1.shape)} and {tuple(x2.shape)}."
+        )
+
+
 def _entropy(probs):
     """Calculate Shannon entropy in nats from probability array."""
     probs = probs[probs > 0]
@@ -1967,8 +1989,9 @@ def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     _require_one_series(x1, "transfer_entropy_histogram_nats", "jnwb.transfer_entropy")
+    _require_paired_shape(x1, x2, "transfer_entropy_histogram_nats")
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()
     
     # We estimate TE(Y -> X) = H(X_t, X_{t-1}) + H(X_{t-1}, Y_{t-1}) - H(X_{t-1}) - H(X_t, X_{t-1}, Y_{t-1})
     # with Y = b, X = a.
@@ -2025,9 +2048,9 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     _require_one_series(x1, "phase_slope", "jnwb.phase_slope_index")
+    _require_paired_shape(x1, x2, "phase_slope")
     a = x1.ravel()
-    b = x2.ravel()[: len(a)]
-    n = min(len(a), len(b))
+    b = x2.ravel()
     if fs is None:
         fs = 2.0  # normalized frequency: Nyquist == 1.0
         if bands is None:
@@ -2041,7 +2064,7 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
                 stacklevel=2,
             )
     res = _psi_impl(
-        a[:n], b[:n], fs=fs, bands=bands, nperseg=nperseg,
+        a, b, fs=fs, bands=bands, nperseg=nperseg,
         noverlap=noverlap, jackknife=jackknife,
     )
     band = next(iter(res.per_band.values()))
@@ -2116,76 +2139,6 @@ def _make_exec_meta(backend_ctx, device, t0, random_state):
     }
 
 
-class _ScalarPValue(np.ndarray):
-    """0-d float array that still answers ``[0]``, with a `FutureWarning`, until 0.2.7.
-
-    `p` and `q` of a single-lag result used to be shape ``(1,)`` and are now 0-d like
-    `value`. A 0-d array raises `IndexError` on ``[0]``, which would break code written
-    against the old shape without notice. This view returns the scalar ``self[()]`` for
-    ``[0]`` and changes nothing else: every other index is the base ndarray's, and ufuncs
-    and NumPy functions receive a plain ndarray, so ``p * 2``, ``p < 0.05`` and
-    ``np.isnan(p)`` return exactly what they return for a plain 0-d array (a NumPy scalar).
-    It pickles as a plain ndarray, so a stored result does not depend on this class, which
-    0.2.7 removes.
-    """
-
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if "out" in kwargs:
-            kwargs["out"] = _plain_arrays(kwargs["out"])
-        return getattr(ufunc, method)(*_plain_arrays(inputs), **kwargs)
-
-    def __array_function__(self, func, types, args, kwargs):
-        return super().__array_function__(
-            func, (np.ndarray,), _plain_arrays(args), _plain_arrays(kwargs)
-        )
-
-    def __getitem__(self, key):
-        if (
-            self.ndim == 0
-            and isinstance(key, (int, np.integer))
-            and not isinstance(key, (bool, np.bool_))
-            and key == 0
-        ):
-            field_name = getattr(self, "_field_name", "p")
-            warnings.warn(
-                f"JRSAResult.{field_name} is 0-d; indexing it with [0] is deprecated and "
-                f"raises IndexError in 0.2.7. Use float(result.{field_name}) or "
-                f"result.{field_name}[()].",
-                FutureWarning,
-                stacklevel=2,
-            )
-            return super().__getitem__(())
-        return super().__getitem__(key)
-
-    def __repr__(self):
-        return repr(self.view(np.ndarray))
-
-    def __reduce_ex__(self, protocol):
-        return np.asarray(self).__reduce_ex__(protocol)
-
-
-def _plain_arrays(obj):
-    """Replace every `_ScalarPValue` in a (nested) tuple, list or dict with a plain view."""
-    if isinstance(obj, _ScalarPValue):
-        return obj.view(np.ndarray)
-    if isinstance(obj, tuple):
-        return tuple(_plain_arrays(o) for o in obj)
-    if isinstance(obj, list):
-        return [_plain_arrays(o) for o in obj]
-    if isinstance(obj, dict):
-        return {k: _plain_arrays(v) for k, v in obj.items()}
-    return obj
-
-
-def _scalar_p_value(a, field_name):
-    """Wrap a 0-d p-value array in `_ScalarPValue`; anything else is returned unchanged."""
-    if a is None or np.ndim(a) != 0:
-        return a
-    out = np.asarray(a).view(_ScalarPValue)
-    out._field_name = field_name
-    return out
-
-
 def _make_result(
     value, statistic, effect, p, q, df, ci,
     metric, axes, aligned_axes, labels, parameters,
@@ -2202,8 +2155,8 @@ def _make_result(
         value=_to_numpy(value) if value is not None else np.float64(np.nan),
         statistic=_to_numpy(statistic),
         effect=_to_numpy(effect),
-        p=_scalar_p_value(_to_numpy(p), "p"),
-        q=_scalar_p_value(_to_numpy(q), "q"),
+        p=_to_numpy(p),
+        q=_to_numpy(q),
         df=_to_numpy(df),
         ci=_to_numpy(ci),
         metric=metric,
