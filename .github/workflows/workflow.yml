@@ -64,8 +64,80 @@ jobs:
           python -m pip install ".[test,docs,vis]"
 
       - name: Run pytest
+        # -n auto: one worker per core. The browser-backed export tests share an xdist group,
+        # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         run: |
-          pytest -v tests/
+          pytest -v -n auto tests/
+
+  test-floors:
+    # The matrix legs install the newest release of every dependency, so the `>=` floors in
+    # pyproject.toml are claims no other leg exercises. This leg resolves each core dependency
+    # to the lowest release that installs alongside the others, on the floor interpreter, and
+    # runs the suite there. A floor that resolves higher than declared fails the job, as does
+    # any test. A failure here means a declared floor no longer holds, and
+    # scripts/release_gate.py requires this job to succeed like every other unconditional job.
+    name: Test (dependency floors, Python 3.12 on ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FLOOR_PYTHON: "3.12"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.FLOOR_PYTHON }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.FLOOR_PYTHON }}
+
+      - name: Resolve the declared floors
+        # The floors are read with scripts/release_gate.py's parser rather than a second one.
+        # Only the core dependencies are pinned; the test tooling resolves around them.
+        run: |
+          python -m pip install --upgrade pip uv
+          python - <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = [(name, floor) for extra, name, floor in declared_dependency_floors() if not extra]
+          pathlib.Path('/tmp/floors.in').write_text(''.join(f'{n}>={f}\n' for n, f in core))
+          PY
+          uv pip compile --python-version "$FLOOR_PYTHON" --resolution lowest-direct \
+            /tmp/floors.in -o /tmp/floors.lock
+          python - <<'PY'
+          import re, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = {n.lower(): f for extra, n, f in declared_dependency_floors() if not extra}
+          pins = {}
+          for line in open('/tmp/floors.lock'):
+              m = re.match(r'([A-Za-z0-9_.\-]+)==(\S+)', line)
+              if m and m.group(1).lower() in core:
+                  pins[m.group(1).lower()] = m.group(2)
+          missing = sorted(set(core) - set(pins))
+          if missing:
+              sys.exit(f'no resolved version for {missing}')
+          higher = []
+          with open('/tmp/floors.txt', 'w') as out:
+              for name in sorted(pins):
+                  out.write(f'{name}=={pins[name]}\n')
+                  print(f'{name}: declared >={core[name]}, installed {pins[name]}')
+                  if pins[name] != core[name]:
+                      higher.append(name)
+                      print(f'::error::{name}>={core[name]} resolves to {pins[name]} beside the '
+                            f'other floors, so the declared floor cannot be installed or tested')
+          if higher:
+              sys.exit(f'declared floors that do not hold: {higher}')
+          PY
+
+      - name: Install dependencies at the floors
+        run: |
+          python -m pip install ".[test,docs,vis]" -c /tmp/floors.txt
+          python -m pip list
+
+      - name: Run pytest
+        run: |
+          pytest -v -n auto tests/
 
   build:
     name: Build & Validate Distribution

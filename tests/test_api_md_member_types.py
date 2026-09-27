@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Tuple
 
+import pytest
+
 import jnwb
 
 # No `sys.path.insert(0, REPO_ROOT)` here, deliberately. Prepending the checkout re-shadows the
@@ -176,3 +178,83 @@ class TestConstantRowsDescribeTheValueAndNotItsType:
             if isinstance(obj, str) and obj and obj in cell
         ]
         assert offenders == [], "; ".join(offenders)
+
+
+class TestSignatureCellsCarryParameterKinds:
+    """A keyword-only parameter rendered without its `*` reads as positional, and a call the
+    page shows as valid raises. The gate parses the markers back out of the cell, so it fails
+    when the generator drops them even though page and generator still agree."""
+
+    def test_the_parser_reads_every_marker(self):
+        from scripts.harness_gate import api_md_parameter_kinds
+
+        assert api_md_parameter_kinds(
+            "(a, /, b, *, c: Tuple[int, int] = (1, 2), d: str = 'x,y') -> None<br>*doc*"
+        ) == [("a", "positional_only"), ("b", "positional_or_keyword"),
+              ("c", "keyword_only"), ("d", "keyword_only")]
+        assert api_md_parameter_kinds("(*args, k=1, **kwargs)") == [
+            ("args", "var_positional"), ("k", "keyword_only"), ("kwargs", "var_keyword")]
+        assert api_md_parameter_kinds("*A class docstring.*") is None
+        assert api_md_parameter_kinds("`(a, *, b: str | None = None) -> int`<br>*doc*") == [
+            ("a", "positional_or_keyword"), ("b", "keyword_only")]
+
+    def test_the_rendered_page_keeps_every_signature_intact(self):
+        """What a reader sees is the HTML, not the Markdown. A bare `*` opened `<em>` and
+        swallowed the marker, and the `|` of `str | None` ended the cell, cutting the rest of
+        the signature off; a code span keeps both literal."""
+        markdown = pytest.importorskip("markdown")
+        html = markdown.markdown(API_MD.read_text(encoding="utf-8"), extensions=["tables"])
+        cells = {
+            m.group(1): m.group(2)
+            for m in re.finditer(r"<tr>\s*<td>(jnwb\.\w+)</td>\s*<td>function</td>\s*"
+                                 r"<td>(.*?)</td>\s*</tr>", html, re.S)
+        }
+        assert len(cells) >= 100, f"only {len(cells)} function rows rendered; the parse broke"
+        emphasised, uncoded, cut = [], [], []
+        signed = 0
+        for name, cell in cells.items():
+            obj = getattr(jnwb, name.removeprefix("jnwb."))
+            try:
+                parameters = inspect.signature(obj).parameters.values()
+            except (TypeError, ValueError):
+                continue  # rendered as a description, not a signature
+            signed += 1
+            signature = cell.split("<br")[0].rstrip()
+            if "<em>" in signature:
+                emphasised.append(name)
+            if not (signature.startswith("<code>(") and signature.endswith("</code>")):
+                uncoded.append(name)
+            if any(param.name not in signature for param in parameters):
+                cut.append(name)
+        assert signed >= 100, f"only {signed} rows carry a signature; the sweep is wrong"
+        assert emphasised == [], f"<em> opens inside the signature of {emphasised}"
+        assert uncoded == [], f"the signature of {uncoded} is not one code span"
+        assert cut == [], f"the rendered signature of {cut} lost parameters"
+
+    def test_some_export_has_a_keyword_only_parameter(self):
+        """Guard: without one, the page could drop every `*` and the comparison stay vacuous."""
+        kinds = {
+            p.kind for name in jnwb.__all__
+            if callable(obj := getattr(jnwb, name, None)) and not inspect.isclass(obj)
+            for p in _signature_parameters(obj)
+        }
+        assert inspect.Parameter.KEYWORD_ONLY in kinds
+
+    def test_the_gate_fails_when_a_keyword_only_marker_is_dropped(self, tmp_path):
+        from scripts.harness_gate import check_api_md_member_types
+
+        text = API_MD.read_text(encoding="utf-8")
+        assert check_api_md_member_types(REPO_ROOT) == []
+        seeded = re.sub(r"(\| jnwb\.\w+ \| function \| `\([^|`]*?), \*, ", r"\1, ", text, count=1)
+        assert seeded != text, "no row with a `*` marker was found to seed"
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "api.md").write_text(seeded, encoding="utf-8")
+        violations = check_api_md_member_types(tmp_path)
+        assert len(violations) == 1 and violations[0].startswith("API_KIND"), violations
+
+
+def _signature_parameters(obj):
+    try:
+        return list(inspect.signature(obj).parameters.values())
+    except (TypeError, ValueError):
+        return []

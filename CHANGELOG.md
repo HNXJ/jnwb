@@ -71,6 +71,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`jrsa(nan_policy="omit")` drops the observation of a row metric.** For the six metrics
   above it dropped the last-axis column holding the NaN, which removed a feature from every
   observation; it now drops the row of axis 0. Values change wherever such an input held a NaN.
+- **The core dependency floors are raised to the lowest releases the test suite passes on
+  (breaking for older environments).** The previous floors were installable but untested, and
+  on Python 3.12 they failed: they could not be installed together (`pynwb 2.0.0` requires
+  `pandas<2`), `joblib 1.1` hangs `n_jobs` loops, `scipy` before 1.17 raises on constant groups
+  in `compare_multiple_groups` where 1.17 returns NaN, `enrich_units_dataframe` disagreed with
+  `map_peak_channel_to_area` on a float32 or float16 identifier column under NumPy 1.x
+  promotion, and `pynwb` before 3.1 cannot read files that use `ElectrodesTable`. Those
+  releases then set the rest: `scipy 1.17` needs `numpy>=1.26.4`, and `statsmodels` before
+  0.14.5 does not import against it; `pandas`, `h5py`, `matplotlib` and `scikit-learn` below
+  the new floors do not import under NumPy 2; `pynwb 3.1` needs `hdmf>=4.1`. New floors:
+
+  | Package | Was | Now |
+  |---|---|---|
+  | numpy | 1.26.0 | 2.0.0 |
+  | scipy | 1.11.2 | 1.17.0 |
+  | pandas | 2.1.1 | 2.2.2 |
+  | h5py | 3.10.0 | 3.11.0 |
+  | pynwb | 2.0.0 | 3.1.0 |
+  | hdmf | 3.1.0 | 4.1.0 |
+  | matplotlib | 3.7.3 | 3.8.4 |
+  | scikit-learn | 1.3.1 | 1.4.2 |
+  | statsmodels | 0.14.0 | 0.14.5 |
+  | joblib | 1.1.0 | 1.2.0 |
+
+  A CI job now installs these floors on Python 3.12 and runs the suite, so a floor that stops
+  holding fails the build.
 - **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
   dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
   per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,

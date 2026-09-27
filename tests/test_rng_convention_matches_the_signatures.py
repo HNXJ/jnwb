@@ -272,11 +272,13 @@ def _probe_cross_modal_comparison():
     seed = np.random.default_rng(11)
     u, v = seed.normal(size=300), seed.normal(size=300)
     key = "lag_corrected_pvalue"
-    # A permutation p-value takes one of about a dozen likely values here, so two fresh
-    # calls coincide about one run in fifty (seen on CI). Three calls a side make an
-    # exact agreement by chance about one in 10**5.
+    # Eleven lags rather than the default 101: the null loop's cost is lags x permutations,
+    # and the lag count does not change what is asserted. Two fresh calls then coincide on
+    # about one pair in twenty (measured: 24 distinct p-values in 40 calls), so four calls a
+    # side make an exact agreement by chance about one in 10**5.
     return tuple(
-        tuple(jnwb.cross_modal_comparison(u, v, bin_ms=10.0, rng=None)[key] for _ in range(3))
+        tuple(jnwb.cross_modal_comparison(u, v, lag_range_ms=(-50, 50), bin_ms=10.0,
+                                          rng=None)[key] for _ in range(4))
         for _side in range(2)
     )
 

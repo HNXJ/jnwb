@@ -189,6 +189,17 @@ def test_the_order_check_fails_on_an_export_without_a_recorded_order():
 UNRECORDED_ON_THIS_TREE = set()
 
 
+def test_the_harness_runs_this_contract_as_a_gate(monkeypatch):
+    """An unrecorded export must fail the harness as well as the suite."""
+    from scripts import harness_gate
+
+    assert harness_gate.check_computational_contract() == []
+    monkeypatch.setattr(jnwb, "__all__", list(jnwb.__all__) + ["unrecorded_export"])
+    violations = harness_gate.check_computational_contract()
+    assert [v for v in violations if "unrecorded_export" in v], violations
+    assert all(v.startswith("recorded order: ") for v in violations), violations
+
+
 def test_the_live_tree():
     results = {name: violations for name, violations, _ in gate.run_checks(jnwb)}
     assert results["execution switch"] == []

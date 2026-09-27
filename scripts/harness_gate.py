@@ -26,9 +26,12 @@ protected paths to skill-tree uniqueness without the list noticing.
       the problem stack's Open section holds only its table.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
-  18. API member types: each docs/api.md Type cell is true of the runtime object.
+  18. API member types: each docs/api.md Type cell, and each signature's parameter kinds, are
+      true of the runtime object.
   19. Frozen functions: each registered body still hashes to its independently verified value.
   20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
+  21. Computational contract: execution switches select, precision requests are honoured, and
+      every export has a recorded computational order.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -2529,6 +2532,64 @@ def api_member_kind(obj: Any) -> str:
     return "constant"
 
 
+def api_md_parameter_kinds(cell: str) -> Optional[List[Tuple[str, str]]]:
+    """``(name, kind)`` for each parameter a rendered ``(...)`` signature cell declares.
+
+    ``kind`` is the lower-cased ``inspect.Parameter`` kind name. The ``/`` and ``*`` markers,
+    ``*args`` and ``**kwargs`` decide it, as they do in Python source. Returns None when the
+    cell does not open with a signature (a class, or a callable ``inspect`` cannot sign).
+
+    Parsed here rather than taken from ``scripts.generate_api_md``, for the reason gate 18 gives:
+    a generator that drops a marker would otherwise write the same wrong kinds on both sides.
+    """
+    # The page renders a signature as a Markdown code span; the backticks are markup.
+    text = cell.strip().lstrip("`")
+    if not text.startswith("("):
+        return None
+    depth, quote, end = 0, "", -1
+    tokens: List[str] = []
+    start = 1
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote and text[index - 1] != "\\":
+                quote = ""
+        elif char in "'\"":
+            quote = char
+        elif char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+            if depth == 0:
+                end = index
+                break
+        elif char == "," and depth == 1:
+            tokens.append(text[start:index])
+            start = index + 1
+    if end < 0:
+        return None
+    tokens.append(text[start:end])
+
+    parsed: List[Tuple[str, str]] = []
+    keyword_only = False
+    for token in (t.strip() for t in tokens):
+        if not token:
+            continue
+        if token == "/":
+            parsed = [(name, "positional_only") for name, _ in parsed]
+        elif token == "*":
+            keyword_only = True
+        elif token.startswith("**"):
+            parsed.append((re.match(r"\*\*(\w+)", token).group(1), "var_keyword"))
+        elif token.startswith("*"):
+            parsed.append((re.match(r"\*(\w+)", token).group(1), "var_positional"))
+            keyword_only = True
+        else:
+            name = re.match(r"\w+", token)
+            parsed.append((name.group(0) if name else token,
+                           "keyword_only" if keyword_only else "positional_or_keyword"))
+    return parsed
+
+
 def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 18 (API Member Types): each `docs/api.md` Type cell is true of the runtime object.
 
@@ -2548,9 +2609,14 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     deliberately **not** imported from `scripts.generate_api_md`: importing the generator's own
     classifier would rebuild the fixed point inside the gate that exists to break it.
 
-    **What this gate cannot see:** the *kind*, not the rendered signature or description. A row
-    correctly typed `function` whose description cell states the wrong arguments passes here;
-    `tests/test_docs_call_shapes.py` is what covers that, and P-84 records where it does not.
+    Each function row's parameter names and kinds are compared the same way, parsed from the
+    rendered cell by `api_md_parameter_kinds` and asked of `inspect.signature`, so a dropped `*`
+    or `/` marker fails here even when the generator and the page agree.
+
+    **What this gate cannot see:** annotations, defaults and the description. A row whose
+    parameters are right and whose defaults are wrong passes here;
+    `tests/test_docs_call_shapes.py` is what covers documented calls, and P-84 records where it
+    does not.
     """
     root = repo_root or REPO_ROOT
     page = root / "docs" / "api.md"
@@ -2560,7 +2626,7 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     import jnwb
 
     rows = [
-        (m.group(1), m.group(2).strip())
+        (m.group(1), m.group(2).strip(), m.group(3))
         for m in API_MD_ROW.finditer(page.read_text(encoding="utf-8"))
     ]
     violations: List[str] = []
@@ -2568,7 +2634,7 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     # The vacuity guard comes first and is not optional. Every check below iterates `rows`, so a
     # regex that matches nothing satisfies all of them while asserting nothing -- and a Type
     # column nobody parses is exactly the hole this gate was added to close.
-    names = [name for name, _ in rows]
+    names = [name for name, _, _ in rows]
     exported = sorted(jnwb.__all__)
     if sorted(names) != exported:
         violations.append(
@@ -2582,7 +2648,10 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
 
     from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
-    for name, declared in rows:
+    import inspect
+
+    signed = 0
+    for name, declared, cell in rows:
         try:
             obj = getattr(jnwb, name)
         except ImportError:
@@ -2608,6 +2677,25 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
                 "the page to the generator, and a wrong answer inside the generator is on both "
                 "sides of that comparison."
             )
+        if expected != "function":
+            continue
+        try:
+            live = [(p.name, p.kind.name.lower()) for p in inspect.signature(obj).parameters.values()]
+        except (TypeError, ValueError):
+            live = None
+        shown = api_md_parameter_kinds(cell)
+        if live is None and shown is None:
+            continue
+        signed += 1
+        if shown != live:
+            violations.append(
+                f"API_KIND: jnwb.{name}: docs/api.md shows parameters {shown}, inspect.signature "
+                f"gives {live}. A keyword-only parameter shown without its `*` reads as "
+                "positional, so the page documents a call that raises."
+            )
+    if not signed:
+        violations.append("API_KIND: no function row carried a signature, so the parameter-kind "
+                          "comparison checked nothing")
     return violations
 
 
@@ -2804,6 +2892,26 @@ def check_state_file_head(repo_root: Optional[Path] = None) -> List[str]:
     return []
 
 
+def check_computational_contract() -> List[str]:
+    """Gate 21 (Computational Contract): execution switches select, precision requests are
+    honoured, and every export has a recorded computational order.
+
+    Runs the three checks of `scripts/computational_contract_gate.py` on the imported package.
+    The suite runs them too (`tests/test_computational_contract_gate.py`), but an export added
+    without a recorded order left the suite red while every gate here stayed green, and the
+    gates are what the build job and a release read first. Each violation is prefixed with the
+    check that found it; a check that raised is reported as that check's violation.
+    """
+    import jnwb
+    from scripts import computational_contract_gate
+
+    return [
+        f"{name}: {violation}"
+        for name, violations, _ in computational_contract_gate.run_checks(jnwb)
+        for violation in violations
+    ]
+
+
 #: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
 #: because two gates compute their message from constants. The numbers are the ones this module's
 #: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
@@ -2866,8 +2974,8 @@ GATES: List[Tuple[int, Any, Any]] = [
              "every 'Blocked by:' item id is live)."),
     (18, _one(check_api_md_member_types,
               "FAIL: A docs/api.md Type cell is not true of the runtime object:"),
-     lambda: "PASS: docs/api.md Type column agrees with the runtime object, on an oracle that "
-             "does not import the generator."),
+     lambda: "PASS: docs/api.md Type column and each signature's parameter kinds agree with the "
+             "runtime object, on an oracle that does not import the generator."),
     (19, _one(check_frozen_validated,
               "FAIL: A frozen-validated function no longer matches its verified body:"),
      lambda: "PASS: Every frozen-validated function matches its verified body and names a "
@@ -2875,6 +2983,11 @@ GATES: List[Tuple[int, Any, Any]] = [
     (20, _one(check_state_file_head, "FAIL: artifacts/state.md does not record the live HEAD:"),
      lambda: "PASS: artifacts/state.md is absent or records the live HEAD (read only; the "
              "generator runs this harness, so this gate never regenerates the file)."),
+    (21, _one(check_computational_contract,
+              "FAIL: The computational contract is broken:"),
+     lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
+             "reaches its deciding mechanism, every precision request is honoured or refused, "
+             "and every export has a recorded computational order)."),
 ]
 
 
