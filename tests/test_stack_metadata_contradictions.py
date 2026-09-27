@@ -281,6 +281,24 @@ class TestTheSuppressionsAreVisibleAndCorrect:
         )
         assert _blocked_by_none_contradictions(sample) == ([], [])
 
+    def test_a_quoted_label_keeps_its_code_span_closed(self):
+        # Excising a label quoted in a code span up to the next full stop removed the closing
+        # backtick. The orphaned opening backtick then paired with the one in the last bullet,
+        # the three bullets merged into one sentence naming a retired item, and the live
+        # assertion in the third was suppressed with it.
+        sample = (
+            "### 06-97 Something\n\nRole: jnwb-developer. Blocked by: none.\n"
+            "Writes: `docs/index.md`.\n\n"
+            "- An item read `Blocked by: none` while its page was missing.\n"
+            "- That page was added under 06-9999.\n"
+            "- This item is blocked on a ruling.\n"
+            "- The ruling goes in `docs/rulings.md` when it is made.\n"
+        )
+        flagged, _suppressed = _blocked_by_none_contradictions(sample)
+        assert [sentence for _lineno, _item, sentence in flagged] == [
+            "- This item is blocked on a ruling."
+        ]
+
     def test_every_suppression_reason_is_a_nonempty_string(self):
         _flagged, suppressed = _blocked_by_none_contradictions(
             TODO_STACK.read_text(encoding="utf-8")
