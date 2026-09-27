@@ -220,19 +220,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
   integer `z` to complex128 before any state changes; it raised after the running mean had
   taken the trial.
-- `TFRAccumulator`: assigning `n` casts to int64. `write` stores `n` as int32, and `merge` of
-  two reloaded accumulators multiplied the counts in int32, which overflows from 46341 trials
-  per cell and returned a wrong `M2` without an error.
-- `TFRAccumulator`: assigning `n` anything but non-negative whole counts within int64 raises
-  `ValueError`: a fraction (2.7 was stored as 2), NaN or inf, a negative count, a boolean (True
-  was stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
-  -1), and a larger integer or float, which raised `OverflowError` or wrapped. A whole float such
-  as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
-- `TFRAccumulator`: assigning `n` stores a copy. An int64 array was stored as the caller's
-  own array, so writing to that array afterwards changed the accumulator's counts.
-- `TFRAccumulator`: an object array assigned to `n` is accepted when every element is a
-  non-negative Python int within int64, and stored as int64; any other object array raises
-  `ValueError` (a float element such as 2.5 was cast to 2).
+- `TFRAccumulator`: assigning `n` stores an int64 copy of non-negative whole counts within
+  int64, and raises `ValueError` for anything else.
+  - `write` stores `n` as int32, and `merge` of two reloaded accumulators multiplied the counts
+    in int32, which overflows from 46341 trials per cell and returned a wrong `M2` without an
+    error.
+  - Refused: a fraction (2.7 was stored as 2), NaN or inf, a negative count, a boolean (True was
+    stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
+    -1), and a larger integer or float, which raised `OverflowError` or wrapped. An object array
+    is accepted only when every element is a non-negative Python int within int64; any other
+    object array is refused (a float element such as 2.5 was cast to 2).
+  - A whole float such as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
+  - An int64 array was stored as the caller's own array, so writing to that array afterwards
+    changed the accumulator's counts.
 - `XFlipResult.boundaries` and `block_bounds` hold Python ints. They held NumPy int64 from the
   contiguous search, so `json.dumps` of `to_dict()` failed on them and on the `boundary_drops`
   keys.

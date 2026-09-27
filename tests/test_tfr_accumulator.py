@@ -536,9 +536,10 @@ class TestWriteRoundTrip:
         -1, np.array([2, -3]), -1.0, True, np.array([True, False]),
         2**63, np.uint64(2**64 - 1), np.array([1, 2**63], np.uint64), 1e19,
         2.0**63, np.array([-1, 1], dtype=object), np.array([2.5], dtype=object), 2**64,
+        np.array([True], dtype=object), np.array([2**63], dtype=object),
     ], ids=["neg-int", "neg-array", "neg-float", "bool", "bool-array", "int-2**63",
             "uint64-max", "uint64-array", "float-1e19", "float-2**63", "object-negative",
-            "object-float", "int-2**64"])
+            "object-float", "int-2**64", "object-bool", "object-2**63"])
     def test_a_negative_boolean_or_out_of_range_count_is_refused(self, bad):
         """A cast read True as 1, wrapped uint64 2**64-1 to -1 and raised OverflowError past
         int64; each is a count no trial loop can produce."""
@@ -549,6 +550,20 @@ class TestWriteRoundTrip:
         np.testing.assert_array_equal(acc.n, [4, 5])
         acc.n = np.array([_INT64_MAX, 0], np.uint64)
         assert acc.n.dtype == np.int64 and int(acc.n[0]) == _INT64_MAX
+
+    def test_an_object_array_of_python_ints_is_stored_as_int64(self):
+        acc = TFRAccumulator((2,))
+        acc.n = np.array([_INT64_MAX, 0], dtype=object)
+        assert acc.n.dtype == np.int64
+        np.testing.assert_array_equal(acc.n, np.array([_INT64_MAX, 0], np.int64))
+
+    def test_assigned_counts_are_a_copy(self):
+        acc = TFRAccumulator((2,))
+        counts = np.array([3, 4], np.int64)
+        acc.n = counts
+        assert not np.shares_memory(acc.n, counts)
+        counts[0] = 99
+        np.testing.assert_array_equal(acc.n, [3, 4])
 
     def test_an_integer_trial_is_cast_before_any_state_changes(self):
         shape = (2, 3)
