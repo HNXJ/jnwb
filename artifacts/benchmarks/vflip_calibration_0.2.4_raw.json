@@ -1,11 +1,11 @@
 {
- "estimator_sha256": "adcc33f58862fd4b96597ccc591d38fdbb7c58527072b27e330eb2df4fbaa08a",
+ "estimator_sha256": "220d84a6d22f379e56f2ee426c3d21e21b878cc80e22beb32cfb10fd60d7d331",
  "default_min_support_score": 3.75,
  "n_seeds": 30,
  "n_samples": 5000,
  "fs": 1000.0,
  "environment": {
-  "jnwb": "0.2.5",
+  "jnwb": "0.2.6.1",
   "numpy": "2.4.6",
   "scipy": "1.18.0",
   "python": "3.14.3"

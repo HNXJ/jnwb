@@ -184,6 +184,70 @@ class TestReducingTheObservationAxisOfARowMetric:
                     reduction={"aligned": "mean"})
 
 
+@pytest.mark.parametrize("key", ["axis_0", 0])
+def test_a_reduction_key_naming_no_axis_of_adim_raises(key):
+    """With adim=(-3, -2) the keys are 'axis_-3' and 'axis_-2'. Another key was skipped, so
+    the unreduced value came back while `parameters['reduction']` recorded the request."""
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(4, 5, 6))
+    x2 = x1 + rng.normal(size=x1.shape)
+    with pytest.raises(ValueError, match=rf"reduction key {key!r} names no axis.*"
+                                         r"\['axis_-3', 'axis_-2'\]"):
+        oa.jrsa(x1, x2, metric="pearson", stats=False, adim=(-3, -2),
+                reduction={key: "mean"})
+
+
+def test_a_named_reduction_on_negative_axes_is_the_reduced_input():
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(4, 5, 6))
+    x2 = x1 + rng.normal(size=x1.shape)
+    got = oa.jrsa(x1, x2, metric="pearson", stats=False, adim=(-3, -2),
+                  reduction={"axis_-3": "mean"}, return_input=True)
+    ref = oa.jrsa(x1.mean(0, keepdims=True), x2.mean(0, keepdims=True), metric="pearson",
+                  stats=False)
+    assert got.aligned_x1.shape == (1, 5, 6)
+    np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+
+class TestPairedSampleMetricsRefuseAnotherShape:
+    """These metrics pair the flattened samples of x1 and x2 and took ``x2.ravel()[:len(a)]``,
+    so a longer second input was truncated and a number came back. `jrsa` checks shapes at its
+    entry; each estimator now refuses on its own as well. Matched inputs give the values they
+    gave before the check."""
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(5)
+        x = rng.normal(size=400)
+        return x, 0.6 * np.roll(x, 1) + 0.8 * rng.normal(size=400)
+
+    CASES = [
+        ("_mutual_information", "mutual_information", {}, 0.703381880655481),
+        ("_granger", "granger_ssr_ftest", {"max_lag": 2}, 0.5740658518718919),
+        ("_transfer_entropy", "transfer_entropy_histogram_nats", {}, 0.4586287778013274),
+        ("_phase_slope", "phase_slope", {"fs": 100.0, "nperseg": 64}, 1.0366532110513618),
+    ]
+
+    @pytest.mark.parametrize("fn, metric, kw, _pinned", CASES, ids=[c[1] for c in CASES])
+    def test_a_longer_second_input_raises(self, fn, metric, kw, _pinned):
+        import importlib
+        estimator = getattr(importlib.import_module("jnwb.jrsa"), fn)
+        x, y = self._pair()
+        with pytest.raises(ValueError, match=rf"metric='{metric}'.*same shape.*\(400,\) and "
+                                             r"\(800,\)"):
+            estimator(x, np.concatenate([y, y]), **kw)
+
+    @pytest.mark.parametrize("fn, metric, kw, pinned", CASES, ids=[c[1] for c in CASES])
+    def test_matched_inputs_are_unchanged(self, fn, metric, kw, pinned):
+        import importlib
+        estimator = getattr(importlib.import_module("jnwb.jrsa"), fn)
+        x, y = self._pair()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            got = estimator(x, y, **kw)[0]
+        np.testing.assert_allclose(float(got), pinned, rtol=1e-12)
+
+
 @pytest.mark.parametrize("metric", _all_metrics())
 @pytest.mark.parametrize("shape, nan_policy", [
     ((0, 40), "omit"), ((6, 0), "raise"), ((6, 0), "propagate"),

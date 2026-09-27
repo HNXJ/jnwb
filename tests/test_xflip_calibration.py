@@ -41,9 +41,6 @@ class TestXFlipNullCalibration:
         assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_ar_noise_fpr_controlled(self):
-        # The rate bound stated at NULL_SEEDS, accepted <= floor(alpha * N). Correlated noise is
-        # the one family whose rate the surrogate test alone controls; these seeds accept 3 of
-        # 60, a rate of alpha and exactly the bound.
         n_seeds = NULL_SEEDS
         accepted = 0
         for s in range(n_seeds):

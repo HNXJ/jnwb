@@ -144,6 +144,44 @@ def _as_counts(value, name: str) -> np.ndarray:
     if raw.size and np.min(raw) < 0:
         raise refuse("got a negative value")
     return raw.astype(np.int64)
+def _refuse_infinite_baseline(infinite_reaching: np.ndarray) -> None:
+    """Refuse an infinite baseline at a cell that reaches a ratio.
+
+    ``power / inf`` is 0 and its decibels are ``-inf``: a number, where ``relative_power``
+    raises on the same input.
+    """
+    if np.any(infinite_reaching):
+        raise ValueError(
+            "baseline is infinite at a cell that reaches a ratio, which would give a ratio of "
+            "0 and -inf dB; relative_power refuses the same input. Exclude those cells."
+        )
+
+
+def _refuse_ratio_overflow(overflowed: np.ndarray) -> None:
+    """Refuse a ratio that overflowed to inf from finite power and a positive baseline.
+
+    A baseline small enough relative to the power divides it past the float64 range, or the
+    mean of such ratios passes it, so the ratio is inf with only a RuntimeWarning.
+    """
+    if np.any(overflowed):
+        raise ValueError(
+            "the power / baseline ratio overflows to inf from finite power: the baseline is "
+            "small enough that the ratio, or its mean, passes the float64 range. Exclude those "
+            "cells or rescale power and baseline together."
+        )
+
+
+def _refuse_sum_overflow(overflowed: np.ndarray, name: str) -> None:
+    """Refuse a sum of finite ``name`` values that overflowed to inf in a ratio of means.
+
+    An infinite summed baseline gives a ratio of 0 and -inf dB; an infinite summed power gives
+    +inf dB. Neither is a property of the data.
+    """
+    if np.any(overflowed):
+        raise ValueError(
+            f"the summed {name} overflows to inf from finite values, so the ratio of means "
+            "cannot be formed in float64. Rescale power and baseline together."
+        )
 
 
 class TFRAccumulator:
@@ -264,14 +302,17 @@ class TFRAccumulator:
                 per-trial ratio mean without holding the trials. Either every trial carries
                 a baseline or none does. A NaN baseline at a valid cell propagates NaN into
                 that cell's mean, as ``aggregate_to_db`` does with ``nan_policy="propagate"``.
-                A zero baseline at a cell ``valid`` excludes is ignored, as
+                A zero or infinite baseline at a cell ``valid`` excludes is ignored, as
                 ``aggregate_to_db(nan_policy="omit")`` ignores one where power is NaN, so
                 ``to_db(acc.mean_of_ratios())`` equals that call over the stacked trials with
                 the invalid cells' power set to NaN.
 
         Raises:
             ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
-                zero at a cell ``valid`` marks, neither a scalar nor of the accumulator's
+                zero or infinite at a cell ``valid`` marks, so small at such a cell that
+                finite power divided by it overflows to inf (a baseline small enough that the
+                ratio overflows), neither a
+                scalar nor of the accumulator's
                 number of dimensions, not
                 broadcastable, or if this trial and earlier ones disagree on carrying a
                 baseline.
@@ -305,14 +346,17 @@ class TFRAccumulator:
                     "relative_power and aggregate_to_db refuse the same input. Mark those "
                     "cells invalid with valid= instead."
                 )
+            _refuse_infinite_baseline(valid & np.isinf(b))
             if self.sum_ratio is None and np.any(self.n > 0):
                 raise ValueError(
                     "earlier trials were added without a baseline, so a per-trial ratio "
                     "mean over all trials cannot be formed; pass baseline= to every trial"
                 )
             # Formed before any state changes, so a trial that raises leaves nothing behind.
-            with np.errstate(divide="ignore", invalid="ignore"):
-                ratio = np.where(valid, p / b, 0.0)
+            with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                elementwise = p / b
+            _refuse_ratio_overflow(valid & np.isinf(elementwise) & np.isfinite(p))
+            ratio = np.where(valid, elementwise, 0.0)
         elif self.sum_ratio is not None:
             raise ValueError(
                 "earlier trials carried a baseline; pass baseline= to every trial so the "

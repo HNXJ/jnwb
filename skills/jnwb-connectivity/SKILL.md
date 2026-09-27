@@ -18,7 +18,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 - `jnwb.transfer_entropy(X, Y, k=1, l=1, estimator="quantile", n_surrogates=...)`: Transfer entropy in bits. `estimator` is `"quantile"`, `"uniform"` or `"discrete"` (integer spike counts); `"symbolic"` raises `ValueError`, because its surrogate null is not calibrated under zero-lag mixing and a common source with no directed coupling tests significant in both directions.
 - `jnwb.directed_connectivity(X, Y, method="granger")`: One directed measure between two signals, returning `DirectedResult`; method-specific kwargs are forwarded. `method` names a directed estimator; an unsigned coupling measure such as `"wpli"` raises `ValueError`.
 - `jnwb.directed_network(signals, method="granger", labels=None, fdr=True, n_jobs=1)`: All-pairs directed coupling for a dict or array of channel signals.
-- `jnwb.network_topology(adjacency_matrix, threshold=0.3)`: Graph metrics on a thresholded adjacency matrix.
+- `jnwb.network_topology(adjacency_matrix, threshold=0.3)`: Graph metrics on a thresholded adjacency matrix. A complex matrix raises `TypeError`; pass `np.abs(matrix)` to threshold the magnitude.
 - `jnwb.granger_causality(signal1, signal2, order=5, device="cpu", ridge=0.0, criterion="aic")`: Raw bivariate Granger values in a dict (`F_1_to_2`, `F_2_to_1`), with no surrogate testing. Deprecated: every call emits `DeprecationWarning`; use `granger`, which carries the surrogate test and returns a `DirectedResult`. A fixed `order` is an integer >= 1 in all three Granger calls; `0`, a fraction or a bool raises. Directional language is licensed by prediction improvement, not by causation.
 
 ### Spike and cross-modal association

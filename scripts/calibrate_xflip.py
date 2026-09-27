@@ -10,9 +10,9 @@ script being rerun.
 
 This replaces ``xflip_calibration_0.2.3.md``, which was produced under 0.2.3 with no
 generator and could not be regenerated. Two changes had already invalidated it: 0.2.4 made
-``xflip`` reject a zero-variance channel instead of reporting its correlation as 0, and
-0.2.5 found the smooth-gradient drop gate was skipped on the ``contiguous=False`` path, so
-the null rates it reported were conditional on a setting it did not name.
+``xflip`` reject a zero-variance channel instead of reporting its correlation as 0, and the
+smooth-gradient drop gate turned out to be skipped on the ``contiguous=False`` path, so the
+null rates it reported were conditional on a setting it did not name.
 
 Every number below traces to a seeded computation over ``jnwb.testing`` generators passed
 end to end through ``xflip``. Operating points the old document left unstated -- the
@@ -72,6 +72,7 @@ N_SAMPLES = 400
 FS = 1000.0
 MIN_BLOCK_SIZE = 3
 ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
+
 
 def estimator_sources() -> list[tuple[str, str]]:
     """`xflip` and every module-level function in `jnwb.laminar` it can reach.
@@ -246,9 +247,9 @@ def render(raw: dict) -> str:
         "",
         "This supersedes `xflip_calibration_0.2.3.md`, which had no generator and could not",
         "be regenerated. Two changes had already invalidated it: 0.2.4 made `xflip` reject a",
-        "zero-variance channel rather than report its correlation as 0, and 0.2.5 found the",
-        "smooth-gradient drop gate was skipped on the `contiguous=False` path, so the null",
-        "rates it reported were conditional on a setting it did not name.",
+        "zero-variance channel rather than report its correlation as 0, and the smooth-gradient",
+        "drop gate turned out to be skipped on the `contiguous=False` path, so the null rates",
+        "it reported were conditional on a setting it did not name.",
         "",
         "## Operating point",
         "",

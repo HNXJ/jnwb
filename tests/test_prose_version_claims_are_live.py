@@ -92,9 +92,7 @@ HISTORICAL_MENTIONS = {
 # Mentions of a version not yet released: a plan or a removal date. Each is excused only while
 # the live version is below it; once the version reaches it the note is either done, and
 # rewritten as history, or late, and the release is not what the note promised.
-FORWARD_MENTIONS = {
-    ("docs/03_representational_similarity_jrsa.md", "is planned for 0.2.7."): "0.2.7",
-}
+FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 
 # The same two lists for string literals in `jnwb/`: docstrings, and the messages a warning or
 # an error prints. A mention at or below the live version is history there (a break note, a
@@ -102,11 +100,6 @@ FORWARD_MENTIONS = {
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
 SOURCE_FORWARD_MENTIONS = {
-    ("jnwb/jrsa.py", "A block bootstrap is planned for 0.2.7."): "0.2.7",
-    ("jnwb/jrsa.py", "bootstrap is planned for 0.2.7."): "0.2.7",
-    ("jnwb/jrsa.py", "with a `FutureWarning`, until 0.2.7."): "0.2.7",
-    ("jnwb/jrsa.py", "0.2.7 removes."): "0.2.7",
-    ("jnwb/jrsa.py", "raises IndexError in 0.2.7."): "0.2.7",
     ("jnwb/analyzers.py", "they are removed in 0.2.7."): "0.2.7",
     ("jnwb/analyzers.py", "these keys are removed in 0.2.7."): "0.2.7",
 }

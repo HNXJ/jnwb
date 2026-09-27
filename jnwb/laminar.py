@@ -77,8 +77,20 @@ class VFlipResult(DictAccessMixin):
             crossover reported near either end of the shaft as a bound rather than a point
             estimate, and prefer a probe whose span brackets the transition. Measured in
             `artifacts/benchmarks/vflip_calibration_0.2.4.md`.
-        crossover_depth_um: Physical cortical depth of the crossover in micrometers (um) along
-            the ordered contacts, or None if rejected or contact spacing is unavailable.
+        crossover_depth_um: Depth of the crossover along the ordered contacts in micrometers
+            (um): ``crossover_contact`` times the contact spacing, measured from the first
+            contact of the order the fit used -- `probe_geometry.linear_order`, whose
+            direction follows the electrode table's row order, or the row order itself
+            without a geometry. With a `probe_geometry` the spacing is its `nominal_pitch`
+            (a disagreeing `contact_spacing` raises), so this is the frame
+            :func:`label_layers` places contacts in (its `depth_range_um` compares against
+            rank times `nominal_pitch`), whatever the geometry's z coordinates are. None if
+            rejected or no contact spacing is available.
+        crossover_z_um: The crossover's z coordinate in the geometry's own frame, in
+            micrometers, interpolated between the z of the two contacts either side of it
+            along the shaft. It keeps the table's origin and direction, so on a shaft whose
+            z falls with depth it falls as ``crossover_depth_um`` rises. None if rejected,
+            if no `probe_geometry` was given, or if z does not vary along the shaft.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,
             and transition sharpness. Returned for both accepted and rejected fits.
         profile: 1D array of shape (n_channels,) containing the spectrolaminar difference
@@ -91,6 +103,9 @@ class VFlipResult(DictAccessMixin):
         accepted: Boolean flag indicating whether the spectrolaminar motif satisfies all
             acceptance criteria (support score >= threshold, valid monotonic crossover).
         rejection_reason: Diagnostic reason string if rejected, or None if accepted.
+            ``"declaration_contradicted"`` means a depth declaration put the shallow contact
+            first and a motif that passed every other acceptance test resolved as
+            ``"deep_to_superficial"`` in that frame.
         n_channels: Total number of evaluated contacts along the probe shaft.
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
@@ -98,9 +113,12 @@ class VFlipResult(DictAccessMixin):
         index_space: Which axis ``crossover_contact``, ``profile``, ``low_peak_contact`` and
             ``high_peak_contact`` are indexed on.
 
-            - ``"shaft_rank"``: position along the physical shaft, superficial end first.
-              Produced when `vflip` was given a `probe_geometry` carrying a usable
-              `linear_order`, which reorders the PSD rows before the fit.
+            - ``"shaft_rank"``: position along the physical shaft, starting from the end
+              `depth_anchor` names: the declared shallow contact under ``"shallowest"``,
+              the first contact of `linear_order` (which follows the table's row order and
+              may be the deep one) under ``"row_order"``. Produced when `vflip` was given a
+              `probe_geometry` carrying a usable `linear_order`, which reorders the PSD rows
+              before the fit.
             - ``"channel"``: the row order of the PSD array as supplied. Produced when no
               geometry was given, so no reordering happened.
 
@@ -108,6 +126,20 @@ class VFlipResult(DictAccessMixin):
             shaft. :func:`label_layers` always reads shaft-rank, so it refuses a
             ``"channel"`` result whenever the geometry it is handed has a non-identity
             `linear_order` rather than mixing the two axes silently.
+        depth_anchor: Which end of the shaft rank 0 is, and so where ``crossover_depth_um``
+            is measured from.
+
+            - ``"row_order"``: the first contact of `probe_geometry.linear_order`, whose
+              direction follows the electrode table's row order, or the first PSD row
+              without a geometry. Produced when no depth axis was declared.
+            - ``"shallowest"``: the contact at the declared shallow end of `depth_axis`, so
+              depth increases into tissue whatever the row order. Produced when `vflip`
+              was given `depth_axis` and `shallow_end`.
+
+            :func:`label_layers` must be given the same declaration.
+        depth_axis: The declared depth column of `probe_geometry.contact_positions`
+            (``"x"``, ``"y"`` or ``"z"``), or None.
+        shallow_end: Which end of `depth_axis` is shallow, ``"min"`` or ``"max"``, or None.
     """
 
     crossover_contact: Optional[float]
@@ -123,12 +155,20 @@ class VFlipResult(DictAccessMixin):
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
     index_space: str = "channel"
+    crossover_z_um: Optional[float] = None
+    depth_anchor: str = "row_order"
+    depth_axis: Optional[str] = None
+    shallow_end: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
         return {
             "crossover_contact": self.crossover_contact,
             "crossover_depth_um": self.crossover_depth_um,
+            "crossover_z_um": self.crossover_z_um,
+            "depth_anchor": str(self.depth_anchor),
+            "depth_axis": self.depth_axis,
+            "shallow_end": self.shallow_end,
             "support_score": float(self.support_score),
             "profile": self.profile.copy(),
             "low_peak_contact": int(self.low_peak_contact) if self.low_peak_contact is not None else None,
@@ -140,6 +180,79 @@ class VFlipResult(DictAccessMixin):
             "n_missing": int(self.n_missing),
             "index_space": str(self.index_space),
         }
+
+
+# Geometry columns a caller may declare as the depth axis, as `contact_positions` columns,
+# and which end of that axis is shallow.
+_DEPTH_AXES = ("x", "y", "z")
+_SHALLOW_ENDS = ("min", "max")
+
+
+def _refuse_a_deep_first_declaration(
+    orientation: str, depth_axis: Optional[str], shallow_end: Optional[str], func_name: str
+) -> None:
+    """A depth declaration puts the shallow contact first, so contact 0 cannot also be deep."""
+    if orientation == "deep_to_superficial" and (depth_axis is not None or shallow_end is not None):
+        raise ValueError(
+            f"{func_name}: orientation='deep_to_superficial' says contact 0 is deep, but "
+            f"depth_axis={depth_axis!r} with shallow_end={shallow_end!r} puts the shallow "
+            "contact first. Pass orientation='auto' or 'superficial_to_deep' with the "
+            "declaration, or drop the declaration."
+        )
+
+
+def _depth_anchored_order(
+    probe_geometry: Any,
+    order: Optional[np.ndarray],
+    depth_axis: Optional[str],
+    shallow_end: Optional[str],
+    func_name: str,
+) -> Tuple[Optional[np.ndarray], str]:
+    """The shaft order to fit and label in, and the anchor it carries.
+
+    Without a declaration the order is `probe_geometry.linear_order` as given, whose direction
+    follows the table's row order ('row_order'). With one, the order is reversed when needed so
+    rank 0 is the contact at the declared shallow end ('shallowest'). The geometry itself is
+    never modified.
+    """
+    if depth_axis is None and shallow_end is None:
+        return order, "row_order"
+    if depth_axis is None or shallow_end is None:
+        raise ValueError(
+            f"{func_name}: depth_axis and shallow_end are declared together; got "
+            f"depth_axis={depth_axis!r}, shallow_end={shallow_end!r}"
+        )
+    if depth_axis not in _DEPTH_AXES:
+        raise ValueError(f"{func_name}: depth_axis must be one of {_DEPTH_AXES}, got {depth_axis!r}")
+    if shallow_end not in _SHALLOW_ENDS:
+        raise ValueError(
+            f"{func_name}: shallow_end must be one of {_SHALLOW_ENDS}, got {shallow_end!r}"
+        )
+    positions = getattr(probe_geometry, "contact_positions", None)
+    if probe_geometry is None or positions is None:
+        raise ValueError(
+            f"{func_name}: a depth_axis declaration needs a probe_geometry with contact_positions"
+        )
+    positions = np.asarray(positions, dtype=float)
+    column = _DEPTH_AXES.index(depth_axis)
+    if positions.ndim != 2 or positions.shape[1] <= column:
+        raise ValueError(
+            f"{func_name}: probe_geometry.contact_positions has no {depth_axis!r} column "
+            f"(shape {positions.shape})"
+        )
+    if order is None or len(order) != positions.shape[0]:
+        raise ValueError(
+            f"{func_name}: a depth_axis declaration needs probe_geometry.linear_order over "
+            "every contact"
+        )
+    first, last = positions[order[0], column], positions[order[-1], column]
+    if not (np.isfinite(first) and np.isfinite(last)) or abs(last - first) <= 1e-6:
+        raise ValueError(
+            f"{func_name}: {depth_axis!r} does not change between the two ends of the shaft "
+            f"({first} and {last} um), so it cannot say which end is shallow"
+        )
+    shallow_first = first < last if shallow_end == "min" else first > last
+    return (np.asarray(order) if shallow_first else np.asarray(order)[::-1]), "shallowest"
 
 
 def _unit_range(values: np.ndarray) -> np.ndarray:
@@ -172,6 +285,8 @@ def vflip(
     min_channels: int = 8,
     min_peak_distance: int = 2,
     device: str = "cpu",
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> VFlipResult:
     """Vectorized Frequency-based Laminar Identity Profile (vFLIP).
 
@@ -214,19 +329,45 @@ def vflip(
         freqs: 1D array of strictly increasing frequency coordinates in Hz, shape `(n_freqs,)`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, whose
+            contact 0 is the declared shallow contact under a depth declaration, the first
+            contact of `probe_geometry.linear_order` otherwise, and PSD row 0 without a
+            geometry:
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Raises ValueError with a depth declaration, which puts the shallow contact
+              first; with ``"auto"``, a declared fit that resolves this way is rejected
+              (see `shallow_end`).
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
         min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
         device: Hardware device (`"cpu"` or `"cuda"`).
+        depth_axis: Optional column of `probe_geometry.contact_positions` that is depth:
+            ``"x"``, ``"y"`` or ``"z"``. Declared together with `shallow_end`. With the
+            declaration the fit runs along the shaft from its shallow end, so
+            ``crossover_contact``, the peaks, the profile, `orientation` and
+            ``crossover_depth_um`` are anchored there and do not depend on the table's row
+            order; the result records ``depth_anchor="shallowest"``. Without it they follow
+            `linear_order` as given (``depth_anchor="row_order"``), unchanged. The geometry
+            is never modified. ``"x"``, ``"y"`` and ``"z"`` name columns 0, 1 and 2 of
+            `contact_positions`, so ``"z"`` is the table's ``rel_z`` when it has no
+            ``x``/``y``/``z`` columns. The axis is refused when its values at the two end
+            contacts of the shaft are within 1e-6 um of each other.
+        shallow_end: Which end of `depth_axis` is shallow: ``"min"`` or ``"max"``. jnwb
+            does not infer it, because coordinate conventions differ between files. A
+            motif that places the deep layers at the declared shallow end rejects the fit
+            (``rejection_reason="declaration_contradicted"``) rather than overriding either.
+            That reason is reported only for a fit that passes every other acceptance test,
+            so a fit without support reports ``"insufficient_support"``; an
+            ``orientation`` argument that the peaks disagree with reports
+            ``"orientation_mismatch"`` first.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
@@ -234,7 +375,12 @@ def vflip(
 
     Raises:
         ValueError: If input dimensions are invalid, frequencies non-monotonic, bands overlapping
-            or outside frequency range, non-finite parameters provided, or min_support_score is non-finite.
+            or outside frequency range, non-finite parameters provided, min_support_score is
+            non-finite, `contact_spacing` disagrees with `probe_geometry.nominal_pitch`
+            (the depth would then not be in the frame :func:`label_layers` measures),
+            ``orientation="deep_to_superficial"`` comes with a depth declaration, or the
+            depth declaration is incomplete, names an unknown axis or end, comes without a
+            `probe_geometry`, or names an axis that does not change along the shaft.
     """
     # 1. Parameter validation
     if not np.isfinite(min_support_score):
@@ -243,6 +389,7 @@ def vflip(
     valid_orientations = ("auto", "superficial_to_deep", "deep_to_superficial")
     if orientation not in valid_orientations:
         raise ValueError(f"orientation must be one of {valid_orientations}, got {orientation!r}")
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip")
 
     # Validate device. `laminar.py` contains no cupy or torch call anywhere, so a
     # `device='cuda'` request can never be honoured here -- the resolver's answer used
@@ -301,9 +448,24 @@ def vflip(
                 f"probe_geometry channel count ({len(probe_geometry.channel_ids)}) "
                 f"does not match psd channels ({n_channels})"
             )
+        nominal = getattr(probe_geometry, "nominal_pitch", None)
         if effective_spacing is None:
-            effective_spacing = probe_geometry.nominal_pitch
+            effective_spacing = nominal
+        elif nominal is not None and not np.isclose(
+            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
+        ):
+            # label_layers measures depth as rank times nominal_pitch, so a depth computed
+            # with another spacing would select different contacts through depth_range_um.
+            raise ValueError(
+                f"contact_spacing={contact_spacing} disagrees with probe_geometry.nominal_pitch="
+                f"{nominal}; label_layers measures depth with nominal_pitch, so the crossover "
+                "depth would not be in its frame. Omit contact_spacing, or build the geometry "
+                "with nominal_pitch=contact_spacing."
+            )
         order = getattr(probe_geometry, "linear_order", None)
+    order, depth_anchor = _depth_anchored_order(
+        probe_geometry, order, depth_axis, shallow_end, "vflip"
+    )
 
     if effective_spacing is not None:
         effective_spacing = float(effective_spacing)
@@ -359,6 +521,9 @@ def vflip(
             n_missing=n_missing,
             bad_channel_mask=effective_bad_input,
             index_space=index_space,
+            depth_anchor=depth_anchor,
+            depth_axis=depth_axis,
+            shallow_end=shallow_end,
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
@@ -464,6 +629,7 @@ def vflip(
     peak_sep = c_deep - c_sup
 
     crossover_c: Optional[float] = None
+    crossover_depth: Optional[float] = None
     crossover_z: Optional[float] = None
 
     if orientation_matches and peak_sep >= min_peak_distance:
@@ -485,14 +651,16 @@ def vflip(
             # Select candidate maximizing transition steepness
             cross_candidates.sort(key=lambda x: x[1], reverse=True)
             crossover_c = cross_candidates[0][0]
-            if probe_geometry is not None and order is not None:
-                sorted_z = probe_geometry.contact_positions[order, 2]
+            # Depth is always shaft rank times pitch, the frame `label_layers` places
+            # contacts in. The geometry's own z is reported separately: it can run in
+            # either direction along the shaft and carries the table's origin, so it is a
+            # different quantity rather than a more precise depth.
+            if effective_spacing is not None:
+                crossover_depth = float(crossover_c * effective_spacing)
+            if probe_geometry is not None and order is not None and len(order) == n_channels:
+                sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
                 if np.ptp(sorted_z) > 1e-6:
                     crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
-                elif effective_spacing is not None:
-                    crossover_z = float(crossover_c * effective_spacing)
-            elif effective_spacing is not None:
-                crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
     # Density-normalized so the score does not scale with the number of channels.
@@ -552,14 +720,21 @@ def vflip(
     elif support_score < min_support_score:
         accepted = False
         rejection_reason = "insufficient_support"
+    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
+        # Checked last: only a motif that passes every other test can contradict the
+        # declaration. On noise the peak order is a coin toss, and reporting it as a
+        # contradiction would name the wrong reason for a fit that has no support.
+        accepted = False
+        rejection_reason = "declaration_contradicted"
 
     # Enforce failure invariants: rejected fit implies None crossover
     final_cross_c = crossover_c if accepted else None
+    final_cross_depth = crossover_depth if accepted else None
     final_cross_z = crossover_z if accepted else None
 
     return VFlipResult(
         crossover_contact=final_cross_c,
-        crossover_depth_um=final_cross_z,
+        crossover_depth_um=final_cross_depth,
         support_score=support_score,
         profile=located_profile,
         low_peak_contact=low_peak,
@@ -571,6 +746,10 @@ def vflip(
         n_missing=n_missing,
         bad_channel_mask=effective_bad_input,
         index_space=index_space,
+        crossover_z_um=final_cross_z,
+        depth_anchor=depth_anchor,
+        depth_axis=depth_axis,
+        shallow_end=shallow_end,
     )
 
 
@@ -593,6 +772,8 @@ def vflip_from_lfp(
     min_channels: int = 8,
     min_peak_distance: int = 2,
     device: str = "cpu",
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> VFlipResult:
     """Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.
 
@@ -619,13 +800,17 @@ def vflip_from_lfp(
             power spectrum (`'spectrum'`). Default: `'density'`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, as in
+            :func:`vflip` (contact 0 is the declared shallow contact under a depth
+            declaration):
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Raises ValueError with a depth declaration, before the PSD is computed.
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
@@ -635,14 +820,18 @@ def vflip_from_lfp(
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
         min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
         device: Hardware device (`"cpu"` or `"cuda"`).
+        depth_axis, shallow_end: Optional depth declaration, passed to :func:`vflip`, which
+            anchors the fit at the shallow end of the declared geometry column.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
         and diagnostic flags.
 
     Raises:
-        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, or parameters
-            violate geometry, frequency, or numerical invariants.
+        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, `contact_spacing`
+            disagrees with `probe_geometry.nominal_pitch`, the depth declaration is invalid
+            (as in :func:`vflip`), or parameters violate geometry, frequency, or numerical
+            invariants.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -659,6 +848,7 @@ def vflip_from_lfp(
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive and finite (Hz), got {fs}")
 
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip_from_lfp")
     lfp_arr = np.asarray(lfp, dtype=np.float64)
     if lfp_arr.ndim != 2:
         raise ValueError(f"lfp must be a 2D array of shape (n_channels, n_times), got ndim={lfp_arr.ndim}")
@@ -723,6 +913,8 @@ def vflip_from_lfp(
         min_channels=min_channels,
         min_peak_distance=min_peak_distance,
         device=device,
+        depth_axis=depth_axis,
+        shallow_end=shallow_end,
     )
 
 
@@ -734,6 +926,8 @@ def label_layers(
     bad_channel_mask: Optional[np.ndarray] = None,
     depth_range_um: Optional[Tuple[float, float]] = None,
     contact_range: Optional[Tuple[float, float]] = None,
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> Dict[Any, str]:
     """Assign cortical layer labels (superficial, input, deep) to probe contacts.
 
@@ -768,9 +962,17 @@ def label_layers(
         bad_channel_mask: Optional boolean array matching `probe_geometry.channel_ids`. Contacts
             flagged True receive ``"na"``. If omitted, defaults to `vflip_result.bad_channel_mask`.
         depth_range_um: Optional (min_depth_um, max_depth_um) tuple bounding valid cortical depth
-            along the shaft. Contacts outside this range receive ``"na"``.
+            along the shaft, in the frame of `vflip_result.crossover_depth_um`: shaft rank
+            times `probe_geometry.nominal_pitch`, from the first contact. Contacts outside this
+            range receive ``"na"``.
         contact_range: Optional (min_contact, max_contact) tuple bounding valid contact indices
             along the ordered linear shaft. Contacts outside this range receive ``"na"``.
+        depth_axis, shallow_end: The depth declaration `vflip_result` was fitted with (see
+            :func:`vflip`). With it, contacts are ranked from the declared shallow end, the
+            frame the result's ``crossover_contact`` and ``crossover_depth_um`` are anchored
+            in; without it, by `probe_geometry.linear_order` as given. A declaration that
+            differs from the result's, including one on either side only, raises rather than
+            placing the crossover in the other frame.
 
     Returns:
         Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
@@ -786,8 +988,9 @@ def label_layers(
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
             is not linear, channel count does not match `vflip_result.n_channels`, range bounds
-            are invalid, or `vflip_result.index_space` is not the shaft rank this geometry
-            requires.
+            are invalid, `vflip_result.index_space` is not the shaft rank this geometry
+            requires, the depth declaration is invalid (as in :func:`vflip`), or it differs
+            from the one `vflip_result` records.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -849,6 +1052,27 @@ def label_layers(
             f"vflip_result.n_channels ({vflip_result.n_channels})"
         )
 
+    # The depth frame. The declaration is validated here, before the rejection path, so an
+    # invalid one raises whatever the fit; and it must be the one the fit was made with,
+    # because a crossover anchored at one end cannot be placed from the other.
+    anchored_order, depth_anchor = _depth_anchored_order(
+        probe_geometry, getattr(probe_geometry, "linear_order", None),
+        depth_axis, shallow_end, "label_layers",
+    )
+    fitted_with = (
+        str(getattr(vflip_result, "depth_anchor", "row_order")),
+        getattr(vflip_result, "depth_axis", None),
+        getattr(vflip_result, "shallow_end", None),
+    )
+    if fitted_with != (depth_anchor, depth_axis, shallow_end):
+        raise ValueError(
+            "label_layers: vflip_result was fitted with depth_anchor="
+            f"{fitted_with[0]!r}, depth_axis={fitted_with[1]!r}, shallow_end={fitted_with[2]!r}, "
+            f"but label_layers was given depth_axis={depth_axis!r}, shallow_end={shallow_end!r}. "
+            "Pass the same depth declaration to both, so the crossover and the contacts share "
+            "one frame."
+        )
+
     # 2. Strict rejection invariant: unaccepted fits yield all "na"
     if not vflip_result.accepted or vflip_result.crossover_contact is None:
         return {ch_id: "na" for ch_id in channel_ids}
@@ -902,8 +1126,9 @@ def label_layers(
     # Under 'deep_to_superficial': lower contact indices are deep, higher are superficial.
     is_sup_to_deep = (vflip_result.orientation == "superficial_to_deep")
 
-    # Map each channel in channel_ids to its position index along the ordered linear shaft
-    order = getattr(probe_geometry, "linear_order", None)
+    # Map each channel in channel_ids to its position index along the ordered linear shaft,
+    # from the shallow end when a depth axis was declared.
+    order = anchored_order
     if order is not None and len(order) == n_geom_channels:
         rank = np.empty(n_geom_channels, dtype=float)
         rank[order] = np.arange(n_geom_channels, dtype=float)

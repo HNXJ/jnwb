@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import re
 
 import numpy as np
 import pandas as pd
@@ -271,3 +272,299 @@ class TestTheGranularBoundaryIsPinnedNotEmergent:
         assert labels["ch_14"] == "deep"
         assert labels["ch_10"] == "input"
         assert labels["ch_13"] == "input"
+
+
+class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
+    """With `depth_axis` and `shallow_end`, depth runs from the shallow contact into tissue.
+
+    Without the declaration the frame follows the table's row order: the same probe listed
+    shallow-first and deep-first gave depths of 400 and 350 um. The declaration anchors both
+    `vflip` and `label_layers`; `ProbeGeometry` itself is left as it was.
+    """
+
+    DECLARED = {"depth_axis": "z", "shallow_end": "min"}
+
+    @staticmethod
+    def _table(perm, layout="rising"):
+        """One probe listed in the row order `perm`; contact i is i pitches into tissue.
+
+        rising: z increases into tissue (shallow end "min"); falling: z decreases into
+        tissue (shallow end "max"); staggered: y decreases into tissue along the shaft and
+        z alternates 0 / 30 um across it, so z is largest at the deep end of 24 contacts.
+        """
+        i = np.arange(N_CONTACTS)
+        x, y, z = np.zeros(N_CONTACTS), np.zeros(N_CONTACTS), PITCH_UM * i
+        if layout == "falling":
+            z = PITCH_UM * (N_CONTACTS - 1 - i)
+        elif layout == "staggered":
+            y, z = -PITCH_UM * i, 30.0 * (i % 2)
+        frame = pd.DataFrame({
+            "x": x, "y": y, "z": z, "channel_id": [f"ch_{k}" for k in i],
+        }).iloc[perm].reset_index(drop=True)
+        return jnwb.probe_geometry(frame, units="um")
+
+    def _fit(self, perm, layout="rising", accepted=True, **declared):
+        freqs, psd = _synthetic_motif()  # row i of psd is the contact i pitches into tissue
+        geom = self._table(perm, layout)
+        res = vflip(psd[perm], freqs, probe_geometry=geom, **declared)
+        assert res.accepted is accepted, res.rejection_reason
+        return res, geom
+
+    @staticmethod
+    def _orders():
+        return {
+            "in_order": np.arange(N_CONTACTS),
+            "reversed": np.arange(N_CONTACTS)[::-1],
+            "permuted": np.random.default_rng(3).permutation(N_CONTACTS),
+        }
+
+    @pytest.mark.parametrize("layout, depth_axis, shallow_end", [
+        ("rising", "z", "min"),
+        ("falling", "z", "max"),
+        ("staggered", "y", "max"),
+    ])
+    def test_the_same_probe_in_any_row_order_gives_one_depth_and_one_labelling(
+        self, layout, depth_axis, shallow_end
+    ):
+        declared = {"depth_axis": depth_axis, "shallow_end": shallow_end}
+        fits = {name: self._fit(perm, layout, **declared) for name, perm in self._orders().items()}
+        depths = {name: res.crossover_depth_um for name, (res, _) in fits.items()}
+        labels = {name: label_layers(res, geom, **declared) for name, (res, geom) in fits.items()}
+        assert all(res.depth_anchor == "shallowest" for res, _ in fits.values())
+        assert all((res.depth_axis, res.shallow_end) == (depth_axis, shallow_end)
+                   for res, _ in fits.values())
+        # Every declared fit is the shallow-first fit: the undeclared fit of the rising probe
+        # listed shallow-first, crossover, peaks, profile and depth alike.
+        reference, _ = self._fit(self._orders()["in_order"])
+        for name, (res, _) in fits.items():
+            assert res.crossover_contact == pytest.approx(reference.crossover_contact, abs=1e-9), name
+            assert (res.low_peak_contact, res.high_peak_contact) == (
+                reference.low_peak_contact, reference.high_peak_contact), name
+            np.testing.assert_allclose(res.profile, reference.profile, atol=1e-12)
+            assert depths[name] == pytest.approx(reference.crossover_depth_um, abs=1e-9), depths
+            assert labels[name] == labels["in_order"], name
+        if layout == "rising":  # anchored at z = 0, the depth is the crossover's z
+            assert depths["in_order"] == pytest.approx(fits["in_order"][0].crossover_z_um, abs=1e-9)
+
+    @pytest.mark.parametrize("layout, depth_axis, shallow_end", [
+        ("rising", "z", "max"),     # the wrong end of the right axis
+        ("falling", "z", "min"),
+        ("staggered", "z", "max"),  # the stagger column: its largest value is at the deep end
+    ])
+    @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
+    def test_a_declaration_the_motif_contradicts_rejects_the_fit(
+        self, layout, depth_axis, shallow_end, order_name
+    ):
+        declared = {"depth_axis": depth_axis, "shallow_end": shallow_end}
+        res, geom = self._fit(self._orders()[order_name], layout, accepted=False, **declared)
+        assert res.rejection_reason == "declaration_contradicted"
+        assert res.orientation == "deep_to_superficial" and res.depth_anchor == "shallowest"
+        assert res.crossover_contact is None and res.crossover_depth_um is None
+        assert res.crossover_z_um is None
+        assert set(label_layers(res, geom, **declared).values()) == {"na"}
+
+    def test_noise_under_a_correct_declaration_is_never_called_a_contradiction(self):
+        """On noise the peak order is a coin toss; an unsupported fit reports its lack of support."""
+        freqs, _ = _synthetic_motif()
+        perm = self._orders()["reversed"]
+        geom = self._table(perm)
+        reasons, deep_first = [], []
+        for seed in range(200):
+            psd = np.random.default_rng(seed).exponential(1.0, (N_CONTACTS, freqs.size))
+            res = vflip(psd[perm], freqs, probe_geometry=geom, **self.DECLARED)
+            reasons.append(res.rejection_reason)
+            if res.orientation == "deep_to_superficial":
+                deep_first.append(res.rejection_reason)
+        assert "declaration_contradicted" not in reasons
+        # The case is built: many noise fits resolve deep-first and reach the support test.
+        assert deep_first.count("insufficient_support") >= 20, sorted(set(deep_first))
+
+    def test_orientation_mismatch_is_reported_before_a_contradiction(self):
+        """A stated orientation the peaks disagree with is a mismatch, not a contradiction.
+
+        The two reasons cannot both apply: a declaration refuses a stated deep-first
+        orientation upfront, a stated superficial-first one fixes the resolved orientation,
+        and "auto" mismatches only when it resolves nothing. The mismatch is checked first,
+        as it is without a declaration.
+        """
+        declared = {"depth_axis": "z", "shallow_end": "max"}  # the deep end, on this probe
+        stated, _ = self._fit(self._orders()["reversed"], accepted=False,
+                              orientation="superficial_to_deep", **declared)
+        assert stated.rejection_reason == "orientation_mismatch"
+        resolved, _ = self._fit(self._orders()["reversed"], accepted=False, **declared)
+        assert resolved.rejection_reason == "declaration_contradicted"
+
+    @pytest.mark.parametrize("declared", [
+        {"depth_axis": "z", "shallow_end": "min"},
+        {"depth_axis": "z"},
+        {"shallow_end": "min"},
+    ])
+    def test_a_declaration_with_a_deep_first_orientation_raises_before_fitting(
+        self, declared, monkeypatch
+    ):
+        def fitted(*args, **kwargs):
+            raise AssertionError("the fit ran")
+
+        monkeypatch.setattr(laminar, "_unit_range", fitted)  # the fit's first step
+        freqs, psd = _synthetic_motif()
+        geom = self._table(self._orders()["in_order"])
+        match = r"orientation='deep_to_superficial'.*depth_axis=" + re.escape(
+            repr(declared.get("depth_axis")))
+        with pytest.raises(ValueError, match=match):
+            vflip(psd, freqs, probe_geometry=geom, orientation="deep_to_superficial", **declared)
+        # vflip_from_lfp refuses itself, before the PSD is computed and vflip is reached.
+        monkeypatch.setattr(laminar, "vflip", fitted)
+        lfp = np.random.default_rng(0).standard_normal((N_CONTACTS, 2000))
+        with pytest.raises(ValueError, match=match):
+            jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom,
+                                orientation="deep_to_superficial", **declared)
+        # Undeclared, the same orientation is a stated expectation and still fits.
+        monkeypatch.undo()
+        assert vflip(psd[::-1], freqs, probe_geometry=self._table(self._orders()["reversed"]),
+                     orientation="deep_to_superficial").rejection_reason != "declaration_contradicted"
+
+    def test_vflip_from_lfp_forwards_the_declaration(self):
+        geom = self._table(self._orders()["reversed"])
+        lfp = np.random.default_rng(11).standard_normal((N_CONTACTS, 4000))
+        res = jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom, **self.DECLARED)
+        assert (res.depth_anchor, res.depth_axis, res.shallow_end) == ("shallowest", "z", "min")
+        assert jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom).depth_anchor == "row_order"
+
+    def test_a_fit_rejected_for_too_few_channels_records_the_declaration(self):
+        freqs, psd = _synthetic_motif()
+        geom = self._table(self._orders()["reversed"])
+        mask = np.ones(N_CONTACTS, dtype=bool)
+        mask[:3] = False
+        res = vflip(psd[::-1], freqs, probe_geometry=geom, bad_channel_mask=mask, **self.DECLARED)
+        assert res.rejection_reason == "insufficient_channels"
+        assert (res.depth_anchor, res.depth_axis, res.shallow_end) == ("shallowest", "z", "min")
+        assert set(label_layers(res, geom, **self.DECLARED).values()) == {"na"}
+
+    @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
+    def test_depth_range_to_the_crossover_selects_exactly_the_contacts_above_it(self, order_name):
+        res, geom = self._fit(self._orders()[order_name], **self.DECLARED)
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um), **self.DECLARED)
+        selected = {ch for ch, lab in labels.items() if lab != "na"}
+        above = {f"ch_{i}" for i in range(N_CONTACTS) if i * PITCH_UM <= res.crossover_depth_um}
+        assert selected == above and 0 < len(above) < N_CONTACTS
+
+    def test_without_a_declaration_the_row_order_frame_is_kept_and_recorded(self):
+        res_in, _ = self._fit(self._orders()["in_order"])
+        res_rev, _ = self._fit(self._orders()["reversed"])
+        assert res_in.depth_anchor == res_rev.depth_anchor == "row_order"
+        assert res_in.to_dict()["depth_anchor"] == "row_order"
+        # Deep-first rows keep the frame measured from the deep end.
+        assert res_rev.crossover_depth_um == pytest.approx(
+            (N_CONTACTS - 1) * PITCH_UM - res_in.crossover_depth_um, abs=1e-6)
+
+    def test_probe_geometry_is_not_reoriented(self):
+        """linear_order and orientation stay in row order, byte for byte, through both calls."""
+        geom = self._table(self._orders()["reversed"])
+        before = (geom.linear_order.tobytes(), geom.orientation.tobytes(),
+                  geom.contact_positions.tobytes())
+        np.testing.assert_array_equal(geom.linear_order, np.arange(N_CONTACTS))
+        np.testing.assert_array_equal(geom.orientation, [0.0, 0.0, -1.0])
+        freqs, psd = _synthetic_motif()
+        perm = self._orders()["reversed"]
+        res = vflip(psd[perm], freqs, probe_geometry=geom, **self.DECLARED)
+        label_layers(res, geom, **self.DECLARED)
+        after = (geom.linear_order.tobytes(), geom.orientation.tobytes(),
+                 geom.contact_positions.tobytes())
+        assert after == before
+
+    @pytest.mark.parametrize("declared, match", [
+        ({"depth_axis": "w", "shallow_end": "min"}, "depth_axis must be one of"),
+        ({"depth_axis": "z", "shallow_end": "top"}, "shallow_end must be one of"),
+        ({"depth_axis": "z"}, "declared together"),
+        ({"shallow_end": "min"}, "declared together"),
+        ({"depth_axis": "x", "shallow_end": "min"}, "does not change"),
+    ])
+    def test_an_invalid_declaration_raises_in_both_functions(self, declared, match):
+        freqs, psd = _synthetic_motif()
+        geom = self._table(np.arange(N_CONTACTS))
+        with pytest.raises(ValueError, match=match):
+            vflip(psd, freqs, probe_geometry=geom, **declared)
+        res = vflip(psd, freqs, probe_geometry=geom)
+        with pytest.raises(ValueError, match=match):
+            label_layers(res, geom, **declared)
+
+    def test_a_declaration_without_a_geometry_raises(self):
+        freqs, psd = _synthetic_motif()
+        with pytest.raises(ValueError, match="needs a probe_geometry"):
+            vflip(psd, freqs, contact_spacing=PITCH_UM, **self.DECLARED)
+
+    def test_label_layers_refuses_a_declaration_the_fit_was_not_made_with(self):
+        res_declared, geom = self._fit(self._orders()["reversed"], **self.DECLARED)
+        res_plain, _ = self._fit(self._orders()["reversed"])
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_declared, geom)
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_plain, geom, **self.DECLARED)
+        with pytest.raises(ValueError, match="same depth declaration"):
+            label_layers(res_declared, geom, depth_axis="z", shallow_end="max")
+
+
+class TestTheCrossoverDepthIsInTheLabellingFrame:
+    """`crossover_depth_um` is shaft rank times pitch, the frame `label_layers` uses.
+
+    On a shaft whose z falls along the shaft and carries an origin, the crossover's absolute z
+    and its rank-times-pitch depth are different numbers; the depth used to be the absolute z
+    whenever z varied, so it could not be passed back to `label_layers(depth_range_um=)`.
+    """
+
+    Z_TOP_UM = 5000.0
+
+    def _fit(self):
+        freqs, psd = _synthetic_motif()
+        geom = _geometry(self.Z_TOP_UM - PITCH_UM * np.arange(N_CONTACTS))
+        assert np.array_equal(geom.linear_order, np.arange(N_CONTACTS)), (
+            "fixture must keep the table in shaft order so only the z direction differs"
+        )
+        res = vflip(psd, freqs, probe_geometry=geom)
+        assert res.accepted
+        return res, geom
+
+    def test_depth_is_rank_times_pitch_and_absolute_z_is_its_own_field(self):
+        res, geom = self._fit()
+        c = res.crossover_contact
+        assert res.crossover_depth_um == pytest.approx(c * geom.nominal_pitch, abs=1e-9)
+        assert getattr(res, "crossover_z_um", None) == pytest.approx(
+            self.Z_TOP_UM - PITCH_UM * c, abs=1e-9
+        )
+        record = res.to_dict()
+        assert record["crossover_depth_um"] == res.crossover_depth_um
+        assert record.get("crossover_z_um") == res.crossover_z_um
+
+    @pytest.mark.parametrize("spacing", [None, PITCH_UM])
+    def test_depth_range_up_to_the_crossover_selects_the_contacts_above_it(self, spacing):
+        freqs, psd = _synthetic_motif()
+        geom = _geometry(self.Z_TOP_UM - PITCH_UM * np.arange(N_CONTACTS))
+        res = vflip(psd, freqs, probe_geometry=geom, contact_spacing=spacing)
+        assert res.accepted and 11.0 < res.crossover_contact < 12.0
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um))
+        selected = [i for i in range(N_CONTACTS) if labels[f"ch_{i}"] != "na"]
+        assert selected == list(range(12))
+
+    @pytest.mark.parametrize("entry", ["vflip", "vflip_from_lfp"])
+    def test_a_contact_spacing_that_disagrees_with_the_geometry_raises(self, entry):
+        """contact_spacing=50 on a 100 um geometry gave depth 575 for contact 11.5, and
+        depth_range_um=(0, 575) then selected 6 contacts where 12 lie above the crossover."""
+        geom = _geometry(PITCH_UM * np.arange(N_CONTACTS))
+        assert geom.nominal_pitch == PITCH_UM
+        if entry == "vflip":
+            freqs, psd = _synthetic_motif()
+            call = lambda: vflip(psd, freqs, probe_geometry=geom, contact_spacing=50.0)  # noqa: E731
+        else:
+            lfp = np.random.default_rng(0).normal(size=(N_CONTACTS, 2000))
+            call = lambda: laminar.vflip_from_lfp(  # noqa: E731
+                lfp, 1000.0, probe_geometry=geom, contact_spacing=50.0)
+        with pytest.raises(ValueError, match="nominal_pitch"):
+            call()
+
+    def test_the_depth_bounds_label_layers_on_the_same_contacts(self):
+        res, geom = self._fit()
+        labels = label_layers(res, geom, depth_range_um=(0.0, res.crossover_depth_um))
+        in_range = [i for i in range(N_CONTACTS) if i * geom.nominal_pitch <= res.crossover_depth_um]
+        assert in_range and len(in_range) < N_CONTACTS
+        for i in range(N_CONTACTS):
+            assert (labels[f"ch_{i}"] != "na") == (i in in_range), i

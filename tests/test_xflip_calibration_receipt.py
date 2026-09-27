@@ -2,8 +2,8 @@
 
 `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so it could not be
 regenerated, and two changes had already invalidated it: 0.2.4 made `xflip` reject a
-zero-variance channel rather than report its correlation as 0, and 0.2.5 found the
-smooth-gradient drop gate was skipped on the `contiguous=False` path, so its null rates were
+zero-variance channel rather than report its correlation as 0, and the smooth-gradient drop
+gate turned out to be skipped on the `contiguous=False` path, so its null rates were
 conditional on a setting it did not name. It is replaced by `xflip_calibration_0.2.5.md`
 and a generator, and the receipt records a hash of the estimator; changing the estimator
 without rerunning `scripts/calibrate_xflip.py` fails here.
@@ -73,7 +73,7 @@ def test_receipt_and_generator_exist():
 
 
 def test_the_receipt_without_a_generator_is_gone():
-    """The defect repaired in 0.2.5 was a receipt nobody could reproduce, not its contents."""
+    """The defect repaired here was a receipt nobody could reproduce, not its contents."""
     for stale in ("xflip_calibration_0.2.3.md", "xflip_calibration_raw.json"):
         assert not (ROOT / "artifacts" / "benchmarks" / stale).exists(), (
             f"{stale} is a calibration receipt with no generator; it was replaced by "
