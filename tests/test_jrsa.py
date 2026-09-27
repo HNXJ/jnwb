@@ -21,6 +21,8 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 (P-151).
 """
 
+import contextlib
+import io
 import pickle
 import re
 import warnings
@@ -56,15 +58,20 @@ def test_the_documented_quickstart_line_runs(quickstart_inputs):
     """
     X, Y = quickstart_inputs
     page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(encoding="utf-8")
-    calls = [ln for ln in page.splitlines() if ln.startswith("jrsa_res = jnwb.jrsa(")]
+    lines = page.splitlines()
+    calls = [i for i, ln in enumerate(lines) if ln.startswith("jrsa_res = jnwb.jrsa(")]
     assert len(calls) == 1, calls
+    # The page's own print line, which follows the call, rather than a copy of it here.
+    printed = lines[calls[0] + 1]
+    assert printed.startswith("print(") and "jrsa_res" in printed, printed
     ns = {"jnwb": jnwb, "X": X, "Y": Y}
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", UserWarning)
-        exec(calls[0], ns)
+    out = io.StringIO()
+    with warnings.catch_warnings(), contextlib.redirect_stdout(out):
+        warnings.simplefilter("error")
+        exec(lines[calls[0]], ns)
+        exec(printed, ns)
     jrsa_res = ns["jrsa_res"]
-    line = f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}"
-    assert line.startswith("jRSA alignment: ")
+    assert out.getvalue().startswith("jRSA alignment: "), out.getvalue()
     assert 0.0 < float(jrsa_res.p) <= 1.0
 
 
@@ -77,7 +84,8 @@ def test_p_and_q_have_the_same_shape_as_value(quickstart_inputs, correction):
     """
     X, Y = quickstart_inputs
     res = jnwb.jrsa(
-        X, Y, metric="rsa", stats=True, permutations=100, rng=0, correction=correction
+        X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0,
+        correction=correction,
     )
     expected = np.shape(res.value)
     for sibling in SCALAR_SIBLINGS:
@@ -96,7 +104,7 @@ def test_p_and_q_have_the_same_shape_as_value(quickstart_inputs, correction):
 def test_float_of_p_does_not_raise(quickstart_inputs):
     """`float()` on a one-element array raises under NumPy>=2, the declared floor."""
     X, Y = quickstart_inputs
-    res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+    res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
     assert isinstance(float(res.p), float)
     assert isinstance(float(res.q), float)
 
@@ -135,7 +143,7 @@ def test_multiple_lags_still_give_a_vector_p():
 @pytest.fixture(scope="module")
 def scalar_result(quickstart_inputs):
     X, Y = quickstart_inputs
-    return jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+    return jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
 
 
 @pytest.mark.parametrize("name", ["p", "q"])
@@ -273,7 +281,7 @@ def test_every_documented_correction_is_actually_accepted(method):
     X = rng.normal(size=(6, 8, 20))
     Y = X + 0.3 * rng.normal(size=(6, 8, 20))
     res = jnwb.jrsa(
-        X, Y, metric="rsa", stats=True, permutations=10, rng=0, correction=method
+        X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0, correction=method
     )
     assert res.parameters["correction"] == method
 
@@ -304,6 +312,7 @@ def test_the_withdrawn_methods_raise_rather_than_falling_back(method):
     Y = X + 0.3 * rng.normal(size=(6, 8, 20))
     with pytest.raises(ValueError, match="Unrecognized correction method"):
         jnwb.jrsa(
-            X, Y, metric="rsa", stats=True, permutations=10, rng=0, correction=method
+            X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0,
+            correction=method,
         )
     assert method not in _documented_corrections()

@@ -260,9 +260,9 @@ def _probe_jrsa():
     # These p-values fall on about thirty likely values, and two fresh draws coincide on
     # about 4% of pairs (measured: 32 distinct in 200 calls; seen on CI). Up to three
     # further calls are compared, as for xflip.
-    first = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, rng=None).p).tolist()
+    first = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, null="iid", rng=None).p).tolist()
     for _ in range(3):
-        later = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, rng=None).p).tolist()
+        later = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, null="iid", rng=None).p).tolist()
         if later != first:
             break
     return first, later

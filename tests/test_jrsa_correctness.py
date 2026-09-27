@@ -24,9 +24,20 @@ def _all_metrics():
     return sorted(_METRIC_DISPATCH)
 
 
-def _nan_condition(paired):
+def _row_metric(metric):
+    from jnwb.jrsa import _OBSERVATION_AXIS_0_METRICS
+    return metric in _OBSERVATION_AXIS_0_METRICS
+
+
+def _nan_condition(paired, metric):
+    """Index 2 of the non-observation axis NaN throughout: a row for the paired metrics,
+    whose observations lie on the last axis, and a column for the row metrics."""
     rng = np.random.default_rng(0)
     x1 = rng.normal(size=(6, 40))
+    if _row_metric(metric):
+        x1 = x1.T.copy()
+        x1[:, 2] = np.nan
+        return x1, (rng.normal(size=(40, 6)) if paired else None)
     x1[2, :] = np.nan
     return x1, (rng.normal(size=(6, 40)) if paired else None)
 
@@ -37,9 +48,140 @@ def test_jrsa_omit_leaving_no_samples_raises_for_every_metric(metric, paired):
     """A condition that is NaN throughout makes `omit` drop every sample. hsic,
     mutual_information and transfer_entropy_histogram_nats returned 0.0 from zero samples,
     others NaN or an unrelated error; every metric must raise and say why."""
-    x1, x2 = _nan_condition(paired)
+    x1, x2 = _nan_condition(paired, metric)
     with pytest.raises(ValueError, match=rf"metric='{metric}'.*no samples remain.*\(2,\)"):
         oa.jrsa(x1, x2, metric=metric, stats=False, nan_policy="omit")
+
+
+@pytest.mark.parametrize("metric", sorted(["cka", "rv", "hsic", "distance_correlation",
+                                            "procrustes", "rsa"]))
+@pytest.mark.parametrize("paired", [True, False])
+def test_omit_drops_the_observation_of_a_row_metric(metric, paired):
+    """The row metrics read axis 0 as observations. `omit` dropped the last-axis column
+    holding the NaN, so one missing cell removed a feature from every observation."""
+    rng = np.random.default_rng(1)
+    x1, x2 = rng.normal(size=(30, 5)), rng.normal(size=(30, 5))
+    holed = x1.copy()
+    holed[7, 2] = np.nan
+    other = x2 if paired else None
+    res = oa.jrsa(holed, other, metric=metric, stats=False, nan_policy="omit",
+                  return_input=True)
+    assert res.aligned_x1.shape == (29, 5), res.aligned_x1.shape
+    ref = oa.jrsa(np.delete(x1, 7, axis=0),
+                  None if other is None else np.delete(x2, 7, axis=0),
+                  metric=metric, stats=False)
+    assert float(res.value) == pytest.approx(float(ref.value), rel=1e-12)
+
+
+def test_the_histogram_te_counts_no_join_between_rows():
+    """Flattening (rows, time) made each row's last sample the past of the next row's first,
+    so a row join was counted as a transition. Several rows are refused; one row, however
+    it is shaped, is the 1-D series."""
+    rng = np.random.default_rng(2)
+    x, y = rng.normal(size=(2, 100)), rng.normal(size=(2, 100))
+    with pytest.raises(ValueError, match="one series per input.*join between rows"):
+        oa.jrsa(x, y, metric="transfer_entropy_histogram_nats", stats=False)
+    one = float(oa.jrsa(x[0], y[0], metric="transfer_entropy_histogram_nats",
+                        stats=False).value)
+    assert float(oa.jrsa(x[:1], y[:1], metric="transfer_entropy_histogram_nats",
+                         stats=False).value) == one
+
+
+@pytest.mark.parametrize("metric, kw", [
+    ("granger_ssr_ftest", {}),
+    ("phase_slope", {"fs": 100.0, "nperseg": 64}),
+])
+def test_series_metrics_count_no_join_between_rows(metric, kw):
+    """x2 in each row equals x1 in the next, so the flattened x2 runs one row ahead of the
+    flattened x1 and each join between rows reads as a lead of x2 over x1. The rows are
+    refused; one row, 1-D or (1, n), gives the same value."""
+    rng = np.random.default_rng(4)
+    rows = rng.normal(size=(9, 256))
+    x1, x2 = rows[:-1], rows[1:]
+    with pytest.raises(ValueError, match="one series per input.*join between rows"):
+        oa.jrsa(x1, x2, metric=metric, stats=False, **kw)
+    one = oa.jrsa(x1[0], x2[0], metric=metric, stats=False, **kw).value
+    assert float(oa.jrsa(x1[:1], x2[:1], metric=metric, stats=False, **kw).value) == float(one)
+
+
+class TestReducingTheObservationAxisOfARowMetric:
+    """A reduction kept the reduced axis at length 1. For the row metrics that was axis 0,
+    their observations, so averaging the trials of a (trials, conditions, units) input left
+    one observation: cka returned NaN where cka on ``x.mean(0)`` gave 0.69. The axis is now
+    removed and the next axis, the conditions, becomes the observations."""
+
+    ROW = ["cka", "distance_correlation", "hsic", "procrustes", "rsa", "rv"]
+    KW = {"adim": (0, 1), "reduction": {"axis_0": "mean"}}
+
+    @staticmethod
+    def _trials():
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(10, 12, 6))
+        return x1, x1 + 0.8 * rng.normal(size=x1.shape)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_the_value_is_the_metric_of_the_trial_mean(self, metric):
+        x1, x2 = self._trials()
+        got = oa.jrsa(x1, x2, metric=metric, stats=False, **self.KW)
+        ref = oa.jrsa(x1.mean(0), x2.mean(0), metric=metric, stats=False)
+        assert np.isfinite(float(got.value))
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_lag_null_and_window_number_the_reduced_axes(self, metric):
+        """`lag` and the null act on the conditions, `window` on the axis `adim` names first
+        once renumbered, and `result.axes` keeps the input's numbering."""
+        x1, x2 = self._trials()
+        m1, m2 = x1.mean(0), x2.mean(0)
+        lagged = oa.jrsa(x1, x2, metric=metric, stats=False, lag=2, **self.KW)
+        assert lagged.execution["n_overlap"] == 10
+        np.testing.assert_allclose(
+            float(lagged.value),
+            float(oa.jrsa(m1, m2, metric=metric, stats=False, lag=2).value), rtol=1e-12)
+        tested = oa.jrsa(x1, x2, metric=metric, permutations=50, null="iid", rng=1,
+                         return_null=True, **self.KW)
+        by_hand = oa.jrsa(m1, m2, metric=metric, permutations=50, null="iid", rng=1,
+                          return_null=True)
+        np.testing.assert_allclose(tested.null_distribution, by_hand.null_distribution,
+                                   rtol=1e-12)
+        assert float(tested.p) == float(by_hand.p)
+        windowed = oa.jrsa(x1, x2, metric=metric, stats=False, window=(2, 10), adim=(1, 0),
+                           reduction={"axis_0": "mean"})
+        np.testing.assert_allclose(
+            float(windowed.value),
+            float(oa.jrsa(m1[2:10], m2[2:10], metric=metric, stats=False).value), rtol=1e-12)
+        assert windowed.axes == (1, 0)
+
+    def test_a_paired_metric_keeps_the_reduced_axis(self):
+        """Only the row metrics lose axis 0; pearson keeps it at length 1, as it always did."""
+        x1, x2 = self._trials()
+        res = oa.jrsa(x1, x2, metric="pearson", stats=False, return_input=True, **self.KW)
+        assert res.aligned_x1.shape == (1, 12, 6)
+        ref = oa.jrsa(x1.mean(0, keepdims=True), x2.mean(0, keepdims=True), metric="pearson",
+                      stats=False)
+        assert float(res.value) == float(ref.value)
+
+    @pytest.mark.parametrize("reduced, shape", [
+        ({"axis_1": "mean"}, (10, 1, 6)),
+        ({"axis_2": "mean"}, (10, 12, 1)),
+        ({"axis_0": "mean", "axis_2": "mean"}, (12, 1)),
+    ])
+    def test_only_axis_0_is_removed(self, reduced, shape):
+        """Another reduced axis stays at length 1, alone or beside a removed axis 0."""
+        x1, x2 = self._trials()
+        res = oa.jrsa(x1, x2, metric="cka", stats=False, return_input=True,
+                      adim=(0, 1, 2), reduction=reduced)
+        assert res.aligned_x1.shape == shape
+        assert res.aligned_x2.shape == shape
+
+    def test_a_window_on_the_removed_axis_raises(self):
+        x1, x2 = self._trials()
+        with pytest.raises(ValueError, match="`window` applies to axis 'axis_0', which the "
+                                             "reduction removed"):
+            oa.jrsa(x1, x2, metric="cka", stats=False, window=(2, 10), **self.KW)
+        with pytest.raises(ValueError, match="leaves no observation axis"):
+            oa.jrsa(x1[:, 0, 0], x2[:, 0, 0], metric="cka", stats=False, adim=0,
+                    reduction={"aligned": "mean"})
 
 
 @pytest.mark.parametrize("metric", _all_metrics())
@@ -341,7 +483,7 @@ class TestPermutationNullShufflesObservations:
         for seed in range(6):
             x1, x2 = self._pair(seed)
             res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0,
-                          stats=True, seed=seed)
+                          stats=True, null="iid", seed=seed)
             ps.append(float(np.ravel(res.p)[0]))
         assert len(set(ps)) > 1, (
             f"{metric}: p was identical ({ps[0]}) on six independent datasets, so the "
@@ -355,7 +497,8 @@ class TestPermutationNullShufflesObservations:
     @pytest.mark.parametrize("metric", METRICS)
     def test_independent_representations_do_not_report_p_exactly_one(self, metric):
         x1, x2 = self._pair()
-        res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0, stats=True, seed=0)
+        res = oa.jrsa(x1, x2, metric=metric, permutations=200, bootstrap=0, stats=True,
+                      null="iid", seed=0)
         assert float(np.ravel(res.p)[0]) < 1.0
 
 
@@ -365,10 +508,11 @@ class TestPermutationNullShufflesObservations:
         rng = np.random.default_rng(0)
         x1 = rng.standard_normal((60, 12))
         x2 = x1 @ rng.standard_normal((12, 12))
-        res = oa.jrsa(x1, x2, metric=metric, permutations=500, bootstrap=0, stats=True, seed=0)
+        res = oa.jrsa(x1, x2, metric=metric, permutations=500, bootstrap=0, stats=True,
+                      null="iid", seed=0)
         related_p = float(np.ravel(res.p)[0])
         indep = oa.jrsa(*self._pair(), metric=metric, permutations=500, bootstrap=0,
-                        stats=True, seed=0)
+                        stats=True, null="iid", seed=0)
         assert related_p < 0.05, f"{metric}: related representations scored p = {related_p}"
         assert related_p < float(np.ravel(indep.p)[0])
 
@@ -392,13 +536,13 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
         x1, x2 = self._pair()
         ps = {
             float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
-                                   stats=True, seed=0).p)[0])
+                                   stats=True, null="iid", seed=0).p)[0])
             for _ in range(4)
         }
         assert len(ps) == 1, f"seed=0 gave {len(ps)} different p-values on one dataset: {ps}"
         assert ps == {
             float(np.ravel(oa.jrsa(x1, x2, metric="hsic", permutations=200, bootstrap=0,
-                                   stats=True, random_state=0).p)[0])
+                                   stats=True, null="iid", random_state=0).p)[0])
         }, "seed= and random_state= must name the same stream"
 
     def test_an_unknown_keyword_is_an_error_not_a_default_answer(self):
@@ -478,8 +622,9 @@ class TestJrsaDoesNotSwallowUnknownKeywords:
 
     def test_agreeing_spellings_are_not_a_conflict(self):
         x1, x2 = self._pair()
-        a = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3, seed=3)
-        b = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, rng=3)
+        a = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, null="iid", rng=3,
+                    seed=3)
+        b = oa.jrsa(x1, x2, metric="hsic", permutations=10, stats=True, null="iid", rng=3)
         assert float(np.ravel(a.p)[0]) == float(np.ravel(b.p)[0])
 
 
@@ -503,7 +648,7 @@ class TestBootstrapResamplesObservations:
         y = x * 0.6 + 0.8 * rng.normal(size=(60, 4))
 
         def width(a, b):
-            res = oa.jrsa(a, b, metric=metric, bootstrap=2000, random_state=11)
+            res = oa.jrsa(a, b, metric=metric, bootstrap=2000, null="iid", random_state=11)
             ci = np.asarray(res.ci).ravel()
             return float(ci[1] - ci[0])
 
@@ -521,7 +666,7 @@ class TestBootstrapResamplesObservations:
         def width(n):
             x = rng.normal(size=(n, 4))
             y = x * 0.6 + 0.8 * rng.normal(size=(n, 4))
-            res = oa.jrsa(x, y, metric=metric, bootstrap=2000, random_state=11)
+            res = oa.jrsa(x, y, metric=metric, bootstrap=2000, null="iid", random_state=11)
             ci = np.asarray(res.ci).ravel()
             return float(ci[1] - ci[0])
 
@@ -560,7 +705,8 @@ class TestPermutationPWins:
         a = rng.normal(size=(40, 6))
         b = rng.normal(size=(40, 6))
         parametric = rdm_similarity(rdm(a), rdm(b), "spearman")[1]
-        reported = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=2000, random_state=2).p)[0])
+        reported = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=2000,
+                                               null="iid", random_state=2).p)[0])
         assert reported != pytest.approx(parametric, abs=1e-12)
 
     def test_p_is_a_valid_probability_and_respects_the_permutation_floor(self):
@@ -568,7 +714,8 @@ class TestPermutationPWins:
         a = rng.normal(size=(40, 6))
         b = rng.normal(size=(40, 6))
         for perms in (10, 200, 2000):
-            p = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=perms, random_state=2).p)[0])
+            p = float(np.atleast_1d(oa.jrsa(a, b, metric="rsa", permutations=perms,
+                                            null="iid", random_state=2).p)[0])
             assert 1.0 / (perms + 1.0) <= p <= 1.0
 
     def test_permutations_zero_still_returns_the_parametric_p(self):
@@ -762,23 +909,27 @@ class TestTimeAxisNullKeepsAutocorrelation:
         off = np.min(np.abs(null[:, None] - rotations[None, :]), axis=1)
         assert np.max(off) < 1e-9, np.max(off)
 
-    def test_row_metrics_warn_on_the_default_null_and_iid_silences_it(self):
-        """cka and rv on (time, units) with the default axis-0 permutation rejected every
-        one of 40 independent AR(1) pairs; the default stays for 0.2.6.1 and warns."""
+    @pytest.mark.parametrize("metric", sorted(_OBS_AXIS_0_FEATURE_INVARIANT + ["hsic"]))
+    def test_row_metrics_need_a_named_null_to_form_one(self, metric):
+        """cka and rv on (time, units) with the axis-0 row permutation rejected every one of
+        40 independent AR(1) pairs, so the row metrics have no default scheme. The message
+        points a time axis at circular_shift alone: block at block_len=20 rejected cka for
+        0.30 of independent pairs."""
         rng = np.random.default_rng(5)
         a, b = rng.normal(size=(40, 6)), rng.normal(size=(40, 6))
-        with pytest.warns(UserWarning, match="null='circular_shift' or null='block'") as rec:
-            default = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3)
-        ours = [r for r in rec if "null='circular_shift' or null='block'" in str(r.message)]
-        assert len(ours) == 1 and ours[0].filename == __file__, [r.filename for r in ours]
+        with pytest.raises(ValueError, match=rf"metric='{metric}'\) needs a named null=") as exc:
+            oa.jrsa(a, b, metric=metric, permutations=49, rng=3)
+        msg = str(exc.value)
+        assert "null='circular_shift' when axis 0 is time" in msg, msg
+        assert "null='iid' when the rows are exchangeable" in msg, msg
+        assert "or null='block'" not in msg, msg
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            named = oa.jrsa(a, b, metric="cka", permutations=49, bootstrap=20, rng=3, null="iid")
-            oa.jrsa(a, b, metric="cka", stats=False)          # no null formed, no warning
-            oa.jrsa(a, b, metric="cka", permutations=0)
+            oa.jrsa(a, b, metric=metric, stats=False)         # no null formed, no scheme needed
+            oa.jrsa(a, b, metric=metric, permutations=0)
+            for null in ("iid", "circular_shift"):
+                oa.jrsa(a, b, metric=metric, permutations=9, rng=3, null=null)
             oa.jrsa(a[:, 0], b[:, 0], metric="pearson", permutations=19, rng=0)
-        assert float(named.p) == float(default.p)
-        np.testing.assert_array_equal(named.ci, default.ci)
 
     @pytest.mark.parametrize("null, block_len", [
         (None, None), ("circular_shift", None), ("block", 10),
@@ -803,7 +954,8 @@ class TestTimeAxisNullKeepsAutocorrelation:
         ("pearson", {}, "circular_shift"),
         ("pearson", {"null": "iid"}, "iid"),
         ("pearson", {"null": "block", "block_len": 10}, "block"),
-        ("rsa", {}, "iid"),
+        ("rsa", {"null": "iid"}, "iid"),
+        ("rsa", {"null": "circular_shift"}, "circular_shift"),
         ("pearson", {"stats": False}, None),
     ])
     def test_the_result_records_the_scheme_that_ran(self, metric, kwargs, recorded):

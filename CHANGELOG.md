@@ -51,6 +51,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`jrsa` row metrics need a named `null=` to form a permutation null (breaking).** For `rsa`,
+  `cka`, `rv`, `hsic`, `distance_correlation` and `procrustes`, `null=None` with `stats=True`
+  and `permutations > 0` raises `ValueError`; in 0.2.6.1 it warned and permuted the rows as
+  exchangeable. `rsa` is the default metric, so a bare `jrsa(x1, x2)` raises. Name
+  `null="iid"` for exchangeable conditions, which gives the 0.2.6.1 numbers, and
+  `null="circular_shift"` when axis 0 is time. The guidance no longer offers `"block"` for these
+  metrics: at `block_len=20` it rejected `cka` for 0.30 of independent AR(1) pairs.
+- **`jrsa(metric="transfer_entropy_histogram_nats")` refuses several rows (breaking).** It
+  flattened the input, which made the last sample of each row the past of the first sample of
+  the next, so every join between rows counted as a time transition. It raises `ValueError` for
+  an input with more than one row; pass one series per call, or use `jnwb.transfer_entropy` for
+  `(n_trials, n_times)`.
+- **`jrsa(metric="granger_ssr_ftest")` and `jrsa(metric="phase_slope")` refuse several rows
+  (breaking).** Both flattened the input into one series, so each join between rows entered as
+  a time step, and the value depended on the order of the rows. Both raise `ValueError` for
+  more than one row; a 1-D or `(1, n)` input gives the value it gave before. For trials use
+  `jnwb.granger` or `jnwb.phase_slope_index`, which take `(n_trials, n_times)`.
+- **`jrsa(nan_policy="omit")` drops the observation of a row metric.** For the six metrics
+  above it dropped the last-axis column holding the NaN, which removed a feature from every
+  observation; it now drops the row of axis 0. Values change wherever such an input held a NaN.
 - **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
   dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
   per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,
@@ -176,6 +196,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `jrsa`: a `reduction` over axis 0 of `rsa`, `cka`, `rv`, `hsic`, `distance_correlation` or
+  `procrustes` removes that axis, so the next axis becomes the observations. It kept the axis
+  at length 1, which left one observation: averaging the trials of a `(trials, conditions,
+  units)` input returned NaN for `cka` (0.69 on `x.mean(0)`) and raised for `rsa`. The value now
+  equals the metric of `x.mean(0)`; `lag`, the null and `window` act on the reduced input, and
+  a `window` on the removed axis raises `ValueError`. The paired metrics are unchanged.
 - `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
   complex128, as assigning `mean` already did, so a summary read back from `write`'s
   float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
