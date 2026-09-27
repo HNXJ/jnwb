@@ -46,6 +46,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
+| 0 | 07-23: classify, then the lanes in flight and the items ruled 2026-09-27 |
 | 1 | 07-08, 07-09 (skill architecture), then 07-05 (a downstream paper agent can consume jnwb) |
 | 2 | 07-10, 07-11, 07-12, 07-13, then the rest of 07-03 |
 | 2b | 07-18 |
@@ -459,6 +460,20 @@ invalidation test.
 Stop: a control would change a number; the API surface is a public API choice and goes to Hamm
 before code.
 
+### 07-23 Bound the cycle and simplify the apparatus
+
+Release: required-0.2.7.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Ruled 2026-09-27.
+
+- Classify every remaining item as `required-0.2.7` or `deferred-0.2.8` against the blocker predicate of `AGENTS.md` §11: an independent critic classifies, a second pass attacks each deferral; the deferred items move under a `# 0.2.8` heading with their reason. Check: no item unclassified; the ruled items and the lanes in flight stay in 0.2.7.
+- `scripts/stack_edit.py`: delete or replace a todo item by id, preserving line endings and asserting the result, with a test. Check: the integrator's stack edits go through it.
+- CHANGELOG fragments: one file per change under a fragments directory, assembled into `CHANGELOG.md` at release by a script with a test; `CONTRIBUTING.md` says how. Check: two parallel fragments merge without conflict.
+- A draft `AGENTS.md` of about 1500 words: rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
+- Audit the process tests: for each file under `tests/` that checks docs, stacks, prose, gates or rulings, say whether it executes library code or pins wording, and what evidence of release acceptance it carries. Check: the prune list, with evidence per file, goes to Hamm; nothing is deleted before his ruling.
+- Package inventory: exports no skill names and public modules outside `__all__`, with where each is used. Check: the list goes to Hamm; nothing moves this cycle.
+- Compact the todo stack to one line per item (id, surface, check), detail moved to `artifacts/evidence/0.2.7/`. Check: no item's check is lost.
+
 ## Out of 0.2.7 scope
 
 Carried from 0.2.6. Each needs its own authorization.
@@ -467,7 +482,7 @@ Carried from 0.2.6. Each needs its own authorization.
 - An authorization or permission subsystem.
 - Benchmark execution; the design is retained and marked unrun (06-33).
 - A capability-by-capability matrix over the whole public surface.
-- Repository minimization: dead tests, hand-transcribed examples, root and documentation cleanup.
+- Repository minimization: dead tests, hand-transcribed examples, root and documentation cleanup, beyond the audit and inventory of 07-23.
 - Dataset-specific package code, and new estimators that only improve a demonstration.
 - The 36 unverified review findings, except where an item reaches one.
 
