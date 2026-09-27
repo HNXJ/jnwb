@@ -1369,7 +1369,7 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
             raise ImportError(
                 f"jrsa correction={method!r} requires 'statsmodels', which is a declared "
                 f"dependency of jnwb and could not be imported. Install it "
-                f"(pip install 'statsmodels>=0.14.0'), or pass correction='bonferroni', "
+                f"(pip install 'statsmodels>=0.14.5'), or pass correction='bonferroni', "
                 f"which jnwb computes without it."
             ) from exc
     return q.reshape(np.asarray(p).shape)

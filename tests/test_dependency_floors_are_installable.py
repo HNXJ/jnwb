@@ -213,6 +213,7 @@ def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> Non
         (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8"))
     job = workflow["jobs"]["test-floors"]
     assert "if" not in job, "a conditional job is not required by the release gate"
+    assert not job.get("continue-on-error"), "a failing floor must show red, not pass quietly"
     with open(ROOT / "pyproject.toml", "rb") as fh:
         declared = tomllib.load(fh)["project"]["requires-python"]
     floor = re.search(r">=\s*(\d+\.\d+)", declared).group(1)

@@ -7,8 +7,8 @@ P-83. `docs/quickstart.md` prints ``float(jrsa_res.p)``. That raised `TypeError:
 as shape ``(1,)`` while their siblings `value`, `statistic` and `effect` were 0-d. The
 asymmetry, not the page, was the defect: `_p_from_null` wrapped its single scalar in
 `np.atleast_1d`. Patching the page would have left the next reader to write the same line.
-`pyproject.toml` declares ``numpy>=1.26.0`` and `float()` on a one-element array raises
-under NumPy>=2, so the documented line was unrunnable on the declared floor.
+`float()` on a one-element array raises under NumPy>=2, the declared floor, so the documented
+line was unrunnable on every supported NumPy.
 
 P-85. The `correction` docstring listed ``cluster`` and ``maxT``. Neither exists; both
 raise. Public documentation that causes wrong use.
