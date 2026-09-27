@@ -15,7 +15,7 @@ import numpy as np
 from scipy import optimize, signal, stats
 import pandas as pd
 
-from ._dictlike import DictAccessMixin
+from ._dictlike import DictAccessMixin, RenamedKeyDict
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
@@ -967,7 +967,7 @@ def spectral_tilt(
     """
     Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.
 
-    Fits log10(Power) = log10(Offset) + exponent * log10(freq) over the specified
+    Fits log10(Power) = log10(Offset) + slope * log10(freq) over the specified
     frequency range.
 
     Important Scientific Distinction:
@@ -994,7 +994,8 @@ def spectral_tilt(
 
     Returns:
         Dict with:
-        - exponent: log-log slope (typically negative)
+        - slope: log-log slope, negative for a 1/f decay. :func:`aperiodic_fit` reports
+          the exponent, which is ``-slope``.
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
         - device_used: 'cpu' or 'cuda', the device that computed the spectrum
@@ -1003,13 +1004,17 @@ def spectral_tilt(
         constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
         power.
 
+        Reading the key ``exponent`` returns ``slope`` with a ``DeprecationWarning``; it is
+        removed in the next release, so that ``exponent`` means the positive decay rate
+        wherever a spectral function reports one.
+
     Raises:
         ValueError: If ``lfp_trace`` is empty or contains NaN or Inf, or ``device`` is not a
             recognised device name.
 
     Example:
         >>> tilt = spectral_tilt(lfp_data, fs=1000.0, freq_range=(1.0, 100.0))
-        >>> print(f"Spectral exponent: {tilt['exponent']:.2f}")
+        >>> print(f"Log-log slope: {tilt['slope']:.2f}")
 
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
@@ -1020,8 +1025,8 @@ def spectral_tilt(
     lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
-    result = {
-        'exponent': float('nan'),
+    result = RenamedKeyDict({
+        'slope': float('nan'),
         'offset': float('nan'),
         'fit_quality': float('nan'),
         # The band actually fitted, which is not the band requested: bins at or below
@@ -1029,7 +1034,7 @@ def spectral_tilt(
         # a bit-identical exponent with nothing to say they had been silently merged.
         'fitted_band_hz': (float('nan'), float('nan')),
         'n_bins_fitted': 0,
-    }
+    }, aliases={'exponent': 'slope'})
 
     # Compute power spectrum
     resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
@@ -1084,17 +1089,17 @@ def spectral_tilt(
     result['fitted_band_hz'] = (float(freqs[0]), float(freqs[-1]))
     result['n_bins_fitted'] = int(freqs.size)
     # Fit 1/f slope on log-log scale
-    # Power = Offset * f^exponent
-    # log(Power) = log(Offset) + exponent * log(freq)
+    # Power = Offset * f^slope
+    # log(Power) = log(Offset) + slope * log(freq)
     log_freqs = np.log10(freqs)
     log_power = np.log10(pxx[mask][valid])
 
     # Linear regression
     coeffs = np.polyfit(log_freqs, log_power, 1)
-    exponent = coeffs[0]
+    slope = coeffs[0]
     offset_log = coeffs[1]
 
-    result['exponent'] = float(exponent)
+    result['slope'] = float(slope)
     result['offset'] = float(10 ** offset_log)
 
     # Fit quality (R-squared)
@@ -1375,6 +1380,10 @@ def relative_power(
             Must be finite and strictly non-negative. Any shape.
         baseline: Baseline power array in the same physical units as ``power``, broadcastable against ``power``.
             Must be finite, strictly non-negative, and contain non-zero values where division occurs.
+            A scalar or an array with ``power``'s number of dimensions; a per-frequency baseline
+            against ``(n_freqs, n_times)`` power is ``baseline[:, None]``. A baseline with fewer
+            dimensions aligns with ``power``'s trailing axes: it is broadcast with a
+            ``FutureWarning`` this release and raises ``ValueError`` in the next.
         model: Estimand model, strictly one of ``"mean_of_ratios"``, ``"ratio_of_means"``, or ``"log_ratio"``.
             Default is ``"mean_of_ratios"``.
         axis: Axis or tuple of axes to reduce along when using ``"mean_of_ratios"`` or ``"ratio_of_means"``.
@@ -1442,6 +1451,17 @@ def relative_power(
         raise ValueError(
             f"baseline shape {b_arr.shape} cannot broadcast to power shape {p_arr.shape}."
         ) from e
+
+    from .tfr_accumulator import _baseline_ndim_problem
+
+    problem = _baseline_ndim_problem(b_arr.ndim, p_arr.ndim, "power")
+    if problem is not None:
+        warnings.warn(
+            f"relative_power: {problem} It is broadcast this release, as before; the next "
+            "release raises ValueError, as aggregate_to_db and TFRAccumulator.add_trial do.",
+            FutureWarning,
+            stacklevel=2,
+        )
 
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")

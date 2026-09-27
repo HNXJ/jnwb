@@ -247,6 +247,22 @@ class TestClassifyResponseSignificance:
         assert np.mean(p < alpha) <= bound, (np.mean(p < alpha), bound)
         assert 0.3 < np.median(p) < 0.7, np.median(p)
 
+    def test_bursting_at_zero_effect_rejects_about_thirty_percent(self):
+        """The limit the docstring states: 5 Hz firing in bursts of four spikes 4 ms apart,
+        200 trials, default windows, no effect. The test counts each spike of a burst as an
+        independent event, so about 30% of 300 units fall below p = 0.05."""
+        rng = np.random.default_rng(20260927)
+        onsets = np.arange(200) * 1.0 + 1.0
+        p = []
+        for _ in range(300):
+            starts = rng.uniform(0.0, 202.0, rng.poisson(5.0 / 4 * 202.0))
+            st = np.sort((starts[:, None] + np.arange(4) * 0.004).ravel())
+            m = compute_response_metrics(st, onsets)
+            p.append(classify_response_significance(m, zscore_threshold=0.0,
+                                                    min_spike_count=0)["pvalue"])
+        rate = float(np.mean(np.array(p) < 0.05))
+        assert 0.2 < rate < 0.4, rate
+
 
 class TestPhaseLockingIndex:
     def test_empty_spikes_return_nan_values(self):
@@ -452,8 +468,25 @@ class TestResponseMetricsDoNotManufactureResponses:
         assert m["response_rate"] > 100.0
         assert np.isnan(m["response_zscore"])
         sig = classify_response_significance(m)
-        assert sig["confidence"] == "undefined" and np.isnan(sig["pvalue"])
+        assert sig["confidence"] == "undefined"
+        np.testing.assert_allclose(
+            sig["pvalue"], stats.binomtest(4000, 4000, 0.15 / 0.35).pvalue, rtol=1e-12)
         assert sig["is_significant"] is False
+
+    def test_a_silent_baseline_still_reports_the_counts_p(self):
+        """40 trials of 3 response spikes over a zero baseline. The z-score needs baseline
+        variance and is NaN, but the counts test does not: 120 of 120 spikes where equal
+        rates put 3/7 in the response. The p was reported as NaN."""
+        onsets = np.arange(40) * 1.0 + 1.0
+        st = np.sort(np.concatenate([o + np.array([0.01, 0.05, 0.1]) for o in onsets]))
+        m = compute_response_metrics(st, onsets)
+        assert np.isnan(m["response_zscore"])
+        assert int(np.sum(m["baseline_counts"])) == 0 and m["response_count"] == 120
+        sig = classify_response_significance(m)
+        np.testing.assert_allclose(
+            sig["pvalue"], stats.binomtest(120, 120, 0.15 / 0.35).pvalue, rtol=1e-12)
+        assert sig["pvalue"] < 1e-44
+        assert sig["confidence"] == "undefined" and sig["is_significant"] is False
 
     def test_a_genuine_response_is_still_detected(self):
         rng = np.random.default_rng(3)

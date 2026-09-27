@@ -245,10 +245,10 @@ def fig04_spectral_tilt():
 
     mask = (freqs >= 2.0) & (freqs <= 90.0)
     f_fit = freqs[mask]
-    fitted_psd = tilt["offset"] * (f_fit ** tilt["exponent"])
+    fitted_psd = tilt["offset"] * (f_fit ** tilt["slope"])
 
     ax2.loglog(freqs[1:120], psd[1:120], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['slope']:.2f}\n(R²={tilt['fit_quality']:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power Spectral Density")
     ax2.set_title("B. Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)

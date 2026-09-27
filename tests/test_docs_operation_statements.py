@@ -623,7 +623,7 @@ def test_the_aperiodic_exponent_is_positive_and_the_tilt_slope_is_negative():
     t = np.arange(5000) / fs
     walk = np.cumsum(np.random.default_rng(12).standard_normal(len(t)))
     lfp = (walk - walk.mean()) / walk.std() + 0.8 * np.sin(2 * np.pi * 10.0 * t)
-    tilt = jnwb.spectral_tilt(lfp, fs=fs, freq_range=(2.0, 90.0))["exponent"]
+    tilt = jnwb.spectral_tilt(lfp, fs=fs, freq_range=(2.0, 90.0))["slope"]
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
     fit = jnwb.aperiodic_fit(freqs[1:], psd[1:], freq_range=(2.0, 90.0), mode="fixed").exponent
     assert abs(tilt - tilt_near) < 0.5, tilt
