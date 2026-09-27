@@ -143,6 +143,61 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("access_hint", res)
         self.assertIsInstance(res["estimated_size_mb"], float)
 
+    def _scaled_file(self):
+        """Two int16 channels with every NWB scaling and timing field set away from its default."""
+        path = str(pathlib.Path(self.temp_dir.name) / "scaled.nwb")
+        nwbfile = pynwb.NWBFile(session_description="scaled", identifier="SCALED",
+                                session_start_time=datetime.now(timezone.utc))
+        device = nwbfile.create_device(name="probe0")
+        eg = nwbfile.create_electrode_group(name="eg0", description="d", location="V1", device=device)
+        for _ in range(2):
+            nwbfile.add_electrode(x=0.0, y=0.0, z=0.0, imp=0.0, location="V1", filtering="none", group=eg)
+        region = nwbfile.create_electrode_table_region(region=[0, 1], description="both")
+        stored = np.random.default_rng(0).integers(-500, 500, size=(100, 2)).astype(np.int16)
+        nwbfile.add_acquisition(pynwb.ecephys.ElectricalSeries(
+            name="Scaled", data=stored, electrodes=region, conversion=2.5e-6, offset=0.125,
+            channel_conversion=[1.0, 4.0], starting_time=3.0, rate=1000.0,
+        ))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+        return path, stored
+
+    def test_the_reference_carries_what_turns_stored_values_into_physical_ones(self):
+        import jnwb
+
+        path, stored = self._scaled_file()
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertEqual(res["conversion"], 2.5e-6)
+        self.assertEqual(res["offset"], 0.125)
+        self.assertEqual(res["channel_conversion"], [1.0, 4.0])
+        self.assertEqual((res["rate_hz"], res["starting_time"]), (1000.0, 3.0))
+        self.assertEqual((res["layout"], res["layout_basis"]), ("time_by_channel", "electrode_count"))
+        self.assertEqual(res["reader"], f"jnwb.acquisition_channel({path!r}, name='Scaled', channel=k)")
+        for field in ("conversion", "channel_conversion", "offset", "starting_time"):
+            self.assertIn(field, res["access_hint"])
+        # The fields alone reproduce what the named reader returns, channel by channel.
+        for k in range(2):
+            by_fields = res["conversion"] * res["channel_conversion"][k] * stored[:, k] + res["offset"]
+            with pytest.warns(UserWarning, match="starting_time"):
+                by_reader, rate = jnwb.acquisition_channel(path, name="Scaled", channel=k)
+            np.testing.assert_allclose(by_reader, by_fields, rtol=0, atol=1e-12)
+            self.assertEqual(rate, res["rate_hz"])
+
+    def test_the_reference_says_the_layout_is_unknown_instead_of_guessing_it(self):
+        import h5py
+
+        # No type and no electrode region: nothing in the file says which axis is channels.
+        with h5py.File(self.file_path, "a") as f:
+            group = f["acquisition"].create_group("untyped")
+            group.create_dataset("data", data=np.zeros((10, 50), dtype=np.float32))
+            group.create_dataset("starting_time", data=0.0).attrs["rate"] = 1000.0
+        res = prepare_signal_reference(self.file_path, "/acquisition/untyped/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["layout"], res["layout_basis"], res["reader"]), ("unknown", None, None))
+        self.assertIn("layout is unknown", res["access_hint"])
+        self.assertNotIn("channels, time", res["access_hint"])
+
     def test_prepare_signal_reference_not_found(self):
         res = prepare_signal_reference(self.file_path, "/non/existent/path")
         self.assertIn("error", res)

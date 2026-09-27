@@ -423,6 +423,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `compute_response_metrics` raises `ValueError` when either window's start is at or after its
   stop. A reversed window returned a negative spike count with a positive rate.
 - `raster_psth` accepts a list of spike times; it raised an unrelated `TypeError`.
+- MCP `prepare_signal_reference` returns the series' `conversion`, `offset`,
+  `channel_conversion`, `unit`, `rate_hz`, `starting_time` or `timestamps_path`, `n_channels`,
+  `layout`, `layout_basis` and `reader`, and its `access_hint` gives the physical-value formula and
+  the sample times. Its hint told the caller to slice the stored `data` directly, which skips the
+  scaling and the start time, and read the channel axis from which dimension was longer.
+  `layout` is `"unknown"` unless the electrode region or the schema decides it, and `reader`
+  names `jnwb.acquisition_channel` only when the layout is known.
+- `jnwb.bilinear`: the documentation no longer calls two-class `predict_proba` calibrated. It is
+  sigmoid(D_1 - D_0) of two mirrored one-vs-rest scores, about sigmoid(2 D_1), and overconfident
+  on held-out trials.
+- Documentation figures 1, 3, 7 and 10: no legend is drawn over data. On the transparent
+  background a frameless legend had nothing between its text and the bars or traces under it.
 
 ## [0.2.6.1] - 2026-09-25
 
