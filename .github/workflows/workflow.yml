@@ -76,11 +76,13 @@ jobs:
     # runs the suite there. A floor that resolves higher than declared fails the job, as does
     # any test. A failure here means a declared floor no longer holds, and
     # scripts/release_gate.py requires this job to succeed like every other unconditional job.
-    name: Test (dependency floors, Python 3.12 on ubuntu-latest)
+    # The interpreter is the declared floor's first patch release: `requires-python >=3.12`
+    # admits 3.12.0, and "3.12" would install the newest 3.12 patch, which no user is held to.
+    name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      FLOOR_PYTHON: "3.12"
+      FLOOR_PYTHON: "3.12.0"
 
     steps:
       - uses: actions/checkout@v4
@@ -311,7 +313,10 @@ jobs:
   publish-testpypi:
     name: Publish to TestPyPI
     needs: build
-    if: (github.event_name == 'release' && github.event.release.prerelease) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && contains(github.ref, 'rc')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
+    # Every tag push publishes to TestPyPI, a final tag as well as an rc one, and the release
+    # event does not: that tag's push run already uploaded the same files, and
+    # publish-pypi below refuses to run until that upload succeeded.
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -339,8 +344,9 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    # Production PyPI is published only when a GitHub Release is published for the tag.
-    # Tag push alone runs test + build only (no upload), avoiding duplicate publish attempts.
+    # Production PyPI is published only when a GitHub Release is published for the tag, and
+    # only after the tag's push run published it to TestPyPI. The two are separate runs, so
+    # `needs:` cannot order them; the first step reads the push run's TestPyPI job instead.
     if: github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease
     runs-on: ubuntu-latest
     environment:
@@ -349,7 +355,46 @@ jobs:
     permissions:
       id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
       contents: read
+      actions: read    # To read the tag push run's TestPyPI job
     steps:
+      - name: Require the tag push to have published this commit to TestPyPI
+        # Waits up to an hour for that run, then fails. Any conclusion but success -- failure,
+        # skipped, cancelled, or no such job -- fails the step and nothing reaches PyPI.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
+          TESTPYPI_JOB: Publish to TestPyPI
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 3600))
+          while :; do
+            runs=$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$SHA&per_page=100" \
+              --jq '.workflow_runs[] | select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml") | .id')
+            conclusions=""
+            for run in $runs; do
+              conclusions="$conclusions $(gh api "repos/$REPO/actions/runs/$run/jobs?per_page=100" \
+                --jq '.jobs[] | select(.name == env.TESTPYPI_JOB) | (.conclusion // "pending")')"
+            done
+            conclusions=$(echo $conclusions)  # a run with no such job yet adds only a space
+            echo "TestPyPI job of the $TAG push run(s) at $SHA: ${conclusions:-none yet}"
+            case " $conclusions " in
+              *" success "*)
+                exit 0 ;;
+              *" pending "*|"  ")
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  echo "::error::no TestPyPI publication of $TAG concluded within an hour"
+                  exit 1
+                fi
+                sleep 60 ;;
+              *)
+                echo "::error::the $TAG push run did not publish to TestPyPI ($conclusions); PyPI is not published"
+                exit 1 ;;
+            esac
+          done
+
       - name: Download distribution artifacts
         uses: actions/download-artifact@v4
         with:

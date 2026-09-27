@@ -57,18 +57,93 @@ class TestWorkflowReleasePolicy:
     def test_publish_pypi_still_needs_build(self):
         jobs = _load_workflow()["jobs"]
         assert jobs["publish-pypi"]["needs"] == "build"
+        assert jobs["publish-testpypi"]["needs"] == "build"
 
     def test_tag_push_still_triggers_validation_pipeline(self):
         workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
         assert re.search(r"tags:\s*\[\s*\"v\*\"\s*\]", workflow_text)
         assert "publish-pypi:" in workflow_text
 
-    def test_testpypi_paths_remain_available(self):
+    def test_every_tag_push_publishes_to_testpypi(self):
+        """A final tag's push skipped TestPyPI because the condition required `rc` in the ref,
+        and the non-prerelease release run skipped it too, so a final version reached PyPI
+        without ever being on TestPyPI."""
         condition = _load_workflow()["jobs"]["publish-testpypi"]["if"]
         text = " ".join(str(condition).split())
-        assert "github.event.release.prerelease" in text
-        assert "contains(github.ref, 'rc')" in text
+        assert "(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))" in text
+        assert "'rc'" not in text, "a final tag's push must publish to TestPyPI as well"
         assert "workflow_dispatch" in text
+
+    def test_the_release_event_does_not_upload_to_testpypi_again(self):
+        """The tag's push run already uploaded those files; a second upload is refused."""
+        text = " ".join(str(_load_workflow()["jobs"]["publish-testpypi"]["if"]).split())
+        assert "release" not in text.replace("refs/tags/v", ""), text
+
+
+class TestTestPyPIBeforePyPI:
+    """The tag push publishes to TestPyPI, and PyPI publishes only after that succeeded. The release event is a different run from the tag push, so `needs:` cannot order
+    the two jobs; the PyPI job's first step reads the push run's TestPyPI job and fails unless it
+    concluded success.
+
+    What would pass while the order is broken: a gate step that exists but runs after the upload,
+    carries `continue-on-error` or an `if:`, looks for a job name the TestPyPI job no longer has,
+    reads another tag or commit, or exits 0 on a conclusion other than success.
+    """
+
+    @staticmethod
+    def _steps():
+        return _load_workflow()["jobs"]["publish-pypi"]["steps"]
+
+    @classmethod
+    def _gate(cls):
+        gates = [s for s in cls._steps() if "TESTPYPI_JOB" in (s.get("env") or {})]
+        assert len(gates) == 1, f"expected one TestPyPI gate in publish-pypi, found {len(gates)}"
+        return gates[0]
+
+    def test_the_gate_runs_before_anything_is_uploaded(self):
+        steps = self._steps()
+        uploads = [i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", ""))]
+        assert len(uploads) == 1, uploads
+        assert steps.index(self._gate()) == 0 < uploads[0], [s.get("name") for s in steps]
+
+    def test_nothing_before_the_upload_can_be_skipped_or_forgiven(self):
+        job = _load_workflow()["jobs"]["publish-pypi"]
+        assert not job.get("continue-on-error"), "publish-pypi is continue-on-error"
+        steps = self._steps()
+        upload = next(i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", "")))
+        for step in steps[:upload + 1]:
+            assert "if" not in step and not step.get("continue-on-error"), step.get("name")
+
+    def test_the_gate_reads_the_testpypi_job_by_its_name(self):
+        name = _load_workflow()["jobs"]["publish-testpypi"]["name"]
+        gate = self._gate()
+        assert gate["env"]["TESTPYPI_JOB"] == name
+        assert "select(.name == env.TESTPYPI_JOB)" in gate["run"]
+
+    def test_the_gate_reads_this_releases_tag_push_run(self):
+        gate = self._gate()
+        env = {k: " ".join(str(v).split()) for k, v in gate["env"].items()}
+        assert env["TAG"] == "${{ github.event.release.tag_name }}", env
+        assert env["SHA"] == "${{ github.sha }}", env
+        assert "event=push&head_sha=$SHA" in gate["run"]
+        assert "select(.head_branch == env.TAG" in gate["run"]
+        assert ".path == \".github/workflows/workflow.yml\"" in gate["run"]
+        permissions = _load_workflow()["jobs"]["publish-pypi"]["permissions"]
+        assert permissions.get("actions") == "read", permissions
+
+    def test_only_success_lets_the_gate_pass(self):
+        """The `case` over the conclusions: its one exiting-0 arm matches `success` alone."""
+        run = self._gate()["run"]
+        assert "set -euo pipefail" in run
+        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
+        assert block, "the gate no longer decides by a case over the conclusions"
+        arms = re.findall(r"^\s*([^\s(][^\n]*?)\)[ \t]*\n(.*?);;", block.group(1), re.M | re.S)
+        assert arms, "the gate has no case arms; this test is stale"
+        passing = [pattern for pattern, body in arms if re.search(r"\bexit 0\b", body)]
+        assert passing == ['*" success "*'], arms
+        assert len(re.findall(r"\bexit 0\b", run)) == 1, "an exit 0 outside the success arm"
+        failing = [pattern for pattern, body in arms if re.search(r"\bexit 1\b", body)]
+        assert "*" in failing, "a conclusion other than success and pending does not fail"
 
 
 class TestInstalledArtifactVerification:

@@ -390,16 +390,19 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
    `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
    all went through a PR merge; this step said "fast-forward" through all of them.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
-   upload to PyPI.
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) and the
+   `publish-testpypi` job, which uploads to TestPyPI. It does **not** upload to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published` and uploads to production PyPI via trusted publishing.
+   job runs on `release: published`. Its first step waits for the tag push run and fails
+   unless that run's `publish-testpypi` job concluded `success`; only then does it upload to
+   production PyPI via trusted publishing.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
-**TestPyPI:** push an `rc` tag (`vX.Y.ZrcN`) or publish a GitHub Release marked prerelease;
-either path runs the `publish-testpypi` job. `workflow_dispatch` with target `testpypi` is
-also available for maintainers.
+**TestPyPI:** every `v*` tag push runs the `publish-testpypi` job, an `rc` tag
+(`vX.Y.ZrcN`) as well as a final one; a release event never does, because the tag's push run
+has already uploaded those files. `workflow_dispatch` with target `testpypi` is also
+available for maintainers.
 
 ## Reporting a problem
 
