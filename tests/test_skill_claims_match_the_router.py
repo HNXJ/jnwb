@@ -9,6 +9,8 @@ is true.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 from pathlib import Path
 
@@ -56,37 +58,43 @@ def test_no_phase_measure_row_claims_more_than_reduced_sensitivity() -> None:
 
 def test_narrowband_psi_really_does_report_nothing() -> None:
     """The connectivity skill and `docs/common_mistakes.md` section 7 quote one receipt, at
-    one stated length; this runs it and holds both pages to the numbers it gives."""
-    rng = np.random.default_rng(42)
-    fs = 1000.0
-    n = 2000
-    t = np.arange(n) / fs
-    x = np.sin(2 * np.pi * 20 * t)
-    y = np.roll(x, int(0.01 * fs))  # x leads y by 10 ms
-    narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
-    noise_x = rng.normal(size=n)
-    noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=n)
-    broad = jnwb.phase_slope_index(
-        noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
-    )
+    one stated length. This runs section 7's own code block and holds both pages to the
+    numbers it gives, so neither the code nor a quoted number can drift alone."""
+    mistakes = (ROOT / "docs" / "common_mistakes.md").read_text(encoding="utf-8")
+    seven = mistakes.partition("## 7.")[2].partition("\n## ")[0]
+    blocks = [b for b in re.findall(r"```python\n(.*?)```", seven, flags=re.S)
+              if "phase_slope_index" in b]
+    assert len(blocks) == 1, f"section 7 should hold one PSI block, found {len(blocks)}"
+    namespace: dict = {}
+    with contextlib.redirect_stdout(io.StringIO()):
+        exec(compile(blocks[0], "docs/common_mistakes.md", "exec"), namespace)
+    narrow, broad = namespace["psi_narrow"], namespace["psi_broad"]
 
     assert np.isnan(narrow.net), f"narrowband PSI is not degenerate here: {narrow.net}"
-    assert fs / narrow.params["nperseg"] == 2.0
-    assert f"{broad.net:.2f}" == "0.93", broad.net
+    assert np.isnan(narrow.per_band["band"]["z"])
+    assert namespace["fs"] / narrow.params["nperseg"] == 2.0
+    assert len(namespace["t"]) == 2000
+
+    stated_net = re.search(r"net ≈ (\d+\.\d+)", seven)
+    stated_z = re.search(r"band z ≈ (\d+\.\d+)", seven)
+    assert stated_net and stated_z, "section 7 no longer states the broadband net and z"
+    net_text, z_text = stated_net.group(1), stated_z.group(1)
+    decimals = lambda s: len(s.split(".")[1])  # noqa: E731
+    assert f"{broad.net:.{decimals(net_text)}f}" == net_text, (broad.net, net_text)
+    z = broad.per_band["band"]["z"]
+    assert f"{z:.{decimals(z_text)}f}" == z_text, (z, z_text)
 
     skill = (SKILLS / "jnwb-connectivity" / "SKILL.md").read_text(encoding="utf-8")
     section = skill.partition("## 5. Verification")[2]
     assert "frequency bins" in section, (
         "the PSI verification instruction does not require a band with several bins"
     )
-    mistakes = (ROOT / "docs" / "common_mistakes.md").read_text(encoding="utf-8")
-    seven = mistakes.partition("## 7.")[2].partition("\n## ")[0]
     psi_row = next(line for line in section.splitlines() if "(19.0, 21.0)" in line)
     for page, text in (("skill", psi_row), ("section 7", seven)):
         assert "2000 samples at 1 kHz" in text, f"the {page} does not state the length"
         assert "2 Hz bin" in text, f"the {page} does not state the bin width"
         assert "net = nan" in text or "net PSI = nan" in text, f"the {page} misquotes narrow"
-        assert "net ≈ 0.93" in text, f"the {page} misquotes the broadband net"
+        assert f"net ≈ {net_text}" in text, f"the {page} misquotes the broadband net"
 
 
 @pytest.mark.parametrize("tau_ms, stated_ms", [(25.0, 17), (50.0, 34)])

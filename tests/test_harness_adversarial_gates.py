@@ -1818,7 +1818,6 @@ def _tracked_tree(tmp_path: Path, files: "dict[str, bytes]") -> Path:
     return root
 
 
-@pytest.mark.requires_git_checkout
 class TestGate16LineEndingConsistency:
     """P-124: eight tracked files carried both conventions, and nothing declared one.
 
@@ -1827,6 +1826,7 @@ class TestGate16LineEndingConsistency:
     `git apply --check` runs failed in one release before the cause was found.
     """
 
+    @pytest.mark.requires_git_checkout
     def test_the_live_tree_passes(self):
         """Pristine first: a selector that collects nothing also returns a non-empty list."""
         assert check_line_ending_consistency() == []
