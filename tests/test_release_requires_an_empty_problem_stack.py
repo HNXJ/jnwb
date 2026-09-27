@@ -2,12 +2,15 @@
 
 The problem stack holds only problems not yet triaged, and a release requires:
 
+  0. the working tree has no uncommitted change;
   1. the problem stack exists and holds no problem row, in any section;
   2. no todo item is still required for this cycle, and every item's release is readable; this
-     cycle's release step, which completes only after the tag, is not required;
+     cycle's release step, which completes only after the tag, is not required; no line in a
+     section that does not hold the release open marks work required for this cycle;
   3. the independent blocker-focused closure receipt exists and reports zero, and its commit is
      HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack, and no
-     item held open at the receipt's commit carries another release at HEAD.
+     item held open at the receipt's commit carries another release at HEAD or is gone without
+     the receipt recording it as finished.
 
 Every test drives the check over a constructed tree and is measured against
 ``test_a_compliant_tree_passes``: the compliant tree passes, and breaking exactly one thing fails.
@@ -45,6 +48,7 @@ from scripts.release_gate import (  # noqa: E402
 )
 HEAD = "a" * 40
 DEFERRED = f"deferred-{NEXT_CYCLE}"
+REQUIRED = f"required-{RELEASE_CYCLE}"
 RELEASE_STEP = f"release-step-{RELEASE_CYCLE}"
 
 _PROBLEMS = """# Problem stack
@@ -354,6 +358,69 @@ def test_headings_that_are_not_items_add_no_violation(tmp_path):
     assert check_release_readiness(root, head=HEAD) == []
 
 
+#: Bullets that mark themselves required, in the two forms the stack writes a bullet's release.
+REQUIRED_BULLETS = {
+    "value-form": f"- P-900: a defect.\n  {REQUIRED}: it blocks the release.\n",
+    "prose-form": f"- P-900: a defect. Required for {RELEASE_CYCLE} (classified): it blocks.\n",
+}
+
+
+@pytest.mark.parametrize("bullet", list(REQUIRED_BULLETS.values()), ids=list(REQUIRED_BULLETS))
+@pytest.mark.parametrize("host", ["deferred", "release-step", "deferred-subsection"])
+def test_a_required_bullet_inside_an_item_that_does_not_hold_the_release_fails(
+        tmp_path, bullet, host):
+    """The item's own field read deferred, so the bullet it carried was invisible. What would pass
+    while that still holds: reading the marker only in the item's first body paragraph, or only
+    in an item and not in its subsection."""
+    release = RELEASE_STEP if host == "release-step" else DEFERRED
+    body = "\n#### More findings\n\n" + bullet if host == "deferred-subsection" else "\n" + bullet
+    root = _tree(tmp_path, items=[_item("99-960", release) + body, _item("99-961", DEFERRED)])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "mark work required" in v[0] and f"99-960 [{release}]" in v[0], v
+    assert "99-961" not in v[0], v
+
+
+def test_a_required_bullet_outside_any_item_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-961", DEFERRED),
+                                  "## Out of scope\n\n" + REQUIRED_BULLETS["prose-form"]])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "mark work required" in v[0] and "'Out of scope'" in v[0], v
+
+
+def test_a_required_bullet_inside_a_held_item_is_condition_2s_alone(tmp_path):
+    """The item already holds the release; its bullets add no second violation."""
+    root = _tree(tmp_path, items=[_item("99-962", REQUIRED) + "\n" + REQUIRED_BULLETS["value-form"]])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "still required" in v[0] and "99-962" in v[0], v
+
+
+@pytest.mark.parametrize("line", [
+    f"- P-900: a defect.\n  required-{NEXT_CYCLE}: next cycle's work.\n",
+    "- P-900: the PSI clause is required, in another item.\n",
+    "- P-900: a machine-required literal.\n",
+], ids=["later-cycle", "prose-pointer", "hyphenated-word"])
+def test_a_deferred_bullet_that_names_no_required_release_passes(tmp_path, line):
+    root = _tree(tmp_path, items=[_item("99-963", DEFERRED) + "\n" + line])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+def test_a_section_at_item_depth_that_lists_work_without_an_id_or_release_fails(tmp_path):
+    """Neither an id nor a field, so the parser skipped it as prose and its work had no release."""
+    root = _tree(tmp_path, items=[_item("99-964", DEFERRED),
+                                  "### Leftover work\n\n- P-901: a defect nobody filed.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "cannot be read" in v[0] and "'Leftover work'" in v[0], v
+
+
+def test_a_listed_structure_section_or_item_subsection_is_not_unfiled_work(tmp_path):
+    """The stack's own structure sits above item depth; an item's subsection is the item's."""
+    root = _tree(tmp_path, items=[
+        "## Out of scope\n\n- Raw-data conversion.\n",
+        _item("99-965", DEFERRED) + "\n#### Notes\n\n- a note on the item.\n",
+    ])
+    assert check_release_readiness(root, head=HEAD) == []
+
+
 # --- 3. the closure receipt --------------------------------------------------------------------
 
 def test_a_missing_receipt_fails(tmp_path):
@@ -407,6 +474,49 @@ def test_an_uncommitted_change_to_any_file_step_0a_reads_is_named(tmp_path, path
     assert len(v) == 1 and "uncommitted changes: artifacts/" + path + "." in v[0], v
 
 
+@pytest.mark.parametrize("change", ["untracked", "modified", "staged", "deleted", "renamed"])
+def test_an_uncommitted_change_anywhere_in_the_tree_fails(tmp_path, change):
+    """Only the three stack files were checked, so uncommitted code passed under a receipt at
+    HEAD and would have been built into the release. What would pass while that still holds: a
+    check that sees only tracked modifications, or only untracked files."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    code = root / "jnwb" / "x.py"
+    if change != "untracked":
+        code.parent.mkdir()
+        code.write_text("x = 1\n", encoding="utf-8")
+        _commit(root, "code")
+    assert check_release_readiness(root, head=HEAD) == []
+    if change == "deleted":
+        code.unlink()
+    elif change == "renamed":
+        _git(root, "mv", "jnwb/x.py", "jnwb/y.py")
+    else:
+        code.parent.mkdir(exist_ok=True)
+        code.write_text("x = 2\n", encoding="utf-8")
+        if change == "staged":
+            _git(root, "add", "jnwb/x.py")
+    v = check_release_readiness(root, head=HEAD)
+    named = "jnwb/x.py, jnwb/y.py." if change == "renamed" else "jnwb/x.py."
+    assert len(v) == 1 and "uncommitted changes: " + named in v[0], v
+
+
+def test_a_git_status_that_fails_is_not_read_as_a_clean_tree(tmp_path, monkeypatch):
+    """A failed `git status` read as clean survived every other test in this file."""
+    import scripts.release_gate as gate
+
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
+    real = subprocess.run
+
+    def status_fails(cmd, *args, **kwargs):
+        if list(cmd[:2]) == ["git", "status"]:
+            return subprocess.CompletedProcess(cmd, 128, "", "fatal: index file corrupt")
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(gate.subprocess, "run", status_fails)
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and v[0].startswith("git cannot report whether the working tree"), v
+
+
 def _repository(tmp_path):
     """A committed compliant tree with no receipt yet: the commit the closure pass runs against."""
     root = _tree(tmp_path, items=[_item("99-920", DEFERRED), _item("99-921", DEFERRED)],
@@ -415,9 +525,12 @@ def _repository(tmp_path):
     return root, _commit(root, "the tree the closure pass reads")
 
 
-def _record_receipt(root, commit, found=0):
-    (root / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
-        _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
+def _record_receipt(root, commit, found=0, finished=None):
+    """``finished``, when given, is the receipt's `finished after the pass` cell."""
+    text = _RECEIPT.format(commit=commit, found=found)
+    if finished is not None:
+        text += f"| finished after the pass | {finished} |\n"
+    (root / "artifacts" / "blocker_fixpoint_receipt.md").write_text(text, encoding="utf-8")
 
 
 def test_a_receipt_at_an_ancestor_followed_only_by_the_receipt_and_todo_stack_passes(tmp_path):
@@ -466,12 +579,10 @@ def test_a_receipt_commit_the_repository_does_not_know_fails(tmp_path):
     assert len(v) == 1 and "does not know" in v[0], v
 
 
-REQUIRED = f"required-{RELEASE_CYCLE}"
-
-
-def _relabel(tmp_path, before, after):
+def _relabel(tmp_path, before, after, finished=None):
     """Violations once the receipt names a commit whose stack holds ``before`` and the commit
-    recording it leaves ``after``. ``None`` leaves the stack out of that commit."""
+    recording it leaves ``after``. ``None`` leaves the stack out of that commit. ``finished`` is
+    the receipt's `finished after the pass` cell, or no such row when ``None``."""
     todo = tmp_path / "artifacts" / "todo_stack.md"
     root = _tree(tmp_path, items=before or (), receipt=False)
     _git(root, "init", "-q")
@@ -483,7 +594,7 @@ def _relabel(tmp_path, before, after):
                             encoding="utf-8")
         if step == 0:
             passed = _commit(root, "the tree the closure pass reads")
-            _record_receipt(root, passed)
+            _record_receipt(root, passed, finished=finished)
     return check_release_readiness(root, head=_commit(root, "record the closure pass"))
 
 
@@ -500,9 +611,27 @@ def test_relabelling_a_held_item_after_the_receipt_fails(tmp_path, was, now):
     assert "99-931" not in v[0], v
 
 
-def test_a_held_item_deleted_after_the_receipt_is_done(tmp_path):
+def test_a_held_item_the_receipt_records_as_finished_may_be_deleted(tmp_path):
     assert _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-931", DEFERRED)],
-                    [_item("99-931", DEFERRED)]) == []
+                    [_item("99-931", DEFERRED)], finished="99-930") == []
+
+
+@pytest.mark.parametrize("finished", [None, "", "none", "99-933", "99-9300", "x99-930"],
+                         ids=["no-row", "empty", "none", "another-id", "longer-id", "prefixed"])
+def test_a_held_item_deleted_without_the_receipt_recording_it_fails(tmp_path, finished):
+    """A deletion alone read as done, so a dropped required item passed as a finished one. What
+    would pass while that still holds: a receipt row that names some id, or an id containing
+    this one, being read as covering it."""
+    v = _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-931", DEFERRED)],
+                 [_item("99-931", DEFERRED)], finished=finished)
+    assert len(v) == 1 and "gone at HEAD" in v[0] and v[0].endswith(": 99-930"), v
+
+
+def test_only_the_unrecorded_one_of_two_deleted_items_is_named(tmp_path):
+    v = _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-934", REQUIRED),
+                            _item("99-931", DEFERRED)],
+                 [_item("99-931", DEFERRED)], finished="99-934")
+    assert len(v) == 1 and "1 todo item(s)" in v[0] and v[0].endswith(": 99-930"), v
 
 
 def test_an_unchanged_held_item_is_condition_2s_to_refuse(tmp_path):
@@ -512,7 +641,8 @@ def test_an_unchanged_held_item_is_condition_2s_to_refuse(tmp_path):
 
 
 def test_an_item_added_after_the_receipt_is_judged_by_condition_2(tmp_path):
-    assert _relabel(tmp_path, [_item("99-930", REQUIRED)], [_item("99-932", DEFERRED)]) == []
+    assert _relabel(tmp_path, [_item("99-930", REQUIRED)], [_item("99-932", DEFERRED)],
+                    finished="99-930") == []
 
 
 @pytest.mark.parametrize("absent", ["receipt", "head"])

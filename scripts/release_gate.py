@@ -1109,41 +1109,22 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
     whose id cannot be read, and each item whose release cannot be read. The caller reports these
     as violations: an item the parser cannot read is still work, and skipping it would report
     emptiness that was not established.
+
+    A section at item depth that is not inside an item and lists work, but has neither an id nor
+    a ``Release:`` field, is unparseable too: its list is work the stack gives no release.
     """
-    sections: List[Tuple[Optional[str], List[str]]] = [(None, [])]
-    for line in text.splitlines():
-        heading = (_HEADING.match(line) or _CONTAINED_HEADING.match(line)
-                   or _HTML_HEADING.match(line))
-        body = sections[-1][1]
-        if heading:
-            sections.append(((heading.group(2) or "").strip(), []))
-        elif _SETEXT_UNDERLINE.match(line) and body and body[-1].strip():
-            sections.append((body.pop().strip(), []))
-        else:
-            body.append(line)
     items: List[Tuple[str, str, str]] = []
     unparseable: List[str] = []
-    for title, body in sections:
-        values = [m.group(1).strip().rstrip(".").strip()
-                  for m in map(_RELEASE_VALUE.match, body) if m]
+    for title, level, body, enclosing in _todo_sections(text):
         has_field = any(_RELEASE_ANY.search(line) for line in body)
         item = _ITEM_HEADING.match(title) if title is not None else None
         if item:
-            distinct = list(dict.fromkeys(values))
-            # Capture to end of line and strip one trailing sentence period. Stopping at the
-            # first `.` would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value
-            # compares unequal to the deferred marker -- so every deferred item would read as
-            # still required.
-            value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
-                     else "CONFLICTING: " + " / ".join(distinct))
-            noncanonical = [line.strip() for line in body
-                            if _RELEASE_ANY.search(line) and not _RELEASE_VALUE.match(line)]
+            value, noncanonical = _section_release(body)
             if noncanonical:
-                value = "NONCANONICAL"
                 unparseable.append(
                     f"item {item.group(1)} has a Release: line not written 'Release: <value>' "
                     f"at the start of a line, so its release cannot be read: "
-                    f"{noncanonical[0][:60]!r}")
+                    f"{noncanonical[:60]!r}")
             items.append((item.group(1), (item.group(2) or "").strip(), value))
         elif title is None:
             if has_field:
@@ -1151,7 +1132,99 @@ def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]
         elif has_field or _ITEM_SHAPED.match(title):
             unparseable.append(f"heading {title[:60]!r} is item-shaped or carries a Release: "
                                "field, but no item id can be read from it")
+        elif (level >= _ITEM_DEPTH and enclosing is None
+              and any(_LIST_ITEM.match(line) for line in body)):
+            unparseable.append(f"heading {title[:60]!r} sits at item depth outside any item and "
+                               "lists work, but has no item id and no Release: field")
     return items, unparseable
+
+
+#: The heading depth the stack writes items at (``### <id> <title>``). Shallower headings are the
+#: stack's own structure: version groups, the execution rules, the scope and acceptance notes.
+_ITEM_DEPTH = 3
+_LIST_ITEM = re.compile(r"^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\S")
+# A release value written into a line without the `Release:` label: `required-0.2.7` as a
+# bullet's own marker, or the prose form `Required for 0.2.7`.
+_REQUIRED_MARKER = re.compile(r"(?<![\w-])required(?:-|[ \t]+for[ \t]+)v?(\d+(?:\.\d+)+)",
+                              re.IGNORECASE)
+
+
+def _todo_sections(text: str) -> List[Tuple[Optional[str], int, List[str], Optional[str]]]:
+    """``(title, level, body, enclosing item id)`` for every section of todo-stack text.
+
+    The text before the first heading is a section with title ``None`` and level 0. The
+    enclosing id is that of the nearest item heading above whose level is shallower, so a
+    subsection of an item names it and a section at the item's own depth or shallower does not.
+    """
+    sections: List[Tuple[Optional[str], int, List[str]]] = [(None, 0, [])]
+    for line in text.splitlines():
+        heading = _HEADING.match(line) or _CONTAINED_HEADING.match(line)
+        html = None if heading else _HTML_HEADING.match(line)
+        body = sections[-1][2]
+        if heading:
+            sections.append(((heading.group(2) or "").strip(), len(heading.group(1)), []))
+        elif html:
+            sections.append(((html.group(2) or "").strip(), int(html.group(1)), []))
+        elif _SETEXT_UNDERLINE.match(line) and body and body[-1].strip():
+            sections.append((body.pop().strip(), 1 if line.strip()[0] == "=" else 2, []))
+        else:
+            body.append(line)
+    out = []
+    open_items: List[Tuple[str, int]] = []
+    for title, level, body in sections:
+        while open_items and level <= open_items[-1][1]:
+            open_items.pop()
+        item = _ITEM_HEADING.match(title) if title is not None else None
+        out.append((title, level, body, open_items[-1][0] if open_items and not item else None))
+        if item:
+            open_items.append((item.group(1), level))
+    return out
+
+
+def _section_release(body: List[str]) -> Tuple[str, Optional[str]]:
+    """``(value, first noncanonical line)`` for a section's own ``Release:`` field.
+
+    ``MISSING`` when it has none, every distinct value joined when it states more than one, and
+    ``NONCANONICAL`` when any of its ``Release:`` lines is not in the canonical form, so that none
+    of these reads as deferred.
+    """
+    values = [m.group(1).strip().rstrip(".").strip()
+              for m in map(_RELEASE_VALUE.match, body) if m]
+    distinct = list(dict.fromkeys(values))
+    # Capture to end of line and strip one trailing sentence period. Stopping at the first `.`
+    # would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares unequal
+    # to the deferred marker -- so every deferred item would read as still required.
+    value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
+             else "CONFLICTING: " + " / ".join(distinct))
+    noncanonical = [line.strip() for line in body
+                    if _RELEASE_ANY.search(line) and not _RELEASE_VALUE.match(line)]
+    return ("NONCANONICAL", noncanonical[0]) if noncanonical else (value, None)
+
+
+def required_work_outside_held_items(text: str) -> List[str]:
+    """Lines that mark work required for this cycle or an earlier one, in a section that does
+    not hold this cycle's release open.
+
+    A section holds it open when it is an item whose release is anything but the deferred and
+    release-step values, or a subsection of such an item. Anywhere else -- a deferred item, a
+    release step, a subsection of either, or a section that is not an item -- a bullet marked
+    ``required-<version>`` or ``Required for <version>`` is required work the item-level field
+    does not report. A later version is that cycle's work and is not counted.
+    """
+    items = {i: r for i, _, r in _parse_todo_stack(text)[0]}
+    cycle = _version_tuple(RELEASE_CYCLE)
+    found = []
+    for title, _, body, enclosing in _todo_sections(text):
+        item = _ITEM_HEADING.match(title) if title is not None else None
+        owner = item.group(1) if item else enclosing
+        if owner is not None and items.get(owner) not in (DEFERRED_VALUE, RELEASE_STEP_VALUE):
+            continue
+        where = (f"{owner} [{items[owner]}]" if owner is not None
+                 else "before the first heading" if title is None else repr(title[:40]))
+        for line in body:
+            if any(_version_tuple(m.group(1)) <= cycle for m in _REQUIRED_MARKER.finditer(line)):
+                found.append(f"{where}: {line.strip()[:60]!r}")
+    return found
 
 
 def unparseable_todo_headings(root: pathlib.Path = REPO_ROOT) -> List[str]:
@@ -1204,6 +1277,18 @@ def _receipt_fields(text: str) -> Tuple[Optional[str], Optional[int]]:
     found = re.search(r"^\|\s*new release-blocking problems found\s*\|\s*(\d+)\s*\|", text, re.M)
     return (commit.group(1) if commit else None,
             int(found.group(1)) if found else None)
+
+
+#: The receipt row naming the items the closure pass verified as finished, which the commit that
+#: records the receipt then deletes from the todo stack: ``| finished after the pass | 07-01, 07-04 |``.
+RECEIPT_FINISHED_FIELD = "finished after the pass"
+
+
+def receipt_finished_items(text: str) -> Set[str]:
+    """The item ids the receipt's ``finished after the pass`` row names; empty when it has none."""
+    row = re.search(r"^\|\s*" + re.escape(RECEIPT_FINISHED_FIELD) + r"\s*\|([^|\n]*)\|", text,
+                    re.M)
+    return set(re.findall(r"(?<![\w-])\d\d-\d+(?![\w-])", row.group(1))) if row else set()
 
 
 def receipt_commit_violation(root: pathlib.Path, commit: str,
@@ -1263,29 +1348,39 @@ def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
 STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, RECEIPT_PATH)
 
 
-def uncommitted_step_0a_paths(root: pathlib.Path) -> Optional[List[str]]:
-    """The paths of :data:`STEP_0A_PATHS` whose working copy differs from HEAD, untracked and
-    deleted ones included, or ``None`` when git cannot say."""
+def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
+    """Every path whose working copy differs from HEAD -- modified, staged, deleted, renamed or
+    untracked and not ignored -- sorted, or ``None`` when git cannot say.
+
+    The whole tree, not only :data:`STEP_0A_PATHS`: the build in STEP 3 packages the working
+    copy, so uncommitted code would ship under a receipt that names a commit without it.
+    """
     status = subprocess.run(
-        ["git", "status", "--porcelain", "-z", "--untracked-files=all", "--", *STEP_0A_PATHS],
+        ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
         cwd=root, capture_output=True, text=True)
     if status.returncode != 0:
         return None
     named = set()
-    for entry in filter(None, status.stdout.split("\0")):
-        # `XY path`, and a rename's source follows as its own entry without the `XY ` prefix.
-        named.update({entry[3:], entry})
-    return [p for p in STEP_0A_PATHS if p in named]
+    entries = iter(filter(None, status.stdout.split("\0")))
+    for entry in entries:
+        # `XY path`; a rename or copy is followed by its source as an entry of its own.
+        named.add(entry[3:])
+        if "R" in entry[:2] or "C" in entry[:2]:
+            named.add(next(entries, ""))
+    return sorted(filter(None, named))
 
 
-def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str) -> List[str]:
+def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str,
+                             finished: Iterable[str] = ()) -> List[str]:
     """Why the todo stack at HEAD does not carry the receipt's release values forward.
 
     The todo stack may change after the closure pass so that finished items can be deleted, but
     the pass judged what stays required. An item this cycle's release waited on at the receipt's
     commit (any value but the deferred and release-step ones) must carry the same value at HEAD,
-    or be gone: a deleted item is done. Items added after the receipt are judged by condition 2
-    alone. A stack absent at either commit, or unreadable at the receipt's, is refused.
+    or be gone and named in ``finished``, the ids the receipt records as finished after the pass.
+    A deletion alone cannot tell a finished item from a dropped one. Items added after the receipt
+    are judged by condition 2 alone. A stack absent at either commit, or unreadable at the
+    receipt's, is refused.
     """
     at_receipt, at_head = _todo_stack_at(root, commit), _todo_stack_at(root, head)
     if at_receipt is None or at_head is None:
@@ -1299,14 +1394,24 @@ def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str) -> List
                 f"{commit[:12]} cannot be read, so whether one was relabelled after the closure "
                 "pass is unknown: " + "; ".join(unreadable[:4])]
     held = {i: r for i, _, r in before if r not in (DEFERRED_VALUE, RELEASE_STEP_VALUE)}
-    changed = [f"{i}: {held[i][:40]} -> {r[:40]}"
-               for i, _, r in _parse_todo_stack(at_head)[0] if i in held and r != held[i]]
-    if not changed:
-        return []
-    return [f"{len(changed)} todo item(s) held open for {RELEASE_CYCLE} at the receipt's commit "
+    after = _parse_todo_stack(at_head)[0]
+    changed = [f"{i}: {held[i][:40]} -> {r[:40]}" for i, _, r in after
+               if i in held and r != held[i]]
+    dropped = sorted(set(held) - {i for i, _, _ in after} - set(finished))
+    violations = []
+    if changed:
+        violations.append(
+            f"{len(changed)} todo item(s) held open for {RELEASE_CYCLE} at the receipt's commit "
             f"{commit[:12]} carry another release at HEAD {head[:12]}; only a new closure pass "
             "may relabel an item it judged, so finish and delete it or record a new receipt: "
-            + "; ".join(changed[:8]) + (" ..." if len(changed) > 8 else "")]
+            + "; ".join(changed[:8]) + (" ..." if len(changed) > 8 else ""))
+    if dropped:
+        violations.append(
+            f"{len(dropped)} todo item(s) held open for {RELEASE_CYCLE} at the receipt's commit "
+            f"{commit[:12]} are gone at HEAD {head[:12]}, and {RECEIPT_PATH} does not record them "
+            f"under '{RECEIPT_FINISHED_FIELD}', so whether each was finished or dropped is "
+            "unknown: " + ", ".join(dropped[:8]) + (" ..." if len(dropped) > 8 else ""))
+    return violations
 
 
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
@@ -1321,30 +1426,34 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          and separator, and no other section holds a problem row;
       2. no todo item is still required for this cycle, and every item's release is readable.
          An item is not required when it is deferred to the next cycle, or when it is this
-         cycle's release step, which completes only after the tag;
+         cycle's release step, which completes only after the tag; and no line inside such an
+         item, or outside any item, marks work required for this cycle;
       3. the independent blocker-focused closure receipt exists and reports zero, and its
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
-         the todo stack, where no item held open at the receipt's commit changed its release.
+         the todo stack, where no item held open at the receipt's commit changed its release,
+         and every one deleted since is one the receipt records as finished.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
 
-    The three files are read as committed at HEAD, and an uncommitted change to any of them is
-    itself a violation: the release is of a commit, and a working-copy edit is not in it.
+    The three files are read as committed at HEAD, and an uncommitted change anywhere in the
+    working tree is itself a violation: the release is of a commit, and a working-copy edit is
+    not in it.
     """
     violations: List[str] = []
 
     # 0. the evidence is what HEAD commits
-    dirty = uncommitted_step_0a_paths(root)
+    dirty = uncommitted_paths(root)
     if dirty is None:
         violations.append(
-            f"git cannot report whether {', '.join(STEP_0A_PATHS)} have uncommitted changes, so "
-            "whether the stacks STEP 0a reads from HEAD are the ones in the working copy is "
-            "unknown")
+            "git cannot report whether the working tree has uncommitted changes, so whether "
+            f"the tree being released, and the {', '.join(STEP_0A_PATHS)} STEP 0a reads from "
+            "HEAD, are the ones in the working copy is unknown")
     elif dirty:
         violations.append(
-            f"{len(dirty)} file(s) STEP 0a reads have uncommitted changes: {', '.join(dirty)}. "
-            "STEP 0a reads them as committed at HEAD; commit or discard the changes")
+            f"{len(dirty)} file(s) have uncommitted changes: {', '.join(dirty[:8])}"
+            + (" ..." if len(dirty) > 8 else "") + ". The release, and the stacks and receipt "
+            "STEP 0a reads, are the commit at HEAD; commit or discard the changes")
 
     # 1. the problem stack is empty
     problems = _text_at(root, "HEAD", PROBLEM_STACK)
@@ -1381,6 +1490,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"{len(unreadable)} todo section(s) look like items but cannot be read, so whether "
             f"they are required for {RELEASE_CYCLE} is unknown: " + "; ".join(unreadable[:8])
             + (" ..." if len(unreadable) > 8 else ""))
+    marked = required_work_outside_held_items(todo) if todo is not None else []
+    if marked:
+        violations.append(
+            f"{len(marked)} line(s) mark work required for {RELEASE_CYCLE} or earlier inside a "
+            "section that does not hold the release open, so the item's own field under-reports "
+            "it: " + "; ".join(marked[:8]) + (" ..." if len(marked) > 8 else ""))
 
     # 3. the independent closure receipt
     receipt = _text_at(root, "HEAD", RECEIPT_PATH)
@@ -1394,7 +1509,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         if stale:
             violations.append(stale)
         elif commit != head:
-            violations.extend(relabelled_after_receipt(root, commit, head))
+            violations.extend(relabelled_after_receipt(root, commit, head,
+                                                       receipt_finished_items(receipt)))
     if found is None:
         violations.append(f"{RECEIPT_PATH} does not state how many new release-blocking "
                           "problems the closure pass found")
@@ -1417,11 +1533,12 @@ def main() -> None:
         for violation in stack_violations:
             log.error(violation)
         log.error(
-            "A release requires: an empty problem stack; zero todo items still required for "
-            "this cycle; and a blocker-focused closure receipt reporting zero new blockers, "
-            "recorded at HEAD or at an ancestor that differs from HEAD only in the receipt and "
-            "%s, with no item it held open relabelled since. Work deferred to %s, and %s "
-            "items, stay in the todo stack.",
+            "A release requires: a working tree with no uncommitted change; an empty problem "
+            "stack; zero todo items still required for this cycle; and a blocker-focused closure "
+            "receipt reporting zero new blockers, recorded at HEAD or at an ancestor that differs "
+            "from HEAD only in the receipt and %s, with no item it held open relabelled since "
+            "or deleted without the receipt recording it as finished. Work deferred to %s, and "
+            "%s items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
     releases = [r for _, _, r in _parse_todo_stack(_text_at(REPO_ROOT, "HEAD", TODO_PATH))[0]]
