@@ -1215,6 +1215,21 @@ def test_the_null_is_the_extremal_cluster_of_each_tail():
     np.testing.assert_array_equal(null["both"], np.maximum(null["greater"], -null["less"]))
 
 
+@pytest.mark.parametrize("tail", ["both", "greater", "less"])
+def test_a_null_draw_with_no_cluster_contributes_zero(tail):
+    """No point crosses the threshold in any draw, so every null statistic is 0.0 and no
+    cluster is reported."""
+    from jnwb.statistics import cluster_permutation_test
+
+    rng = np.random.default_rng(13)
+    X, Y = rng.normal(size=(8, 50)), rng.normal(size=(8, 50))
+    res = cluster_permutation_test(X, Y, paired=True, threshold=1e6, n_permutations=25,
+                                   tail=tail, rng=0)
+    assert res["clusters"] == []
+    assert res["max_null_stats"].shape == (25,)
+    assert np.array_equal(res["max_null_stats"], np.zeros(25))
+
+
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("a, b", [(-np.inf, -np.inf), (np.inf, np.inf), (-np.inf, 1.0),
                                   (1.0, np.inf)])
