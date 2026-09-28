@@ -124,7 +124,7 @@ For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on dupl
 
 ### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
 
-Estimates phase gradients across ordered laminar contacts and, only when every adjacent pair is coupled (wPLI at least `min_wpli`) and its phase is linear in frequency, an apparent per-contact phase delay and velocity:
+Estimates phase gradients across ordered laminar contacts and, only when every adjacent pair's wPLI is at least `min_wpli` and its phase is linear in frequency, an apparent per-contact phase delay and velocity:
 
 ```python
 # lfp_matrix: (n_channels, n_samples) ordered along probe shaft

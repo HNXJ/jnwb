@@ -387,6 +387,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be identifiable, so `accepted` now also depends on each pair's coupling, not only on
   `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
   well-coupled mean accepted the result; `rejection_reason` names such pairs.
+- `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed
+  its linearity or unambiguous-interval check, and names a failed depth fit (cumulative delay
+  not linear in contact index, or a zero gradient) on its own. It reported the phase gate for
+  any non-identifiable delay, including one refused only for weak coupling.
 - `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
   `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
   surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so

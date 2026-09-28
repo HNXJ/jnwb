@@ -2242,6 +2242,7 @@ def zflip(
     # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
     # constant contact's spectrum enters neither mean_wpli nor the delay fit.
     flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    phase_failed_pairs: List[int] = []
 
     for i in range(n_channels - 1):
         if i in flat_contacts or i + 1 in flat_contacts:
@@ -2263,8 +2264,10 @@ def zflip(
         tau = -slope / (2.0 * np.pi)
         adj_delays[i] = tau
 
-        if (r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
-                and adj_wpli[i] >= min_wpli):
+        phase_ok = r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
+        if not phase_ok:
+            phase_failed_pairs.append(i)
+        if phase_ok and adj_wpli[i] >= min_wpli:
             adj_identifiable[i] = True
 
     mean_wpli_val = float(np.mean(adj_wpli))
@@ -2274,6 +2277,7 @@ def zflip(
     # biased 12-contact estimates by ~16%, and on 3 contacts a single identifiable pair
     # was accepted with the wrong sign.
     delay_identifiable = bool(np.all(adj_identifiable))
+    depth_fit_reason: Optional[str] = None
 
     if delay_identifiable:
         # Cumulative phase delay along the array
@@ -2285,6 +2289,8 @@ def zflip(
         spatial_r2 = float(reg_spatial.rvalue ** 2) if np.isfinite(reg_spatial.rvalue) else 0.0
 
         if spatial_r2 < 0.50:
+            depth_fit_reason = (f"Cumulative delay not linear in contact index "
+                                f"(R^2 = {spatial_r2:.4f} < 0.5)")
             delay_identifiable = False
             tau_per_channel = float("nan")
             apparent_velocity = None
@@ -2301,6 +2307,7 @@ def zflip(
                     directionality = ("deep_to_superficial" if row_order_leads
                                       else "superficial_to_deep")
             else:
+                depth_fit_reason = "Delay gradient across contacts is exactly zero"
                 delay_identifiable = False
                 tau_per_channel = float("nan")
                 directionality = "unidentifiable"
@@ -2352,8 +2359,10 @@ def zflip(
     if weak_pairs:
         reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
                        "delay not identified")
-    if not delay_identifiable:
+    if phase_failed_pairs:
         reasons.append("Phase-frequency relation failed linear identifiability gate")
+    if depth_fit_reason is not None:
+        reasons.append(depth_fit_reason)
 
     rejection_reason = "; ".join(reasons) if not accepted else None
 

@@ -184,7 +184,8 @@ def test_zflip_a_weakly_coupled_pair_is_not_identifiable():
     Contact 4 carries the wave under independent noise at twice its SD: both of its pairs
     still fit a linear phase, but their wPLI (0.84) is below ``min_wpli=0.9`` while the mean
     (0.94) is above it. What would pass while the pair still counts: checking only
-    ``mean_wpli`` or ``has_coupling``, which the mean satisfies.
+    ``mean_wpli`` or ``has_coupling``, which the mean satisfies. Every pair passes the
+    phase-frequency gate, so the reason must not claim that it failed.
     """
     rng = np.random.default_rng(0)
     b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
@@ -200,6 +201,27 @@ def test_zflip_a_weakly_coupled_pair_is_not_identifiable():
     assert res.apparent_velocity_m_s is None
     assert not res.accepted
     assert "[(3, 4), (4, 5)] wPLI below min_wpli" in res.rejection_reason
+    assert "Phase-frequency relation failed" not in res.rejection_reason
+
+
+def test_zflip_a_pair_wpli_equal_to_min_wpli_passes_the_pair_gate():
+    """The pair gate is ``wPLI >= min_wpli``, inclusive at the threshold.
+
+    Contacts 0 and 1 are identical, so pair (0, 1) has wPLI exactly 0.0; pairs (1, 2) and
+    (2, 3) are lagged 2 samples and have wPLI near 1. With ``min_wpli=0.0`` and the linearity
+    threshold at 0.0, every pair passes. A strict ``>`` refuses pair (0, 1); a reversed
+    ``<=`` refuses the lagged pairs.
+    """
+    rng = np.random.default_rng(0)
+    b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
+    src = signal.filtfilt(b, a, rng.normal(size=4100))
+    lagged = [src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(3)]
+    data = np.stack([lagged[0], lagged[0], lagged[1], lagged[2]])
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, min_wpli=0.0,
+                     min_linearity_r2=0.0, n_surrogates=0)
+    assert res.adjacent_wpli[0] == 0.0 and np.all(res.adjacent_wpli[1:] > 0.9)
+    assert res.adjacent_identifiable.tolist() == [True, True, True]
+    assert "wPLI below min_wpli" not in res.rejection_reason
 
 
 def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
