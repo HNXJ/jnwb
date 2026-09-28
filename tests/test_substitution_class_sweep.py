@@ -702,6 +702,9 @@ ACCEPTED_HANDLER_RECOVERY = {
         "rather than answering.",
     ("mcp_server/nwb_tools.py", "Exception", (), True):
         "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure.",
+    ("mcp_server/nwb_tools.py", "(NWBInspectError, KeyError, ValueError, OSError)", (), True):
+        "_resolves returns False when the resolver refuses the name, so the reference names no "
+        "reader. Absence of a call, never a different one.",
     ("metadata.py", "ValueError", (), True):
         "Session-id parse falls back to (raw, raw) -- the unparsed input returned as itself, "
         "not a fabricated identifier.",
