@@ -91,7 +91,6 @@ flight, ruled on 2026-09-27, or meeting the blocker predicate by that date's ind
 classification. The deferred bullets are in 07-28 under 0.2.8.
 
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
-- IB-94: CI's installed-wheel leg fails `test_no_second_jnwb_shadows_the_one_under_test`, because the checkout sits ahead of the installed wheel on `sys.path` (run on `76656502`, the first time the leg has run). Required for 0.2.7 (R4, classified 2026-09-28): the qualification leg cannot establish that the wheel was tested. Check: the insertion is named and removed, the provenance test is unchanged, and the build job is green.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
