@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 from collections import namedtuple
 from typing import Dict, FrozenSet, List, Set, Tuple
 
@@ -70,10 +71,12 @@ Finding = namedtuple("Finding", "kind module key detail lineno")
 """A hit. ``key`` is line-number-free so a baseline survives edits elsewhere in the file.
 
 Every static key names its site: the module, the qualified name of the enclosing function
-(``Class.method``, ``outer.inner``, or ``<module>``), the shape the scanner matched, and last the
-site's ordinal among same-shaped sites in that function, counted in source order. Without the
-function, a new site anywhere in a module passed under a row reviewed for another site of the same
-shape; without the ordinal, a second such site inside one function did.
+(``Class.method``, ``outer.inner``, or ``<module>``), the shape the scanner matched (for a chain,
+including whether it has an ``else``), and last the site's ordinal among same-shaped sites in that
+function, counted in source order. Without the function, a new site anywhere in a module passed
+under a row reviewed for another site of the same shape; without the ordinal, a second such site
+inside one function did. The ordinal is positional, so :func:`_unexplained_report` names every site
+of a group whose count changed.
 """
 
 
@@ -257,7 +260,7 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
                 Finding(
                     kind="CHAIN_NO_ELSE",
                     module=module,
-                    key=(module, where[id(node)], subject, tuple(literals)),
+                    key=(module, where[id(node)], "CHAIN_NO_ELSE", subject, tuple(literals)),
                     detail=f"if/elif on {subject} over {literals}; no else, falls through",
                     lineno=node.lineno,
                 )
@@ -274,7 +277,7 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
             Finding(
                 kind="CHAIN_ELSE",
                 module=module,
-                key=(module, where[id(node)], subject, tuple(literals)),
+                key=(module, where[id(node)], "CHAIN_ELSE", subject, tuple(literals)),
                 detail=f"if/elif on {subject} over {literals}; trailing else computes",
                 lineno=else_body[0].lineno,
             )
@@ -398,9 +401,14 @@ What this instrument cannot see, stated rather than discovered later:
    ``jnwb/`` module uses ``match`` today, so this is unmeasured rather than clear.
 9. A reviewed site edited in place. A key names a site and the shape matched there, not the
    value a handler returns or the branch an ``else`` computes, so a handler reviewed as
-   returning ``None`` that is changed to return ``1.0`` keeps its key and its row. A new site
-   is reported wherever it lands, including a second one of one shape inside one function.
-   Two same-shaped sites in one function that swap bodies also keep their keys.
+   returning ``None`` that is changed to return ``1.0`` keeps its key and its row. Two
+   same-shaped sites in one function that swap bodies also keep their keys.
+10. A count-preserving change to a group of same-shaped sites in one function. The ordinal
+   that ends a key is positional, so deleting one site and adding another of the same shape
+   leaves the same keys, and every row rebinds by position to whatever site now holds it. An
+   added site that changes the count is reported, but the key left over belongs to the last
+   site in the group rather than to the new one, which is why a failure lists every line in
+   the group and asks for the whole group to be re-reviewed.
 
 Chains nested inside another ``if`` arm, and chains with no ``else`` whose next statement
 does not refuse, were once invisible here too; both are now scanned and seeded.
@@ -537,7 +545,8 @@ class TestTheInstrumentDetectsASeededInstance:
     def test_chain_scanner_finds_the_planted_reduction_fallthrough(self):
         found = scan_selector_chain_fallthrough(SEED_CHAIN_DEFECT, "seed")
         assert len(found) == 1, found
-        assert found[0].key == ("seed", "_reduce", "op_str", ("mean", "median", "sum"), 1)
+        assert found[0].key == (
+            "seed", "_reduce", "CHAIN_ELSE", "op_str", ("mean", "median", "sum"), 1)
 
     def test_chain_scanner_clears_the_repaired_form(self):
         assert scan_selector_chain_fallthrough(SEED_CHAIN_REPAIRED, "seed") == []
@@ -545,7 +554,8 @@ class TestTheInstrumentDetectsASeededInstance:
     def test_chain_scanner_finds_a_chain_nested_in_an_if_body(self):
         """Every `if` below the outer one used to be marked seen, so this was never read."""
         found = scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_DEFECT, "seed")
-        assert [f.key for f in found] == [("seed", "_reduce", "op_str", ("mean", "median"), 1)], found
+        assert [f.key for f in found] == [
+            ("seed", "_reduce", "CHAIN_ELSE", "op_str", ("mean", "median"), 1)], found
         assert scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_REPAIRED, "seed") == []
 
     def test_chain_scanner_finds_a_chain_with_no_else(self):
@@ -553,7 +563,8 @@ class TestTheInstrumentDetectsASeededInstance:
         through and the input is returned as though it had been resampled."""
         found = scan_selector_chain_fallthrough(SEED_NO_ELSE_DEFECT, "seed")
         assert [(f.kind, f.key) for f in found] == [
-            ("CHAIN_NO_ELSE", ("seed", "_resample_axis", "align", ("cubic", "linear"), 1))], found
+            ("CHAIN_NO_ELSE",
+             ("seed", "_resample_axis", "CHAIN_NO_ELSE", "align", ("cubic", "linear"), 1))], found
         assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REPAIRED, "seed") == []
         assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REFUSED_AFTER, "seed") == []
 
@@ -632,31 +643,32 @@ ACCEPTED_OPTION_SET_GET = {
 # ``test_every_accepted_chain_else_has_a_validator_that_really_rejects`` drives it -- the
 # reason is proven by execution, not asserted in a comment.
 ACCEPTED_CHAIN_ELSE = {
-    ("continuous.py", "epoch_continuous", "boundary_policy", ("drop", "error"), 1):
+    ("continuous.py", "epoch_continuous", "CHAIN_ELSE", "boundary_policy", ("drop", "error"), 1):
         "boundary_policy is checked against ('nan', 'error', 'drop') and raises; the else "
         "is the 'nan' branch.",
-    ("jrsa.py", "_p_from_null", "alternative", ("greater", "two-sided"), 1):
+    ("jrsa.py", "_p_from_null", "CHAIN_ELSE", "alternative", ("greater", "two-sided"), 1):
         "REPAIRED BY THIS SWEEP: alternative is now checked against jrsa.ALTERNATIVES at "
         "the top of _p_from_null and raises; the else is the 'less' branch.",
-    ("laminar.py", "vflip", "orientation", ("auto", "superficial_to_deep"), 1):
+    ("laminar.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
-    ("spectral.py", "relative_power", "model", ("mean_of_ratios", "ratio_of_means"), 1):
+    ("spectral.py", "relative_power", "CHAIN_ELSE", "model",
+     ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
-    ("statistics.py", "shuffle_pvalue_paired", "alt", ("greater", "less"), 1):
+    ("statistics.py", "shuffle_pvalue_paired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
         "alt is the return of _require_alternative, which normalizes and raises; the else "
         "is the two-sided branch.",
-    ("statistics.py", "shuffle_pvalue_unpaired", "alt", ("greater", "less"), 1):
+    ("statistics.py", "shuffle_pvalue_unpaired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
         "alt is the return of _require_alternative, which normalizes and raises; the else "
         "is the two-sided branch.",
-    ("statistics.py", "cluster_permutation_test", "tail", ("greater", "less"), 1):
+    ("statistics.py", "cluster_permutation_test", "CHAIN_ELSE", "tail", ("greater", "less"), 1):
         "tail is checked against ('both', 'greater', 'less') and raises; the else is the "
         "'both' branch.",
-    ("statistics.py", "exact_sign_flip", "alt", ("greater", "two-sided"), 1):
+    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 1):
         "The exact-enumeration chain. exact_sign_flip checks alt against ('two-sided', "
         "'greater', 'less') and raises before either chain; the else is the 'less' branch.",
-    ("statistics.py", "exact_sign_flip", "alt", ("greater", "two-sided"), 2):
+    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 2):
         "The Monte Carlo chain, under the same check as the first; the else is the 'less' "
         "branch.",
 }
@@ -687,7 +699,8 @@ ACCEPTED_HANDLER_RECOVERY = {
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
     ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
-        "OPEN, carried deliberately: align='linear' falls back to 'downsample' when scipy is "
+        "OPEN, carried deliberately: align='interpolate' or 'linear' falls back to "
+        "'downsample' when scipy is "
         "absent while parameters['align'] echoes the request -- a substitution. Doubly latent: "
         "scipy is a declared dependency, and jrsa() refuses x1 and x2 of different shapes in "
         "_validate_inputs before _align_dimensions, so no axis is ever resampled. The "
@@ -743,8 +756,9 @@ ACCEPTED_HANDLER_RECOVERY = {
         "scheduling.",
     ("addressing.py", "_resolve_electrode_row", "(ValueError, TypeError, OverflowError)",
      (), True, 1):
-        "Returns (None, None) when the channel id will not convert to an integer. Absence, "
-        "and every caller maps it to 'Unknown'.",
+        "Returns (None, None) when the channel id will not convert to an integer. Absence: "
+        "_area_from_row returns None for a None row, so the unit gets area None and "
+        "depth_class 'Unknown'.",
     ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
         "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
         "Absence.",
@@ -800,13 +814,33 @@ ACCEPTED_HANDLER_RECOVERY = {
 }
 
 
+def _unexplained_report(findings: List[Finding], accepted: Dict[tuple, str]) -> str:
+    """One entry per key with no reviewed row, and every site of that key's shape in its function.
+
+    The ordinal that ends a key is positional. A site added before a reviewed one of the same
+    shape takes the reviewed ordinal and row, and the key left unexplained is the reviewed
+    site's, one ordinal on. Naming only that key's line would point at code that was reviewed,
+    so every line in the group is listed and the group is flagged for review as a whole.
+    """
+    entries: List[str] = []
+    for key in sorted({f.key for f in findings if f.key not in accepted}, key=repr):
+        line = min(f.lineno for f in findings if f.key == key)
+        entries.append(f"  {key}  (line {line})")
+        group = sorted(f.lineno for f in findings if f.key[:-1] == key[:-1])
+        if len(group) > 1:
+            entries.append(
+                f"    {len(group)} sites of this shape in this function, at lines "
+                f"{', '.join(str(n) for n in group)}. Ordinals are positional: a site added "
+                f"before a reviewed one takes over its row, so the new site may be any of "
+                f"these. Re-review the whole group and re-baseline every row in it.")
+    return "\n".join(entries)
+
+
 def _baseline_check(findings: List[Finding], accepted: Dict[tuple, str], kind: str):
     keys = {f.key for f in findings}
-    unexplained = sorted(k for k in keys if k not in accepted)
-    assert not unexplained, (
-        f"{kind}: new substitution-class site(s) with no reviewed reason:\n  "
-        + "\n  ".join(f"{k}  (line {min(f.lineno for f in findings if f.key == k)})"
-                      for k in unexplained)
+    report = _unexplained_report(findings, accepted)
+    assert not report, (
+        f"{kind}: new substitution-class site(s) with no reviewed reason:\n" + report
         + "\n\nEither repair the site so the recorded label stays true, or add a row to the "
           "baseline in tests/test_substitution_class_sweep.py saying why it already does."
     )
@@ -872,41 +906,107 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
 
 _SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None else float(raw)\n"
 _RESOLVES_BODY = "    try:\n        return resolve_acquisition(file_path, name) == name\n"
+_ADF_BODY = "    try:\n        import warnings\n\n        from statsmodels.tsa.stattools import adfuller\n"
+_NAM_GUARD = "try:\n    import torch\n    import torch.nn as nn\n"
+_SIGN_FLIP_BODY = "    n = arr.size\n    obs_mean = float(np.mean(arr))\n"
+_SIGN_FLIP_CHAIN = ('    if alt == "two-sided":\n        tol = 0.0\n'
+                    '    elif alt == "greater":\n        tol = 0.0\n')
+
+Planted = namedtuple("Planted", "report findings lines")
+"""A mutant's unexplained report, its findings, and the source lines the planted text occupies."""
 
 
-def _unexplained_handlers(module: str, anchor: str, replacement: str) -> Set[tuple]:
-    """Handler keys the baseline does not explain once ``anchor`` in ``module`` is replaced."""
+def _plant_before(module: str, anchor: str, planted: str, scanner, accepted) -> Planted:
+    """Insert ``planted`` ahead of ``anchor`` in ``module`` and report what the baseline misses."""
     source = (PACKAGE_ROOT / module).read_text(encoding="utf-8")
     assert source.count(anchor) == 1, f"the anchor for this mutant moved in {module}"
-    mutated = source.replace(anchor, replacement)
-    assert mutated.count(replacement) == 1
-    return {f.key for f in scan_recovering_handlers(mutated, module)} - set(
-        ACCEPTED_HANDLER_RECOVERY)
+    first = source[:source.index(anchor)].count("\n") + 1
+    mutated = source.replace(anchor, planted + anchor)
+    assert mutated.count(planted + anchor) == 1
+    findings = [f for f in scanner(mutated, module) if f.module == module]
+    return Planted(_unexplained_report(findings, accepted), findings,
+                   range(first, first + planted.count("\n")))
 
 
-class TestAHandlerIsReviewedAtItsOwnSite:
-    """A reviewed row explains one handler, not every handler of the same shape in its module.
+def _names_line(report: str, line: int) -> bool:
+    return re.search(rf"(?<!\d){line}(?!\d)", report) is not None
 
-    Each mutant plants a handler that returns a substitute value and has the exact shape of a
-    reviewed row, so a key without the enclosing function (the first) or without the ordinal
-    within it (the second) files it under that row.
+
+def _assert_names_both(result: Planted, shape: tuple) -> None:
+    """The planted site and the reviewed site it displaced both appear in the failure."""
+    group = [f for f in result.findings if f.key[:-1] == shape]
+    planted = [f.lineno for f in group if f.lineno in result.lines]
+    reviewed = [f.lineno for f in group if f.lineno not in result.lines]
+    assert len(planted) == 1 and reviewed, (group, result.lines)
+    assert "Ordinals are positional" in result.report, result.report
+    for line in planted + reviewed:
+        assert _names_line(result.report, line), (line, result.report)
+
+
+class TestASiteIsReviewedAtItsOwnSite:
+    """A reviewed row explains one site, not every site of the same shape in its module.
+
+    Each mutant plants a site that substitutes a value and has the exact shape of a reviewed
+    row. Planted in another function, the key's function name reports it. Planted before a
+    reviewed site in the same function, it takes that site's ordinal and row, so the failure
+    must name every site of the shape rather than only the one whose key is left over.
     """
 
     def test_the_live_tree_is_explained_before_it_is_mutated(self):
-        assert _unexplained_handlers("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY,
-                                     _SCALAR_ATTR_BODY) == set()
+        for module, anchor, scanner, accepted in (
+                ("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, scan_recovering_handlers,
+                 ACCEPTED_HANDLER_RECOVERY),
+                ("connectivity.py", _ADF_BODY, scan_recovering_handlers,
+                 ACCEPTED_HANDLER_RECOVERY),
+                ("nam.py", _NAM_GUARD, scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY),
+                ("statistics.py", _SIGN_FLIP_BODY, scan_selector_chain_fallthrough,
+                 ACCEPTED_CHAIN_ELSE)):
+            assert _plant_before(module, anchor, "", scanner, accepted).report == ""
 
     def test_a_substituting_handler_in_another_function_is_reported(self):
-        mutant = ("    try:\n        float(ds.attrs.get(key))\n    except Exception:\n"
-                  "        return 1.0\n" + _SCALAR_ATTR_BODY)
-        assert _unexplained_handlers("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, mutant) == {
+        planted = "    try:\n        float(ds.attrs.get(key))\n    except Exception:\n        return 1.0\n"
+        result = _plant_before("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        assert {f.key for f in result.findings} - set(ACCEPTED_HANDLER_RECOVERY) == {
             ("mcp_server/nwb_tools.py", "_scalar_attr", "Exception", (), True, 1)}
+        assert _names_line(result.report, result.lines[2]), result.report
 
-    def test_a_second_substituting_handler_in_a_reviewed_function_is_reported(self):
-        mutant = ("    try:\n        resolve_acquisition(file_path, name)\n"
-                  "    except Exception:\n        return True\n" + _RESOLVES_BODY)
-        assert _unexplained_handlers("mcp_server/nwb_tools.py", _RESOLVES_BODY, mutant) == {
-            ("mcp_server/nwb_tools.py", "_resolves", "Exception", (), True, 2)}
+    def test_a_handler_planted_before_a_reviewed_one_is_named(self):
+        planted = "    try:\n        resolve_acquisition(file_path, name)\n    except Exception:\n        return True\n"
+        result = _plant_before("mcp_server/nwb_tools.py", _RESOLVES_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("mcp_server/nwb_tools.py", "_resolves", "Exception", (), True))
+
+    def test_a_value_planted_before_a_reviewed_nan_is_named(self):
+        planted = "    try:\n        float(y[0])\n    except Exception:\n        return 0.5\n"
+        result = _plant_before("connectivity.py", _ADF_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "Exception", (), True))
+
+    def test_a_module_guard_planted_before_a_reviewed_one_is_named(self):
+        planted = ("try:\n    import torch.nn as nn\n    _TORCH_AVAILABLE = True\n"
+                   "    _BaseModule = nn.Module\nexcept ImportError:\n"
+                   "    _TORCH_AVAILABLE = True\n    _BaseModule = object\n")
+        result = _plant_before("nam.py", _NAM_GUARD, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("nam.py", "<module>", "ImportError",
+                                    ("_BaseModule", "_TORCH_AVAILABLE"), False))
+
+    def test_a_chain_with_no_else_is_not_filed_under_a_trailing_else_row(self):
+        """The kind is part of the key, so the planted chain is its own site at its own line."""
+        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, _SIGN_FLIP_CHAIN,
+                               scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
+        shape = ("statistics.py", "exact_sign_flip", "CHAIN_NO_ELSE", "alt",
+                 ("greater", "two-sided"))
+        assert {f.key for f in result.findings} - set(ACCEPTED_CHAIN_ELSE) == {shape + (1,)}
+        assert _names_line(result.report, result.lines[0]), result.report
+
+    def test_a_trailing_else_planted_before_two_reviewed_ones_is_named(self):
+        planted = _SIGN_FLIP_CHAIN + "    else:\n        tol = 0.0\n"
+        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, planted,
+                               scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
+        _assert_names_both(result, ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt",
+                                    ("greater", "two-sided")))
 
 
 # ===========================================================================
