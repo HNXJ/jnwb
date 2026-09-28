@@ -14,8 +14,10 @@ directory needs no mark.
 from __future__ import annotations
 
 import threading
+import time
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -27,9 +29,87 @@ BROWSER_EXPORT_GROUP = "browser_export"
 BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
 #: How long the session browser may take to render its first figure before the suite fails.
 BROWSER_START_SECONDS = 300
+#: kaleido's default limit on one render (``Kaleido(timeout=90)``), plus a margin for its queue.
+BROWSER_RENDER_SECONDS = 90 + 30
+BROWSER_STOP_SECONDS = 60
+FIRST_FIGURE = {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}], "layout": {}}
 
 
-def stop_browser(kaleido) -> None:
+class SessionBrowserFailed(RuntimeError):
+    """kaleido's session browser died, or gave no answer within its bound."""
+
+
+def bounded(call, seconds, what, alive=lambda: True, cause=lambda: None):
+    """Returns ``call()`` run on a daemon thread, or raises :class:`SessionBrowserFailed` once
+    ``seconds`` pass or ``alive()`` turns false. A thread left blocked is abandoned."""
+    answer = {}
+
+    def run():
+        try:
+            answer["value"] = call()
+        except BaseException as err:  # noqa: BLE001 -- re-raised below on the caller's thread
+            answer["error"] = err
+
+    thread = threading.Thread(target=run, daemon=True, name=f"bounded {what}")
+    thread.start()
+    deadline = time.monotonic() + seconds
+    while True:
+        thread.join(0.25)
+        if not thread.is_alive():
+            break
+        if not alive():
+            raise SessionBrowserFailed(f"kaleido's session browser died during {what}") from cause()
+        if time.monotonic() > deadline:
+            raise SessionBrowserFailed(f"kaleido's session browser gave no {what} in {seconds} s")
+    if "error" in answer:
+        raise answer["error"]
+    return answer.get("value")
+
+
+def install_session_browser(server) -> dict:
+    """Records how kaleido's server thread ends and bounds every call made to it.
+
+    This uses kaleido's private server (``kaleido._global_server``, its ``_server``, ``_thread``
+    and ``call_function``, as of kaleido 1.2): a public call to it blocks forever once the server
+    thread has died, for instance when the browser died and a render raised ``CancelledError``.
+    The bound of each call is ``server.call_function.seconds``. Returns where the ending is kept.
+    """
+    ended = {}
+    serve, call = server._server, server.call_function
+
+    async def recorded(*args, **kwargs):
+        try:
+            return await serve(*args, **kwargs)
+        except BaseException as err:
+            ended["error"] = err
+            raise
+
+    def alive():
+        thread = getattr(server, "_thread", None)
+        return thread is not None and thread.is_alive()
+
+    def call_function(cmd, *args, **kwargs):
+        return bounded(lambda: call(cmd, *args, **kwargs), call_function.seconds, cmd,
+                       alive=alive, cause=lambda: ended.get("error"))
+
+    call_function.seconds = BROWSER_RENDER_SECONDS
+    server._server, server.call_function = recorded, call_function
+    return ended
+
+
+def uninstall_session_browser(server) -> None:
+    for name in ("_server", "call_function"):
+        vars(server).pop(name, None)
+
+
+def first_figure(calc_fig_sync) -> bytes:
+    figure = calc_fig_sync(FIRST_FIGURE, opts={"format": "svg", "width": 100, "height": 100})
+    if not figure:
+        raise SessionBrowserFailed("kaleido's session browser returned an empty figure")
+    return figure
+
+
+def stop_browser(kaleido, seconds=BROWSER_STOP_SECONDS) -> None:
     """Stops kaleido's session browser; a shutdown that only timed out warns instead of failing.
 
     The browser closes in kaleido's own thread, so its error reaches ``threading.excepthook``
@@ -40,7 +120,7 @@ def stop_browser(kaleido) -> None:
     previous = threading.excepthook
     threading.excepthook = caught.append
     try:
-        kaleido.stop_sync_server(silence_warnings=True)
+        bounded(lambda: kaleido.stop_sync_server(silence_warnings=True), seconds, "stop")
     finally:
         threading.excepthook = previous
     for args in caught:
@@ -53,9 +133,11 @@ def stop_browser(kaleido) -> None:
 
 
 @pytest.fixture
-def browser_stopper():
-    """:func:`stop_browser`, for a test that exercises it without importing this file."""
-    return stop_browser
+def session_browser_parts():
+    """This file's session-browser functions, for tests that exercise them without importing it."""
+    return SimpleNamespace(bounded=bounded, install=install_session_browser,
+                           uninstall=uninstall_session_browser, first_figure=first_figure,
+                           stop=stop_browser, failed=SessionBrowserFailed)
 
 
 @pytest.fixture(scope="session")
@@ -71,34 +153,22 @@ def session_browser():
     except ImportError:
         yield
         return
-    if not hasattr(kaleido, "start_sync_server"):
+    server = getattr(kaleido, "_global_server", None)  # private; see install_session_browser
+    if not hasattr(kaleido, "start_sync_server") or server is None:
         yield
         return
+    install_session_browser(server)
     kaleido.start_sync_server(silence_warnings=True)
-    answer = {}
-
-    def first_figure():
-        try:
-            answer["bytes"] = kaleido.calc_fig_sync(
-                {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}], "layout": {}},
-                opts={"format": "svg", "width": 100, "height": 100},
-            )
-        except BaseException as err:  # noqa: BLE001 -- re-raised below on this thread
-            answer["error"] = err
-
-    ask = threading.Thread(target=first_figure, daemon=True)
-    ask.start()
-    ask.join(BROWSER_START_SECONDS)
-    if ask.is_alive():
-        # The server thread is stuck; stopping it would block on the same thread.
-        raise RuntimeError(f"kaleido's browser rendered nothing in {BROWSER_START_SECONDS} s")
     try:
-        if "error" in answer:
-            raise answer["error"]
-        assert answer["bytes"], "kaleido's browser returned an empty figure"
+        server.call_function.seconds = BROWSER_START_SECONDS
+        first_figure(kaleido.calc_fig_sync)
+        server.call_function.seconds = BROWSER_RENDER_SECONDS
         yield
     finally:
-        stop_browser(kaleido)
+        try:
+            stop_browser(kaleido)
+        finally:
+            uninstall_session_browser(server)
 
 
 @pytest.fixture(autouse=True)

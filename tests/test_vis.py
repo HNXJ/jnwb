@@ -20,6 +20,7 @@ Tests:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import threading
 import warnings
@@ -242,7 +243,76 @@ def test_exports_in_the_group_render_in_the_session_browser():
     assert running, "each export would open and shut down a browser of its own"
 
 
-def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(browser_stopper):
+def test_a_call_to_a_dead_session_browser_raises_its_ending(session_browser_parts):
+    parts = session_browser_parts
+    launch = FileNotFoundError("no browser")
+
+    class Server:
+        """kaleido's server with its thread already ended, and a call that waits forever."""
+
+        async def _server(self):
+            raise launch
+
+        def call_function(self, cmd, *args, **kwargs):
+            threading.Event().wait()
+
+    server = Server()
+    parts.install(server)
+    server.call_function.seconds = 600  # only the dead thread can end the call in time
+
+    def serve():
+        try:
+            asyncio.run(server._server())
+        except FileNotFoundError:
+            pass
+
+    server._thread = threading.Thread(target=serve)
+    server._thread.start()
+    server._thread.join()
+    out = {}
+
+    def call():
+        try:
+            server.call_function("calc_fig")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call to a dead server blocked"
+    assert isinstance(out["error"], parts.failed), out
+    assert out["error"].__cause__ is launch
+
+
+def test_a_session_browser_call_that_never_answers_raises(session_browser_parts):
+    out = {}
+
+    def call():
+        try:
+            session_browser_parts.bounded(threading.Event().wait, 0.5, "render")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call that never answers blocked past its bound"
+    assert isinstance(out["error"], session_browser_parts.failed)
+    assert "gave no render in 0.5 s" in str(out["error"])
+
+
+def test_an_empty_first_figure_fails_the_session_browser(session_browser_parts):
+    parts = session_browser_parts
+    with pytest.raises(parts.failed, match="empty figure"):
+        parts.first_figure(lambda figure, opts: b"")
+    assert parts.first_figure(lambda figure, opts: b"<svg/>") == b"<svg/>"
+
+
+def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(session_browser_parts):
+    browser_stopper = session_browser_parts.stop
+    before = threading.excepthook
+
     class Kaleido:
         """Raises `err` on its own thread when stopped, as kaleido's server thread does."""
 
@@ -261,6 +331,7 @@ def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(browser_stop
         browser_stopper(Kaleido(RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)))
     with pytest.raises(RuntimeError, match="the figure is wrong"):
         browser_stopper(Kaleido(RuntimeError("the figure is wrong")))
+    assert threading.excepthook is before
 
 
 @pytest.mark.xdist_group("browser_export")
