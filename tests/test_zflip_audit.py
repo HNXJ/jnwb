@@ -303,10 +303,23 @@ class TestSignConventionFromGroundTruth:
         N = 512 (32 and 64 samples per segment leave under three bins in 15-35 Hz);
         at N >= 1024 the two rules agree. That is why zflip does not share it.
         """
-        result = _zflip(self._variable_length_wave(n_samples, noise=0.005))
-        assert result.accepted
-        assert result.tau_per_channel_s > 0
-        assert result.directionality == "superficial_to_deep"
+        wave = self._variable_length_wave(n_samples, noise=0.005)
+        untested = _zflip(wave, n_surrogates=0)
+        assert untested.delay_identifiable and untested.tau_per_channel_s > 0
+        assert untested.directionality == "superficial_to_deep"
+        if n_samples > 256:
+            assert _zflip(wave).accepted
+
+    def test_three_segments_cannot_show_a_pair_coupled(self):
+        """At N = 256 the default gives 3 segments, where a pair's wPLI of 1.0 is reached by
+        more than a fraction ``alpha`` of its independent-phase surrogates, so no pair
+        passes its own surrogate test however many surrogates are drawn."""
+        wave = self._variable_length_wave(256, noise=0.005)
+        for n_surrogates in (19, 199):
+            result = _zflip(wave, n_surrogates=n_surrogates)
+            assert np.all(result.adjacent_wpli == 1.0) and not result.accepted
+            assert "wPLI not significant against its own phase surrogates" in (
+                result.rejection_reason)
 
     @pytest.mark.parametrize("n_samples", [256, 512])
     def test_a_short_noisy_wave_is_declined_rather_than_mis_directed(self, n_samples):

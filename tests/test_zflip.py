@@ -394,6 +394,61 @@ def test_zflip_a_contact_that_is_an_exact_ramp_is_refused_like_a_constant_one():
     assert "Contact(s) [4] linear in time to round-off" in res.rejection_reason
 
 
+def test_zflip_a_cumsum_built_ramp_is_refused_as_linear_in_time():
+    """A ramp built by cumulative summation is refused although its round-off is not exact.
+
+    Its residual measures about 73 eps of its magnitude, above what an exact ramp leaves
+    (at most 1.5) and inside the 1000-eps width. A width narrowed towards exact ramps keeps
+    it as a contact and measures its residue.
+    """
+    rows = _unit_sd_lagged_rows(8000, 11)
+    rows[4] = 3.0 + np.cumsum(np.full(8000, 0.1))
+    res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    assert np.isnan(res.adjacent_wpli[3]) and not res.adjacent_identifiable[3]
+    assert "Contact(s) [4] linear in time to round-off" in res.rejection_reason
+
+
+def test_zflip_a_signal_on_a_large_offset_is_not_refused_as_linear_in_time():
+    """A unit-SD contact on an offset of 1e11 keeps its delay.
+
+    Its residual measures about 4.5e4 eps of its magnitude. A width widened towards that
+    refuses a real signal as a straight line.
+    """
+    rows = _unit_sd_lagged_rows(8000, 11)
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    clean = jnwb.zflip(rows, **kwargs).tau_per_channel_s
+    rows[4] = rows[4] + 1e11
+    res = jnwb.zflip(rows, **kwargs)
+    assert "linear in time" not in res.rejection_reason
+    assert res.adjacent_identifiable.all() and res.delay_identifiable
+    assert res.tau_per_channel_s == pytest.approx(clean, rel=1e-3)
+
+
+def test_zflip_a_contact_independent_of_the_others_is_refused_by_its_pair_surrogates():
+    """An end contact carrying independent noise blocks the delay through its own pair's test.
+
+    Contact 0 of a 2-sample-per-contact wave is replaced by independent 10-40 Hz noise. Its
+    pair still fits R^2 0.84 and wPLI 0.20, above both thresholds, and the three coupled
+    pairs carry the mean past its surrogate test, so without a per-pair test the shaft was
+    accepted with a delay 5 times the true one. What would pass while the pair still counts:
+    checking ``accepted`` on a case the mean test or the pair thresholds already refuse,
+    which is why those are asserted to pass here.
+    """
+    rows = _unit_sd_lagged_rows(8000, 11)
+    sos = signal.butter(4, (10, 40), btype="band", fs=1000.0, output="sos")
+    x = signal.sosfiltfilt(sos, np.random.default_rng(10035).standard_normal(8000))
+    rows[0] = x / x.std()
+    res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", pitch_um=100.0,
+                     n_surrogates=50, rng=0)
+    assert res.adjacent_wpli[0] >= 0.15 and res.adjacent_linearity_r2[0] >= 0.70
+    assert res.p_value <= 0.05 and res.mean_wpli >= 0.15
+    assert res.adjacent_identifiable.tolist() == [False, True, True, True]
+    assert not res.delay_identifiable and not res.accepted
+    assert np.isnan(res.tau_per_channel_s) and res.apparent_velocity_m_s is None
+    assert "[(0, 1)] wPLI not significant against its own phase surrogates" in (
+        res.rejection_reason)
+
+
 def test_zflip_identical_contacts_give_no_direction():
     """Identical contacts have no delay gradient: phase residue near 1e-21 s is not a sign.
 
