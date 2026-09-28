@@ -113,17 +113,21 @@ def test_report_is_rendered_from_the_raw_receipt():
     for name, cell in raw["nulls"].items():
         assert f"| `{name}` |" in report
         assert f"{cell['false_positive_rate']:.3f}" in report
+    for row in raw["auto_count"]["rows"]:
+        assert (
+            f"| `{row['null']}` | `{row['contiguous']}` | {row['n_seeds']} | "
+            f"{row['rate_n_blocks_None']:.3f} | {row['rate_n_blocks_2']:.3f} |"
+        ) in report
 
 
 def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():
     """A 0.000 acceptance rate on the gradient null invites the opposite conclusion.
 
     Every gradient is maximally significant under the omnibus permutation test -- median,
-    min and max p all sit at the 1/(surrogates+1) floor -- so the rejections come from the
-    local boundary-drop gate, and the rate is what that gate lets through. With that gate
-    skipped on the unrestricted path the same nulls were accepted 15/15. A receipt that
-    prints the rate without that sentence reads as though the permutation test rejects
-    gradients.
+    min and max p all sit at the 1/(surrogates+1) floor -- and the local boundary-drop gate
+    produces the rejections, not the acceptances. That gate was once skipped on the
+    unrestricted path, where the same nulls were accepted 15/15. A receipt that prints the
+    rate without that sentence reads as though the permutation test rejects gradients.
     """
     raw = _raw()
     grad = raw["nulls"]["smooth_spatial_gradient"]
@@ -134,7 +138,12 @@ def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():
         "the gradient null is no longer pinned at the permutation floor, so the explanation "
         "in the report no longer describes the measurement; rerun the generator"
     )
-    # The gate produces the rejections; the acceptance rate is what it lets through.
+    n = raw["n_seeds"]
+    assert grad["n_rejected_by_surrogates"] == 0
+    assert grad["n_rejected_by_boundary_drop"] == n - round(grad["false_positive_rate"] * n)
     report = " ".join(REPORT.read_text(encoding="utf-8").split())
-    assert "the rejections come from the local boundary-drop gate" in report
+    assert (
+        f"the local boundary-drop gate rejects {grad['n_rejected_by_boundary_drop']} of {n}"
+        in report
+    )
     assert "acceptance rate is produced" not in report
