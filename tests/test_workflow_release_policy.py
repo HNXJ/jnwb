@@ -115,13 +115,60 @@ class TestTestPyPIBeforePyPI:
         for step in steps[:upload + 1]:
             assert "if" not in step and not step.get("continue-on-error"), step.get("name")
 
+    # A job still running has no conclusion and a job not listed yet has none either; both read
+    # as pending, never as success. Two jobs of one name cannot say which one uploaded, so a
+    # failed upload beside a successful namesake reads as ambiguous rather than as success.
+    _ONE_JOB = ('[.jobs[] | select(.name == env.{})] | if length == 0 then "pending" '
+                'elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
+
     def test_the_gate_reads_the_testpypi_job_by_its_name(self):
         name = _load_workflow()["jobs"]["publish-testpypi"]["name"]
         gate = self._gate()
         assert gate["env"]["TESTPYPI_JOB"] == name
-        # A job still running has no conclusion; it must read as pending, never as success.
-        assert ("select(.name == env.TESTPYPI_JOB) | (.conclusion // \"pending\")"
-                in gate["run"]), gate["run"]
+        assert self._ONE_JOB.format("TESTPYPI_JOB") in gate["run"], gate["run"]
+
+    def test_no_two_jobs_share_a_name(self):
+        """The gate reads jobs by name; a second job named like the upload would be read too."""
+        names = [job.get("name", jid) for jid, job in _load_workflow()["jobs"].items()]
+        assert len(names) == len(set(names)), sorted(names)
+
+    def test_the_gate_outputs_the_run_that_passed(self):
+        gate = self._gate()
+        run = gate["run"]
+        assert gate.get("id") == "testpypi", gate.get("id")
+        assert re.search(r'if \[ "\$pair" = "success\+success" \] && \[ -z "\$matched" \]; then'
+                         r'\s*\n\s*matched="\$run"\s*\n\s*fi', run), run
+        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
+        success = re.search(r'^\s*\*" success\+success "\*\)\s*\n(.*?);;', block.group(1),
+                            re.M | re.S)
+        assert success and 'echo "run_id=$matched" >> "$GITHUB_OUTPUT"' in success.group(1), run
+
+    def test_pypi_receives_the_files_testpypi_received(self):
+        """The release run rebuilds; its files are not the ones verified on TestPyPI. The
+        artifact comes from the push run the gate matched, and each file's sha256 must equal
+        TestPyPI's record of it before the upload."""
+        steps = self._steps()
+        upload = next(i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", "")))
+        downloads = [i for i, s in enumerate(steps)
+                     if "download-artifact" in str(s.get("uses", ""))]
+        assert len(downloads) == 1 and downloads[0] < upload, downloads
+        with_ = steps[downloads[0]]["with"]
+        gate_id = self._gate()["id"]
+        assert with_.get("run-id") == f"${{{{ steps.{gate_id}.outputs.run_id }}}}", with_
+        assert with_.get("github-token") == "${{ github.token }}", with_
+        checks = [s for s in steps[downloads[0] + 1:upload]
+                  if "https://test.pypi.org/pypi/jnwb/$version/json" in str(s.get("run", ""))]
+        assert len(checks) == 1, "no step compares the files with TestPyPI before the upload"
+        step = checks[0]
+        run = step["run"]
+        assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.event.release.tag_name }}"
+        assert "set -euo pipefail" in run and 'version="${TAG#v}"' in run, run
+        assert "select(.filename == $name) | .digests.sha256" in run, run
+        assert 'have=$(sha256sum "$file" | cut -d\' \' -f1)' in run, run
+        assert re.search(r'if \[ -z "\$want" \] \|\| \[ "\$want" != "\$have" \]; then\s*\n'
+                         r'[^\n]*\n\s*exit 1\b', run), run
+        assert re.search(r'if \[ "\$count" -eq 0 \] \|\| \[ "\$count" -ne "\$remote" \]; then'
+                         r'\s*\n[^\n]*\n\s*exit 1\b', run), run
 
     def test_the_gate_reads_this_releases_tag_push_run(self):
         gate = self._gate()
@@ -178,8 +225,14 @@ class TestTestPyPIBeforePyPI:
         run = step["run"]
         assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.ref_name }}", step["env"]
         assert 'version="${TAG#v}"' in run and '"jnwb==$version"' in run, run
-        assert "--index-url https://test.pypi.org/simple/" in run, run
-        assert "--extra-index-url https://pypi.org/simple/" in run, run
+        # Only the candidate comes from TestPyPI; its dependencies resolve on the default index,
+        # where no upload to TestPyPI can stand in for them.
+        assert re.search(r"pip download --no-cache-dir --no-deps --only-binary :all: \\\n\s*"
+                         r'--index-url https://test.pypi.org/simple/ "jnwb==\$version" '
+                         r"-d /tmp/candidate;", run), run
+        assert "extra-index-url" not in run, run
+        assert run.count("test.pypi.org") == 1, run
+        assert '/tmp/testpypi_env/bin/pip install --no-cache-dir "${wheels[0]}"\n' in run, run
         assert re.search(r'--expected-version "\$version"', run), run
         # A fresh environment, and the import resolved outside the checkout.
         assert "python -m venv /tmp/testpypi_env" in run and "cd /tmp" in run, run
@@ -196,9 +249,19 @@ class TestTestPyPIBeforePyPI:
     def test_the_pypi_gate_requires_the_verify_job_to_succeed(self):
         gate = self._gate()
         assert gate["env"]["VERIFY_JOB"] == self._verify_job()["name"]
-        assert ("select(.name == env.VERIFY_JOB) | (.conclusion // \"pending\")"
-                in gate["run"]), gate["run"]
-        assert '"$conclusions ${upload:-pending}+${verify:-pending}"' in gate["run"], gate["run"]
+        assert self._ONE_JOB.format("VERIFY_JOB") in gate["run"], gate["run"]
+        assert 'pair="${upload:-pending}+${verify:-pending}"' in gate["run"], gate["run"]
+        assert 'conclusions="$conclusions $pair"' in gate["run"], gate["run"]
+
+    def test_the_verify_job_checks_the_installed_environment(self):
+        """`pip check` in the venv under test, between the install and the smoke script: a
+        dependency the wheel declares but cannot satisfy fails the verification."""
+        run = next(str(s["run"]) for s in self._verify_job()["steps"]
+                   if "test.pypi.org/simple" in str(s.get("run", "")))
+        lines = [line.strip() for line in run.splitlines()]
+        install = lines.index('/tmp/testpypi_env/bin/pip install --no-cache-dir "${wheels[0]}"')
+        smoke = next(i for i, line in enumerate(lines) if "smoke_installed.py" in line)
+        assert "/tmp/testpypi_env/bin/pip check" in lines[install + 1:smoke], lines
 
     def test_the_build_job_and_the_verify_job_run_the_same_smoke_script(self):
         jobs = _load_workflow()["jobs"]
@@ -210,9 +273,14 @@ class TestTestPyPIBeforePyPI:
             assert any("actions/checkout" in str(s.get("uses", "")) for s in job["steps"]), name
         assert (REPO_ROOT / "scripts" / "smoke_installed.py").is_file()
 
+    # Status functions that let a job or step run after something it depends on failed.
+    _RUNS_AFTER_FAILURE = re.compile(r"\b(?:always|cancelled|failure)\s*\(")
+
     def test_no_job_the_pypi_gate_waits_on_can_be_forgiven(self):
         """A `continue-on-error` job concludes success when it fails, so the gate would read a
-        failed upload or verification, or a failed job either depends on, as a pass."""
+        failed upload or verification, or a failed job either depends on, as a pass. An `if:`
+        with `always()`, `!cancelled()` or `failure()` runs a job after its dependency failed,
+        which forgives that failure the same way."""
         jobs = _load_workflow()["jobs"]
         gate = self._gate()["env"]
         by_name = {job.get("name"): jid for jid, job in jobs.items() if isinstance(job, dict)}
@@ -225,11 +293,78 @@ class TestTestPyPIBeforePyPI:
             seen.add(jid)
             job = jobs[jid]
             assert not job.get("continue-on-error"), f"{jid} is continue-on-error"
+            assert not self._RUNS_AFTER_FAILURE.search(str(job.get("if", ""))), (jid, job["if"])
             for step in job["steps"]:
                 assert not step.get("continue-on-error"), f"{jid}: {step.get('name')!r}"
+                assert not self._RUNS_AFTER_FAILURE.search(str(step.get("if", ""))), (
+                    jid, step.get("name"), step["if"])
             needs = job.get("needs") or []
             pending.extend([needs] if isinstance(needs, str) else needs)
-        assert {"publish-testpypi", "build", "test"} <= seen, seen
+        assert {"publish-testpypi", "build", "test", "test-floors"} <= seen, seen
+
+    def test_the_status_function_check_sees_each_form(self):
+        for condition in ("${{ always() }}", "${{ !cancelled() }}", "failure() || success()",
+                          "!cancelled() && github.event_name == 'push'"):
+            assert self._RUNS_AFTER_FAILURE.search(condition), condition
+        assert not self._RUNS_AFTER_FAILURE.search("github.event_name == 'push'")
+
+
+class TestTheInstalledSmokeScript:
+    """The script the build job and the TestPyPI verification both run. Each check is driven
+    to its failure: a check that cannot fail passes an installed package it should refuse.
+
+    The checkout goes on ``PYTHONPATH`` so ``import jnwb`` resolves to it. A directory ahead of
+    it holds an ``omission`` stand-in: one that raises ``ModuleNotFoundError`` makes the
+    package absent whatever this environment has installed, and an empty one makes it present.
+    """
+
+    SCRIPT = REPO_ROOT / "scripts" / "smoke_installed.py"
+
+    @classmethod
+    def _run(cls, tmp_path, *args, omission_present=False):
+        import os
+        import subprocess
+        import sys
+
+        shadow = tmp_path / "shadow"
+        shadow.mkdir(exist_ok=True)
+        (shadow / "omission.py").write_text(
+            "" if omission_present else 'raise ModuleNotFoundError("absent in this test")\n',
+            encoding="utf-8")
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.pathsep.join([str(shadow), str(REPO_ROOT)])
+        return subprocess.run([sys.executable, str(cls.SCRIPT), *args], cwd=tmp_path, env=env,
+                              capture_output=True, text=True, timeout=300)
+
+    def test_a_wrong_version_fails(self, tmp_path):
+        result = self._run(tmp_path, "--expected-version", "0.0.0.dev999")
+        assert result.returncode != 0, result.stdout
+        assert "FAIL: installed jnwb is" in result.stderr, result.stderr
+        assert "expected 0.0.0.dev999" in result.stderr, result.stderr
+
+    def test_a_package_imported_from_the_checkout_fails(self, tmp_path):
+        probe = self._run(tmp_path, "--expected-version", "0.0.0.dev999")
+        version = re.search(r"^Installed jnwb version: (\S+)$", probe.stdout, re.M).group(1)
+        result = self._run(tmp_path, "--expected-version", version, "--not-under", str(REPO_ROOT))
+        assert result.returncode != 0, result.stdout
+        assert "FAIL: installed jnwb is" not in result.stderr, result.stderr
+        assert "FAIL: jnwb was imported from" in result.stderr, result.stderr
+        assert f"inside {REPO_ROOT}" in result.stderr, result.stderr
+
+    def test_an_importable_omission_fails(self, tmp_path):
+        result = self._run(tmp_path, "--expected-version", "0.0.0.dev999",
+                           omission_present=True)
+        assert result.returncode != 0, result.stdout
+        assert "RuntimeError: omission is unexpectedly importable!" in result.stderr, (
+            result.stderr)
+        assert "Installed jnwb version" not in result.stdout, result.stdout
+
+    def test_an_absent_omission_passes_that_check(self, tmp_path):
+        """The stand-in really does make the package absent, so the three failures above are
+        each the check named, not an import error before it."""
+        result = self._run(tmp_path, "--expected-version", "0.0.0.dev999")
+        assert "PASS: omission is strictly absent and unimportable" in result.stdout, (
+            result.stdout, result.stderr)
 
 
 class TestInstalledArtifactVerification:

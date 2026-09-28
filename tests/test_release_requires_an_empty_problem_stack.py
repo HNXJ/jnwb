@@ -10,7 +10,8 @@ The problem stack holds only problems not yet triaged, and a release requires:
   3. the independent blocker-focused closure receipt exists and reports zero, and its commit is
      HEAD or an ancestor that differs from HEAD only in the receipt and the todo stack, and no
      item held open at the receipt's commit carries another release at HEAD or is gone without
-     the receipt recording it as finished.
+     the receipt recording it as finished;
+  4. the committed peak-memory record names the version the tree declares.
 
 Every test drives the check over a constructed tree and is measured against
 ``test_a_compliant_tree_passes``: the compliant tree passes, and breaking exactly one thing fails.
@@ -90,10 +91,18 @@ def _commit(root, message):
     return _git(root, "rev-parse", "HEAD")
 
 
-def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True):
+def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True,
+          recorded=RELEASE_CYCLE):
     """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
-    ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against."""
-    (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
+    ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against.
+    ``recorded`` is the version the peak-memory record names, ``None`` for no record."""
+    (tmp_path / "artifacts" / "benchmarks").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "jnwb").mkdir(exist_ok=True)
+    (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
+                                                   encoding="utf-8")
+    if recorded is not None:
+        (tmp_path / "artifacts" / "benchmarks" / "peak_memory.json").write_text(
+            f'{{\n  "jnwb_version": "{recorded}",\n  "unit": "MiB"\n}}\n', encoding="utf-8")
     (tmp_path / "artifacts" / "problem_stack.md").write_text(
         _PROBLEMS.format(rows="\n".join(rows)) + tail, encoding="utf-8")
     (tmp_path / "artifacts" / "todo_stack.md").write_text(
@@ -367,6 +376,9 @@ REQUIRED_BULLETS = {
     "bold-word": f"- P-900: a defect. **Required** for {RELEASE_CYCLE}: it blocks.\n",
     "underscored": f"- P-900: a defect. _Required_ for {RELEASE_CYCLE}: it blocks.\n",
     "tab-separated": f"- P-900: a defect. Required\tfor\t{RELEASE_CYCLE}: it blocks.\n",
+    "wrapped": f"- P-900: a defect. Required\n  for {RELEASE_CYCLE}: it blocks.\n",
+    "wrapped-unindented": f"- P-900: a defect. Required for\n{RELEASE_CYCLE}: it blocks.\n",
+    "backticked": f"- P-900: a defect. `Required` for {RELEASE_CYCLE}: it blocks.\n",
 }
 
 
@@ -487,7 +499,7 @@ def test_an_uncommitted_change_anywhere_in_the_tree_fails(tmp_path, change):
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)])
     code = root / "jnwb" / "x.py"
     if change != "untracked":
-        code.parent.mkdir()
+        code.parent.mkdir(exist_ok=True)
         code.write_text("x = 1\n", encoding="utf-8")
         _commit(root, "code")
     assert check_release_readiness(root, head=HEAD) == []
@@ -557,7 +569,7 @@ def test_a_code_change_after_the_receipt_commit_fails(tmp_path, later):
     _record_receipt(root, passed)
     if later:
         _commit(root, "record the closure pass")
-    (root / "jnwb").mkdir()
+    (root / "jnwb").mkdir(exist_ok=True)
     (root / "jnwb" / "x.py").write_text("x = 1\n", encoding="utf-8")
     head = _commit(root, "a change the closure pass never read")
     v = check_release_readiness(root, head=head)
@@ -708,6 +720,64 @@ def test_a_receipt_recorded_on_both_sides_of_a_merge_is_two_writes(tmp_path):
     """Git's default history simplification follows one side of the merge and counts one."""
     v = _merged(tmp_path, receipt_on_main=True)
     assert len(v) == 1 and "changed in 2 commit(s)" in v[0], v
+
+
+@pytest.mark.parametrize("first", ["trunk", "side"])
+def test_a_merge_that_records_the_receipt_deletes_only_what_every_parent_still_held(tmp_path,
+                                                                                    first):
+    """The side branch deletes the item and the merge writes the receipt naming it. Against the
+    trunk alone the merge deletes it; against the side it deletes nothing. Which parent is first
+    is only the order the merge was made in, so both orders must refuse it."""
+    before = [_item("99-930", REQUIRED), _item("99-931", DEFERRED)]
+    root = _tree(tmp_path, items=before, receipt=False)
+    todo = root / "artifacts" / "todo_stack.md"
+    passed = _commit(root, "the tree the closure pass reads")
+    trunk = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(root, "checkout", "-q", "-b", "side")
+    todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items=_item("99-931", DEFERRED)),
+                    encoding="utf-8")
+    _commit(root, "the side branch deletes the item")
+    _git(root, "checkout", "-q", trunk)
+    _commit(root, "the trunk moves on")
+    if first == "side":
+        _git(root, "checkout", "-q", "side")
+    _git(root, "merge", "-q", "--no-ff", "--no-commit", "side" if first == "trunk" else trunk)
+    _record_receipt(root, passed, finished="99-930")
+    head = _commit(root, "the merge records the closure pass")
+    assert len(_git(root, "rev-list", "--no-walk", "--parents", head).split()) == 3
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "does not delete" in v[0] and v[0].endswith(": 99-930"), v
+
+
+def test_a_peak_memory_record_for_another_version_fails(tmp_path):
+    """The version is bumped in the commit that refreshes the record; a record naming another
+    version was not refreshed for this release."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], recorded="0.0.1")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "was taken for jnwb 0.0.1" in v[0], v
+    assert f"HEAD declares {RELEASE_CYCLE}" in v[0], v
+
+
+def test_a_missing_peak_memory_record_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], recorded=None)
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "peak_memory.json is missing at HEAD" in v[0], v
+
+
+def test_the_peak_memory_record_is_read_as_committed(tmp_path):
+    """A refreshed record left uncommitted is not the one the release carries."""
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], recorded="0.0.1")
+    (root / "artifacts" / "benchmarks" / "peak_memory.json").write_text(
+        f'{{"jnwb_version": "{RELEASE_CYCLE}"}}\n', encoding="utf-8")
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 2 and any("was taken for jnwb 0.0.1" in x for x in v), v
+
+
+def test_the_gate_reads_the_record_the_instrument_writes():
+    from scripts.measure_peak_memory import RECORD_PATH
+    from scripts.release_gate import PEAK_MEMORY_PATH
+
+    assert RECORD_PATH.relative_to(REPO_ROOT).as_posix() == PEAK_MEMORY_PATH
 
 
 def test_only_the_unrecorded_one_of_two_deleted_items_is_named(tmp_path):

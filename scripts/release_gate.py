@@ -1148,7 +1148,22 @@ _LIST_ITEM = re.compile(r"^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\S")
 # A release value written into a line without the `Release:` label: `required-0.2.7` as a
 # bullet's own marker, or the prose form `Required for 0.2.7`.
 _REQUIRED_MARKER = re.compile(
-    r"(?<![\w-])[*_]*required[*_]*(?:-|\s+for[*_]*\s+[*_]*)v?(\d+(?:\.\d+)+)", re.IGNORECASE)
+    r"(?<![\w-])[*_`]*required[*_`]*(?:-|\s+for[*_`]*\s+[*_`]*)v?(\d+(?:\.\d+)+)", re.IGNORECASE)
+
+# A line that starts a list entry or a table row; any other non-blank line continues the one above.
+_ENTRY_START = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s|\|)")
+
+
+def _logical_lines(body: List[str]) -> List[str]:
+    """``body`` with each wrapped entry or paragraph joined onto one line, so a marker split
+    across a line break is read whole."""
+    joined: List[str] = []
+    for line in body:
+        if joined and joined[-1].strip() and line.strip() and not _ENTRY_START.match(line):
+            joined[-1] = f"{joined[-1].rstrip()} {line.strip()}"
+        else:
+            joined.append(line)
+    return joined
 
 
 def _todo_sections(text: str) -> List[Tuple[Optional[str], int, List[str], Optional[str]]]:
@@ -1223,7 +1238,7 @@ def required_work_outside_held_items(text: str) -> List[str]:
             continue
         where = (f"{owner} [{items[owner]}]" if owner is not None
                  else "before the first heading" if title is None else repr(title[:40]))
-        for line in body:
+        for line in _logical_lines(body):
             if any(_version_tuple(m.group(1)) <= cycle for m in _REQUIRED_MARKER.finditer(line)):
                 found.append(f"{where}: {line.strip()[:60]!r}")
     return found
@@ -1349,6 +1364,33 @@ def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
 #: whose stacks still hold them.
 STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, RECEIPT_PATH)
 
+#: The committed peak-memory record, and the file that declares the version it must name.
+PEAK_MEMORY_PATH = "artifacts/benchmarks/peak_memory.json"
+VERSION_PATH = "jnwb/__init__.py"
+
+
+def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optional[str]:
+    """Why the peak-memory record committed at ``rev`` was not taken for the version ``rev``
+    declares, or ``None``. The version is bumped in the commit that refreshes the record, so a
+    record naming another version is one the closure pass did not see refreshed."""
+    record, init = _text_at(root, rev, PEAK_MEMORY_PATH), _text_at(root, rev, VERSION_PATH)
+    declared = _VERSION_RE.search(init) if init is not None else None
+    if declared is None:
+        return (f"{VERSION_PATH} declares no __version__ at {rev}, so whether {PEAK_MEMORY_PATH} "
+                "is this version's is unknown")
+    try:
+        recorded = json.loads(record)["jnwb_version"] if record is not None else None
+    except (ValueError, KeyError, TypeError):
+        recorded = None
+    if recorded is None:
+        return (f"{PEAK_MEMORY_PATH} is missing at {rev} or names no jnwb_version; run "
+                "`python scripts/measure_peak_memory.py --write` and commit it")
+    if recorded != declared.group(1):
+        return (f"{PEAK_MEMORY_PATH} was taken for jnwb {recorded}, and {rev} declares "
+                f"{declared.group(1)}; run `python scripts/measure_peak_memory.py --write` and "
+                "commit it with the version")
+    return None
+
 
 def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     """Every path whose working copy differs from HEAD -- modified, staged, deleted, renamed or
@@ -1439,13 +1481,14 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
                                cwd=root, capture_output=True, text=True)
         return shown.stdout.strip() if shown.returncode == 0 else ""
 
-    writes = []
+    writes, parents_of = [], {}
     for rev in listed.stdout.split():
         # The commit's own parents; `--parents` on a path-limited walk prints rewritten ones.
         parents = subprocess.run(["git", "rev-list", "--no-walk", "--parents", rev], cwd=root,
                                  capture_output=True, text=True).stdout.split()[1:]
         if all(blob(rev) != blob(p) for p in parents):
             writes.append(rev)
+            parents_of[rev] = parents
     if len(writes) != 1:
         return [f"{RECEIPT_PATH} changed in {len(writes)} commit(s) between the receipt's commit "
                 f"{commit[:12]} and HEAD {head[:12]}; it is recorded once, by the commit that "
@@ -1456,10 +1499,17 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
         violations.append(
             f"{RECEIPT_PATH} records as finished {len(unheld)} item(s) that were not held open at "
             f"its commit {commit[:12]}: " + ", ".join(unheld[:8]))
-    parent, child = _todo_stack_at(root, f"{writes[0]}^"), _todo_stack_at(root, writes[0])
     ids_in = (lambda text: {i for i, _, _ in _parse_todo_stack(text)[0]} if text is not None
               else set())
-    kept = sorted((finished & held) - (ids_in(parent) - ids_in(child)))
+    child = ids_in(_todo_stack_at(root, writes[0]))
+    # Deleted by the recording commit means deleted against each of its parents: against the
+    # first alone, a merge would count an item the other side had already deleted, and which
+    # side is first is only the order the merge was made in.
+    deleted = None
+    for parent in parents_of[writes[0]] or [f"{writes[0]}^"]:
+        gone = ids_in(_todo_stack_at(root, parent)) - child
+        deleted = gone if deleted is None else deleted & gone
+    kept = sorted((finished & held) - deleted)
     if kept:
         violations.append(
             f"{RECEIPT_PATH} records as finished {len(kept)} item(s) that the commit recording it, "
@@ -1484,7 +1534,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
       3. the independent blocker-focused closure receipt exists and reports zero, and its
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
-         and every one deleted since is one the receipt records as finished.
+         and every one deleted since is one the receipt records as finished;
+      4. the committed peak-memory record names the version HEAD declares.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1571,6 +1622,11 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
         violations.append(
             f"the closure pass found {found} new release-blocking problem(s); the fixpoint is "
             "zero NEW BLOCKERS, not zero new observations")
+
+    # 4. the peak-memory record is this version's
+    stale_record = peak_memory_record_violation(root)
+    if stale_record:
+        violations.append(stale_record)
     return violations
 
 

@@ -145,7 +145,7 @@ jobs:
 
   build:
     name: Build & Validate Distribution
-    needs: test
+    needs: [test, test-floors]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -285,8 +285,9 @@ jobs:
     name: Publish to TestPyPI
     needs: build
     # Every tag push publishes to TestPyPI, a final tag as well as an rc one, and the release
-    # event does not: that tag's push run already uploaded the same files, and
-    # publish-pypi below refuses to run until that upload succeeded.
+    # event does not: publish-pypi below uploads the files this job uploaded, downloaded from
+    # the tag's push run and checked against TestPyPI's hashes, once that upload and its
+    # verification both succeeded.
     if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
     runs-on: ubuntu-latest
     environment:
@@ -315,7 +316,9 @@ jobs:
   verify-testpypi:
     # The candidate as a user gets it: the tag's version installed from TestPyPI into a fresh
     # environment, then the build job's smoke script run against it from outside the checkout.
-    # Dependencies come from PyPI; TestPyPI serves only the candidate.
+    # Only the candidate wheel is fetched from TestPyPI, without dependencies; it is then
+    # installed from that local file with the default index, so every dependency comes from
+    # PyPI and none can resolve to a TestPyPI upload of the same name.
     name: Verify the TestPyPI upload
     needs: publish-testpypi
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -339,17 +342,22 @@ jobs:
           /tmp/testpypi_env/bin/pip install --upgrade pip
           # The index can lag the upload by minutes; ten attempts, thirty seconds apart.
           for attempt in $(seq 1 10); do
-            if /tmp/testpypi_env/bin/pip install --no-cache-dir \
-                --index-url https://test.pypi.org/simple/ \
-                --extra-index-url https://pypi.org/simple/ "jnwb==$version"; then
+            if /tmp/testpypi_env/bin/pip download --no-cache-dir --no-deps --only-binary :all: \
+                --index-url https://test.pypi.org/simple/ "jnwb==$version" -d /tmp/candidate; then
               break
             fi
             if [ "$attempt" -eq 10 ]; then
-              echo "::error::jnwb==$version could not be installed from TestPyPI"
+              echo "::error::jnwb==$version could not be downloaded from TestPyPI"
               exit 1
             fi
             sleep 30
           done
+          wheels=(/tmp/candidate/jnwb-*.whl)
+          if [ "${#wheels[@]}" -ne 1 ] || [ ! -f "${wheels[0]}" ]; then
+            echo "::error::expected one jnwb wheel from TestPyPI, found: ${wheels[*]}"
+            exit 1
+          fi
+          /tmp/testpypi_env/bin/pip install --no-cache-dir "${wheels[0]}"
           /tmp/testpypi_env/bin/pip check
           cd /tmp
           /tmp/testpypi_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
@@ -361,7 +369,9 @@ jobs:
     # Production PyPI is published only when a GitHub Release is published for the tag, and
     # only after the tag's push run published it to TestPyPI and verified it from there. The
     # two are separate runs, so `needs:` cannot order them; the first step reads the push
-    # run's two jobs instead.
+    # run's two jobs instead. What is uploaded is that push run's distribution artifact, the
+    # files TestPyPI received, not this run's rebuild; each file's sha256 must equal the one
+    # TestPyPI records for it before anything is uploaded.
     if: github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease
     runs-on: ubuntu-latest
     environment:
@@ -374,8 +384,10 @@ jobs:
     steps:
       - name: Require the tag push to have published this commit to TestPyPI
         # Waits up to an hour for that run, then fails. Both the upload and its verification
-        # must conclude success in one run; anything else -- failure, skipped, cancelled, or no
-        # such job -- fails the step and nothing reaches PyPI.
+        # must conclude success in one run; anything else -- failure, skipped, cancelled, no
+        # such job, or two jobs of one name -- fails the step and nothing reaches PyPI. The
+        # run that passed is the step's `run_id` output.
+        id: testpypi
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -391,17 +403,24 @@ jobs:
             runs=$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$SHA&per_page=100" \
               --jq '.workflow_runs[] | select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml") | .id')
             conclusions=""
+            matched=""
             for run in $runs; do
               jobs="repos/$REPO/actions/runs/$run/jobs?per_page=100"
-              upload=$(gh api "$jobs" --jq '.jobs[] | select(.name == env.TESTPYPI_JOB) | (.conclusion // "pending")')
-              verify=$(gh api "$jobs" --jq '.jobs[] | select(.name == env.VERIFY_JOB) | (.conclusion // "pending")')
-              # A job not listed yet has not concluded either.
-              conclusions="$conclusions ${upload:-pending}+${verify:-pending}"
+              # A job not listed yet has not concluded either; two jobs of one name cannot say
+              # which of them uploaded, and read as ambiguous.
+              upload=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.TESTPYPI_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
+              verify=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.VERIFY_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
+              pair="${upload:-pending}+${verify:-pending}"
+              conclusions="$conclusions $pair"
+              if [ "$pair" = "success+success" ] && [ -z "$matched" ]; then
+                matched="$run"
+              fi
             done
             conclusions=$(echo $conclusions)
             echo "TestPyPI upload+verify of the $TAG push run(s) at $SHA: ${conclusions:-none yet}"
             case " $conclusions " in
               *" success+success "*)
+                echo "run_id=$matched" >> "$GITHUB_OUTPUT"
                 exit 0 ;;
               *pending*|"  ")
                 if [ "$SECONDS" -ge "$deadline" ]; then
@@ -415,11 +434,39 @@ jobs:
             esac
           done
 
-      - name: Download distribution artifacts
+      - name: Download the distribution artifacts TestPyPI received
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
+          run-id: ${{ steps.testpypi.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Require every file to match its TestPyPI upload byte for byte
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          curl -fsSL "https://test.pypi.org/pypi/jnwb/$version/json" -o /tmp/testpypi.json
+          remote=$(jq '.urls | length' /tmp/testpypi.json)
+          count=0
+          for file in dist/*; do
+            name=$(basename "$file")
+            want=$(jq -r --arg name "$name" '[.urls[] | select(.filename == $name) | .digests.sha256] | if length == 1 then .[0] else "" end' /tmp/testpypi.json)
+            have=$(sha256sum "$file" | cut -d' ' -f1)
+            if [ -z "$want" ] || [ "$want" != "$have" ]; then
+              echo "::error::$name does not match TestPyPI's jnwb $version (sha256 $have, TestPyPI ${want:-none})"
+              exit 1
+            fi
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ] || [ "$count" -ne "$remote" ]; then
+            echo "::error::dist/ holds $count file(s) and TestPyPI's jnwb $version holds $remote"
+            exit 1
+          fi
+          echo "all $count file(s) match TestPyPI's jnwb $version"
 
       - name: Publish to PyPI via Trusted Publishing
         # Same pin as the TestPyPI job, and for the same reason.
