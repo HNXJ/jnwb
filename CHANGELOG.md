@@ -387,6 +387,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be identifiable, so `accepted` now also depends on each pair's coupling, not only on
   `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
   well-coupled mean accepted the result; `rejection_reason` names such pairs.
+- `zflip` takes `min_band_power_fraction=0.01`: a contact carrying less than that fraction of
+  its power inside `freq_range`, read from the segment spectra the phase slope uses, makes
+  both of its adjacent pairs unidentifiable, and `rejection_reason` names it. A contact
+  carrying only an out-of-band sinusoid passed the pair wPLI gate through window leakage
+  (pair wPLI 0.16 to 0.31) and was accepted with a delay 10 to 13 times the true one. Power
+  leaking into the band edge, such as a sinusoid just below the lower edge, can still pass.
 - `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed
   its linearity or unambiguous-interval check, and names a failed depth fit (cumulative delay
   not linear in contact index, or a zero gradient) on its own. It reported the phase gate for

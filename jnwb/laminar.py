@@ -1979,7 +1979,8 @@ class ZFlipResult(DictAccessMixin):
             NaN for a pair with a constant contact.
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
-            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``); False for a pair
+            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``, both contacts'
+            in-band power fraction at least ``min_band_power_fraction``); False for a pair
             with a constant contact.
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
@@ -1999,7 +2000,8 @@ class ZFlipResult(DictAccessMixin):
             when the test was not performed (``n_surrogates=0``, or a contact is constant).
         accepted: True only if the surrogate test was performed and significant
             (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
-            is identifiable, which requires every adjacent pair's wPLI >= min_wpli.
+            is identifiable, which requires every adjacent pair's wPLI >= min_wpli and every
+            contact's in-band power fraction >= min_band_power_fraction.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
@@ -2064,6 +2066,7 @@ def zflip(
     noverlap: Optional[int] = None,
     min_linearity_r2: float = 0.70,
     min_wpli: float = 0.15,
+    min_band_power_fraction: float = 0.01,
     n_surrogates: int = 50,
     alpha: float = 0.05,
     rng: RNGLike = Default(0),
@@ -2095,6 +2098,10 @@ def zflip(
        - Pair wPLI at least `min_wpli`, the threshold `mean_wpli` is also held to. A weakly
          coupled pair can still fit a linear phase, and its delay would enter the spatial fit
          while a well-coupled mean hides it.
+       - Each contact of the pair carries at least `min_band_power_fraction` of its power
+         inside `freq_range`. wPLI alone does not show this: a contact carrying only an
+         out-of-band sinusoid reached pair wPLI 0.16 to 0.31 through leakage. Leakage into
+         the band edge can still pass this check (see `min_band_power_fraction`).
        and the cumulative delay along the shaft is linear in contact index
        (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
        are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
@@ -2130,6 +2137,16 @@ def zflip(
         min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
         min_wpli: Minimum wPLI required of the adjacent average for acceptance and of each
             adjacent pair for its delay to be identifiable (default 0.15).
+        min_band_power_fraction: Minimum fraction of a contact's power, summed over the
+            segment spectra the phase slope uses, that must lie inside `freq_range` for the
+            delays of its two adjacent pairs to be identifiable (default 0.01). A contact
+            whose power lies outside the band has only window leakage there, which can fit
+            a linear phase. Measured on the default band and segment length, it refuses
+            out-of-band sinusoids well away from the band (fractions below 4e-4) and keeps
+            broadband white noise, whose 15-35 Hz fraction is about 0.03. It does not reject power that leaks into the band edge:
+            a sinusoid just below the lower edge (about 10-12 Hz for the default band and
+            segment length) carries 0.01 to 0.19 of its power in the edge bin and can still
+            pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
             ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
             attainable p-value is ``1 / (n_surrogates + 1)``.
@@ -2191,7 +2208,8 @@ def zflip(
     if int(n_surrogates) != n_surrogates or n_surrogates < 0:
         raise ValueError(f"n_surrogates must be a non-negative integer; got {n_surrogates}.")
     n_surrogates = int(n_surrogates)
-    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli)):
+    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli),
+                        ("min_band_power_fraction", min_band_power_fraction)):
         if not (0.0 <= value <= 1.0):
             raise ValueError(f"{name} must lie in [0, 1]; got {value}.")
 
@@ -2242,6 +2260,15 @@ def zflip(
     # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
     # constant contact's spectrum enters neither mean_wpli nor the delay fit.
     flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    # A contact whose power lies outside freq_range has no in-band phase to measure: its
+    # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
+    # The fraction is read from the same segment spectra the phase slope uses; a contact
+    # with no power in any segment has no fraction and fails the gate.
+    seg_power = np.mean(np.abs(Z) ** 2, axis=-1)  # (n_channels, n_freqs)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        band_fraction = seg_power[:, mask].sum(axis=1) / seg_power.sum(axis=1)
+    out_of_band_contacts = [c for c in range(n_channels) if c not in flat_contacts
+                            and not band_fraction[c] >= min_band_power_fraction]
     phase_failed_pairs: List[int] = []
 
     for i in range(n_channels - 1):
@@ -2267,7 +2294,8 @@ def zflip(
         phase_ok = r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
         if not phase_ok:
             phase_failed_pairs.append(i)
-        if phase_ok and adj_wpli[i] >= min_wpli:
+        if (phase_ok and adj_wpli[i] >= min_wpli
+                and i not in out_of_band_contacts and i + 1 not in out_of_band_contacts):
             adj_identifiable[i] = True
 
     mean_wpli_val = float(np.mean(adj_wpli))
@@ -2359,6 +2387,10 @@ def zflip(
     if weak_pairs:
         reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
                        "delay not identified")
+    if out_of_band_contacts:
+        reasons.append(f"Contact(s) {out_of_band_contacts} carry less than "
+                       f"{min_band_power_fraction:.4f} of their power inside freq_range "
+                       f"{freq_range}: delay not identified")
     if phase_failed_pairs:
         reasons.append("Phase-frequency relation failed linear identifiability gate")
     if depth_fit_reason is not None:

@@ -204,6 +204,72 @@ def test_zflip_a_weakly_coupled_pair_is_not_identifiable():
     assert "Phase-frequency relation failed" not in res.rejection_reason
 
 
+def _wave_with_contact_4(sine_hz, contact=4, wave_scale=0.0):
+    """Five contacts of 10-40 Hz noise lagged 2 samples each; one carries a sinusoid.
+
+    The chosen contact keeps ``wave_scale`` times its own lagged wave, plus a unit sinusoid.
+    """
+    fs, n = 1000.0, 6000
+    b, a = signal.butter(4, [10, 40], btype="band", fs=fs)
+    src = signal.filtfilt(b, a, np.random.default_rng(7).standard_normal(n + 50))
+    t = np.arange(n) / fs
+    data = np.stack([src[50 - 2 * k: 50 - 2 * k + n] for k in range(5)])
+    data[contact] = wave_scale * data[contact] + np.sin(2 * np.pi * sine_hz * t)
+    return data
+
+
+def _in_band_fraction(data, band=(15.0, 35.0)):
+    """Each contact's share of power inside ``band``, from zflip's default segment spectra."""
+    nperseg = min(max(data.shape[1] // 2, 8), 256)
+    f, _, Z = signal.stft(data, fs=1000.0, nperseg=nperseg, noverlap=nperseg // 2,
+                          boundary=None, padded=False, axis=-1)
+    power = np.mean(np.abs(Z) ** 2, axis=-1)
+    mask = (f >= band[0]) & (f <= band[1])
+    return power[:, mask].sum(axis=1) / power.sum(axis=1)
+
+
+@pytest.mark.parametrize("contact, sine_hz", [(4, 7.8), (4, 5.7), (0, 55.0)])
+def test_zflip_a_contact_with_only_out_of_band_power_gives_no_delay(contact, sine_hz):
+    """A contact carrying only an out-of-band sinusoid blocks the delay of its two pairs.
+
+    Its in-band spectrum is window leakage: with 7.8 Hz on contact 4 the pair wPLI was 0.22
+    and the fit accepted a delay 13 times the true 2 ms per contact, with no rejection reason. What would pass
+    while the leakage still counts: checking ``adjacent_wpli`` against ``min_wpli``, which
+    the leakage clears.
+    """
+    res = jnwb.zflip(_wave_with_contact_4(sine_hz, contact), fs=1000.0,
+                     orientation="superficial_to_deep", pitch_um=100.0, n_surrogates=50, rng=0)
+    pairs = [p for p in (contact - 1, contact) if 0 <= p < 4]
+    assert not res.adjacent_identifiable[pairs].any()
+    assert np.isnan(res.tau_per_channel_s) and res.apparent_velocity_m_s is None
+    assert not res.accepted
+    assert f"Contact(s) [{contact}] carry less than 0.0100" in res.rejection_reason
+
+
+def test_zflip_the_in_band_fraction_gate_is_inclusive_at_its_threshold():
+    """A contact is kept at a fraction equal to ``min_band_power_fraction`` and refused below.
+
+    Contact 4 mixes a unit 7.8 Hz sinusoid with a scaled copy of its own lagged wave, so its
+    in-band fraction sits just below (0.0095) or just above (0.0105) the 0.01 default. A
+    dropped check keeps the lower one; a strict comparison refuses the exact threshold.
+    """
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    below, above = _wave_with_contact_4(7.8, wave_scale=0.3279), _wave_with_contact_4(
+        7.8, wave_scale=0.345)
+    f_below, f_above = _in_band_fraction(below)[4], _in_band_fraction(above)[4]
+    assert 0.009 < f_below < 0.01 < f_above < 0.011
+    refused = jnwb.zflip(below, **kwargs)
+    assert not refused.adjacent_identifiable[3] and np.isnan(refused.tau_per_channel_s)
+    assert "Contact(s) [4] carry less than" in refused.rejection_reason
+    kept = jnwb.zflip(above, **kwargs)
+    assert kept.adjacent_identifiable.all() and np.isfinite(kept.tau_per_channel_s)
+    at_threshold = jnwb.zflip(above, min_band_power_fraction=float(f_above), **kwargs)
+    assert at_threshold.adjacent_identifiable.all()
+    just_over = jnwb.zflip(above, min_band_power_fraction=float(np.nextafter(f_above, 1.0)),
+                           **kwargs)
+    assert not just_over.adjacent_identifiable[3]
+
+
 def test_zflip_a_pair_wpli_equal_to_min_wpli_passes_the_pair_gate():
     """The pair gate is ``wPLI >= min_wpli``, inclusive at the threshold.
 
