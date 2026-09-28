@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import stats
 
 import jnwb
 from jnwb.laminar import xflip
@@ -25,6 +26,14 @@ from jnwb.testing import (
 NULL_SEEDS = 60
 NULL_ALPHA = 0.05
 NULL_MAX_ACCEPTED = int(np.floor(NULL_ALPHA * NULL_SEEDS))
+
+#: Seeds and bound for the p of `n_blocks=None`, whose choice of count is what can inflate
+#: it. The bound is the one-sided 99% binomial quantile at alpha: a null whose p falls at or
+#: below alpha at a true rate of alpha exceeds it with probability at most 0.01, so a failure
+#: says the rate is above alpha rather than that the seeds were unlucky. The seeds are
+#: enough that a count chosen without repeating the choice on the surrogates exceeds it.
+AUTO_COUNT_SEEDS = 200
+AUTO_COUNT_MAX_SIGNIFICANT = int(stats.binom.ppf(0.99, AUTO_COUNT_SEEDS, NULL_ALPHA))
 
 
 class TestXFlipNullCalibration:
@@ -59,6 +68,23 @@ class TestXFlipNullCalibration:
         # so it is held to the same rate bound as the others: these seeds accept 3 of 60,
         # at the bound.
         assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} AR null seeds accepted"
+
+    @pytest.mark.parametrize("null", ["white_noise", "ar_noise"])
+    def test_auto_block_count_p_is_calibrated(self, null):
+        # The p itself, not acceptance: the other gates only lower the acceptance rate.
+        significant = 0
+        for s in range(AUTO_COUNT_SEEDS):
+            if null == "white_noise":
+                data, extra = synth_white_noise(shape=(16, 400), rng=s + 500), {}
+            else:
+                data = synth_ar_noise(600, n_channels=16, fs=1000.0, tau_s=0.030, rng=s + 700)
+                extra = {"surrogate_method": "autocorr_preserving"}
+            res = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40,
+                        rng=s + 900, **extra)
+            significant += res.p_values["omnibus"] <= NULL_ALPHA
+        assert significant <= AUTO_COUNT_MAX_SIGNIFICANT, (
+            f"{significant}/{AUTO_COUNT_SEEDS} {null} seeds have p <= {NULL_ALPHA}"
+        )
 
     def test_acceptance_requires_the_surrogate_test_to_pass(self):
         """The gate these tests are named for, asserted rather than assumed.
