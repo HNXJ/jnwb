@@ -407,8 +407,8 @@ What this instrument cannot see, stated rather than discovered later:
    that ends a key is positional, so deleting one site and adding another of the same shape
    leaves the same keys, and every row rebinds by position to whatever site now holds it. An
    added site that changes the count is reported, but the key left over belongs to the last
-   site in the group rather than to the new one, which is why a failure lists every line in
-   the group and asks for the whole group to be re-reviewed.
+   site in the group, which is the new one only when it was added last. That is why a failure
+   lists every line in the group and asks for the whole group to be re-reviewed.
 
 Chains nested inside another ``if`` arm, and chains with no ``else`` whose next statement
 does not refuse, were once invisible here too; both are now scanned and seeded.
@@ -929,7 +929,11 @@ def _plant_before(module: str, anchor: str, planted: str, scanner, accepted) -> 
 
 
 def _names_line(report: str, line: int) -> bool:
-    return re.search(rf"(?<!\d){line}(?!\d)", report) is not None
+    """Whether ``line`` is given in a ``(line N)`` field or an ``at lines a, b, c.`` list."""
+    named = {int(n) for n in re.findall(r"\(line (\d+)\)", report)}
+    for listing in re.findall(r"at lines ([\d, ]+)\.", report):
+        named.update(int(n) for n in listing.split(","))
+    return line in named
 
 
 def _assert_names_both(result: Planted, shape: tuple) -> None:
