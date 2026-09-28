@@ -21,6 +21,7 @@ Tests:
 from __future__ import annotations
 
 import json
+import threading
 import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -178,7 +179,9 @@ def test_canvas_colorbar_placement():
 
 # kaleido drives a headless browser. Two at once under `pytest -n` failed to shut down
 # intermittently, so every test that exports through it shares one xdist group, which
-# `--dist loadgroup` in pyproject.toml runs on a single worker.
+# `--dist loadgroup` in pyproject.toml runs on a single worker. The group also renders in one
+# browser for the whole session (`session_browser` in conftest.py), so no export waits on a
+# shutdown; the retry below covers a kaleido that cannot keep one.
 BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
 
 
@@ -223,6 +226,41 @@ def test_only_a_browser_shutdown_timeout_is_retried():
     with pytest.raises(RuntimeError, match="the figure is wrong"):
         retry_browser_shutdown(broken)
     assert len(calls) == 1
+
+
+@pytest.mark.xdist_group("browser_export")
+def test_exports_in_the_group_render_in_the_session_browser():
+    kaleido = pytest.importorskip("kaleido")
+    if not hasattr(kaleido, "start_sync_server"):
+        pytest.skip("this kaleido opens a browser per export")
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        kaleido.start_sync_server()  # warns when a session browser is already running
+    running = any("already open" in str(w.message) for w in seen)
+    if not running:
+        kaleido.stop_sync_server(silence_warnings=True)
+    assert running, "each export would open and shut down a browser of its own"
+
+
+def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(browser_stopper):
+    class Kaleido:
+        """Raises `err` on its own thread when stopped, as kaleido's server thread does."""
+
+        def __init__(self, err):
+            self.err = err
+
+        def stop_sync_server(self, silence_warnings):
+            def close():
+                raise self.err
+
+            thread = threading.Thread(target=close)
+            thread.start()
+            thread.join()
+
+    with pytest.warns(RuntimeWarning, match="shutdown timed out"):
+        browser_stopper(Kaleido(RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)))
+    with pytest.raises(RuntimeError, match="the figure is wrong"):
+        browser_stopper(Kaleido(RuntimeError("the figure is wrong")))
 
 
 @pytest.mark.xdist_group("browser_export")
