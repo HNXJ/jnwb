@@ -220,8 +220,14 @@ def test_the_qualification_leg_still_clears_pythonpath():
     this file's invariant becomes unnecessary -- and, worse, the leg stops qualifying the wheel.
     Either way a human should look, so this fails instead of relaxing.
     """
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert "-o pythonpath=" in workflow, (
+    import yaml
+
+    steps = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
+    leg = [s for s in steps if s.get("name") == "Run the test suite against the installed wheel"]
+    assert len(leg) == 1, "the wheel-qualification step is not where this test looks for it"
+    body = leg[0]["run"]
+    assert "--import-mode=importlib" in body, "the step no longer runs the suite in importlib mode"
+    assert "-o pythonpath=" in body, (
         "the wheel-qualification leg no longer clears pytest's pythonpath; the suite may be "
         "testing the checkout while reporting on the wheel"
     )

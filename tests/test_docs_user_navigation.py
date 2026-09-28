@@ -36,11 +36,31 @@ CONTRIBUTOR_MARKERS = (
 )
 
 
+def nav_targets(mkdocs: Path = MKDOCS) -> list[str]:
+    """Every `.md` file on the parsed nav of `mkdocs`, in order, as written.
+
+    Read through YAML, so a commented-out line is not an entry: it is not on the site either.
+    """
+    config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+    found: list[str] = []
+
+    def walk(node):
+        if isinstance(node, str):
+            if node.endswith(".md"):
+                found.append(node)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+
+    walk(config.get("nav") or [])
+    return found
+
+
 def _nav_targets():
-    """Every `.md` file named on the nav, in order, as written."""
-    nav = MKDOCS.read_text(encoding="utf-8").split("\nnav:", 1)[1]
-    nav = nav.split("\n\n\n", 1)[0]
-    return re.findall(r":\s*([A-Za-z0-9_/\.\-]+\.md)\s*$", nav, re.M)
+    return nav_targets(MKDOCS)
 
 
 def test_the_navigation_is_read_at_all():
@@ -59,22 +79,27 @@ def test_no_page_is_listed_twice():
     assert not duplicates, f"listed more than once on the nav: {sorted(duplicates)}"
 
 
-def _excluded_from_the_site():
-    """The `exclude_docs` entries of `mkdocs.yml`: files under `docs/` the build does not publish."""
-    config = yaml.safe_load(MKDOCS.read_text(encoding="utf-8")) or {}
+def excluded_from_the_site(mkdocs: Path = MKDOCS) -> set[str]:
+    """The `exclude_docs` entries of `mkdocs`: files under `docs/` the build does not publish."""
+    config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
     return {line.strip() for line in (config.get("exclude_docs") or "").splitlines()
             if line.strip() and not line.strip().startswith("#")}
 
 
+def _excluded_from_the_site():
+    return excluded_from_the_site(MKDOCS)
+
+
+def orphaned_pages(docs: Path = DOCS, mkdocs: Path = MKDOCS) -> set[str]:
+    """Pages under `docs` that the build publishes and no live nav entry reaches."""
+    present = {p.relative_to(docs).as_posix() for p in docs.rglob("*.md")}
+    return present - set(nav_targets(mkdocs)) - excluded_from_the_site(mkdocs)
+
+
 def test_no_page_is_orphaned():
     """Every published page is on the nav. A page the build excludes is not published."""
-    on_nav = set(_nav_targets())
-    excluded = _excluded_from_the_site()
-    present = {p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")}
-    orphans = present - on_nav - excluded
+    orphans = orphaned_pages(DOCS, MKDOCS)
     assert orphans == set(), f"pages exist but are on no nav entry: {sorted(orphans)}"
-
-
 def test_no_excluded_page_is_on_the_nav():
     """An excluded page on the nav is a dead link on the site, and would hide a user page."""
     excluded = _excluded_from_the_site()
