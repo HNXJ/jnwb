@@ -378,6 +378,11 @@ the version that will carry it, most consequential first. It holds only what is 
 done — a finished item is deleted, because git and the changelog already record it. If you
 finish something, delete it from the stack in the same commit.
 
+Stack edits go through `scripts/stack_edit.py`, which deletes, replaces or inserts a bullet by
+an exact prefix of its first line (`--section` narrows the match to one heading), preserves the
+file's line endings, and writes nothing unless the prefix matches exactly one bullet and every
+check passes. `--dry-run` prints the diff; new text comes from a UTF-8 file.
+
 ## Releasing
 
 Maintainers only, and only from a clean `dev` with the three pre-push checks green and
