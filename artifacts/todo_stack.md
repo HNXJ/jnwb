@@ -92,6 +92,7 @@ is in 07-27 under 0.2.8, and RP-1's ruled bypass removal is the release step 07-
 
 - RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds. Ruled 2026-09-25: the tag push publishes to TestPyPI, so PyPI publishes only after TestPyPI succeeded. Required for 0.2.7 (R5, R3, classified 2026-09-27): TestPyPI before PyPI, as `artifacts/fact_stack.md` records and 2026-09-25 ruled.
 - RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Required for 0.2.7 (Hamm ruled 2026-09-27, a minimal check): a script measures peak RSS for a fixed set of representative operations and records it before the release, with no threshold yet. `artifacts/goal.md` section 8 names 07-02 as the carrier.
+- RP-8: `artifacts/fact_stack.md` says a release candidate is verified from TestPyPI in a clean environment, and no step installs the uploaded files from TestPyPI and runs them. Required for 0.2.7 (R5, classified 2026-09-28). Check: after the TestPyPI upload, a job installs that version from TestPyPI into a fresh environment and runs the installed-package smoke test, and PyPI publishes only after it passed.
 
 ### 07-03 Post-release inspection findings
 
@@ -105,7 +106,7 @@ flight, ruled on 2026-09-27, or meeting the blocker predicate by that date's ind
 classification. The deferred bullets are in 07-28 under 0.2.8.
 
 - IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: the documentation stops calling it calibrated, or the claim is removed. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is to correct or remove the "calibrated probabilities" claim at `jnwb/bilinear.py:31`; the one-model redesign is in 07-28.
-- IB-37: P-63's count is stale: 25 of 160 exports are named in no skill, not 30. Check: P-63's figure corrected where it is quoted, from a recount.
+- IB-37: P-63's count is stale: 26 of 162 exports are referenced by no skill as a symbol (a word scan says 24, because it also matches the English words Dataset and Figure). Check: P-63's figure corrected where it is quoted, with the method named.
 - IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed. Graded 2026-09-25 highly recommended: record a child seed so the result alone reproduces p. Required for 0.2.7 (R1, classified 2026-09-27): invariant 5; fold with IB-75 and IB-77.
 - IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag. Graded 2026-09-25 minimal expandable: refuse a non-default `adim` when a null or `lag` is used; following `adim` waits. Required for 0.2.7 (R1, classified 2026-09-27): resolve jointly with IB-58.
 - IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics. Required for 0.2.7 (R1, classified 2026-09-27): reproduced: `jrsa(x, y, metric='cka', window=(0, 20))` on (200, 40) input windows the features, not the observations, silently.
@@ -446,6 +447,16 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: ruled 2026-09-27 to land one release after the warning.
 - Response-significance wording: the bursting limit (about 30% of units below 0.05 at no effect) holds for bursts of spikes 4 ms apart and falls to about 19% at 50 ms, which the docstring, `docs/06`, the spiking skill and the changelog do not say; the claim has four homes and the test pins only the rate; `RenamedKeyDict.setdefault` on a renamed key inserts a shadow key; `docs/04` grew past its ceiling with release-transitional clauses the changelog already carries.
   deferred-0.2.8: the direction of the limit is right everywhere and the classifier's effect-size cut keeps bursting units from reading significant; the rest is wording and length.
+- Readiness blind spots: a `##` section that lists work outside any item is not seen; a modified file marked `--assume-unchanged` or `--skip-worktree` passes the clean-tree check; whether a job-level `continue-on-error` on the TestPyPI job reports success for a failed upload is not established.
+  deferred-0.2.8: the live stack has no such section and the release job carries no such flag; the ignored-file and rename cases are covered.
+- Peak-memory resolution: an operation whose working memory stays below the peak its imports and inputs reached records almost nothing added (`cluster_permutation_test` 0.7 MiB), so the record is a lower bound. Check: a per-operation peak reset, or the bound stated.
+  deferred-0.2.8: the record carries no threshold yet, so a lower bound misleads no release.
+- Floor coverage: Python 3.12.0 runs on the Ubuntu floors leg only, with floor dependencies; the newest dependencies on 3.12.0 and Windows 3.12.0 are not exercised.
+  deferred-0.2.8: the known 3.12.0 defect class is a standard-library difference that the Ubuntu leg reaches.
+- Figure checks: the legend test compares an axes' texts only with that axes' legend, tests scatter markers by centre, skips images, and does not reach the quickstart figures in `docs/assets/jnwb_quickstart*.png`.
+  deferred-0.2.8: every figure the release shows was also checked by eye in 0.2.7.
+- Generator seeds and `jrsa` axes: `cross_area_coherence`, `xflip` and `zflip` still record no seed for a `Generator`, where the directed estimators record a child seed; `jrsa` refuses an `adim` that names only an axis it reduces, with a message that says the result would not follow `adim`, and the dropped-axis branch of that rule has no test.
+  deferred-0.2.8: the documentation states each behaviour truly, and the refusal changes no number.
 
 ### 07-28 Post-release inspection findings, deferred to 0.2.8
 
