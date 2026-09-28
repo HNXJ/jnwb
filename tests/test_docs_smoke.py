@@ -174,12 +174,22 @@ class TestDocsSmokeFixtures:
         )
         assert spectral_res.spectrum is not None
 
+        x_long = rng.normal(size=4000)
+        y_long = np.zeros(4000)
+        y_long[5:] = 0.6 * x_long[:-5] + rng.normal(size=3995)
         psi_res = jnwb.phase_slope_index(
-            X, Y, fs=1000.0, bands=(12.0, 35.0), n_surrogates=10, seed=0,
+            x_long, y_long, fs=1000.0,
+            bands={"beta": (14.0, 30.0), "gamma": (32.0, 80.0)},
+            nperseg=250, jackknife=True, n_surrogates=20, rng=0,
         )
         assert isinstance(psi_res, jnwb.DirectedResult)
         assert psi_res.spectrum is not None
         assert "psi_per_freq" in psi_res.spectrum
+        # The page prints two p values and says which question each answers.
+        assert psi_res.diagnostics["p_source"] == "jackknife_z"
+        assert psi_res.p_net == psi_res.p_x_to_y == psi_res.p_y_to_x
+        assert psi_res.diagnostics["p_coupling_surrogate"] is not None
+        assert psi_res.params["n_segments"] == 31, "the page states 31 segments"
 
         te_res = jnwb.transfer_entropy(
             X, Y, estimator="quantile", n_surrogates=10, seed=0,
@@ -191,14 +201,26 @@ class TestDocsSmokeFixtures:
         assert isinstance(pair, jnwb.DirectedResult)
 
         network = jnwb.directed_network(
-            signals, method="granger", order=2, fdr=False, n_surrogates=5, seed=0,
+            signals, method="granger", order=2, fdr=True, n_surrogates=200, rng=0,
         )
         assert network["matrix"].shape == (3, 3)
         assert "labels" in network and len(network["labels"]) == 3
 
-        topo = jnwb.network_topology(network["matrix"], threshold=0.0)
+        z = rng.normal(size=2000)
+        x_drv, y_drv = np.zeros(2000), np.zeros(2000)
+        x_drv[1:] = 0.6 * z[:-1] + rng.normal(size=1999)
+        y_drv[3:] = 0.6 * z[:-3] + rng.normal(size=1997)
+        pairwise = jnwb.granger(x_drv, y_drv, order="auto", max_lag=20)
+        given_z = jnwb.granger(x_drv, y_drv, order="auto", max_lag=20, Z=z)
+        assert pairwise.p_x_to_y < 0.05 < given_z.p_x_to_y, (pairwise.p_x_to_y, given_z.p_x_to_y)
+
+        significant = (network["q_matrix"] < 0.05).astype(float)
+        topo = jnwb.network_topology(significant, threshold=0.5)
         assert "in_degrees" in topo and "out_degrees" in topo
-        assert topo["density"] >= 0.0
+        # Thresholding the raw non-negative Granger matrix at 0 kept every edge (density 1).
+        a, b = network["labels"].index("A"), network["labels"].index("B")
+        assert significant[a, b] == 1.0, "the true A -> B edge was not kept"
+        assert topo["density"] < 1.0
 
         spk1 = np.array([0.01, 0.05, 0.12])
         spk2 = np.array([0.02, 0.06, 0.15])
