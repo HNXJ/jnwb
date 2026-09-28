@@ -4,10 +4,10 @@ r"""Optional/experimental: bilinear (rank-K) logistic regression for 2D neural d
 Not in ``jnwb.__all__``. Import ``jnwb.bilinear`` when the bilinear decoder is needed.
 
 WHY THIS EXISTS
-    Every 2D decoder in this project so far (v5, v6) flattened each trial's (N x T) matrix --
-    N units/channels by T time bins -- into one N*T vector and PCA'd it down. That destroys the
-    laminar/spatial topology and the temporal continuity, and the PCA components carry no
-    interpretable spatial or temporal meaning. This model instead constrains the weight matrix
+    Common 2D decoders flatten each trial's (N x T) matrix -- N units/channels by T time
+    bins -- into one N*T vector and reduce it with PCA. That discards the laminar/spatial
+    topology and the temporal continuity, and the PCA components carry no interpretable
+    spatial or temporal meaning. This model instead constrains the weight matrix
     to be low rank:
 
         W = sum_{k=1..K} u_k v_k^T ,    logit = <W, X> + b = sum_k u_k^T X v_k
@@ -28,7 +28,10 @@ HOW IT IS FITTED (exact alternating least-logistic-loss, no approximation)
 
 MULTICLASS
     One-vs-rest: one bilinear model per class, giving one interpretable (u, v) pair PER CLASS,
-    then a softmax over the K decision values for calibrated probabilities. A shared-factor
+    then a softmax over the K decision values. The softmax is not calibrated. With two classes
+    `predict_proba` returns sigmoid(D_1 - D_0), and the two one-vs-rest models mirror each other
+    (D_0 close to -D_1), so it is about sigmoid(2 D_1) and overconfident on held-out trials.
+    Recalibrate on held-out data before reading its output as a probability. A shared-factor
     multinomial formulation would tangle the class weights with u_k and make the recovered
     spatial profile non-identifiable, so OvR is the deliberate choice here.
 """
@@ -132,6 +135,7 @@ class BilinearLogisticRegression:
         )
 
     def predict_proba(self, X):
+        """Softmax of the per-class decision values; uncalibrated (see the module docstring)."""
         D = self.decision_function(X)
         D = D - D.max(axis=1, keepdims=True)
         E = np.exp(D)

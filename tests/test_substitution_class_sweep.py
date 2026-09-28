@@ -701,7 +701,10 @@ ACCEPTED_HANDLER_RECOVERY = {
         "Returns {'error': ..., 'error_type': 'Unknown'} -- names the failure as unknown "
         "rather than answering.",
     ("mcp_server/nwb_tools.py", "Exception", (), True):
-        "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure.",
+        "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure. The same key is "
+        "_resolves, which returns False on any resolver failure (a refused name, or an HDF5 "
+        "file pynwb will not open), so the reference names no reader. Absence, never a "
+        "different call.",
     ("metadata.py", "ValueError", (), True):
         "Session-id parse falls back to (raw, raw) -- the unparsed input returned as itself, "
         "not a fabricated identifier.",
