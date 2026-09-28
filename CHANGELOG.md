@@ -398,9 +398,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `zflip`'s delay, wPLI and surrogate null now come from an STFT whose segments are linearly
   detrended. Shared slow power leaked into the band through the window and biased the delay
   upward (a shared 2 Hz component at 30 SD by 12%, a 1 Hz one at 100 SD by 34%; now 1.3% and
-  1.2%). Delays, wPLI values and p-values change slightly for any input with a DC offset,
-  drift or slow power. Broadband background independent at each contact is not removed and
-  can still bias the delay (about +7% for a 1/f^2 background three times the wave).
+  1.2%). Shared slow power also lowered the observed wPLI and, once each contact's phases
+  were randomised, inflated the surrogate null, which could suppress significance (p 0.76,
+  now 0.02, for a weak wave in noise with a shared 2 Hz component at 30 SD). Delays, wPLI
+  values and p-values change for every input: by a small amount, unless it carries a DC
+  offset, drift or slow power. Broadband background independent at each contact is not
+  removed and can still bias the delay (about +7% for a 1/f^2 background three times the
+  wave).
+- `zflip` refuses a contact that is a straight line in time to within round-off as it
+  refuses a constant one, and `rejection_reason` names it. The per-segment detrend reduced
+  such a ramp to round-off residue, which passed the gates and was accepted with a delay five
+  to six times the true one.
 - `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
   gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
 - `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed

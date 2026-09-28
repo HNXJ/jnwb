@@ -1969,7 +1969,10 @@ class ZFlipResult(DictAccessMixin):
             pair with a constant contact (all-zero included). Here and in every
             ``adjacent_*`` field, a contact is constant only when every sample of the whole
             record equals every other, compared exactly; a contact of tiny but nonzero
-            amplitude is measured.
+            amplitude is measured. A contact that is a straight line in time over the whole
+            record, to within round-off (rms residual of its least-squares line at most
+            1000 eps of its largest magnitude), is refused the same way, because the
+            segments' linear detrend leaves only round-off of it.
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
@@ -2053,6 +2056,24 @@ class ZFlipResult(DictAccessMixin):
 
 
 _ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
+
+# A row counts as linear in time when the rms residual of its least-squares line is at most
+# this many eps of its largest magnitude. Exact ramps measured at most 1.5 (n 1e3 to 1e5,
+# slope and offset 1e-6 to 1e6); a unit-SD signal on a drift or offset of 1e10 measured
+# 2.3e5. 1000 leaves about 690x above the first and 230x below the second.
+_LINEAR_ROUNDOFF_EPS = 1000.0
+
+
+def _linear_to_roundoff(rows: np.ndarray) -> np.ndarray:
+    """True for each row of ``rows`` (2D, time last) that is a straight line to round-off."""
+    t = np.arange(rows.shape[-1], dtype=float)
+    t -= t.mean()
+    centred = rows - rows.mean(axis=-1, keepdims=True)
+    slope = centred @ t / (t @ t)
+    resid = centred - slope[:, None] * t
+    rms = np.sqrt(np.mean(resid ** 2, axis=-1))
+    scale = np.max(np.abs(rows), axis=-1)
+    return rms <= _LINEAR_ROUNDOFF_EPS * np.finfo(float).eps * scale
 
 
 def zflip(
@@ -2269,8 +2290,13 @@ def zflip(
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
     # A pair with a constant contact has no phase lag to weigh; its wPLI, linearity and
     # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
-    # constant contact's spectrum enters neither mean_wpli nor the delay fit.
-    flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    # constant contact's spectrum enters neither mean_wpli nor the delay fit. A contact that is
+    # an exact linear ramp is flat in the same sense: the per-segment linear detrend reduces
+    # it to round-off residue, which could otherwise fit a phase and a delay.
+    constant_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    ramp_contacts = [c for c in np.flatnonzero(_linear_to_roundoff(lfp)).tolist()
+                     if c not in constant_contacts]
+    flat_contacts = sorted(constant_contacts + ramp_contacts)
     # A contact whose power lies outside freq_range has no in-band phase to measure: its
     # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
     # The fraction is read from the detrended segment spectra the phase slope uses, so a DC
@@ -2391,8 +2417,12 @@ def zflip(
 
     reasons: List[str] = []
     if flat_contacts:
-        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI and delay "
-                       "undefined, surrogate test not performed")
+        if constant_contacts:
+            reasons.append(f"Contact(s) {constant_contacts} constant: adjacent wPLI and delay "
+                           "undefined, surrogate test not performed")
+        if ramp_contacts:
+            reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
+                           "wPLI and delay undefined, surrogate test not performed")
     elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0)")
     elif not is_sig:

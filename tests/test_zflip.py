@@ -339,9 +339,9 @@ def test_zflip_a_zig_zag_delay_is_refused_by_the_depth_fit():
 def test_zflip_shared_slow_power_does_not_bias_the_delay():
     """A 2 Hz component at 30 SD shared by every contact leaves the delay within 5%.
 
-    Undetrended, its window leakage into the band pulled the phase slope toward zero lag and
-    raised the delay by 12%. What would pass while it leaks: checking only that the delay is
-    identifiable, which it stays.
+    Undetrended, its window leakage into the band biased the phase slope and raised the delay
+    by 12%. What would pass while it leaks: checking only that the delay is identifiable,
+    which it stays.
     """
     rows = _lagged_rows([0, 2, 4, 6, 8])
     kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
@@ -351,6 +351,47 @@ def test_zflip_shared_slow_power_does_not_bias_the_delay():
     res = jnwb.zflip(rows + slow, **kwargs)
     assert res.delay_identifiable
     assert res.tau_per_channel_s == pytest.approx(clean, rel=0.05)
+
+
+def _unit_sd_lagged_rows(n, seed, lags=(0, 2, 4, 6, 8)):
+    sos = signal.butter(4, (10, 40), btype="band", fs=1000.0, output="sos")
+    src = signal.sosfiltfilt(sos, np.random.default_rng(seed).standard_normal(n + 400))
+    src /= src.std()
+    return np.stack([src[400 - lag: 400 - lag + n] for lag in lags])
+
+
+def test_zflip_shared_slow_power_does_not_inflate_the_surrogate_null():
+    """A weak wave in noise stays significant with a shared 2 Hz component at 30 SD.
+
+    The surrogates randomise each contact's phases, so a shared slow component becomes five
+    independent ones whose leakage raises the null's wPLI. Undetrended, p was 0.49 here.
+    What would pass while the null is inflated: a test with ``n_surrogates=0``, or one
+    whose observed statistic is also undetrended.
+    """
+    rows = _unit_sd_lagged_rows(4000, 5)
+    t = np.arange(rows.shape[1]) / 1000.0
+    data = (0.2 * rows + np.random.default_rng(99).standard_normal(rows.shape)
+            + 30.0 * np.sin(2 * np.pi * 2.0 * t))
+    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=50,
+                     rng=0, min_wpli=0.0)
+    assert res.p_value <= 0.05
+
+
+def test_zflip_a_contact_that_is_an_exact_ramp_is_refused_like_a_constant_one():
+    """A contact that is a straight line in time gives its pairs no wPLI and no delay.
+
+    The per-segment linear detrend reduces it to round-off residue, which is not constant
+    to ``is_constant`` and here fitted a delay five times the true one and was accepted.
+    What would pass while the residue still counts: a ramp small enough to be refused by the
+    in-band fraction anyway, which this one, at an offset of 75, is not.
+    """
+    rows = _unit_sd_lagged_rows(8000, 11)
+    rows[4] = 74.80228477667097 + 0.006342194754924158 * np.arange(8000) / 8000
+    res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", pitch_um=100.0,
+                     n_surrogates=50, rng=0)
+    assert np.isnan(res.adjacent_wpli[3]) and not res.adjacent_identifiable[3]
+    assert not res.delay_identifiable and not res.accepted
+    assert "Contact(s) [4] linear in time to round-off" in res.rejection_reason
 
 
 def test_zflip_identical_contacts_give_no_direction():
