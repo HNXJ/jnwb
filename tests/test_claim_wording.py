@@ -84,6 +84,7 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
     ("jnwb/testing/synth.py", "known PSTH latency", SYNTHETIC),
     ("jnwb/vis/hierarchy.py", "metric (latency, prevalence)", ONSET),
     ("jnwb/vis/hierarchy.py", "prevalence or onset latency", ONSET),
+    ("jnwb/vis/hierarchy.py", '"Onset latency (ms)"', ONSET),
     ("jnwb/vis/spiking.py", "by latency or response category", ONSET),
 )
 

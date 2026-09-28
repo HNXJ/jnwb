@@ -281,6 +281,26 @@ def test_spectrolaminar_map_primitive():
     assert heatmap_traces[0].zmax == 1.0
 
 
+@pytest.mark.parametrize("bad", [-0.01, 1.01])
+def test_spectrolaminar_map_refuses_values_outside_unit_range(bad):
+    """The colour scale is fixed to [0, 1]; a ratio to baseline was clipped without a word."""
+    rel_power = np.full((5, 4), 0.5)
+    rel_power[2, 1] = bad
+    rel_power[0, 0] = np.nan  # a gap, not a refusal
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=r"fractions in \[0, 1\].*relative_power"):
+        plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.arange(1.0, 6.0),
+                                depths=np.linspace(0.0, 1.0, 4), depth_unit="relative")
+
+
+def test_spectrolaminar_map_accepts_the_closed_unit_range_with_gaps():
+    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5]])
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0]),
+                            depths=np.array([0.0, 1.0]), depth_unit="relative")
+    assert any(isinstance(t, go.Heatmap) for t in canvas.fig.data)
+
+
 def test_no_crossover_depth_is_drawn_unless_the_caller_computed_one():
     """The default used to draw one study's measured depth on every recording."""
     freqs = np.linspace(1, 150, 150)
@@ -392,6 +412,37 @@ def test_csd_value_unit_is_required():
 def test_csd_value_unit_must_be_non_empty(unit):
     with pytest.raises(ValueError, match="value_unit"):
         _csd_colorbar(value_unit=unit)
+
+
+def _sorted_heatmap(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_sorted_heatmap(canvas, 0, 0, np.ones((3, 4)), np.arange(4.0), **kwargs)
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    return heatmap
+
+
+@pytest.mark.parametrize("kwargs, label", [
+    ({"value_unit": "spikes/s"}, "spikes/s"),
+    ({"value_unit": "z", "colorbar_title": "Rate"}, "Rate (z)"),
+])
+def test_sorted_heatmap_colorbar_carries_the_declared_unit(kwargs, label):
+    """The colorbar read "Rate (Δz)" whatever the matrix held."""
+    assert _sorted_heatmap(**kwargs).colorbar.title.text == label
+
+
+def test_sorted_heatmap_hover_carries_the_declared_unit():
+    assert "spikes/s" in _sorted_heatmap(value_unit="spikes/s").hovertemplate
+
+
+def test_sorted_heatmap_value_unit_is_required():
+    with pytest.raises(TypeError, match="value_unit"):
+        _sorted_heatmap()
+
+
+@pytest.mark.parametrize("unit", ["", "  "])
+def test_sorted_heatmap_value_unit_must_be_non_empty(unit):
+    with pytest.raises(ValueError, match="value_unit"):
+        _sorted_heatmap(value_unit=unit)
 
 
 def _laminar_call(name, depths, **kwargs):
@@ -530,6 +581,7 @@ def test_hierarchy_regression_primitive():
         r_squared=0.82,
         p_perm=0.012,
         null_line=5.0,
+        y_label="Prevalence (%)",
     )
 
     traces = canvas.fig.data
@@ -537,6 +589,30 @@ def test_hierarchy_regression_primitive():
     data_traces = [t for t in traces if hasattr(t, "error_y") and t.error_y.visible]
     assert len(data_traces) == 1
     assert data_traces[0].error_y.visible is True
+
+
+def _hierarchy_y_title(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    v = np.array([80.0, 95.0, 110.0])
+    plot_hierarchy_regression(canvas, 0, 0, hierarchy_ranks=np.arange(3), values=v,
+                              ci_low=v - 5, ci_high=v + 5, area_labels=["a", "b", "c"], **kwargs)
+    return canvas.fig.layout.yaxis.title.text
+
+
+def test_hierarchy_axis_label_is_the_callers():
+    """The axis read "Prevalence (%)" by default although values may be onset latency."""
+    assert _hierarchy_y_title(y_label="Onset latency (ms)") == "Onset latency (ms)"
+
+
+def test_hierarchy_axis_label_is_required():
+    with pytest.raises(TypeError, match="y_label"):
+        _hierarchy_y_title()
+
+
+@pytest.mark.parametrize("label", ["", "  "])
+def test_hierarchy_axis_label_must_be_non_empty(label):
+    with pytest.raises(ValueError, match="y_label"):
+        _hierarchy_y_title(y_label=label)
 
 
 def test_spectral_modulation_matrix_primitive():

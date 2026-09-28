@@ -30,7 +30,7 @@ Panels occupy disjoint paper-domain rectangles. The canvas methods `add_panel_ta
 ## 3. Invariants & Safeguards
 - **Confidence intervals**: every summary curve carries a confidence envelope (e.g. 95% bootstrap CI, SEM), drawn with `fill='tonexty'` and a translucent `rgba(...)` fill.
 - **Error bars**: categorical points and prevalences use `error_y` with exact Clopper-Pearson binomial intervals.
-- **Units**: every axis declares its unit (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`). The laminar panels take a required `depth_unit` (`'mm'`, `'um'` or `'relative'`) and label the depth axis from it; the unit is never read off the data range.
+- **Units**: every axis declares its unit (`Time (ms)`, `Depth (μm)`, `Frequency (Hz)`, `Firing Rate (spikes/s)`, `Power Modulation (ΔdB)`). The laminar panels take a required `depth_unit` (`'mm'`, `'um'` or `'relative'`) and label the depth axis from it; the unit is never read off the data range. `plot_csd` and `plot_sorted_heatmap` take a required `value_unit` (for example `"A/m³"`, `"V/m²"`, `"spikes/s"`) that labels the colorbar, and `plot_hierarchy_regression` a required `y_label`. `plot_spectrolaminar_map` draws fractions in [0, 1] and raises on any other value; `jnwb.relative_power` returns a ratio to baseline, which is not that input.
 - **Anatomical markers**: a crossover depth computed from the recording (for example with `jnwb.vflip`) is drawn as a dashed horizontal reference line with annotation. No depth is drawn unless the caller passes one; it is a property of each recording, not a constant.
 - **Baseline references**: dotted zero references ($y = 0$) for $\Delta\text{dB}$ and $\Delta z$. Draw a decoder's chance line at the measured baseline the `jnwb-population` skill names (`majority_baseline`, or the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns), not at $1/K$; pass it as `chance_level` instead of relying on the two-class $1/K$ line.
 - **Significance**: Benjamini-Hochberg FDR indicators ($q_{\text{BH}} \le 0.05$) and cluster-based permutation test bars.
@@ -55,7 +55,7 @@ canvas = jviz.PlotlyPublicationCanvas(
 jviz.laminar.plot_spectrolaminar_map(
     canvas=canvas,
     row=0, col=0,
-    rel_power=rel_power_matrix,      # [150 freqs x 32 channels]
+    rel_power=rel_power_matrix,      # [150 freqs x 32 channels], fractions in [0, 1]
     freqs=np.arange(1, 151),
     depths=channel_depths_mm,
     crossover_depth=crossover_depth,  # computed from this recording, in mm

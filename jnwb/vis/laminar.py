@@ -15,7 +15,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text, unit_label
 
 _DEPTH_AXIS_TITLES = {
     "mm": "Cortical Depth (mm)",
@@ -53,7 +53,11 @@ def plot_spectrolaminar_map(
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs].
+        rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs], holding
+            fractions in [0, 1], for example power normalised across contacts per frequency.
+            The colour scale is fixed to [0, 1]. ``jnwb.relative_power`` returns a ratio to
+            baseline, which is unbounded, and is not this input. Non-finite values are drawn
+            as gaps.
         freqs: 1D array of frequencies (Hz).
         depths: 1D array of cortical depths, in ``depth_unit``.
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
@@ -70,7 +74,9 @@ def plot_spectrolaminar_map(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` does not
+            match ``freqs`` and ``depths``, or a finite value of ``rel_power`` lies outside
+            [0, 1].
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -87,6 +93,14 @@ def plot_spectrolaminar_map(
     else:
         raise ValueError(
             f"rel_power shape {rel_power.shape} does not match freqs ({len(freqs)}) and depths ({len(depths)})."
+        )
+    finite = z_data[np.isfinite(z_data)]
+    if finite.size and (finite.min() < 0.0 or finite.max() > 1.0):
+        raise ValueError(
+            "plot_spectrolaminar_map expects rel_power as fractions in [0, 1] (the colour scale "
+            f"is fixed to that range); got values in [{finite.min():.3g}, {finite.max():.3g}]. "
+            "jnwb.relative_power returns an unbounded ratio to baseline, or dB for "
+            "model='log_ratio'; normalise across contacts per frequency before plotting."
         )
 
     # Heatmap trace
@@ -395,9 +409,7 @@ def plot_csd(
         ValueError: ``value_unit`` is not a non-empty string, or ``depth_unit`` is not one
             of the three units.
     """
-    if not isinstance(value_unit, str) or not value_unit.strip():
-        raise ValueError(f"value_unit must be a non-empty string; got {value_unit!r}")
-    colorbar_label = f"{colorbar_title} ({value_unit})" if colorbar_title else value_unit
+    colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 

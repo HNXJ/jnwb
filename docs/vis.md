@@ -31,7 +31,8 @@ order = np.argsort(np.argmax(rates[:, time_ms >= 0], axis=1))
 
 canvas = vis.PlotlyPublicationCanvas(layout="1col", height_mm=70.0, rows=1, cols=1, tags=[["A"]])
 vis.plot_sorted_heatmap(canvas, 0, 0, rates, time_ms, sort_idx=order,
-                        title="Synthetic units sorted by peak time", colorbar_title="Rate (z)")
+                        title="Synthetic units sorted by peak time", colorbar_title="Rate",
+                        value_unit="z")
 
 argument = vis.EpistemicArgumentObject(
     QUESTION="Does the heatmap render units sorted by peak time?",
@@ -58,14 +59,14 @@ Each function draws into one `(row, col)` of a canvas.
 
 | Function | Draws |
 |---|---|
-| `plot_sorted_heatmap` | units x time rates, in a supplied order |
+| `plot_sorted_heatmap` | units x time rates, in a supplied order; `value_unit=` labels the colorbar |
 | `plot_multi_condition_raster_psth` | rasters and PSTHs per condition from spike and onset times; computes the PSTH and a mean ± 1.96 SEM ribbon across trials, not a bootstrap interval |
-| `plot_spectrolaminar_map` | relative power over depth and frequency |
+| `plot_spectrolaminar_map` | relative power over depth and frequency, as fractions in [0, 1] |
 | `plot_opposing_gradients` | gamma against alpha/beta power over depth, with supplied CIs |
 | `plot_csd` | current source density or voltage curvature over depth and time, with layer boundaries; `value_unit=` labels the colorbar |
 | `plot_spectral_modulation_matrix` | area x band modulation, with FDR-corrected markers |
 | `plot_granger_spectra` | directed Granger spectra, with a shuffle-null ribbon |
-| `plot_hierarchy_regression` | values over hierarchy rank with supplied error bars and null; computes a least-squares line |
+| `plot_hierarchy_regression` | values over hierarchy rank with supplied error bars and null; computes a least-squares line; `y_label=` names the quantity |
 | `plot_decoding_timecourse` | cross-validated decoding over time, with a CI ribbon |
 | `plot_rsm_heatmap` | a representational similarity or dissimilarity matrix |
 

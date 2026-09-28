@@ -212,6 +212,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unit raises `ValueError`. `title` now defaults to None (no panel title) instead of "Current
   Source Density (CSD)", which was wrong for a curvature input. Callers add `value_unit=`, for
   example `"A/m³"` or `"V/m²"`, and pass `title=` to keep a panel title.
+- **`jnwb.vis.plot_sorted_heatmap` requires `value_unit=` (breaking).** The colorbar read
+  "Rate (Δz)" by default whatever `rate_matrix` held. `value_unit` is keyword-only with no
+  default and follows `plot_csd`: the colorbar reads `value_unit`, or
+  `"<colorbar_title> (<value_unit>)"`; the hover text carries the unit; an empty or blank unit
+  raises `ValueError`. `colorbar_title` now defaults to None and names only the quantity.
+  Callers add `value_unit=` (for example `"spikes/s"` or `"z"`) and replace a full label such
+  as `colorbar_title="Rate (z)"` with `colorbar_title="Rate", value_unit="z"`.
+- **`jnwb.vis.plot_hierarchy_regression` requires `y_label=` (breaking).** The y axis read
+  "Prevalence (%)" by default, and the hover appended "%" to every value, although `values`
+  may be onset latency. `y_label` is now keyword-only with no default, an empty or blank label
+  raises `ValueError`, and the hover shows the value without a unit. `y_label` moved behind
+  `title`, `marker_color` and `fit_line_color`: a call that passed it positionally, as the
+  thirteenth argument, passes it by keyword instead. Callers add `y_label=`, for example
+  `"Prevalence (%)"` or `"Onset latency (ms)"`.
+- **`jnwb.vis.plot_spectrolaminar_map` refuses values outside [0, 1] (breaking).** The colour
+  scale is fixed to [0, 1], so a larger or negative value was clipped to the end of the scale
+  without a word; `jnwb.relative_power` returns an unbounded ratio to baseline, or dB. A finite
+  value of `rel_power` below 0 or above 1 now raises `ValueError`; non-finite values are still
+  drawn as gaps. Callers pass fractions in [0, 1], for example power normalised across
+  contacts per frequency.
 - **`compress_fp32` and `jnwb.compression.convert` require `select=` (breaking).** `select=` is
   keyword-only with no default in both; a call that omits it, or passes `select=None`, raises
   `TypeError` before anything is written. The anchored LFP/MUAE preset and its `FutureWarning`
