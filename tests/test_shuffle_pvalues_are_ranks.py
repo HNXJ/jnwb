@@ -348,6 +348,19 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         res = xflip(corr, n_surrogates=N_SHUFFLES, rng=0, is_corr_matrix=True)
         assert res.p_values["omnibus"] == pytest.approx(exact, abs=0.015), (
             res.p_values["omnibus"], exact)
+        # The boundary p compares the contrast of the two blocks beside the cut.
+        from jnwb.laminar import _compute_contrast
+
+        (b,) = res.boundaries
+        lbl = (np.arange(6) >= b).astype(int)
+        local = np.array([
+            _compute_contrast(corr[np.ix_(p, p)], lbl)
+            for p in map(list, itertools.permutations(range(6)))
+        ])
+        local_obs = _compute_contrast(corr, lbl)
+        exact_b = float(np.mean(local >= local_obs - 1e-9 * abs(local_obs)))
+        assert res.p_values[f"boundary_{b}"] == pytest.approx(exact_b, abs=0.015), (
+            res.p_values[f"boundary_{b}"], exact_b)
 
 
 class TestTheIncidentalGuardIsStillThere:

@@ -1,11 +1,12 @@
 {
-  "estimator_sha256": "d347860c5b0ddada4c2f9daacfa2058a025dc81e5cd282d638c5258cdc32c933",
+  "estimator_sha256": "bc19ff86f3e7f7048fa4c0dbbcd930ecb7f63d9aa09f631767bd52649c986ff7",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
     "_label_change_boundaries",
     "_optimal_contiguous_partition",
     "_partition_is_contiguous",
+    "_select_count_by_min_p",
     "_surrogate_phase_randomize",
     "_unrestricted_partition",
     "xflip"
@@ -19,6 +20,8 @@
     "white_noise": {
       "n_seeds": 30,
       "false_positive_rate": 0.0,
+      "n_rejected_by_surrogates": 27,
+      "n_rejected_by_boundary_drop": 21,
       "median_p": 0.5970149253731343,
       "min_p": 0.014925373134328358,
       "max_p": 0.9950248756218906,
@@ -27,6 +30,8 @@
     "ar_noise": {
       "n_seeds": 30,
       "false_positive_rate": 0.06666666666666667,
+      "n_rejected_by_surrogates": 28,
+      "n_rejected_by_boundary_drop": 15,
       "median_p": 0.44527363184079605,
       "min_p": 0.004975124378109453,
       "max_p": 0.9751243781094527,
@@ -35,6 +40,8 @@
     "periodic_common_response": {
       "n_seeds": 30,
       "false_positive_rate": 0.0,
+      "n_rejected_by_surrogates": 30,
+      "n_rejected_by_boundary_drop": 30,
       "median_p": 0.5472636815920398,
       "min_p": 0.48258706467661694,
       "max_p": 0.6417910447761194,
@@ -43,6 +50,8 @@
     "smooth_spatial_gradient": {
       "n_seeds": 30,
       "false_positive_rate": 0.03333333333333333,
+      "n_rejected_by_surrogates": 0,
+      "n_rejected_by_boundary_drop": 29,
       "median_p": 0.004975124378109453,
       "min_p": 0.004975124378109453,
       "max_p": 0.004975124378109453,
@@ -340,6 +349,40 @@
       }
     ]
   },
+  "auto_count": {
+    "n_seeds": 1000,
+    "n_surrogates": 200,
+    "rows": [
+      {
+        "null": "white_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.04,
+        "rate_n_blocks_None": 0.03
+      },
+      {
+        "null": "white_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.048,
+        "rate_n_blocks_None": 0.046
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.054,
+        "rate_n_blocks_None": 0.06
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.061,
+        "rate_n_blocks_None": 0.054
+      }
+    ]
+  },
   "environment": {
     "jnwb": "0.2.6.1",
     "python": "3.14.3",
@@ -347,5 +390,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 112.9
+  "elapsed_s": 459.6
 }
