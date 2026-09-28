@@ -392,11 +392,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `shuffle_pvalue_unpaired`, `exact_sign_flip` and `StatisticalAnalysis.permutation_test` use
   the same rule; the mean-difference tests keep their existing width, which is wider. A
   statistic that cancels takes an absolute floor on the width: 100 eps for the `xflip`
-  contrast, 100 eps times both directions' sum for the `granger` and `transfer_entropy` net
-  p, and 100 eps times the bin-pair count for `phase_slope_index`. One repeated X trial
-  against Y trials that pair x + h with x - h makes every PSI zero in exact arithmetic;
-  its p rose from 0.085 to 1.0, the exact p. Untied continuous input counts the same draws
-  as before.
+  contrast; 100 eps for each `granger` and `granger_spectral` direction and band, whose value
+  `log(var_r / var_f)` rounds at the scale of the variance ratio rather than its own, and
+  100 eps times `max(1, |x_to_y|) + max(1, |y_to_x|)` for the `granger` net p; 100 eps times
+  both directions' sum for the `transfer_entropy` net p; and 100 eps times the bin-pair count
+  for `phase_slope_index`. With identical target trials and no coupling, `granger` gave
+  p_x_to_y 0.0198 where the exact p is 1.0. One repeated X trial against Y trials that pair
+  x + h with x - h makes every PSI zero in exact arithmetic; its p rose from 0.085 to 1.0,
+  the exact p. Untied continuous input counts the same draws as before.
 - `phase_slope_index` reports `z` and `sd` as NaN, the jackknife p as None and
   `ok_for_interpretation=False`, with a `RuntimeWarning`, when the leave-one-segment-out
   replicates agree to rounding. Identical segments (a periodic signal) with Y equal to X gave

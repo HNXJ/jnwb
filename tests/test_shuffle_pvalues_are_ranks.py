@@ -327,6 +327,37 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         assert res.p_x_to_y == 1.0
         assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
 
+    @staticmethod
+    def _uncoupled_identical_target(n_trials=40, coupling=0.0, n_times=2000):
+        # Weak coupling, so GC sits near zero while its logs stay of order one: a draw that
+        # reproduces it rounds at the scale of the log ratio, far beyond 100 eps of GC.
+        rng = np.random.default_rng(n_trials + n_times)
+        common = rng.normal(size=n_times)
+        x = rng.normal(size=(n_trials, n_times)) + coupling * np.roll(common, -1)[None, :]
+        return x, np.tile(common, (n_trials, 1))
+
+    def test_granger_when_the_coupling_is_zero(self):
+        # A width relative to GC alone gave p_x_to_y 0.0198 here, where the exact p is 1;
+        # at coupling 0.01 and 200 samples, 100 eps of |x_to_y| + |y_to_x| gave p_net 0.733.
+        from jnwb.connectivity import granger
+
+        x, y = self._uncoupled_identical_target()
+        assert granger(x, y, order=2, n_surrogates=100, rng=0).p_x_to_y == 1.0
+        assert granger(y, x, order=2, n_surrogates=100, rng=0).p_y_to_x == 1.0
+        x, y = self._uncoupled_identical_target(coupling=0.01, n_times=200)
+        assert granger(x, y, order=2, n_surrogates=100, rng=0).p_net == 1.0
+
+    def test_granger_spectral_when_the_coupling_is_zero(self):
+        from jnwb.connectivity import granger_spectral
+
+        x, y = self._uncoupled_identical_target()
+        res = granger_spectral(x, y, fs=100.0, order=2, n_surrogates=100, rng=0,
+                               bands={"lo": (2.0, 20.0), "hi": (20.0, 45.0)})
+        assert res.p_x_to_y == 1.0
+        assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
+        swapped = granger_spectral(y, x, fs=100.0, order=2, n_surrogates=100, rng=0)
+        assert swapped.p_y_to_x == 1.0
+
     def test_phase_slope_index_when_the_source_trials_are_identical(self):
         # The surrogate permutes the trials of Y against one repeated X trial.
         from jnwb.connectivity import phase_slope_index
@@ -356,6 +387,34 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
                                 bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
         assert res.p_net == 1.0
         assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
+
+    def test_phase_slope_index_widths_scale_with_the_bin_pair_count(self, monkeypatch):
+        # Measured round-off sits near 1e-16, below 100 eps whatever the scale, so the
+        # scale is pinned on a statistic whose draws fall short by a set amount: 5 * 100 eps
+        # in band a and 10 * 100 eps in the total, both inside 100 eps per bin pair and
+        # outside 100 eps.
+        from jnwb import connectivity
+        from jnwb.permutation import _TIE_RTOL
+
+        rng = np.random.default_rng(0)
+        x, y = rng.normal(size=(8, 512)), rng.normal(size=(8, 512))
+        bands = {"a": (5.0, 20.0), "b": (20.0, 45.0)}
+        shortfall = 5 * _TIE_RTOL
+        observed = {}
+
+        def statistic(fx, fy, idx, weights=None):
+            first = int(idx[0])
+            if first not in observed:
+                observed[first] = 0.3 if not observed else -0.2
+                return observed[first]
+            return observed[first] - shortfall
+
+        monkeypatch.setattr(connectivity, "_psi_from_spectra", statistic)
+        res = connectivity.phase_slope_index(x, y, fs=100.0, n_surrogates=50, rng=0,
+                                             bands=bands, jackknife=False)
+        assert min(band["n_freq_bins"] for band in res.per_band.values()) > 11
+        assert res.per_band["a"]["p_surrogate"] == 1.0
+        assert res.p_net == 1.0
 
     def test_xflip_channel_permutation_at_six_channels(self):
         # Exact p over all 720 channel orders, a draw tying the observed contrast when it

@@ -89,7 +89,7 @@ def _module_table(modname: str):
     tree = ast.parse(source)
     nodes, imported = {}, {}
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             nodes[node.name] = node
         elif isinstance(node, ast.Assign):
             for target in node.targets:
@@ -108,7 +108,7 @@ def _module_table(modname: str):
 
 
 def estimator_sources() -> list[tuple[str, str]]:
-    """`xflip` and every top-level function and constant it can reach, in any jnwb module.
+    """`xflip` and every top-level function, class and constant it can reach, in any jnwb module.
 
     Resolved from the call graph rather than listed, so a helper introduced later is
     covered without anyone remembering to add it, and sorted, so the digest does not

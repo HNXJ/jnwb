@@ -8,7 +8,7 @@ conditional on a setting it did not name. It is replaced by `xflip_calibration_0
 and a generator, and the receipt records a hash of the estimator; changing the estimator
 without rerunning `scripts/calibrate_xflip.py` fails here.
 
-The hash covers every top-level function and constant that `xflip` can reach, in any jnwb
+The hash covers every top-level function, class and constant that `xflip` can reach, in any jnwb
 module, not `xflip` alone. Hashing one function of an estimator is not a narrower receipt, it is one
 that can be read as current while the estimator has changed -- `tests/test_vflip_calibration_receipt.py`
 records where that happened.
@@ -42,13 +42,13 @@ def _generator():
 
 
 def _top_level(module_name):
-    """Top-level functions and assigned names of a jnwb module, and the names it imports
+    """Top-level functions, classes and assigned names of a jnwb module, and the names it imports
     from other jnwb modules, read from the file itself rather than through the importer."""
     path = ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
     tree = ast.parse(path.read_text(encoding="utf-8"))
     defined, imports = {}, {}
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             defined[node.name] = node
         elif isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]

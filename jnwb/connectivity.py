@@ -1035,7 +1035,9 @@ def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
 
     ``scale`` is the magnitude of the terms ``observed`` was formed from, for a statistic
     that cancels: a net value ``a - b`` carries the round-off of ``a`` and ``b``, not of
-    its own size, so its tie width is ``_TIE_RTOL * (|a| + |b|)``. A PSI sums one term
+    its own size, so its tie width is ``_TIE_RTOL * (|a| + |b|)``. A Granger value
+    ``log(var_r / var_f)`` cancels inside the log, so its scale is 1 (``max(1, |a|) +
+    max(1, |b|)`` for the net). A PSI sums one term
     ``Im(conj(C_f) C_{f+1})`` of size at most 1 per bin pair, so its scale is the pair count.
     """
     k = _count_at_least_as_extreme(null, observed, alternative, atol=_TIE_RTOL * scale)
@@ -1302,11 +1304,12 @@ def granger(
             null_xy[i] = _one_direction(x_s, y, order_xy)["gc"]
             y_s = _surrogate_source(y, surrogate_rng)
             null_yx[i] = _one_direction(y_s, x, order_yx)["gc"]
-        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater")
-        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater")
+        # GC is log(var_r / var_f): its rounding is that of the ratio, not of GC's own size.
+        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)
+        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)
         null_net = null_xy - null_yx
         p_net = _surrogate_p(null_net, obs_net, "two-sided",
-                             scale=abs(fit_xy["gc"]) + abs(fit_yx["gc"]))
+                             scale=max(1.0, abs(fit_xy["gc"])) + max(1.0, abs(fit_yx["gc"])))
         surrogate_info.update(
             {
                 "null_mean_x_to_y": float(null_xy.mean()),
@@ -1621,15 +1624,16 @@ def granger_spectral(
                 if mask.sum() >= 2:
                     null_xy_by_band[name].append(_mean_over(tmp[1], mask))
                     null_yx_by_band[name].append(_mean_over(tmp2[0], mask))
-        p_xy = _surrogate_p(null_xy, total_xy, "greater")
-        p_yx = _surrogate_p(null_yx, total_yx, "greater")
+        # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
+        p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
+        p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)
         for name, vals in per_band.items():
             f_lo, f_hi = vals["band_hz"]
             mask = (freqs >= f_lo) & (freqs <= f_hi)
             if mask.sum() >= 2:
                 obs_xy = vals["value"]
                 nb_xy = np.asarray(null_xy_by_band[name], dtype=float)
-                vals["p_surrogate"] = _surrogate_p(nb_xy, obs_xy, "greater")
+                vals["p_surrogate"] = _surrogate_p(nb_xy, obs_xy, "greater", scale=1.0)
 
     return DirectedResult(
         method="granger_spectral",
