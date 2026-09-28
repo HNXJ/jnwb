@@ -238,6 +238,37 @@ class TestAnAdimTheResamplingIgnoresIsRefused:
         np.testing.assert_allclose(float(row.value), float(row_default.value), rtol=1e-12)
 
 
+class TestANumpyIntegerAdimIsTheSameAxis:
+    """`isinstance(adim, int)` missed np.int64(0), which fell through to adim=-1: with a
+    window of (0, 5) pearson gave the value of the last axis, not of axis 0."""
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(20, 30))
+        return x1, x1 + rng.normal(size=x1.shape)
+
+    @pytest.mark.parametrize("adim", [0, (0,)])
+    def test_np_int64_gives_the_int_result_and_refusal(self, adim):
+        x1, x2 = self._pair()
+        as_np = tuple(np.int64(a) for a in adim) if isinstance(adim, tuple) else np.int64(adim)
+        got = oa.jrsa(x1, x2, metric="pearson", adim=as_np, window=(0, 5), stats=False)
+        ref = oa.jrsa(x1, x2, metric="pearson", adim=adim, window=(0, 5), stats=False)
+        last = oa.jrsa(x1, x2, metric="pearson", window=(0, 5), stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+        assert float(got.value) != float(last.value)
+        for a in (adim, as_np):
+            with pytest.raises(ValueError, match="does not name it"):
+                oa.jrsa(x1, x2, metric="pearson", adim=a, window=(0, 5), permutations=20,
+                        rng=0)
+
+    @pytest.mark.parametrize("adim", [0.0, (0.5,), None, True])
+    def test_an_unsupported_adim_raises_type_error(self, adim):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="adim must be|each entry of adim"):
+            oa.jrsa(x1, x2, metric="pearson", adim=adim, stats=False)
+
+
 class TestARowMetricWindowsTheFeaturesAtTheDefaultAdim:
     """At adim=-1 the six axis-0 metrics window the last axis, the features, while `lag` and
     the null act on the observations; `adim=0` windows the observations."""

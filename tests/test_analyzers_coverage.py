@@ -494,6 +494,17 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         shuffled = UnitAnalyzer.quality_metrics(rng.permutation(st), 300.0, 5.0)
         self.assertEqual(shuffled, ref)
 
+    def test_a_non_finite_or_multi_dimensional_train_raises(self):
+        """A NaN read as a good single unit, an infinity raised OverflowError and a 2-D
+        array was pooled into one train."""
+        st = np.sort(np.random.default_rng(0).uniform(0.0, 100.0, 500))
+        for bad in (np.nan, np.inf):
+            with self.subTest(value=bad):
+                with self.assertRaisesRegex(ValueError, "1 NaN or infinite value"):
+                    UnitAnalyzer.quality_metrics(np.append(st, bad), 300.0, 5.0)
+        with self.assertRaisesRegex(ValueError, r"must be one 1-D train; got shape \(2, 250\)"):
+            UnitAnalyzer.quality_metrics(st.reshape(2, 250), 300.0, 5.0)
+
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
 

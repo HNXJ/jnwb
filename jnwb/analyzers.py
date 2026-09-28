@@ -367,7 +367,9 @@ class UnitAnalyzer:
                 of ``bin_size_ms`` bins.
 
         Returns:
-            Dict with PSTH, CI, and statistics
+            Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
+            ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is 0, and
+            NumPy and SciPy warn about the empty mean.
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
@@ -565,8 +567,25 @@ class UnitAnalyzer:
 
         Returns:
             Dict with quality scores
+
+        Raises:
+            ValueError: If ``spike_times`` is not 1-D or holds a NaN or an infinity. A NaN
+                sorted last, made the mean interval NaN and still read as a good single
+                unit; a 2-D array was pooled into one train.
         """
-        spike_times = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+        spike_times = np.asarray(spike_times, dtype=float)
+        if spike_times.ndim != 1:
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times must be one 1-D train; got shape "
+                f"{spike_times.shape}. Call it once per unit."
+            )
+        if not np.all(np.isfinite(spike_times)):
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times holds "
+                f"{int(np.sum(~np.isfinite(spike_times)))} NaN or infinite value(s); drop "
+                "them first."
+            )
+        spike_times = np.sort(spike_times)
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 

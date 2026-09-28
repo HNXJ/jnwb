@@ -12,6 +12,7 @@ Public API: exactly one function.
 
 from __future__ import annotations
 
+import numbers
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -791,26 +792,41 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
     return x1, x2
 
 
+def _is_axis_index(value) -> bool:
+    """An integer axis: a Python or NumPy integer, not a bool."""
+    return isinstance(value, numbers.Integral) and not isinstance(value, (bool, np.bool_))
+
+
 def _standardize_dimensions(x1, x2, adim, labels):
     """Normalise adim to a dict {name: axis_index}."""
     axis_map = {}
-    if isinstance(adim, int):
-        axis_map["aligned"] = adim % x1.ndim
+    # numbers.Integral, not int: np.int64(0) failed isinstance(int) and fell through to -1.
+    if _is_axis_index(adim):
+        axis_map["aligned"] = int(adim) % x1.ndim
     elif isinstance(adim, (tuple, list)):
         for i, d in enumerate(adim):
             if isinstance(d, str):
                 if labels is None:
                     raise ValueError("labels required when adim contains strings.")
                 axis_map[d] = labels.index(d)
-            else:
+            elif _is_axis_index(d):
+                d = int(d)
                 key = labels[d] if labels and d < len(labels) else f"axis_{d}"
                 axis_map[key] = d % x1.ndim
+            else:
+                raise TypeError(
+                    f"jrsa: each entry of adim must be an int or a str; got "
+                    f"{type(d).__name__} at position {i}."
+                )
     elif isinstance(adim, str):
         if labels is None:
             raise ValueError("labels required when adim is a string.")
         axis_map[adim] = labels.index(adim)
     else:
-        axis_map["aligned"] = -1 % x1.ndim
+        raise TypeError(
+            f"jrsa: adim must be an int, a str, or a tuple or list of them; got "
+            f"{type(adim).__name__}. Another type used to be read as adim=-1."
+        )
     return x1, x2, axis_map
 
 

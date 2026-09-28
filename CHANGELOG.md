@@ -393,6 +393,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes). Those act on that axis
   whatever `adim` names, so `adim=0` with pearson returned the value and p of `adim=-1`. Without
   any of the three, every `adim` runs as before.
+- `jrsa` reads a NumPy integer `adim`, alone or in a tuple, as that axis. `np.int64(0)` failed an
+  `int` check and ran as `adim=-1`, so `window=(0, 5)` windowed the last axis instead of axis 0.
+  An `adim` that is not an integer, a string, or a tuple or list of them, including
+  `None`, a float and a bool, raises `TypeError`; it was read as `adim=-1`.
 - `jrsa`'s docstring and the jrsa page state that at the default `adim=-1` the six axis-0
   metrics window the features while `lag` and the null act on the observations, and that
   `adim=0` windows the observations.
@@ -403,7 +407,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `UnitAnalyzer.quality_metrics` sorts the spike times first. Unsorted, a backward step was a
   negative interval counted as a refractory violation, and the first and last entries were read
   as the recording's span: a shuffled 500-spike train read 51% violations where the sorted one
-  read 1%.
+  read 1%. A train that is not 1-D or holds a NaN or an infinity raises `ValueError`: a NaN read
+  as a good single unit, an infinity raised `OverflowError` and a 2-D array was pooled into one
+  train.
 - `UnitAnalyzer.psth` counts a spike on either edge of `[pre, post]`. Subtracting the onset
   rounded it just outside the outer bin edges and the histogram dropped it: with a spike on each
   edge of 405 trials 0.7 s apart, 114 were lost at the left edge and 147 at the right. It now bins as
