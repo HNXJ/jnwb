@@ -94,7 +94,6 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 
 - IB-37: P-63's count is stale: 26 of 162 exports are referenced by no skill as a symbol (a word scan says 24, because it also matches the English words Dataset and Figure). Check: P-63's figure corrected where it is quoted, with the method named.
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
-- IB-91: the substitution sweep keys a handler by module, exception, shared names and return, with no site, so a new handler that substitutes a value passes under a row reviewed for another handler of the same key (9 keys cover 20 sites; a `return 1.0` added to an MCP attribute reader passed). Required for 0.2.7 (R4, classified 2026-09-28): the sweep is release evidence and can pass a substitution. Check: the key carries the enclosing function, the baseline is re-reviewed per site, and the `return 1.0` mutant is killed.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
@@ -245,8 +244,6 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: message quality; third clause duplicates P-190.
 - P-257: `ComplexTFR(device=...)` accepts any string as its device record. Deferred: only a hand-built `ComplexTFR` can carry a false record; `complex_tfr` sets it from the resolver.
   deferred-0.2.8: only hand-built ComplexTFR.
-- P-258: The `_backend.py` row of `tests/test_substitution_class_sweep.py` gives `gpu_available` as its reason but now also covers `jax_metal_available`. Deferred: a reason string; the sweep's check is unchanged.
-  deferred-0.2.8: reason string only.
 - P-259: Rule F7 of the documentation contract (no fact that no gate or test enforces) conflicts with 06-51's "no fact present before is absent after"; the import timings in `docs/install.md` are the example, kept. Deferred: which rule wins is Hamm's to rule, and keeping the facts cannot mislead.
   deferred-0.2.8: needs a rule-precedence ruling.
 - P-264: `phase_slope_index` with some bands undefined sums `net` over the defined bands while its docstring says "the whole requested range". Deferred: flagged by `ok_for_interpretation` and stated in the skill row.
@@ -442,6 +439,8 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: each fails loudly in CI or needs a yank the release step itself would make; the files PyPI receives are hash-checked against the verified upload.
 - Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under a loaded full run and passed alone. Check: a timeout scaled to the machine, or the subprocess made cheaper.
   deferred-0.2.8: a timeout fails loudly and hides no wrong result.
+- Load-sensitive state generation: `test_generation_is_deterministic_apart_from_its_timestamp` failed once in a loaded full run, because one of its two generations recorded the harness gate as FAILED with 0 PASS lines; it passed alone. Check: the cause named (a gate reading a file another test rewrites, or a timeout), and removed.
+  deferred-0.2.8: it fails loudly, and a state file written in a clean run records the gates truly.
 - xflip calibration wall time: 297.3 s, then 459.6 s and 502.6 s across lane runs with identical rates. Check: dev and head run back to back on one machine.
   deferred-0.2.8: the rates, not the time, carry the receipt.
 - Figure checks: the legend test compares an axes' texts only with that axes' legend, tests scatter markers by centre, skips images, and does not reach the quickstart figures in `docs/assets/jnwb_quickstart*.png`.

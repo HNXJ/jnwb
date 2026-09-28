@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 from collections import namedtuple
 from typing import Dict, FrozenSet, List, Set, Tuple
 
@@ -67,7 +68,42 @@ def test_the_sweep_reads_the_working_tree_and_not_an_installed_copy():
 # ===========================================================================
 
 Finding = namedtuple("Finding", "kind module key detail lineno")
-"""A hit. ``key`` is line-number-free so a baseline survives edits elsewhere in the file."""
+"""A hit. ``key`` is line-number-free so a baseline survives edits elsewhere in the file.
+
+Every static key names its site: the module, the qualified name of the enclosing function
+(``Class.method``, ``outer.inner``, or ``<module>``), the shape the scanner matched (for a chain,
+including whether it has an ``else``), and last the site's ordinal among same-shaped sites in that
+function, counted in source order. Without the function, a new site anywhere in a module passed
+under a row reviewed for another site of the same shape; without the ordinal, a second such site
+inside one function did. The ordinal is positional, so :func:`_unexplained_report` names every site
+of a group whose count changed.
+"""
+
+
+def _enclosing_functions(tree: ast.Module) -> Dict[int, str]:
+    """``id(node) -> qualified name of the function or class body the node sits in``."""
+    out: Dict[int, str] = {}
+
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            out[id(child)] = prefix or "<module>"
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                visit(child, f"{prefix}.{child.name}" if prefix else child.name)
+            else:
+                visit(child, prefix)
+
+    visit(tree, "")
+    return out
+
+
+def _number_sites(found: List[Finding]) -> List[Finding]:
+    """Append each site's ordinal among findings sharing its key, in source order."""
+    seen: Dict[tuple, int] = {}
+    out: List[Finding] = []
+    for f in sorted(found, key=lambda f: f.lineno):
+        seen[f.key] = seen.get(f.key, 0) + 1
+        out.append(f._replace(key=f.key + (seen[f.key],)))
+    return out
 
 
 def _module_option_sets(tree: ast.Module) -> Dict[str, Tuple[List[str], List[object]]]:
@@ -105,6 +141,7 @@ def scan_option_set_fallbacks(source: str, module: str) -> List[Finding]:
     """
     tree = ast.parse(source)
     option_sets = _module_option_sets(tree)
+    where = _enclosing_functions(tree)
     found: List[Finding] = []
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Call) and len(node.args) == 2):
@@ -127,12 +164,12 @@ def scan_option_set_fallbacks(source: str, module: str) -> List[Finding]:
             Finding(
                 kind="OPTION_SET_GET",
                 module=module,
-                key=(module, base_name, selector, default.value),
+                key=(module, where[id(node)], base_name, selector, default.value),
                 detail=f"{base_name}.get({selector}, {default.value!r})",
                 lineno=node.lineno,
             )
         )
-    return found
+    return _number_sites(found)
 
 
 def _chain_tests(node: ast.If) -> List[Tuple[str, List[str]]]:
@@ -179,6 +216,7 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
     be a bare ``pass``/``...``.
     """
     tree = ast.parse(source)
+    where = _enclosing_functions(tree)
     found: List[Finding] = []
     seen: Set[int] = set()
     # The statement after each `if`, so a chain with no `else` can be read against what runs
@@ -222,7 +260,7 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
                 Finding(
                     kind="CHAIN_NO_ELSE",
                     module=module,
-                    key=(module, subject, tuple(literals)),
+                    key=(module, where[id(node)], "CHAIN_NO_ELSE", subject, tuple(literals)),
                     detail=f"if/elif on {subject} over {literals}; no else, falls through",
                     lineno=node.lineno,
                 )
@@ -239,12 +277,12 @@ def scan_selector_chain_fallthrough(source: str, module: str) -> List[Finding]:
             Finding(
                 kind="CHAIN_ELSE",
                 module=module,
-                key=(module, subject, tuple(literals)),
+                key=(module, where[id(node)], "CHAIN_ELSE", subject, tuple(literals)),
                 detail=f"if/elif on {subject} over {literals}; trailing else computes",
                 lineno=else_body[0].lineno,
             )
         )
-    return found
+    return _number_sites(found)
 
 
 def _assigned_names(body) -> Set[str]:
@@ -274,6 +312,7 @@ def scan_recovering_handlers(source: str, module: str) -> List[Finding]:
     that belongs in a baseline row, where a reader can check it.
     """
     tree = ast.parse(source)
+    where = _enclosing_functions(tree)
     found: List[Finding] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Try):
@@ -292,12 +331,12 @@ def scan_recovering_handlers(source: str, module: str) -> List[Finding]:
                 Finding(
                     kind="HANDLER_RECOVERY",
                     module=module,
-                    key=(module, exc, tuple(shared), returns),
+                    key=(module, where[id(node)], exc, tuple(shared), returns),
                     detail=f"except {exc} rebinds {shared or '-'} returns_value={returns}",
                     lineno=handler.lineno,
                 )
             )
-    return found
+    return _number_sites(found)
 
 
 def scan_vocabulary_collisions(
@@ -360,6 +399,16 @@ What this instrument cannot see, stated rather than discovered later:
    it, and a site where the default were *not* schema-fixed would be equally invisible.
 8. A selector written as ``match``/``case``. The chain scanner reads ``if``/``elif`` only; no
    ``jnwb/`` module uses ``match`` today, so this is unmeasured rather than clear.
+9. A reviewed site edited in place. A key names a site and the shape matched there, not the
+   value a handler returns or the branch an ``else`` computes, so a handler reviewed as
+   returning ``None`` that is changed to return ``1.0`` keeps its key and its row. Two
+   same-shaped sites in one function that swap bodies also keep their keys.
+10. A count-preserving change to a group of same-shaped sites in one function. The ordinal
+   that ends a key is positional, so deleting one site and adding another of the same shape
+   leaves the same keys, and every row rebinds by position to whatever site now holds it. An
+   added site that changes the count is reported, but the key left over belongs to the last
+   site in the group, which is the new one only when it was added last. That is why a failure
+   lists every line in the group and asks for the whole group to be re-reviewed.
 
 Chains nested inside another ``if`` arm, and chains with no ``else`` whose next statement
 does not refuse, were once invisible here too; both are now scanned and seeded.
@@ -496,7 +545,8 @@ class TestTheInstrumentDetectsASeededInstance:
     def test_chain_scanner_finds_the_planted_reduction_fallthrough(self):
         found = scan_selector_chain_fallthrough(SEED_CHAIN_DEFECT, "seed")
         assert len(found) == 1, found
-        assert found[0].key == ("seed", "op_str", ("mean", "median", "sum"))
+        assert found[0].key == (
+            "seed", "_reduce", "CHAIN_ELSE", "op_str", ("mean", "median", "sum"), 1)
 
     def test_chain_scanner_clears_the_repaired_form(self):
         assert scan_selector_chain_fallthrough(SEED_CHAIN_REPAIRED, "seed") == []
@@ -504,7 +554,8 @@ class TestTheInstrumentDetectsASeededInstance:
     def test_chain_scanner_finds_a_chain_nested_in_an_if_body(self):
         """Every `if` below the outer one used to be marked seen, so this was never read."""
         found = scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_DEFECT, "seed")
-        assert [f.key for f in found] == [("seed", "op_str", ("mean", "median"))], found
+        assert [f.key for f in found] == [
+            ("seed", "_reduce", "CHAIN_ELSE", "op_str", ("mean", "median"), 1)], found
         assert scan_selector_chain_fallthrough(SEED_NESTED_CHAIN_REPAIRED, "seed") == []
 
     def test_chain_scanner_finds_a_chain_with_no_else(self):
@@ -512,14 +563,15 @@ class TestTheInstrumentDetectsASeededInstance:
         through and the input is returned as though it had been resampled."""
         found = scan_selector_chain_fallthrough(SEED_NO_ELSE_DEFECT, "seed")
         assert [(f.kind, f.key) for f in found] == [
-            ("CHAIN_NO_ELSE", ("seed", "align", ("cubic", "linear")))], found
+            ("CHAIN_NO_ELSE",
+             ("seed", "_resample_axis", "CHAIN_NO_ELSE", "align", ("cubic", "linear"), 1))], found
         assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REPAIRED, "seed") == []
         assert scan_selector_chain_fallthrough(SEED_NO_ELSE_REFUSED_AFTER, "seed") == []
 
     def test_handler_scanner_finds_the_planted_statsmodels_substitution(self):
         found = scan_recovering_handlers(SEED_HANDLER_DEFECT, "seed")
         assert len(found) == 1, found
-        assert found[0].key == ("seed", "ImportError", ("q",), False)
+        assert found[0].key == ("seed", "correct", "ImportError", ("q",), False, 1)
 
     def test_handler_scanner_clears_the_repaired_form(self):
         assert scan_recovering_handlers(SEED_HANDLER_REPAIRED, "seed") == []
@@ -580,7 +632,7 @@ def test_the_sweep_reaches_the_whole_package():
 # fallback path, which is the whole of the class: a fallback is not a defect, a fallback whose
 # result is filed under the request's name is.
 ACCEPTED_OPTION_SET_GET = {
-    ("_backend.py", "<inline dict literal>", "prefer", "CuPy or PyTorch"):
+    ("_backend.py", "resolve_device", "<inline dict literal>", "prefer", "CuPy or PyTorch", 1):
         "The substituted string names the library that was searched for, inside a "
         "RuntimeWarning's text. It is not a result and is filed under no label.",
 }
@@ -591,75 +643,92 @@ ACCEPTED_OPTION_SET_GET = {
 # ``test_every_accepted_chain_else_has_a_validator_that_really_rejects`` drives it -- the
 # reason is proven by execution, not asserted in a comment.
 ACCEPTED_CHAIN_ELSE = {
-    ("continuous.py", "boundary_policy", ("drop", "error")):
+    ("continuous.py", "epoch_continuous", "CHAIN_ELSE", "boundary_policy", ("drop", "error"), 1):
         "boundary_policy is checked against ('nan', 'error', 'drop') and raises; the else "
         "is the 'nan' branch.",
-    ("jrsa.py", "alternative", ("greater", "two-sided")):
+    ("jrsa.py", "_p_from_null", "CHAIN_ELSE", "alternative", ("greater", "two-sided"), 1):
         "REPAIRED BY THIS SWEEP: alternative is now checked against jrsa.ALTERNATIVES at "
         "the top of _p_from_null and raises; the else is the 'less' branch.",
-    ("laminar.py", "orientation", ("auto", "superficial_to_deep")):
+    ("laminar.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
-    ("spectral.py", "model", ("mean_of_ratios", "ratio_of_means")):
+    ("spectral.py", "relative_power", "CHAIN_ELSE", "model",
+     ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
-    ("statistics.py", "alt", ("greater", "less")):
+    ("statistics.py", "shuffle_pvalue_paired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
         "alt is the return of _require_alternative, which normalizes and raises; the else "
         "is the two-sided branch.",
-    ("statistics.py", "tail", ("greater", "less")):
+    ("statistics.py", "shuffle_pvalue_unpaired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
+        "alt is the return of _require_alternative, which normalizes and raises; the else "
+        "is the two-sided branch.",
+    ("statistics.py", "cluster_permutation_test", "CHAIN_ELSE", "tail", ("greater", "less"), 1):
         "tail is checked against ('both', 'greater', 'less') and raises; the else is the "
         "'both' branch.",
-    ("statistics.py", "alt", ("greater", "two-sided")):
-        "exact_sign_flip checks alt against ('two-sided', 'greater', 'less') and raises; the "
-        "else is the 'less' branch. Two sites (exact enumeration, Monte Carlo) share this key; "
-        "both sit inside an `if n <= 20` arm, which hid them until nested chains were scanned.",
+    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 1):
+        "The exact-enumeration chain. exact_sign_flip checks alt against ('two-sided', "
+        "'greater', 'less') and raises before either chain; the else is the 'less' branch.",
+    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 2):
+        "The Monte Carlo chain, under the same check as the first; the else is the 'less' "
+        "branch.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
-    ("analyzers.py", "Exception", ("acg",), False):
+    ("analyzers.py", "UnitAnalyzer._acg_vectorized", "Exception", ("acg",), False, 1):
         "The handler sets acg = None. Absence, not a plausible substitute.",
-    ("analyzers.py", "Exception", ("X_gpu", "s", "u", "vt"), True):
+    ("analyzers.py", "PopulationAnalyzer.population_trajectory", "Exception",
+     ("X_gpu", "s", "u", "vt"), True, 1):
         "cupy -> torch -> CPU SVD. The path is recorded: the torch branch returns "
         "device_used='cuda' with its own SVD, and a CPU result is labelled 'cpu' after "
         "warn_device_fallback, so the label follows the value.",
-    ("gpu_pca.py", "Exception", ("S_np", "V_np", "proj_np"), False):
+    ("gpu_pca.py", "gpu_pca", "Exception", ("S_np", "V_np", "proj_np"), False, 1):
         "GPU SVD -> NumPy SVD, announced by warn_device_fallback, which is jnwb's declared "
         "mechanism for saying that a CPU and GPU path may disagree numerically.",
-    ("trajectory.py", "Exception", ("S_np", "V_np", "proj_np"), False):
+    ("trajectory.py", "compute_population_trajectory", "Exception",
+     ("S_np", "V_np", "proj_np"), False, 1):
         "Same GPU -> NumPy SVD fallback, same announcement.",
-    ("spectral.py", "Exception", ("frequencies", "pxx"), False):
-        "GPU Welch -> scipy.signal.welch, announced by warn_device_fallback. Two sites "
-        "(harmonic_analysis, spectral_tilt) share this key.",
-    ("spectral.py", "Exception", ("computed",), False):
+    ("spectral.py", "harmonic_analysis", "Exception", ("frequencies", "pxx"), False, 1):
+        "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
+        "warn_device_fallback; the handler rebinds device = CPU, so the device follows the "
+        "value. Same estimator on another device, not a different one.",
+    ("spectral.py", "spectral_tilt", "Exception", ("frequencies", "pxx"), False, 1):
+        "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
+        "warn_device_fallback; the handler rebinds resolved = CPU, so the device follows the "
+        "value.",
+    ("spectral.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
-    ("jrsa.py", "ImportError", ("x1", "x2"), False):
-        "OPEN, carried deliberately: align='linear'/'cubic' falls back to 'downsample' when "
-        "scipy is absent while parameters['align'] echoes the request. Latent -- jrsa() "
-        "requires x1 and x2 to have identical shapes, so _align_dimensions never resamples. "
-        "The reachable half of the same function is repaired below "
-        "(test_an_unrecognised_align_raises_rather_than_resampling_silently). Two sites "
-        "(linear, cubic) share this key.",
-    ("jrsa.py", "AttributeError", (), True):
+    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
+        "OPEN, carried deliberately: align='interpolate' or 'linear' falls back to "
+        "'downsample' when scipy is "
+        "absent while parameters['align'] echoes the request -- a substitution. Doubly latent: "
+        "scipy is a declared dependency, and jrsa() refuses x1 and x2 of different shapes in "
+        "_validate_inputs before _align_dimensions, so no axis is ever resampled. The "
+        "reachable half of the same function is repaired below "
+        "(test_an_unrecognised_align_raises_rather_than_resampling_silently).",
+    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 2):
+        "OPEN, carried deliberately: the align='cubic' twin of the first site, the same "
+        "substitution under the same two latencies.",
+    ("jrsa.py", "_reduce_one", "AttributeError", (), True, 1):
         "cupy.median -> cupy.percentile(50) inside _reduce_one. The 50th percentile with "
         "linear interpolation IS the median; same number, different call. The label stays "
         "true.",
-    ("jrsa.py", "ImportError", ("arr_cpu",), False):
+    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr_cpu",), False, 1):
         "scipy.signal.detrend(type='linear') -> degree-1 polyfit subtraction. Both are the "
         "least-squares linear detrend; scipy's own implementation is the same normal equations.",
-    ("jrsa.py", "ImportError", ("arr",), False):
+    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr",), False, 1):
         "Same detrend equivalence on the non-GPU path.",
-    ("jrsa.py", "(RuntimeError, TypeError, ValueError)", ("a",), False):
+    ("jrsa.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
-    ("laminar.py", "np.linalg.LinAlgError", ("theta",), False):
+    ("laminar.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
         "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
         "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
         "channel pair yields exactly -1.0, a plausible and wrong number. Nearly unreachable "
         "because the cond > 1e12 branch above the try already routes to pinv; that branch is "
         "the same substitution written without an exception, and neither is this item's "
         "named scope. Proposed as a new problem row.",
-    ("nam.py", "ImportError", ("_BaseModule", "_TORCH_AVAILABLE"), False):
+    ("nam.py", "<module>", "ImportError", ("_BaseModule", "_TORCH_AVAILABLE"), False, 1):
         "Module-level torch import guard. It sets _TORCH_AVAILABLE = False -- the label is "
         "exactly what the handler writes down.",
 
@@ -667,62 +736,111 @@ ACCEPTED_HANDLER_RECOVERY = {
     # A returned *absence* is the opposite of this class, not an instance of it: NaN, None,
     # False, an error dict and an `accepted=False` result all decline to answer. The class
     # needs a plausible answer filed under the request's name.
-    ("_backend.py", "(ImportError, OSError, RuntimeError, AttributeError)", (), True):
-        "gpu_available returns False when the probe cannot run. A declared absence.",
-    ("_dictlike.py", "KeyError", (), True):
+    ("_backend.py", "cupy_available", "(ImportError, OSError, RuntimeError, AttributeError)",
+     (), True, 1):
+        "Returns False when CuPy will not import or count devices. A declared absence.",
+    ("_backend.py", "torch_cuda_available",
+     "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
+        "Returns False when torch will not import or report CUDA. A declared absence.",
+    ("_backend.py", "jax_metal_available",
+     "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
+        "Returns False when JAX exposes no Metal device. A declared absence.",
+    ("_dictlike.py", "RenamedKeyDict.get", "KeyError", (), True, 1):
         "dict-like .get returns the caller's own default. The caller named the fallback.",
-    ("_parallel.py", "ImportError", (), True):
-        "joblib absent -> serial list comprehension over the same fn. Same results by the "
-        "same function; only the scheduling differs, and n_jobs describes scheduling.",
-    ("addressing.py", "(ValueError, TypeError, OverflowError)", (), True):
-        "_resolve_electrode_row returns (None, None) when the channel will not resolve. "
-        "Absence, and every caller maps it to 'Unknown'.",
-    ("addressing.py", "Exception", (), True):
-        "Returns None on a failed area lookup. Absence.",
-    ("compression.py", "Exception", (), True):
+    ("_dictlike.py", "DictAccessMixin.get", "KeyError", (), True, 1):
+        "Attribute-backed .get returns the caller's own default when the key names no "
+        "attribute. The caller named the fallback.",
+    ("_parallel.py", "parallel_map", "ImportError", (), True, 1):
+        "joblib absent -> serial list comprehension over the same fn, with a RuntimeWarning. "
+        "Same results by the same function; only the scheduling differs, and n_jobs describes "
+        "scheduling.",
+    ("addressing.py", "_resolve_electrode_row", "(ValueError, TypeError, OverflowError)",
+     (), True, 1):
+        "Returns (None, None) when the channel id will not convert to an integer. Absence: "
+        "_area_from_row returns None for a None row, so the unit gets area None and "
+        "depth_class 'Unknown'.",
+    ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
+        "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
+        "Absence.",
+    ("addressing.py", "_resolve_depth_unit", "Exception", (), True, 1):
+        "Returns None when an explicit depth_unit will not convert to a string. Absence: no "
+        "unit is assumed.",
+    ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
-    ("connectivity.py", "Exception", (), True):
+    ("connectivity.py", "_adf_pvalue", "Exception", (), True, 1):
         "Returns float('nan'). Absence, and NaN propagates rather than reading as a value.",
-    ("io.py", "Exception", (), True):
-        "_stored_seek_is_reliable returns False when its zipfile probe raises, so a stored "
-        "entry is read forward, the path that needs no seek. Same bytes either way; only time "
-        "differs.",
-    ("jrsa.py", "ImportError", (), True):
+    ("io.py", "_stored_seek_is_reliable", "Exception", (), True, 1):
+        "Returns False when its zipfile probe raises, so a stored entry is read forward, the "
+        "path that needs no seek. Same bytes either way; only time differs.",
+    ("jrsa.py", "_granger", "ImportError", (), True, 1):
         "statsmodels absent -> warns and returns NaN for Granger causality. It declines "
         "rather than substituting another estimator, which is 06-15's repair in this module.",
-    ("mcp_server/event_tools.py", "IntervalTableNotFoundError", (), True):
+    ("jrsa.py", "_result_plot", "ImportError", (), True, 1):
+        "matplotlib absent -> warns and returns None instead of a figure. Absence.",
+    ("mcp_server/event_tools.py", "get_event_codes_and_timings",
+     "IntervalTableNotFoundError", (), True, 1):
         "Returns {'error': ..., 'error_type': 'PathNotFound'}. A declared failure.",
-    ("mcp_server/event_tools.py", "AmbiguousIntervalTableError", (), True):
+    ("mcp_server/event_tools.py", "get_event_codes_and_timings",
+     "AmbiguousIntervalTableError", (), True, 1):
         "Returns {'error': ..., 'error_type': 'AmbiguousPath'}. A declared failure.",
-    ("mcp_server/event_tools.py", "(ColumnNotFoundError, InvalidOnsetValueError)", (), True):
+    ("mcp_server/event_tools.py", "get_event_codes_and_timings",
+     "(ColumnNotFoundError, InvalidOnsetValueError)", (), True, 1):
         "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure.",
-    ("mcp_server/event_tools.py", "Exception", (), True):
+    ("mcp_server/event_tools.py", "get_event_codes_and_timings", "Exception", (), True, 1):
         "Returns {'error': ..., 'error_type': 'Unknown'} -- names the failure as unknown "
         "rather than answering.",
-    ("mcp_server/nwb_tools.py", "Exception", (), True):
-        "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure. The same key is "
-        "_resolves, which returns False on any resolver failure (a refused name, or an HDF5 "
-        "file pynwb will not open), so the reference names no reader. Absence, never a "
-        "different call.",
-    ("metadata.py", "ValueError", (), True):
+    ("mcp_server/nwb_tools.py", "_resolves", "Exception", (), True, 1):
+        "Returns False on any resolver failure (a refused name, or an HDF5 file pynwb will "
+        "not open), so the reference names no reader. Absence, never a different call.",
+    ("mcp_server/nwb_tools.py", "inspect_nwb", "Exception", (), True, 1):
+        "Returns {'error': ..., 'error_type': 'ParseError'}. A declared failure.",
+    ("mcp_server/nwb_tools.py", "prepare_signal_reference", "Exception", (), True, 1):
+        "Returns {'error': ..., 'error_type': 'Unknown'}. A declared failure.",
+    ("metadata.py", "_session_id_from_path", "ValueError", (), True, 1):
         "Session-id parse falls back to (raw, raw) -- the unparsed input returned as itself, "
         "not a fabricated identifier.",
-    ("nwb_inspect.py", "TypeError", (), True):
-        "Returns None when a value will not introspect. Absence.",
-    ("spectral.py", "Exception", (), True):
-        "Returns AperiodicFitResult(accepted=False) with every estimate None -- the "
-        "declared refusal shape, which is what a non-identifiable fit is supposed to emit.",
+    ("nwb_inspect.py", "_h5_channel_count", "TypeError", (), True, 1):
+        "Returns None when the HDF5 electrode region has no length. Absence.",
+    ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
+        "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
+        "Absence.",
+    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
+        "The 'fixed' fit. Returns AperiodicFitResult(accepted=False) with every estimate None "
+        "-- the declared refusal shape, which is what a non-identifiable fit is supposed to "
+        "emit.",
+    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 2):
+        "The 'knee' fit. The same refusal shape, with mode='knee'.",
 }
+
+
+def _unexplained_report(findings: List[Finding], accepted: Dict[tuple, str]) -> str:
+    """One entry per key with no reviewed row, and every site of that key's shape in its function.
+
+    The ordinal that ends a key is positional. A site added before a reviewed one of the same
+    shape takes the reviewed ordinal and row, and the key left unexplained is the reviewed
+    site's, one ordinal on. Naming only that key's line would point at code that was reviewed,
+    so every line in the group is listed and the group is flagged for review as a whole.
+    """
+    entries: List[str] = []
+    for key in sorted({f.key for f in findings if f.key not in accepted}, key=repr):
+        line = min(f.lineno for f in findings if f.key == key)
+        entries.append(f"  {key}  (line {line})")
+        group = sorted(f.lineno for f in findings if f.key[:-1] == key[:-1])
+        if len(group) > 1:
+            entries.append(
+                f"    {len(group)} sites of this shape in this function, at lines "
+                f"{', '.join(str(n) for n in group)}. Ordinals are positional: a site added "
+                f"before a reviewed one takes over its row, so the new site may be any of "
+                f"these. Re-review the whole group and re-baseline every row in it.")
+    return "\n".join(entries)
 
 
 def _baseline_check(findings: List[Finding], accepted: Dict[tuple, str], kind: str):
     keys = {f.key for f in findings}
-    unexplained = sorted(k for k in keys if k not in accepted)
-    assert not unexplained, (
-        f"{kind}: new substitution-class site(s) with no reviewed reason:\n  "
-        + "\n  ".join(f"{k}  (line {min(f.lineno for f in findings if f.key == k)})"
-                      for k in unexplained)
+    report = _unexplained_report(findings, accepted)
+    assert not report, (
+        f"{kind}: new substitution-class site(s) with no reviewed reason:\n" + report
         + "\n\nEither repair the site so the recorded label stays true, or add a row to the "
           "baseline in tests/test_substitution_class_sweep.py saying why it already does."
     )
@@ -757,6 +875,12 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         ("spectral.model", lambda: relative_power(
             np.array([1.0, 2.0]), np.array([1.0, 1.0]), model="bogus")),
         ("statistics.alternative", lambda: _require_alternative("bogus", "sweep")),
+        ("statistics.shuffle_pvalue_paired.alt", lambda: jnwb.shuffle_pvalue_paired(
+            np.array([0.1, 0.4, 0.2]), np.array([0.0, 0.1, 0.3]), 10,
+            np.random.default_rng(0), alternative="bogus")),
+        ("statistics.shuffle_pvalue_unpaired.alt", lambda: jnwb.shuffle_pvalue_unpaired(
+            np.array([0.1, 0.4, 0.2]), np.array([0.0, 0.1, 0.3]), 10,
+            np.random.default_rng(0), alternative="bogus")),
         ("statistics.exact_sign_flip.alt", lambda: jnwb.exact_sign_flip(
             np.array([0.1, -0.2, 0.3]), alternative="bogus")),
         ("statistics.tail", lambda: cluster_permutation_test(
@@ -778,6 +902,115 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         """
         with pytest.raises((ValueError, TypeError, NotImplementedError)):
             call()
+
+
+_SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None else float(raw)\n"
+_RESOLVES_BODY = "    try:\n        return resolve_acquisition(file_path, name) == name\n"
+_ADF_BODY = "    try:\n        import warnings\n\n        from statsmodels.tsa.stattools import adfuller\n"
+_NAM_GUARD = "try:\n    import torch\n    import torch.nn as nn\n"
+_SIGN_FLIP_BODY = "    n = arr.size\n    obs_mean = float(np.mean(arr))\n"
+_SIGN_FLIP_CHAIN = ('    if alt == "two-sided":\n        tol = 0.0\n'
+                    '    elif alt == "greater":\n        tol = 0.0\n')
+
+Planted = namedtuple("Planted", "report findings lines")
+"""A mutant's unexplained report, its findings, and the source lines the planted text occupies."""
+
+
+def _plant_before(module: str, anchor: str, planted: str, scanner, accepted) -> Planted:
+    """Insert ``planted`` ahead of ``anchor`` in ``module`` and report what the baseline misses."""
+    source = (PACKAGE_ROOT / module).read_text(encoding="utf-8")
+    assert source.count(anchor) == 1, f"the anchor for this mutant moved in {module}"
+    first = source[:source.index(anchor)].count("\n") + 1
+    mutated = source.replace(anchor, planted + anchor)
+    assert mutated.count(planted + anchor) == 1
+    findings = [f for f in scanner(mutated, module) if f.module == module]
+    return Planted(_unexplained_report(findings, accepted), findings,
+                   range(first, first + planted.count("\n")))
+
+
+def _names_line(report: str, line: int) -> bool:
+    """Whether ``line`` is given in a ``(line N)`` field or an ``at lines a, b, c.`` list."""
+    named = {int(n) for n in re.findall(r"\(line (\d+)\)", report)}
+    for listing in re.findall(r"at lines ([\d, ]+)\.", report):
+        named.update(int(n) for n in listing.split(","))
+    return line in named
+
+
+def _assert_names_both(result: Planted, shape: tuple) -> None:
+    """The planted site and the reviewed site it displaced both appear in the failure."""
+    group = [f for f in result.findings if f.key[:-1] == shape]
+    planted = [f.lineno for f in group if f.lineno in result.lines]
+    reviewed = [f.lineno for f in group if f.lineno not in result.lines]
+    assert len(planted) == 1 and reviewed, (group, result.lines)
+    assert "Ordinals are positional" in result.report, result.report
+    for line in planted + reviewed:
+        assert _names_line(result.report, line), (line, result.report)
+
+
+class TestASiteIsReviewedAtItsOwnSite:
+    """A reviewed row explains one site, not every site of the same shape in its module.
+
+    Each mutant plants a site that substitutes a value and has the exact shape of a reviewed
+    row. Planted in another function, the key's function name reports it. Planted before a
+    reviewed site in the same function, it takes that site's ordinal and row, so the failure
+    must name every site of the shape rather than only the one whose key is left over.
+    """
+
+    def test_the_live_tree_is_explained_before_it_is_mutated(self):
+        for module, anchor, scanner, accepted in (
+                ("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, scan_recovering_handlers,
+                 ACCEPTED_HANDLER_RECOVERY),
+                ("connectivity.py", _ADF_BODY, scan_recovering_handlers,
+                 ACCEPTED_HANDLER_RECOVERY),
+                ("nam.py", _NAM_GUARD, scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY),
+                ("statistics.py", _SIGN_FLIP_BODY, scan_selector_chain_fallthrough,
+                 ACCEPTED_CHAIN_ELSE)):
+            assert _plant_before(module, anchor, "", scanner, accepted).report == ""
+
+    def test_a_substituting_handler_in_another_function_is_reported(self):
+        planted = "    try:\n        float(ds.attrs.get(key))\n    except Exception:\n        return 1.0\n"
+        result = _plant_before("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        assert {f.key for f in result.findings} - set(ACCEPTED_HANDLER_RECOVERY) == {
+            ("mcp_server/nwb_tools.py", "_scalar_attr", "Exception", (), True, 1)}
+        assert _names_line(result.report, result.lines[2]), result.report
+
+    def test_a_handler_planted_before_a_reviewed_one_is_named(self):
+        planted = "    try:\n        resolve_acquisition(file_path, name)\n    except Exception:\n        return True\n"
+        result = _plant_before("mcp_server/nwb_tools.py", _RESOLVES_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("mcp_server/nwb_tools.py", "_resolves", "Exception", (), True))
+
+    def test_a_value_planted_before_a_reviewed_nan_is_named(self):
+        planted = "    try:\n        float(y[0])\n    except Exception:\n        return 0.5\n"
+        result = _plant_before("connectivity.py", _ADF_BODY, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "Exception", (), True))
+
+    def test_a_module_guard_planted_before_a_reviewed_one_is_named(self):
+        planted = ("try:\n    import torch.nn as nn\n    _TORCH_AVAILABLE = True\n"
+                   "    _BaseModule = nn.Module\nexcept ImportError:\n"
+                   "    _TORCH_AVAILABLE = True\n    _BaseModule = object\n")
+        result = _plant_before("nam.py", _NAM_GUARD, planted,
+                               scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
+        _assert_names_both(result, ("nam.py", "<module>", "ImportError",
+                                    ("_BaseModule", "_TORCH_AVAILABLE"), False))
+
+    def test_a_chain_with_no_else_is_not_filed_under_a_trailing_else_row(self):
+        """The kind is part of the key, so the planted chain is its own site at its own line."""
+        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, _SIGN_FLIP_CHAIN,
+                               scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
+        shape = ("statistics.py", "exact_sign_flip", "CHAIN_NO_ELSE", "alt",
+                 ("greater", "two-sided"))
+        assert {f.key for f in result.findings} - set(ACCEPTED_CHAIN_ELSE) == {shape + (1,)}
+        assert _names_line(result.report, result.lines[0]), result.report
+
+    def test_a_trailing_else_planted_before_two_reviewed_ones_is_named(self):
+        planted = _SIGN_FLIP_CHAIN + "    else:\n        tol = 0.0\n"
+        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, planted,
+                               scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
+        _assert_names_both(result, ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt",
+                                    ("greater", "two-sided")))
 
 
 # ===========================================================================
