@@ -380,6 +380,14 @@ the version that will carry it, most consequential first. It holds only what is 
 done — a finished item is deleted, because git and the changelog already record it. If you
 finish something, delete it from the stack in the same commit.
 
+Bullet edits go through `scripts/stack_edit.py`: `delete`, `replace`, `insert-after` and `sub`
+(one substring inside a bullet). A bullet is addressed by a delimited prefix of its first line
+that must match exactly one bullet; `--section` narrows the match to one heading. The script
+preserves the file's line endings, refuses an edit whose result no longer parses as bullets, and
+replaces the file only after every check passes. `--dry-run` prints the diff; new text comes from
+a UTF-8 file. Whole `###` items, field lines and table rows are out of its reach and are edited
+by hand.
+
 ## Releasing
 
 Maintainers only, and only from a clean `dev` with the three pre-push checks green and
