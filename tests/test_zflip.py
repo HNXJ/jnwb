@@ -219,13 +219,15 @@ def _wave_with_contact_4(sine_hz, contact=4, wave_scale=0.0):
 
 
 def _in_band_fraction(data, band=(15.0, 35.0)):
-    """Each contact's share of power inside ``band``, from zflip's default segment spectra."""
+    """Each contact's share of power inside ``band``, from zflip's default segmentation with
+    each segment linearly detrended."""
     nperseg = min(max(data.shape[1] // 2, 8), 256)
     f, _, Z = signal.stft(data, fs=1000.0, nperseg=nperseg, noverlap=nperseg // 2,
-                          boundary=None, padded=False, axis=-1)
+                          boundary=None, padded=False, axis=-1, detrend="linear")
     power = np.mean(np.abs(Z) ** 2, axis=-1)
     mask = (f >= band[0]) & (f <= band[1])
-    return power[:, mask].sum(axis=1) / power.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return power[:, mask].sum(axis=1) / power.sum(axis=1)
 
 
 @pytest.mark.parametrize("contact, sine_hz", [(4, 7.8), (4, 5.7), (0, 55.0)])
@@ -254,8 +256,8 @@ def test_zflip_the_in_band_fraction_gate_is_inclusive_at_its_threshold():
     dropped check keeps the lower one; a strict comparison refuses the exact threshold.
     """
     kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
-    below, above = _wave_with_contact_4(7.8, wave_scale=0.3279), _wave_with_contact_4(
-        7.8, wave_scale=0.345)
+    below, above = _wave_with_contact_4(7.8, wave_scale=0.3636), _wave_with_contact_4(
+        7.8, wave_scale=0.3825)
     f_below, f_above = _in_band_fraction(below)[4], _in_band_fraction(above)[4]
     assert 0.009 < f_below < 0.01 < f_above < 0.011
     refused = jnwb.zflip(below, **kwargs)
@@ -268,6 +270,86 @@ def test_zflip_the_in_band_fraction_gate_is_inclusive_at_its_threshold():
     just_over = jnwb.zflip(above, min_band_power_fraction=float(np.nextafter(f_above, 1.0)),
                            **kwargs)
     assert not just_over.adjacent_identifiable[3]
+
+
+def test_zflip_a_dc_offset_does_not_lower_the_in_band_fraction():
+    """A clean wave on a DC offset of 10 SD keeps its delay.
+
+    Undetrended, the offset's power fills the fraction's denominator and drops it to 0.0045,
+    below the 0.01 default. What would pass while the offset still counts: a wave with no
+    offset, which is how every other fixture here is built.
+    """
+    data = _wave_with_contact_4(0.0, wave_scale=1.0)
+    data += 10.0 * np.std(data[0])
+    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    assert res.adjacent_identifiable.all() and res.delay_identifiable
+    assert res.tau_per_channel_s == pytest.approx(0.002, rel=0.05)
+
+
+def test_zflip_a_linear_drift_does_not_lower_the_in_band_fraction():
+    """A clean wave on a drift of 0 to 500 SD keeps its delay, and its fraction stays high.
+
+    A per-segment mean removal leaves each segment's slope, whose power brings the fraction
+    to 0.075; a linear detrend keeps it at 0.74. Undetrended, it is below the default.
+    """
+    data = _wave_with_contact_4(0.0, wave_scale=1.0)
+    data += np.linspace(0.0, 500.0 * np.std(data[0]), data.shape[1])
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    res = jnwb.zflip(data, **kwargs)
+    assert res.delay_identifiable
+    assert res.tau_per_channel_s == pytest.approx(0.002, rel=0.05)
+    assert jnwb.zflip(data, min_band_power_fraction=0.5, **kwargs).delay_identifiable
+
+
+def test_zflip_a_contact_with_no_power_in_any_segment_is_refused():
+    """A contact whose only nonzero samples fall after the last segment has no fraction.
+
+    6000 samples in 256-sample segments at a 128-sample hop end at sample 5888, so a single
+    nonzero sample at 5990 is not constant yet leaves every segment spectrum zero: 0 / 0.
+    What would pass while it is kept: a ``fraction < threshold`` test, false for NaN.
+    """
+    data = _wave_with_contact_4(0.0, wave_scale=1.0)
+    data[4] = 0.0
+    data[4, 5990] = 1.0
+    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    assert np.isnan(_in_band_fraction(data)[4])
+    assert not res.adjacent_identifiable[3]
+    assert "Contact(s) [4] carry less than" in res.rejection_reason
+
+
+def _lagged_rows(lags, n=8000):
+    sos = signal.butter(4, (10, 40), btype="band", fs=1000.0, output="sos")
+    src = signal.sosfiltfilt(sos, np.random.default_rng(11).standard_normal(n + 400))
+    return np.stack([src[400 - lag: 400 - lag + n] for lag in lags])
+
+
+def test_zflip_a_zig_zag_delay_is_refused_by_the_depth_fit():
+    """Lags 0, 2, 0, 2, 0 give four identifiable pairs whose cumulative delay is not linear.
+
+    The refusal is the depth fit's alone, so the reason names it and not the pair gates.
+    """
+    res = jnwb.zflip(_lagged_rows([0, 2, 0, 2, 0]), fs=1000.0,
+                     orientation="superficial_to_deep", n_surrogates=0)
+    assert res.adjacent_identifiable.all() and not res.delay_identifiable
+    assert np.isnan(res.tau_per_channel_s)
+    assert "Cumulative delay not linear in contact index" in res.rejection_reason
+    assert "Phase-frequency relation failed" not in res.rejection_reason
+
+
+def test_zflip_identical_contacts_give_no_direction():
+    """Identical contacts have no delay gradient: phase residue near 1e-21 s is not a sign.
+
+    With both pair gates at 0.0, every pair passes and the cumulative delay is exactly linear,
+    so only the zero-gradient check can refuse. Without a round-off width, the residue named
+    a direction.
+    """
+    res = jnwb.zflip(_lagged_rows([0, 0, 0, 0, 0]), fs=1000.0,
+                     orientation="superficial_to_deep", n_surrogates=0, min_wpli=0.0,
+                     min_linearity_r2=0.0)
+    assert res.adjacent_identifiable.all()
+    assert not res.delay_identifiable and np.isnan(res.tau_per_channel_s)
+    assert res.directionality == "unidentifiable"
+    assert "Delay gradient across contacts is zero to round-off" in res.rejection_reason
 
 
 def test_zflip_a_pair_wpli_equal_to_min_wpli_passes_the_pair_gate():

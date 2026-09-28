@@ -2137,16 +2137,17 @@ def zflip(
         min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
         min_wpli: Minimum wPLI required of the adjacent average for acceptance and of each
             adjacent pair for its delay to be identifiable (default 0.15).
-        min_band_power_fraction: Minimum fraction of a contact's power, summed over the
-            segment spectra the phase slope uses, that must lie inside `freq_range` for the
-            delays of its two adjacent pairs to be identifiable (default 0.01). A contact
-            whose power lies outside the band has only window leakage there, which can fit
-            a linear phase. Measured on the default band and segment length, it refuses
-            out-of-band sinusoids well away from the band (fractions below 4e-4) and keeps
-            broadband white noise, whose 15-35 Hz fraction is about 0.03. It does not reject power that leaks into the band edge:
-            a sinusoid just below the lower edge (about 10-12 Hz for the default band and
-            segment length) carries 0.01 to 0.19 of its power in the edge bin and can still
-            pass and yield a delay.
+        min_band_power_fraction: Minimum fraction of a contact's power that must lie inside
+            `freq_range` for the delays of its two adjacent pairs to be identifiable
+            (default 0.01). The power is summed over the segmentation the phase slope uses,
+            with each segment's linear trend removed, so a DC offset or slow drift does not
+            lower it. A contact whose power lies outside the band has only window leakage
+            there, which can fit a linear phase. Measured on the default band and segment
+            length, the default refuses sinusoids below 9 Hz or above 40 Hz (fractions below
+            4e-3) and keeps broadband white noise, whose 15-35 Hz fraction is about 0.03. It
+            does not refuse power leaking into either band edge: a sinusoid at about 9.5 to
+            12 Hz or 35 to 38 Hz carries 0.01 to 0.2 of its power in the edge bins and can
+            still pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
             ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
             attainable p-value is ``1 / (n_surrogates + 1)``.
@@ -2262,9 +2263,14 @@ def zflip(
     flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
     # A contact whose power lies outside freq_range has no in-band phase to measure: its
     # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
-    # The fraction is read from the same segment spectra the phase slope uses; a contact
-    # with no power in any segment has no fraction and fails the gate.
-    seg_power = np.mean(np.abs(Z) ** 2, axis=-1)  # (n_channels, n_freqs)
+    # The fraction is read from the same segmentation the phase slope uses, with each
+    # segment's linear trend removed so a DC offset or slow drift does not fill the
+    # denominator; a contact with no power in any segment has no fraction and fails the gate.
+    _, _, Z_detrended = signal.stft(
+        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1,
+        detrend="linear",
+    )
+    seg_power = np.mean(np.abs(Z_detrended) ** 2, axis=-1)  # (n_channels, n_freqs)
     with np.errstate(invalid="ignore", divide="ignore"):
         band_fraction = seg_power[:, mask].sum(axis=1) / seg_power.sum(axis=1)
     out_of_band_contacts = [c for c in range(n_channels) if c not in flat_contacts
@@ -2325,8 +2331,11 @@ def zflip(
             directionality = "unidentifiable"
         else:
             # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
-            # order, which is the anatomical direction the caller named for row order.
-            if tau_per_channel > 0 or tau_per_channel < 0:
+            # order, which is the anatomical direction the caller named for row order. A
+            # gradient within round-off of zero, relative to the largest delay the fit can
+            # represent, has no sign: identical contacts leave phase residue near 1e-21 s.
+            zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
+            if abs(tau_per_channel) > zero_width:
                 row_order_leads = tau_per_channel > 0
                 if orientation == "superficial_to_deep":
                     directionality = ("superficial_to_deep" if row_order_leads
@@ -2335,7 +2344,7 @@ def zflip(
                     directionality = ("deep_to_superficial" if row_order_leads
                                       else "superficial_to_deep")
             else:
-                depth_fit_reason = "Delay gradient across contacts is exactly zero"
+                depth_fit_reason = "Delay gradient across contacts is zero to round-off"
                 delay_identifiable = False
                 tau_per_channel = float("nan")
                 directionality = "unidentifiable"

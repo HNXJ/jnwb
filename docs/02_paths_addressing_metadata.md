@@ -146,9 +146,10 @@ contact in seconds, fitted to the phase gradient across depth, and `NaN` with
 `delay_identifiable=False` when any adjacent pair or the fit across depth fails its
 identifiability gate (phase-frequency $R^2$ at least `min_linearity_r2`, at least 3
 frequency bins, a delay inside the unambiguous interval, pair wPLI at least `min_wpli`,
-each contact carrying at least `min_band_power_fraction` of its power inside `freq_range`,
-depth-fit $R^2 \ge 0.5$). The in-band fraction does not catch power leaking into the band
-edge: a sinusoid just below the lower edge can pass it and still give a delay;
+each contact carrying at least `min_band_power_fraction` of its detrended power inside
+`freq_range`, depth-fit $R^2 \ge 0.5$). The in-band fraction does not catch power leaking
+into either band edge: with the default band and segment length, a sinusoid at about 9.5 to
+12 Hz or 35 to 38 Hz can pass it and still give a delay;
 `apparent_velocity_m_s` is that
 gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
