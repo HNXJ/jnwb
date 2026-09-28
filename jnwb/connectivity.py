@@ -1035,7 +1035,8 @@ def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
 
     ``scale`` is the magnitude of the terms ``observed`` was formed from, for a statistic
     that cancels: a net value ``a - b`` carries the round-off of ``a`` and ``b``, not of
-    its own size, so its tie width is ``_TIE_RTOL * (|a| + |b|)``.
+    its own size, so its tie width is ``_TIE_RTOL * (|a| + |b|)``. A PSI sums one term
+    ``Im(conj(C_f) C_{f+1})`` of size at most 1 per bin pair, so its scale is the pair count.
     """
     k = _count_at_least_as_extreme(null, observed, alternative, atol=_TIE_RTOL * scale)
     return float((1 + k) / (len(null) + 1))
@@ -2005,8 +2006,10 @@ def phase_slope_index(
             obs = vals["value"]
             nl = null[name]
             nl = nl[np.isfinite(nl)]
+            # Each of the band's n_freq_bins - 1 terms is at most 1, and they can cancel.
             vals["p_surrogate"] = (
-                _surrogate_p(nl, obs, "two-sided") if nl.size and np.isfinite(obs) else None
+                _surrogate_p(nl, obs, "two-sided", scale=vals["n_freq_bins"] - 1)
+                if nl.size and np.isfinite(obs) else None
             )
 
     band_values = np.array([v["value"] for v in per_band.values()], dtype=float)
@@ -2027,10 +2030,11 @@ def phase_slope_index(
             p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_seg - 1, 1)))
     else:
         if n_surrogates > 0 and null:
-            valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
-            if valid_band_nulls and np.isfinite(total):
-                null_tot = np.sum(valid_band_nulls, axis=0)
-                p_top = _surrogate_p(null_tot, total, "two-sided")
+            valid = [k for k in null if np.all(np.isfinite(null[k]))]
+            if valid and np.isfinite(total):
+                null_tot = np.sum([null[k] for k in valid], axis=0)
+                n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
+                p_top = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
         elif jackknife and n_seg >= 3 and jk_per_band:
             jk_tot = np.sum(list(jk_per_band.values()), axis=0)
             sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))

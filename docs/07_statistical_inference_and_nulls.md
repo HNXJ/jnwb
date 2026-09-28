@@ -129,7 +129,7 @@ For continuous time series, spectra, and time-frequency representations (TFRs), 
 
 $$p = \frac{1 + k}{B + 1}$$
 
-$k$ counts draws beyond or within $100\,\epsilon\,|\text{observed}|$ of the observed statistic, as `scipy.stats.permutation_test` does, so a draw that reproduces it in another summation order counts. Every jnwb permutation p does this.
+$k$ counts draws within $100\,\epsilon\,|\text{observed}|$ of the observed value or beyond, as `scipy.stats.permutation_test` does; every jnwb permutation p counts so. Statistics that cancel use a floor: $100\,\epsilon$ for xflip, times both directions' sum for the granger and transfer_entropy net p, times the bin-pair count for phase_slope_index.
 
 ```python
 # X, Y: (n_trials, n_freqs, n_times) or (n_trials, n_times)

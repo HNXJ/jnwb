@@ -855,6 +855,21 @@ class TestPsiInferenceIsNotOverstated:
         assert res.diagnostics["ok_for_interpretation"] is False
         assert any("jackknife_spread_is_round_off" in w for w in res.diagnostics["warnings"])
 
+    def test_the_width_sits_between_round_off_and_a_part_in_1e9(self):
+        """Y equal to aperiodic noise leaves replicates that differ by round-off alone (sd
+        3.9e-18, the largest measured, against a width of 1.7e-12); a variation of one part
+        in 1e9 gives sd 1.1e-10 and keeps its z."""
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=1024)
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            same = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64)
+        assert np.isnan(same.per_band["full"]["z"])
+        perturbed = x + 1e-9 * rng.normal(size=1024)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(x, perturbed, fs=100.0, nperseg=64)
+        assert np.isfinite(res.per_band["full"]["z"])
+
     def test_a_jackknife_with_spread_keeps_its_z(self):
         """The guard sits at rounding: an ordinary lagged pair keeps a finite z and no warning."""
         x, y = self._lagged_pair()

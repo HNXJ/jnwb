@@ -338,6 +338,25 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         assert res.p_net == 1.0
         assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
 
+    def test_phase_slope_index_when_the_slope_cancels_to_round_off(self):
+        # Y pairs x + h with x - h, so the summed cross-spectrum is real and every PSI is
+        # zero in exact arithmetic while each trial's term is not. A trial permutation only
+        # reorders that sum: the exact p is 1. A width relative to the observed value alone
+        # gave 0.085 for the full band and 0.035, 0.05 and 0.095 for the bands and total.
+        from jnwb.connectivity import phase_slope_index
+
+        rng = np.random.default_rng(0)
+        common = rng.normal(size=512)
+        h = rng.normal(size=(4, 512))
+        x, y = np.tile(common, (8, 1)), np.vstack([common + h, common - h])
+        full = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0)
+        assert abs(full.net) < 1e-15
+        assert full.p_net == 1.0
+        res = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0,
+                                bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
+        assert res.p_net == 1.0
+        assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
+
     def test_xflip_channel_permutation_at_six_channels(self):
         # Exact p over all 720 channel orders, a draw tying the observed contrast when it
         # agrees to nine digits; permutations inside the two blocks reorder the sums.
@@ -370,6 +389,37 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         ])
         local_obs = _compute_contrast(corr, lbl)
         exact_b = float(np.mean(local >= local_obs - 1e-9 * abs(local_obs)))
+        assert res.p_values[f"boundary_{b}"] == pytest.approx(exact_b, abs=0.015), (
+            res.p_values[f"boundary_{b}"], exact_b)
+
+    def test_xflip_when_the_contrast_cancels_to_round_off(self):
+        # Within and between means are equal in exact arithmetic, so Q is 5.6e-17 of residue
+        # and the draws that tie it differ from it by round-off of a correlation, not of Q:
+        # only the absolute floor of the width counts them. Exact p over all 720 orders,
+        # a tie meaning agreement to 1e-12 absolute: 0.911 omnibus, 0.600 at the boundary,
+        # against 0.800 and 0.522 with a width relative to Q alone.
+        from jnwb.laminar import _compute_contrast, _optimal_contiguous_partition, xflip
+
+        corr = np.array([
+            [1.0, 0.3, 0.7, 0.7, 0.7, 0.7],
+            [0.3, 1.0, 0.1, 0.3, 0.7, 0.1],
+            [0.7, 0.1, 1.0, 0.7, 0.3, 0.7],
+            [0.7, 0.3, 0.7, 1.0, 0.7, 0.1],
+            [0.7, 0.7, 0.3, 0.7, 1.0, 0.7],
+            [0.7, 0.1, 0.7, 0.1, 0.7, 1.0],
+        ])
+        orders = [list(p) for p in itertools.permutations(range(6))]
+        obs = _optimal_contiguous_partition(corr, 2, 2)[2]
+        assert 0 < abs(obs) < 1e-15
+        qs = np.array([_optimal_contiguous_partition(corr[np.ix_(p, p)], 2, 2)[2] for p in orders])
+        exact = float(np.mean(qs >= obs - 1e-12))
+        res = xflip(corr, n_surrogates=N_SHUFFLES, rng=0, is_corr_matrix=True)
+        assert res.p_values["omnibus"] == pytest.approx(exact, abs=0.015), (
+            res.p_values["omnibus"], exact)
+        (b,) = res.boundaries
+        lbl = (np.arange(6) >= b).astype(int)
+        local = np.array([_compute_contrast(corr[np.ix_(p, p)], lbl) for p in orders])
+        exact_b = float(np.mean(local >= _compute_contrast(corr, lbl) - 1e-12))
         assert res.p_values[f"boundary_{b}"] == pytest.approx(exact_b, abs=0.015), (
             res.p_values[f"boundary_{b}"], exact_b)
 

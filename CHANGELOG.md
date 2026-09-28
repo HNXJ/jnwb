@@ -378,18 +378,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as reaching it when the two agree to within 100 machine epsilons of the observed value, the
   width `scipy.stats.permutation_test` uses. A draw that swaps tied values sums the same terms
   in another order and can land an ulp short of the observed value; a bare comparison skipped
-  it, so p came out too small. **p-values move upward on tied or repeated input**:
+  it, so p came out too small. **p-values change on tied or repeated input**, and rise:
   `jrsa` with ties in `x1` (0.006 to 0.013 where the exact p is 0.05), `shuffle_r2_ci` with
   tied scores, `cross_modal_comparison` with periodic spikes, `cluster_permutation_test` when
   a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` when one
-  signal's trials are identical, and `xflip` on a precomputed matrix, where the count
-  selection of `n_blocks=None` ranks each draw against the others with the same width before
-  comparing the integer counts. `transfer_entropy`,
+  signal's trials are identical, and `xflip` at a fixed `n_blocks`. Under `n_blocks=None`,
+  `xflip` ranks every draw against the others with the same width before comparing the
+  integer counts, which re-ranks the surrogates too, so a tied p can move either way (on
+  ulp-tied draws over two counts, 0.892 fell to 0.838); it stays a valid p over the S + 1
+  exchangeable draws. `transfer_entropy`,
   the band surrogates of `cross_area_coherence`, `zflip`, `paired_fire_prob_test`,
   `shuffle_pvalue_paired`,
   `shuffle_pvalue_unpaired`, `exact_sign_flip` and `StatisticalAnalysis.permutation_test` use
-  the same rule; the mean-difference tests keep their existing width, which is wider. Untied
-  continuous input counts the same draws as before.
+  the same rule; the mean-difference tests keep their existing width, which is wider. A
+  statistic that cancels takes an absolute floor on the width: 100 eps for the `xflip`
+  contrast, 100 eps times both directions' sum for the `granger` and `transfer_entropy` net
+  p, and 100 eps times the bin-pair count for `phase_slope_index`. One repeated X trial
+  against Y trials that pair x + h with x - h makes every PSI zero in exact arithmetic;
+  its p rose from 0.085 to 1.0, the exact p. Untied continuous input counts the same draws
+  as before.
 - `phase_slope_index` reports `z` and `sd` as NaN, the jackknife p as None and
   `ok_for_interpretation=False`, with a `RuntimeWarning`, when the leave-one-segment-out
   replicates agree to rounding. Identical segments (a periodic signal) with Y equal to X gave
