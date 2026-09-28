@@ -184,6 +184,119 @@ class TestReducingTheObservationAxisOfARowMetric:
                     reduction={"aligned": "mean"})
 
 
+class TestAnAdimTheResamplingIgnoresIsRefused:
+    """The null, bootstrap and `lag` act on the last axis (paired metrics) or axis 0 (row
+    metrics) whatever `adim` names: `adim=0` with pearson returned the value and p of
+    `adim=-1` exactly, and a lag of 3 shifted the 30-sample last axis, not the 20 rows."""
+
+    @staticmethod
+    def _pair(shape=(20, 30)):
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=shape)
+        return x1, x1 + rng.normal(size=shape)
+
+    @pytest.mark.parametrize("request_kw", [
+        {"permutations": 20, "rng": 0},
+        {"stats": False, "bootstrap": 20, "null": "iid", "rng": 0},
+        {"stats": False, "lag": 3},
+        {"stats": False, "lag": [0, 2]},
+    ])
+    def test_a_paired_metric_refuses_an_adim_without_the_last_axis(self, request_kw):
+        x1, x2 = self._pair()
+        with pytest.raises(ValueError, match=r"adim=0\).*act\(s\) on axis 1 of the input"):
+            oa.jrsa(x1, x2, metric="pearson", adim=0, **request_kw)
+
+    def test_a_row_metric_refuses_an_adim_without_axis_0(self):
+        x1, x2 = self._pair((20, 30, 4))
+        with pytest.raises(ValueError, match=r"act\(s\) on axis 0 of the input \(the "
+                                             r"observations of a row metric\)"):
+            oa.jrsa(x1, x2, metric="cka", adim=1, lag=2, stats=False)
+        x1, x2 = self._pair()
+        with pytest.raises(ValueError, match="does not name it"):
+            oa.jrsa(x1[None], x2[None], metric="pearson", adim=(0, 1), permutations=20,
+                    rng=0)
+
+    def test_without_resampling_any_adim_runs(self):
+        x1, x2 = self._pair()
+        got = oa.jrsa(x1, x2, metric="pearson", adim=0, stats=False)
+        ref = oa.jrsa(x1, x2, metric="pearson", stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    def test_an_adim_naming_the_resampled_axis_runs(self):
+        """The default is exempt; an equivalent int, and adim=0 for a row metric, name the
+        axis the resampling acts on and give the default's numbers."""
+        x1, x2 = self._pair()
+        base = oa.jrsa(x1, x2, metric="pearson", permutations=20, rng=0, lag=2)
+        same = oa.jrsa(x1, x2, metric="pearson", adim=1, permutations=20, rng=0, lag=2)
+        assert float(same.p) == float(base.p)
+        np.testing.assert_allclose(float(same.value), float(base.value), rtol=1e-12)
+        row = oa.jrsa(x1, x2, metric="cka", adim=0, permutations=20, null="iid", rng=0,
+                      lag=2)
+        row_default = oa.jrsa(x1, x2, metric="cka", permutations=20, null="iid", rng=0,
+                              lag=2)
+        assert float(row.p) == float(row_default.p)
+        np.testing.assert_allclose(float(row.value), float(row_default.value), rtol=1e-12)
+
+
+class TestANumpyIntegerAdimIsTheSameAxis:
+    """`isinstance(adim, int)` missed np.int64(0), which fell through to adim=-1: with a
+    window of (0, 5) pearson gave the value of the last axis, not of axis 0."""
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(20, 30))
+        return x1, x1 + rng.normal(size=x1.shape)
+
+    @pytest.mark.parametrize("adim", [0, (0,)])
+    def test_np_int64_gives_the_int_result_and_refusal(self, adim):
+        x1, x2 = self._pair()
+        as_np = tuple(np.int64(a) for a in adim) if isinstance(adim, tuple) else np.int64(adim)
+        got = oa.jrsa(x1, x2, metric="pearson", adim=as_np, window=(0, 5), stats=False)
+        ref = oa.jrsa(x1, x2, metric="pearson", adim=adim, window=(0, 5), stats=False)
+        last = oa.jrsa(x1, x2, metric="pearson", window=(0, 5), stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+        assert float(got.value) != float(last.value)
+        for a in (adim, as_np):
+            with pytest.raises(ValueError, match="does not name it"):
+                oa.jrsa(x1, x2, metric="pearson", adim=a, window=(0, 5), permutations=20,
+                        rng=0)
+
+    @pytest.mark.parametrize("adim", [0.0, (0.5,), None, True])
+    def test_an_unsupported_adim_raises_type_error(self, adim):
+        x1, x2 = self._pair()
+        with pytest.raises(TypeError, match="adim must be|each entry of adim"):
+            oa.jrsa(x1, x2, metric="pearson", adim=adim, stats=False)
+
+
+class TestARowMetricWindowsTheFeaturesAtTheDefaultAdim:
+    """At adim=-1 the six axis-0 metrics window the last axis, the features, while `lag` and
+    the null act on the observations; `adim=0` windows the observations."""
+
+    ROW = ["cka", "distance_correlation", "hsic", "procrustes", "rsa", "rv"]
+
+    @staticmethod
+    def _pair():
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(200, 40))
+        return x1, x1 + rng.normal(size=x1.shape)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_the_default_windows_the_features(self, metric):
+        x1, x2 = self._pair()
+        got = oa.jrsa(x1, x2, metric=metric, window=(0, 20), stats=False, return_input=True)
+        assert got.aligned_x1.shape == (200, 20)
+        ref = oa.jrsa(x1[:, :20], x2[:, :20], metric=metric, stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_adim_0_windows_the_observations(self, metric):
+        x1, x2 = self._pair()
+        got = oa.jrsa(x1, x2, metric=metric, adim=0, window=(0, 50), stats=False)
+        ref = oa.jrsa(x1[:50], x2[:50], metric=metric, stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+
 @pytest.mark.parametrize("key", ["axis_0", 0])
 def test_a_reduction_key_naming_no_axis_of_adim_raises(key):
     """With adim=(-3, -2) the keys are 'axis_-3' and 'axis_-2'. Another key was skipped, so

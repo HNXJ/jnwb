@@ -76,13 +76,15 @@ fig = result.plot()
 
 ### The Permutation Null (`null=`)
 
-Each permutation resamples x2 along one axis: the last axis for the paired metrics
-(`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`, `"mutual_information"`,
-`"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
-conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
-`"procrustes"`. For the paired metrics the null and `lag` act on axis -1 whatever `adim` names,
-so put time last; for the six axis-0 metrics both act on axis 0, the observations. A lag of l
-pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the count.
+Each permutation resamples x2 along one axis, and `lag` shifts the same one, whatever `adim`
+names: the last axis for the paired metrics (`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`,
+`"mutual_information"`, `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`,
+`"phase_slope"`), so put time last, and axis 0, the observations, for `"rsa"`, `"cka"`, `"rv"`,
+`"hsic"`, `"distance_correlation"` and `"procrustes"`. A non-default `adim` that does not name
+that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. At the
+default `adim=-1` the axis-0 metrics window the features; `adim=0` windows the observations. A
+lag of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
+count.
 
 | `null=` | Resampling | Valid when |
 |---|---|---|

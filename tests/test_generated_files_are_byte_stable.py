@@ -30,12 +30,14 @@ GENERATED_FILES = (
     "artifacts/benchmarks/import_breakdown.json",
     "artifacts/benchmarks/vflip_calibration_0.2.4.md",
     "artifacts/benchmarks/vflip_calibration_0.2.4_raw.json",
+    "artifacts/benchmarks/peak_memory.json",
 )
 
 WRITERS = (
     "scripts/generate_api_md.py",
     "scripts/benchmark_import.py",
     "scripts/calibrate_vflip.py",
+    "scripts/measure_peak_memory.py",
 )
 
 

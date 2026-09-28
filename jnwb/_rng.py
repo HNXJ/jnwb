@@ -29,6 +29,7 @@ __all__ = [
     "Default",
     "REQUIRED",
     "RNGLike",
+    "recorded_rng",
     "resolve_rng",
     "resolve_seed_alias",
     "sklearn_random_state",
@@ -183,6 +184,22 @@ def surrogate_rng(
     resolve_rng(rng, func_name=func_name)
     sequence = np.random.SeedSequence(None if rng is None else int(rng))
     return np.random.default_rng(sequence), int(sequence.entropy)
+
+
+def recorded_rng(
+    rng: RNGLike, func_name: str
+) -> Tuple[np.random.Generator, int]:
+    """The surrogate generator, and an ``int`` that rebuilds it for every input.
+
+    As :func:`surrogate_rng` for an ``int`` or ``None``. A ``Generator`` instead gives up
+    one draw, a child seed in ``[0, 2**63 - 1)``, and the surrogates run on
+    ``default_rng(child)``: the caller's stream still advances, and the child is returned,
+    so ``rng=<child>`` reproduces the draws from the result alone.
+    """
+    if isinstance(rng, np.random.Generator):
+        rng = int(rng.integers(0, 2**63 - 1))
+    gen, entropy = surrogate_rng(rng, func_name)
+    return gen, int(entropy)
 
 
 def sklearn_random_state(rng: RNGLike, *, func_name: str) -> int:

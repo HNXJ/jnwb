@@ -371,6 +371,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`JRSAResult.p[0]` and `JRSAResult.q[0]` on a single-lag result (breaking).** `p` and `q`
   are plain 0-d arrays like `value`, so `[0]` raises `IndexError` where it returned the scalar
   with a `FutureWarning`. Use `float(result.p)` or `result.p[()]`.
+- **The refractory keys of `UnitAnalyzer.autocorrelogram` (breaking).** Deprecated in 0.2.6,
+  `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` are no
+  longer returned, and the `FutureWarning` about them is gone; reading one raises `KeyError`.
+  The result holds `acg`, `lag_times_ms` and `device_used`. The single-unit check is
+  `UnitAnalyzer.quality_metrics`.
 
 ### Fixed
 
@@ -406,6 +411,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sd 8e-32, z -7.8e13, p 0.0 and `ok_for_interpretation=True`. The width is
   `8 * eps * n_segments * (n_bins - 1)`, twice the rounding bound of a replicate whose
   coherencies have magnitude at most 1.
+- `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
+  `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
+  surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so
+  passing it back as `rng` reproduces the p-values. The Generator was used in place and
+  `surrogate_seed_entropy` was `None`, so the result alone could not reproduce p. The p-values
+  for a given Generator change; an `int` seed or `None` draws what it drew before.
+- `cross_modal_comparison` reports `surrogate_seed_entropy`, the seed of the circular-shift
+  null behind `lag_corrected_pvalue`, and `None` when no lag sweep ran. With the default
+  `rng=None` the seed was drawn and not reported.
+- `jrsa` raises `ValueError` for an `adim` other than the default that does not name the axis
+  its permutation null, `bootstrap` and `lag` act on (the last axis for the paired metrics,
+  axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes). Those act on that axis
+  whatever `adim` names, so `adim=0` with pearson returned the value and p of `adim=-1`. Without
+  any of the three, every `adim` runs as before.
+- `jrsa` reads a NumPy integer `adim`, alone or in a tuple, as that axis. `np.int64(0)` failed an
+  `int` check and ran as `adim=-1`, so `window=(0, 5)` windowed the last axis instead of axis 0.
+  An `adim` that is not an integer, a string, or a tuple or list of them, including
+  `None`, a float and a bool, raises `TypeError`; it was read as `adim=-1`.
+- `jrsa`'s docstring and the jrsa page state that at the default `adim=-1` the six axis-0
+  metrics window the features while `lag` and the null act on the observations, and that
+  `adim=0` windows the observations.
+- `select_optimal_lag`, which `granger_causality(order='auto')` uses, scores every order on one
+  sample, the targets left after trimming the largest candidate order, as `granger` does. Each
+  order was scored on its own `n - p` targets; on 60-sample pairs that selected another order
+  than the common-sample criteria in 53 of 200 cases.
+- `UnitAnalyzer.quality_metrics` sorts the spike times first. Unsorted, a backward step was a
+  negative interval counted as a refractory violation, and the first and last entries were read
+  as the recording's span: a shuffled 500-spike train read 51% violations where the sorted one
+  read 1%. A train that is not 1-D or holds a NaN or an infinity raises `ValueError`: a NaN read
+  as a good single unit, an infinity raised `OverflowError` and a 2-D array was pooled into one
+  train.
+- `UnitAnalyzer.psth` counts a spike on either edge of `[pre, post]`. Subtracting the onset
+  rounded it just outside the outer bin edges and the histogram dropped it: with a spike on each
+  edge of 405 trials 0.7 s apart, 114 were lost at the left edge and 147 at the right. It now bins as
+  `jnwb.viz.raster_psth` does, clipping each selected spike's relative time to the outer edges,
+  with its right edge still inclusive. With no onsets it returns NaN rates where it raised.
+
 - `jrsa` raises `ValueError` for a `reduction` key that names no axis of `adim`, and the
   message lists the axes that exist. The key was skipped, so the unreduced value came back while
   `parameters['reduction']` recorded the request: with `adim=(-3, -2)` the keys are `"axis_-3"`
@@ -474,6 +516,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `compute_response_metrics` raises `ValueError` when either window's start is at or after its
   stop. A reversed window returned a negative spike count with a positive rate.
 - `raster_psth` accepts a list of spike times; it raised an unrelated `TypeError`.
+- MCP `prepare_signal_reference` returns the series' `conversion`, `offset`,
+  `channel_conversion`, `unit`, `rate_hz`, `starting_time` or `timestamps_path`, `n_channels`,
+  `layout`, `layout_basis` and `reader`, and its `access_hint` gives the physical-value formula and
+  the sample times. Its hint told the caller to slice the stored `data` directly, which skips the
+  scaling and the start time, and read the channel axis from which dimension was longer.
+  `layout` is `"unknown"` unless the electrode region or the schema decides it. `reader` names
+  `jnwb.acquisition_channel` only when the layout is known, the series has a finite constant
+  rate, any `channel_conversion` has one factor per channel, and `jnwb.resolve_acquisition`
+  accepts the series' path as its name; otherwise it is `None`. A file the resolver cannot open,
+  such as HDF5 that is not NWB, still returns the reference, with no reader.
+- `jnwb.bilinear`: the documentation no longer calls two-class `predict_proba` calibrated. It is
+  sigmoid(D_1 - D_0) of two mirrored one-vs-rest scores, about sigmoid(2 D_1), and overconfident
+  on held-out trials.
+- Documentation figures 1, 3, 5, 7 and 10: no legend is drawn over data. A legend without a box
+  had nothing between its text and the bars or traces under it on the transparent background, and
+  figure 5's boxed legend hid the top of the cone-of-influence contour. Figure 10 shades the
+  samples `repair_lfp_trials` replaced, not the injected window.
 
 ## [0.2.6.1] - 2026-09-25
 

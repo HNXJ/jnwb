@@ -535,3 +535,22 @@ class TestNestedCvGroups:
         X, labels = _noisy_two_class()
         with pytest.raises(TypeError):
             nested_cv_linear_svm(X, labels, 5, 42, np.arange(len(labels)) % 4)
+
+
+def test_two_class_bilinear_probability_is_the_documented_uncalibrated_logistic():
+    """`jnwb.bilinear` documents two-class `predict_proba` as sigmoid(D_1 - D_0) of mirrored
+    one-vs-rest scores, about sigmoid(2 D_1), and says it is not calibrated."""
+    import jnwb.bilinear as bilinear
+
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 2, 200)
+    X = rng.normal(size=(200, 4, 6))
+    X += 0.3 * (2 * y - 1)[:, None, None] * np.outer(rng.normal(size=4), rng.normal(size=6))
+    model = bilinear.BilinearLogisticRegression(rank=1, random_state=0).fit(X, y)
+    D = model.decision_function(X)
+    np.testing.assert_allclose(model.predict_proba(X)[:, 1], 1 / (1 + np.exp(D[:, 0] - D[:, 1])),
+                               rtol=0, atol=1e-12)
+    np.testing.assert_allclose(D[:, 0], -D[:, 1], rtol=0, atol=1e-3 * np.abs(D).max())
+    doc = bilinear.__doc__ + bilinear.BilinearLogisticRegression.predict_proba.__doc__
+    assert "not calibrated" in doc and "uncalibrated" in doc
+    assert "for calibrated probabilities" not in doc

@@ -702,6 +702,25 @@ class TestTransferEntropyReportsDegenerateDiscretization:
         assert res.diagnostics["ok_for_interpretation"] is True
 
 
+@pytest.mark.parametrize("criterion", ["aic", "bic", "hqic"])
+def test_select_optimal_lag_scores_every_order_on_granger_common_sample(criterion):
+    """Each order was scored on its own n - p targets; on these 60-sample pairs that picked
+    another order than the common-sample criteria of `granger` in about a quarter of cases."""
+    from jnwb.connectivity import _granger_order_criteria, select_optimal_lag
+
+    n, max_lag = 60, 10
+    cap = min(max_lag, (n - 2) // 3)
+    for s in range(40):
+        e = np.random.default_rng(s).normal(size=(2, n))
+        x, y = np.zeros(n), np.zeros(n)
+        for t in range(2, n):
+            x[t] = 0.3 * x[t - 1] + 0.2 * x[t - 2] + 0.3 * y[t - 1] + e[0, t]
+            y[t] = 0.4 * y[t - 1] + e[1, t]
+        scores = _granger_order_criteria(y[None], x[None], [], cap, 0.0, criterion)
+        assert select_optimal_lag(x, y, max_lag=max_lag, criterion=criterion) == \
+            int(np.argmin(scores)) + 1, f"seed {s}"
+
+
 class TestCrossModalLagSearchPaysForItself:
     """`cross_modal_comparison` reported the p at the max-|r| lag without correcting for
     the search, so on independent white noise over 101 lags it called 99.5% of runs
@@ -757,6 +776,30 @@ class TestCrossModalLagSearchPaysForItself:
         res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=100, seed=0)
         assert res["lag_search_resolution_floor"] == pytest.approx(101 / 600)
         assert any("lag_window_too_wide" in w for w in res["warnings"])
+
+    @pytest.mark.parametrize("rng", [None, 3, "generator"])
+    def test_the_recorded_seed_reproduces_the_corrected_p(self, rng):
+        """The result names the seed its null ran on, so it alone reproduces the p."""
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        given = np.random.default_rng(11) if rng == "generator" else rng
+        first = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=60, rng=given)
+        seed = first["surrogate_seed_entropy"]
+        assert isinstance(seed, int)
+        if rng == 3:
+            assert seed == 3
+        if rng == "generator":
+            assert seed == int(np.random.default_rng(11).integers(0, 2**63 - 1))
+        again = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=60, rng=seed)
+        assert again["lag_corrected_pvalue"] == first["lag_corrected_pvalue"]
+        assert again["surrogate_seed_entropy"] == seed
+
+    def test_no_seed_is_recorded_without_a_sweep(self):
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        assert cross_modal_comparison(x, y, rng=3)["surrogate_seed_entropy"] is None
 
 
 class TestPsiInferenceIsNotOverstated:

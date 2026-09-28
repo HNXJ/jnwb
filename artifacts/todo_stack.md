@@ -67,19 +67,9 @@ under 0.2.8. The second pass of that date added P-240 and clauses of P-241, P-33
 and folded clauses of P-336 and P-348 into P-327 and P-349. A packet takes one finding and
 narrows the write set to its paths. P-345 leads.
 
-- P-240: With transparent figure backgrounds, legends lost their opaque box and overlap data: fig07 panel A (text over bars 4-5, both variants) and fig10 panel B. Required for 0.2.7 (condition 1, second pass 2026-09-27): Hamm ruled on 2026-09-27 that overlapping legends fail condition 1; fix fig07 panel A and fig10 panel B.
-- P-241: IB-73 of 07-03 changes `spectral_tilt`'s `exponent`, which `docs/generate_figures.py:244-251` reads for fig04, so fig04 is regenerated in 0.2.7, and the contrast check in `tests/test_figure_form.py` cannot vouch for a dark variant (the parser gap is in 07-26). Required for 0.2.7 (condition 1, second pass 2026-09-27): every regenerated figure's dark variant gets an eye-check, recorded.
-- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Required for 0.2.7 (R5, R4, classified 2026-09-27): `requires-python >=3.12` while CI installs the newest 3.12 patch, and behaviour differs on 3.12.0 (06-146, P-317); fold into IB-70's floors leg of 07-03 or raise the floor.
-- P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Required for 0.2.7 (R4, classified 2026-09-27): the readiness step cannot see a required bullet inside a deferred item.
-- P-318: `UnitAnalyzer.autocorrelogram` keeps `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` in 0.2.6 as NaN with a `FutureWarning` (ruled 2026-09-23); 0.2.7 removes them. Required for 0.2.7 (R3, classified 2026-09-27): `jnwb/analyzers.py:414` and `:446` promise the removal in 0.2.7; P-319 is moot after it.
-- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Folded from P-336 on 2026-09-27: STEP 0a reads a failed `git status` as clean, and a mutant doing so survives 100 tests; a test for it joins this check. Required for 0.2.7 (R4, classified 2026-09-27): the release gate accepts a receipt at HEAD over a dirty tree.
 - P-331: `phase_slope_index`'s jackknife has no zero-spread guard: a periodic X with Y equal to X gives z = -2e13, p = 0 and `ok_for_interpretation=True` with no warning (invariant 8). Required for 0.2.7 (R1, second pass 2026-09-27): the minimal repair is a zero-spread guard.
-- P-332: Two observations of the closure pass at `1d5e8b81`: `UnitAnalyzer.quality_metrics` accepts unsorted spike times, counting negative inter-spike intervals as violations and reading a wrong duration (`jnwb/analyzers.py:580-593`); and `cross_modal_comparison` does not report its seed (`jnwb/statistics.py:1689-1710`, invariant 5). Required for 0.2.7 (R1, classified 2026-09-27): fold the seed with IB-75, IB-76 and IB-77 of 07-03. The other observations of this row are in 07-26.
-- P-332: `UnitAnalyzer.psth` drops spikes at the window edges, 168 of 405 at the left edge and 108 of 405 at the right, while its docstring says the right edge is inclusive; the defect class of IB-81 in 07-03. Required for 0.2.7 (R1, second pass 2026-09-27): bin so that no selected spike falls outside the edges, with both edges as the test.
-- P-339: The MCP tool `prepare_signal_reference` tells an agent to slice raw `/data` without `conversion`, `channel_conversion`, `offset` or `starting_time`, and guesses layout from the shape. Required for 0.2.7 (R2, classified 2026-09-27): `jnwb/mcp_server/nwb_tools.py:80-86` tells an agent to slice raw `/data` without conversion, offset or `starting_time`.
 - P-345: Other permutation nulls miss draws that reproduce the observed statistic in a different summation order, so p comes out too small: `jrsa`'s `_p_from_null` when x1 has ties (p 0.035 to 0.039 where the exact p is 0.05), `shuffle_r2_ci` with tied scores, `cross_modal_comparison` with periodic spikes (up to 72x), `cluster_permutation_test` when a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` with identical trials, and `xflip` at small n (23 of 200 cross 0.05 at n=6). Repairs per site: a tolerance relative to the statistic, `math.fsum`, or sorted rows. Required for 0.2.7 (R1, classified 2026-09-27): anti-conservative p across permutation nulls.
 - P-349: `zflip` still reports `adjacent_identifiable=True` and a finite delay from rounding residue for a pair with a constant contact, though `accepted` is now False (invariant 8). Required for 0.2.7 (R1, classified 2026-09-27): reproduce first. Folded from P-348 on 2026-09-27: no test pins the exactness of `zflip`'s constancy check (a `ptp < 1e-6` mutant survives); one joins this check. The other two observations of this row are in 07-26.
-- P-353: The readiness check treats any item deleted after the receipt as done, so it cannot tell a finished item from a dropped one (closure pass at `f0d905bf`). Required for 0.2.7 (R4, classified 2026-09-27). The other two edges of this row are in 07-26.
 
 ### 07-02 Release-process observations from 0.2.6
 
@@ -90,8 +80,6 @@ Observed while releasing 0.2.6. RP-5 meets the blocker predicate by the independ
 classification of 2026-09-27, and RP-7's minimal check is Hamm's ruling of that date; the rest
 is in 07-27 under 0.2.8, and RP-1's ruled bypass removal is the release step 07-29.
 
-- RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds. Ruled 2026-09-25: the tag push publishes to TestPyPI, so PyPI publishes only after TestPyPI succeeded. Required for 0.2.7 (R5, R3, classified 2026-09-27): TestPyPI before PyPI, as `artifacts/fact_stack.md` records and 2026-09-25 ruled.
-- RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Required for 0.2.7 (Hamm ruled 2026-09-27, a minimal check): a script measures peak RSS for a fixed set of representative operations and records it before the release, with no threshold yet. `artifacts/goal.md` section 8 names 07-02 as the carrier.
 
 ### 07-03 Post-release inspection findings
 
@@ -104,13 +92,9 @@ the probes are in the inspection reports. Every bullet here is required for 0.2.
 flight, ruled on 2026-09-27, or meeting the blocker predicate by that date's independent
 classification. The deferred bullets are in 07-28 under 0.2.8.
 
-- IA-19: two-class `bilinear` `predict_proba` is sigmoid(2 D) and overconfident (held-out bin 0.8 to 0.9 predicts 0.856, observes 0.582) though documented as calibrated; experimental and outside `__all__` (`jnwb/bilinear.py:31`, `134-138`). Check: the documentation stops calling it calibrated, or the claim is removed. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is to correct or remove the "calibrated probabilities" claim at `jnwb/bilinear.py:31`; the one-model redesign is in 07-28.
-- IB-37: P-63's count is stale: 25 of 160 exports are named in no skill, not 30. Check: P-63's figure corrected where it is quoted, from a recount.
-- IB-46: with a `Generator`, the directed estimators record `surrogate_seed_entropy` as `None`, so the result alone cannot reproduce p; this matches `cross_area_coherence`. Check: rule whether to record a child seed. Graded 2026-09-25 highly recommended: record a child seed so the result alone reproduces p. Required for 0.2.7 (R1, classified 2026-09-27): invariant 5; fold with IB-75 and IB-77.
-- IB-49: `jrsa`'s null, bootstrap and `lag` act on the last axis (the paired metrics) or axis 0 (the row metrics) whatever `adim` names; 0.2.6.1 discloses it in the docstring and on `docs/03`. Check: rule whether they follow `adim` or refuse a non-default `adim` with a null or a lag. Graded 2026-09-25 minimal expandable: refuse a non-default `adim` when a null or `lag` is used; following `adim` waits. Required for 0.2.7 (R1, classified 2026-09-27): resolve jointly with IB-58.
-- IB-58: for the six `jrsa` axis-0 metrics at the default `adim=-1`, `window` slices the feature axis while `lag` and the null act on axis 0. Check: say so in the docstring, or window the observation axis for those metrics. Required for 0.2.7 (R1, classified 2026-09-27): reproduced: `jrsa(x, y, metric='cka', window=(0, 20))` on (200, 40) input windows the features, not the observations, silently.
-- IB-72: `select_optimal_lag`, reached only from the deprecated `granger_causality(order='auto')`, still scores each order on its own sample (n - p) while `granger` now uses one common trimmed sample. Check: align it with `granger`'s criteria or state the departure in its docstring. Required for 0.2.7 (R1, classified 2026-09-27): the minimal repair is a common sample for the order selection, or the departure stated.
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
+- IB-94: CI's installed-wheel leg fails `test_no_second_jnwb_shadows_the_one_under_test`, because the checkout sits ahead of the installed wheel on `sys.path` (run on `76656502`, the first time the leg has run). Required for 0.2.7 (R4, classified 2026-09-28): the qualification leg cannot establish that the wheel was tested. Check: the insertion is named and removed, the provenance test is unchanged, and the build job is green.
+- IB-95: `jnwb.vis.laminar.plot_csd` labels its colorbar "CSD (mV/mm²)" by default, but `current_source_density_1d` returns A/m³ and `voltage_curvature_1d` returns V/m², so a default call mislabels either input. Required for 0.2.7 (R1, classified 2026-09-28): a shipped figure states a wrong unit. Ruled by Hamm: the caller names the unit in a required keyword. Check: the unit is required and appears on the colorbar, the CHANGELOG says so, and every docs, skill and example call passes it.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
@@ -130,11 +114,8 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Ruled 2026-09-27.
 
 - Classify every remaining item as `required-0.2.7` or `deferred-0.2.8` against the blocker predicate of `AGENTS.md` §11: an independent critic classifies, a second pass attacks each deferral; the deferred items move under a `# 0.2.8` heading with their reason. Check: no item unclassified; the ruled items and the lanes in flight stay in 0.2.7.
-- `scripts/stack_edit.py`: delete or replace a todo item by id, preserving line endings and asserting the result, with a test. Check: the integrator's stack edits go through it.
 - CHANGELOG fragments: one file per change under a fragments directory, assembled into `CHANGELOG.md` at release by a script with a test; `CONTRIBUTING.md` says how. Check: two parallel fragments merge without conflict.
 - A draft `AGENTS.md` of about 1500 words: rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- Audit the process tests: for each file under `tests/` that checks docs, stacks, prose, gates or rulings, say whether it executes library code or pins wording, and what evidence of release acceptance it carries. Check: the prune list, with evidence per file, goes to Hamm; nothing is deleted before his ruling.
-- Package inventory: exports no skill names and public modules outside `__all__`, with where each is used. Check: the list goes to Hamm; nothing moves this cycle.
 - Compact the todo stack to one line per item (id, surface, check), detail moved to `artifacts/evidence/0.2.7/`. Check: no item's check is lost.
 
 ## Out of 0.2.7 scope
@@ -172,7 +153,7 @@ takes one finding and narrows the write set to its paths.
 - P-01: `scripts/docs_build.py` writes `site/` inside the repository, and the test suite also creates `site/` mid-run with no build invoked, so no read-only packet can establish that the strict docs build passes while keeping the tree clean. Deferred: changes no shipped behaviour and invalidates no release evidence; 06-36 builds into a temporary directory.
   deferred-0.2.8: site/ written in tree; no shipped behaviour or evidence; 06-36 builds to tmp.
 - P-08: Two reproduced review findings carry wrong counts: `doc-assets/module-map-omits-nwb-entry-points` says 36 omitted exports where a probe counts 35, and `ai-plumbing/agent-roles-exist-but-ship-nowhere` says five roles where six exist. Deferred: record counts only.
-  deferred-0.2.8: record counts only; P-63 count carried by IB-37.
+  deferred-0.2.8: record counts only; P-63's count is restated, with its method, in `artifacts/evidence/0.2.7/package_inventory.md`.
 - P-20: The unit-to-layer composition works through existing exports and no document or skill shows it. Deferred: documentation only; planned as 06-89 in `artifacts/planned_post_0.2.6.md`.
   deferred-0.2.8: documentation of an existing composition only.
 - P-36: Reading computational order off the source was wrong on six specs: five predicted a gap the measurement did not find, and one exponential case a reading of the loop structure would miss; a nested loop is not evidence of the order it looks like. Deferred: a method finding, not a code defect; planned as 06-87.
@@ -261,8 +242,6 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: message quality; third clause duplicates P-190.
 - P-257: `ComplexTFR(device=...)` accepts any string as its device record. Deferred: only a hand-built `ComplexTFR` can carry a false record; `complex_tfr` sets it from the resolver.
   deferred-0.2.8: only hand-built ComplexTFR.
-- P-258: The `_backend.py` row of `tests/test_substitution_class_sweep.py` gives `gpu_available` as its reason but now also covers `jax_metal_available`. Deferred: a reason string; the sweep's check is unchanged.
-  deferred-0.2.8: reason string only.
 - P-259: Rule F7 of the documentation contract (no fact that no gate or test enforces) conflicts with 06-51's "no fact present before is absent after"; the import timings in `docs/install.md` are the example, kept. Deferred: which rule wins is Hamm's to rule, and keeping the facts cannot mislead.
   deferred-0.2.8: needs a rule-precedence ruling.
 - P-264: `phase_slope_index` with some bands undefined sums `net` over the defined bands while its docstring says "the whole requested range". Deferred: flagged by `ok_for_interpretation` and stated in the skill row.
@@ -297,7 +276,7 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: both copies must pass.
 - P-283: In `_timestamps_fate`, a regular `timestamps` array beside a `starting_time` with no `rate` attribute does arithmetic with `None`, so `convert` raises `TypeError`, now also through `select=`. Deferred: a loud failure with no wrong value.
   deferred-0.2.8: loud TypeError.
-- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence. Merged here on 2026-09-27: P-209 and IB-71, which count the same identifiers. IB-71's check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
+- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, as do `.github/workflows/workflow.yml` and `CONTRIBUTING.md` in a few places, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence. Merged here on 2026-09-27: P-209 and IB-71, which count the same identifiers. IB-71's check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
   deferred-0.2.8: non-shipping; merge IB-71 and P-209 here.
 - P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
   deferred-0.2.8: fails closed only.
@@ -446,6 +425,42 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: ruled 2026-09-27 to land one release after the warning.
 - Response-significance wording: the bursting limit (about 30% of units below 0.05 at no effect) holds for bursts of spikes 4 ms apart and falls to about 19% at 50 ms, which the docstring, `docs/06`, the spiking skill and the changelog do not say; the claim has four homes and the test pins only the rate; `RenamedKeyDict.setdefault` on a renamed key inserts a shadow key; `docs/04` grew past its ceiling with release-transitional clauses the changelog already carries.
   deferred-0.2.8: the direction of the limit is right everywhere and the classifier's effect-size cut keeps bursting units from reading significant; the rest is wording and length.
+- Readiness blind spots: a `##` section that lists work outside any item is not seen; a modified file marked `--assume-unchanged` or `--skip-worktree` passes the clean-tree check; whether a job-level `continue-on-error` on the TestPyPI job reports success for a failed upload is not established.
+  deferred-0.2.8: the live stack has no such section and the release job carries no such flag; the ignored-file and rename cases are covered.
+- Peak-memory reset evidence: on Linux a clear_refs write that does not raise counts as a reset, though the reset itself is never observed; the docstring and `CONTRIBUTING.md` say exact on Linux without the unwritable case; on the `ru_maxrss` fallback `peak_mib` can be the spawning process's peak, unlabelled. Check: the reset is confirmed by a re-read, the unwritable row is documented, and the fallback's `peak_mib` is labelled or its limit stated.
+  deferred-0.2.8: every `added_mib` row stays correctly labelled on each path, and the record carries no threshold.
+- Floor coverage: Python 3.12.0 runs on the Ubuntu floors leg only, with floor dependencies; the newest dependencies on 3.12.0 and Windows 3.12.0 are not exercised.
+  deferred-0.2.8: the known 3.12.0 defect class is a standard-library difference that the Ubuntu leg reaches.
+- One smoke definition: the CI smoke script and the release gate's installed-package script check different things. Check: one definition both run, or the difference stated.
+  deferred-0.2.8: each is exercised where it runs; neither can pass for the other's artifact.
+- Release workflow edges: the smoke script's pass branch, export check and optional-extra check run only in CI's build job, with no test that drives them to failure; a file yanked on TestPyPI still passes the hash comparison before PyPI; the verify job's one-wheel count is not asserted.
+  deferred-0.2.8: each fails loudly in CI or needs a yank the release step itself would make; the files PyPI receives are hash-checked against the verified upload.
+- Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under a loaded full run and passed alone. Check: a timeout scaled to the machine, or the subprocess made cheaper.
+  deferred-0.2.8: a timeout fails loudly and hides no wrong result.
+- Load-sensitive state generation: `test_generation_is_deterministic_apart_from_its_timestamp` failed once in a loaded full run, because one of its two generations recorded the harness gate as FAILED with 0 PASS lines; it passed alone. Check: the cause named (a gate reading a file another test rewrites, or a timeout), and removed.
+  deferred-0.2.8: it fails loudly, and a state file written in a clean run records the gates truly.
+- xflip calibration wall time: 297.3 s, then 459.6 s and 502.6 s across lane runs with identical rates. Check: dev and head run back to back on one machine.
+  deferred-0.2.8: the rates, not the time, carry the receipt.
+- Figure checks: the legend test compares an axes' texts only with that axes' legend, tests scatter markers by centre, skips images, and does not reach the quickstart figures in `docs/assets/jnwb_quickstart*.png`.
+  deferred-0.2.8: every figure the release shows was also checked by eye in 0.2.7.
+- Legend check reach: it does not see a `QuadMesh`, `ax.images`, a single-point scatter, a marker's extent, twin axes, `fig.legend` or annotation arrows; its docstring and the 0.2.7 eye-check note state these.
+  deferred-0.2.8: no current figure uses them under a legend, and each was checked by eye.
+- Nav check edges: the wheel-step check matches substrings of the step's whole `run` body, so a commented flag passes; `exclude_docs` is compared literally, where mkdocs applies gitignore patterns, so a globbed exclusion reads as an orphan and an excluded page on the nav goes unseen; an external nav URL ending in `.md` reads as a dead entry. Check: comment lines dropped, exclusions matched as mkdocs matches them, URLs skipped.
+  deferred-0.2.8: the live `mkdocs.yml` has none of these shapes, two of them fail loudly, and the import-provenance test still fails a wheel leg that falls back to the checkout.
+- Stack editor edges: no test chains a delete, another edit and a delete, so a regression that stops the chain resetting would silently revert the edit between; `replace` and `sub` do not refuse removing a fence line, which re-fences the lines after it; a heading is capped at six `#` where the release gate takes any number; a non-breaking-space indent is not read as indentation; `delete_many` then `delete` resolves one after the other; the check-then-replace race and the missing fsync remain. Check: the chain test, a fence check on the replaced span, one heading rule shared with the gate.
+  deferred-0.2.8: the command line makes one call per edit and cannot reach the chain paths, and the live stacks hold no fence, no over-long heading and no such indent.
+- MCP signal reference edges: no test pins the channel axis of a `channel_by_time` series in the reader check; a TimeSeries carrying a `channel_conversion` outside the schema reports it while the reader ignores it; `acquisition_channel` accepts an infinite rate; the sweep row for the MCP module omits the reference tool's own handler.
+  deferred-0.2.8: each fails loudly or needs a file outside the schema, and no shipped number changes.
+- Sweep site fingerprint: a reviewed handler edited in place keeps its site key, so a changed return passes under its old reason. Check: a key that carries a fingerprint of the handler body, with the row churn it causes weighed, or the gap kept stated.
+  deferred-0.2.8: a scientific-tooling trade-off for Hamm; the gap is stated among the sweep's blind spots and no current row is wrong.
+- Process tests to prune or merge: `artifacts/evidence/0.2.7/process_test_audit.md` lists 4 files to prune and 4 to merge, each with its evidence, and four weaker checks a stronger test already covers. Check: Hamm rules on the list.
+  deferred-0.2.8: nothing moves this cycle, and every file on the list passes on the live tree.
+- Exports and modules outside the routing: `artifacts/evidence/0.2.7/package_inventory.md` lists the 26 exports no skill names and 43 public modules with names outside `__all__`. Check: Hamm rules on each group.
+  deferred-0.2.8: nothing moves this cycle; the list changes no behaviour.
+- `jrsa` resampling fallback: `_resample_axis` falls back to downsampling when SciPy is missing while `align` still echoes the request.
+  deferred-0.2.8: SciPy is a declared dependency and input validation refuses unequal shapes before alignment, so no public call reaches it.
+- Generator seeds and `jrsa` axes: `cross_area_coherence`, `xflip` and `zflip` still record no seed for a `Generator`, where the directed estimators record a child seed; `jrsa` refuses an `adim` that names only an axis it reduces, with a message that says the result would not follow `adim`, and the dropped-axis branch of that rule has no test.
+  deferred-0.2.8: the documentation states each behaviour truly, and the refusal changes no number.
 
 ### 07-28 Post-release inspection findings, deferred to 0.2.8
 
@@ -670,3 +685,22 @@ before it is public; a cache key includes the input hash, the parameters and the
 invalidation test.
 Stop: a control would change a number; the API surface is a public API choice and goes to Hamm
 before code.
+
+### 07-30 Skills and roles carry the review checks
+
+Release: deferred-0.2.8.
+Asked by Hamm on 2026-09-28: jnwb's skills and roles take in the code-and-math, figure and prose checks, and the project meets its skills with no friction by 0.2.8.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
+Writes: `artifacts/skills/**`, `artifacts/agents/*.md`, `.claude/agents/*.md`, `AGENTS.md`, `skills/*/SKILL.md`, `skills/*/agents/*.yaml`, `docs/agents.md`, `scripts/*.py`, `tests/**/*.py`.
+Evidence and counts: `artifacts/evidence/0.2.8/skills_audit.md`. Rulings: `artifacts/rulings/2026-09-28.md`. Steps, in order:
+- Role files point to one contract: `authority.md` loses its own loading order for a pointer to `AGENTS.md` §3; each role expects the §5 packet and adds only its own fields; docs-harness loses its skill count and both "100%".
+- One line ending across `skills/` and `artifacts/skills/`, before any skill edit, with Gate 16 held per tree.
+- `artifacts/skills/jnwb-review` holds the review table from the evidence file; critic, verifier, docs-harness and fact-action V point to it; `AGENTS.md` §7 names it and says a host skill adds only checks the jnwb skill leaves open.
+- Trigger and table repair: the figures trigger names Matplotlib and unit-quality plots; `raster_psth` has one row; unit QC has one owner; `docs/agents.md` states no count; the MCP tool list and the landmark-viz DPI sentence are corrected; the router links `docs/errors.md` and tutorial 00.
+- Verification lines for figures (render at final size and inspect) and statistics (test, sidedness, n, correction, interval).
+- `tests/test_figure_form.py` adds text-overlap and outside-figure checks, each built by a fixture of its own case.
+- Docs form F8: the slop lexicon, zero in `docs/` and `skills/`, with a planted case caught.
+- `.claude/agents/jnwb-verifier.md` as a thin router.
+- 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
+Accept: every module, export, docs page, example and notebook is routed by a skill or excluded with a checked reason (widening 07-12); each trigger phrase has one owning skill; no role file holds a loading order or packet list; every pointer to the review skill resolves; the figure and prose checks pass; an independent critic finds no friction the evidence file's list names.
+Stop: a skill edit would restate mathematics `artifacts/direction.md` keeps out of skills, or would put personal voice or process vocabulary in `skills/` or `docs/`.

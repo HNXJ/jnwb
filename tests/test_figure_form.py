@@ -31,7 +31,7 @@ MIN_CONTRAST = 2.0
 
 #: Colours drawn over a figure element rather than over the page, by generator function.
 DRAWN_OVER_A_FIGURE = {
-    "fig05_complex_tfr": {"white": "the cone-of-influence line over the TFR image",
+    "fig05_complex_tfr": {"white": "the legend text inside its dark box over the TFR image",
                           "#2d2d2d": "the legend box behind white legend text"},
 }
 
@@ -114,6 +114,129 @@ def test_every_figure_on_a_page_has_both_variants():
                             page.read_text(encoding="utf-8"))
     ]
     assert not bare, f"a figure shown the same under both schemes: {bare}"
+
+
+def _legend_overlaps(fig) -> list[str]:
+    """Data a legend is drawn over: lines, contours, bars, spans, fills, point clouds and texts.
+
+    Any intersection is an overlap, framed legend or not: a box hides the data under it. Each
+    axes' own legend (``ax.get_legend()``) is compared with that axes' own artists. The check
+    does not see:
+
+    * any ``QuadMesh``, which is skipped wherever it is and whatever it covers (it is meant for
+      a time-frequency map that fills the axes; the colour of legend text over it is left to
+      `DRAWN_OVER_A_FIGURE`);
+    * ``ax.images``, which are never inspected;
+    * a scatter of a single point, whose marker path is tested in the wrong coordinates;
+    * a marker's extent: a point cloud is tested at its centres, and a line at the path
+      joining its points, so a marker whose centre is outside the box but whose edge is inside
+      passes;
+    * a twin axes: a legend is not compared with the artists of an axes sharing its area;
+    * ``fig.legend``, and the arrow of an annotation.
+    """
+    from matplotlib.collections import QuadMesh
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    hits = []
+    for index, ax in enumerate(fig.axes):
+        legend = ax.get_legend()
+        if legend is None:
+            continue
+        box = legend.get_window_extent(renderer)
+        for line in ax.get_lines():
+            if line.get_transform().transform_path(line.get_path()).intersects_bbox(box, filled=False):
+                hits.append(f"axes {index}: line {line.get_label()!r}")
+        for patch in ax.patches:
+            if patch.get_window_extent(renderer).overlaps(box):
+                hits.append(f"axes {index}: patch {patch.get_label()!r}")
+        for coll in ax.collections:
+            if isinstance(coll, QuadMesh):
+                continue
+            offsets = coll.get_offsets()
+            # A line contour is open paths; testing it as filled would close the cone of influence
+            # into a polygon and report everything inside it.
+            filled = getattr(coll, "filled", True)
+            if len(offsets) > 1:
+                points = coll.get_offset_transform().transform(offsets)
+                if any(box.contains(x, y) for x, y in points):
+                    hits.append(f"axes {index}: points {coll.get_label()!r}")
+            elif any(coll.get_transform().transform_path(p).intersects_bbox(box, filled=filled)
+                     for p in coll.get_paths()):
+                hits.append(f"axes {index}: collection {coll.get_label()!r}")
+        for text in ax.texts:
+            if text.get_window_extent(renderer).overlaps(box):
+                hits.append(f"axes {index}: text {text.get_text()!r}")
+    return hits
+
+
+@pytest.fixture(scope="module")
+def legend_overlaps():
+    """Every figure the generator draws, in both themes, mapped to what its legends cover."""
+    import importlib.util
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    found = {}
+    with matplotlib.rc_context():
+        spec = importlib.util.spec_from_file_location("_figure_generator", GENERATORS[0])
+        generator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generator)
+        generator._save = lambda fig, name: found.__setitem__(
+            name.replace(".png", generator.SUFFIX), _legend_overlaps(fig))
+        for theme in generator.THEMES:
+            generator.apply_theme(theme)
+            for draw in generator.FIGURES.values():
+                draw()
+                generator.plt.close("all")
+    return found
+
+
+def test_no_legend_covers_the_data(legend_overlaps):
+    assert len(legend_overlaps) == 20, sorted(legend_overlaps)
+    offenders = {name: hits for name, hits in legend_overlaps.items() if hits}
+    assert not offenders, f"a legend is drawn over data: {offenders}"
+
+
+def test_the_overlap_check_catches_a_legend_over_a_bar():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, (over, clear) = plt.subplots(1, 2)
+    over.bar([1, 2, 3], [100, 100, 100])
+    over.axhline(50, label="baseline")
+    over.set_ylim(0, 105)
+    over.legend(frameon=False, loc="upper right")
+    clear.bar([1, 2, 3], [100, 100, 100])
+    clear.axhline(50, label="baseline")
+    clear.set_ylim(0, 150)
+    clear.legend(frameon=False, loc="upper right")
+    hits = _legend_overlaps(fig)
+    plt.close(fig)
+    assert hits and all(h.startswith("axes 0") for h in hits), hits
+
+
+def test_the_overlap_check_catches_a_framed_legend_over_a_contour_but_not_over_a_mesh():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    x, y = np.meshgrid(np.linspace(0, 1, 40), np.linspace(0, 1, 40))
+    fig, (over, clear) = plt.subplots(1, 2)
+    for ax in (over, clear):
+        ax.pcolormesh(x, y, x * y, shading="auto")
+        # A U-shaped line contour whose arms reach the top corners.
+        ax.contour(x, y, (x - 0.5) ** 2 * 4 - y, levels=[0.0], linestyles="--")
+        ax.plot([], [], ls="--", label="boundary")
+    over.legend(frameon=True, loc="upper left")
+    clear.legend(frameon=True, loc="upper center")
+    hits = _legend_overlaps(fig)
+    plt.close(fig)
+    assert hits and all(h.startswith("axes 0: collection") for h in hits), hits
 
 
 def test_the_colour_check_catches_a_hardcoded_foreground():
