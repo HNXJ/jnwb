@@ -678,6 +678,38 @@ def test_a_finished_row_naming_an_item_not_held_at_the_receipt_fails(tmp_path):
     assert len(v) == 1 and "not held open" in v[0] and v[0].endswith(": 99-931"), v
 
 
+def _merged(tmp_path, *, receipt_on_main):
+    """The receipt and the deletion recorded on a side branch and merged back. With
+    ``receipt_on_main`` the trunk records the same receipt too, so the merge is clean."""
+    before = [_item("99-930", REQUIRED), _item("99-931", DEFERRED)]
+    root = _tree(tmp_path, items=before, receipt=False)
+    todo = root / "artifacts" / "todo_stack.md"
+    passed = _commit(root, "the tree the closure pass reads")
+    trunk = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    _git(root, "checkout", "-q", "-b", "side")
+    _record_receipt(root, passed, finished="99-930")
+    todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items=_item("99-931", DEFERRED)),
+                    encoding="utf-8")
+    _commit(root, "record the closure pass on a side branch")
+    _git(root, "checkout", "-q", trunk)
+    if receipt_on_main:
+        _record_receipt(root, passed, finished="99-930")
+    _commit(root, "the trunk moves on")
+    _git(root, "-c", "core.editor=true", "merge", "-q", "--no-ff", "--no-edit", "side")
+    return check_release_readiness(root, head=_git(root, "rev-parse", "HEAD"))
+
+
+def test_a_receipt_recorded_on_one_side_of_a_merge_is_one_write(tmp_path):
+    """The merge takes the side branch's receipt; it writes none of its own."""
+    assert _merged(tmp_path, receipt_on_main=False) == []
+
+
+def test_a_receipt_recorded_on_both_sides_of_a_merge_is_two_writes(tmp_path):
+    """Git's default history simplification follows one side of the merge and counts one."""
+    v = _merged(tmp_path, receipt_on_main=True)
+    assert len(v) == 1 and "changed in 2 commit(s)" in v[0], v
+
+
 def test_only_the_unrecorded_one_of_two_deleted_items_is_named(tmp_path):
     v = _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-934", REQUIRED),
                             _item("99-931", DEFERRED)],

@@ -394,19 +394,25 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
    `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
    all went through a PR merge; this step said "fast-forward" through all of them.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) and the
-   `publish-testpypi` job, which uploads to TestPyPI. It does **not** upload to PyPI.
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build), then the
+   `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
+   installs `jnwb==X.Y.Z` from TestPyPI into a fresh environment (dependencies from PyPI) and
+   runs `scripts/smoke_installed.py` against it from outside the checkout. It does **not**
+   upload to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
    job runs on `release: published`. Its first step waits for the tag push run and fails
-   unless that run's `publish-testpypi` job concluded `success`; only then does it upload to
-   production PyPI via trusted publishing.
+   unless that run's `publish-testpypi` and `verify-testpypi` jobs both concluded `success`;
+   only then does it upload to production PyPI via trusted publishing.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
 **TestPyPI:** every `v*` tag push runs the `publish-testpypi` job, an `rc` tag
 (`vX.Y.ZrcN`) as well as a final one; a release event never does, because the tag's push run
 has already uploaded those files. `workflow_dispatch` with target `testpypi` is also
-available for maintainers.
+available for maintainers; it uploads but does not verify, since no tag names the version.
+
+The build job and `verify-testpypi` run the same `scripts/smoke_installed.py`;
+`release_gate.py` STEP 7 keeps its own, larger smoke script.
 
 ## Reporting a problem
 

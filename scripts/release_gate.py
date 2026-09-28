@@ -1424,12 +1424,28 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     commit deletes from the todo stack every id the row names; every such id was held open at the
     receipt's commit. A row written or extended later names deletions the pass never saw.
     """
-    listed = subprocess.run(["git", "rev-list", f"{commit}..{head}", "--", RECEIPT_PATH],
+    # `--full-history`, then kept only where the receipt differs from every parent. The default
+    # simplification follows one side of a merge, so a receipt written on both sides counted as
+    # one write; and a merge that only takes one side's receipt is not a write of its own.
+    listed = subprocess.run(["git", "rev-list", "--full-history", f"{commit}..{head}", "--",
+                             RECEIPT_PATH],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return [f"the commits that changed {RECEIPT_PATH} after {commit[:12]} could not be "
                 f"listed: {listed.stderr.strip()[:120]}"]
-    writes = listed.stdout.split()
+
+    def blob(rev: str) -> str:
+        shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{RECEIPT_PATH}"],
+                               cwd=root, capture_output=True, text=True)
+        return shown.stdout.strip() if shown.returncode == 0 else ""
+
+    writes = []
+    for rev in listed.stdout.split():
+        # The commit's own parents; `--parents` on a path-limited walk prints rewritten ones.
+        parents = subprocess.run(["git", "rev-list", "--no-walk", "--parents", rev], cwd=root,
+                                 capture_output=True, text=True).stdout.split()[1:]
+        if all(blob(rev) != blob(p) for p in parents):
+            writes.append(rev)
     if len(writes) != 1:
         return [f"{RECEIPT_PATH} changed in {len(writes)} commit(s) between the receipt's commit "
                 f"{commit[:12]} and HEAD {head[:12]}; it is recorded once, by the commit that "

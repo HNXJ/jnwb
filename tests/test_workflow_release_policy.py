@@ -81,9 +81,10 @@ class TestWorkflowReleasePolicy:
 
 
 class TestTestPyPIBeforePyPI:
-    """The tag push publishes to TestPyPI, and PyPI publishes only after that succeeded. The release event is a different run from the tag push, so `needs:` cannot order
-    the two jobs; the PyPI job's first step reads the push run's TestPyPI job and fails unless it
-    concluded success.
+    """The tag push publishes to TestPyPI and verifies the upload from there, and PyPI publishes
+    only after both succeeded. The release event is a different run from the tag push, so
+    `needs:` cannot order the jobs; the PyPI job's first step reads the push run's two TestPyPI
+    jobs and fails unless both concluded success.
 
     What would pass while the order is broken: a gate step that exists but runs after the upload,
     carries `continue-on-error` or an `if:`, looks for a job name the TestPyPI job no longer has,
@@ -142,7 +143,7 @@ class TestTestPyPIBeforePyPI:
         arms = re.findall(r"^\s*([^\s(][^\n]*?)\)[ \t]*\n(.*?);;", block.group(1), re.M | re.S)
         assert arms, "the gate has no case arms; this test is stale"
         passing = [pattern for pattern, body in arms if re.search(r"\bexit 0\b", body)]
-        assert passing == ['*" success "*'], arms
+        assert passing == ['*" success+success "*'], arms
         assert len(re.findall(r"\bexit 0\b", run)) == 1, "an exit 0 outside the success arm"
         failing = [pattern for pattern, body in arms if re.search(r"\bexit 1\b", body)]
         assert "*" in failing, "a conclusion other than success and pending does not fail"
@@ -153,10 +154,82 @@ class TestTestPyPIBeforePyPI:
         run = self._gate()["run"]
         assert "deadline=$((SECONDS + 3600))" in run
         block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
-        waiting = re.search(r'^\s*\*" pending "\*\|"  "\)\s*\n(.*?);;', block.group(1), re.M | re.S)
+        waiting = re.search(r'^\s*\*pending\*\|"  "\)\s*\n(.*?);;', block.group(1), re.M | re.S)
         assert waiting, "the gate has no arm for a pending or absent job"
         assert re.search(r'if \[ "\$SECONDS" -ge "\$deadline" \]; then\s*\n[^\n]*\n\s*exit 1\b',
                          waiting.group(1)), waiting.group(1)
+
+    # --- the verification of the upload from TestPyPI -------------------------------------
+
+    @staticmethod
+    def _verify_job():
+        jobs = _load_workflow()["jobs"]
+        verify = [j for j in jobs.values() if isinstance(j, dict)
+                  and "test.pypi.org/simple" in " ".join(str(s.get("run", "")) for s in j["steps"])]
+        assert len(verify) == 1, f"expected one job installing from TestPyPI, found {len(verify)}"
+        return verify[0]
+
+    def test_the_verify_job_runs_after_the_upload_and_only_after_it(self):
+        assert self._verify_job()["needs"] == "publish-testpypi"
+
+    def test_the_verify_job_installs_the_tags_version_from_testpypi(self):
+        job = self._verify_job()
+        step = next(s for s in job["steps"] if "test.pypi.org/simple" in str(s.get("run", "")))
+        run = step["run"]
+        assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.ref_name }}", step["env"]
+        assert 'version="${TAG#v}"' in run and '"jnwb==$version"' in run, run
+        assert "--index-url https://test.pypi.org/simple/" in run, run
+        assert "--extra-index-url https://pypi.org/simple/" in run, run
+        assert re.search(r'--expected-version "\$version"', run), run
+        # A fresh environment, and the import resolved outside the checkout.
+        assert "python -m venv /tmp/testpypi_env" in run and "cd /tmp" in run, run
+        assert '--not-under "$GITHUB_WORKSPACE"' in run, run
+
+    def test_the_verify_job_retries_the_install_a_bounded_number_of_times(self):
+        run = next(str(s["run"]) for s in self._verify_job()["steps"]
+                   if "test.pypi.org/simple" in str(s.get("run", "")))
+        loop = re.search(r"for attempt in \$\(seq 1 (\d+)\); do\n(.*?)\n\s*done", run, re.S)
+        assert loop, run
+        assert f'if [ "$attempt" -eq {loop.group(1)} ]' in loop.group(2), loop.group(2)
+        assert re.search(r"\bexit 1\b", loop.group(2)), loop.group(2)
+
+    def test_the_pypi_gate_requires_the_verify_job_to_succeed(self):
+        gate = self._gate()
+        assert gate["env"]["VERIFY_JOB"] == self._verify_job()["name"]
+        assert ("select(.name == env.VERIFY_JOB) | (.conclusion // \"pending\")"
+                in gate["run"]), gate["run"]
+        assert '"$conclusions ${upload:-pending}+${verify:-pending}"' in gate["run"], gate["run"]
+
+    def test_the_build_job_and_the_verify_job_run_the_same_smoke_script(self):
+        jobs = _load_workflow()["jobs"]
+        script = '"$GITHUB_WORKSPACE/scripts/smoke_installed.py"'
+        for name, job in (("build", jobs["build"]), ("verify", self._verify_job())):
+            runs = [str(s.get("run", "")) for s in job["steps"] if script in str(s.get("run", ""))]
+            assert len(runs) == 1, f"the {name} job does not run {script} once"
+            assert "--expected-version" in runs[0] and "cd /tmp" in runs[0], runs[0]
+            assert any("actions/checkout" in str(s.get("uses", "")) for s in job["steps"]), name
+        assert (REPO_ROOT / "scripts" / "smoke_installed.py").is_file()
+
+    def test_no_job_the_pypi_gate_waits_on_can_be_forgiven(self):
+        """A `continue-on-error` job concludes success when it fails, so the gate would read a
+        failed upload or verification, or a failed job either depends on, as a pass."""
+        jobs = _load_workflow()["jobs"]
+        gate = self._gate()["env"]
+        by_name = {job.get("name"): jid for jid, job in jobs.items() if isinstance(job, dict)}
+        pending = [by_name[gate["TESTPYPI_JOB"]], by_name[gate["VERIFY_JOB"]]]
+        seen = set()
+        while pending:
+            jid = pending.pop()
+            if jid in seen:
+                continue
+            seen.add(jid)
+            job = jobs[jid]
+            assert not job.get("continue-on-error"), f"{jid} is continue-on-error"
+            for step in job["steps"]:
+                assert not step.get("continue-on-error"), f"{jid}: {step.get('name')!r}"
+            needs = job.get("needs") or []
+            pending.extend([needs] if isinstance(needs, str) else needs)
+        assert {"publish-testpypi", "build", "test"} <= seen, seen
 
 
 class TestInstalledArtifactVerification:
