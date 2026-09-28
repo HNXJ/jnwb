@@ -362,6 +362,11 @@ def test_headings_that_are_not_items_add_no_violation(tmp_path):
 REQUIRED_BULLETS = {
     "value-form": f"- P-900: a defect.\n  {REQUIRED}: it blocks the release.\n",
     "prose-form": f"- P-900: a defect. Required for {RELEASE_CYCLE} (classified): it blocks.\n",
+    "earlier-cycle": "- P-900: a defect.\n  required-0.0.1: written for a cycle before this one.\n",
+    "bold": f"- P-900: a defect. **Required for {RELEASE_CYCLE}**: it blocks.\n",
+    "bold-word": f"- P-900: a defect. **Required** for {RELEASE_CYCLE}: it blocks.\n",
+    "underscored": f"- P-900: a defect. _Required_ for {RELEASE_CYCLE}: it blocks.\n",
+    "tab-separated": f"- P-900: a defect. Required\tfor\t{RELEASE_CYCLE}: it blocks.\n",
 }
 
 
@@ -624,7 +629,53 @@ def test_a_held_item_deleted_without_the_receipt_recording_it_fails(tmp_path, fi
     this one, being read as covering it."""
     v = _relabel(tmp_path, [_item("99-930", REQUIRED), _item("99-931", DEFERRED)],
                  [_item("99-931", DEFERRED)], finished=finished)
-    assert len(v) == 1 and "gone at HEAD" in v[0] and v[0].endswith(": 99-930"), v
+    gone = [x for x in v if "gone at HEAD" in x]
+    assert len(gone) == 1 and gone[0].endswith(": 99-930"), v
+    # A row naming an id that was never held is refused as well, and says so.
+    assert all("not held open" in x for x in v if x not in gone), v
+
+
+def _later_row(tmp_path, *, row_in_first, delete_in_first, row_later=None, delete_later=False):
+    """A closure pass at R over two held items, then the commit recording the receipt, then
+    optionally a second commit. Returns the violations at the last commit."""
+    before = [_item("99-930", REQUIRED), _item("99-931", DEFERRED)]
+    root = _tree(tmp_path, items=before, receipt=False)
+    todo = root / "artifacts" / "todo_stack.md"
+    passed = _commit(root, "the tree the closure pass reads")
+    left = [_item("99-931", DEFERRED)]
+    _record_receipt(root, passed, finished=row_in_first)
+    if delete_in_first:
+        todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items="\n".join(left)), encoding="utf-8")
+    head = _commit(root, "record the closure pass")
+    if row_later is not None or delete_later:
+        if row_later is not None:
+            _record_receipt(root, passed, finished=row_later)
+        if delete_later:
+            todo.write_text(_TODOS.format(cycle=NEXT_CYCLE, items="\n".join(left)),
+                            encoding="utf-8")
+        head = _commit(root, "a later commit")
+    return check_release_readiness(root, head=head)
+
+
+def test_a_finished_row_written_with_the_deletion_in_the_receipts_commit_passes(tmp_path):
+    assert _later_row(tmp_path, row_in_first="99-930", delete_in_first=True) == []
+
+
+def test_a_finished_row_written_after_the_receipts_commit_fails(tmp_path):
+    """A row added later names deletions the closure pass never saw. What would pass while that
+    holds: reading the row only at HEAD, which is where it was written."""
+    v = _later_row(tmp_path, row_in_first=None, delete_in_first=True, row_later="99-930")
+    assert len(v) == 1 and "changed in 2 commit(s)" in v[0], v
+
+
+def test_a_finished_item_deleted_in_a_later_commit_fails(tmp_path):
+    v = _later_row(tmp_path, row_in_first="99-930", delete_in_first=False, delete_later=True)
+    assert len(v) == 1 and "does not delete" in v[0] and v[0].endswith(": 99-930"), v
+
+
+def test_a_finished_row_naming_an_item_not_held_at_the_receipt_fails(tmp_path):
+    v = _later_row(tmp_path, row_in_first="99-930, 99-931", delete_in_first=True)
+    assert len(v) == 1 and "not held open" in v[0] and v[0].endswith(": 99-931"), v
 
 
 def test_only_the_unrecorded_one_of_two_deleted_items_is_named(tmp_path):

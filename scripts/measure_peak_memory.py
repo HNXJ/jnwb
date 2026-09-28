@@ -6,8 +6,10 @@ runs the operation once, and reads it again. Peak RSS only rises, so ``added_mib
 operation needed above the peak its imports and inputs had already reached; ``peak_mib`` is
 the process's whole peak. ``control_256mib`` allocates and touches 256 MiB and nothing else,
 so its ``added_mib`` shows the instrument resolves an allocation of known size.
+``added_mib`` is a lower bound: memory the operation reuses below the earlier peak is not seen.
 
-No threshold is applied: the record is the cost measured before a release.
+No threshold is applied: the record is the cost measured before a release. The release gate
+runs this without ``--write``; the committed record is refreshed before the closure pass.
 
     python scripts/measure_peak_memory.py            # print the record
     python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/peak_memory.json

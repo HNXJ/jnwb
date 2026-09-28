@@ -92,9 +92,9 @@ python scripts/release_gate.py
 - **`release_gate.py`** — first refuses the release while the working tree has an uncommitted
   change, the problem stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3). It then runs the suite
-  in parallel and prints its wall time and ten slowest tests, records the peak memory of a
-  fixed set of operations in `artifacts/benchmarks/peak_memory.json`
-  (`scripts/measure_peak_memory.py`, no threshold yet), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+  in parallel and prints its wall time and ten slowest tests, prints the peak memory of a
+  fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet, nothing
+  written), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
@@ -382,7 +382,9 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
-   entry.
+   entry; run `python scripts/measure_peak_memory.py --write` and commit
+   `artifacts/benchmarks/peak_memory.json`. All of this lands before the closure pass, whose
+   receipt then covers the record.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded

@@ -118,7 +118,9 @@ class TestTestPyPIBeforePyPI:
         name = _load_workflow()["jobs"]["publish-testpypi"]["name"]
         gate = self._gate()
         assert gate["env"]["TESTPYPI_JOB"] == name
-        assert "select(.name == env.TESTPYPI_JOB)" in gate["run"]
+        # A job still running has no conclusion; it must read as pending, never as success.
+        assert ("select(.name == env.TESTPYPI_JOB) | (.conclusion // \"pending\")"
+                in gate["run"]), gate["run"]
 
     def test_the_gate_reads_this_releases_tag_push_run(self):
         gate = self._gate()
@@ -126,8 +128,8 @@ class TestTestPyPIBeforePyPI:
         assert env["TAG"] == "${{ github.event.release.tag_name }}", env
         assert env["SHA"] == "${{ github.sha }}", env
         assert "event=push&head_sha=$SHA" in gate["run"]
-        assert "select(.head_branch == env.TAG" in gate["run"]
-        assert ".path == \".github/workflows/workflow.yml\"" in gate["run"]
+        assert ('select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml")'
+                in gate["run"]), gate["run"]
         permissions = _load_workflow()["jobs"]["publish-pypi"]["permissions"]
         assert permissions.get("actions") == "read", permissions
 
@@ -144,6 +146,17 @@ class TestTestPyPIBeforePyPI:
         assert len(re.findall(r"\bexit 0\b", run)) == 1, "an exit 0 outside the success arm"
         failing = [pattern for pattern, body in arms if re.search(r"\bexit 1\b", body)]
         assert "*" in failing, "a conclusion other than success and pending does not fail"
+
+    def test_waiting_for_the_push_run_ends_in_failure_after_an_hour(self):
+        """A pending or absent job waits; without the deadline it would wait until the runner's
+        own limit and never say why."""
+        run = self._gate()["run"]
+        assert "deadline=$((SECONDS + 3600))" in run
+        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
+        waiting = re.search(r'^\s*\*" pending "\*\|"  "\)\s*\n(.*?);;', block.group(1), re.M | re.S)
+        assert waiting, "the gate has no arm for a pending or absent job"
+        assert re.search(r'if \[ "\$SECONDS" -ge "\$deadline" \]; then\s*\n[^\n]*\n\s*exit 1\b',
+                         waiting.group(1)), waiting.group(1)
 
 
 class TestInstalledArtifactVerification:
@@ -315,6 +328,13 @@ class TestPublishCapablePipelineHygiene:
         concurrency = _load_workflow().get("concurrency")
         assert concurrency, "no concurrency group; overlapping runs are possible again"
         assert "github.ref" in concurrency["group"], concurrency
+
+    def test_a_tags_push_and_release_runs_do_not_share_a_group(self):
+        """The release run waits on the push run's TestPyPI job; sharing a group, whichever
+        started second would queue behind the other and the wait would time out. Pushes to one
+        branch still share a group, so the later still cancels the earlier."""
+        group = " ".join(_load_workflow()["concurrency"]["group"].split())
+        assert group == "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}", group
 
     def test_a_run_that_can_publish_is_never_cancelled_mid_upload(self):
         """Cancelling a tag or release run is the failure this is meant to prevent."""

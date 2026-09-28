@@ -30,9 +30,11 @@ permissions:
 # One run per ref. Two pushes in quick succession ran overlapping publish-capable
 # pipelines; the later one now cancels the earlier. Tags and releases are excluded: those
 # are the refs that actually publish, and cancelling one mid-upload is the failure this
-# is meant to prevent, not a cost worth paying for a faster queue.
+# is meant to prevent, not a cost worth paying for a faster queue. The event is part of the
+# key: a tag's release run waits for that tag's push run to publish to TestPyPI, and in one
+# group it would queue behind the run it is waiting for.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
 
 jobs:

@@ -214,6 +214,9 @@ def test_the_release_gate_records_peak_memory_beside_the_suite_wall_time():
     main = source[source.index("def main("):]
     step_1 = main.partition("=== STEP 1:")[2].partition("=== STEP 2:")[0]
     assert "Suite wall time" in step_1, "STEP 1 no longer records the suite wall time"
+    # Without --write: STEP 0a has already required a clean tree, and a record written now
+    # would be a change the closure receipt does not cover.
     call = re.search(r"run_cmd\(\[sys\.executable, str\(REPO_ROOT / \"scripts\" / "
-                     r"\"measure_peak_memory\.py\"\), \"--write\"\]\)", step_1)
-    assert call, "STEP 1 does not run scripts/measure_peak_memory.py --write"
+                     r"\"measure_peak_memory\.py\"\)\]\)", step_1)
+    assert call, "STEP 1 does not run scripts/measure_peak_memory.py"
+    assert "--write" not in step_1, "STEP 1 writes the peak memory record into the tree"

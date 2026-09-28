@@ -1147,8 +1147,8 @@ _ITEM_DEPTH = 3
 _LIST_ITEM = re.compile(r"^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\S")
 # A release value written into a line without the `Release:` label: `required-0.2.7` as a
 # bullet's own marker, or the prose form `Required for 0.2.7`.
-_REQUIRED_MARKER = re.compile(r"(?<![\w-])required(?:-|[ \t]+for[ \t]+)v?(\d+(?:\.\d+)+)",
-                              re.IGNORECASE)
+_REQUIRED_MARKER = re.compile(
+    r"(?<![\w-])[*_]*required[*_]*(?:-|\s+for[*_]*\s+[*_]*)v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
 
 def _todo_sections(text: str) -> List[Tuple[Optional[str], int, List[str], Optional[str]]]:
@@ -1282,7 +1282,7 @@ def _receipt_fields(text: str) -> Tuple[Optional[str], Optional[int]]:
 
 
 #: The receipt row naming the items the closure pass verified as finished, which the commit that
-#: records the receipt then deletes from the todo stack: ``| finished after the pass | 07-01, 07-04 |``.
+#: records the receipt then deletes from the todo stack: ``| finished after the pass | 12-34, 12-35 |``.
 RECEIPT_FINISHED_FIELD = "finished after the pass"
 
 
@@ -1413,6 +1413,41 @@ def relabelled_after_receipt(root: pathlib.Path, commit: str, head: str,
             f"{commit[:12]} are gone at HEAD {head[:12]}, and {RECEIPT_PATH} does not record them "
             f"under '{RECEIPT_FINISHED_FIELD}', so whether each was finished or dropped is "
             "unknown: " + ", ".join(dropped[:8]) + (" ..." if len(dropped) > 8 else ""))
+    return violations + _finished_row_history(root, commit, head, set(finished), set(held))
+
+
+def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: Set[str],
+                          held: Set[str]) -> List[str]:
+    """Why the receipt's finished row does not come from the closure pass, or ``[]``.
+
+    Between the receipt's commit and HEAD the receipt changes in exactly one commit, and that
+    commit deletes from the todo stack every id the row names; every such id was held open at the
+    receipt's commit. A row written or extended later names deletions the pass never saw.
+    """
+    listed = subprocess.run(["git", "rev-list", f"{commit}..{head}", "--", RECEIPT_PATH],
+                            cwd=root, capture_output=True, text=True)
+    if listed.returncode != 0:
+        return [f"the commits that changed {RECEIPT_PATH} after {commit[:12]} could not be "
+                f"listed: {listed.stderr.strip()[:120]}"]
+    writes = listed.stdout.split()
+    if len(writes) != 1:
+        return [f"{RECEIPT_PATH} changed in {len(writes)} commit(s) between the receipt's commit "
+                f"{commit[:12]} and HEAD {head[:12]}; it is recorded once, by the commit that "
+                "follows the closure pass"]
+    violations = []
+    unheld = sorted(finished - held)
+    if unheld:
+        violations.append(
+            f"{RECEIPT_PATH} records as finished {len(unheld)} item(s) that were not held open at "
+            f"its commit {commit[:12]}: " + ", ".join(unheld[:8]))
+    parent, child = _todo_stack_at(root, f"{writes[0]}^"), _todo_stack_at(root, writes[0])
+    ids_in = (lambda text: {i for i, _, _ in _parse_todo_stack(text)[0]} if text is not None
+              else set())
+    kept = sorted((finished & held) - (ids_in(parent) - ids_in(child)))
+    if kept:
+        violations.append(
+            f"{RECEIPT_PATH} records as finished {len(kept)} item(s) that the commit recording it, "
+            f"{writes[0][:12]}, does not delete from {TODO_PATH}: " + ", ".join(kept[:8]))
     return violations
 
 
@@ -1654,9 +1689,10 @@ def main() -> None:
     run_cmd([sys.executable, "-m", "pytest", "-q", "-n", "auto", "--durations=10",
              "-p", "no:cacheprovider", "tests/"])
     log.info("Suite wall time: %.0f s", time.monotonic() - started)
-    # Peak memory is the other cost measured before a release. Recorded, with no threshold,
-    # into artifacts/benchmarks/peak_memory.json for the release commit to carry.
-    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py"), "--write"])
+    # Peak memory is the other cost measured before a release, logged here with no threshold.
+    # Nothing is written into the tree: the committed artifacts/benchmarks/peak_memory.json is
+    # refreshed before the closure pass, so the receipt covers it.
+    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 
     log.info("=== STEP 2: Running harness pre-flight verification gate ===")
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])
