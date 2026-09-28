@@ -27,6 +27,8 @@ import subprocess
 import sys
 import tempfile
 
+import pytest
+
 import jnwb
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -185,6 +187,44 @@ def test_the_peak_memory_instrument_resolves_a_known_allocation():
     assert 230.0 <= added <= 290.0, f"256 MiB allocated, {added} MiB recorded"
 
 
+def _assert_the_label_holds(row):
+    added, added_is = row["added_mib"], row["added_is"]
+    if added_is == "exact":
+        assert 230.0 <= added <= 290.0, f"256 MiB allocated, {added} MiB recorded as exact"
+    elif added_is == "upper bound":
+        assert added >= 230.0, f"256 MiB allocated, {added} MiB recorded as an upper bound"
+    else:
+        assert added_is == "lower bound", row
+        assert added <= 290.0, f"256 MiB allocated, {added} MiB recorded as a lower bound"
+
+
+def test_a_control_under_an_earlier_higher_peak_is_never_mislabelled():
+    """The child touches and frees 512 MiB before the 256 MiB control, so its peak is already
+    above anything the control reaches. Before the repair the Linux legs recorded 0.0 MiB with
+    nothing saying the number was a bound. Every platform must either resolve the control or
+    say which side of it the number lies on."""
+    from scripts.measure_peak_memory import measure
+
+    _assert_the_label_holds(measure("control_256mib", prepeak_mib=512))
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"),
+                    reason="only Linux can reset a process's peak resident size "
+                           "(/proc/self/clear_refs); elsewhere the bound above is the claim")
+def test_linux_resolves_the_control_under_an_earlier_peak_in_the_child_and_the_parent():
+    """Two ways the peak is already high before the operation, both seen on CI: the child's
+    own imports, and the spawning process, whose high-water mark ``ru_maxrss`` inherits across
+    ``exec``. Both are forced here: the parent holds 512 MiB while the child touches 512 MiB
+    and frees it. Dropping the reset, reading VmRSS for VmHWM, or scaling kB twice fails."""
+    from scripts.measure_peak_memory import MIB, measure
+
+    held = b"\x01" * (512 * MIB)
+    row = measure("control_256mib", prepeak_mib=512)
+    del held
+    assert row["added_is"] == "exact", row
+    _assert_the_label_holds(row)
+
+
 def test_every_operation_in_the_fixed_set_runs():
     """The release gate runs the set late; an operation broken by an API change fails here."""
     import numpy as np
@@ -207,6 +247,7 @@ def test_the_committed_peak_memory_record_measures_the_fixed_set():
     assert record["unit"] == "MiB"
     for name, row in record["operations"].items():
         assert row["peak_mib"] >= row["added_mib"] >= 0.0, (name, row)
+        assert row["added_is"] in ("exact", "upper bound", "lower bound"), (name, row)
 
 
 def test_the_release_gate_records_peak_memory_beside_the_suite_wall_time():

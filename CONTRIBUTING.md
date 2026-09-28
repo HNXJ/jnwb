@@ -96,7 +96,9 @@ python scripts/release_gate.py
   It then runs the suite
   in parallel and prints its wall time and ten slowest tests, prints the peak memory of a
   fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet, nothing
-  written), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+  written: each operation's peak resident size above its resident size before it, exact on
+  Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
+  its peak cannot be reset; the script's docstring tables each platform), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
