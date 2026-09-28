@@ -338,11 +338,40 @@ def test_csd_primitive():
         time_ms=time_ms,
         depths=depths,
         layer_boundaries={"L4": 0.4, "L5/6": 0.65},
+        value_unit="A/m³",
         depth_unit="relative",
     )
 
     traces = canvas.fig.data
     assert any(isinstance(t, go.Heatmap) for t in traces)
+
+
+def _csd_colorbar(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+             depths=np.arange(3.0), depth_unit="mm", **kwargs)
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    return heatmap.colorbar.title.text
+
+
+@pytest.mark.parametrize("kwargs, label", [
+    ({"value_unit": "V/m²"}, "V/m²"),
+    ({"value_unit": "A/m³", "colorbar_title": "CSD"}, "CSD (A/m³)"),
+])
+def test_csd_colorbar_carries_the_declared_unit(kwargs, label):
+    """The colorbar read "CSD (mV/mm²)" whatever unit the matrix was in."""
+    assert _csd_colorbar(**kwargs) == label
+
+
+def test_csd_value_unit_is_required():
+    with pytest.raises(TypeError, match="value_unit"):
+        _csd_colorbar()
+
+
+@pytest.mark.parametrize("unit", ["", "  "])
+def test_csd_value_unit_must_be_non_empty(unit):
+    with pytest.raises(ValueError, match="value_unit"):
+        _csd_colorbar(value_unit=unit)
 
 
 def _laminar_call(name, depths, **kwargs):
@@ -357,7 +386,7 @@ def _laminar_call(name, depths, **kwargs):
                                 alphabeta_power=np.linspace(0, 1, n), depths=depths, **kwargs)
     else:
         plot_csd(canvas, 0, 0, csd_matrix=np.ones((n, 4)), time_ms=np.arange(4.0),
-                 depths=depths, **kwargs)
+                 depths=depths, value_unit="A/m³", **kwargs)
     _, y_axis = canvas.get_axis_names(0, 0)
     yaxis_name = "yaxis" if y_axis == "y" else f"yaxis{y_axis[1:]}"
     return getattr(canvas.fig.layout, yaxis_name).title.text

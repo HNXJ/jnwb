@@ -357,33 +357,47 @@ def plot_csd(
     depths: np.ndarray,
     layer_boundaries: Optional[Dict[str, float]] = None,
     cmap: str = "RdBu_r",
-    title: Optional[str] = "Current Source Density (CSD)",
-    colorbar_title: str = "CSD (mV/mm²)",
+    title: Optional[str] = None,
+    colorbar_title: Optional[str] = None,
     *,
+    value_unit: str,
     depth_unit: str,
 ) -> None:
     """
-    Render a Current Source Density (CSD) depth x time profile with layer boundaries.
+    Render a depth x time profile, such as current source density, with layer boundaries.
+
+    The function draws either current source density (``jnwb.current_source_density_1d``,
+    A/m³) or voltage curvature (``jnwb.voltage_curvature_1d``, V/m²) and cannot tell them
+    apart, so the caller names the quantity (``title``, ``colorbar_title``) and its unit
+    (``value_unit``).
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        csd_matrix: 2D array of shape [n_depths, n_times].
+        csd_matrix: 2D array of shape [n_depths, n_times], in ``value_unit``.
         time_ms: 1D array of time points relative to event (ms).
         depths: 1D array of cortical depths, in ``depth_unit``.
         layer_boundaries: Dictionary mapping layer names (e.g. 'L4', 'L5/6') to depth coordinates.
         cmap: Diverging colormap name (default 'RdBu_r' where blue is sink, red is source).
-        title: Panel title.
-        colorbar_title: Title for colorbar.
+        title: Panel title, for example ``"Current Source Density"``. None draws no title.
+        colorbar_title: Name of the quantity on the colorbar, for example ``"CSD"``; the
+            colorbar reads ``"<colorbar_title> (<value_unit>)"``. None labels it with
+            ``value_unit`` alone.
+        value_unit: Unit of ``csd_matrix``, for example ``"A/m³"`` or ``"V/m²"``. Required;
+            it labels the colorbar and the hover text.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
             1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
             ``'relative'`` values outside [0, 1] are channels above the pia or below the
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``value_unit`` is not a non-empty string, or ``depth_unit`` is not one
+            of the three units.
     """
+    if not isinstance(value_unit, str) or not value_unit.strip():
+        raise ValueError(f"value_unit must be a non-empty string; got {value_unit!r}")
+    colorbar_label = f"{colorbar_title} ({value_unit})" if colorbar_title else value_unit
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
@@ -395,7 +409,7 @@ def plot_csd(
     vmax = float(np.percentile(np.abs(csd_matrix), 98))
     vmin = -vmax
 
-    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
+    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_label)
     heatmap = go.Heatmap(
         x=time_ms,
         y=depths,
@@ -406,7 +420,10 @@ def plot_csd(
         colorbar=cb_cfg,
         xaxis=x_axis,
         yaxis=y_axis,
-        hovertemplate="Time: %{x:.1f} ms<br>Depth: %{y:.3f}<br>CSD: %{z:.2e}<extra></extra>",
+        hovertemplate=(
+            f"Time: %{{x:.1f}} ms<br>Depth: %{{y:.3f}}<br>Value: %{{z:.2e}} {value_unit}"
+            "<extra></extra>"
+        ),
     )
     canvas.fig.add_trace(heatmap)
 

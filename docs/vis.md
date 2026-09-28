@@ -62,7 +62,7 @@ Each function draws into one `(row, col)` of a canvas.
 | `plot_multi_condition_raster_psth` | rasters and PSTHs per condition from spike and onset times; computes the PSTH and a mean ± 1.96 SEM ribbon across trials, not a bootstrap interval |
 | `plot_spectrolaminar_map` | relative power over depth and frequency |
 | `plot_opposing_gradients` | gamma against alpha/beta power over depth, with supplied CIs |
-| `plot_csd` | current source density over depth and time, with layer boundaries |
+| `plot_csd` | current source density or voltage curvature over depth and time, with layer boundaries; `value_unit=` labels the colorbar |
 | `plot_spectral_modulation_matrix` | area x band modulation, with FDR-corrected markers |
 | `plot_granger_spectra` | directed Granger spectra, with a shuffle-null ribbon |
 | `plot_hierarchy_regression` | values over hierarchy rank with supplied error bars and null; computes a least-squares line |
