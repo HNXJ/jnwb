@@ -178,6 +178,30 @@ def test_zflip_a_constant_contact_leaves_the_shaft_without_a_delay():
     assert res.directionality == "unidentifiable"
 
 
+def test_zflip_a_weakly_coupled_pair_is_not_identifiable():
+    """Each pair's wPLI must reach ``min_wpli``, not only their mean.
+
+    Contact 4 carries the wave under independent noise at twice its SD: both of its pairs
+    still fit a linear phase, but their wPLI (0.84) is below ``min_wpli=0.9`` while the mean
+    (0.94) is above it. What would pass while the pair still counts: checking only
+    ``mean_wpli`` or ``has_coupling``, which the mean satisfies.
+    """
+    rng = np.random.default_rng(0)
+    b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
+    src = signal.filtfilt(b, a, rng.normal(size=4100))
+    data = np.stack([src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(6)])
+    data[4] += 2.0 * np.std(src) * np.random.default_rng(102).normal(size=4000)
+    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, pitch_um=100.0,
+                     min_wpli=0.9, n_surrogates=50, rng=0)
+    assert res.mean_wpli >= 0.9 and np.all(res.adjacent_wpli[3:] < 0.9)
+    assert np.all(res.adjacent_linearity_r2[3:] >= 0.70)
+    assert not res.adjacent_identifiable[3] and not res.adjacent_identifiable[4]
+    assert np.isnan(res.tau_per_channel_s)
+    assert res.apparent_velocity_m_s is None
+    assert not res.accepted
+    assert "[(3, 4), (4, 5)] wPLI below min_wpli" in res.rejection_reason
+
+
 def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
     """Constancy is exact: a contact scaled by 1e-9 is measured, not dropped as flat.
 

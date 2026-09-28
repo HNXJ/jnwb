@@ -383,6 +383,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `adjacent_delays_s` and `adjacent_linearity_r2`. The constant contact's spectrum is
   rounding residue whose phase can be linear in frequency, and such a pair was marked
   identifiable with a finite delay (R^2 0.997 and 0.11 s on a noiseless wave).
+- `zflip` requires each adjacent pair's wPLI to be at least `min_wpli` for that pair's delay to
+  be identifiable, so `accepted` now also depends on each pair's coupling, not only on
+  `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
+  well-coupled mean accepted the result; `rejection_reason` names such pairs.
 - `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
   `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
   surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so

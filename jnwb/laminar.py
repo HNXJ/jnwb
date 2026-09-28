@@ -1979,7 +1979,8 @@ class ZFlipResult(DictAccessMixin):
             NaN for a pair with a constant contact.
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
-            unwrapping unambiguous interval); False for a pair with a constant contact.
+            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``); False for a pair
+            with a constant contact.
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
@@ -1998,7 +1999,7 @@ class ZFlipResult(DictAccessMixin):
             when the test was not performed (``n_surrogates=0``, or a contact is constant).
         accepted: True only if the surrogate test was performed and significant
             (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
-            is identifiable.
+            is identifiable, which requires every adjacent pair's wPLI >= min_wpli.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
@@ -2091,6 +2092,9 @@ def zflip(
          This bounds the estimate, not the true delay: a true delay beyond the interval
          aliases to a smaller estimate that passes, so this check alone cannot detect
          wrapping.
+       - Pair wPLI at least `min_wpli`, the threshold `mean_wpli` is also held to. A weakly
+         coupled pair can still fit a linear phase, and its delay would enter the spatial fit
+         while a well-coupled mean hides it.
        and the cumulative delay along the shaft is linear in contact index
        (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
        are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
@@ -2124,7 +2128,8 @@ def zflip(
             which keeps at least 2 segments so adjacent wPLI is identifiable.
         noverlap: Segment overlap; defaults to `nperseg // 2`.
         min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
-        min_wpli: Minimum average adjacent wPLI required for acceptance (default 0.15).
+        min_wpli: Minimum wPLI required of the adjacent average for acceptance and of each
+            adjacent pair for its delay to be identifiable (default 0.15).
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
             ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
             attainable p-value is ``1 / (n_surrogates + 1)``.
@@ -2258,7 +2263,8 @@ def zflip(
         tau = -slope / (2.0 * np.pi)
         adj_delays[i] = tau
 
-        if r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous:
+        if (r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
+                and adj_wpli[i] >= min_wpli):
             adj_identifiable[i] = True
 
     mean_wpli_val = float(np.mean(adj_wpli))
@@ -2342,6 +2348,10 @@ def zflip(
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling and not flat_contacts:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
+    weak_pairs = [(i, i + 1) for i in range(n_channels - 1) if adj_wpli[i] < min_wpli]
+    if weak_pairs:
+        reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
+                       "delay not identified")
     if not delay_identifiable:
         reasons.append("Phase-frequency relation failed linear identifiability gate")
 
