@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "bc19ff86f3e7f7048fa4c0dbbcd930ecb7f63d9aa09f631767bd52649c986ff7",
+  "estimator_sha256": "fcddba5c9e0914c09c924b50e51b2c7bb2626e41cb71ee141b699288fa74982f",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",

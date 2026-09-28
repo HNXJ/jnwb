@@ -35,7 +35,7 @@ from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from ._spread import is_constant
-from .permutation import _TIE_RTOL, _count_at_least_as_extreme
+from .permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -1370,13 +1370,11 @@ def _select_count_by_min_p(obs_q: np.ndarray, surr_q: np.ndarray) -> Tuple[int, 
     n_draws = draws.shape[0]
     # "At least its own" counts a draw within round-off of it, by the rule every jnwb null
     # uses, applied to each draw in turn: two draws that tie to round-off each count the
-    # other. The p that follows compares the integer counts exactly.
-    at_least = np.array(
-        [[_count_at_least_as_extreme(draws[:, i], draws[j, i], "greater", atol=_TIE_RTOL)
-          for i in range(draws.shape[1])]
-         for j in range(n_draws)],
-        dtype=np.int64,
-    ).reshape(draws.shape)
+    # other. The width is 100 eps * max(1, |contrast|). One sort per count: O(K S log S).
+    # The p that follows compares the integer counts exactly.
+    at_least = np.empty(draws.shape, dtype=np.int64)
+    for i in range(draws.shape[1]):
+        at_least[:, i] = _count_each_at_least_as_extreme(draws[:, i], atol=_TIE_RTOL)
     smallest = at_least.min(axis=1)
     p = float(np.count_nonzero(smallest <= smallest[0]) / n_draws)
 

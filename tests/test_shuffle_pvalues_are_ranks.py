@@ -212,6 +212,17 @@ class TestTheTieRuleCountsRoundOffAndNothingWider:
         assert _count_at_least_as_extreme(-null, -obs, "less") == 2
         assert _count_at_least_as_extreme(-null, obs, "two-sided") == 2
 
+    def test_the_sorted_count_for_every_element_is_the_rule_applied_to_each(self):
+        from jnwb.permutation import _count_at_least_as_extreme, _count_each_at_least_as_extreme
+
+        rng = np.random.default_rng(2)
+        for _ in range(100):
+            v = rng.integers(-3, 4, size=int(rng.integers(1, 40))) / 3.0
+            v = np.where(rng.random(v.size) < 0.4, np.nextafter(v, np.inf), v)
+            for atol in (0.0, 1e-9):
+                expected = [_count_at_least_as_extreme(v, x, "greater", atol=atol) for x in v]
+                assert _count_each_at_least_as_extreme(v, atol=atol).tolist() == expected
+
     def test_untied_data_count_what_a_bare_comparison_counts(self):
         from jnwb.permutation import _count_at_least_as_extreme
 

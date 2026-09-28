@@ -56,7 +56,7 @@ def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float 
         raise ValueError(f"alternative must be one of {list(_TAILS)}; got {alternative!r}")
     null = np.asarray(null, dtype=float)
     obs = float(observed)
-    tol = max(float(atol), _TIE_RTOL * abs(obs))
+    tol = _tie_width(obs, atol)
     if alternative == "greater":
         hit = null >= obs - tol
     elif alternative == "less":
@@ -64,6 +64,26 @@ def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float 
     else:
         hit = np.abs(null) >= abs(obs) - tol
     return int(np.count_nonzero(hit))
+
+
+def _tie_width(observed, atol: float = 0.0):
+    """``max(atol, _TIE_RTOL * |observed|)``, elementwise for an array."""
+    return np.maximum(float(atol), _TIE_RTOL * np.abs(observed))
+
+
+def _count_each_at_least_as_extreme(values, *, atol: float = 0.0) -> np.ndarray:
+    """For every element ``v`` of ``values``, the number of elements at least ``v`` by the
+    rule of ``_count_at_least_as_extreme(values, v, 'greater', atol=atol)``.
+
+    One sort and one binary search per element, O(n log n) where calling that function once
+    per element is O(n^2); the counts are the same integers. ``values`` must be finite.
+    """
+    values = np.asarray(values, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("values must be finite")
+    thresholds = values - _tie_width(values, atol)
+    ordered = np.sort(values)
+    return values.size - np.searchsorted(ordered, thresholds, side="left")
 
 
 def permute_labels(
