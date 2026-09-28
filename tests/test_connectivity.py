@@ -453,6 +453,85 @@ class TestTransferEntropy:
             transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
 
 
+def _zero_lag_pair(n, seed):
+    """Two noisy copies of one white source: no directed coupling and no lead."""
+    rng = np.random.default_rng(seed)
+    s = rng.normal(size=n)
+    return s + 0.5 * rng.normal(size=n), s + 0.5 * rng.normal(size=n)
+
+
+class TestTransferEntropySurrogateComparesPlugInValues:
+    """The Miller-Madow term differs between the observed table and a surrogate's, because a
+    surrogate removes the zero-lag dependence and occupies more cells. Applied to both, it
+    made the test reject two noisy copies of one white source in 0.11 of cases at bins 4 and
+    0.37 at bins 8."""
+
+    def test_the_p_does_not_depend_on_the_bias_correction(self):
+        x, y = _zero_lag_pair(1000, 0)
+        mm = transfer_entropy(x, y, bins=6, n_surrogates=49, rng=3)
+        plug = transfer_entropy(x, y, bins=6, n_surrogates=49, rng=3, bias_correction=None)
+        # The correction still reaches the estimate, or the identity below is vacuous.
+        assert mm.x_to_y != pytest.approx(plug.x_to_y, abs=1e-6)
+        assert mm.diagnostics["bias_corrected_x_to_y"] != pytest.approx(
+            plug.diagnostics["bias_corrected_x_to_y"], abs=1e-6)
+        assert (mm.p_x_to_y, mm.p_y_to_x, mm.p_net) == (plug.p_x_to_y, plug.p_y_to_x, plug.p_net)
+        assert mm.diagnostics["surrogates"]["p_statistic"] == "plug_in"
+
+    def test_zero_lag_mixing_at_a_large_state_space_is_not_rejected(self):
+        """Pinned seeds: 15 of these 32 p-values fell below 0.05 when the surrogates carried
+        the correction; none does now."""
+        p = []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(16):
+                x, y = _zero_lag_pair(2000, seed)
+                res = transfer_entropy(x, y, bins=8, n_surrogates=49, rng=seed)
+                p += [res.p_x_to_y, res.p_y_to_x]
+        assert sum(v < 0.05 for v in p) <= 2, sorted(p)
+
+    def test_a_directed_coupling_is_still_detected(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=2000)
+        y = np.zeros(2000)
+        y[1:] = 0.6 * x[:-1] + rng.normal(size=1999)
+        res = transfer_entropy(x, y, n_surrogates=49, rng=0)
+        assert res.p_x_to_y < 0.05 and res.p_y_to_x > 0.05
+
+
+class TestPsiLeadPIsTheJackknife:
+    """A shifted or re-paired Y removes every X-Y dependence, so a surrogate p tests coupling:
+    under zero-lag mixing it rejected a lead that is not there in 0.46 of cases at nperseg 50."""
+
+    def test_the_lead_p_is_unchanged_by_surrogates_and_the_coupling_p_has_its_own_key(self):
+        x, y = _zero_lag_pair(2000, 0)
+        plain = phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50)
+        both = phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50,
+                                 n_surrogates=49, rng=0)
+        assert both.p_net == plain.p_net == both.p_x_to_y == both.p_y_to_x
+        assert both.diagnostics["p_source"] == "jackknife_z"
+        assert plain.diagnostics["p_coupling_surrogate"] is None
+        coupling = both.diagnostics["p_coupling_surrogate"]
+        assert coupling == both.per_band["band"]["p_surrogate"] and coupling != both.p_net
+
+    def test_without_the_jackknife_there_is_no_lead_p(self):
+        x, y = _zero_lag_pair(2000, 0)
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=50, n_surrogates=49, rng=0,
+                                jackknife=False, bands={"a": (5.0, 40.0), "b": (45.0, 100.0)})
+        assert res.p_net is None and res.p_x_to_y is None and res.p_y_to_x is None
+        assert res.diagnostics["p_source"] is None
+        assert 0.0 < res.diagnostics["p_coupling_surrogate"] <= 1.0
+
+    def test_zero_lag_mixing_is_not_read_as_a_lead(self):
+        """Pinned seeds: 9 of these 20 p_net values fell below 0.05 when p_net was the
+        surrogate p; none does now."""
+        p = []
+        for seed in range(20):
+            x, y = _zero_lag_pair(2000, seed)
+            p.append(phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50,
+                                       n_surrogates=49, rng=seed).p_net)
+        assert sum(v < 0.05 for v in p) <= 2, sorted(p)
+
+
 class TestDirectedConnectivityAndNetwork:
     def test_directed_connectivity_dispatches_by_method(self):
         rng = np.random.default_rng(6)

@@ -363,10 +363,11 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         from jnwb.connectivity import phase_slope_index
 
         x, y = self._one_side_identical(256, identical="x")
-        assert phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0).p_net == 1.0
+        full = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0)
+        assert full.diagnostics["p_coupling_surrogate"] == 1.0
         res = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0,
                                 bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
-        assert res.p_net == 1.0
+        assert res.diagnostics["p_coupling_surrogate"] == 1.0
         assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
 
     def test_phase_slope_index_when_the_slope_cancels_to_round_off(self):
@@ -382,10 +383,10 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         x, y = np.tile(common, (8, 1)), np.vstack([common + h, common - h])
         full = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0)
         assert abs(full.net) < 1e-15
-        assert full.p_net == 1.0
+        assert full.diagnostics["p_coupling_surrogate"] == 1.0
         res = phase_slope_index(x, y, fs=100.0, n_surrogates=200, rng=0,
                                 bands={"a": (5.0, 20.0), "b": (20.0, 45.0)})
-        assert res.p_net == 1.0
+        assert res.diagnostics["p_coupling_surrogate"] == 1.0
         assert [band["p_surrogate"] for band in res.per_band.values()] == [1.0, 1.0]
 
     def test_phase_slope_index_widths_scale_with_the_bin_pair_count(self, monkeypatch):
@@ -416,7 +417,7 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
         assert pairs["a"] > 5 and pairs["b"] > 20 and sum(pairs.values()) > 25, pairs
         assert res.per_band["a"]["p_surrogate"] == 1.0
         assert res.per_band["b"]["p_surrogate"] == 1.0
-        assert res.p_net == 1.0
+        assert res.diagnostics["p_coupling_surrogate"] == 1.0
 
     def test_xflip_channel_permutation_at_six_channels(self):
         # Exact p over all 720 channel orders, a draw tying the observed contrast when it

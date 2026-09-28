@@ -1819,12 +1819,24 @@ def phase_slope_index(
     its value, a zero-lag common source (volume conduction, shared reference)
     contributes ~0 rather than a spurious direction.
 
-    There is therefore **one** test here, not two. ``p_x_to_y`` and ``p_y_to_x``
-    are deliberately the same number — the direction lives in the *sign*, and the
-    p-value asks only whether the lead is distinguishable from zero. Reading them
+    There is therefore **one** lead test here, not two. ``p_x_to_y``, ``p_y_to_x`` and
+    ``p_net`` are deliberately the same number — the direction lives in the *sign*, and
+    the p-value asks only whether the lead is distinguishable from zero. Reading them
     as independent per-direction tests (as GC and TE's are) will report a
     significant lead in both directions at once, which is not what happened.
     ``diagnostics['p_covers_both_directions']`` flags this.
+
+    The lead p is the jackknife t test (``jackknife=True``) and nothing else. A surrogate
+    test (``n_surrogates > 0``) is reported separately, as
+    ``diagnostics['p_coupling_surrogate']`` and ``per_band[name]['p_surrogate']``: a
+    shifted or re-paired Y removes every X-Y dependence, zero lag included, so that p
+    tests coupling, not a lead. With ``jackknife=False`` there is no lead test and the
+    three p fields are None. Measured on two noisy copies of one white source (no lead;
+    band 5-100 Hz at fs 1000, 1000 seeds), P(lead p < 0.05) was 0.059, 0.063 and 0.058
+    at nperseg 50, 100 and 200 on one 2000-sample trial and 0.070 on 10 trials of 400,
+    while the surrogate p rejected in 0.17 of 500 at nperseg 100. On independent pairs
+    the lead p rejected in at most 0.003: leaving out one overlapping segment rather than
+    one epoch makes the jackknife conservative there.
 
     Coherency is estimated by averaging cross- and auto-spectra over Welch
     segments pooled across trials — a single-segment coherency has magnitude 1 by
@@ -1851,9 +1863,9 @@ def phase_slope_index(
         jackknife: estimate the standard deviation of PSI by leave-one-segment-out
             and report ``z = psi / sd``, the normalization Nolte et al. use for
             significance. ``|z| > 2`` is the conventional threshold.
-        n_surrogates: optional surrogate test in addition to (or, with
-            jackknife=False, instead of) the jackknife z; the scheme is as in
-            :func:`granger` and is recorded in ``params['surrogate_scheme']``
+        n_surrogates: optional surrogate test of coupling, reported as
+            ``diagnostics['p_coupling_surrogate']``; it never sets the lead p. The scheme
+            is as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
         rng: surrogate randomness, as in :func:`granger`; passing
             ``params['surrogate_seed_entropy']`` back as ``rng`` reproduces the p-values
 
@@ -1865,7 +1877,7 @@ def phase_slope_index(
         slope needs, ``x_to_y``, ``y_to_x`` and ``net`` are NaN and
         ``diagnostics['ok_for_interpretation']`` is False. When the jackknife replicates
         agree to rounding (identical segments, as from a periodic signal, or Y equal to X),
-        ``sd`` and ``z`` are NaN, the jackknife p is None, a ``RuntimeWarning`` says why and
+        ``sd`` and ``z`` are NaN, the lead p is None, a ``RuntimeWarning`` says why and
         ``ok_for_interpretation`` is False. A surrogate p counts every draw within
         round-off of the observed value as reaching it, as :func:`granger` does.
 
@@ -2031,12 +2043,18 @@ def phase_slope_index(
     # np.nansum of an all-NaN array is 0.0, which reads as "no lead" when no band had a slope.
     total = float(np.nansum(band_values)) if np.isfinite(band_values).any() else float("nan")
 
-    # One top-level p-value across the evaluated bands
+    # INTENTIONAL BREAK (0.2.7): the top-level p fields hold the jackknife lead test only.
+    # They held the surrogate p whenever n_surrogates > 0, but a shifted or re-paired Y
+    # removes all X-Y dependence, so that p tests coupling, not a non-zero lead: under
+    # zero-lag mixing (a common white source, no lead) it rejected at 0.05 in 0.00-0.46 of
+    # cases depending on segment length and band. The surrogate p is now reported as
+    # diagnostics['p_coupling_surrogate'].
     p_top = None
+    p_coupling = None
     if len(per_band) == 1:
         single = next(iter(per_band.values()))
-        p_top = single.get("p_surrogate")
-        if p_top is None and np.isfinite(single.get("z", np.nan)):
+        p_coupling = single.get("p_surrogate")
+        if np.isfinite(single.get("z", np.nan)):
             # Student t, not a standard normal: the delete-one jackknife z is built from
             # `n_seg` leave-one-out replicates and carries about `n_seg - 1` degrees of
             # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
@@ -2049,8 +2067,8 @@ def phase_slope_index(
             if valid and np.isfinite(total):
                 null_tot = np.sum([null[k] for k in valid], axis=0)
                 n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
-                p_top = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
-        elif jackknife and n_seg >= 3 and jk_per_band:
+                p_coupling = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
+        if jackknife and n_seg >= 3 and jk_per_band:
             jk_tot = np.sum(list(jk_per_band.values()), axis=0)
             sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
             n_pairs = sum(int(v["n_freq_bins"]) - 1 for k, v in per_band.items() if k in jk_per_band)
@@ -2096,7 +2114,9 @@ def phase_slope_index(
         diagnostics={
             "n_segments": int(n_seg),
             "mean_coherence": float(np.mean(np.abs(coh_full))),
-            "p_source": "surrogate" if n_surrogates > 0 else ("jackknife_z" if jackknife else None),
+            "p_source": "jackknife_z" if p_top is not None else None,
+            # Tests X-Y dependence of any lag, zero lag included; never a lead.
+            "p_coupling_surrogate": p_coupling,
             # PSI is antisymmetric: one test, direction carried by the sign.
             "p_covers_both_directions": True,
             "p_is_omnibus": bool(len(per_band) > 1),
@@ -2175,17 +2195,22 @@ def _codes(cols: List[np.ndarray]) -> np.ndarray:
     return np.asarray(np.unique(stacked, axis=0, return_inverse=True)[1]).ravel()
 
 
-def _entropy_bits(codes: np.ndarray, bias_correction: Optional[str]) -> float:
-    """Plug-in Shannon entropy in bits, optionally Miller-Madow corrected."""
+def _entropy_plugin_and_cells(codes: np.ndarray) -> Tuple[float, int]:
+    """Plug-in Shannon entropy in bits and the number of occupied cells."""
     n = codes.size
     if n == 0:
-        return 0.0
+        return 0.0, 0
     counts = np.bincount(codes)
     counts = counts[counts > 0]
     p = counts / n
-    h = float(-np.sum(p * np.log2(p)))
-    if bias_correction == "mm":
-        h += (counts.size - 1) / (2.0 * n * np.log(2.0))
+    return float(-np.sum(p * np.log2(p))), int(counts.size)
+
+
+def _entropy_bits(codes: np.ndarray, bias_correction: Optional[str]) -> float:
+    """Plug-in Shannon entropy in bits, optionally Miller-Madow corrected."""
+    h, cells = _entropy_plugin_and_cells(codes)
+    if bias_correction == "mm" and codes.size:
+        h += (cells - 1) / (2.0 * codes.size * np.log(2.0))
     return h
 
 
@@ -2196,11 +2221,15 @@ def _te_one_direction(
     l: int,
     delay: int,
     bias_correction: Optional[str],
-) -> Tuple[float, int, int]:
+) -> Tuple[float, float, int, int]:
     """
     TE(source -> target) in bits from pre-discretized integer series.
 
     TE = H(Y_t, Y_hist) + H(Y_hist, X_hist) - H(Y_hist) - H(Y_t, Y_hist, X_hist)
+
+    Returns ``(te, te_plugin, n_samples, n_joint)``: ``te`` carries ``bias_correction``,
+    ``te_plugin`` is the uncorrected sum of the same four entropies, and ``n_joint`` is the
+    number of occupied (Y_t, Y_hist, X_hist) cells.
     """
     n_trials, n_times = tgt_q.shape
     start = max(k, delay + l - 1)
@@ -2223,13 +2252,20 @@ def _te_one_direction(
 
     code_b = _codes([b[:, j] for j in range(b.shape[1])])
     code_c = _codes([c[:, j] for j in range(c.shape[1])])
-    h_ab = _entropy_bits(_codes([a, code_b]), bias_correction)
-    h_bc = _entropy_bits(_codes([code_b, code_c]), bias_correction)
-    h_b = _entropy_bits(code_b, bias_correction)
-    h_abc = _entropy_bits(_codes([a, code_b, code_c]), bias_correction)
-    te = h_ab + h_bc - h_b - h_abc
-    n_joint = int(np.unique(_codes([a, code_b, code_c])).size)
-    return float(te), a.size, n_joint
+    h_ab, k_ab = _entropy_plugin_and_cells(_codes([a, code_b]))
+    h_bc, k_bc = _entropy_plugin_and_cells(_codes([code_b, code_c]))
+    h_b, k_b = _entropy_plugin_and_cells(code_b)
+    h_abc, k_abc = _entropy_plugin_and_cells(_codes([a, code_b, code_c]))
+    te_plugin = float(h_ab + h_bc - h_b - h_abc)
+    te = te_plugin
+    if bias_correction == "mm":
+        # Miller-Madow adds (cells - 1) / (2 N ln 2) to each entropy; the four terms share N.
+        mm = 2.0 * a.size * np.log(2.0)
+        te = float(
+            (h_ab + (k_ab - 1) / mm) + (h_bc + (k_bc - 1) / mm)
+            - (h_b + (k_b - 1) / mm) - (h_abc + (k_abc - 1) / mm)
+        )
+    return te, te_plugin, a.size, int(k_abc)
 
 
 def transfer_entropy(
@@ -2261,6 +2297,21 @@ def transfer_entropy(
     mean, the "effective transfer entropy"). With ``n_surrogates=0`` there is no
     null to subtract and the ``bias_corrected_*`` keys are absent.
 
+    Significance. ``p_x_to_y``, ``p_y_to_x`` and ``p_net`` compare the plug-in TE of the
+    data with the plug-in TE of each surrogate, whatever ``bias_correction`` is, so the p
+    does not depend on it (``diagnostics['surrogates']['p_statistic'] == 'plug_in'``). A
+    surrogate removes any zero-lag X-Y dependence and so occupies more joint cells than
+    the data; a Miller-Madow term, which grows with the occupied cells, would then differ
+    between the two for reasons unrelated to directed flow. Measured on two noisy copies of
+    one white source (``X = s + 0.5 e1``, ``Y = s + 0.5 e2``), quantile bins 4, k = l = 1,
+    199 surrogates, P(p < 0.05) per direction: 0.028 and 0.031 at n = 500 (3000 seeds),
+    0.047 and 0.051 at n = 2000 (3000), 0.053 and 0.058 at n = 4000 (5000) and 0.054 and
+    0.061 at n = 8000 (2000); independent white or AR(1) pairs gave 0.036 to 0.062 (1000
+    seeds). The test is conservative where the data leave cells nearly empty that a
+    surrogate fills: 0.000 of 1000 at bins 8 or at k = l = 2 (n = 2000). It is calibrated
+    only for a white common source; a coloured one gives X's past real information about
+    Y's present beyond Y's noisy past, and the test rejects, as Granger does.
+
     Args:
         X, Y: (n_times,), (n_trials, n_times), or list of 1-D trials
         k: target history length (samples)
@@ -2278,7 +2329,9 @@ def transfer_entropy(
         bins: number of states for quantile/uniform
         symbolic_order: kept so that later positional arguments keep their places;
             it configures only the refused ``'symbolic'`` estimator and is unused
-        bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term, or None
+        bias_correction: ``'mm'`` (Miller-Madow) applied to each entropy term of the
+            reported estimate (``x_to_y``, ``y_to_x``, ``net`` and ``bias_corrected_*``),
+            or None. The surrogate p never uses it: see Significance below.
         n_surrogates: surrogate draws for the p-value and bias correction.
             Set to 0 only if you are calibrating the null some other way.
         rng: surrogate randomness, as in :func:`granger`: an ``int`` seed (default 0), a
@@ -2336,8 +2389,8 @@ def transfer_entropy(
     xq = _discretize(x, bins, estimator)
     yq = _discretize(y, bins, estimator)
 
-    te_xy, n_used, n_joint_xy = _te_one_direction(xq, yq, k, l, delay, bias_correction)
-    te_yx, _, n_joint_yx = _te_one_direction(yq, xq, k, l, delay, bias_correction)
+    te_xy, plug_xy, n_used, n_joint_xy = _te_one_direction(xq, yq, k, l, delay, bias_correction)
+    te_yx, plug_yx, _, n_joint_yx = _te_one_direction(yq, xq, k, l, delay, bias_correction)
 
     p_xy = p_yx = p_net = None
     eff_xy, eff_yx = te_xy, te_yx
@@ -2346,24 +2399,35 @@ def transfer_entropy(
     if n_surrogates > 0:
         null_xy = np.empty(int(n_surrogates))
         null_yx = np.empty(int(n_surrogates))
+        plug_null_xy = np.empty(int(n_surrogates))
+        plug_null_yx = np.empty(int(n_surrogates))
         for i in range(int(n_surrogates)):
-            null_xy[i] = _te_one_direction(
+            null_xy[i], plug_null_xy[i] = _te_one_direction(
                 _surrogate_source(xq, surrogate_rng).astype(np.int64),
                 yq, k, l, delay, bias_correction,
-            )[0]
-            null_yx[i] = _te_one_direction(
+            )[:2]
+            null_yx[i], plug_null_yx[i] = _te_one_direction(
                 _surrogate_source(yq, surrogate_rng).astype(np.int64),
                 xq, k, l, delay, bias_correction,
-            )[0]
-        p_xy = _surrogate_p(null_xy, te_xy, "greater")
-        p_yx = _surrogate_p(null_yx, te_yx, "greater")
-        obs_net = te_xy - te_yx
-        null_net = null_xy - null_yx
-        p_net = _surrogate_p(null_net, obs_net, "two-sided", scale=abs(te_xy) + abs(te_yx))
+            )[:2]
+        # INTENTIONAL BREAK (0.2.7): the test compares plug-in values, observed and
+        # surrogate alike. The surrogate removes any zero-lag X-Y dependence, so it occupies
+        # more joint cells than the observed table and its Miller-Madow term is larger; the
+        # corrected statistic then sits below the corrected null for reasons unrelated to
+        # directed flow. With X = s + 0.5 e1, Y = s + 0.5 e2 and s white, P(p < 0.05) was
+        # 0.11 at bins 4 and 0.37 at bins 8 (n = 2000). The correction stays on the
+        # reported estimate.
+        p_xy = _surrogate_p(plug_null_xy, plug_xy, "greater")
+        p_yx = _surrogate_p(plug_null_yx, plug_yx, "greater")
+        p_net = _surrogate_p(
+            plug_null_xy - plug_null_yx, plug_xy - plug_yx, "two-sided",
+            scale=abs(plug_xy) + abs(plug_yx),
+        )
         eff_xy = te_xy - float(null_xy.mean())
         eff_yx = te_yx - float(null_yx.mean())
         surrogate_info.update(
             {
+                "p_statistic": "plug_in",
                 "null_mean_x_to_y": float(null_xy.mean()),
                 "null_mean_y_to_x": float(null_yx.mean()),
                 "null_sd_x_to_y": float(null_xy.std(ddof=1)) if n_surrogates > 1 else 0.0,
