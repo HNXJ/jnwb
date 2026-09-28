@@ -448,8 +448,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the sample times. Its hint told the caller to slice the stored `data` directly, which skips the
   scaling and the start time, and read the channel axis from which dimension was longer.
   `layout` is `"unknown"` unless the electrode region or the schema decides it. `reader` names
-  `jnwb.acquisition_channel` only when the layout is known, the series has a constant rate, and
-  `jnwb.resolve_acquisition` accepts the series' path as its name; otherwise it is `None`.
+  `jnwb.acquisition_channel` only when the layout is known, the series has a finite constant
+  rate, any `channel_conversion` has one factor per channel, and `jnwb.resolve_acquisition`
+  accepts the series' path as its name; otherwise it is `None`. A file the resolver cannot open,
+  such as HDF5 that is not NWB, still returns the reference, with no reader.
 - `jnwb.bilinear`: the documentation no longer calls two-class `predict_proba` calibrated. It is
   sigmoid(D_1 - D_0) of two mirrored one-vs-rest scores, about sigmoid(2 D_1), and overconfident
   on held-out trials.

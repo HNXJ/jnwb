@@ -119,10 +119,20 @@ def test_every_figure_on_a_page_has_both_variants():
 def _legend_overlaps(fig) -> list[str]:
     """Data a legend is drawn over: lines, contours, bars, spans, fills, point clouds and texts.
 
-    Any intersection is an overlap, framed legend or not: a box hides the data under it. The one
-    element exempt is a background mesh or image that fills the axes, such as a time-frequency
-    map, which leaves no free area; the colour of legend text over it is left to
-    `DRAWN_OVER_A_FIGURE`.
+    Any intersection is an overlap, framed legend or not: a box hides the data under it. Each
+    axes' own legend (``ax.get_legend()``) is compared with that axes' own artists. The check
+    does not see:
+
+    * any ``QuadMesh``, which is skipped wherever it is and whatever it covers (it is meant for
+      a time-frequency map that fills the axes; the colour of legend text over it is left to
+      `DRAWN_OVER_A_FIGURE`);
+    * ``ax.images``, which are never inspected;
+    * a scatter of a single point, whose marker path is tested in the wrong coordinates;
+    * a marker's extent: a point cloud is tested at its centres, and a line at the path
+      joining its points, so a marker whose centre is outside the box but whose edge is inside
+      passes;
+    * a twin axes: a legend is not compared with the artists of an axes sharing its area;
+    * ``fig.legend``, and the arrow of an annotation.
     """
     from matplotlib.collections import QuadMesh
 

@@ -236,6 +236,48 @@ class TestMCPServer(unittest.TestCase):
         np.testing.assert_array_equal(values, np.arange(50.0))
         self.assertEqual(rate, 60.0)
 
+    def test_no_reader_for_a_series_the_reader_refuses(self):
+        """A NaN rate and a channel_conversion of the wrong length each make
+        `acquisition_channel` raise, so neither gets a reader; the rest of the reference stays."""
+        import h5py
+
+        import jnwb
+
+        path, _ = self._scaled_file()
+        with h5py.File(path, "a") as f:
+            f["acquisition/Scaled/starting_time"].attrs["rate"] = float("nan")
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertTrue(np.isnan(res["rate_hz"]))
+        self.assertIsNone(res["reader"])
+        with self.assertRaises(jnwb.NWBInspectError):
+            jnwb.acquisition_channel(path, name="Scaled", channel=0)
+
+        with h5py.File(path, "a") as f:
+            f["acquisition/Scaled/starting_time"].attrs["rate"] = 1000.0
+            del f["acquisition/Scaled/channel_conversion"]
+            f["acquisition/Scaled"].create_dataset("channel_conversion", data=[1.0, 2.0, 3.0])
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["rate_hz"], res["channel_conversion"]), (1000.0, [1.0, 2.0, 3.0]))
+        self.assertIsNone(res["reader"])
+        with self.assertRaisesRegex(ValueError, "channel_conversion"):
+            jnwb.acquisition_channel(path, name="Scaled", channel=0)
+
+    def test_a_file_the_resolver_cannot_open_still_gets_its_reference(self):
+        """HDF5 that is not NWB: pynwb refuses it, which means no reader, not an error."""
+        import h5py
+
+        path = str(pathlib.Path(self.temp_dir.name) / "plain.h5")
+        with h5py.File(path, "w") as f:
+            group = f.create_group("acquisition/X")
+            group.create_dataset("data", data=np.arange(10.0))
+            group.create_dataset("starting_time", data=0.0).attrs["rate"] = 100.0
+        res = prepare_signal_reference(path, "/acquisition/X/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["rate_hz"], res["starting_time"], res["layout"]), (100.0, 0.0, "time"))
+        self.assertIsNone(res["reader"])
+
     def test_prepare_signal_reference_not_found(self):
         res = prepare_signal_reference(self.file_path, "/non/existent/path")
         self.assertIn("error", res)

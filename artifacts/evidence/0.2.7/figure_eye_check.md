@@ -25,5 +25,16 @@ dev `5e610000`. A second full run of the generator was byte-identical on all 20 
 | `fig10_artifact_repair.dark.png` | `b5096856f5d516b913d7a50e7d7698a42d6bf584a982c59e6256d3209447238f` | Slate: same placement; the gray envelope, the violet repair and the legend text are legible |
 
 The mechanical counterpart is `test_no_legend_covers_the_data` in `tests/test_figure_form.py`. It
-reports an intersection between any legend and any line, contour, patch, fill, point cloud or text
-in all 20 variants. The one exempt element is a background mesh.
+runs over all 20 variants and reports where an axes' own legend intersects that axes' lines,
+contours, patches, fills, point clouds or texts. It does not see:
+
+- every `QuadMesh`, skipped wherever it is and whatever it covers, not only one that fills the axes;
+- `ax.images`;
+- a single-point scatter, whose marker path it tests in the wrong coordinates;
+- a marker's extent: point clouds are tested at their centres and lines along the joining path;
+- twin axes, since each legend is compared only with its own axes' artists;
+- `fig.legend` and annotation arrows.
+
+For these the eye-check above is the only evidence. None of the ten current figures uses
+`ax.images`, twin axes or `fig.legend` (read from the generator on this branch). fig05's mesh
+fills its axes.

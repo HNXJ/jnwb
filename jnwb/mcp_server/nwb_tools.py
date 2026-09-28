@@ -1,3 +1,5 @@
+import math
+
 import h5py
 from pathlib import Path
 from typing import Dict, Any
@@ -7,7 +9,6 @@ from jnwb.nwb_inspect import (
     _h5_channel_count,
     _ndt,
     _resolve_layout,
-    NWBInspectError,
     _series_rate,
     inspect,
     resolve_acquisition,
@@ -21,10 +22,14 @@ _LAYOUT_BASIS = {
 
 
 def _resolves(file_path: str, name: str) -> bool:
-    """Whether `resolve_acquisition` accepts `name` as itself in this file."""
+    """Whether `resolve_acquisition` accepts `name` as itself in this file.
+
+    Any failure of the resolver, including pynwb refusing an HDF5 file that is not NWB, means
+    there is no reader to name; it never makes the reference itself fail.
+    """
     try:
         return resolve_acquisition(file_path, name) == name
-    except (NWBInspectError, KeyError, ValueError, OSError):
+    except Exception:
         return False
 
 
@@ -81,10 +86,19 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
     rate = _series_rate(group)
     timestamps_path = timestamps.name if isinstance(timestamps, h5py.Dataset) else None
 
-    # `acquisition_channel` reads a series only at a constant rate, and only by a name its
-    # resolver accepts; the reader is named when both hold, so it is never a call that fails.
+    # `acquisition_channel` refuses a series without a finite constant rate, a
+    # `channel_conversion` whose length is not the channel count, and a name its resolver
+    # refuses. The reader is named only when none of these holds: never a name the resolver
+    # refuses, and never a series the call is known to refuse.
+    channel_axis = {"time_by_channel": 1, "channel_by_time": 0}.get(layout)
+    n_axis = 1 if layout == "time" else None if channel_axis is None else data.shape[channel_axis]
+    readable = (
+        parts[0] in ("acquisition", "processing") and n_axis is not None
+        and rate is not None and math.isfinite(rate)
+        and (channel_conversion is None or len(channel_conversion) == n_axis)
+    )
     reader = None
-    if parts[0] in ("acquisition", "processing") and layout != "unknown" and rate is not None:
+    if readable:
         name = "/".join(parts[1:-1])
         if _resolves(file_path, name):
             reader = f"jnwb.acquisition_channel({file_path!r}, name={name!r}, channel=k)"
