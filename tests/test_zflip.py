@@ -336,6 +336,23 @@ def test_zflip_a_zig_zag_delay_is_refused_by_the_depth_fit():
     assert "Phase-frequency relation failed" not in res.rejection_reason
 
 
+def test_zflip_shared_slow_power_does_not_bias_the_delay():
+    """A 2 Hz component at 30 SD shared by every contact leaves the delay within 5%.
+
+    Undetrended, its window leakage into the band pulled the phase slope toward zero lag and
+    raised the delay by 12%. What would pass while it leaks: checking only that the delay is
+    identifiable, which it stays.
+    """
+    rows = _lagged_rows([0, 2, 4, 6, 8])
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    clean = jnwb.zflip(rows, **kwargs).tau_per_channel_s
+    t = np.arange(rows.shape[1]) / 1000.0
+    slow = 30.0 * np.std(rows[0]) * np.sin(2 * np.pi * 2.0 * t)
+    res = jnwb.zflip(rows + slow, **kwargs)
+    assert res.delay_identifiable
+    assert res.tau_per_channel_s == pytest.approx(clean, rel=0.05)
+
+
 def test_zflip_identical_contacts_give_no_direction():
     """Identical contacts have no delay gradient: phase residue near 1e-21 s is not a sign.
 

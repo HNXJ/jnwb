@@ -148,8 +148,12 @@ identifiability gate (phase-frequency $R^2$ at least `min_linearity_r2`, at leas
 frequency bins, a delay inside the unambiguous interval, pair wPLI at least `min_wpli`,
 each contact carrying at least `min_band_power_fraction` of its detrended power inside
 `freq_range`, depth-fit $R^2 \ge 0.5$). The in-band fraction does not catch power leaking
-into either band edge: with the default band and segment length, a sinusoid at about 9.5 to
-12 Hz or 35 to 38 Hz can pass it and still give a delay;
+into either band edge: with the default band and segment length, a sinusoid from about
+9.5 Hz up to the lower edge, and from the upper edge to about 38 Hz, i.e. within the main
+lobe of an edge bin, can carry 0.01 to 0.7 of its power in the band, pass it and still give
+a delay. The segments are linearly detrended, so drift and shared slow power do not bias the
+delay; broadband background independent at each contact still can (about +7% for a 1/f$^2$
+background three times the wave's amplitude);
 `apparent_velocity_m_s` is that
 gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this

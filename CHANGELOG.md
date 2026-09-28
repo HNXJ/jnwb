@@ -388,12 +388,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
   well-coupled mean accepted the result; `rejection_reason` names such pairs.
 - `zflip` takes `min_band_power_fraction=0.01`: a contact carrying less than that fraction of
-  its power inside `freq_range`, read from the segmentation the phase slope uses with each
-  segment linearly detrended, makes both of its adjacent pairs unidentifiable, and
-  `rejection_reason` names it. A contact carrying only an out-of-band sinusoid passed the
-  pair wPLI gate through window leakage (pair wPLI 0.16 to 0.31) and was accepted with a
-  delay 10 to 13 times the true one. Power leaking into either band edge, such as a sinusoid
-  at 9.5 to 12 Hz or 35 to 38 Hz for the default band, can still pass.
+  its power inside `freq_range`, read from the detrended segment spectra the phase slope
+  uses, makes both of its adjacent pairs unidentifiable, and `rejection_reason` names it. A
+  contact carrying only an out-of-band sinusoid passed the pair wPLI gate through window
+  leakage (pair wPLI 0.16 to 0.31) and was accepted with a delay 10 to 13 times the true
+  one. For the default band, a sinusoid from about 9.5 Hz up to the lower edge, and from the
+  upper edge to about 38 Hz, i.e. within the main lobe of an edge bin, can carry 0.01 to 0.7
+  of its power in the band and still pass.
+- `zflip`'s delay, wPLI and surrogate null now come from an STFT whose segments are linearly
+  detrended. Shared slow power leaked into the band through the window and biased the delay
+  upward (a shared 2 Hz component at 30 SD by 12%, a 1 Hz one at 100 SD by 34%; now 1.3% and
+  1.2%). Delays, wPLI values and p-values change slightly for any input with a DC offset,
+  drift or slow power. Broadband background independent at each contact is not removed and
+  can still bias the delay (about +7% for a 1/f^2 background three times the wave).
 - `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
   gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
 - `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed

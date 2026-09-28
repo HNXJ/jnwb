@@ -2109,7 +2109,12 @@ def zflip(
     3. **Apparent Velocity**: Reported strictly as *apparent phase-delay velocity under the
        fitted linear model* (:math:`v = \Delta z / \Delta \tau`), not unconditional physical velocity.
     4. **What the delay measures**: :math:`\Delta \tau` is the slope of the phase of the
-       segment-averaged cross-spectrum, which is a group delay; it equals the phase delay
+       cross-spectrum averaged over linearly detrended segments, which is a group delay;
+       detrending keeps a DC offset, drift or strong shared slow power from leaking into the
+       band (a shared 2 Hz component at 30 SD biased it by 12% without detrending, 1.3%
+       with). Broadband background that is independent at each contact is not removed: an
+       independent 1/f^2 background at about three times the wave's amplitude biased the
+       delay by about +7%. It equals the phase delay
        only when the delay does not vary with frequency. Unlike wPLI, that phase is NOT
        insensitive to zero-lag mixing: a zero-lag component shared by adjacent contacts
        pulls the estimate toward 0 (equal-power mixing halves it), and superposed waves
@@ -2139,15 +2144,16 @@ def zflip(
             adjacent pair for its delay to be identifiable (default 0.15).
         min_band_power_fraction: Minimum fraction of a contact's power that must lie inside
             `freq_range` for the delays of its two adjacent pairs to be identifiable
-            (default 0.01). The power is summed over the segmentation the phase slope uses,
-            with each segment's linear trend removed, so a DC offset or slow drift does not
-            lower it. A contact whose power lies outside the band has only window leakage
-            there, which can fit a linear phase. Measured on the default band and segment
-            length, the default refuses sinusoids below 9 Hz or above 40 Hz (fractions below
-            4e-3) and keeps broadband white noise, whose 15-35 Hz fraction is about 0.03. It
-            does not refuse power leaking into either band edge: a sinusoid at about 9.5 to
-            12 Hz or 35 to 38 Hz carries 0.01 to 0.2 of its power in the edge bins and can
-            still pass and yield a delay.
+            (default 0.01). The power is summed over the linearly detrended segment spectra
+            the phase slope uses, so a DC offset or slow drift does not lower it. A contact
+            whose power lies outside the band has only window leakage there, which can fit a
+            linear phase. Measured on the default band and segment length, the default
+            refuses sinusoids at or below 9 Hz or at or above 40 Hz (fractions below 5e-3)
+            and keeps broadband white noise, whose 15-35 Hz fraction is about 0.04 (5 of 129
+            bins; a single 2000-sample record measured 0.030). It does not refuse power
+            leaking into either band edge: a sinusoid from about 9.5 Hz up to the lower edge,
+            or from the upper edge to about 38 Hz, i.e. within the main lobe of an edge bin,
+            can carry 0.01 to 0.7 of its power in the band and still pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
             ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
             attainable p-value is ``1 / (n_surrogates + 1)``.
@@ -2223,9 +2229,13 @@ def zflip(
     # One segment saturates wPLI at 1.0 for any input, which would make min_wpli inert.
     _require_identifiable_segmentation(n_samples, nperseg, noverlap, "zflip", "adjacent wPLI")
 
-    # Multi-channel STFT: (n_channels, n_freqs, n_segments)
+    # Multi-channel STFT: (n_channels, n_freqs, n_segments). Each segment's linear trend is
+    # removed first: shared slow power or drift otherwise leaks into the band through the
+    # window and biases the phase slope (a shared 2 Hz component at 30 SD raised the delay
+    # by 12%, and a 1 Hz one at 100 SD by 34%).
     freqs, _, Z = signal.stft(
-        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
+        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1,
+        detrend="linear",
     )
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
@@ -2263,14 +2273,10 @@ def zflip(
     flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
     # A contact whose power lies outside freq_range has no in-band phase to measure: its
     # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
-    # The fraction is read from the same segmentation the phase slope uses, with each
-    # segment's linear trend removed so a DC offset or slow drift does not fill the
-    # denominator; a contact with no power in any segment has no fraction and fails the gate.
-    _, _, Z_detrended = signal.stft(
-        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1,
-        detrend="linear",
-    )
-    seg_power = np.mean(np.abs(Z_detrended) ** 2, axis=-1)  # (n_channels, n_freqs)
+    # The fraction is read from the detrended segment spectra the phase slope uses, so a DC
+    # offset or slow drift does not fill the denominator; a contact with no power in any
+    # segment has no fraction and fails the gate.
+    seg_power = np.mean(np.abs(Z) ** 2, axis=-1)  # (n_channels, n_freqs)
     with np.errstate(invalid="ignore", divide="ignore"):
         band_fraction = seg_power[:, mask].sum(axis=1) / seg_power.sum(axis=1)
     out_of_band_contacts = [c for c in range(n_channels) if c not in flat_contacts
@@ -2367,7 +2373,8 @@ def zflip(
         for _ in range(n_surrogates):
             surr_lfp = _surrogate_phase_randomize(lfp, gen)
             _, _, Z_surr = signal.stft(
-                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
+                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False,
+                axis=-1, detrend="linear",
             )
             surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
             for i in range(n_channels - 1):
