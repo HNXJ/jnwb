@@ -31,7 +31,7 @@ MIN_CONTRAST = 2.0
 
 #: Colours drawn over a figure element rather than over the page, by generator function.
 DRAWN_OVER_A_FIGURE = {
-    "fig05_complex_tfr": {"white": "the cone-of-influence line over the TFR image",
+    "fig05_complex_tfr": {"white": "the legend text inside its dark box over the TFR image",
                           "#2d2d2d": "the legend box behind white legend text"},
 }
 
@@ -117,22 +117,21 @@ def test_every_figure_on_a_page_has_both_variants():
 
 
 def _legend_overlaps(fig) -> list[str]:
-    """Data a frameless legend is drawn over: lines, bars, spans, fills, point clouds and texts.
+    """Data a legend is drawn over: lines, contours, bars, spans, fills, point clouds and texts.
 
-    On a transparent background a legend without an opaque box has nothing between its text and
-    the data under it, so any intersection is an overlap. A legend with a box at least as opaque
-    as Matplotlib's default (alpha 0.8) is drawn over the figure on purpose, and the colour of its
-    text is left to `DRAWN_OVER_A_FIGURE`.
+    Any intersection is an overlap, framed legend or not: a box hides the data under it. The one
+    element exempt is a background mesh or image that fills the axes, such as a time-frequency
+    map, which leaves no free area; the colour of legend text over it is left to
+    `DRAWN_OVER_A_FIGURE`.
     """
+    from matplotlib.collections import QuadMesh
+
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     hits = []
     for index, ax in enumerate(fig.axes):
         legend = ax.get_legend()
         if legend is None:
-            continue
-        frame = legend.get_frame()
-        if legend.get_frame_on() and frame.get_facecolor()[3] >= 0.8:
             continue
         box = legend.get_window_extent(renderer)
         for line in ax.get_lines():
@@ -142,12 +141,17 @@ def _legend_overlaps(fig) -> list[str]:
             if patch.get_window_extent(renderer).overlaps(box):
                 hits.append(f"axes {index}: patch {patch.get_label()!r}")
         for coll in ax.collections:
+            if isinstance(coll, QuadMesh):
+                continue
             offsets = coll.get_offsets()
+            # A line contour is open paths; testing it as filled would close the cone of influence
+            # into a polygon and report everything inside it.
+            filled = getattr(coll, "filled", True)
             if len(offsets) > 1:
                 points = coll.get_offset_transform().transform(offsets)
                 if any(box.contains(x, y) for x, y in points):
                     hits.append(f"axes {index}: points {coll.get_label()!r}")
-            elif any(coll.get_transform().transform_path(p).intersects_bbox(box, filled=True)
+            elif any(coll.get_transform().transform_path(p).intersects_bbox(box, filled=filled)
                      for p in coll.get_paths()):
                 hits.append(f"axes {index}: collection {coll.get_label()!r}")
         for text in ax.texts:
@@ -203,6 +207,26 @@ def test_the_overlap_check_catches_a_legend_over_a_bar():
     hits = _legend_overlaps(fig)
     plt.close(fig)
     assert hits and all(h.startswith("axes 0") for h in hits), hits
+
+
+def test_the_overlap_check_catches_a_framed_legend_over_a_contour_but_not_over_a_mesh():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    x, y = np.meshgrid(np.linspace(0, 1, 40), np.linspace(0, 1, 40))
+    fig, (over, clear) = plt.subplots(1, 2)
+    for ax in (over, clear):
+        ax.pcolormesh(x, y, x * y, shading="auto")
+        # A U-shaped line contour whose arms reach the top corners.
+        ax.contour(x, y, (x - 0.5) ** 2 * 4 - y, levels=[0.0], linestyles="--")
+        ax.plot([], [], ls="--", label="boundary")
+    over.legend(frameon=True, loc="upper left")
+    clear.legend(frameon=True, loc="upper center")
+    hits = _legend_overlaps(fig)
+    plt.close(fig)
+    assert hits and all(h.startswith("axes 0: collection") for h in hits), hits
 
 
 def test_the_colour_check_catches_a_hardcoded_foreground():

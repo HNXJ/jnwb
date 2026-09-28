@@ -291,11 +291,12 @@ def fig05_complex_tfr():
     # Cone of influence boundary
     coi_mask = tfr.coi_mask
     ax2.contour(t * 1000, freqs, coi_mask, levels=[0.5], colors=[C_VIOLET], linewidths=1.2, linestyles="--")
-    ax2.plot([], [], color="white", ls="--", lw=1.5, label="COI Boundary (tfr.coi_mask)")
+    ax2.plot([], [], color=C_VIOLET, ls="--", lw=1.5, label="COI Boundary (tfr.coi_mask)")
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("Frequency (Hz)")
     ax2.set_title("B. Complex Morlet TFR & Cone of Influence (jnwb.complex_tfr)", pad=8)
-    leg = ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper left", labelcolor="white", fontsize=7.5)
+    # Top centre, between the two arms of the cone; the box keeps the text readable over the mesh.
+    ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper center", labelcolor="white", fontsize=7.5)
 
     fig.tight_layout()
     _save(fig, "fig05_complex_tfr_coi.png")
@@ -519,7 +520,10 @@ def fig10_artifact_repair():
     ax2.plot(t, seg[hit_trial, 0], color=C_GRAY, lw=1.2, label="Original Artifact Envelope")
     ax2.plot(t, repaired[hit_trial, 0], color=C_VIOLET, lw=1.2, label="Repaired (Median Substitution)")
     # The window is shaded over the traces' range only, so it stays clear of the legend band.
-    ax2.fill_between([180, 240], y_lo, y_hi, color=C_GOLD, alpha=0.2, lw=0, label="Detected Window (z > 5.0)")
+    # The shaded samples are the detector's output: every sample the repair changed on any channel.
+    replaced = np.any(repaired[hit_trial] != seg[hit_trial], axis=0)
+    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=C_GOLD, alpha=0.2, lw=0,
+                     label="Samples replaced (z_thresh=5.0)")
     ax2.set_ylim(*y_lim)
     ax2.set_yticks(y_ticks)
     ax2.set_xlabel("Time (ms)")

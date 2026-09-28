@@ -198,6 +198,44 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("layout is unknown", res["access_hint"])
         self.assertNotIn("channels, time", res["access_hint"])
 
+    def test_the_reader_is_named_only_where_it_reads(self):
+        """No reader for a series without a rate, or one the resolver cannot name; a reader
+        wherever one is named returns the series."""
+        import warnings
+
+        import jnwb
+        from pynwb.behavior import Position
+
+        path = str(pathlib.Path(self.temp_dir.name) / "readers.nwb")
+        nwbfile = pynwb.NWBFile(session_description="r", identifier="R",
+                                session_start_time=datetime.now(timezone.utc))
+        nwbfile.add_acquisition(pynwb.TimeSeries(
+            name="stamped", data=np.arange(20.0), unit="m", timestamps=np.linspace(0, 1, 20)))
+        mod = nwbfile.create_processing_module(name="behavior", description="b")
+        position = Position(name="Position")
+        position.create_spatial_series(name="xy", data=np.ones((50, 2)), reference_frame="r", rate=60.0)
+        mod.add(position)
+        mod.add(pynwb.TimeSeries(name="direct", data=np.arange(50.0), unit="a", rate=60.0))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+
+        stamped = prepare_signal_reference(path, "/acquisition/stamped/data")
+        self.assertEqual((stamped["rate_hz"], stamped["reader"]), (None, None))
+        self.assertEqual(stamped["timestamps_path"], "/acquisition/stamped/timestamps")
+        wrapped = prepare_signal_reference(path, "/processing/behavior/Position/xy/data")
+        self.assertEqual(wrapped["rate_hz"], 60.0)
+        self.assertIsNone(wrapped["reader"])
+        with self.assertRaises(jnwb.NWBInspectError):
+            jnwb.acquisition_channel(path, name="behavior/Position/xy")
+        direct = prepare_signal_reference(path, "/processing/behavior/direct/data")
+        self.assertEqual(direct["reader"],
+                         f"jnwb.acquisition_channel({path!r}, name='behavior/direct', channel=k)")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            values, rate = jnwb.acquisition_channel(path, name="behavior/direct")
+        np.testing.assert_array_equal(values, np.arange(50.0))
+        self.assertEqual(rate, 60.0)
+
     def test_prepare_signal_reference_not_found(self):
         res = prepare_signal_reference(self.file_path, "/non/existent/path")
         self.assertIn("error", res)

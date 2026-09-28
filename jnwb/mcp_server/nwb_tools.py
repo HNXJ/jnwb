@@ -7,8 +7,10 @@ from jnwb.nwb_inspect import (
     _h5_channel_count,
     _ndt,
     _resolve_layout,
+    NWBInspectError,
     _series_rate,
     inspect,
+    resolve_acquisition,
 )
 from jnwb.mcp_server.server import mcp
 
@@ -16,6 +18,14 @@ _LAYOUT_BASIS = {
     "electrode_count": "the series' electrode region",
     "schema": "the NWB schema, which puts time on axis 0 of this type",
 }
+
+
+def _resolves(file_path: str, name: str) -> bool:
+    """Whether `resolve_acquisition` accepts `name` as itself in this file."""
+    try:
+        return resolve_acquisition(file_path, name) == name
+    except (NWBInspectError, KeyError, ValueError, OSError):
+        return False
 
 
 def _scalar_attr(ds: h5py.Dataset, key: str) -> float | None:
@@ -71,10 +81,13 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
     rate = _series_rate(group)
     timestamps_path = timestamps.name if isinstance(timestamps, h5py.Dataset) else None
 
+    # `acquisition_channel` reads a series only at a constant rate, and only by a name its
+    # resolver accepts; the reader is named when both hold, so it is never a call that fails.
     reader = None
-    if parts[0] in ("acquisition", "processing") and layout != "unknown":
+    if parts[0] in ("acquisition", "processing") and layout != "unknown" and rate is not None:
         name = "/".join(parts[1:-1])
-        reader = f"jnwb.acquisition_channel({file_path!r}, name={name!r}, channel=k)"
+        if _resolves(file_path, name):
+            reader = f"jnwb.acquisition_channel({file_path!r}, name={name!r}, channel=k)"
 
     hint = []
     if reader:

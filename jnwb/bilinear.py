@@ -4,10 +4,10 @@ r"""Optional/experimental: bilinear (rank-K) logistic regression for 2D neural d
 Not in ``jnwb.__all__``. Import ``jnwb.bilinear`` when the bilinear decoder is needed.
 
 WHY THIS EXISTS
-    Every 2D decoder in this project so far (v5, v6) flattened each trial's (N x T) matrix --
-    N units/channels by T time bins -- into one N*T vector and PCA'd it down. That destroys the
-    laminar/spatial topology and the temporal continuity, and the PCA components carry no
-    interpretable spatial or temporal meaning. This model instead constrains the weight matrix
+    Common 2D decoders flatten each trial's (N x T) matrix -- N units/channels by T time
+    bins -- into one N*T vector and reduce it with PCA. That discards the laminar/spatial
+    topology and the temporal continuity, and the PCA components carry no interpretable
+    spatial or temporal meaning. This model instead constrains the weight matrix
     to be low rank:
 
         W = sum_{k=1..K} u_k v_k^T ,    logit = <W, X> + b = sum_k u_k^T X v_k
