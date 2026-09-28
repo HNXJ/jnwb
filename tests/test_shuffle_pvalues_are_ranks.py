@@ -391,29 +391,31 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
     def test_phase_slope_index_widths_scale_with_the_bin_pair_count(self, monkeypatch):
         # Measured round-off sits near 1e-16, below 100 eps whatever the scale, so the
         # scale is pinned on a statistic whose draws fall short by a set amount: 5 * 100 eps
-        # in band a and 10 * 100 eps in the total, both inside 100 eps per bin pair and
-        # outside 100 eps.
+        # in band a, 20 * 100 eps in band b and 25 * 100 eps in the total, each inside
+        # 100 eps per bin pair and outside 100 eps; band b is also outside 10 * 100 eps.
         from jnwb import connectivity
         from jnwb.permutation import _TIE_RTOL
 
         rng = np.random.default_rng(0)
         x, y = rng.normal(size=(8, 512)), rng.normal(size=(8, 512))
         bands = {"a": (5.0, 20.0), "b": (20.0, 45.0)}
-        shortfall = 5 * _TIE_RTOL
-        observed = {}
+        observed, shortfall = {}, {}
 
         def statistic(fx, fy, idx, weights=None):
             first = int(idx[0])
             if first not in observed:
-                observed[first] = 0.3 if not observed else -0.2
+                observed[first], shortfall[first] = ((0.3, 5 * _TIE_RTOL) if not observed
+                                                     else (0.2, 20 * _TIE_RTOL))
                 return observed[first]
-            return observed[first] - shortfall
+            return observed[first] - shortfall[first]
 
         monkeypatch.setattr(connectivity, "_psi_from_spectra", statistic)
         res = connectivity.phase_slope_index(x, y, fs=100.0, n_surrogates=50, rng=0,
                                              bands=bands, jackknife=False)
-        assert min(band["n_freq_bins"] for band in res.per_band.values()) > 11
+        pairs = {name: band["n_freq_bins"] - 1 for name, band in res.per_band.items()}
+        assert pairs["a"] > 5 and pairs["b"] > 20 and sum(pairs.values()) > 25, pairs
         assert res.per_band["a"]["p_surrogate"] == 1.0
+        assert res.per_band["b"]["p_surrogate"] == 1.0
         assert res.p_net == 1.0
 
     def test_xflip_channel_permutation_at_six_channels(self):
