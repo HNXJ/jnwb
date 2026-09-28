@@ -446,6 +446,12 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: the record carries no threshold yet, so a lower bound misleads no release.
 - Floor coverage: Python 3.12.0 runs on the Ubuntu floors leg only, with floor dependencies; the newest dependencies on 3.12.0 and Windows 3.12.0 are not exercised.
   deferred-0.2.8: the known 3.12.0 defect class is a standard-library difference that the Ubuntu leg reaches.
+- One smoke definition: the CI smoke script and the release gate's installed-package script check different things. Check: one definition both run, or the difference stated.
+  deferred-0.2.8: each is exercised where it runs; neither can pass for the other's artifact.
+- Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under a loaded full run and passed alone. Check: a timeout scaled to the machine, or the subprocess made cheaper.
+  deferred-0.2.8: a timeout fails loudly and hides no wrong result.
+- xflip calibration wall time: 297.3 s, then 459.6 s and 502.6 s across lane runs with identical rates. Check: dev and head run back to back on one machine.
+  deferred-0.2.8: the rates, not the time, carry the receipt.
 - Figure checks: the legend test compares an axes' texts only with that axes' legend, tests scatter markers by centre, skips images, and does not reach the quickstart figures in `docs/assets/jnwb_quickstart*.png`.
   deferred-0.2.8: every figure the release shows was also checked by eye in 0.2.7.
 - Generator seeds and `jrsa` axes: `cross_area_coherence`, `xflip` and `zflip` still record no seed for a `Generator`, where the directed estimators record a child seed; `jrsa` refuses an `adim` that names only an axis it reduces, with a message that says the result would not follow `adim`, and the dropped-axis branch of that rule has no test.
