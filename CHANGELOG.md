@@ -439,6 +439,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sd 8e-32, z -7.8e13, p 0.0 and `ok_for_interpretation=True`. The width is
   `8 * eps * n_segments * (n_bins - 1)`, twice the rounding bound of a replicate whose
   coherencies have magnitude at most 1.
+- `zflip` reports a pair with a constant contact as not identifiable, with NaN
+  `adjacent_delays_s` and `adjacent_linearity_r2`. The constant contact's spectrum is
+  rounding residue whose phase can be linear in frequency, and such a pair was marked
+  identifiable with a finite delay (R^2 0.997 and 0.11 s on a noiseless wave).
+- `zflip` requires each adjacent pair's wPLI to be at least `min_wpli` for that pair's delay to
+  be identifiable, so `accepted` now also depends on each pair's coupling, not only on
+  `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
+  well-coupled mean accepted the result; `rejection_reason` names such pairs.
+- `zflip` takes `min_band_power_fraction=0.01`: a contact carrying less than that fraction of
+  its power inside `freq_range`, read from the detrended segment spectra the phase slope
+  uses, makes both of its adjacent pairs unidentifiable, and `rejection_reason` names it. A
+  contact carrying only an out-of-band sinusoid passed the pair wPLI gate through window
+  leakage (pair wPLI 0.16 to 0.31) and was accepted with a delay 10 to 13 times the true
+  one. For the default band, a sinusoid from about 9.5 Hz up to the lower edge, and from the
+  upper edge to about 38 Hz, i.e. within the main lobe of an edge bin, can carry 0.01 to 0.7
+  of its power in the band and still pass.
+- `zflip`'s delay, wPLI and surrogate null now come from an STFT whose segments are linearly
+  detrended. Shared slow power leaked into the band through the window and biased the delay
+  upward (a shared 2 Hz component at 30 SD by 12%, a 1 Hz one at 100 SD by 34%; now 1.3% and
+  1.2%). Shared slow power also lowered the observed wPLI and, once each contact's phases
+  were randomised, inflated the surrogate null, which could suppress significance (p 0.76,
+  now 0.02, for a weak wave in noise with a shared 2 Hz component at 30 SD). Delays, wPLI
+  values and p-values change for every input: by a small amount, unless it carries a DC
+  offset, drift or slow power. Broadband background independent at each contact is not
+  removed and can still bias the delay (about +7% for a 1/f^2 background three times the
+  wave).
+- `zflip` refuses a contact that is a straight line in time to within round-off as it
+  refuses a constant one, and `rejection_reason` names it. The per-segment detrend reduced
+  such a ramp to round-off residue, which passed the gates and was accepted with a delay five
+  to six times the true one.
+- `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
+  gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
+- `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed
+  its linearity or unambiguous-interval check, and names a failed depth fit (cumulative delay
+  not linear in contact index, or a zero gradient) on its own. It reported the phase gate for
+  any non-identifiable delay, including one refused only for weak coupling.
 - `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
   `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
   surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so
