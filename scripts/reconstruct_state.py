@@ -112,7 +112,10 @@ def build() -> str:
         else "UNRESOLVED (file absent)"
     )
 
-    sys.path.insert(0, str(REPO_ROOT))
+    # Guarded: `build()` also runs inside the suite, and an unconditional prepend there put
+    # the checkout ahead of an installed jnwb for every test after it.
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
     try:
         from scripts.release_gate import problem_rows
 
