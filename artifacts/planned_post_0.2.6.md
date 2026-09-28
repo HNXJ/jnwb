@@ -34,7 +34,7 @@ holds the sequence, not the rules.
 - `jnwb-qc`: independent scientific and output QC over `visual_qc`, `audit_units`,
   `audit_electrodes`, `Result`, `Provenance` and `Lineage`, split out of `jnwb-figures` so the skill
   that makes a figure is not the one that judges it.
-- Route the public exports no skill names (P-63).
+- Route the public exports no skill names (P-63): 26 of 162 at 0.2.7, counted by symbol (`artifacts/evidence/0.2.7/package_inventory.md`).
 - Remove duplication from the existing skills rather than growing them.
 
 ## Carried by rulings of 2026-09-22

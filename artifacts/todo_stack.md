@@ -92,8 +92,9 @@ the probes are in the inspection reports. Every bullet here is required for 0.2.
 flight, ruled on 2026-09-27, or meeting the blocker predicate by that date's independent
 classification. The deferred bullets are in 07-28 under 0.2.8.
 
-- IB-37: P-63's count is stale: 26 of 162 exports are referenced by no skill as a symbol (a word scan says 24, because it also matches the English words Dataset and Figure). Check: P-63's figure corrected where it is quoted, with the method named.
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
+- IB-92: the orphan-page checks in `tests/test_docs_user_navigation.py` and `tests/test_errors_documented.py` read `mkdocs.yml` as text, so a commented-out nav line counts as a live entry and a page on no menu passes both. Required for 0.2.7 (R4, classified 2026-09-28): condition 1's navigation evidence can pass falsely. Check: both checks walk the parsed nav, and a fixture with a commented entry is reported.
+- IB-93: `scripts/measure_peak_memory.py` reads the process high-water mark on Linux, so an import peak hides the measured operation; the control records 0 MiB of 256 on every Linux CI leg and dev CI is red at `4fac3517`. Required for 0.2.7 (R4, classified 2026-09-28): CI evidence for the release is red. Check: the peak is reset before each operation, the control records about 256 MiB on Linux and Windows, and dev CI is green.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
@@ -116,8 +117,6 @@ Ruled 2026-09-27.
 - `scripts/stack_edit.py`: delete or replace a todo item by id, preserving line endings and asserting the result, with a test. Check: the integrator's stack edits go through it.
 - CHANGELOG fragments: one file per change under a fragments directory, assembled into `CHANGELOG.md` at release by a script with a test; `CONTRIBUTING.md` says how. Check: two parallel fragments merge without conflict.
 - A draft `AGENTS.md` of about 1500 words: rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- Audit the process tests: for each file under `tests/` that checks docs, stacks, prose, gates or rulings, say whether it executes library code or pins wording, and what evidence of release acceptance it carries. Check: the prune list, with evidence per file, goes to Hamm; nothing is deleted before his ruling.
-- Package inventory: exports no skill names and public modules outside `__all__`, with where each is used. Check: the list goes to Hamm; nothing moves this cycle.
 - Compact the todo stack to one line per item (id, surface, check), detail moved to `artifacts/evidence/0.2.7/`. Check: no item's check is lost.
 
 ## Out of 0.2.7 scope
@@ -155,7 +154,7 @@ takes one finding and narrows the write set to its paths.
 - P-01: `scripts/docs_build.py` writes `site/` inside the repository, and the test suite also creates `site/` mid-run with no build invoked, so no read-only packet can establish that the strict docs build passes while keeping the tree clean. Deferred: changes no shipped behaviour and invalidates no release evidence; 06-36 builds into a temporary directory.
   deferred-0.2.8: site/ written in tree; no shipped behaviour or evidence; 06-36 builds to tmp.
 - P-08: Two reproduced review findings carry wrong counts: `doc-assets/module-map-omits-nwb-entry-points` says 36 omitted exports where a probe counts 35, and `ai-plumbing/agent-roles-exist-but-ship-nowhere` says five roles where six exist. Deferred: record counts only.
-  deferred-0.2.8: record counts only; P-63 count carried by IB-37.
+  deferred-0.2.8: record counts only; P-63's count is restated, with its method, in `artifacts/evidence/0.2.7/package_inventory.md`.
 - P-20: The unit-to-layer composition works through existing exports and no document or skill shows it. Deferred: documentation only; planned as 06-89 in `artifacts/planned_post_0.2.6.md`.
   deferred-0.2.8: documentation of an existing composition only.
 - P-36: Reading computational order off the source was wrong on six specs: five predicted a gap the measurement did not find, and one exponential case a reading of the loop structure would miss; a nested loop is not evidence of the order it looks like. Deferred: a method finding, not a code defect; planned as 06-87.
@@ -451,6 +450,10 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: each fails loudly or needs a file outside the schema, and no shipped number changes.
 - Sweep site fingerprint: a reviewed handler edited in place keeps its site key, so a changed return passes under its old reason. Check: a key that carries a fingerprint of the handler body, with the row churn it causes weighed, or the gap kept stated.
   deferred-0.2.8: a scientific-tooling trade-off for Hamm; the gap is stated among the sweep's blind spots and no current row is wrong.
+- Process tests to prune or merge: `artifacts/evidence/0.2.7/process_test_audit.md` lists 4 files to prune and 4 to merge, each with its evidence, and four weaker checks a stronger test already covers. Check: Hamm rules on the list.
+  deferred-0.2.8: nothing moves this cycle, and every file on the list passes on the live tree.
+- Exports and modules outside the routing: `artifacts/evidence/0.2.7/package_inventory.md` lists the 26 exports no skill names and 43 public modules with names outside `__all__`. Check: Hamm rules on each group.
+  deferred-0.2.8: nothing moves this cycle; the list changes no behaviour.
 - `jrsa` resampling fallback: `_resample_axis` falls back to downsampling when SciPy is missing while `align` still echoes the request.
   deferred-0.2.8: SciPy is a declared dependency and input validation refuses unequal shapes before alignment, so no public call reaches it.
 - Generator seeds and `jrsa` axes: `cross_area_coherence`, `xflip` and `zflip` still record no seed for a `Generator`, where the directed estimators record a child seed; `jrsa` refuses an `adim` that names only an axis it reduces, with a message that says the result would not follow `adim`, and the dropped-axis branch of that rule has no test.
