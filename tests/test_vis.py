@@ -363,6 +363,26 @@ def test_csd_colorbar_carries_the_declared_unit(kwargs, label):
     assert _csd_colorbar(**kwargs) == label
 
 
+def test_csd_hover_carries_the_declared_unit():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+             depths=np.arange(3.0), value_unit="V/m²", depth_unit="mm")
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    assert "V/m²" in heatmap.hovertemplate
+
+
+def test_csd_draws_no_panel_title_unless_given():
+    """The default title asserted current source density for a voltage-curvature input too."""
+    def titles(**kwargs):
+        canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+        plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+                 depths=np.arange(3.0), value_unit="V/m²", depth_unit="mm", **kwargs)
+        return [a.text for a in canvas.fig.layout.annotations if a.yref == "paper"]
+
+    assert titles() == []
+    assert titles(title="Voltage curvature") == ["<b>Voltage curvature</b>"]
+
+
 def test_csd_value_unit_is_required():
     with pytest.raises(TypeError, match="value_unit"):
         _csd_colorbar()
