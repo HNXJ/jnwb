@@ -203,6 +203,41 @@ class TestXFlipContiguousPartitioning:
         assert res.n_blocks == 2
         assert res.boundaries == (8,)
 
+    def test_auto_block_count_recovers_blocks_that_share_a_background(self):
+        # Four blocks sharing a background correlation of 0.3: a selector that scores only
+        # within-block pairs merges them.
+        data, _, _ = synth_correlation_blocks(
+            (4, 4, 4, 4), within_corr=0.8, between_corr=0.3, n_samples=400, rng=7
+        )
+        res = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=107)
+        assert res.accepted is True
+        assert res.boundaries == (4, 8, 12)
+
+    def test_auto_block_count_p_accounts_for_the_choice(self):
+        # Every surrogate repeats the choice of count, so the reported p is never below the
+        # chosen count's own p on the same surrogates, and exceeds it when another count
+        # would have been chosen on some surrogate.
+        strictly_above = 0
+        for seed in range(6):
+            data = synth_white_noise(shape=(16, 400), rng=seed + 40)
+            auto = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=seed)
+            k = len(auto.block_bounds)
+            fixed = xflip(data, n_blocks=k, min_block_size=3, n_surrogates=40, rng=seed)
+            assert fixed.boundaries == auto.boundaries
+            assert auto.p_values["omnibus"] >= fixed.p_values["omnibus"]
+            strictly_above += auto.p_values["omnibus"] > fixed.p_values["omnibus"]
+        assert strictly_above > 0
+
+    def test_auto_block_count_tie_goes_to_the_smallest_count(self):
+        # All off-diagonal correlations equal: every count has p = 1 and no contrast above its
+        # surrogates, so the tie-break alone decides, and it takes the least structure.
+        corr = np.full((12, 12), 0.5)
+        np.fill_diagonal(corr, 1.0)
+        res = xflip(corr, n_blocks=None, min_block_size=3, n_surrogates=20, rng=0,
+                    is_corr_matrix=True)
+        assert len(res.boundaries) == 1
+        assert res.p_values["omnibus"] == 1.0
+
 
 class TestXFlipSurrogatesAndInference:
     """Test autocorrelation preservation, p-value resolution, and determinism."""
@@ -338,6 +373,65 @@ class TestXFlipUnrestricted:
         assert res.labels[0] == res.labels[2] == res.labels[4]
         assert res.labels[1] == res.labels[3] == res.labels[5]
         assert res.labels[0] != res.labels[1]
+
+
+def _min_p_by_brute_force(obs, surr):
+    """The count-selection p written out as counts over every pair of draws."""
+    draws = np.vstack([obs[None], surr])
+    n, k = draws.shape
+    at_least = np.array([[sum(draws[l, i] >= draws[j, i] for l in range(n)) for i in range(k)]
+                         for j in range(n)])
+    smallest = at_least.min(axis=1)
+    return at_least, smallest, [sum(smallest <= smallest[j]) / n for j in range(n)]
+
+
+class TestTheCountSelectionTest:
+    """`_select_count_by_min_p` on draws built to be exchangeable, away from any partition."""
+
+    def test_size_is_at_most_alpha_on_exchangeable_draws(self):
+        from scipy import stats
+
+        from jnwb.laminar import _select_count_by_min_p
+
+        # The observation and 40 surrogates drawn alike, three correlated counts, half the
+        # draws rounded so that ties occur. Under exchangeability p <= alpha has probability
+        # at most alpha; the bound is the one-sided 99.9% binomial quantile at alpha.
+        rng = np.random.default_rng(0)
+        n_trials, n_surr, alpha = 20000, 40, 0.05
+        chol = np.linalg.cholesky(
+            np.array([[1.0, 0.6, 0.4], [0.6, 1.0, 0.6], [0.4, 0.6, 1.0]])
+        )
+        significant = 0
+        for _ in range(n_trials):
+            draws = rng.normal(size=(n_surr + 1, 3)) @ chol.T
+            if rng.random() < 0.5:
+                draws = np.round(draws, 1)
+            significant += _select_count_by_min_p(draws[0], draws[1:])[1] <= alpha
+        assert significant <= int(stats.binom.ppf(0.999, n_trials, alpha)), significant
+
+    def test_matches_brute_force_and_treats_the_observation_as_one_draw(self):
+        from jnwb.laminar import _select_count_by_min_p
+
+        rng = np.random.default_rng(1)
+        for trial in range(400):
+            k = int(rng.integers(1, 4))
+            s = int(rng.integers(1, 30))
+            if trial % 2:
+                draws = rng.integers(0, 4, size=(s + 1, k)).astype(float)
+            else:
+                draws = rng.normal(size=(s + 1, k))
+            at_least, smallest, p_brute = _min_p_by_brute_force(draws[0], draws[1:])
+            chosen, p = _select_count_by_min_p(draws[0], draws[1:])
+            assert p == p_brute[0]
+            assert at_least[0, chosen] == smallest[0]
+            # Swapping a surrogate into the observation's place gives that draw's p on the
+            # same pool: the observation is ranked as one of the draws, not apart from them.
+            j = int(rng.integers(1, s + 1))
+            swapped = draws.copy()
+            swapped[[0, j]] = swapped[[j, 0]]
+            assert _select_count_by_min_p(swapped[0], swapped[1:])[1] == p_brute[j]
+            if k == 1:
+                assert p == (1 + np.sum(draws[1:, 0] >= draws[0, 0])) / (1 + s)
 
 
 class TestXFlipContainer:

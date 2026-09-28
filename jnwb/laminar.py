@@ -1345,6 +1345,43 @@ def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
     return mean_within - mean_between
 
 
+def _select_count_by_min_p(obs_q: np.ndarray, surr_q: np.ndarray) -> Tuple[int, float]:
+    """The candidate count with the smallest surrogate p, and a p that accounts for choosing it.
+
+    `obs_q` is `(K,)`, the observed contrast at each candidate count; `surr_q` is `(S, K)`,
+    each surrogate's contrast at the same counts. The observation and the S surrogates are
+    treated as S + 1 exchangeable draws. At each count, a draw's p is the fraction of the
+    draws whose contrast is at least its own, so the observation's p is the usual
+    `(1 + #exceed) / (1 + S)`. Each draw's statistic is its smallest p over the counts, and
+    the returned p is the fraction of draws whose smallest p is at most the observation's:
+    the selection is repeated on every surrogate. With one candidate this is exactly the
+    fixed-count p.
+
+    Among counts tied at the smallest p, the one whose observed contrast lies the most
+    surrogate standard deviations above the surrogate mean is chosen, and on a further tie
+    the smallest count. The tie-break chooses the partition only; the p does not depend on it.
+
+    Returns:
+        (index into the candidates, p)
+    """
+    draws = np.vstack([obs_q[None, :], surr_q])
+    n_draws = draws.shape[0]
+    at_least = np.empty(draws.shape, dtype=np.int64)
+    for i in range(draws.shape[1]):
+        ordered = np.sort(draws[:, i])
+        at_least[:, i] = n_draws - np.searchsorted(ordered, draws[:, i], side="left")
+    smallest = at_least.min(axis=1)
+    p = float(np.count_nonzero(smallest <= smallest[0]) / n_draws)
+
+    dev = obs_q - surr_q.mean(axis=0)
+    spread = surr_q.std(axis=0)
+    # A count whose surrogates do not vary scores +-inf by the sign of its deviation, or 0.
+    z = np.where(dev > 0, np.inf, np.where(dev < 0, -np.inf, 0.0))
+    np.divide(dev, spread, out=z, where=spread > 0)
+    tied = np.flatnonzero(at_least[0] == smallest[0])
+    return int(tied[np.argmax(z[tied])]), p
+
+
 def _optimal_contiguous_partition(
     corr: np.ndarray,
     n_blocks: int,
@@ -1558,6 +1595,10 @@ def xflip(
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
            :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q)}{1 + S}`.
            No p-value can resolve to 0.0 under finite surrogate sampling.
+           Under `n_blocks=None`, the observation and the surrogates are S + 1 draws; each
+           draw's p at each count is the fraction of draws whose contrast is at least its
+           own, its statistic is the smallest of those p over the counts, and the omnibus p
+           is the fraction of draws whose statistic is at most the observation's.
 
     Args:
         data: 2D array of raw time series `(n_channels, n_samples)` or precomputed
@@ -1566,7 +1607,20 @@ def xflip(
             or `'partial'` (default: `'pearson'`).
         contiguous: If True, partitions into contiguous contact segments along the probe
             shaft (default: True). If False, performs unrestricted clustering.
-        n_blocks: Number of blocks to partition into, or None to evaluate over 2..K (default: 2).
+        n_blocks: Number of blocks to partition into (default: 2), or None to choose among
+            the counts 2..min(4, n_channels // min_block_size). Each count is partitioned as
+            in step 2 and tested against the same surrogates; the count with the smallest p
+            is reported, and the omnibus p repeats that choice on every surrogate (step 4),
+            so it accounts for the choice. Among counts tied at the smallest p, the one whose
+            observed contrast lies the most surrogate standard deviations above the surrogate
+            mean wins, then the smallest count. When a count's partition beats every
+            surrogate, every count sits at the floor and the standardised contrast decides;
+            the omnibus p does not depend on the tie-break. The per-boundary p-values are the
+            chosen count's own and are not adjusted for the choice. With `n_surrogates=0`
+            there is no p to choose by, and count 2 is reported. Measured on 16 to 18 contacts
+            at a within-block correlation of 0.8, the true count is recovered up to a shared
+            background correlation of 0.3; at 0.5, three blocks of 6 were cut into four and
+            rejected. Costs about one fixed-count call at each candidate count.
         min_block_size: Minimum channel count required per block (default: 2).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
@@ -1732,42 +1786,51 @@ def xflip(
             n_blocks=1,
         )
 
-    # Optimal partition on observed data
-    if n_blocks is not None:
+    def partition(matrix: np.ndarray, k: int):
         if contiguous:
-            b_bounds, boundaries, obs_q, labels = _optimal_contiguous_partition(corr, target_k, min_block_size)
-        else:
-            b_bounds, boundaries, obs_q, labels = _unrestricted_partition(corr, target_k)
+            return _optimal_contiguous_partition(matrix, k, min_block_size)
+        return _unrestricted_partition(matrix, k)
+
+    def local_labels(bounds, b):
+        """The two blocks either side of boundary `b`, as (start, end, labels)."""
+        left_st = 0
+        right_en = n_channels
+        for bb_st, bb_en in bounds:
+            if bb_en == b:
+                left_st = bb_st
+            elif bb_st == b:
+                right_en = bb_en
+                break
+        lbl = np.zeros(right_en - left_st, dtype=int)
+        lbl[b - left_st:] = 1
+        return left_st, right_en, lbl
+
+    # INTENTIONAL BREAK (0.2.7): under `n_blocks=None` the count is the candidate with the
+    # smallest surrogate p, and the same choice is repeated on every surrogate, so the
+    # reported p accounts for it. The count was the one with the highest contrast, and the p
+    # ignored the choice: on an AR(1) null it fell at or below 0.05 about twice as often as
+    # at a fixed count.
+    # Counts and p can change on existing data.
+    if n_blocks is not None:
+        candidates: Tuple[int, ...] = (target_k,)
     else:
-        max_k = min(4, n_channels // min_block_size)
-        best_q = -np.inf
-        best_res = None
-        target_k = 2
-        for k_cand in range(2, max_k + 1):
-            if contiguous:
-                bb, bnd, q_cand, lbl = _optimal_contiguous_partition(corr, k_cand, min_block_size)
-            else:
-                bb, bnd, q_cand, lbl = _unrestricted_partition(corr, k_cand)
-            if q_cand > best_q:
-                best_q = q_cand
-                best_res = (bb, bnd, q_cand, lbl)
-                target_k = k_cand
-        if best_res is not None:
-            b_bounds, boundaries, obs_q, labels = best_res
-        else:
-            b_bounds = ((0, n_channels),)
-            boundaries = ()
-            obs_q = 0.0
-            labels = np.zeros(n_channels, dtype=int)
+        candidates = tuple(range(2, min(4, n_channels // min_block_size) + 1))
+    observed = [partition(corr, k) for k in candidates]
+    local_obs = [
+        {b: _compute_contrast(corr[st:en, st:en], lbl)
+         for b in bnd for st, en, lbl in [local_labels(bb, b)]}
+        for bb, bnd, _, _ in observed
+    ]
 
     # Monte Carlo surrogate null testing
     p_values: Dict[str, float] = {}
+    chosen = 0
 
     if n_surrogates > 0:
-        count_exceed = 0
-        boundary_exceed = {b: 0 for b in boundaries}
+        surr_q_all = np.empty((n_surrogates, len(candidates)), dtype=float)
+        boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
 
-        for _ in range(n_surrogates):
+        for s_idx in range(n_surrogates):
             if eff_surrogate_method == "autocorr_preserving":
                 surr_raw = _surrogate_phase_randomize(raw_data, gen)
                 surr_corr = _compute_correlation_matrix(surr_raw, method)
@@ -1782,37 +1845,27 @@ def xflip(
                     surr_corr[triu_idx] = perm_vals
                     surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
 
-            if contiguous:
-                _, _, surr_q, _ = _optimal_contiguous_partition(surr_corr, target_k, min_block_size)
-            else:
-                _, _, surr_q, _ = _unrestricted_partition(surr_corr, target_k)
+            for i, k in enumerate(candidates):
+                surr_q_all[s_idx, i] = partition(surr_corr, k)[2]
+                bb = observed[i][0]
+                for b in observed[i][1]:
+                    st, en, lbl = local_labels(bb, b)
+                    if _compute_contrast(surr_corr[st:en, st:en], lbl) >= local_obs[i][b]:
+                        boundary_exceed[i][b] += 1
 
-            if surr_q >= obs_q:
-                count_exceed += 1
-
-            for b in boundaries:
-                left_st = 0
-                right_en = n_channels
-                for bb_st, bb_en in b_bounds:
-                    if bb_en == b:
-                        left_st = bb_st
-                    elif bb_st == b:
-                        right_en = bb_en
-                        break
-
-                local_lbl = np.zeros(right_en - left_st, dtype=int)
-                local_lbl[b - left_st:] = 1
-                local_surr_q = _compute_contrast(surr_corr[left_st:right_en, left_st:right_en], local_lbl)
-                local_obs_q = _compute_contrast(corr[left_st:right_en, left_st:right_en], local_lbl)
-                if local_surr_q >= local_obs_q:
-                    boundary_exceed[b] += 1
-
-        p_omnibus = (1 + count_exceed) / (1 + n_surrogates)
-        p_values["omnibus"] = float(p_omnibus)
-        for b in boundaries:
-            p_values[f"boundary_{b}"] = float((1 + boundary_exceed[b]) / (1 + n_surrogates))
+        obs_q_all = np.array([part[2] for part in observed], dtype=float)
+        chosen, p_omnibus = _select_count_by_min_p(obs_q_all, surr_q_all)
+        p_values["omnibus"] = p_omnibus
+        for b in observed[chosen][1]:
+            p_values[f"boundary_{b}"] = float(
+                (1 + boundary_exceed[chosen][b]) / (1 + n_surrogates)
+            )
     else:
         p_values["omnibus"] = np.nan
+
+    # With no surrogates there is no p to choose by, and the smallest candidate is reported.
+    target_k = candidates[chosen]
+    b_bounds, boundaries, obs_q, labels = observed[chosen]
 
     # Evaluate boundary drops (local discontinuity across candidate cuts)
     # On the unrestricted path the partition carries no boundaries of its own, but a
