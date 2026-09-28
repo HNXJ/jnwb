@@ -11,11 +11,10 @@ Changes vs. previous version:
 """
 
 import logging
-import warnings
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import bins_within, whole_bin_count
+from ._bins import bins_within, onset_locked_counts, whole_bin_count
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
 import pandas as pd
@@ -368,7 +367,9 @@ class UnitAnalyzer:
                 of ``bin_size_ms`` bins.
 
         Returns:
-            Dict with PSTH, CI, and statistics
+            Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
+            ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is 0, and
+            NumPy and SciPy warn about the empty mean.
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
@@ -379,14 +380,11 @@ class UnitAnalyzer:
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
-        trial_psths = []
-        for onset in trial_onsets:
-            mask = ((spike_times >= onset + win_sec[0]) &
-                    (spike_times <= onset + win_sec[1]))
-            psth_trial, _ = np.histogram(spike_times[mask] - onset, bins=bin_edges)
-            trial_psths.append(psth_trial / bin_sec)
-
-        trial_psths = np.array(trial_psths)
+        # [onset + pre, onset + post], both edges inclusive. The subtraction used to round a
+        # spike on either edge just outside the outer bin edges, where np.histogram dropped
+        # it: with onsets 0.7 s apart from 2 s, 114 of 405 at the left edge and 147 at the right.
+        trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
+                                          bin_edges, 1.0, right_closed=True) / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
         sem_psth  = stats.sem(trial_psths, axis=0)
 
@@ -410,12 +408,12 @@ class UnitAnalyzer:
         and ``acg`` holds the ``n`` positive-lag bins centred on ``lag_times_ms``,
         ``bin_size_ms * (1, ..., n)``.
 
-        The refractory test this returned is withdrawn: it took the Poisson upper tail of
-        the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an over-filled
-        refractory bin read as a single unit and a clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
-        ``baseline_count`` are ``NaN`` and ``is_single_unit`` is ``None``, with a
-        ``FutureWarning``; they are removed in 0.2.7. The single-unit check is
-        :meth:`quality_metrics`, from inter-spike intervals under 2 ms.
+        There is no refractory test here. The one this returned was inverted: it took the
+        Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an
+        over-filled refractory bin read as a single unit and a clean one did not. Its keys
+        ``refractory_period_violation``, ``is_single_unit``, ``refr_count`` and
+        ``baseline_count`` are removed. The single-unit check is :meth:`quality_metrics`,
+        from inter-spike intervals under 2 ms.
 
         Args:
             spike_times: Spike times in seconds
@@ -425,7 +423,7 @@ class UnitAnalyzer:
 
         Returns:
             Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
-            the histogram) and the four withdrawn keys above.
+            the histogram).
         """
         resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
         if len(spike_times) < 10:
@@ -442,23 +440,10 @@ class UnitAnalyzer:
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
 
-        warnings.warn(
-            "UnitAnalyzer.autocorrelogram: the refractory test is withdrawn because it was "
-            "inverted (an over-filled refractory bin read as a single unit). "
-            "'refractory_period_violation', 'refr_count' and 'baseline_count' are NaN and "
-            "'is_single_unit' is None; these keys are removed in 0.2.7. Use "
-            "UnitAnalyzer.quality_metrics (ISI < 2 ms) as the single-unit check.",
-            FutureWarning,
-            stacklevel=2,
-        )
         return {
-            'acg':                        acg,
-            'lag_times_ms':               lag_times * 1000,
-            'refractory_period_violation': float('nan'),
-            'is_single_unit':             None,
-            'refr_count':                 float('nan'),
-            'baseline_count':             float('nan'),
-            'device_used':                ran_on[0],
+            'acg':          acg,
+            'lag_times_ms': lag_times * 1000,
+            'device_used':  ran_on[0],
         }
 
     # Pairs held on the device at once. 4.19e6 float64 differences is 32 MiB, which
@@ -573,13 +558,34 @@ class UnitAnalyzer:
         Fano factor computed via np.histogram (no Python loop over 1-s windows).
 
         Args:
-            spike_times: Spike times in seconds
+            spike_times: Spike times in seconds, in any order; they are sorted first.
+                Unsorted, a backward step read as a negative interval, counted as a
+                refractory violation, and the first and last entries were taken as the
+                recording's span.
             waveform_duration_us: Trough-to-peak duration (µs)
             firing_rate: Mean firing rate (Hz)
 
         Returns:
             Dict with quality scores
+
+        Raises:
+            ValueError: If ``spike_times`` is not 1-D or holds a NaN or an infinity. A NaN
+                sorted last, made the mean interval NaN and still read as a good single
+                unit; a 2-D array was pooled into one train.
         """
+        spike_times = np.asarray(spike_times, dtype=float)
+        if spike_times.ndim != 1:
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times must be one 1-D train; got shape "
+                f"{spike_times.shape}. Call it once per unit."
+            )
+        if not np.all(np.isfinite(spike_times)):
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times holds "
+                f"{int(np.sum(~np.isfinite(spike_times)))} NaN or infinite value(s); drop "
+                "them first."
+            )
+        spike_times = np.sort(spike_times)
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 

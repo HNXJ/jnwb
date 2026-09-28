@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from ._parallel import parallel_map, spawn_seeds
-from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import DEFAULT_SEED, RNGLike, recorded_rng, resolve_rng
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from ._spread import is_constant as _is_constant
 import pandas as pd
@@ -1542,11 +1542,18 @@ def cross_modal_comparison(
         lag_range_ms: (min_ms, max_ms) lag window to search; only used when ``bin_ms`` is given.
         bin_ms: bin width in ms of the (already frequency/trial-reduced) 1D series. ``None``
             skips the lag sweep and preserves the original zero-lag-only behavior.
+        n_permutations: circular shifts in the null of ``lag_corrected_pvalue``.
+        rng: randomness of that null: an ``int`` seed, a ``Generator``, from which one child
+            seed is drawn and used, or ``None`` (default) for fresh OS entropy. The result's
+            ``surrogate_seed_entropy`` is the seed that ran, and passing it back as ``rng``
+            reproduces ``lag_corrected_pvalue``; it is ``None`` when no sweep ran. ``seed``
+            is the old spelling and still works.
 
     Returns:
         dict with correlation (StatisticalAnalysis.correlate output at the best lag), n_samples,
         lag_ms (0.0 unless a sweep ran), lfp_leads_spikes (True when the best lag is negative,
-        i.e. the TFR/LFP signal is shifted earlier than spikes), interpretation -- or
+        i.e. the TFR/LFP signal is shifted earlier than spikes), surrogate_seed_entropy,
+        interpretation -- or
         {'error': ...} when inputs are missing or too short.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
@@ -1617,6 +1624,7 @@ def cross_modal_comparison(
             'n_samples': n_pts,
             'lag_ms': 0.0,
             'lfp_leads_spikes': False,
+            'surrogate_seed_entropy': None,
             'interpretation': 'Zero-lag linear correlation between trial-averaged LFP envelope and spike counts',
         }
 
@@ -1668,7 +1676,7 @@ def cross_modal_comparison(
     # 600-sample series holds only about six non-overlapping windows of 101 lags: whichever
     # window contains the global maximum wins, so the restricted p cannot resolve below
     # about 1/6. The full-circle null measured 4.0%.
-    gen = resolve_rng(seed, func_name="cross_modal_comparison")
+    gen, seed_entropy = recorded_rng(seed, "cross_modal_comparison")
     null_max = np.empty(int(n_permutations), dtype=float)
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))
@@ -1697,6 +1705,7 @@ def cross_modal_comparison(
         'n_lags_searched': len(shifts),
         'uncorrected_pvalue': float(best_corr['parametric']['pval']),
         'lag_corrected_pvalue': lag_corrected_p,
+        'surrogate_seed_entropy': seed_entropy,
         'significant_lag_corrected': bool(lag_corrected_p < 0.05),
         'lag_search_resolution_floor': float(resolution_floor),
         'warnings': (

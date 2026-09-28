@@ -42,6 +42,10 @@ integer base seed, which the plan returns as `seed`.
   ```python
   local_rng = rng if isinstance(rng, np.random.Generator) else np.random.default_rng(rng)
   ```
+  `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
+  `cross_modal_comparison` instead draw one child seed from a `Generator`, run on
+  `default_rng(child)` and record the child as `surrogate_seed_entropy`, so the result alone
+  reproduces its p-values.
 - **Prohibited**: Never call `np.random.seed()`, `random.seed()`, or manipulate global RNG state.
 - **Parallel Workers**: a result computed across workers is fixed by iteration index and identical at every `n_jobs`, because every draw an iteration needs is made from the caller's `rng` before any worker starts:
 

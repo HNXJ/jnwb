@@ -12,6 +12,7 @@ Public API: exactly one function.
 
 from __future__ import annotations
 
+import numbers
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -180,7 +181,9 @@ def jrsa(
         here) and `window`. Nothing downstream follows it: the paired metrics pair samples
         and resample the last axis, the observation-axis metrics resample axis 0 (see
         `null`), and `lag` shifts the axis the metric treats as observations, comparing the
-        overlap only.
+        overlap only. So an `adim` other than the default that does not name that axis
+        raises ValueError when a permutation null, `bootstrap` or a nonzero `lag` is used:
+        ``adim=0`` with pearson on a 2-D input would return the result of ``adim=-1``.
     labels : list[str] or None
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
@@ -227,7 +230,11 @@ def jrsa(
         integer width centred on the axis. This is not a time -- `jrsa` takes no sampling
         rate and cannot convert one. The docstring used to read "e.g. (-500, 500) ms",
         which on a 6-sample axis clamped to the whole axis and returned the unwindowed
-        answer with no warning.
+        answer with no warning. For rsa, cka, rv, hsic, distance_correlation and procrustes
+        at the default ``adim=-1`` the aligned axis is the last, the features, while `lag`
+        and the null act on axis 0, the observations: ``jrsa(x, y, metric='cka',
+        window=(0, 20))`` on (200, 40) input keeps 20 of the 40 features and all 200
+        observations. To window the observations, pass ``adim=0``.
     sliding : bool
         Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
         accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
@@ -278,7 +285,8 @@ def jrsa(
         transfer_entropy_histogram_nats and phase_slope -- and axis 0, the observations, for
         rsa, cka, rv, hsic, distance_correlation and procrustes. The last axis is the
         aligned axis only at the default ``adim=-1``: for the paired metrics the null and
-        `lag` act on axis -1 whatever `adim` names, so put time last.
+        `lag` act on axis -1 whatever `adim` names, so put time last. Another `adim` that
+        does not name the permuted axis raises ValueError (see `adim`).
 
         - ``'circular_shift'`` rotates x2 by a shift drawn uniformly from 0 to n - 1, the
           same shift for every row. Each series keeps its autocorrelation, so the null
@@ -475,6 +483,7 @@ def jrsa(
     x1, x2 = _prepare_inputs(x1, x2, bk)
     x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
     x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
+    ndim_in = x1.ndim
     x1, x2, aligned_axes = _align_dimensions(
         x1, x2, axis_map, align, align_mode, verbose
     )
@@ -522,6 +531,10 @@ def jrsa(
     # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
     # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
     perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+    _refuse_an_adim_the_resampling_ignores(
+        metric, adim, axis_map, ndim_in, x1.ndim < ndim_in, perm_axis,
+        permutation_p=permutation_p, bootstrap=bootstrap, lag=lag,
+    )
     # Paired metrics compare samples along the aligned axis, usually time, where single
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
@@ -779,26 +792,41 @@ def _validate_inputs(x1, x2, nan_policy: str, metric=None):
     return x1, x2
 
 
+def _is_axis_index(value) -> bool:
+    """An integer axis: a Python or NumPy integer, not a bool."""
+    return isinstance(value, numbers.Integral) and not isinstance(value, (bool, np.bool_))
+
+
 def _standardize_dimensions(x1, x2, adim, labels):
     """Normalise adim to a dict {name: axis_index}."""
     axis_map = {}
-    if isinstance(adim, int):
-        axis_map["aligned"] = adim % x1.ndim
+    # numbers.Integral, not int: np.int64(0) failed isinstance(int) and fell through to -1.
+    if _is_axis_index(adim):
+        axis_map["aligned"] = int(adim) % x1.ndim
     elif isinstance(adim, (tuple, list)):
         for i, d in enumerate(adim):
             if isinstance(d, str):
                 if labels is None:
                     raise ValueError("labels required when adim contains strings.")
                 axis_map[d] = labels.index(d)
-            else:
+            elif _is_axis_index(d):
+                d = int(d)
                 key = labels[d] if labels and d < len(labels) else f"axis_{d}"
                 axis_map[key] = d % x1.ndim
+            else:
+                raise TypeError(
+                    f"jrsa: each entry of adim must be an int or a str; got "
+                    f"{type(d).__name__} at position {i}."
+                )
     elif isinstance(adim, str):
         if labels is None:
             raise ValueError("labels required when adim is a string.")
         axis_map[adim] = labels.index(adim)
     else:
-        axis_map["aligned"] = -1 % x1.ndim
+        raise TypeError(
+            f"jrsa: adim must be an int, a str, or a tuple or list of them; got "
+            f"{type(adim).__name__}. Another type used to be read as adim=-1."
+        )
     return x1, x2, axis_map
 
 
@@ -968,6 +996,37 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
         if x2 is not None:
             x2 = _reduce_one(x2, op_str, ax)
     return x1, x2
+
+
+def _refuse_an_adim_the_resampling_ignores(metric, adim, axis_map, ndim_in, dropped_axis_0,
+                                           perm_axis, *, permutation_p, bootstrap, lag):
+    """Raise when a non-default `adim` would be ignored by the null, bootstrap or `lag`.
+
+    Those act on a fixed axis of the input: the last for the paired metrics, axis 0 for the
+    row metrics, or axis 1 when a reduction removed axis 0. With ``adim=0`` on a 2-D input,
+    pearson returned the value and p of ``adim=-1`` exactly, and a lag shifted the last
+    axis. A non-default `adim` is accepted with any of the three only when it names that
+    axis; following `adim` is not implemented. An `adim` naming only the last axis, as the
+    default ``adim=-1`` does, is exempt: for the row metrics it names the features while
+    the resampling acts on the observations, as the docstring states.
+    """
+    used = [name for name, on in (("the permutation null", permutation_p),
+                                  ("bootstrap", bootstrap > 0),
+                                  ("lag", bool(np.any(np.asarray(lag) != 0)))) if on]
+    if not used or set(axis_map.values()) == {ndim_in - 1}:
+        return
+    acted = ndim_in - 1 if perm_axis == -1 else (1 if dropped_axis_0 else 0)
+    if acted in axis_map.values():
+        return
+    kind = ("the last axis, for a paired metric" if perm_axis == -1 else
+            "the observations of a row metric")
+    raise ValueError(
+        f"jrsa(metric={metric!r}, adim={adim!r}): {', '.join(used)} act(s) on axis {acted} of "
+        f"the input ({kind}) whatever `adim` names, and `adim` does not name it, so the "
+        "result would not follow `adim`. Name that axis in `adim`, use the default adim=-1 "
+        "with the aligned axis last, or drop the resampling (stats=False or "
+        "permutations=0, bootstrap=0, lag=0)."
+    )
 
 
 def _window_axis_name(axis_map):
