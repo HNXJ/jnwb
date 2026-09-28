@@ -104,8 +104,9 @@ Phase slope index between two time series. `p_x_to_y` tests a lead; the surrogat
 sig_a = rng.normal(size=1000)
 sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
 
-psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, rng=0)
-print(f"PSI X->Y: {psi.x_to_y:.4f}, lead p: {psi.p_x_to_y:.4f}")
+psi = jnwb.phase_slope_index(sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0),
+                             nperseg=100, n_surrogates=50, rng=0)   # 19 segments, 3 bins in band
+print(f"PSI X->Y: {psi.x_to_y:.4f}, lead p: {psi.p_x_to_y:.2g}")
 print(f"coupling p: {psi.diagnostics['p_coupling_surrogate']:.4f}")
 ```
 

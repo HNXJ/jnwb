@@ -513,6 +513,18 @@ class TestPsiLeadPIsTheJackknife:
         coupling = both.diagnostics["p_coupling_surrogate"]
         assert coupling == both.per_band["band"]["p_surrogate"] and coupling != both.p_net
 
+    def test_a_multi_band_lead_p_is_the_omnibus_jackknife_whether_or_not_surrogates_run(self):
+        x, y = _zero_lag_pair(2000, 0)
+        bands = {"a": (5.0, 40.0), "b": (45.0, 100.0)}
+        plain = phase_slope_index(x, y, fs=1000.0, nperseg=50, bands=bands)
+        both = phase_slope_index(x, y, fs=1000.0, nperseg=50, bands=bands,
+                                 n_surrogates=49, rng=0)
+        assert plain.diagnostics["p_is_omnibus"] and plain.p_net is not None
+        assert both.p_net == plain.p_net == both.p_x_to_y == both.p_y_to_x
+        assert both.diagnostics["p_source"] == "jackknife_z"
+        assert both.diagnostics["p_coupling_surrogate"] is not None
+        assert both.p_net != both.diagnostics["p_coupling_surrogate"]
+
     def test_without_the_jackknife_there_is_no_lead_p(self):
         x, y = _zero_lag_pair(2000, 0)
         res = phase_slope_index(x, y, fs=1000.0, nperseg=50, n_surrogates=49, rng=0,

@@ -103,7 +103,7 @@ print("Band summaries:", psi_res.per_band)
 
 `p_net` (equal to `p_x_to_y` and `p_y_to_x`) is the jackknife t test of a lead. A shifted Y
 loses every dependence on X, zero lag included, so `p_coupling_surrogate` tests coupling, not a
-lead. Under a zero-lag common source the lead p rejects at 0.06 to 0.07 for a nominal 0.05; the
+lead. Under a zero-lag common source the lead p rejects at 0.06 to 0.08 for a nominal 0.05; the
 surrogate p, at up to 0.46. Set `nperseg` so the record holds tens of segments: the default
 gives 7.
 
@@ -150,8 +150,8 @@ coupling, test significant in both directions. Use `"quantile"`.
 `"quantile"` is safe under zero-lag mixing only for a white common source: a coloured one gives
 X's past information about Y's present beyond Y's noisy past, and TE, like Granger, rejects. The
 surrogate p compares plug-in values; `bias_correction` changes only the estimate. At 4 bins and
-`k = l = 1` a white common source is rejected at 0.03 to 0.06 for a nominal 0.05 (n = 500 to
-8000). The p is conservative at large state spaces: at 8 bins or `k = l = 2`, none of 1000 pairs
+`k = l = 1` a white common source is rejected at 0.025 to 0.06 for a nominal 0.05 (n = 500 to
+8000), reaching about 0.06 near n = 4000 to 8000 and decaying at larger n. The p is conservative at large state spaces: at 8 bins or `k = l = 2`, none of 1000 pairs
 rejected.
 
 ---

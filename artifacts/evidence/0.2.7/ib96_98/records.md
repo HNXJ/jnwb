@@ -13,6 +13,8 @@ no directed coupling and no lead.
 | `pin_counts.py <tree>` | the rejection counts the two pinned tests assert, on any tree |
 | `run_page08.py <tree> [<seeds>]` | every python block of `docs/08` in order, then the network, PSI and Z examples over data seeds |
 | `run_page.py <tree> <page>` | every python block of one docs page in order |
+| `quickstart_psi.py <tree> <seeds>` | the quickstart PSI example by `nperseg`, over data seeds |
+| `mutate_m1.py <tree> apply\|restore` | the multi-band `elif` mutant, applied and restored in bytes |
 
 ## Transfer entropy
 
@@ -69,6 +71,28 @@ run without surrogates; the coupling p, `diagnostics['p_coupling_surrogate']`, 0
 The tests assert at most 2. With the `af487ea5` `jnwb/connectivity.py` copied into the tree, the
 two new test classes gave 5 failed, 1 passed (the power test survives, as it should); the restore
 was checked by SHA-256.
+
+## Quickstart PSI example
+
+`quickstart_psi.py <tree> 200`: the page's model (1000 samples, a 5-sample lead, band 8-30 Hz,
+50 surrogates) over 200 data seeds.
+
+| `nperseg` | Segments | Bins in band | Lead p < 0.05 | Median lead p | Coupling p < 0.05 | Runs with a warning |
+|---|---|---|---|---|---|---|
+| default (250) | 7 | 6 | 0.635 | 0.027 | 0.555 | 200 of 200 |
+| 80 | 24 | 2 | 0.955 | 0.0012 | 0.985 | 0 of 200 |
+| 100 | 19 | 3 | 0.990 | 0.00016 | 0.990 | 0 of 200 |
+
+The page now sets `nperseg=100`. Run in page order by `run_page.py <tree> quickstart.md`, the block
+prints `PSI X->Y: 0.6298, lead p: 2.9e-08` and `coupling p: 0.0196`; before, with the default,
+the same data printed lead p 0.0099, and a fresh `default_rng(0)` gave 0.158.
+
+## Multi-band lead p with surrogates
+
+`mutate_m1.py <tree> apply|restore` puts back the `elif` that skipped the omnibus jackknife p
+whenever surrogates ran. On `TestPsiLeadPIsTheJackknife`: pristine 4 passed; mutant 1 failed,
+3 passed (`assert None == 0.720048067783705` in the multi-band test); restored file SHA-256
+`63982ba2dc4bbacbf1fd7dc0490a77905888bd5dabe2901949737597eeac09a9`, equal to the committed blob.
 
 ## docs/08
 

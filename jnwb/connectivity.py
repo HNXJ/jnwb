@@ -1832,9 +1832,10 @@ def phase_slope_index(
     shifted or re-paired Y removes every X-Y dependence, zero lag included, so that p
     tests coupling, not a lead. With ``jackknife=False`` there is no lead test and the
     three p fields are None. Measured on two noisy copies of one white source (no lead;
-    band 5-100 Hz at fs 1000, 1000 seeds), P(lead p < 0.05) was 0.059, 0.063 and 0.058
-    at nperseg 50, 100 and 200 on one 2000-sample trial and 0.070 on 10 trials of 400,
-    while the surrogate p rejected in 0.17 of 500 at nperseg 100. On independent pairs
+    band 5-100 Hz at fs 1000, runs of 1000 and 2000 seeds), P(lead p < 0.05) was 0.059 to
+    0.064, 0.063 to 0.078 and 0.057 to 0.058 at nperseg 50, 100 and 200 on one 2000-sample
+    trial and 0.070 to 0.079 on 10 trials of 400, while the surrogate p rejected in 0.15 to
+    0.17 at nperseg 100. On independent pairs
     the lead p rejected in at most 0.003: leaving out one overlapping segment rather than
     one epoch makes the jackknife conservative there.
 
@@ -2300,15 +2301,18 @@ def transfer_entropy(
     Significance. ``p_x_to_y``, ``p_y_to_x`` and ``p_net`` compare the plug-in TE of the
     data with the plug-in TE of each surrogate, whatever ``bias_correction`` is, so the p
     does not depend on it (``diagnostics['surrogates']['p_statistic'] == 'plug_in'``). A
-    surrogate removes any zero-lag X-Y dependence and so occupies more joint cells than
-    the data; a Miller-Madow term, which grows with the occupied cells, would then differ
-    between the two for reasons unrelated to directed flow. Measured on two noisy copies of
-    one white source (``X = s + 0.5 e1``, ``Y = s + 0.5 e2``), quantile bins 4, k = l = 1,
-    199 surrogates, P(p < 0.05) per direction: 0.028 and 0.031 at n = 500 (3000 seeds),
-    0.047 and 0.051 at n = 2000 (3000), 0.053 and 0.058 at n = 4000 (5000) and 0.054 and
-    0.061 at n = 8000 (2000); independent white or AR(1) pairs gave 0.036 to 0.062 (1000
-    seeds). The test is conservative where the data leave cells nearly empty that a
-    surrogate fills: 0.000 of 1000 at bins 8 or at k = l = 2 (n = 2000). It is calibrated
+    surrogate removes any zero-lag X-Y dependence and so occupies more joint
+    (Y_t, Y_hist, X_hist) cells than the data. The net Miller-Madow term falls as that
+    count grows, so a corrected statistic sits above a corrected null for reasons unrelated
+    to directed flow. Measured on two noisy copies of one white source
+    (``X = s + 0.5 e1``, ``Y = s + 0.5 e2``), quantile bins 4, k = l = 1, 199 surrogates,
+    P(p < 0.05) per direction: 0.025 to 0.031 at n = 500 (runs of 3000 and 2000 seeds),
+    0.047 and 0.051 at n = 2000 (3000), 0.053 and 0.058 at n = 4000 (5000), 0.054 and
+    0.061 at n = 8000 (2000) and 0.043 at n = 16000 (1500); independent white or AR(1)
+    pairs gave 0.036 to 0.062 (1000 seeds). The residue near n = 4000 to 8000 is a
+    limitation: the rate reaches about 0.06 there and decays at larger n. The test is
+    conservative where the data leave cells nearly empty that a surrogate fills: 0.000 of
+    1000 at bins 8 or at k = l = 2 (n = 2000). It is calibrated
     only for a white common source; a coloured one gives X's past real information about
     Y's present beyond Y's noisy past, and the test rejects, as Granger does.
 
@@ -2412,9 +2416,10 @@ def transfer_entropy(
             )[:2]
         # INTENTIONAL BREAK (0.2.7): the test compares plug-in values, observed and
         # surrogate alike. The surrogate removes any zero-lag X-Y dependence, so it occupies
-        # more joint cells than the observed table and its Miller-Madow term is larger; the
-        # corrected statistic then sits below the corrected null for reasons unrelated to
-        # directed flow. With X = s + 0.5 e1, Y = s + 0.5 e2 and s white, P(p < 0.05) was
+        # more (Y_t, Y_hist, X_hist) cells than the observed table. The net Miller-Madow term,
+        # (K_ab + K_bc - K_b - K_abc) / (2 N ln 2), falls as K_abc grows, so the surrogate's is
+        # smaller and the corrected statistic sat above the corrected null for reasons
+        # unrelated to directed flow. With X = s + 0.5 e1, Y = s + 0.5 e2 and s white, P(p < 0.05) was
         # 0.11 at bins 4 and 0.37 at bins 8 (n = 2000). The correction stays on the
         # reported estimate.
         p_xy = _surrogate_p(plug_null_xy, plug_xy, "greater")

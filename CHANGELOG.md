@@ -88,7 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   change. A surrogate removes the zero-lag X-Y dependence and occupies more joint cells, so a
   correction applied to both made two noisy copies of one white source test significant in
   0.11 of cases at 4 bins and 0.37 at 8 bins (n = 2000). Under that null the p now rejects at
-  0.03 to 0.06 for a nominal 0.05 (4 bins, n = 500 to 8000) and is conservative at large state
+  0.025 to 0.06 for a nominal 0.05 (4 bins, n = 500 to 8000; about 0.06 near n = 4000 to 8000,
+  decaying at larger n) and is conservative at large state
   spaces. `diagnostics['surrogates']['p_statistic']` is `"plug_in"`. Migration: none needed to
   run; a p computed before this release under the default `bias_correction="mm"` on correlated
   inputs is not comparable, so recompute it. The p now equals the one given by
@@ -100,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   common source it rejected in 0.00 to 0.46 of cases depending on segment length and band. It
   is now `diagnostics['p_coupling_surrogate']` (per band, still `per_band[name]['p_surrogate']`).
   With `jackknife=False` the three p fields are None. The lead p rejects a zero-lag common source
-  at 0.06 to 0.07 for a nominal 0.05. `diagnostics['p_source']` is `"jackknife_z"` or None.
+  at 0.06 to 0.08 for a nominal 0.05. `diagnostics['p_source']` is `"jackknife_z"` or None.
   Migration: read `diagnostics['p_coupling_surrogate']` where the surrogate p was meant, and
   keep `jackknife=True` for a lead p; `directed_network(method="psi")` then corrects the
   jackknife p.
