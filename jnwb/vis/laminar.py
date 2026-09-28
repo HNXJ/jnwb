@@ -15,7 +15,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text, unit_label
 
 _DEPTH_AXIS_TITLES = {
     "mm": "Cortical Depth (mm)",
@@ -53,7 +53,11 @@ def plot_spectrolaminar_map(
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs].
+        rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs], holding
+            fractions in [0, 1], for example power normalised across contacts per frequency.
+            The colour scale is fixed to [0, 1]. ``jnwb.relative_power`` returns a ratio to
+            baseline, which is unbounded, and is not this input. Non-finite values are drawn
+            as gaps.
         freqs: 1D array of frequencies (Hz).
         depths: 1D array of cortical depths, in ``depth_unit``.
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
@@ -70,7 +74,9 @@ def plot_spectrolaminar_map(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` does not
+            match ``freqs`` and ``depths``, or a finite value of ``rel_power`` lies outside
+            [0, 1].
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -87,6 +93,14 @@ def plot_spectrolaminar_map(
     else:
         raise ValueError(
             f"rel_power shape {rel_power.shape} does not match freqs ({len(freqs)}) and depths ({len(depths)})."
+        )
+    finite = z_data[np.isfinite(z_data)]
+    if finite.size and (finite.min() < 0.0 or finite.max() > 1.0):
+        raise ValueError(
+            "plot_spectrolaminar_map expects rel_power as fractions in [0, 1] (the colour scale "
+            f"is fixed to that range); got values in [{finite.min():.3g}, {finite.max():.3g}]. "
+            "jnwb.relative_power returns an unbounded ratio to baseline, or dB for "
+            "model='log_ratio'; normalise across contacts per frequency before plotting."
         )
 
     # Heatmap trace
@@ -357,33 +371,45 @@ def plot_csd(
     depths: np.ndarray,
     layer_boundaries: Optional[Dict[str, float]] = None,
     cmap: str = "RdBu_r",
-    title: Optional[str] = "Current Source Density (CSD)",
-    colorbar_title: str = "CSD (mV/mm²)",
+    title: Optional[str] = None,
+    colorbar_title: Optional[str] = None,
     *,
+    value_unit: str,
     depth_unit: str,
 ) -> None:
     """
-    Render a Current Source Density (CSD) depth x time profile with layer boundaries.
+    Render a depth x time profile, such as current source density, with layer boundaries.
+
+    The function draws either current source density (``jnwb.current_source_density_1d``,
+    A/m³) or voltage curvature (``jnwb.voltage_curvature_1d``, V/m²) and cannot tell them
+    apart, so the caller names the quantity (``title``, ``colorbar_title``) and its unit
+    (``value_unit``).
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        csd_matrix: 2D array of shape [n_depths, n_times].
+        csd_matrix: 2D array of shape [n_depths, n_times], in ``value_unit``.
         time_ms: 1D array of time points relative to event (ms).
         depths: 1D array of cortical depths, in ``depth_unit``.
         layer_boundaries: Dictionary mapping layer names (e.g. 'L4', 'L5/6') to depth coordinates.
         cmap: Diverging colormap name (default 'RdBu_r' where blue is sink, red is source).
-        title: Panel title.
-        colorbar_title: Title for colorbar.
+        title: Panel title, for example ``"Current Source Density"``. None draws no title.
+        colorbar_title: Name of the quantity on the colorbar, for example ``"CSD"``; the
+            colorbar reads ``"<colorbar_title> (<value_unit>)"``. None labels it with
+            ``value_unit`` alone.
+        value_unit: Unit of ``csd_matrix``, for example ``"A/m³"`` or ``"V/m²"``. Required;
+            it labels the colorbar and the hover text.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
             1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
             ``'relative'`` values outside [0, 1] are channels above the pia or below the
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``value_unit`` is not a non-empty string, or ``depth_unit`` is not one
+            of the three units.
     """
+    colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
@@ -395,7 +421,7 @@ def plot_csd(
     vmax = float(np.percentile(np.abs(csd_matrix), 98))
     vmin = -vmax
 
-    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
+    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_label)
     heatmap = go.Heatmap(
         x=time_ms,
         y=depths,
@@ -406,7 +432,10 @@ def plot_csd(
         colorbar=cb_cfg,
         xaxis=x_axis,
         yaxis=y_axis,
-        hovertemplate="Time: %{x:.1f} ms<br>Depth: %{y:.3f}<br>CSD: %{z:.2e}<extra></extra>",
+        hovertemplate=(
+            f"Time: %{{x:.1f}} ms<br>Depth: %{{y:.3f}}<br>Value: %{{z:.2e}} {value_unit}"
+            "<extra></extra>"
+        ),
     )
     canvas.fig.add_trace(heatmap)
 

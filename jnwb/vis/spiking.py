@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 
 from .._bins import whole_bin_count
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text, unit_label
 
 
 def plot_multi_condition_raster_psth(
@@ -245,7 +245,9 @@ def plot_sorted_heatmap(
     category_labels: Optional[Sequence[str]] = None,
     cmap: str = "Viridis",
     title: Optional[str] = "Sorted Population Responses",
-    colorbar_title: str = "Rate (Δz)",
+    colorbar_title: Optional[str] = None,
+    *,
+    value_unit: str,
 ) -> None:
     """
     Render a sorted population response heatmap (N units x time points).
@@ -254,14 +256,22 @@ def plot_sorted_heatmap(
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        rate_matrix: 2D array of shape [n_units, n_times].
+        rate_matrix: 2D array of shape [n_units, n_times], in ``value_unit``.
         time_ms: 1D array of time points relative to event.
         sort_idx: Optional 1D sorting indices (e.g. by latency or response category).
         category_labels: Optional labels for unit groups.
         cmap: Colormap name.
         title: Panel title.
-        colorbar_title: Title for colorbar.
+        colorbar_title: Name of the quantity on the colorbar, for example ``"Rate"``; the
+            colorbar reads ``"<colorbar_title> (<value_unit>)"``. None labels it with
+            ``value_unit`` alone.
+        value_unit: Unit of ``rate_matrix``, for example ``"spikes/s"`` or ``"z"``. Required;
+            it labels the colorbar and the hover text.
+
+    Raises:
+        ValueError: ``value_unit`` is not a non-empty string.
     """
+    colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rate_matrix = np.asarray(rate_matrix, dtype=float)
@@ -273,7 +283,7 @@ def plot_sorted_heatmap(
     n_units = rate_matrix.shape[0]
     unit_indices = np.arange(1, n_units + 1)
 
-    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
+    cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_label)
     heatmap = go.Heatmap(
         x=time_ms,
         y=unit_indices,
@@ -282,7 +292,10 @@ def plot_sorted_heatmap(
         colorbar=cb_cfg,
         xaxis=x_axis,
         yaxis=y_axis,
-        hovertemplate="Time: %{x:.1f} ms<br>Unit: %{y}<br>Rate: %{z:.2f}<extra></extra>",
+        hovertemplate=(
+            f"Time: %{{x:.1f}} ms<br>Unit: %{{y}}<br>Value: %{{z:.2f}} {value_unit}"
+            "<extra></extra>"
+        ),
     )
     canvas.fig.add_trace(heatmap)
 
