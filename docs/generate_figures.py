@@ -15,9 +15,11 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add repo root to path
+# Add repo root to path. Guarded: the suite executes this module in-process, and an
+# unconditional prepend there puts the checkout ahead of an installed jnwb.
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib
 matplotlib.use("Agg")

@@ -115,10 +115,19 @@ def _unguarded_prepends(source: str, name: str) -> list[str]:
     return offenders
 
 
+#: Trees whose Python files the suite imports or executes in-process. `docs/` is here because
+#: `test_figure_form.py` executes `docs/generate_figures.py`, whose unconditional prepend was the
+#: route by which the checkout still reached the front of `sys.path` on the installed-wheel leg
+#: after `reconstruct_state.build()` was guarded. `examples/` has its own opt-out guard, pinned
+#: by `test_every_example_guard_stands_aside_for_a_deliberate_installed_run`.
+IN_PROCESS_TREES = ("scripts", "docs")
+
+
 def test_no_script_prepends_the_checkout_unconditionally() -> None:
-    """Every module under `scripts/`, because any of them can be imported by a test."""
-    scripts = sorted((ROOT / "scripts").rglob("*.py"))
+    """Every Python file in those trees, because any of them can be loaded by a test."""
+    scripts = sorted(p for tree in IN_PROCESS_TREES for p in (ROOT / tree).rglob("*.py"))
     assert len(scripts) > 10, f"only {len(scripts)} scripts found; the glob is wrong"
+    assert (ROOT / "docs" / "generate_figures.py") in scripts, "docs/ is no longer scanned"
     offenders = []
     for script in scripts:
         offenders += _unguarded_prepends(
