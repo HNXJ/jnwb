@@ -1,12 +1,23 @@
 """Measure the peak resident memory of a fixed set of representative operations.
 
 Each operation runs in a fresh interpreter, so one operation's peak cannot hide under
-another's. The child builds its inputs from a fixed seed, reads its peak resident set size,
-runs the operation once, and reads it again. Peak RSS only rises, so ``added_mib`` is what the
-operation needed above the peak its imports and inputs had already reached; ``peak_mib`` is
-the process's whole peak. ``control_256mib`` allocates and touches 256 MiB and nothing else,
-so its ``added_mib`` shows the instrument resolves an allocation of known size.
-``added_mib`` is a lower bound: memory the operation reuses below the earlier peak is not seen.
+another's. The child builds its inputs from a fixed seed, resets its peak resident set size to
+its current one where the platform allows it, reads both, runs the operation once, and reads
+the peak again. ``added_mib`` is the peak during the operation minus the resident size before
+it; ``peak_mib`` is the process's whole peak. ``control_256mib`` allocates and touches 256 MiB
+and nothing else, so its ``added_mib`` shows the instrument resolves an allocation of known size.
+
+``added_is`` says what ``added_mib`` is, because the peak is resettable only on Linux:
+
+| Platform | Source | ``added_is`` |
+|---|---|---|
+| Linux | ``VmRSS``/``VmHWM`` in ``/proc/self/status``, peak reset through ``/proc/self/clear_refs`` | ``exact`` |
+| Windows | ``WorkingSetSize``/``PeakWorkingSetSize``, which cannot be reset | ``exact`` when the peak rose during the operation, else ``upper bound``: the operation stayed below the peak the imports and inputs reached |
+| macOS, or Linux without ``/proc`` | ``ru_maxrss`` alone, no current size | ``lower bound``: memory reused below the earlier peak is not seen |
+
+``ru_maxrss`` is only a fallback. On Linux it also carries the peak of the process that spawned
+the child, because ``exec`` keeps the pre-exec high-water mark: under a large parent it reports
+no growth at all.
 
 No threshold is applied: the record is the cost measured before a release. The release gate
 runs this without ``--write``; the committed record is refreshed before the closure pass.
@@ -22,16 +33,46 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RECORD_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "peak_memory.json"
 MIB = 2 ** 20
 CONTROL_BYTES = 256 * MIB
+PROC_STATUS = "/proc/self/status"
+PROC_CLEAR_REFS = "/proc/self/clear_refs"
 
 
-def peak_rss_bytes() -> int:
-    """This process's peak resident set size so far, in bytes."""
+def _proc_status_bytes() -> Optional[Tuple[int, int]]:
+    """``(VmRSS, VmHWM)`` in bytes from ``/proc/self/status``, or None where it is absent."""
+    try:
+        with open(PROC_STATUS, encoding="ascii") as fh:
+            fields = dict(line.split(":", 1) for line in fh if ":" in line)
+        # The file says "kB" and means KiB.
+        return int(fields["VmRSS"].split()[0]) * 1024, int(fields["VmHWM"].split()[0]) * 1024
+    except (OSError, KeyError, ValueError):
+        return None
+
+
+def reset_peak() -> bool:
+    """Reset this process's peak resident size to its current one; False where impossible.
+
+    Linux only: writing 5 to ``/proc/self/clear_refs`` resets ``VmHWM`` (kernel 4.0 on).
+    Windows has no reset for ``PeakWorkingSetSize``, and ``ru_maxrss`` has none anywhere.
+    """
+    if not sys.platform.startswith("linux") or _proc_status_bytes() is None:
+        return False
+    try:
+        with open(PROC_CLEAR_REFS, "wb") as fh:
+            fh.write(b"5")
+    except OSError:
+        return False
+    return True
+
+
+def resident_bytes() -> Tuple[Optional[int], int]:
+    """``(current, peak)`` resident set size of this process in bytes; current is None when
+    only ``ru_maxrss`` is available."""
     if sys.platform == "win32":
         import ctypes
         from ctypes import wintypes
@@ -50,11 +91,34 @@ def peak_rss_bytes() -> int:
         handle = ctypes.windll.kernel32.GetCurrentProcess()
         if not get_info(handle, ctypes.byref(counters), counters.cb):
             raise OSError(ctypes.get_last_error(), "GetProcessMemoryInfo failed")
-        return int(counters.PeakWorkingSetSize)
+        return int(counters.WorkingSetSize), int(counters.PeakWorkingSetSize)
+    status = _proc_status_bytes()
+    if status is not None:
+        return status
     import resource
 
     peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(peak) if sys.platform == "darwin" else int(peak) * 1024  # Linux reports KiB
+    return None, int(peak) if sys.platform == "darwin" else int(peak) * 1024  # Linux: KiB
+
+
+def sample(run: Callable[[], object]) -> dict:
+    """Run ``run`` once and return the resident sizes around it, in bytes."""
+    _, peak_start = resident_bytes()
+    reset = reset_peak()
+    current, before = resident_bytes()
+    run()
+    _, after = resident_bytes()
+    return {"peak_start": peak_start, "reset": reset, "current": current,
+            "before": before, "after": after}
+
+
+def added_bytes(s: dict) -> Tuple[int, str]:
+    """What the operation added above the resident size before it, and what that number is."""
+    if s["current"] is None:
+        return s["after"] - s["before"], "lower bound"
+    if s["reset"] or s["after"] > s["before"]:
+        return s["after"] - s["current"], "exact"
+    return s["before"] - s["current"], "upper bound"
 
 
 def _control(rng):
@@ -123,32 +187,41 @@ OPERATIONS: Dict[str, Callable] = {
 }
 
 
-def _child(name: str) -> None:
-    """Run one operation in this process and print its peak RSS before and after, as JSON."""
+def _child(name: str, prepeak_mib: int = 0) -> None:
+    """Run one operation in this process and print its resident sizes around it, as JSON.
+
+    ``prepeak_mib`` touches and frees that much first, so a test can put the peak above the
+    operation's before it runs, as a large import would.
+    """
     sys.path.insert(0, str(REPO_ROOT))
     import numpy as np
     import jnwb
 
     run = OPERATIONS[name](np.random.default_rng(0))
-    before = peak_rss_bytes()
-    run()
-    after = peak_rss_bytes()
-    print(json.dumps({"before": before, "after": after, "jnwb": jnwb.__file__,
-                      "version": jnwb.__version__}))
+    if prepeak_mib:
+        block = b"\x01" * (prepeak_mib * MIB)
+        del block
+    out = sample(run)
+    out.update(jnwb=jnwb.__file__, version=jnwb.__version__)
+    print(json.dumps(out))
 
 
-def measure(name: str) -> Dict[str, float]:
-    """``{"peak_mib", "added_mib"}`` for one operation, from a process of its own."""
-    proc = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--child", name],
-                          cwd=REPO_ROOT, capture_output=True, text=True)
+def measure(name: str, prepeak_mib: int = 0) -> Dict[str, object]:
+    """``{"peak_mib", "added_mib", "added_is"}`` for one operation, from a process of its own."""
+    command = [sys.executable, str(Path(__file__).resolve()), "--child", name]
+    if prepeak_mib:
+        command += ["--prepeak-mib", str(prepeak_mib)]
+    proc = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"{name} failed in its child process:\n{proc.stderr[-2000:]}")
     out = json.loads(proc.stdout.strip().splitlines()[-1])
     package = Path(out["jnwb"]).resolve()
     if REPO_ROOT not in package.parents:
         raise RuntimeError(f"{name} measured jnwb from {package}, not from this checkout")
-    return {"peak_mib": round(out["after"] / MIB, 1),
-            "added_mib": round((out["after"] - out["before"]) / MIB, 1),
+    added, added_is = added_bytes(out)
+    return {"peak_mib": round(max(out["peak_start"], out["after"]) / MIB, 1),
+            "added_mib": round(added / MIB, 1),
+            "added_is": added_is,
             "version": out["version"]}
 
 
@@ -178,16 +251,18 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--write", action="store_true", help=f"write {RECORD_PATH.name}")
     parser.add_argument("--child", choices=sorted(OPERATIONS), help=argparse.SUPPRESS)
+    parser.add_argument("--prepeak-mib", type=int, default=0, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.child:
-        _child(args.child)
+        _child(args.child, args.prepeak_mib)
         return 0
     record = build_record()
     width = max(map(len, OPERATIONS))
     print(f"Peak RSS, jnwb {record['jnwb_version']}, Python {record['python']}, "
           f"{record['platform']}")
     for name, row in record["operations"].items():
-        print(f"  {name:<{width}}  peak {row['peak_mib']:8.1f} MiB  added {row['added_mib']:8.1f} MiB")
+        print(f"  {name:<{width}}  peak {row['peak_mib']:8.1f} MiB  "
+              f"added {row['added_mib']:8.1f} MiB ({row['added_is']})")
     if args.write:
         RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(RECORD_PATH, "w", encoding="utf-8", newline="\n") as fh:
