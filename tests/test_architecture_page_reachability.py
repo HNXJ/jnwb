@@ -9,11 +9,19 @@ and sentences whose subject is a skill -- rather than comparing prose to a store
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
+# under test must stay whichever copy is installed first on the path.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from tests.test_docs_user_navigation import nav_targets  # noqa: E402
+
 DOCS = REPO_ROOT / "docs"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
 PAGE = "architecture.md"
@@ -48,9 +56,7 @@ def _maintained_pages():
 
 
 def _nav_targets():
-    nav = MKDOCS.read_text(encoding="utf-8").split("\nnav:", 1)[1]
-    nav = nav.split("\n\n\n", 1)[0]
-    return re.findall(r":\s*([A-Za-z0-9_/\.\-]+\.md)\s*$", nav, re.M)
+    return nav_targets(MKDOCS)
 
 
 def _mermaid_blocks(text):

@@ -150,21 +150,48 @@ def test_the_measured_values_match_the_tree(generated: str):
     assert recorded_head(generated) == run("git", "rev-parse", "HEAD")
 
 
+def _run_check(monkeypatch: pytest.MonkeyPatch, state_path: pathlib.Path) -> int:
+    """``reconstruct_state.py --check`` against ``state_path`` instead of the tree's file."""
+    import scripts.reconstruct_state as reconstruct_state
+
+    monkeypatch.setattr(reconstruct_state, "STATE_PATH", state_path)
+    monkeypatch.setattr(sys, "argv", ["reconstruct_state.py", "--check"])
+    return reconstruct_state.main()
+
+
 @pytest.mark.requires_git_checkout
-def test_a_moved_head_reads_as_stale(tmp_path: pathlib.Path, generated: str):
+def test_a_moved_head_reads_as_stale(
+    tmp_path: pathlib.Path, generated: str, monkeypatch: pytest.MonkeyPatch, capsys
+):
     """``--check`` exists to stop a stale basis being read as a current one."""
+    state = tmp_path / "state.md"
+    state.write_text(generated, encoding="utf-8")
+    assert _run_check(monkeypatch, state) == 0, capsys.readouterr().out
+    assert "PASS" in capsys.readouterr().out
+
     stale = HEAD_ROW_RE.sub("| HEAD | `" + "0" * 40 + "` |", generated)
     assert recorded_head(stale) == "0" * 40
-    assert recorded_head(stale) != run("git", "rev-parse", "HEAD")
+    state.write_text(stale, encoding="utf-8")
+    assert _run_check(monkeypatch, state) == 1
+    assert "generated at 000000000000" in capsys.readouterr().out
 
 
-def test_check_exits_nonzero_when_the_file_is_absent(tmp_path: pathlib.Path):
+def test_check_exits_nonzero_when_the_file_is_absent(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys
+):
     """Absence must not read as freshness.
 
     Every block in gate 8 was once ``if <file>.exists():`` with no else, so an empty directory
     passed. A check satisfied by deleting its own evidence is worse than no check.
     """
-    assert recorded_head("# State\n\nno head row here\n") is None
+    state = tmp_path / "state.md"
+    assert not state.exists()
+    assert _run_check(monkeypatch, state) == 1
+    assert "is missing" in capsys.readouterr().out
+
+    state.write_text("# State\n\nno head row here\n", encoding="utf-8")
+    assert _run_check(monkeypatch, state) == 1
+    assert "records no HEAD" in capsys.readouterr().out
 
 
 def test_the_cli_check_runs_without_probing(generated: str):

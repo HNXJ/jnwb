@@ -21,6 +21,7 @@ is the model it follows: explained in three places before it can fire.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,8 +29,29 @@ import pytest
 import jnwb
 from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
-DOCS = Path(__file__).resolve().parents[1] / "docs"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+# `append`, never `insert`: the nav reader is shared from the checkout's tests, but the package
+# under test must stay whichever copy is installed first on the path.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from tests.test_docs_user_navigation import (  # noqa: E402
+    excluded_from_the_site,
+    nav_targets,
+    orphaned_pages,
+)
+
+DOCS = REPO_ROOT / "docs"
+MKDOCS = REPO_ROOT / "mkdocs.yml"
 GENERATED = "api.md"
+
+
+def pages_off_the_nav(docs: Path, mkdocs: Path) -> list[str]:
+    """Published pages under `docs` that no parsed nav entry of `mkdocs` names."""
+    on_nav = set(nav_targets(mkdocs))
+    excluded = excluded_from_the_site(mkdocs)
+    return sorted(rel for rel in (p.relative_to(docs).as_posix() for p in docs.rglob("*.md"))
+                  if rel not in on_nav and rel not in excluded)
 
 
 def _hand_written_pages():
@@ -97,16 +119,27 @@ class TestTheErrorsPageIsReachable:
 
     def test_it_is_in_the_mkdocs_nav(self):
         """A page outside the nav is not on the built site, whatever the index links."""
-        nav = (DOCS.parent / "mkdocs.yml").read_text(encoding="utf-8")
-        assert "errors.md" in nav
+        assert "errors.md" in nav_targets(MKDOCS)
 
     def test_every_hand_written_page_is_in_the_nav(self):
-        """The same failure generalized: a page nobody navigates to is not documentation.
-        `api.md` is listed twice on purpose, under Getting started and API Reference."""
-        nav = (DOCS.parent / "mkdocs.yml").read_text(encoding="utf-8")
-        missing = [p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")
-                   if p.relative_to(DOCS).as_posix() not in nav]
+        """The same failure generalized: a page nobody navigates to is not documentation."""
+        missing = pages_off_the_nav(DOCS, MKDOCS)
         assert missing == [], missing
+
+    def test_a_commented_out_nav_line_is_not_an_entry(self, tmp_path):
+        """A page whose only nav line is commented out is not on the site. Both orphan checks
+        -- this class's and the navigation module's -- must report it."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("# Home\n", encoding="utf-8")
+        (docs / "hidden.md").write_text("# Hidden\n", encoding="utf-8")
+        mkdocs = tmp_path / "mkdocs.yml"
+        mkdocs.write_text("site_name: x\nnav:\n  - Home: index.md\n#  - Hidden: hidden.md\n",
+                          encoding="utf-8")
+        assert "hidden.md" in mkdocs.read_text(encoding="utf-8"), "the case needs the line"
+        assert nav_targets(mkdocs) == ["index.md"]
+        assert pages_off_the_nav(docs, mkdocs) == ["hidden.md"]
+        assert orphaned_pages(docs, mkdocs) == {"hidden.md"}
 
     def test_the_page_exists_and_is_not_a_stub(self):
         page = DOCS / "errors.md"
