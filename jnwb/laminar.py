@@ -1613,12 +1613,14 @@ def xflip(
             is reported, and the omnibus p repeats that choice on every surrogate (step 4),
             so it accounts for the choice. Among counts tied at the smallest p, the one whose
             observed contrast lies the most surrogate standard deviations above the surrogate
-            mean wins, then the smallest count. With `n_surrogates=0` there is no p to choose
-            by, and count 2 is reported. Measured on 16 to 18 contacts at a within-block
-            correlation of 0.8, the true count is recovered up to a shared background
-            correlation of 0.3; at 0.5, three blocks of 6 were cut into four and rejected.
-            Costs one partition per candidate count per surrogate, up to three times the
-            fixed-count cost.
+            mean wins, then the smallest count. When a count's partition beats every
+            surrogate, every count sits at the floor and the standardised contrast decides;
+            the omnibus p does not depend on the tie-break. The per-boundary p-values are the
+            chosen count's own and are not adjusted for the choice. With `n_surrogates=0`
+            there is no p to choose by, and count 2 is reported. Measured on 16 to 18 contacts
+            at a within-block correlation of 0.8, the true count is recovered up to a shared
+            background correlation of 0.3; at 0.5, three blocks of 6 were cut into four and
+            rejected. Costs about one fixed-count call at each candidate count.
         min_block_size: Minimum channel count required per block (default: 2).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:

@@ -32,6 +32,10 @@ Alternative (contiguous correlation blocks; the boundary is known):
     unequal_blocks             (4, 12), (12, 4), (6, 18)
     three_block                (6, 6, 6), (4, 8, 4)
     channel_count_sweep        equal blocks, rw = 0.7, rb = 0.1, N in 8 .. 24
+Automatic block count (the surrogate test alone can reject):
+    white_noise and ar_noise with ``n_blocks=None`` beside ``n_blocks=2``, on both
+    ``contiguous`` paths: the fraction of seeds with omnibus p at or below ``alpha``.
+    Seeds run in worker processes; each seed's result does not depend on the worker count.
 
 The closure hashed here is recomputed rather than imported from
 ``scripts/calibrate_vflip.py``. The same walk is written a third time in
@@ -47,10 +51,12 @@ import ast
 import hashlib
 import inspect
 import json
+import os
 import pathlib
 import platform
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import scipy
@@ -177,6 +183,43 @@ def run_nulls(n_seeds: int, n_surrogates: int) -> dict:
         }
         print(f"  null {name:26s} fpr={out[name]['false_positive_rate']:.3f}")
     return out
+
+
+# --- automatic block count -----------------------------------------------------------
+
+AUTO_NULLS = ("white_noise", "ar_noise")
+AUTO_COUNTS = (2, None)
+
+
+def _auto_count_seed(job: tuple) -> tuple:
+    """One seed of one null on one path: whether p <= alpha at each count setting."""
+    name, contiguous, seed, n_surrogates = job
+    data, extra = NULLS[name](seed)
+    out = []
+    for n_blocks in AUTO_COUNTS:
+        res = xflip(data, n_blocks=n_blocks, contiguous=contiguous,
+                    min_block_size=MIN_BLOCK_SIZE, n_surrogates=n_surrogates,
+                    min_contrast=0.0, min_boundary_drop=0.0, rng=seed + 6000, **extra)
+        out.append(bool(float(res.p_values["omnibus"]) <= ALPHA))
+    return name, contiguous, tuple(out)
+
+
+def run_auto_count(n_seeds: int, n_surrogates: int, workers: int) -> list:
+    jobs = [(name, contiguous, s, n_surrogates)
+            for name in AUTO_NULLS for contiguous in (True, False) for s in range(n_seeds)]
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(_auto_count_seed, jobs, chunksize=8))
+    rows = []
+    for name in AUTO_NULLS:
+        for contiguous in (True, False):
+            hits = [r[2] for r in results if r[0] == name and r[1] == contiguous]
+            row = {"null": name, "contiguous": contiguous, "n_seeds": n_seeds}
+            for i, n_blocks in enumerate(AUTO_COUNTS):
+                row[f"rate_n_blocks_{n_blocks}"] = sum(h[i] for h in hits) / n_seeds
+            rows.append(row)
+            print(f"  auto {name:12s} contiguous={contiguous!s:5s} "
+                  f"None={row['rate_n_blocks_None']:.3f} 2={row['rate_n_blocks_2']:.3f}")
+    return rows
 
 
 # --- alternative families ------------------------------------------------------------
@@ -321,14 +364,32 @@ def render(raw: dict) -> str:
                 f"{r['n_localized']}/{r['n_seeds']} | {med} | {mx} | "
                 f"{r['median_modularity']:.4f} |")
 
+    auto = raw["auto_count"]
+    lines += [
+        "",
+        "## 3. Automatic block count under the null",
+        "",
+        f"`n_blocks=None` beside `n_blocks=2`, over {auto['n_seeds']} seeds and "
+        f"{auto['n_surrogates']} surrogates, with `min_contrast=0` and `min_boundary_drop=0` "
+        "so that only the surrogate test can reject. Each cell is the fraction of seeds with "
+        f"omnibus p at or below {raw['alpha']}; the count choice is repeated on every "
+        "surrogate, so the `None` column is held to the same nominal rate as a fixed count.",
+        "",
+        "| Null Family | `contiguous` | N Seeds | p <= alpha, `n_blocks=None` | "
+        "p <= alpha, `n_blocks=2` |",
+        "|---|---|---|---|---|",
+    ]
+    for r in auto["rows"]:
+        lines.append(
+            f"| `{r['null']}` | `{r['contiguous']}` | {r['n_seeds']} | "
+            f"{r['rate_n_blocks_None']:.3f} | {r['rate_n_blocks_2']:.3f} |")
+
     lines += [
         "",
         "## What this receipt does not cover",
         "",
-        "- Only `contiguous=True`. The unrestricted path is exercised by",
-        "  `tests/test_xflip_calibration.py::TestXFlipGradientGateOnBothPaths`, not here.",
-        "- `n_blocks=None`. Every cell passes the true block count, so the choice of count is",
-        "  not calibrated here.",
+        "- `contiguous=False` outside section 3. The unrestricted path is otherwise exercised",
+        "  by `tests/test_xflip_calibration.py::TestXFlipGradientGateOnBothPaths`.",
         "- One correlation method (`pearson`) and one surrogate method per family.",
         "- Non-contiguous and overlapping block structure.",
         "- Real recordings. Every family is synthetic.",
@@ -348,6 +409,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--n-seeds", type=int, default=30)
     ap.add_argument("--n-surrogates", type=int, default=200)
+    ap.add_argument("--auto-seeds", type=int, default=1000,
+                    help="seeds per cell of the automatic-count null rows")
+    ap.add_argument("--workers", type=int, default=os.cpu_count(),
+                    help="worker processes for the automatic-count rows; changes no number")
     ap.add_argument("--out-dir", type=pathlib.Path,
                     default=ROOT / "artifacts" / "benchmarks")
     args = ap.parse_args()
@@ -364,6 +429,11 @@ def main() -> None:
         "n_samples": N_SAMPLES,
         "nulls": run_nulls(args.n_seeds, args.n_surrogates),
         "alternatives": run_alternatives(args.n_seeds, args.n_surrogates),
+        "auto_count": {
+            "n_seeds": args.auto_seeds,
+            "n_surrogates": args.n_surrogates,
+            "rows": run_auto_count(args.auto_seeds, args.n_surrogates, args.workers),
+        },
         "environment": {
             "jnwb": jnwb.__version__,
             "python": platform.python_version(),

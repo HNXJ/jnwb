@@ -241,16 +241,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to `min(4, n_channels // min_block_size)` is partitioned and tested against the same
   surrogates, the count with the smallest p is reported, and the omnibus p repeats that
   choice on every surrogate. It took the count with the highest contrast and reported that
-  count's p as though it had been fixed in advance, so the p was too small: on an AR(1) null,
-  0.097 of 1000 seeds had p at or below 0.05. With the choice repeated the rate is 0.060,
-  against 0.054 at a fixed count of 2 on the same seeds, and on white noise 0.030 against
-  0.040. Ties at the smallest p go to
-  the count whose contrast lies the most surrogate standard deviations above the surrogate
-  mean, then to the smallest count. On 16 to 18 contacts at a within-block correlation of 0.8,
-  the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at a shared background
-  correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and rejected. A call
-  costs one partition per candidate count per surrogate, up to three times a fixed count.
-  Calls with an integer `n_blocks` return the same values as before.
+  count's p as though it had been fixed in advance, so the p was too small: at 200
+  surrogates, 0.105 of AR(1) null seeds and 0.074 of white-noise seeds had p at or below
+  0.05. The calibration receipt now carries these null rows over 1000 seeds and 200
+  surrogates on both `contiguous` paths: with the choice repeated, AR(1) 0.060 and 0.054
+  against 0.054 and 0.061 at a fixed count of 2, and white noise 0.030 and 0.046 against
+  0.040 and 0.048. Ties at the smallest p go to the count whose contrast lies the most
+  surrogate standard deviations above the surrogate mean, then to the smallest count. When a
+  count's partition beats every surrogate, every count sits at the floor and the
+  standardised contrast decides; the omnibus p does not depend on the tie-break. The
+  per-boundary p-values are the chosen count's own. On 16 to 18 contacts at a within-block
+  correlation of 0.8, the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at
+  a shared background correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and
+  rejected. A call costs about one fixed-count call at each candidate count. Calls with an
+  integer `n_blocks` return the same values as before.
 - `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
   RandomState now raise TypeError (a float already did).
 - **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,

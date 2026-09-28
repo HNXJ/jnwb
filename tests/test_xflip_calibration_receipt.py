@@ -113,6 +113,11 @@ def test_report_is_rendered_from_the_raw_receipt():
     for name, cell in raw["nulls"].items():
         assert f"| `{name}` |" in report
         assert f"{cell['false_positive_rate']:.3f}" in report
+    for row in raw["auto_count"]["rows"]:
+        assert (
+            f"| `{row['null']}` | `{row['contiguous']}` | {row['n_seeds']} | "
+            f"{row['rate_n_blocks_None']:.3f} | {row['rate_n_blocks_2']:.3f} |"
+        ) in report
 
 
 def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():

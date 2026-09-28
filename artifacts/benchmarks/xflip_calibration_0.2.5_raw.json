@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "d3042521e89d44ff675b5f918945ff4a207c20f62078bd6327d733e35068f2d2",
+  "estimator_sha256": "4f16ea0149937e5a3fb56959c77aa81f34a02cc34a5a7050e23c983d292795a8",
   "estimator_functions": [
     "_compute_contrast",
     "_compute_correlation_matrix",
@@ -349,6 +349,40 @@
       }
     ]
   },
+  "auto_count": {
+    "n_seeds": 1000,
+    "n_surrogates": 200,
+    "rows": [
+      {
+        "null": "white_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.04,
+        "rate_n_blocks_None": 0.03
+      },
+      {
+        "null": "white_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.048,
+        "rate_n_blocks_None": 0.046
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": true,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.054,
+        "rate_n_blocks_None": 0.06
+      },
+      {
+        "null": "ar_noise",
+        "contiguous": false,
+        "n_seeds": 1000,
+        "rate_n_blocks_2": 0.061,
+        "rate_n_blocks_None": 0.054
+      }
+    ]
+  },
   "environment": {
     "jnwb": "0.2.6.1",
     "python": "3.14.3",
@@ -356,5 +390,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 160.6
+  "elapsed_s": 297.3
 }

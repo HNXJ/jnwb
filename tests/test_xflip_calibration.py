@@ -64,6 +64,9 @@ class TestXFlipNullCalibration:
             )
             if res.accepted:
                 accepted += 1
+        # Correlated noise is the one family whose rate the surrogate test alone controls,
+        # so it is held to the same rate bound as the others: these seeds accept 3 of 60,
+        # at the bound.
         assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} AR null seeds accepted"
 
     @pytest.mark.parametrize("null", ["white_noise", "ar_noise"])
