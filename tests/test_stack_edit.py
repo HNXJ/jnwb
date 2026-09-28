@@ -82,9 +82,82 @@ def test_delete_takes_continuation_lines_with_the_bullet(tmp_path, nl):
 
 
 def test_delete_several_prefixes(tmp_path, nl):
+    # The earlier bullet has a continuation line, so deleting front to back would shift the
+    # later span onto the wrong lines.
     p = _write(tmp_path, nl)
-    se.edit(p, [lambda d: se.delete(d, "- ZZ-3"), lambda d: se.delete(d, "- ZZ-4")])
-    assert p.read_bytes() == _expect(nl, _without(9, 16))
+    se.edit(p, [lambda d: se.delete_many(d, ["- ZZ-4", "- ZZ-2"])])
+    assert p.read_bytes() == _expect(nl, _without(7, 8, 16))
+
+
+def test_chained_deletes_resolve_against_the_original(tmp_path):
+    p = _write(tmp_path, "\r\n")
+    before = p.read_bytes()
+    with pytest.raises(se.StackEditError, match="matches 2 bullets"):
+        se.edit(p, [lambda d: se.delete(d, "- ZZ-1: alpha bullet"), lambda d: se.delete(d, "- ZZ-1: alpha")])
+    assert p.read_bytes() == before
+
+
+def test_refuses_deleting_a_bullet_that_holds_a_fence(tmp_path):
+    raw = b"- ZZ-1: real\n  ```\n- ZZ-1: example in a fence\n```\n"
+    p = tmp_path / "fence.md"
+    p.write_bytes(raw)
+    with pytest.raises(se.StackEditError, match="holds a code fence"):
+        se.edit(p, [lambda d: se.delete_many(d, ["- ZZ-1:"])])
+    assert p.read_bytes() == raw
+
+
+def test_a_heading_inside_a_fence_is_not_a_section():
+    lines = ["```", "# 9.9.1", "```", "# 9.9.1", "- ZZ-1: x", ""]
+    assert se.section_range(lines, "9.9.1") == (4, 6)
+
+
+def test_replace_refuses_lines_that_are_not_bullets():
+    doc = se.parse(_expect("\n", LINES))
+    with pytest.raises(se.StackEditError, match="not a bullet"):
+        se.replace(doc, "- ZZ-3", ["plain text"])
+
+
+def test_the_file_is_replaced_rather_than_rewritten_in_place(tmp_path):
+    p = _write(tmp_path, "\r\n")
+    ino = p.stat().st_ino
+    se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])
+    assert p.stat().st_ino != ino
+
+
+def test_refuses_when_the_temporary_file_does_not_hold_the_bytes(tmp_path, monkeypatch):
+    p = _write(tmp_path, "\r\n")
+    before = p.read_bytes()
+    real = se.os.fdopen
+
+    class Short:
+        def __init__(self, fh):
+            self.fh = fh
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.fh.close()
+
+        def write(self, data):
+            self.fh.write(data[:-1])
+
+    monkeypatch.setattr(se.os, "fdopen", lambda fd, mode: Short(real(fd, mode)))
+    with pytest.raises(se.StackEditError, match="differ"):
+        se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])
+    assert p.read_bytes() == before
+    assert sorted(x.name for x in tmp_path.iterdir()) == ["stack.md"]
+
+
+def test_a_hash_led_continuation_stays_in_its_bullet():
+    lines = ["- ZZ-3: gamma.", "  #45 is the ref", "- ZZ-4: delta.", ""]
+    assert se.find(lines, "- ZZ-3") == (0, 2)
+
+
+@pytest.mark.parametrize("prefix", ["- ZZ-", "- ZZ"], ids=["ends-in-hyphen", "hyphen-follows"])
+def test_a_hyphen_continues_a_token(prefix):
+    with pytest.raises(se.StackEditError, match="stops inside a token"):
+        se.find(["- ZZ-10: x", ""], prefix)
 
 
 def test_replace_from_file(tmp_path, nl):
@@ -237,8 +310,13 @@ def test_success_leaves_no_temporary_file(tmp_path):
     assert sorted(x.name for x in tmp_path.iterdir()) == ["stack.md"]
 
 
-def test_refuses_a_blank_line_followed_by_an_indented_line(tmp_path):
-    lines = ["# 9.9.1", "", "- ZZ-3: gamma.", "", "  stray indented text", ""]
+@pytest.mark.parametrize(
+    "tail",
+    [["", "  stray"], ["", "", "  stray"], ["", "\tstray"], ["\tstray"], [" stray"]],
+    ids=["blank-two-space", "two-blanks", "blank-tab", "tab", "one-space"],
+)
+def test_refuses_a_blank_line_followed_by_an_indented_line(tmp_path, tail):
+    lines = ["# 9.9.1", "", "- ZZ-3: gamma."] + tail + [""]
     p = _write(tmp_path, "\r\n", lines)
     with pytest.raises(se.StackEditError, match="ambiguous"):
         se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])

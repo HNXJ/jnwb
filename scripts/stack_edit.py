@@ -1,8 +1,8 @@
 """Edit a Markdown stack file one bullet at a time, preserving its line endings.
 
 A bullet is a line starting with ``- `` together with the non-blank lines after it that start
-with two spaces (its continuation lines). It ends at a blank line, a heading (``^ {0,3}#``) or
-any other line. A bullet is addressed by an exact prefix of its first line; the prefix must be
+with two spaces (its continuation lines). It ends at a blank line, a heading line (up to three
+spaces, one to six ``#``, then whitespace or end of line) or any other line. A bullet is addressed by an exact prefix of its first line; the prefix must be
 delimited (it may not stop inside a token, so ``- A-2`` never matches ``- A-20``) and must match
 exactly one bullet, optionally within one heading's section.
 
@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
-_HEADING_LIKE = re.compile(r"^ {0,3}#")
+_HEADING_LIKE = re.compile(r"^ {0,3}#{1,6}(\s|$)")
 _THEMATIC_BREAK = re.compile(r"^ {0,3}-(?: *-){2,} *$")
 _TOKEN = re.compile(r"[\w-]")
 
@@ -55,6 +55,11 @@ class Doc:
     newline: str
     path: Optional[pathlib.Path] = None
     original: bytes = field(default=b"", repr=False)
+    # Consecutive delete() calls re-resolve every prefix against the lines before the first of
+    # them, so a later prefix never matches a bullet that only became unique after a deletion.
+    _deletes: list = field(default_factory=list, repr=False)
+    _delete_base: Optional[list] = field(default=None, repr=False)
+    _delete_result: Optional[list] = field(default=None, repr=False)
 
     def encode(self) -> bytes:
         out = self.newline.join(self.lines).encode("utf-8")
@@ -154,21 +159,21 @@ def section_range(lines: Sequence[str], heading: Optional[str]) -> tuple:
 def unit_end(lines: Sequence[str], i: int) -> int:
     """Index one past the last continuation line of the bullet starting at ``i``.
 
-    Refuses a blank line followed by a two-space line: whether that line belongs to the bullet
-    is ambiguous, and guessing would delete or keep text the caller did not name.
+    Refuses when the next non-blank line after the bullet is indented (by a space or a tab)
+    without being a two-space continuation, for example after one or more blank lines: whether
+    that line belongs to the bullet is ambiguous, and guessing would delete or keep text the
+    caller did not name. An indented heading line ends the bullet.
     """
     j = i + 1
     while j < len(lines) and _is_continuation(lines[j]):
         j += 1
-    if (
-        j + 1 < len(lines)
-        and lines[j].strip() == ""
-        and lines[j + 1].startswith("  ")
-        and lines[j + 1].strip() != ""
-    ):
+    k = j
+    while k < len(lines) and lines[k].strip() == "":
+        k += 1
+    if k < len(lines) and lines[k][:1] in (" ", "\t") and not _HEADING_LIKE.match(lines[k]):
         raise StackEditError(
-            f"bullet at line {i + 1} is followed by a blank line and an indented line "
-            f"(line {j + 2}); its extent is ambiguous"
+            f"bullet at line {i + 1} is followed by an indented line that is not a two-space "
+            f"continuation (line {k + 1}); its extent is ambiguous"
         )
     return j
 
@@ -180,8 +185,6 @@ def check_region(lines: Sequence[str], start: int, stop: int) -> None:
         if not _is_bullet(lines[i]):
             raise StackEditError(f"line {i + 1} is not a bullet: {lines[i]!r}")
         j = unit_end(lines, i)
-        if j > stop:
-            raise StackEditError(f"bullet at line {i + 1} runs past the edited text")
         for k in range(i, j):
             if _is_fence(lines[k]):
                 raise StackEditError(f"line {k + 1} is a code fence inside a bullet")
@@ -247,18 +250,38 @@ def read_bullets(path) -> list:
     return new
 
 
-def delete_many(doc: Doc, prefixes: Sequence[str], section: Optional[str] = None) -> None:
-    """Delete several bullets, each resolved against the lines as they were before any deletion."""
-    spans = sorted(find(doc.lines, p, section) + (p,) for p in prefixes)
+def _delete_spans(lines: list, targets: Sequence[tuple]) -> None:
+    """Delete the bullets named by ``(prefix, section)`` pairs, all resolved against ``lines``."""
+    spans = sorted(find(lines, p, s) + (p,) for p, s in targets)
     for (_, stop_a, pa), (start_b, _, pb) in zip(spans, spans[1:]):
         if start_b < stop_a:
             raise StackEditError(f"prefixes {pa!r} and {pb!r} address the same bullet")
+    for start, stop, p in spans:
+        fences = [k + 1 for k in range(start, stop) if _is_fence(lines[k])]
+        if fences:
+            raise StackEditError(
+                f"bullet {p!r} holds a code fence at line {fences[0]}; deleting it would "
+                "re-fence the lines after it"
+            )
     for start, stop, _ in reversed(spans):
-        del doc.lines[start:stop]
+        del lines[start:stop]
+
+
+def delete_many(doc: Doc, prefixes: Sequence[str], section: Optional[str] = None) -> None:
+    """Delete several bullets, each resolved against the lines as they were before any deletion."""
+    _delete_spans(doc.lines, [(p, section) for p in prefixes])
+    doc._deletes, doc._delete_base, doc._delete_result = [], None, None
 
 
 def delete(doc: Doc, prefix: str, section: Optional[str] = None) -> None:
-    delete_many(doc, [prefix], section)
+    """Delete one bullet; consecutive calls on one doc behave as a single :func:`delete_many`."""
+    if doc._delete_result is None or doc.lines != doc._delete_result:
+        doc._deletes, doc._delete_base = [], list(doc.lines)
+    targets = doc._deletes + [(prefix, section)]
+    lines = list(doc._delete_base)
+    _delete_spans(lines, targets)
+    doc.lines[:] = lines
+    doc._deletes, doc._delete_result = targets, list(lines)
 
 
 def replace(doc: Doc, prefix: str, new: list, section: Optional[str] = None) -> None:
