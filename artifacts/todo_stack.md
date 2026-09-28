@@ -94,6 +94,7 @@ classification. The deferred bullets are in 07-28 under 0.2.8.
 
 - IB-89: the Plotly export tests (`tests/test_vis.py::test_canvas_save_and_seal_triple_export`, `tests/test_docs_call_shapes.py` on `docs/vis.md`) still fail under a loaded `-n 12` with "Couldn't close or kill browser subprocess" from choreographer, though they sit in one `xdist_group` under `--dist=loadgroup`; both pass alone. A bounded test-side retry of that shutdown error is in both files and has not yet been seen to fire. Check: a loaded run in which the retry fires and the tests pass, or a cause that removes the error; the Windows 3.12 CI leg under `-n auto` stays green.
 - IB-94: CI's installed-wheel leg fails `test_no_second_jnwb_shadows_the_one_under_test`, because the checkout sits ahead of the installed wheel on `sys.path` (run on `76656502`, the first time the leg has run). Required for 0.2.7 (R4, classified 2026-09-28): the qualification leg cannot establish that the wheel was tested. Check: the insertion is named and removed, the provenance test is unchanged, and the build job is green.
+- IB-95: `jnwb.vis.laminar.plot_csd` labels its colorbar "CSD (mV/mm²)" by default, but `current_source_density_1d` returns A/m³ and `voltage_curvature_1d` returns V/m², so a default call mislabels either input. Required for 0.2.7 (R1, classified 2026-09-28): a shipped figure states a wrong unit. Ruled by Hamm: the caller names the unit in a required keyword. Check: the unit is required and appears on the colorbar, the CHANGELOG says so, and every docs, skill and example call passes it.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
@@ -684,3 +685,22 @@ before it is public; a cache key includes the input hash, the parameters and the
 invalidation test.
 Stop: a control would change a number; the API surface is a public API choice and goes to Hamm
 before code.
+
+### 07-30 Skills and roles carry the review checks
+
+Release: deferred-0.2.8.
+Asked by Hamm on 2026-09-28: jnwb's skills and roles take in the code-and-math, figure and prose checks, and the project meets its skills with no friction by 0.2.8.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
+Writes: `artifacts/skills/**`, `artifacts/agents/*.md`, `.claude/agents/*.md`, `AGENTS.md`, `skills/*/SKILL.md`, `skills/*/agents/*.yaml`, `docs/agents.md`, `scripts/*.py`, `tests/**/*.py`.
+Evidence and counts: `artifacts/evidence/0.2.8/skills_audit.md`. Rulings: `artifacts/rulings/2026-09-28.md`. Steps, in order:
+- Role files point to one contract: `authority.md` loses its own loading order for a pointer to `AGENTS.md` §3; each role expects the §5 packet and adds only its own fields; docs-harness loses its skill count and both "100%".
+- One line ending across `skills/` and `artifacts/skills/`, before any skill edit, with Gate 16 held per tree.
+- `artifacts/skills/jnwb-review` holds the review table from the evidence file; critic, verifier, docs-harness and fact-action V point to it; `AGENTS.md` §7 names it and says a host skill adds only checks the jnwb skill leaves open.
+- Trigger and table repair: the figures trigger names Matplotlib and unit-quality plots; `raster_psth` has one row; unit QC has one owner; `docs/agents.md` states no count; the MCP tool list and the landmark-viz DPI sentence are corrected; the router links `docs/errors.md` and tutorial 00.
+- Verification lines for figures (render at final size and inspect) and statistics (test, sidedness, n, correction, interval).
+- `tests/test_figure_form.py` adds text-overlap and outside-figure checks, each built by a fixture of its own case.
+- Docs form F8: the slop lexicon, zero in `docs/` and `skills/`, with a planted case caught.
+- `.claude/agents/jnwb-verifier.md` as a thin router.
+- 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
+Accept: every module, export, docs page, example and notebook is routed by a skill or excluded with a checked reason (widening 07-12); each trigger phrase has one owning skill; no role file holds a loading order or packet list; every pointer to the review skill resolves; the figure and prose checks pass; an independent critic finds no friction the evidence file's list names.
+Stop: a skill edit would restate mathematics `artifacts/direction.md` keeps out of skills, or would put personal voice or process vocabulary in `skills/` or `docs/`.
