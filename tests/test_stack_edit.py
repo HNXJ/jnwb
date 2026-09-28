@@ -169,6 +169,104 @@ def test_section_ends_at_the_next_heading_of_its_level_or_higher(tmp_path):
         se.find(LINES, "- ZZ-4", "ZZ-00 First group")
 
 
+def test_section_compares_heading_level():
+    assert se.section_range(LINES, "# 9.9.2") == (12, 18)
+    with pytest.raises(se.StackEditError, match="matches 0 headings"):
+        se.section_range(LINES, "## 9.9.2")
+
+
+def test_refuses_a_section_heading_that_appears_twice():
+    lines = LINES + ["### ZZ-00 First group", "", "- ZZ-7: late.", ""]
+    with pytest.raises(se.StackEditError, match="matches 2 headings"):
+        se.find(lines, "- ZZ-3", "ZZ-00 First group")
+
+
+def test_refuses_a_prefix_that_stops_inside_a_token(tmp_path):
+    # The shorter id is gone and a longer one that extends it remains: the stale prefix must
+    # refuse rather than delete the longer id's bullet.
+    lines = ["# 9.9.1", "", "- ZZ-10: ten.", "- ZZ-2: two.", ""]
+    p = _write(tmp_path, "\r\n", lines)
+    before = p.read_bytes()
+    with pytest.raises(se.StackEditError, match="stops inside a token"):
+        se.edit(p, [lambda d: se.delete(d, "- ZZ-1")])
+    assert p.read_bytes() == before
+    se.edit(p, [lambda d: se.delete(d, "- ZZ-10:")])
+    assert p.read_bytes() == _expect("\r\n", ["# 9.9.1", "", "- ZZ-2: two.", ""])
+
+
+@pytest.mark.parametrize(
+    "prefixes, message",
+    [
+        (["- ZZ-1: alpha bullet", "- ZZ-1: alpha"], "matches 2 bullets"),
+        (["- ZZ-2:", "- ZZ-2: beta"], "same bullet"),
+    ],
+    ids=["later-prefix-ambiguous-in-original", "two-prefixes-one-bullet"],
+)
+def test_several_prefixes_resolve_against_the_original(tmp_path, prefixes, message):
+    p = _write(tmp_path, "\r\n")
+    before = p.read_bytes()
+    with pytest.raises(se.StackEditError, match=message):
+        se.edit(p, [lambda d: se.delete_many(d, prefixes)])
+    assert p.read_bytes() == before
+
+
+def test_bullets_inside_a_code_fence_are_not_matched(tmp_path, nl):
+    lines = ["# 9.9.1", "", "```", "- ZZ-3: an example", "```", "", "- ZZ-3: real.", ""]
+    p = _write(tmp_path, nl, lines)
+    se.edit(p, [lambda d: se.delete(d, "- ZZ-3:")])
+    assert p.read_bytes() == _expect(nl, lines[:6] + lines[7:])
+
+
+def test_refuses_when_the_file_changes_during_the_edit(tmp_path):
+    p = _write(tmp_path, "\r\n")
+    other = b"- written by someone else\r\n"
+
+    def op(doc):
+        se.delete(doc, "- ZZ-3")
+        p.write_bytes(other)
+
+    with pytest.raises(se.StackEditError, match="changed on disk"):
+        se.edit(p, [op])
+    assert p.read_bytes() == other
+    assert sorted(x.name for x in tmp_path.iterdir()) == ["stack.md"]
+
+
+def test_success_leaves_no_temporary_file(tmp_path):
+    p = _write(tmp_path, "\r\n")
+    se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])
+    assert sorted(x.name for x in tmp_path.iterdir()) == ["stack.md"]
+
+
+def test_refuses_a_blank_line_followed_by_an_indented_line(tmp_path):
+    lines = ["# 9.9.1", "", "- ZZ-3: gamma.", "", "  stray indented text", ""]
+    p = _write(tmp_path, "\r\n", lines)
+    with pytest.raises(se.StackEditError, match="ambiguous"):
+        se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])
+
+
+def test_a_heading_ends_a_bullet():
+    lines = ["- ZZ-3: gamma.", "  ## not a continuation", ""]
+    assert se.find(lines, "- ZZ-3") == (0, 1)
+
+
+def test_a_thematic_break_is_not_a_bullet():
+    with pytest.raises(se.StackEditError, match="non-bullet line"):
+        se.find(["- - -", ""], "- -")
+
+
+@pytest.mark.parametrize(
+    "prefix, old, new",
+    [("- ZZ-3", "- ZZ-3", "ZZ-3"), ("- ZZ-2", "deferred", "```deferred")],
+    ids=["first-line-no-longer-a-bullet", "fence-inside-bullet"],
+)
+def test_sub_refuses_an_edit_that_breaks_the_bullet(tmp_path, prefix, old, new):
+    p = _write(tmp_path, "\r\n")
+    before = p.read_bytes()
+    with pytest.raises(se.StackEditError, match="not a bullet|code fence"):
+        se.edit(p, [lambda d: se.sub(d, prefix, old, new)])
+    assert p.read_bytes() == before
+
+
 def test_a_failing_later_op_writes_nothing(tmp_path):
     p = _write(tmp_path, "\r\n")
     before = p.read_bytes()

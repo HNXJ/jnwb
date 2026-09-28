@@ -1,12 +1,17 @@
 """Edit a Markdown stack file one bullet at a time, preserving its line endings.
 
-A bullet is a line starting with ``- `` together with the lines after it that start with two
-spaces (its continuation lines). A bullet is addressed by an exact prefix of its first line and
-must be the only bullet that prefix matches, optionally within one heading's section.
+A bullet is a line starting with ``- `` together with the non-blank lines after it that start
+with two spaces (its continuation lines). It ends at a blank line, a heading (``^ {0,3}#``) or
+any other line. A bullet is addressed by an exact prefix of its first line; the prefix must be
+delimited (it may not stop inside a token, so ``- A-2`` never matches ``- A-20``) and must match
+exactly one bullet, optionally within one heading's section.
 
-Every operation runs on an in-memory copy and is checked before anything is written; a refusal
-leaves the file byte-for-byte unchanged. New text is read from a UTF-8 file, never from a shell
-argument, so the shell cannot rewrite it.
+Every operation runs on an in-memory copy and is checked before anything is written. The result
+goes to a temporary file in the same directory, is verified in bytes, and replaces the original
+with ``os.replace``; a refusal leaves the file unchanged. New text is read from a UTF-8 file,
+never from a shell argument, so the shell cannot rewrite it.
+
+Whole headed items, field lines and table rows are not bullets and are out of reach.
 
 Usage::
 
@@ -15,20 +20,27 @@ Usage::
     python scripts/stack_edit.py --file F [--section H] [--dry-run] insert-after PREFIX --from-file P
     python scripts/stack_edit.py --file F [--section H] [--dry-run] sub PREFIX --old S --new S
 
-Exit status is 0 on success and 2 on a refusal, with the reason on stderr.
+``--section`` takes a heading's text, optionally with its ``#`` marks (``"## Title"``), which
+then also fixes its level. Exit status is 0 on success and 2 on a refusal, with the reason on
+stderr.
 """
 
 from __future__ import annotations
 
 import argparse
 import difflib
+import os
 import pathlib
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
+_HEADING_LIKE = re.compile(r"^ {0,3}#")
+_THEMATIC_BREAK = re.compile(r"^ {0,3}-(?: *-){2,} *$")
+_TOKEN = re.compile(r"[\w-]")
 
 
 class StackEditError(Exception):
@@ -81,19 +93,23 @@ def load(path) -> Doc:
     return parse(path.read_bytes(), path)
 
 
+def _is_fence(line: str) -> bool:
+    return line.lstrip().startswith("```")
+
+
 def _is_bullet(line: str) -> bool:
-    return line.startswith("- ")
+    return line.startswith("- ") and not _THEMATIC_BREAK.match(line)
 
 
 def _is_continuation(line: str) -> bool:
-    return line.startswith("  ")
+    return line.startswith("  ") and line.strip() != "" and not _HEADING_LIKE.match(line)
 
 
 def _fenced(lines: Sequence[str]) -> list:
     """Per line, whether it sits inside a fenced code block (fence lines included)."""
     inside, out = False, []
     for line in lines:
-        if line.lstrip().startswith("```"):
+        if _is_fence(line):
             out.append(True)
             inside = not inside
         else:
@@ -101,22 +117,29 @@ def _fenced(lines: Sequence[str]) -> list:
     return out
 
 
-def _norm_heading(text: str) -> str:
-    return text.strip().lstrip("#").strip()
+def _parse_heading(text: str) -> tuple:
+    text = text.strip()
+    m = re.match(r"^(#{1,6})\s+(.*?)\s*$", text)
+    if m:
+        return len(m.group(1)), m.group(2)
+    return None, text
 
 
 def section_range(lines: Sequence[str], heading: Optional[str]) -> tuple:
     """Line range ``[start, stop)`` under ``heading``, up to the next heading of its level or higher."""
     if heading is None:
         return 0, len(lines)
-    want = _norm_heading(heading)
+    want_level, want = _parse_heading(heading)
     fenced = _fenced(lines)
     heads = []
     for i, line in enumerate(lines):
         m = _HEADING.match(line)
         if m and not fenced[i]:
             heads.append((i, len(m.group(1)), m.group(2)))
-    hits = [(i, lvl) for i, lvl, text in heads if text == want]
+    hits = [
+        (i, lvl) for i, lvl, text in heads
+        if text == want and (want_level is None or lvl == want_level)
+    ]
     if len(hits) != 1:
         raise StackEditError(f"section {heading!r} matches {len(hits)} headings, need exactly 1")
     start, level = hits[0]
@@ -129,11 +152,40 @@ def section_range(lines: Sequence[str], heading: Optional[str]) -> tuple:
 
 
 def unit_end(lines: Sequence[str], i: int) -> int:
-    """Index one past the last continuation line of the bullet starting at ``i``."""
+    """Index one past the last continuation line of the bullet starting at ``i``.
+
+    Refuses a blank line followed by a two-space line: whether that line belongs to the bullet
+    is ambiguous, and guessing would delete or keep text the caller did not name.
+    """
     j = i + 1
     while j < len(lines) and _is_continuation(lines[j]):
         j += 1
+    if (
+        j + 1 < len(lines)
+        and lines[j].strip() == ""
+        and lines[j + 1].startswith("  ")
+        and lines[j + 1].strip() != ""
+    ):
+        raise StackEditError(
+            f"bullet at line {i + 1} is followed by a blank line and an indented line "
+            f"(line {j + 2}); its extent is ambiguous"
+        )
     return j
+
+
+def check_region(lines: Sequence[str], start: int, stop: int) -> None:
+    """Refuse unless ``lines[start:stop]`` parses as whole bullets with no fence line."""
+    i = start
+    while i < stop:
+        if not _is_bullet(lines[i]):
+            raise StackEditError(f"line {i + 1} is not a bullet: {lines[i]!r}")
+        j = unit_end(lines, i)
+        if j > stop:
+            raise StackEditError(f"bullet at line {i + 1} runs past the edited text")
+        for k in range(i, j):
+            if _is_fence(lines[k]):
+                raise StackEditError(f"line {k + 1} is a code fence inside a bullet")
+        i = j
 
 
 def find(lines: Sequence[str], prefix: str, section: Optional[str] = None) -> tuple:
@@ -149,11 +201,19 @@ def find(lines: Sequence[str], prefix: str, section: Optional[str] = None) -> tu
         (bullets if _is_bullet(lines[i]) else others).append(i)
     where = f" in section {section!r}" if section is not None else ""
     if others:
-        kind = "a continuation line" if _is_continuation(lines[others[0]]) else "a non-bullet line"
+        kind = "a continuation line" if lines[others[0]].startswith("  ") else "a non-bullet line"
         raise StackEditError(
             f"prefix {prefix!r} matches {kind}{where} (line {others[0] + 1}); "
             "address the bullet by its first line"
         )
+    if _TOKEN.match(prefix[-1]):
+        for i in bullets:
+            nxt = lines[i][len(prefix):len(prefix) + 1]
+            if nxt and _TOKEN.match(nxt):
+                raise StackEditError(
+                    f"prefix {prefix!r} stops inside a token at line {i + 1} "
+                    f"({lines[i][:len(prefix) + 12]!r}); end it at a delimiter such as ':'"
+                )
     if len(bullets) != 1:
         lines_1 = [i + 1 for i in bullets]
         raise StackEditError(
@@ -183,40 +243,34 @@ def read_bullets(path) -> list:
             raise StackEditError(
                 f"{path}: line {n} is neither a bullet nor a two-space continuation: {line!r}"
             )
+    check_region(new, 0, len(new))
     return new
 
 
-def _splice(doc: Doc, start: int, stop: int, new: list) -> None:
-    before = list(doc.lines)
-    doc.lines[start:stop] = new
-    expected = before[:start] + new + before[stop:]
-    if doc.lines != expected:
-        raise StackEditError("postcondition failed: lines outside the edit changed")
+def delete_many(doc: Doc, prefixes: Sequence[str], section: Optional[str] = None) -> None:
+    """Delete several bullets, each resolved against the lines as they were before any deletion."""
+    spans = sorted(find(doc.lines, p, section) + (p,) for p in prefixes)
+    for (_, stop_a, pa), (start_b, _, pb) in zip(spans, spans[1:]):
+        if start_b < stop_a:
+            raise StackEditError(f"prefixes {pa!r} and {pb!r} address the same bullet")
+    for start, stop, _ in reversed(spans):
+        del doc.lines[start:stop]
 
 
 def delete(doc: Doc, prefix: str, section: Optional[str] = None) -> None:
-    start, stop = find(doc.lines, prefix, section)
-    _splice(doc, start, stop, [])
-    try:
-        find(doc.lines, prefix, section)
-    except StackEditError:
-        return
-    raise StackEditError(f"postcondition failed: {prefix!r} still matches after delete")
+    delete_many(doc, [prefix], section)
 
 
 def replace(doc: Doc, prefix: str, new: list, section: Optional[str] = None) -> None:
     start, stop = find(doc.lines, prefix, section)
-    _splice(doc, start, stop, list(new))
-    if doc.lines[start:start + len(new)] != list(new):
-        raise StackEditError("postcondition failed: replacement not in place")
+    doc.lines[start:stop] = list(new)
+    check_region(doc.lines, start, start + len(new))
 
 
 def insert_after(doc: Doc, prefix: str, new: list, section: Optional[str] = None) -> None:
-    start, stop = find(doc.lines, prefix, section)
-    anchor = doc.lines[start:stop]
-    _splice(doc, stop, stop, list(new))
-    if doc.lines[start:stop] != anchor or doc.lines[stop:stop + len(new)] != list(new):
-        raise StackEditError("postcondition failed: insertion not directly after the anchor bullet")
+    _, stop = find(doc.lines, prefix, section)
+    doc.lines[stop:stop] = list(new)
+    check_region(doc.lines, stop, stop + len(new))
 
 
 def sub(doc: Doc, prefix: str, old: str, new: str, section: Optional[str] = None) -> None:
@@ -230,11 +284,8 @@ def sub(doc: Doc, prefix: str, old: str, new: str, section: Optional[str] = None
     count = sum(line.count(old) for line in unit)
     if count != 1:
         raise StackEditError(f"{old!r} occurs {count} times in the bullet, need exactly 1")
-    edited = [line.replace(old, new) for line in unit]
-    _splice(doc, start, stop, edited)
-    after = sum(line.count(old) for line in doc.lines[start:stop])
-    if after != new.count(old):
-        raise StackEditError("postcondition failed: substitution count")
+    doc.lines[start:stop] = [line.replace(old, new) for line in unit]
+    check_region(doc.lines, start, stop)
 
 
 def diff(doc: Doc) -> str:
@@ -254,13 +305,21 @@ def edit(path, ops: Sequence[Callable[[Doc], None]], dry_run: bool = False) -> D
     if dry_run:
         return doc
     path = pathlib.Path(path)
-    if path.read_bytes() != doc.original:
-        raise StackEditError(f"{path} changed on disk during the edit")
-    path.write_bytes(out)
-    written = path.read_bytes()
-    if written != out:
-        raise StackEditError(f"{path}: bytes on disk differ from the bytes written")
-    check_newlines(written, doc.newline)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(out)
+        written = pathlib.Path(tmp).read_bytes()
+        if written != out:
+            raise StackEditError(f"{tmp}: bytes on disk differ from the bytes written")
+        check_newlines(written, doc.newline)
+        if path.read_bytes() != doc.original:
+            raise StackEditError(f"{path} changed on disk during the edit")
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
     return doc
 
 
@@ -290,7 +349,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     sec = args.section
     try:
         if args.cmd == "delete":
-            ops = [lambda d, p=p: delete(d, p, sec) for p in args.prefixes]
+            ops = [lambda d: delete_many(d, args.prefixes, sec)]
         elif args.cmd == "replace":
             new = read_bullets(args.with_file)
             ops = [lambda d: replace(d, args.prefix, new, sec)]
