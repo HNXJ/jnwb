@@ -1966,7 +1966,10 @@ class ZFlipResult(DictAccessMixin):
     Attributes:
         adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
             Phase Lag Index between adjacent contacts; NaN when not computed, and for a
-            pair with a constant contact (all-zero included).
+            pair with a constant contact (all-zero included). Here and in every
+            ``adjacent_*`` field, a contact is constant only when every sample of the whole
+            record equals every other, compared exactly; a contact of tiny but nonzero
+            amplitude is measured.
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs

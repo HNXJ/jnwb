@@ -155,6 +155,29 @@ def test_zflip_a_constant_contact_gives_its_pairs_no_delay():
     assert np.all(np.isfinite(res.adjacent_linearity_r2[[0, 3]]))
 
 
+def test_zflip_a_constant_contact_leaves_the_shaft_without_a_delay():
+    """With every other pair identifiable, a constant contact still blocks the shaft estimate.
+
+    On 10-40 Hz noise lagged 2 samples per contact every clean pair fits R^2 ~ 0.999, so the
+    aggregate is refused by the constant contact alone. What would pass while it leaks:
+    exempting the constant pairs from the all-pairs gate and summing the rest, which fits
+    the remaining pairs and names a direction.
+    """
+    rng = np.random.default_rng(0)
+    b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
+    src = signal.filtfilt(b, a, rng.normal(size=4100))
+    data = np.stack([src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(6)])
+    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=0, pitch_um=50.0)
+    assert jnwb.zflip(data, **kwargs).adjacent_identifiable.all()
+    data[4] = 1.0
+    res = jnwb.zflip(data, **kwargs)
+    assert res.adjacent_identifiable[:3].all()
+    assert not res.delay_identifiable
+    assert np.isnan(res.tau_per_channel_s)
+    assert res.apparent_velocity_m_s is None
+    assert res.directionality == "unidentifiable"
+
+
 def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
     """Constancy is exact: a contact scaled by 1e-9 is measured, not dropped as flat.
 
