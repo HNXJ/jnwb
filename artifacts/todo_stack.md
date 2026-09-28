@@ -455,6 +455,10 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: no current figure uses them under a legend, and each was checked by eye.
 - MCP signal reference edges: no test pins the channel axis of a `channel_by_time` series in the reader check; a TimeSeries carrying a `channel_conversion` outside the schema reports it while the reader ignores it; `acquisition_channel` accepts an infinite rate; the sweep row for the MCP module omits the reference tool's own handler.
   deferred-0.2.8: each fails loudly or needs a file outside the schema, and no shipped number changes.
+- Sweep site fingerprint: a reviewed handler edited in place keeps its site key, so a changed return passes under its old reason. Check: a key that carries a fingerprint of the handler body, with the row churn it causes weighed, or the gap kept stated.
+  deferred-0.2.8: a scientific-tooling trade-off for Hamm; the gap is stated among the sweep's blind spots and no current row is wrong.
+- `jrsa` resampling fallback: `_resample_axis` falls back to downsampling when SciPy is missing while `align` still echoes the request.
+  deferred-0.2.8: SciPy is a declared dependency and input validation refuses unequal shapes before alignment, so no public call reaches it.
 - Generator seeds and `jrsa` axes: `cross_area_coherence`, `xflip` and `zflip` still record no seed for a `Generator`, where the directed estimators record a child seed; `jrsa` refuses an `adim` that names only an axis it reduces, with a message that says the result would not follow `adim`, and the dropped-axis branch of that rule has no test.
   deferred-0.2.8: the documentation states each behaviour truly, and the refusal changes no number.
 
