@@ -379,6 +379,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `zflip` reports a pair with a constant contact as not identifiable, with NaN
+  `adjacent_delays_s` and `adjacent_linearity_r2`. The constant contact's spectrum is
+  rounding residue whose phase can be linear in frequency, and such a pair was marked
+  identifiable with a finite delay (R^2 0.997 and 0.11 s on a noiseless wave).
 - `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
   `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
   surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so

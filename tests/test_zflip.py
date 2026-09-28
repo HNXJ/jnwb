@@ -128,6 +128,51 @@ def test_zflip_a_constant_contact_makes_its_pairs_nan_not_zero(level):
     assert "Contact(s) [2] constant" in res.rejection_reason
 
 
+def _clean_wave_with_contact_2(scale=None, level=None):
+    """Five contacts of a noiseless 25 Hz wave, 2 ms per contact; contact 2 scaled or held."""
+    t = np.arange(4000) / 1000.0
+    data = np.stack([np.sin(2 * np.pi * 25 * (t - 0.002 * k)) for k in range(5)])
+    if scale is not None:
+        data[2] *= scale
+    if level is not None:
+        data[2] = level
+    return data
+
+
+def test_zflip_a_constant_contact_gives_its_pairs_no_delay():
+    """A pair with a constant contact is not identifiable and reports no delay or linearity.
+
+    Held at 1.0, contact 2's spectrum is rounding residue whose phase happens to be linear
+    in frequency: pair (2, 3) fitted R^2 = 0.997 and a 0.11 s delay, and was marked
+    identifiable. What would pass while the residue still counts: checking ``accepted`` or
+    ``tau_per_channel_s``, which the other pairs' failed gate already makes False and NaN.
+    """
+    res = jnwb.zflip(_clean_wave_with_contact_2(level=1.0), orientation="superficial_to_deep",
+                     fs=1000.0, n_surrogates=0)
+    assert not res.adjacent_identifiable[1] and not res.adjacent_identifiable[2]
+    assert np.all(np.isnan(res.adjacent_delays_s[1:3]))
+    assert np.all(np.isnan(res.adjacent_linearity_r2[1:3]))
+    assert np.all(np.isfinite(res.adjacent_linearity_r2[[0, 3]]))
+
+
+def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
+    """Constancy is exact: a contact scaled by 1e-9 is measured, not dropped as flat.
+
+    wPLI and the cross-spectral phase are unchanged by scaling one contact, so the scaled
+    run must match the unscaled one. A tolerance on the peak-to-peak range (``ptp < 1e-6``)
+    calls this 2e-9 contact constant and turns its two pairs NaN.
+    """
+    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=0)
+    ref = jnwb.zflip(_clean_wave_with_contact_2(), **kwargs)
+    tiny = jnwb.zflip(_clean_wave_with_contact_2(scale=1e-9), **kwargs)
+    assert np.ptp(_clean_wave_with_contact_2(scale=1e-9)[2]) < 1e-6
+    np.testing.assert_allclose(tiny.adjacent_wpli, ref.adjacent_wpli, rtol=1e-6)
+    np.testing.assert_allclose(tiny.adjacent_linearity_r2, ref.adjacent_linearity_r2,
+                               rtol=1e-6)
+    np.testing.assert_array_equal(tiny.adjacent_identifiable, ref.adjacent_identifiable)
+    assert "constant" not in (tiny.rejection_reason or "")
+
+
 def test_zflip_clean_traveling_wave_recovery():
     """Verify recovery of signed direction and apparent velocity on clean traveling wave."""
     fs = 1000.0

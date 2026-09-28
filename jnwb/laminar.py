@@ -1972,10 +1972,11 @@ class ZFlipResult(DictAccessMixin):
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
             are reported as NaN.
         adjacent_linearity_r2: 1D array of shape (n_channels - 1,) containing the
-            coefficient of determination R^2 of the unwrapped phase-frequency linear fit.
+            coefficient of determination R^2 of the unwrapped phase-frequency linear fit;
+            NaN for a pair with a constant contact.
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
-            unwrapping unambiguous interval).
+            unwrapping unambiguous interval); False for a pair with a constant contact.
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
@@ -2229,16 +2230,19 @@ def zflip(
     adj_delays = np.zeros(n_channels - 1, dtype=float)
     adj_r2 = np.zeros(n_channels - 1, dtype=float)
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
-    # A pair with a constant contact has no phase lag to weigh; its wPLI is NaN, as in
-    # jnwb.wpli, so it cannot enter mean_wpli as a zero or as rounding residue.
+    # A pair with a constant contact has no phase lag to weigh; its wPLI, linearity and
+    # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
+    # constant contact's spectrum enters neither mean_wpli nor the delay fit.
     flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
 
     for i in range(n_channels - 1):
+        if i in flat_contacts or i + 1 in flat_contacts:
+            adj_wpli[i] = adj_r2[i] = adj_delays[i] = np.nan
+            continue
         # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
         Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
         w_f, _ = _wpli_from_cross_spectra(Sxy)
-        adj_wpli[i] = (np.nan if i in flat_contacts or i + 1 in flat_contacts
-                       else float(np.mean(w_f[mask])))
+        adj_wpli[i] = float(np.mean(w_f[mask]))
 
         # Phase slope from average cross-spectrum across segments
         Sxy_mean = np.mean(Sxy, axis=1)
@@ -2327,8 +2331,8 @@ def zflip(
 
     reasons: List[str] = []
     if flat_contacts:
-        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI undefined, "
-                       "surrogate test not performed")
+        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI and delay "
+                       "undefined, surrogate test not performed")
     elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0)")
     elif not is_sig:
