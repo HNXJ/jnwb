@@ -205,7 +205,9 @@ def test_a_control_under_an_earlier_higher_peak_is_never_mislabelled():
     say which side of it the number lies on."""
     from scripts.measure_peak_memory import measure
 
-    _assert_the_label_holds(measure("control_256mib", prepeak_mib=512))
+    row = measure("control_256mib", prepeak_mib=512)
+    assert row["peak_mib"] >= 512.0, f"the earlier peak was not built: {row}"
+    _assert_the_label_holds(row)
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"),
@@ -221,6 +223,7 @@ def test_linux_resolves_the_control_under_an_earlier_peak_in_the_child_and_the_p
     held = b"\x01" * (512 * MIB)
     row = measure("control_256mib", prepeak_mib=512)
     del held
+    assert row["peak_mib"] >= 512.0, f"the earlier peak was not built: {row}"
     assert row["added_is"] == "exact", row
     _assert_the_label_holds(row)
 

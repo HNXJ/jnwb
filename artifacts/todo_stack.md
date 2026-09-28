@@ -428,8 +428,8 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: the direction of the limit is right everywhere and the classifier's effect-size cut keeps bursting units from reading significant; the rest is wording and length.
 - Readiness blind spots: a `##` section that lists work outside any item is not seen; a modified file marked `--assume-unchanged` or `--skip-worktree` passes the clean-tree check; whether a job-level `continue-on-error` on the TestPyPI job reports success for a failed upload is not established.
   deferred-0.2.8: the live stack has no such section and the release job carries no such flag; the ignored-file and rename cases are covered.
-- Peak-memory resolution: an operation whose working memory stays below the peak its imports and inputs reached records almost nothing added (`cluster_permutation_test` 0.7 MiB), so the record is a lower bound. Check: a per-operation peak reset, or the bound stated.
-  deferred-0.2.8: the record carries no threshold yet, so a lower bound misleads no release.
+- Peak-memory reset evidence: on Linux a clear_refs write that does not raise counts as a reset, though the reset itself is never observed; the docstring and `CONTRIBUTING.md` say exact on Linux without the unwritable case; on the `ru_maxrss` fallback `peak_mib` can be the spawning process's peak, unlabelled. Check: the reset is confirmed by a re-read, the unwritable row is documented, and the fallback's `peak_mib` is labelled or its limit stated.
+  deferred-0.2.8: every `added_mib` row stays correctly labelled on each path, and the record carries no threshold.
 - Floor coverage: Python 3.12.0 runs on the Ubuntu floors leg only, with floor dependencies; the newest dependencies on 3.12.0 and Windows 3.12.0 are not exercised.
   deferred-0.2.8: the known 3.12.0 defect class is a standard-library difference that the Ubuntu leg reaches.
 - One smoke definition: the CI smoke script and the release gate's installed-package script check different things. Check: one definition both run, or the difference stated.
