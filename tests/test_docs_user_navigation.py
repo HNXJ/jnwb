@@ -100,6 +100,8 @@ def test_no_page_is_orphaned():
     """Every published page is on the nav. A page the build excludes is not published."""
     orphans = orphaned_pages(DOCS, MKDOCS)
     assert orphans == set(), f"pages exist but are on no nav entry: {sorted(orphans)}"
+
+
 def test_no_excluded_page_is_on_the_nav():
     """An excluded page on the nav is a dead link on the site, and would hide a user page."""
     excluded = _excluded_from_the_site()
