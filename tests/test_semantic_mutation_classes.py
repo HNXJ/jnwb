@@ -319,8 +319,8 @@ CASES: tuple[SemanticMutation, ...] = (
         "H9b",
         "granger-reports-the-analytic-f-test-p",
         "jnwb/connectivity.py",
-        '        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater")\n'
-        '        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater")\n',
+        '        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)\n'
+        '        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)\n',
         '        p_xy = fit_xy["p_f"]\n        p_yx = fit_yx["p_f"]\n',
         (
             "tests/test_composition_randomness.py"
