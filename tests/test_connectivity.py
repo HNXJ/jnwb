@@ -880,6 +880,46 @@ class TestPsiInferenceIsNotOverstated:
         np.testing.assert_allclose(
             fwd.spectrum["psi_per_freq"], -rev.spectrum["psi_per_freq"], atol=1e-12)
 
+    @staticmethod
+    def _periodic(n=1024, period=32, seed=1):
+        """Period 32 with nperseg 64 and hop 32: every Welch segment is the same segment."""
+        return np.random.default_rng(seed).normal(size=period)[np.arange(n) % period]
+
+    @pytest.mark.parametrize("bands", [None, {"a": (5.0, 20.0), "b": (20.0, 45.0)}])
+    def test_a_jackknife_without_spread_has_no_z(self, bands):
+        """Y equal to a periodic X made every replicate agree to rounding: sd was 8e-32, z
+        -7.8e13, p 0.0 and ok_for_interpretation True."""
+        x = self._periodic()
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            res = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64, bands=bands)
+        assert res.diagnostics["n_segments"] >= 8
+        assert all(np.isnan(b["z"]) for b in res.per_band.values())
+        assert res.p_net is None
+        assert res.diagnostics["ok_for_interpretation"] is False
+        assert any("jackknife_spread_is_round_off" in w for w in res.diagnostics["warnings"])
+
+    def test_the_width_sits_between_round_off_and_a_part_in_1e9(self):
+        """Y equal to aperiodic noise leaves replicates that differ by round-off alone (sd
+        3.9e-18, the largest measured, against a width of 1.7e-12); a variation of one part
+        in 1e9 gives sd 1.1e-10 and keeps its z."""
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=1024)
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            same = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64)
+        assert np.isnan(same.per_band["full"]["z"])
+        perturbed = x + 1e-9 * rng.normal(size=1024)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(x, perturbed, fs=100.0, nperseg=64)
+        assert np.isfinite(res.per_band["full"]["z"])
+
+    def test_a_jackknife_with_spread_keeps_its_z(self):
+        """The guard sits at rounding: an ordinary lagged pair keeps a finite z and no warning."""
+        x, y = self._lagged_pair()
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        assert np.isfinite(res.per_band["full"]["z"])
+        assert not any("round_off" in w for w in res.diagnostics["warnings"])
+
 
 class TestGrangerNotTestedIsNotPassed:
     """An untested assumption and a degenerate fit were both reported as

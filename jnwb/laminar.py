@@ -35,6 +35,7 @@ from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from ._spread import is_constant
+from .permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -1351,7 +1352,8 @@ def _select_count_by_min_p(obs_q: np.ndarray, surr_q: np.ndarray) -> Tuple[int, 
     `obs_q` is `(K,)`, the observed contrast at each candidate count; `surr_q` is `(S, K)`,
     each surrogate's contrast at the same counts. The observation and the S surrogates are
     treated as S + 1 exchangeable draws. At each count, a draw's p is the fraction of the
-    draws whose contrast is at least its own, so the observation's p is the usual
+    draws whose contrast is at least its own, within round-off (100 machine epsilons of a
+    correlation, as ``_count_at_least_as_extreme`` counts), so the observation's p is the usual
     `(1 + #exceed) / (1 + S)`. Each draw's statistic is its smallest p over the counts, and
     the returned p is the fraction of draws whose smallest p is at most the observation's:
     the selection is repeated on every surrogate. With one candidate this is exactly the
@@ -1366,10 +1368,13 @@ def _select_count_by_min_p(obs_q: np.ndarray, surr_q: np.ndarray) -> Tuple[int, 
     """
     draws = np.vstack([obs_q[None, :], surr_q])
     n_draws = draws.shape[0]
+    # "At least its own" counts a draw within round-off of it, by the rule every jnwb null
+    # uses, applied to each draw in turn: two draws that tie to round-off each count the
+    # other. The width is 100 eps * max(1, |contrast|). One sort per count: O(K S log S).
+    # The p that follows compares the integer counts exactly.
     at_least = np.empty(draws.shape, dtype=np.int64)
     for i in range(draws.shape[1]):
-        ordered = np.sort(draws[:, i])
-        at_least[:, i] = n_draws - np.searchsorted(ordered, draws[:, i], side="left")
+        at_least[:, i] = _count_each_at_least_as_extreme(draws[:, i], atol=_TIE_RTOL)
     smallest = at_least.min(axis=1)
     p = float(np.count_nonzero(smallest <= smallest[0]) / n_draws)
 
@@ -1593,7 +1598,9 @@ def xflip(
            (when a precomputed correlation matrix is provided).
         4. Monte Carlo P-value Resolution:
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
-           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q)}{1 + S}`.
+           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q - \\epsilon)}{1 + S}`,
+           with :math:`\\epsilon` 100 machine epsilons, so a surrogate that reproduces
+           :math:`Q` with its correlations summed in another order counts.
            No p-value can resolve to 0.0 under finite surrogate sampling.
            Under `n_blocks=None`, the observation and the surrogates are S + 1 draws; each
            draw's p at each count is the fraction of draws whose contrast is at least its
@@ -1850,8 +1857,10 @@ def xflip(
                 bb = observed[i][0]
                 for b in observed[i][1]:
                     st, en, lbl = local_labels(bb, b)
-                    if _compute_contrast(surr_corr[st:en, st:en], lbl) >= local_obs[i][b]:
-                        boundary_exceed[i][b] += 1
+                    boundary_exceed[i][b] += _count_at_least_as_extreme(
+                        [_compute_contrast(surr_corr[st:en, st:en], lbl)], local_obs[i][b],
+                        "greater", atol=_TIE_RTOL,
+                    )
 
         obs_q_all = np.array([part[2] for part in observed], dtype=float)
         chosen, p_omnibus = _select_count_by_min_p(obs_q_all, surr_q_all)
@@ -2316,8 +2325,9 @@ def zflip(
             for i in range(n_channels - 1):
                 w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
                 surr_adj_wpli[i] = float(np.mean(w_s[mask]))
-            if np.mean(surr_adj_wpli) >= mean_wpli_val:
-                exceed_count += 1
+            exceed_count += _count_at_least_as_extreme(
+                [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
+            )
         p_val = float((1 + exceed_count) / (1 + n_surrogates))
 
     # No test performed means no inferential acceptance.

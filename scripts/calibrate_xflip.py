@@ -49,6 +49,8 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib
+import importlib.util
 import inspect
 import json
 import os
@@ -80,35 +82,68 @@ MIN_BLOCK_SIZE = 3
 ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
 
 
+def _module_table(modname: str):
+    """(source, {name: top-level def or assignment node}, {name: (module, name)} imported
+    from another jnwb module) for the module ``modname``."""
+    source = inspect.getsource(importlib.import_module(modname))
+    tree = ast.parse(source)
+    nodes, imported = {}, {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            nodes[node.name] = node
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    nodes[target.id] = node
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            nodes[node.target.id] = node
+        elif isinstance(node, ast.ImportFrom):
+            origin = importlib.util.resolve_name(
+                "." * node.level + (node.module or ""), modname.rpartition(".")[0]
+            ) if node.level else (node.module or "")
+            if origin == "jnwb" or origin.startswith("jnwb."):
+                for alias in node.names:
+                    imported[alias.asname or alias.name] = (origin, alias.name)
+    return source, nodes, imported
+
+
 def estimator_sources() -> list[tuple[str, str]]:
-    """`xflip` and every module-level function in `jnwb.laminar` it can reach.
+    """`xflip` and every top-level function, class and constant it can reach, in any jnwb module.
 
     Resolved from the call graph rather than listed, so a helper introduced later is
     covered without anyone remembering to add it, and sorted, so the digest does not
-    depend on the order the graph is walked.
+    depend on the order the graph is walked. A name reached in a function body is followed
+    to its definition in the same module, or through a ``from .module import name`` to the
+    module that defines it, so the tie rule in ``jnwb.permutation`` and its width constant
+    are hashed with the estimator that calls them. Names in ``jnwb.laminar`` are bare;
+    names elsewhere carry their module.
     """
-    module = sys.modules[xflip.__module__]
-    tree = ast.parse(inspect.getsource(module))
-    defs = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-
-    reached: set[str] = set()
-    stack = [xflip.__name__]
+    home = xflip.__module__
+    tables: dict = {}
+    reached: dict[tuple[str, str], str] = {}
+    stack = [(home, xflip.__name__)]
     while stack:
-        name = stack.pop()
-        if name in reached or name not in defs:
+        modname, name = stack.pop()
+        if (modname, name) in reached:
             continue
-        reached.add(name)
-        for call in ast.walk(defs[name]):
-            if isinstance(call, ast.Call):
-                callee = getattr(call.func, "id", None) or getattr(call.func, "attr", None)
-                if callee:
-                    stack.append(callee)
-    return [(name, ast.get_source_segment(inspect.getsource(module), defs[name]))
-            for name in sorted(reached)]
+        if modname not in tables:
+            tables[modname] = _module_table(modname)
+        source, nodes, imported = tables[modname]
+        if name in imported:
+            stack.append(imported[name])
+            continue
+        if name not in nodes:
+            continue
+        node = nodes[name]
+        reached[(modname, name)] = ast.get_source_segment(source, node)
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name):
+                stack.append((modname, sub.id))
+            elif isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
+                stack.append((modname, sub.func.attr))
+    named = {(name if modname == home else f"{modname}.{name}"): src
+             for (modname, name), src in reached.items()}
+    return sorted(named.items())
 
 
 def estimator_sha256() -> str:

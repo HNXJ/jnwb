@@ -8,8 +8,8 @@ conditional on a setting it did not name. It is replaced by `xflip_calibration_0
 and a generator, and the receipt records a hash of the estimator; changing the estimator
 without rerunning `scripts/calibrate_xflip.py` fails here.
 
-The hash covers every module-level function in `jnwb.laminar` that `xflip` can reach, not
-`xflip` alone. Hashing one function of an estimator is not a narrower receipt, it is one
+The hash covers every top-level function, class and constant that `xflip` can reach, in any jnwb
+module, not `xflip` alone. Hashing one function of an estimator is not a narrower receipt, it is one
 that can be read as current while the estimator has changed -- `tests/test_vflip_calibration_receipt.py`
 records where that happened.
 """
@@ -41,29 +41,55 @@ def _generator():
     return module
 
 
+def _top_level(module_name):
+    """Top-level functions, classes and assigned names of a jnwb module, and the names it imports
+    from other jnwb modules, read from the file itself rather than through the importer."""
+    path = ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    defined, imports = {}, {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defined[node.name] = node
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            defined.update({t.id: node for t in targets if isinstance(t, ast.Name)})
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 1:
+                origin = "jnwb" + ("." + node.module if node.module else "")
+            elif node.level == 0 and (node.module or "").split(".")[0] == "jnwb":
+                origin = node.module
+            else:
+                continue
+            for alias in node.names:
+                imports[alias.asname or alias.name] = (origin, alias.name)
+    return defined, imports
+
+
 def _reachable_from_xflip():
     """The closure, recomputed here rather than taken from the generator.
 
     An oracle that imports the thing it checks certifies nothing, so this walk is written
-    out a second time on purpose.
+    out a second time on purpose. It follows names across jnwb modules, constants included:
+    the tie rule xflip counts its surrogates with lives in `jnwb.permutation`.
     """
-    tree = ast.parse(inspect.getsource(laminar))
-    defs = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-    reached, stack = set(), ["xflip"]
-    while stack:
-        name = stack.pop()
-        if name in reached or name not in defs:
+    home = "jnwb.laminar"
+    seen, reached, queue = set(), set(), [(home, "xflip")]
+    while queue:
+        key = queue.pop(0)
+        if key in seen:
             continue
-        reached.add(name)
-        for call in ast.walk(defs[name]):
-            if isinstance(call, ast.Call):
-                callee = getattr(call.func, "id", None) or getattr(call.func, "attr", None)
-                if callee:
-                    stack.append(callee)
+        seen.add(key)
+        module_name, name = key
+        defined, imports = _top_level(module_name)
+        if name in imports:
+            queue.append(imports[name])
+        elif name in defined:
+            reached.add(name if module_name == home else f"{module_name}.{name}")
+            for sub in ast.walk(defined[name]):
+                if isinstance(sub, ast.Name):
+                    queue.append((module_name, sub.id))
+                elif isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
+                    queue.append((module_name, sub.func.attr))
     return reached
 
 

@@ -57,7 +57,8 @@ from ._spread import is_constant, zscore
 from ._units import resolve_unit_alias
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._layout import require_trial_length
-from ._rng import Default, REQUIRED, RNGLike, recorded_rng, resolve_seed_alias
+from ._rng import Default, RNGLike, recorded_rng, resolve_seed_alias
+from .permutation import _TIE_RTOL, _count_at_least_as_extreme
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -1036,6 +1037,24 @@ def _surrogate_source(a: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     return out
 
 
+def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
+                 scale: float = 0.0) -> float:
+    """``(1 + k) / (B + 1)`` over the ``B`` draws of ``null``, ``k`` counting draws at least as
+    extreme as ``observed`` with round-off ties included (see ``_count_at_least_as_extreme``).
+    Identical trials make every trial permutation reproduce the observed statistic, summed
+    in another trial order.
+
+    ``scale`` is the magnitude of the terms ``observed`` was formed from, for a statistic
+    that cancels: a net value ``a - b`` carries the round-off of ``a`` and ``b``, not of
+    its own size, so its tie width is ``_TIE_RTOL * (|a| + |b|)``. A Granger value
+    ``log(var_r / var_f)`` cancels inside the log, so its scale is 1 (``max(1, |a|) +
+    max(1, |b|)`` for the net). A PSI sums one term
+    ``Im(conj(C_f) C_{f+1})`` of size at most 1 per bin pair, so its scale is the pair count.
+    """
+    k = _count_at_least_as_extreme(null, observed, alternative, atol=_TIE_RTOL * scale)
+    return float((1 + k) / (len(null) + 1))
+
+
 # ---------------------------------------------------------------------------
 # 1. Granger causality (linear, predictive)
 # ---------------------------------------------------------------------------
@@ -1296,12 +1315,12 @@ def granger(
             null_xy[i] = _one_direction(x_s, y, order_xy)["gc"]
             y_s = _surrogate_source(y, surrogate_rng)
             null_yx[i] = _one_direction(y_s, x, order_yx)["gc"]
-        p_xy = float((1 + np.sum(null_xy >= fit_xy["gc"])) / (n_surrogates + 1))
-        p_yx = float((1 + np.sum(null_yx >= fit_yx["gc"])) / (n_surrogates + 1))
+        # GC is log(var_r / var_f): its rounding is that of the ratio, not of GC's own size.
+        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)
+        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)
         null_net = null_xy - null_yx
-        p_net = float(
-            (1 + np.sum(np.abs(null_net) >= abs(obs_net))) / (n_surrogates + 1)
-        )
+        p_net = _surrogate_p(null_net, obs_net, "two-sided",
+                             scale=max(1.0, abs(fit_xy["gc"])) + max(1.0, abs(fit_yx["gc"])))
         surrogate_info.update(
             {
                 "null_mean_x_to_y": float(null_xy.mean()),
@@ -1616,17 +1635,16 @@ def granger_spectral(
                 if mask.sum() >= 2:
                     null_xy_by_band[name].append(_mean_over(tmp[1], mask))
                     null_yx_by_band[name].append(_mean_over(tmp2[0], mask))
-        p_xy = float((1 + np.sum(null_xy >= total_xy)) / (n_surrogates + 1))
-        p_yx = float((1 + np.sum(null_yx >= total_yx)) / (n_surrogates + 1))
+        # Each frequency's GC is a log ratio, rounded at the scale of the ratio (see granger).
+        p_xy = _surrogate_p(null_xy, total_xy, "greater", scale=1.0)
+        p_yx = _surrogate_p(null_yx, total_yx, "greater", scale=1.0)
         for name, vals in per_band.items():
             f_lo, f_hi = vals["band_hz"]
             mask = (freqs >= f_lo) & (freqs <= f_hi)
             if mask.sum() >= 2:
                 obs_xy = vals["value"]
                 nb_xy = np.asarray(null_xy_by_band[name], dtype=float)
-                vals["p_surrogate"] = float(
-                    (1 + np.sum(nb_xy >= obs_xy)) / (len(nb_xy) + 1)
-                )
+                vals["p_surrogate"] = _surrogate_p(nb_xy, obs_xy, "greater", scale=1.0)
 
     return DirectedResult(
         method="granger_spectral",
@@ -1753,6 +1771,30 @@ def _psi_leave_one_out(fx: np.ndarray, fy: np.ndarray, idx: np.ndarray) -> np.nd
     return np.sum(np.imag(np.conj(coh[:, :-1]) * coh[:, 1:]), axis=1)
 
 
+def _psi_round_off(n_seg: int, n_pairs: int) -> float:
+    """Largest jackknife standard deviation of PSI that rounding alone can produce.
+
+    A replicate sums ``n_pairs`` terms ``Im(conj(C_f) C_{f+1})`` with ``|C| <= 1``, and each
+    coherency is a ratio of means over ``n_seg - 1`` segments, so a term carries a rounding
+    error below about ``4 * n_seg * eps`` and a replicate below ``4 * n_seg * n_pairs * eps``.
+    The width doubles that bound. Replicates that agree to within it, as they do when every
+    segment is the same (a periodic signal) or when Y equals X, have no spread to scale by.
+    """
+    return 8.0 * float(np.finfo(float).eps) * n_seg * max(n_pairs, 1)
+
+
+def _warn_psi_zero_spread(name: str, sd: float, warnings_all: List[str]) -> None:
+    warnings_all.append(f"band_{name}_jackknife_spread_is_round_off_z_undefined")
+    warnings.warn(
+        f"phase_slope_index: the leave-one-segment-out replicates of band {name!r} agree to "
+        f"rounding (sd {sd:.3g}), so z = psi / sd and its p are undefined and reported as "
+        "NaN/None. The segments carry no variation to test against: identical segments, "
+        "such as a periodic signal, or Y equal to X.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
 def phase_slope_index(
     X,
     Y,
@@ -1821,7 +1863,11 @@ def phase_slope_index(
         ``x_to_y`` is the summed PSI over the whole requested range with
         ``y_to_x = -x_to_y``; ``net == x_to_y``. When no band holds the two frequency bins a
         slope needs, ``x_to_y``, ``y_to_x`` and ``net`` are NaN and
-        ``diagnostics['ok_for_interpretation']`` is False.
+        ``diagnostics['ok_for_interpretation']`` is False. When the jackknife replicates
+        agree to rounding (identical segments, as from a periodic signal, or Y equal to X),
+        ``sd`` and ``z`` are NaN, the jackknife p is None, a ``RuntimeWarning`` says why and
+        ``ok_for_interpretation`` is False. A surrogate p counts every draw within
+        round-off of the observed value as reaching it, as :func:`granger` does.
 
     References:
         Nolte, G., et al. (2008). Robustly estimating the flow direction of information in
@@ -1941,8 +1987,11 @@ def phase_slope_index(
         sd = float("nan")
         if jackknife and n_seg >= 3:
             jk = _psi_leave_one_out(fx, fy, idx)
-            sd =float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+            sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
             jk_per_band[name] = jk
+            if sd <= _psi_round_off(n_seg, idx.size - 1):
+                _warn_psi_zero_spread(name, sd, warnings_all)
+                sd = float("nan")
         elif jackknife:
             warnings_all.append("jackknife_needs_at_least_3_segments")
 
@@ -1972,10 +2021,10 @@ def phase_slope_index(
             obs = vals["value"]
             nl = null[name]
             nl = nl[np.isfinite(nl)]
+            # Each of the band's n_freq_bins - 1 terms is at most 1, and they can cancel.
             vals["p_surrogate"] = (
-                float((1 + np.sum(np.abs(nl) >= abs(obs))) / (nl.size + 1))
-                if nl.size and np.isfinite(obs)
-                else None
+                _surrogate_p(nl, obs, "two-sided", scale=vals["n_freq_bins"] - 1)
+                if nl.size and np.isfinite(obs) else None
             )
 
     band_values = np.array([v["value"] for v in per_band.values()], dtype=float)
@@ -1996,14 +2045,18 @@ def phase_slope_index(
             p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_seg - 1, 1)))
     else:
         if n_surrogates > 0 and null:
-            valid_band_nulls = [null[k] for k in null if np.all(np.isfinite(null[k]))]
-            if valid_band_nulls and np.isfinite(total):
-                null_tot = np.sum(valid_band_nulls, axis=0)
-                p_top = float((1 + np.sum(np.abs(null_tot) >= abs(total))) / (len(null_tot) + 1))
+            valid = [k for k in null if np.all(np.isfinite(null[k]))]
+            if valid and np.isfinite(total):
+                null_tot = np.sum([null[k] for k in valid], axis=0)
+                n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
+                p_top = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
         elif jackknife and n_seg >= 3 and jk_per_band:
             jk_tot = np.sum(list(jk_per_band.values()), axis=0)
             sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
-            if sd_tot > 0 and np.isfinite(sd_tot) and np.isfinite(total):
+            n_pairs = sum(int(v["n_freq_bins"]) - 1 for k, v in per_band.items() if k in jk_per_band)
+            if sd_tot <= _psi_round_off(n_seg, n_pairs):
+                _warn_psi_zero_spread("total", sd_tot, warnings_all)
+            elif np.isfinite(sd_tot) and np.isfinite(total):
                 z_tot = float(total / sd_tot)
                 p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_seg - 1, 1)))
 
@@ -2302,11 +2355,11 @@ def transfer_entropy(
                 _surrogate_source(yq, surrogate_rng).astype(np.int64),
                 xq, k, l, delay, bias_correction,
             )[0]
-        p_xy = float((1 + np.sum(null_xy >= te_xy)) / (n_surrogates + 1))
-        p_yx = float((1 + np.sum(null_yx >= te_yx)) / (n_surrogates + 1))
+        p_xy = _surrogate_p(null_xy, te_xy, "greater")
+        p_yx = _surrogate_p(null_yx, te_yx, "greater")
         obs_net = te_xy - te_yx
         null_net = null_xy - null_yx
-        p_net = float((1 + np.sum(np.abs(null_net) >= abs(obs_net))) / (n_surrogates + 1))
+        p_net = _surrogate_p(null_net, obs_net, "two-sided", scale=abs(te_xy) + abs(te_yx))
         eff_xy = te_xy - float(null_xy.mean())
         eff_yx = te_yx - float(null_yx.mean())
         surrogate_info.update(

@@ -129,6 +129,8 @@ For continuous time series, spectra, and time-frequency representations (TFRs), 
 
 $$p = \frac{1 + k}{B + 1}$$
 
+$k$ counts draws within $100\,\epsilon\,|\text{observed}|$ of the observed value or beyond, as `scipy.stats.permutation_test` does; every jnwb permutation p counts so. Statistics that cancel use a floor: $100\,\epsilon$ for xflip and each granger direction (a log variance ratio); times both directions' sum for net p; times the bin-pair count for phase_slope_index.
+
 ```python
 # X, Y: (n_trials, n_freqs, n_times) or (n_trials, n_times)
 # 1. Paired differences (sign-flip exchangeability)

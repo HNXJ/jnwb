@@ -45,6 +45,7 @@ from jnwb.addressing import enrich_units_dataframe
 from jnwb.continuous import epoch_continuous
 from jnwb.laminar import VFlipResult, label_layers
 from jnwb.laminar import vflip as laminar_vflip
+from jnwb.permutation import _count_at_least_as_extreme
 from jnwb.spectral import relative_power
 from jnwb.statistics import _require_alternative, cluster_permutation_test
 
@@ -646,9 +647,10 @@ ACCEPTED_CHAIN_ELSE = {
     ("continuous.py", "epoch_continuous", "CHAIN_ELSE", "boundary_policy", ("drop", "error"), 1):
         "boundary_policy is checked against ('nan', 'error', 'drop') and raises; the else "
         "is the 'nan' branch.",
-    ("jrsa.py", "_p_from_null", "CHAIN_ELSE", "alternative", ("greater", "two-sided"), 1):
-        "REPAIRED BY THIS SWEEP: alternative is now checked against jrsa.ALTERNATIVES at "
-        "the top of _p_from_null and raises; the else is the 'less' branch.",
+    ("permutation.py", "_count_at_least_as_extreme", "CHAIN_ELSE", "alternative",
+     ("greater", "less"), 1):
+        "_count_at_least_as_extreme checks alternative against _TAILS and raises; the else "
+        "is the 'two-sided' branch.",
     ("laminar.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
@@ -656,21 +658,6 @@ ACCEPTED_CHAIN_ELSE = {
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
-    ("statistics.py", "shuffle_pvalue_paired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
-        "alt is the return of _require_alternative, which normalizes and raises; the else "
-        "is the two-sided branch.",
-    ("statistics.py", "shuffle_pvalue_unpaired", "CHAIN_ELSE", "alt", ("greater", "less"), 1):
-        "alt is the return of _require_alternative, which normalizes and raises; the else "
-        "is the two-sided branch.",
-    ("statistics.py", "cluster_permutation_test", "CHAIN_ELSE", "tail", ("greater", "less"), 1):
-        "tail is checked against ('both', 'greater', 'less') and raises; the else is the "
-        "'both' branch.",
-    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 1):
-        "The exact-enumeration chain. exact_sign_flip checks alt against ('two-sided', "
-        "'greater', 'less') and raises before either chain; the else is the 'less' branch.",
-    ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt", ("greater", "two-sided"), 2):
-        "The Monte Carlo chain, under the same check as the first; the else is the 'less' "
-        "branch.",
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
@@ -875,6 +862,8 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         ("spectral.model", lambda: relative_power(
             np.array([1.0, 2.0]), np.array([1.0, 1.0]), model="bogus")),
         ("statistics.alternative", lambda: _require_alternative("bogus", "sweep")),
+        ("permutation.alternative", lambda: _count_at_least_as_extreme(
+            np.zeros(3), 0.0, "bogus")),
         ("statistics.shuffle_pvalue_paired.alt", lambda: jnwb.shuffle_pvalue_paired(
             np.array([0.1, 0.4, 0.2]), np.array([0.0, 0.1, 0.3]), 10,
             np.random.default_rng(0), alternative="bogus")),
@@ -908,9 +897,9 @@ _SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None
 _RESOLVES_BODY = "    try:\n        return resolve_acquisition(file_path, name) == name\n"
 _ADF_BODY = "    try:\n        import warnings\n\n        from statsmodels.tsa.stattools import adfuller\n"
 _NAM_GUARD = "try:\n    import torch\n    import torch.nn as nn\n"
-_SIGN_FLIP_BODY = "    n = arr.size\n    obs_mean = float(np.mean(arr))\n"
-_SIGN_FLIP_CHAIN = ('    if alt == "two-sided":\n        tol = 0.0\n'
-                    '    elif alt == "greater":\n        tol = 0.0\n')
+_TIE_COUNT_BODY = "    null = np.asarray(null, dtype=float)\n    obs = float(observed)\n"
+_TIE_COUNT_CHAIN = ('    if alternative == "greater":\n        hit = 0\n'
+                    '    elif alternative == "less":\n        hit = 0\n')
 
 Planted = namedtuple("Planted", "report findings lines")
 """A mutant's unexplained report, its findings, and the source lines the planted text occupies."""
@@ -963,7 +952,7 @@ class TestASiteIsReviewedAtItsOwnSite:
                 ("connectivity.py", _ADF_BODY, scan_recovering_handlers,
                  ACCEPTED_HANDLER_RECOVERY),
                 ("nam.py", _NAM_GUARD, scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY),
-                ("statistics.py", _SIGN_FLIP_BODY, scan_selector_chain_fallthrough,
+                ("permutation.py", _TIE_COUNT_BODY, scan_selector_chain_fallthrough,
                  ACCEPTED_CHAIN_ELSE)):
             assert _plant_before(module, anchor, "", scanner, accepted).report == ""
 
@@ -998,19 +987,19 @@ class TestASiteIsReviewedAtItsOwnSite:
 
     def test_a_chain_with_no_else_is_not_filed_under_a_trailing_else_row(self):
         """The kind is part of the key, so the planted chain is its own site at its own line."""
-        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, _SIGN_FLIP_CHAIN,
+        result = _plant_before("permutation.py", _TIE_COUNT_BODY, _TIE_COUNT_CHAIN,
                                scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
-        shape = ("statistics.py", "exact_sign_flip", "CHAIN_NO_ELSE", "alt",
-                 ("greater", "two-sided"))
+        shape = ("permutation.py", "_count_at_least_as_extreme", "CHAIN_NO_ELSE",
+                 "alternative", ("greater", "less"))
         assert {f.key for f in result.findings} - set(ACCEPTED_CHAIN_ELSE) == {shape + (1,)}
         assert _names_line(result.report, result.lines[0]), result.report
 
-    def test_a_trailing_else_planted_before_two_reviewed_ones_is_named(self):
-        planted = _SIGN_FLIP_CHAIN + "    else:\n        tol = 0.0\n"
-        result = _plant_before("statistics.py", _SIGN_FLIP_BODY, planted,
+    def test_a_trailing_else_planted_before_a_reviewed_one_is_named(self):
+        planted = _TIE_COUNT_CHAIN + "    else:\n        hit = 0\n"
+        result = _plant_before("permutation.py", _TIE_COUNT_BODY, planted,
                                scan_selector_chain_fallthrough, ACCEPTED_CHAIN_ELSE)
-        _assert_names_both(result, ("statistics.py", "exact_sign_flip", "CHAIN_ELSE", "alt",
-                                    ("greater", "two-sided")))
+        _assert_names_both(result, ("permutation.py", "_count_at_least_as_extreme",
+                                    "CHAIN_ELSE", "alternative", ("greater", "less")))
 
 
 # ===========================================================================

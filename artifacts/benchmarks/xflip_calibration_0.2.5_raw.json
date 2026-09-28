@@ -1,6 +1,7 @@
 {
-  "estimator_sha256": "4f16ea0149937e5a3fb56959c77aa81f34a02cc34a5a7050e23c983d292795a8",
+  "estimator_sha256": "593c9d4c83fc4443cfafbf76843f760b120cf63f2c70a6ef1f774fddf38bfce1",
   "estimator_functions": [
+    "XFlipResult",
     "_compute_contrast",
     "_compute_correlation_matrix",
     "_label_change_boundaries",
@@ -9,6 +10,15 @@
     "_select_count_by_min_p",
     "_surrogate_phase_randomize",
     "_unrestricted_partition",
+    "jnwb._dictlike.DictAccessMixin",
+    "jnwb._rng.RNGLike",
+    "jnwb._rng.resolve_rng",
+    "jnwb._rng.surrogate_rng",
+    "jnwb.permutation._TAILS",
+    "jnwb.permutation._TIE_RTOL",
+    "jnwb.permutation._count_at_least_as_extreme",
+    "jnwb.permutation._count_each_at_least_as_extreme",
+    "jnwb.permutation._tie_width",
     "xflip"
   ],
   "n_seeds": 30,
@@ -390,5 +400,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 297.3
+  "elapsed_s": 425.1
 }

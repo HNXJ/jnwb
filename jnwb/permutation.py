@@ -24,6 +24,67 @@ import pandas as pd
 
 SCHEMES = ("within_group", "global")
 
+#: Relative width within which a null draw equals the observed statistic: 100 machine
+#: epsilons of the observed value, the tolerance ``scipy.stats.permutation_test`` uses to
+#: detect "numerically distinct but theoretically equal values in the null distribution".
+_TIE_RTOL = 100.0 * float(np.finfo(float).eps)
+
+_TAILS = ("greater", "less", "two-sided")
+
+
+def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float = 0.0) -> int:
+    """Number of null draws at least as extreme as ``observed``, ties within round-off included.
+
+    A draw that reproduces the observed statistic, such as a permutation that swaps tied
+    values, computes the same number with its terms summed in another order and can land an
+    ulp on the wrong side of it. A bare ``>=`` then skips the draw and the p-value
+    ``(1 + k) / (B + 1)`` comes out too small. A draw counts when it is within
+    ``tol = max(atol, _TIE_RTOL * |observed|)`` of the observed value on the extreme side:
+
+    - ``'greater'``: ``null >= observed - tol``;
+    - ``'less'``: ``null <= observed + tol``;
+    - ``'two-sided'``: ``|null| >= |observed| - tol``.
+
+    ``_TIE_RTOL`` is 100 machine epsilons, scipy's width. It is round-off: a draw of untied
+    continuous data lands that close to the observed value with probability of order
+    1e-14, so such data count the same draws as a bare comparison. ``atol`` is for a
+    caller that can bound the round-off of a statistic that cancels towards zero, where a
+    width relative to the value is too narrow; the mean differences of
+    :mod:`jnwb.statistics` pass one. NaN draws never count.
+    """
+    if alternative not in _TAILS:
+        raise ValueError(f"alternative must be one of {list(_TAILS)}; got {alternative!r}")
+    null = np.asarray(null, dtype=float)
+    obs = float(observed)
+    tol = _tie_width(obs, atol)
+    if alternative == "greater":
+        hit = null >= obs - tol
+    elif alternative == "less":
+        hit = null <= obs + tol
+    else:
+        hit = np.abs(null) >= abs(obs) - tol
+    return int(np.count_nonzero(hit))
+
+
+def _tie_width(observed, atol: float = 0.0):
+    """``max(atol, _TIE_RTOL * |observed|)``, elementwise for an array."""
+    return np.maximum(float(atol), _TIE_RTOL * np.abs(observed))
+
+
+def _count_each_at_least_as_extreme(values, *, atol: float = 0.0) -> np.ndarray:
+    """For every element ``v`` of ``values``, the number of elements at least ``v`` by the
+    rule of ``_count_at_least_as_extreme(values, v, 'greater', atol=atol)``.
+
+    One sort and one binary search per element, O(n log n) where calling that function once
+    per element is O(n^2); the counts are the same integers. ``values`` must be finite.
+    """
+    values = np.asarray(values, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("values must be finite")
+    thresholds = values - _tie_width(values, atol)
+    ordered = np.sort(values)
+    return values.size - np.searchsorted(ordered, thresholds, side="left")
+
 
 def permute_labels(
     y,

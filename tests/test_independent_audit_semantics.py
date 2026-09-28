@@ -46,7 +46,10 @@ class TestMonteCarloPValueConvention:
             y_perm = jnwb.permute_labels(y_true, scheme="global", rng=rng)
             r = np.corrcoef(y_perm, y_score)[0, 1]
             null.append(float(r ** 2))
-        k = int(np.sum(np.asarray(null) >= r2_obs))
+        # Binary labels: a draw can reproduce r2_obs in another summation order, so a draw
+        # counts within 100 eps of it, as scipy.stats.permutation_test counts.
+        tol = 100 * np.finfo(float).eps * abs(r2_obs)
+        k = int(np.sum(np.asarray(null) >= r2_obs - tol))
         assert out["p_val"] == pytest.approx((1 + k) / (n_shuffle + 1))
 
     def test_jrsa_p_from_null_uses_one_plus_k_over_b_plus_one(self):

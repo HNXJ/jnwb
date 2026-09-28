@@ -375,11 +375,22 @@ class TestXFlipUnrestricted:
         assert res.labels[0] != res.labels[1]
 
 
+TIE = 100 * np.finfo(float).eps
+
+
+def _at_least(a, b):
+    """``a`` is at least ``b`` to within the width every jnwb null uses for a correlation
+    contrast: 100 machine epsilons of ``b``, and of 1."""
+    return a >= b - TIE * max(1.0, abs(b))
+
+
 def _min_p_by_brute_force(obs, surr):
-    """The count-selection p written out as counts over every pair of draws."""
+    """The count-selection p written out as counts over every pair of draws, a draw counting
+    another within round-off of its own contrast."""
     draws = np.vstack([obs[None], surr])
     n, k = draws.shape
-    at_least = np.array([[sum(draws[l, i] >= draws[j, i] for l in range(n)) for i in range(k)]
+    at_least = np.array([[sum(_at_least(draws[l, i], draws[j, i]) for l in range(n))
+                          for i in range(k)]
                          for j in range(n)])
     smallest = at_least.min(axis=1)
     return at_least, smallest, [sum(smallest <= smallest[j]) / n for j in range(n)]
@@ -431,7 +442,18 @@ class TestTheCountSelectionTest:
             swapped[[0, j]] = swapped[[j, 0]]
             assert _select_count_by_min_p(swapped[0], swapped[1:])[1] == p_brute[j]
             if k == 1:
-                assert p == (1 + np.sum(draws[1:, 0] >= draws[0, 0])) / (1 + s)
+                assert p == (1 + np.sum(_at_least(draws[1:, 0], draws[0, 0]))) / (1 + s)
+
+    def test_draws_that_tie_to_round_off_count_each_other(self):
+        """A surrogate an ulp below the observation reproduces it; a bare comparison ranked
+        the observation alone at the top."""
+        from jnwb.laminar import _select_count_by_min_p
+
+        obs = np.array([0.3])
+        surr = np.array([[np.nextafter(0.3, 0.0)], [0.1], [0.2]])
+        chosen, p = _select_count_by_min_p(obs, surr)
+        assert (chosen, p) == (0, 0.5)
+        assert p == _min_p_by_brute_force(obs, surr)[2][0]
 
 
 class TestXFlipContainer:
