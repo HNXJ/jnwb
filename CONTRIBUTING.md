@@ -89,10 +89,14 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — first refuses the release while the problem stack holds a row, a
-  todo item is still required for this cycle, or the closure receipt is missing or nonzero
-  (`AGENTS.md` §11, condition 3). It then runs the suite in parallel and prints its wall time
-  and ten slowest tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+- **`release_gate.py`** — first refuses the release while the working tree has an uncommitted
+  change, the problem stack holds a row, a todo item is still required for this cycle, or the
+  closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
+  `artifacts/benchmarks/peak_memory.json` names a version other than the one the tree declares.
+  It then runs the suite
+  in parallel and prints its wall time and ten slowest tests, prints the peak memory of a
+  fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet, nothing
+  written), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
@@ -380,7 +384,10 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
-   entry.
+   entry; run `python scripts/measure_peak_memory.py --write` and commit
+   `artifacts/benchmarks/peak_memory.json` in the same commit as the version. All of this lands
+   before the closure pass, whose receipt then covers the record; `release_gate.py` refuses a
+   record that names another version.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
@@ -390,16 +397,29 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
    `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
    all went through a PR merge; this step said "fast-forward" through all of them.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
-   upload to PyPI.
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build), then the
+   `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
+   downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs that file into a fresh
+   environment with every dependency from PyPI, runs `pip check`, and runs
+   `scripts/smoke_installed.py` against it from outside the checkout. It does **not** upload
+   to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published` and uploads to production PyPI via trusted publishing.
+   job runs on `release: published`. Its first step waits for the tag push run and fails
+   unless that run's `publish-testpypi` and `verify-testpypi` jobs, one of each name, both
+   concluded `success`. It then downloads that push run's distribution artifact, not the
+   release run's rebuild, requires each file's sha256 to equal the one TestPyPI records for
+   it, and only then uploads those files to production PyPI via trusted publishing.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
-**TestPyPI:** push an `rc` tag (`vX.Y.ZrcN`) or publish a GitHub Release marked prerelease;
-either path runs the `publish-testpypi` job. `workflow_dispatch` with target `testpypi` is
-also available for maintainers.
+**TestPyPI:** every `v*` tag push runs the `publish-testpypi` job, an `rc` tag
+(`vX.Y.ZrcN`) as well as a final one; a release event never does, because PyPI receives the
+files the tag's push run uploaded to TestPyPI, checked against TestPyPI's hashes.
+`workflow_dispatch` with target `testpypi` is also
+available for maintainers; it uploads but does not verify, since no tag names the version.
+
+The build job and `verify-testpypi` run the same `scripts/smoke_installed.py`;
+`release_gate.py` STEP 7 keeps its own, larger smoke script.
 
 ## Reporting a problem
 

@@ -67,13 +67,9 @@ under 0.2.8. The second pass of that date added P-240 and clauses of P-241, P-33
 and folded clauses of P-336 and P-348 into P-327 and P-349. A packet takes one finding and
 narrows the write set to its paths. P-345 leads.
 
-- P-308: CI's setup-python installs the newest 3.12 patch, so no leg runs the declared floor 3.12.0, which is how 06-146 shipped unseen. Required for 0.2.7 (R5, R4, classified 2026-09-27): `requires-python >=3.12` while CI installs the newest 3.12 patch, and behaviour differs on 3.12.0 (06-146, P-317); fold into IB-70's floors leg of 07-03 or raise the floor.
-- P-316: STEP 0a does not see a todo section with no item id and no release field, nor a required bullet inside a deferred item. Required for 0.2.7 (R4, classified 2026-09-27): the readiness step cannot see a required bullet inside a deferred item.
-- P-327: `release_gate.py` compares the receipt's commit with HEAD but does not refuse a dirty working tree, so uncommitted code at release time would not invalidate the receipt. Folded from P-336 on 2026-09-27: STEP 0a reads a failed `git status` as clean, and a mutant doing so survives 100 tests; a test for it joins this check. Required for 0.2.7 (R4, classified 2026-09-27): the release gate accepts a receipt at HEAD over a dirty tree.
 - P-331: `phase_slope_index`'s jackknife has no zero-spread guard: a periodic X with Y equal to X gives z = -2e13, p = 0 and `ok_for_interpretation=True` with no warning (invariant 8). Required for 0.2.7 (R1, second pass 2026-09-27): the minimal repair is a zero-spread guard.
 - P-345: Other permutation nulls miss draws that reproduce the observed statistic in a different summation order, so p comes out too small: `jrsa`'s `_p_from_null` when x1 has ties (p 0.035 to 0.039 where the exact p is 0.05), `shuffle_r2_ci` with tied scores, `cross_modal_comparison` with periodic spikes (up to 72x), `cluster_permutation_test` when a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` with identical trials, and `xflip` at small n (23 of 200 cross 0.05 at n=6). Repairs per site: a tolerance relative to the statistic, `math.fsum`, or sorted rows. Required for 0.2.7 (R1, classified 2026-09-27): anti-conservative p across permutation nulls.
 - P-349: `zflip` still reports `adjacent_identifiable=True` and a finite delay from rounding residue for a pair with a constant contact, though `accepted` is now False (invariant 8). Required for 0.2.7 (R1, classified 2026-09-27): reproduce first. Folded from P-348 on 2026-09-27: no test pins the exactness of `zflip`'s constancy check (a `ptp < 1e-6` mutant survives); one joins this check. The other two observations of this row are in 07-26.
-- P-353: The readiness check treats any item deleted after the receipt as done, so it cannot tell a finished item from a dropped one (closure pass at `f0d905bf`). Required for 0.2.7 (R4, classified 2026-09-27). The other two edges of this row are in 07-26.
 
 ### 07-02 Release-process observations from 0.2.6
 
@@ -84,9 +80,6 @@ Observed while releasing 0.2.6. RP-5 meets the blocker predicate by the independ
 classification of 2026-09-27, and RP-7's minimal check is Hamm's ruling of that date; the rest
 is in 07-27 under 0.2.8, and RP-1's ruled bypass removal is the release step 07-29.
 
-- RP-5: Publishing to TestPyPI was skipped on both the tag push and the release run. Check: which event is meant to publish to TestPyPI, and whether the recorded publication order still holds. Ruled 2026-09-25: the tag push publishes to TestPyPI, so PyPI publishes only after TestPyPI succeeded. Required for 0.2.7 (R5, R3, classified 2026-09-27): TestPyPI before PyPI, as `artifacts/fact_stack.md` records and 2026-09-25 ruled.
-- RP-7: `artifacts/goal.md` section 8 names suite peak memory as a cost measured before each release, and no check measures it. Required for 0.2.7 (Hamm ruled 2026-09-27, a minimal check): a script measures peak RSS for a fixed set of representative operations and records it before the release, with no threshold yet. `artifacts/goal.md` section 8 names 07-02 as the carrier.
-- RP-8: `artifacts/fact_stack.md` says a release candidate is verified from TestPyPI in a clean environment, and no step installs the uploaded files from TestPyPI and runs them. Required for 0.2.7 (R5, classified 2026-09-28). Check: after the TestPyPI upload, a job installs that version from TestPyPI into a fresh environment and runs the installed-package smoke test, and PyPI publishes only after it passed.
 
 ### 07-03 Post-release inspection findings
 
@@ -288,7 +281,7 @@ takes one finding and narrows the write set to its paths.
   deferred-0.2.8: both copies must pass.
 - P-283: In `_timestamps_fate`, a regular `timestamps` array beside a `starting_time` with no `rate` attribute does arithmetic with `None`, so `convert` raises `TypeError`, now also through `select=`. Deferred: a loud failure with no wrong value.
   deferred-0.2.8: loud TypeError.
-- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence. Merged here on 2026-09-27: P-209 and IB-71, which count the same identifiers. IB-71's check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
+- P-284: Comments in `scripts/` (134 identifiers in 7 files) and `tests/` (641 in 98 files) cite item and problem ids, as do `.github/workflows/workflow.yml` and `CONTRIBUTING.md` in a few places, which the head rule of `AGENTS.md` keeps out; many are literals the stack parsers and their fixtures need, and no gate separates the two. Deferred: neither directory ships, and the ids change no behaviour or evidence. Merged here on 2026-09-27: P-209 and IB-71, which count the same identifiers. IB-71's check: a sweep that removes them or rewrites them as plain reasons, then gate 14 extended to both folders with an allowlist for machine-required literals.
   deferred-0.2.8: non-shipping; merge IB-71 and P-209 here.
 - P-285: The xflip calibration receipt hashes the estimator's source text including comments, so a comment edit forces a 130 s recalibration. Waits: it can only fail when nothing is wrong, never pass when something is.
   deferred-0.2.8: fails closed only.
@@ -445,6 +438,8 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: the known 3.12.0 defect class is a standard-library difference that the Ubuntu leg reaches.
 - One smoke definition: the CI smoke script and the release gate's installed-package script check different things. Check: one definition both run, or the difference stated.
   deferred-0.2.8: each is exercised where it runs; neither can pass for the other's artifact.
+- Release workflow edges: the smoke script's pass branch, export check and optional-extra check run only in CI's build job, with no test that drives them to failure; a file yanked on TestPyPI still passes the hash comparison before PyPI; the verify job's one-wheel count is not asserted.
+  deferred-0.2.8: each fails loudly in CI or needs a yank the release step itself would make; the files PyPI receives are hash-checked against the verified upload.
 - Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under a loaded full run and passed alone. Check: a timeout scaled to the machine, or the subprocess made cheaper.
   deferred-0.2.8: a timeout fails loudly and hides no wrong result.
 - xflip calibration wall time: 297.3 s, then 459.6 s and 502.6 s across lane runs with identical rates. Check: dev and head run back to back on one machine.

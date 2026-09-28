@@ -216,8 +216,15 @@ def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> Non
     assert "if" not in job, "a conditional job is not required by the release gate"
     with open(ROOT / "pyproject.toml", "rb") as fh:
         declared = tomllib.load(fh)["project"]["requires-python"]
-    floor = re.search(r">=\s*(\d+\.\d+)", declared).group(1)
-    assert str(job["env"]["FLOOR_PYTHON"]) == floor
+    # The floor's own patch release: `>=3.12` admits 3.12.0, and a bare `3.12` makes
+    # setup-python install the newest 3.12 patch, so no leg ran the interpreter declared.
+    floor = re.search(r">=\s*(\d+\.\d+(?:\.\d+)?)", declared).group(1)
+    floor += ".0" * (2 - floor.count("."))
+    assert str(job["env"]["FLOOR_PYTHON"]) == floor, (job["env"]["FLOOR_PYTHON"], floor)
+    setup = [step for step in job["steps"] if "setup-python" in str(step.get("uses", ""))]
+    assert len(setup) == 1, setup
+    assert setup[0]["with"]["python-version"] == "${{ env.FLOOR_PYTHON }}", setup[0]
+    assert "allow-prereleases" not in setup[0]["with"], setup[0]
     body = "\n".join(str(step.get("run", "")) for step in job["steps"])
     for required in ["declared_dependency_floors", "--resolution lowest-direct"]:
         assert required in body, f"the floors leg no longer contains {required!r}"
