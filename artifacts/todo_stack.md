@@ -111,9 +111,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Ruled 2026-09-27.
 
 - Classify every remaining item as `required-0.2.7` or `deferred-0.2.8` against the blocker predicate of `AGENTS.md` §11: an independent critic classifies, a second pass attacks each deferral; the deferred items move under a `# 0.2.8` heading with their reason. Check: no item unclassified; the ruled items and the lanes in flight stay in 0.2.7.
-- CHANGELOG fragments: one file per change under a fragments directory, assembled into `CHANGELOG.md` at release by a script with a test; `CONTRIBUTING.md` says how. Check: two parallel fragments merge without conflict.
-- A draft `AGENTS.md` of about 1500 words: rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- Compact the todo stack to one line per item (id, surface, check), detail moved to `artifacts/evidence/0.2.7/`. Check: no item's check is lost.
 
 ## Out of 0.2.7 scope
 
@@ -715,3 +712,14 @@ Evidence and counts: `artifacts/evidence/0.2.8/skills_audit.md`. Rulings: `artif
 - 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
 Accept: every module, export, docs page, example and notebook is routed by a skill or excluded with a checked reason (widening 07-12); each trigger phrase has one owning skill; no role file holds a loading order or packet list; every pointer to the review skill resolves; the figure and prose checks pass; an independent critic finds no friction the evidence file's list names.
 Stop: a skill edit would restate mathematics `artifacts/direction.md` keeps out of skills, or would put personal voice or process vocabulary in `skills/` or `docs/`.
+
+### 07-31 Apparatus deferred from 07-23
+
+Release: deferred-0.2.8.
+Deferred by Hamm on 2026-09-28 to speed 0.2.7, since none changes the artifact, a public instruction, or release evidence.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `CHANGELOG.md`, `changelog.d/**`, `scripts/*.py`, `tests/**/*.py`, `CONTRIBUTING.md`, `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/todo_stack.md`, `artifacts/evidence/0.2.8/**`.
+
+- CHANGELOG fragments: one file per change under a fragments directory, assembled into `CHANGELOG.md` at release by a script with a test; `CONTRIBUTING.md` says how. Check: two parallel fragments merge without conflict.
+- A draft `AGENTS.md` of about 1500 words: rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
+- Compact the todo stack to one line per item (id, surface, check), detail moved to `artifacts/evidence/0.2.8/`. Check: no item's check is lost.
