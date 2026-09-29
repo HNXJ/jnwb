@@ -182,19 +182,9 @@ def test_a_malformed_fact_source_is_refused(tmp_path, text, message):
         build_fact_graph.load_facts(path)
 
 
-def test_a_primary_source_whose_fact_tables_do_not_parse_is_refused_not_passed_over(tmp_path):
-    primary, draft = tmp_path / "primary.md", tmp_path / "draft.md"
-    draft.write_bytes(fact_source().encode("utf-8"))
-    primary.write_bytes(
-        fact_source(header="| ID | Domain | Claim | Held by | Ruled |\n|---|---|---|---|---|\n")
-        .encode("utf-8"))
-    with pytest.raises(build_fact_graph.FactSourceError, match="looks like a fact table"):
-        build_fact_graph.fact_source(primary, draft)
-
-
 @pytest.fixture(scope="module")
 def live():
-    source = build_fact_graph.fact_source()
+    source = build_fact_graph.FACT_STACK
     return source, build_fact_graph.build(None, REPO_ROOT, source)
 
 

@@ -1,9 +1,9 @@
 # fact stack — typed draft for approval
 
 Draft of `artifacts/fact_stack.md` in the form ruled on 2026-09-29 (quiz Q1 to Q19,
-`artifacts/rulings/2026-09-29.md`). Everything from "# fact stack" below lands as that file once
-Hamm approves it; the clause map at the end is the evidence that no meaning changed and does not
-land. Until it lands, `scripts/fact_gate.py` reads the typed rows from this draft and says so.
+`artifacts/rulings/2026-09-29.md`). Approved by Hamm on 2026-09-29; everything from
+"# fact stack" to the clause map landed as that file, which is now the one the fact gate
+reads. The clause map is the evidence that no meaning changed, and did not land.
 
 ---
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fact gate: every typed fact is HELD, VIOLATED or UNHELD on the generated fact graph.
 
-The facts are read from the fact source ``scripts/build_fact_graph.py`` names, and the constants
-they use from the same file. Each fact's ``Held by`` cell names its holders:
+The facts are read from ``artifacts/fact_stack.md``, and the constants they use from the same
+file. Each fact's ``Held by`` cell names its holders:
 
   ``gate:N``          resolves when harness gate N exists
   ``test:PATH``       resolves when that test module exists; ``test:PATH::NAME`` when that test
@@ -192,7 +192,7 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
         todo_path: Path = TODO_PATH, graph: Optional[Graph] = None):
     """Build the fact graph (unless given) and evaluate every fact of the fact source."""
-    source = facts_path or build_fact_graph.fact_source()
+    source = facts_path or build_fact_graph.FACT_STACK
     facts = build_fact_graph.load_facts(source)
     constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
     if graph is None:

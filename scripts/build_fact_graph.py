@@ -13,7 +13,8 @@ Entities come from the tree itself:
           the whole dotted path resolves on the package (``StatisticalAnalysis.fdr_correct``)
   test    every ``tests/test_*.py`` file and the test functions it defines
   gate    every entry of ``scripts/harness_gate.py`` ``GATES``, by number
-  fact    every typed row of the fact source, with the holders its ``Held by`` cell names
+  fact    every typed row of ``artifacts/fact_stack.md``, with the holders its ``Held by``
+          cell names
 
 Relations, each a sorted list of ``[source, target]`` pairs:
 
@@ -33,7 +34,7 @@ The facts are the only owned part; everything else is regenerated. The output is
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
 stripped from signatures, so two builds at one commit are byte-identical.
 
-The fact source must hold exactly the six fact tables ruled on 2026-09-29, each once, with no
+The fact stack must hold exactly the six fact tables ruled on 2026-09-29, each once, with no
 repeated fact ID; a table whose header looks like a fact table but is not exactly one is
 refused, because a skipped table would drop its facts without a word.
 
@@ -66,8 +67,6 @@ from scripts.computational_contract_gate import (  # noqa: E402
 
 FACT_GRAPH_PATH = REPO_ROOT / "artifacts" / "fact_graph.json"
 FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
-#: Read while the fact stack holds no typed table, and named in every report that reads it.
-FACT_DRAFT = REPO_ROOT / "artifacts" / "evidence" / "0.2.8" / "fact_stack_typed_draft.md"
 FACT_HEADER = ("ID", "Domain", "Predicate", "Held by", "Ruled")
 FACT_TABLES = ("Boundary", "Design", "Identity", "Science", "Skills", "Release")
 CONSTANT_HEADER = ("Constant", "Values", "Ruled")
@@ -179,19 +178,6 @@ def read_constants(text: str) -> Dict[str, List[str]]:
         for row in rows:
             constants[row[0].strip("`")] = _BACKTICKED.findall(row[1])
     return constants
-
-
-def fact_source(primary: Path = FACT_STACK, draft: Path = FACT_DRAFT) -> Path:
-    """``primary`` when it holds a fact table, else ``draft``.
-
-    A primary whose fact-like tables do not parse is refused, never passed over: read_facts
-    raises on it before the draft is considered.
-    """
-    if primary.is_file() and read_facts(primary.read_text(encoding="utf-8")):
-        return primary
-    if draft.is_file():
-        return draft
-    raise FactSourceError(f"no fact table in {primary}, and no draft at {draft}")
 
 
 # ------------------------------------------------------------------------ generated graph
@@ -409,7 +395,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     if package is None:
         import jnwb as package
 
-    source = facts_path or fact_source()
+    source = facts_path or FACT_STACK
     facts = load_facts(source)
 
     exports, implements = _exports(package, root, EXECUTION_PARAMETERS)
