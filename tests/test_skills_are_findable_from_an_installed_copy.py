@@ -95,9 +95,15 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert "graft skills" in directives, "the sdist no longer carries the skills at all"
-    assert not any("AGENTS.md" in line for line in directives), (
+    # The build copies AGENTS.md into the sdist unless it is excluded, so the rule is an
+    # `exclude AGENTS.md` directive and no directive that adds it back.
+    assert "exclude AGENTS.md" in directives, (
         "the sdist carries the repository's working rules again"
     )
+    assert not any(
+        "AGENTS.md" in line and not line.startswith(("exclude ", "global-exclude "))
+        for line in directives
+    ), "a directive adds the repository's working rules back to the sdist"
     assert "SKILLS_URL" in manifest, (
         "the comment does not say how an installed copy finds the skills"
     )
