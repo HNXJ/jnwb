@@ -401,6 +401,12 @@ class TestTheDocumentedSurfaceIsTheLiveSurface(unittest.TestCase):
             f"documented {sorted(documented)} but the server registers {sorted(live)}",
         )
 
+    def test_the_data_skill_names_every_registered_tool(self):
+        """`jnwb-nwb-data` named two of the three tools after `prepare_signal_reference` landed."""
+        skill = (ROOT / "skills" / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")
+        unnamed = sorted(name for name in self._live_tool_names() if f"`{name}`" not in skill)
+        self.assertEqual(unnamed, [], f"jnwb-nwb-data never names the MCP tools {unnamed}")
+
     def test_the_prose_count_matches_the_number_of_tools(self):
         page = (ROOT / "docs" / "agents.md").read_text(encoding="utf-8")
         words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}

@@ -22,7 +22,7 @@ Multi-panel publication figures in Plotly: spectrolaminar maps, laminar gradient
 | Publication theme and axis configuration | `theme` |
 
 ### Rendering and export
-Figures are built from `plotly.graph_objects` and `plotly.subplots.make_subplots`. Dense rasters and continuous LFPs use `go.Scattergl`. Every `save_and_seal` call writes SVG with editable `<text>` (through `kaleido`), 300/600 DPI PNG and interactive HTML, and returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths. The HTML loads plotly.js from a CDN, so it needs a network connection to render.
+Figures are built from `plotly.graph_objects` and `plotly.subplots.make_subplots`. Dense rasters and continuous LFPs use `go.Scattergl`. Every `save_and_seal` call writes SVG with editable `<text>` (through `kaleido`), one PNG at `png_dpi` dots per inch and interactive HTML, and returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths. The HTML loads plotly.js from a CDN, so it needs a network connection to render.
 
 ### Layout
 Panels occupy disjoint paper-domain rectangles. The canvas methods `add_panel_tags` and `get_colorbar_config` place panel tags and colorbars at pixel offsets from each panel's domain; their `offset_x_px` arguments, and `offset_y_px` for tags, set the offsets. Check a dense layout by eye, because no test measures overlap with a neighboring panel.

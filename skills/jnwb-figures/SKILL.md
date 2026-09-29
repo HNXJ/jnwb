@@ -1,19 +1,18 @@
 ---
 name: jnwb-figures
-description: Publication-grade vector graphics, raster PSTH plotting, tight auto-axis
-  scaling, and visual QC suites.
+description: Matplotlib publication figures, vector export, tight auto-axis scaling, and
+  unit-quality plots.
 ---
 
-# `jnwb-figures` — Visual QC & Vector Graphics (Matplotlib)
+# `jnwb-figures` — Matplotlib Figures, Unit-Quality Plots & Vector Export
 
 ## 1. Trigger
-Matplotlib publication figures, raster and PSTH plots, visual QC suites, or vector export (SVG/PDF). Multi-panel Plotly figures route to `jnwb-landmark-viz`.
+Matplotlib publication figures, unit-quality plots (`jnwb.visual_qc`), equal raster trial counts, or vector export (SVG/PDF). PSTH arrays route to `jnwb-spiking`; multi-panel Plotly figures route to `jnwb-landmark-viz`.
 
 ## 2. Routing
 - `jnwb.setup_vector_graphics()`: Sets publication rcParams for editable vector text (`svg.fonttype = 'none'`).
 - `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Sets the x-limits to `x_span` exactly, whatever the data spans, so pass your own span; the signature's `(-500, 4124)` is one fixed window. Fits the y-limits to the plotted lines with `y_margin` padding and floors the lower limit at 0, so it suits non-negative traces such as rates: negative values fall out of view.
 - `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=["png", "pdf"])`: Exports a **list** of figures, one `<basename>_page<N>.<fmt>` per figure per format. `figures` is iterated, so a single figure must be passed as `[fig]`; passing the figure itself raises `TypeError: 'Figure' object is not iterable`.
-- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Binned arrays for rendering spike rasters and PSTHs.
 - `jnwb.resample_onsets(onsets, target_n=100, rng=42)`: Resamples onsets to exactly `target_n`, for an equal raster trial count across units. With at least `target_n` onsets it draws without replacement; with fewer it draws **with** replacement, so onsets repeat.
 - `jnwb.visual_qc`: Submodule of unit-quality plots -- waveforms, quality distributions, noise against signal, and quality compared across sessions (import `jnwb.visual_qc`).
 
@@ -38,6 +37,7 @@ jnwb.apply_tight_auto_axis(ax, x_span=(-200.0, 800.0))
 ## 5. Verification
 - Exported SVGs contain `<text>` elements rather than converted path geometries.
 - `save_figure_suite` writes valid files for every requested format.
+- Each figure is rendered at its final size and inspected: no clipped or overlapping text, and every axis and colorbar names its unit.
 
 ## 6. Documentation
 - [`docs/09_decoding_and_visual_qc.md`](../../docs/09_decoding_and_visual_qc.md)

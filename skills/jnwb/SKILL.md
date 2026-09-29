@@ -19,7 +19,7 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
-| Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
+| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 Before routing, check the plan:
@@ -70,3 +70,5 @@ python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
 ## 7. Documentation
 - [`docs/api.md`](../../docs/api.md) — every public symbol.
 - [`docs/common_mistakes.md`](../../docs/common_mistakes.md) — the failure modes jnwb guards against.
+- [`docs/errors.md`](../../docs/errors.md) — every refusal and what to pass instead.
+- [`docs/tutorials/00_your_own_file.md`](../../docs/tutorials/00_your_own_file.md) — discovering a file's layout instead of assuming one.

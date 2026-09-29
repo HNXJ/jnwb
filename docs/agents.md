@@ -3,7 +3,7 @@
 `jnwb` is usable by a coding agent, but almost none of that is automatic. This page says
 what reaches your machine from `pip install jnwb`, what does not, and how to supply
 the rest. [Architecture](architecture.md) shows where skills sit relative to the library and
-the four outcomes a skill can end a task in.
+the outcomes a skill can end a task in.
 
 ## What the installed package gives you
 
@@ -57,7 +57,7 @@ to the real layout instead of an assumed one.
 
 ## The skills
 
-Nine skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
+The skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
 alongside an `agents/openai.yaml` manifest. The canonical tree is `skills/`, and a copy under
 `jnwb/` would be a second tree, which the repository's own gates forbid. To use them, clone the
@@ -83,13 +83,13 @@ The pointer above is the route that works from anywhere.
 | Skill | Covers |
 |---|---|
 | `jnwb` | Router, scientific safeguards, entry point |
-| `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing |
-| `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, unit QC |
+| `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing, unit QC |
+| `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, response significance |
 | `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |
 | `jnwb-statistics` | Bootstrap, permutation, multiple comparisons, RNG |
 | `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
 | `jnwb-connectivity` | Granger, PSI, transfer entropy |
-| `jnwb-figures` | Visual QC, plotting, figure export |
+| `jnwb-figures` | Matplotlib figures, unit-quality plots, figure export |
 | `jnwb-landmark-viz` | Plotly figures through `jnwb.vis` (the optional `vis` extra) |
 
 The router skill carries the safeguards worth reading even if you never install a skill:
@@ -106,7 +106,7 @@ The router skill carries the safeguards worth reading even if you never install 
 ## Without any of that
 
 An agent with nothing but the installed package and this documentation site can still work
-well, given three instructions:
+well, given these instructions:
 
 1. Start from [`00_your_own_file.py`](tutorials/00_your_own_file.md), which discovers a
    layout instead of assuming one.
