@@ -1992,9 +1992,9 @@ class ZFlipResult(DictAccessMixin):
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
             unwrapping unambiguous interval, pair wPLI at least ``min_wpli``, pair wPLI
-            significant against its own phase surrogates at ``alpha`` when surrogates are
-            drawn, both contacts' in-band power fraction at least
-            ``min_band_power_fraction``); False for a pair with a constant contact.
+            significant against its own phase surrogates at ``alpha``, both contacts'
+            in-band power fraction at least ``min_band_power_fraction``); False for every
+            pair when no surrogates were drawn (``n_surrogates=0``, or a constant contact).
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
@@ -2135,17 +2135,20 @@ def zflip(
          inside `freq_range`. wPLI alone does not show this: a contact carrying only an
          out-of-band sinusoid reached pair wPLI 0.16 to 0.31 through leakage. Leakage into
          the band edge can still pass this check (see `min_band_power_fraction`).
-       - With `n_surrogates > 0`, pair wPLI at least as large as in all but a fraction
-         `alpha` of the phase-randomised surrogates, the same draws the mean is tested
+       - Pair wPLI significant against its own phase-randomised surrogates: at least as
+         large as in all but a fraction `alpha` of them, the same draws the mean is tested
          against (p = (1 + k) / (1 + n_surrogates), k the surrogates at least as large). A
          contact independent of the others can pass the three checks above: with 5 bins
          in band a random phase often fits R^2 0.7, and over about 60 segments two
          independent signals often reach wPLI 0.15. Each pair is tested at `alpha`
          without a multiplicity correction; every pair must pass, so the shaft is accepted
-         only when the least coupled pair passes. With `n_surrogates=0` this check is not
-         applied and nothing is accepted. With 3 segments (256 samples at the default
-         segmentation) independent surrogates reach pair wPLI 1.0 often enough that no
-         pair passes; 512 samples (7 segments) passed at 100 or more surrogates.
+         only when the least coupled pair passes. A pair without its null is not
+         identifiable: with `n_surrogates=0`, or a constant or linear-in-time contact
+         (which skips the surrogates), no pair is, and no delay is reported. With few
+         in-band bins a surrogate can match a wPLI of 1.0: at the default band, 256
+         samples leave 3 bins and about 10% of surrogates tie 1.0, so no pair passes; 512
+         samples (5 bins) tie in 0.4-0.8% of surrogates for a broadband wave and about 4%
+         for a sinusoid.
        and the cumulative delay along the shaft is linear in contact index
        (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
        are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
@@ -2199,8 +2202,10 @@ def zflip(
             or from the upper edge to about 38 Hz, i.e. within the main lobe of an edge bin,
             can carry 0.01 to 0.7 of its power in the band and still pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
-            ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
-            attainable p-value is ``1 / (n_surrogates + 1)``.
+            ``0`` skips the test: ``p_value`` is NaN, no adjacent pair is identifiable,
+            ``tau_per_channel_s`` is NaN and ``accepted`` is False, because a pair's delay
+            needs its surrogate null. The smallest attainable p-value is
+            ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy, for surrogate
@@ -2391,8 +2396,9 @@ def zflip(
         p_val = float((1 + exceed_count) / (1 + n_surrogates))
         pair_p = (1 + pair_exceed) / (1 + n_surrogates)
     uncoupled_pairs = [(i, i + 1) for i in range(n_channels - 1) if pair_p[i] > alpha]
-    if surrogates_run:
-        adj_identifiable &= pair_p <= alpha
+    # No pair is identifiable without its null: a pair whose surrogates were not drawn
+    # (n_surrogates=0, or a flat contact anywhere, which skips them) has a NaN p and fails.
+    adj_identifiable &= pair_p <= alpha
 
     # Every adjacent pair must be identifiable. The cumulative delay sums all pairs, so a
     # non-identifiable pair's delay would enter the spatial fit: one incoherent contact
@@ -2461,7 +2467,8 @@ def zflip(
             reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
                            "wPLI and delay undefined, surrogate test not performed")
     elif n_surrogates == 0:
-        reasons.append("Surrogate test not performed (n_surrogates=0)")
+        reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
+                       "to establish a delay, so no adjacent pair is identifiable")
     elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling and not flat_contacts:

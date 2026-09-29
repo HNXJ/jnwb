@@ -296,6 +296,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
   bit generator, list or RandomState now raises `TypeError` (a float already did). An int, a
   Generator and None draw the same streams as before.
+- **`zflip` reports no delay without surrogates (behaviour change).** A pair's delay is
+  identifiable only against its own surrogate null, so with `n_surrogates=0`, or with a
+  constant or linear-in-time contact, which skips the surrogates, every entry of
+  `adjacent_identifiable` is False, `adjacent_delays_s` and `tau_per_channel_s` are NaN,
+  `delay_identifiable` is False and `directionality` is `"unidentifiable"`. `rejection_reason`
+  says surrogates are needed to establish a delay. Before, `n_surrogates=0` still reported a
+  delay while `accepted` was False; pass `n_surrogates` to obtain one.
 - **`jrsa` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
   bit generator, list or RandomState now raises `TypeError`, under every spelling of the
   argument. An int, a Generator and None draw the same streams as before.
@@ -479,10 +486,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   phase (R^2 0.7 from 5 in-band bins) and reach pair wPLI 0.15, while the coupled pairs carry
   the mean past its test; on a 5-contact wave with one end contact replaced by independent
   noise, 7 in 100 recordings were accepted with a delay 3.2 to 5.3 times the true one, now 1
-  in 100. Each pair is tested at `alpha` without a multiplicity correction. With
-  `n_surrogates=0` the check is not applied; nothing is accepted then, as before. A record
-  of 256 samples, 3 segments at the default segmentation, is no longer accepted: its
-  independent-phase surrogates reach pair wPLI 1.0 often enough that no pair passes.
+  in 100. Each pair is tested at `alpha` without a multiplicity correction. A record of 256
+  samples is no longer accepted at the default band: its 3 in-band bins let about 10% of
+  independent-phase surrogates tie a pair wPLI of 1.0, so no pair passes.
 - `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
   gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
 - `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed

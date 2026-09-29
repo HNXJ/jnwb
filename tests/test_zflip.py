@@ -167,11 +167,14 @@ def test_zflip_a_constant_contact_leaves_the_shaft_without_a_delay():
     b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
     src = signal.filtfilt(b, a, rng.normal(size=4100))
     data = np.stack([src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(6)])
-    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=0, pitch_um=50.0)
-    assert jnwb.zflip(data, **kwargs).adjacent_identifiable.all()
+    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=50, rng=0,
+                  pitch_um=50.0)
+    assert jnwb.zflip(data, **kwargs).accepted
     data[4] = 1.0
     res = jnwb.zflip(data, **kwargs)
-    assert res.adjacent_identifiable[:3].all()
+    # A constant contact skips the surrogates, so no pair has its null either.
+    assert not res.adjacent_identifiable.any()
+    assert "Contact(s) [4] constant" in res.rejection_reason
     assert not res.delay_identifiable
     assert np.isnan(res.tau_per_channel_s)
     assert res.apparent_velocity_m_s is None
@@ -255,7 +258,7 @@ def test_zflip_the_in_band_fraction_gate_is_inclusive_at_its_threshold():
     in-band fraction sits just below (0.0095) or just above (0.0105) the 0.01 default. A
     dropped check keeps the lower one; a strict comparison refuses the exact threshold.
     """
-    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=50, rng=0)
     below, above = _wave_with_contact_4(7.8, wave_scale=0.3636), _wave_with_contact_4(
         7.8, wave_scale=0.3825)
     f_below, f_above = _in_band_fraction(below)[4], _in_band_fraction(above)[4]
@@ -281,7 +284,8 @@ def test_zflip_a_dc_offset_does_not_lower_the_in_band_fraction():
     """
     data = _wave_with_contact_4(0.0, wave_scale=1.0)
     data += 10.0 * np.std(data[0])
-    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=50,
+                     rng=0)
     assert res.adjacent_identifiable.all() and res.delay_identifiable
     assert res.tau_per_channel_s == pytest.approx(0.002, rel=0.05)
 
@@ -294,7 +298,7 @@ def test_zflip_a_linear_drift_does_not_lower_the_in_band_fraction():
     """
     data = _wave_with_contact_4(0.0, wave_scale=1.0)
     data += np.linspace(0.0, 500.0 * np.std(data[0]), data.shape[1])
-    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=50, rng=0)
     res = jnwb.zflip(data, **kwargs)
     assert res.delay_identifiable
     assert res.tau_per_channel_s == pytest.approx(0.002, rel=0.05)
@@ -311,7 +315,9 @@ def test_zflip_a_contact_with_no_power_in_any_segment_is_refused():
     data = _wave_with_contact_4(0.0, wave_scale=1.0)
     data[4] = 0.0
     data[4, 5990] = 1.0
-    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    res = jnwb.zflip(data, fs=1000.0, orientation="superficial_to_deep", n_surrogates=50,
+                     rng=0)
+    assert res.adjacent_identifiable[:3].all()
     assert np.isnan(_in_band_fraction(data)[4])
     assert not res.adjacent_identifiable[3]
     assert "Contact(s) [4] carry less than" in res.rejection_reason
@@ -329,7 +335,7 @@ def test_zflip_a_zig_zag_delay_is_refused_by_the_depth_fit():
     The refusal is the depth fit's alone, so the reason names it and not the pair gates.
     """
     res = jnwb.zflip(_lagged_rows([0, 2, 0, 2, 0]), fs=1000.0,
-                     orientation="superficial_to_deep", n_surrogates=0)
+                     orientation="superficial_to_deep", n_surrogates=50, rng=0)
     assert res.adjacent_identifiable.all() and not res.delay_identifiable
     assert np.isnan(res.tau_per_channel_s)
     assert "Cumulative delay not linear in contact index" in res.rejection_reason
@@ -344,7 +350,7 @@ def test_zflip_shared_slow_power_does_not_bias_the_delay():
     which it stays.
     """
     rows = _lagged_rows([0, 2, 4, 6, 8])
-    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=50, rng=0)
     clean = jnwb.zflip(rows, **kwargs).tau_per_channel_s
     t = np.arange(rows.shape[1]) / 1000.0
     slow = 30.0 * np.std(rows[0]) * np.sin(2 * np.pi * 2.0 * t)
@@ -415,12 +421,12 @@ def test_zflip_a_signal_on_a_large_offset_is_not_refused_as_linear_in_time():
     refuses a real signal as a straight line.
     """
     rows = _unit_sd_lagged_rows(8000, 11)
-    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    kwargs = dict(fs=1000.0, orientation="superficial_to_deep", n_surrogates=50, rng=0)
     clean = jnwb.zflip(rows, **kwargs).tau_per_channel_s
     rows[4] = rows[4] + 1e11
     res = jnwb.zflip(rows, **kwargs)
-    assert "linear in time" not in res.rejection_reason
-    assert res.adjacent_identifiable.all() and res.delay_identifiable
+    assert "linear in time" not in (res.rejection_reason or "")
+    assert res.adjacent_identifiable.all() and res.delay_identifiable and res.accepted
     assert res.tau_per_channel_s == pytest.approx(clean, rel=1e-3)
 
 
@@ -452,37 +458,39 @@ def test_zflip_a_contact_independent_of_the_others_is_refused_by_its_pair_surrog
 def test_zflip_identical_contacts_give_no_direction():
     """Identical contacts have no delay gradient: phase residue near 1e-21 s is not a sign.
 
-    With both pair gates at 0.0, every pair passes and the cumulative delay is exactly linear,
-    so only the zero-gradient check can refuse. Without a round-off width, the residue named
-    a direction.
+    With both pair thresholds at 0.0 their pairs have wPLI exactly 0.0, which every surrogate
+    ties, so each pair fails its own surrogate test before the depth fit is reached.
     """
     res = jnwb.zflip(_lagged_rows([0, 0, 0, 0, 0]), fs=1000.0,
-                     orientation="superficial_to_deep", n_surrogates=0, min_wpli=0.0,
+                     orientation="superficial_to_deep", n_surrogates=50, rng=0, min_wpli=0.0,
                      min_linearity_r2=0.0)
-    assert res.adjacent_identifiable.all()
+    assert np.all(res.adjacent_wpli == 0.0) and not res.adjacent_identifiable.any()
     assert not res.delay_identifiable and np.isnan(res.tau_per_channel_s)
     assert res.directionality == "unidentifiable"
-    assert "Delay gradient across contacts is zero to round-off" in res.rejection_reason
+    assert "wPLI not significant against its own phase surrogates" in res.rejection_reason
 
 
 def test_zflip_a_pair_wpli_equal_to_min_wpli_passes_the_pair_gate():
     """The pair gate is ``wPLI >= min_wpli``, inclusive at the threshold.
 
-    Contacts 0 and 1 are identical, so pair (0, 1) has wPLI exactly 0.0; pairs (1, 2) and
-    (2, 3) are lagged 2 samples and have wPLI near 1. With ``min_wpli=0.0`` and the linearity
-    threshold at 0.0, every pair passes. A strict ``>`` refuses pair (0, 1); a reversed
-    ``<=`` refuses the lagged pairs.
+    Four contacts lagged 2 samples each; contact 3 carries independent noise at its own SD,
+    so pair (2, 3) is the weakest and still passes its surrogate test. With ``min_wpli`` set
+    to that pair's wPLI every pair passes, and one ulp above it that pair is refused. A strict
+    ``>`` refuses it at equality; a reversed ``<=`` refuses the stronger pairs.
     """
     rng = np.random.default_rng(0)
     b, a = signal.butter(4, [10.0, 40.0], btype="band", fs=1000.0)
     src = signal.filtfilt(b, a, rng.normal(size=4100))
-    lagged = [src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(3)]
-    data = np.stack([lagged[0], lagged[0], lagged[1], lagged[2]])
-    res = jnwb.zflip(data, orientation="superficial_to_deep", fs=1000.0, min_wpli=0.0,
-                     min_linearity_r2=0.0, n_surrogates=0)
-    assert res.adjacent_wpli[0] == 0.0 and np.all(res.adjacent_wpli[1:] > 0.9)
+    data = np.stack([src[100 - 2 * k: 100 - 2 * k + 4000] for k in range(4)])
+    data[3] += np.std(src) * np.random.default_rng(5).normal(size=4000)
+    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=50, rng=0)
+    w = jnwb.zflip(data, min_wpli=0.0, **kwargs).adjacent_wpli
+    assert np.argmin(w) == 2 and w[2] < w[:2].min()
+    res = jnwb.zflip(data, min_wpli=float(w[2]), **kwargs)
     assert res.adjacent_identifiable.tolist() == [True, True, True]
-    assert "wPLI below min_wpli" not in res.rejection_reason
+    assert "wPLI below min_wpli" not in (res.rejection_reason or "")
+    over = jnwb.zflip(data, min_wpli=float(np.nextafter(w[2], 1.0)), **kwargs)
+    assert over.adjacent_identifiable.tolist() == [True, True, False]
 
 
 def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
@@ -492,7 +500,7 @@ def test_zflip_a_contact_of_tiny_amplitude_is_not_constant():
     run must match the unscaled one. A tolerance on the peak-to-peak range (``ptp < 1e-6``)
     calls this 2e-9 contact constant and turns its two pairs NaN.
     """
-    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=0)
+    kwargs = dict(orientation="superficial_to_deep", fs=1000.0, n_surrogates=50, rng=0)
     ref = jnwb.zflip(_clean_wave_with_contact_2(), **kwargs)
     tiny = jnwb.zflip(_clean_wave_with_contact_2(scale=1e-9), **kwargs)
     assert np.ptp(_clean_wave_with_contact_2(scale=1e-9)[2]) < 1e-6

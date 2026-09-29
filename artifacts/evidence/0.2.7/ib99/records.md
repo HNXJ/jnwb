@@ -8,8 +8,13 @@ Pristine runs import a `git archive 2611fa84 jnwb` copy; each script asserts `jn
 Each adjacent pair's wPLI is counted against the same surrogate's pair wPLI with
 `_count_at_least_as_extreme(..., "greater")`, inside the loop that already tests the mean, so
 no further draws are made and `p_value` is unchanged. Pair p = (1 + k) / (1 + n_surrogates); a
-pair with p > `alpha` is not identifiable. The loop moved ahead of the depth fit. With
-`n_surrogates=0` (or a flat contact, which skips the surrogates) the pair gate is not applied.
+pair with p > `alpha` is not identifiable. The loop moved ahead of the depth fit.
+
+Second commit, per Hamm's ruling that no pair is identifiable without its null: a pair whose
+surrogates were not drawn has a NaN p and fails, so with `n_surrogates=0`, or a constant or
+linear-in-time contact (which skips the surrogates), every pair is unidentifiable, tau is NaN
+and `rejection_reason` says surrogates are needed to establish a delay. The first commit
+(963d6550) left the gate unapplied there and still reported a delay.
 
 ## False-accept rate, independent contact
 
@@ -49,19 +54,33 @@ surrogates, and the repair changes only which pairs are identifiable.
 `short_record_power.py <tree>`, the construction of `tests/test_zflip_audit.py` (6 contacts,
 noise 0.005), 20 surrogate seeds per cell, accepted count on the repaired tree:
 
-| N (segments) | 19 surrogates | 99 | 199 |
+| N | 19 surrogates | 99 | 199 |
 |---|---|---|---|
-| 256 (3) | 0/20 | 0/20 | 0/20 |
-| 512 (7) | 14/20 | 20/20 | 20/20 |
+| 256 | 0/20 | 0/20 | 0/20 |
+| 512 | 14/20 | 20/20 | 20/20 |
 | 1024 | 20/20 | 20/20 | 20/20 |
 | 2048 | 20/20 | 20/20 | 20/20 |
 
-Every refusal is the pair test. At 3 segments the clean pair wPLI is exactly 1.0 and more than
-a fraction `alpha` of independent-phase surrogates tie it, so no surrogate count lets a pair
-pass. `test_a_clean_wave_is_detected_at_every_supported_length[256]` asserted acceptance at
-N=256 and failed in the full suite; it now asserts the delay is identified with the test off
-and acceptance for N > 256, and `test_three_segments_cannot_show_a_pair_coupled` pins the
-refusal at 256.
+Every refusal is the pair test. The cause is the in-band bin count, not the segment count
+(the first commit's docstring wrongly gave 512 samples 7 segments). `tie_mass.py <tree>`, 1000
+surrogates, fraction of surrogates whose pair wPLI ties or exceeds 1.0 by zflip's counting
+rule:
+
+| N | Segments | Bins in 15-35 Hz | Broadband wave | 25 Hz sinusoid |
+|---|---|---|---|---|
+| 256 | 3 | 3 | 0.099-0.111 | 0.146-0.181 |
+| 512 | 3 | 5 | 0.004-0.008 | 0.036-0.046 |
+
+A pair wPLI is the mean over in-band bins, so a surrogate reaches 1.0 only when every bin keeps
+one sign of its imaginary cross-spectrum across the 3 segments; with 3 bins that is about 10%
+of surrogates, above `alpha`, so no surrogate count lets a pair pass at 256 samples. At 512 a
+narrowband wave sits near `alpha` (about 0.04).
+
+Tests: `test_a_clean_wave_is_detected_at_every_supported_length` asserted acceptance at N=256
+and failed in the full suite. It now covers 512, 2048 and 40000 with 199 surrogates (19 passed
+at 512 in only 14 of 20 seeds), and
+`test_three_in_band_bins_at_256_samples_cannot_show_a_pair_coupled` pins the refusal at 256
+and that it is the pair test's rather than the frequency-support check's.
 
 ## Ramp width
 
@@ -82,16 +101,31 @@ signal on a 1e12 offset (4503), so no single width separates both at that length
 
 ## Discrimination
 
-`discriminate.py <tree> 2611fa84` swaps `jnwb/laminar.py`, runs each new test alone, restores,
-and compares SHA-256 (restore matched).
+`discriminate.py <tree> 2611fa84 963d6550` swaps `jnwb/laminar.py`, runs each test alone,
+restores, and compares SHA-256 (restore matched). Columns: A cumsum ramp refused, B 1e11
+offset kept, C independent contact refused, D no delay at `n_surrogates=0`
+(`test_no_surrogate_test_means_no_acceptance`), E pair `min_wpli` inclusive at threshold.
 
-| Variant | cumsum ramp refused | 1e11 offset kept | independent contact refused |
-|---|---|---|---|
-| repaired | pass | pass | pass |
-| baseline 2611fa84 | pass | pass | **fail** |
-| width 1 | **fail** | pass | pass |
-| width 1e6 | pass | **fail** | pass |
-| pair gate removed | pass | pass | **fail** |
+| Variant | A | B | C | D | E |
+|---|---|---|---|---|---|
+| repaired | pass | pass | pass | pass | pass |
+| baseline 2611fa84 | pass | pass | **fail** | **fail** | pass |
+| first repair 963d6550 | pass | pass | pass | **fail** | pass |
+| width 1 | **fail** | pass | pass | pass | pass |
+| width 1e6 | pass | **fail** | pass | pass | pass |
+| pair gate removed | pass | pass | **fail** | **fail** | pass |
+| pair `>= min_wpli` as `>` | pass | pass | pass | pass | **fail** |
+| pair `>= min_wpli` as `<=` | pass | **fail** | **fail** | **fail** | **fail** |
 
-The two ramp tests guard behaviour the baseline already has; each fails on the width mutant it
-is named against.
+A and B guard behaviour the baseline already has; each fails on the width mutant it is named
+against. E was rebuilt on a significant weakest pair, because its old construction (identical
+contacts, pair wPLI 0.0) now fails the surrogate test before the threshold is reached.
+
+## Tests changed for the n_surrogates=0 ruling
+
+Tests that read a delay or identifiability at `n_surrogates=0` now draw 50 surrogates with
+`rng=0`, or assert the NaN where the test is about the untested case. The zero-gradient branch
+("Delay gradient across contacts is zero to round-off") is no longer reached by
+`test_zflip_identical_contacts_give_no_direction`: identical contacts have pair wPLI 0.0, which
+every surrogate ties, so the pair test refuses first. No construction found reaches that
+branch with every pair significant.
