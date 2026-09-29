@@ -20,3 +20,27 @@ rewrite it.
 | NWB mutation and execution infrastructure belong in the core | `jnwb/` public API; ruled 2026-09-22 | The core may own generic structural operations on NWB: validate, write or create, copy or transform, convert a generic format to NWB, repair structurally invalid NWB, normalize explicitly declared units or layouts, upgrade supported representations, and verify written output. It may repair a representation when the intended representation is identifiable. It detects ambiguous scientific meaning and never resolves it: it does not infer undocumented condition meanings, guess anatomical identity or units, invent trial semantics, or choose among plausible mappings. The core may own content-addressed execution infrastructure: cache identity, input and parameter fingerprints, checkpoint manifests, dependency and version provenance, safe artifact persistence, cache validation and invalidation, and resume. It does not decide what to cache on scientific grounds. Execution controls (device, precision, worker and resource policy) are public only once they change no number, in this order: numerical identity, public execution abstraction, performance evidence, skill routing. API, documentation and tests for each family precede or land atomically with its skill. |
 | Supported Python versions | compatibility and CI policy | Supported interpreters are declared in `pyproject.toml` and enforced by harness Gate 8. CI runs the full suite on every interpreter `pyproject.toml` declares, on Ubuntu and Windows, plus the suite against the built wheel; Gate 8 holds the classifiers, the CI matrix and `.readthedocs.yaml` to that set (ruled 2026-09-22, 06-92). Local-machine Python constraints do not override package metadata. |
 | Release publication ordering | production PyPI publication for tagged releases | Validate on `main`, tag, GitHub Release (non-prerelease), production PyPI. A tag push alone validates build artifacts and does not publish to production PyPI. Before production publication the candidate is published to TestPyPI and verified from there in a clean environment; after it, the same check runs from PyPI (ruled 2026-09-22, R-3). |
+
+## Changes from `artifacts/fact_stack.md` at `fe14858d`
+
+| Old | New | Why |
+|---|---|---|
+| "Stack roles" section defining `fact_stack` and `todo_stack`, and that finished items are deleted from the todo stack | one sentence pointing to `AGENTS.md` §2, which tables all five slots and their edit rules | two homes for the same rule; the "finished items are deleted" rule is `AGENTS.md` §2's |
+| "Current evidence can falsify whether a fact still applies; it does not authorize an agent to rewrite a fact without Hamm" (under Stack roles) | moved into the authorization paragraph, same words in substance | it is part of the authorization rule, not of the stack roles |
+| Eight `##` sections, each a `**Scope:**` line and a paragraph | one table: fact, scope, statement | comparable facts in a table (`AGENTS.md` §11 condition 1) |
+| "jnwb ownership boundary" and "Scientific choices stay downstream" as distant sections | adjacent rows, texts unchanged | they state two sides of one boundary; a reader sees both together. Not merged, because each has its own scope |
+| "must not be silently substituted", "must name the choice explicitly or fail" | "are never silently substituted", "names the choice explicitly or fails" | wording only |
+| Release order written with arrows | the same four steps as a comma list | wording only |
+
+No fact, scope, date, ruling reference or authorization rule is added, removed or weakened. The file
+keeps the strings `tests/test_harness_adversarial_gates.py` asserts ("Human-authorized durable
+facts", "Hamm"), names no literal release label (`tests/test_standing_rules_name_no_cycle.py`), and
+cites only paths that resolve (`tests/test_pointer_documents_resolve.py`).
+
+## A conflict to surface, not a change
+
+"The planned set is twelve: the ten of 0.2.6". `skills/` holds nine directories and
+`CANONICAL_SKILLS` in `tests/test_skills_validation.py` lists nine; the tenth reading is
+`artifacts/skills/jnwb-fact-action`, which does not ship. 07-30 adds a second repository-only
+skill, `jnwb-review`. Whether repository-only skills count toward the twelve is `decisions.md` D13.
+The text above is kept as ruled.

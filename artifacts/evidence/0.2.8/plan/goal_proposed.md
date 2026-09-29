@@ -22,3 +22,19 @@ Each goal has one check. A goal with no check is a preference and is recorded as
 | 10 | **Proportionate verification.** Depth follows consequence. Shipped scientific or API behaviour is reviewed by an agent that did not write it, with a mutant shown killed. Documentation and process changes pass the gates and the full suite. The apparatus does not grow: a new gate or process test lands only by replacing one. | Gate 19 and `artifacts/frozen_validated.json` for independently verified functions. The apparatus bound has no check yet |
 | 11 | **Execution and precision.** The precision and execution switches are condition 2 of §11. Across them, device and worker count change no number beyond a tolerance the function states, and a path no development machine exercises is declared unverified rather than claimed. | the computational-contract gate in `scripts/harness_gate.py`, which traces every device, backend and `n_jobs` argument to its deciding mechanism and every precision request to being honoured or refused |
 | 12 | **Supported interpreters.** Python 3.12, 3.13 and 3.14. Every claimed version is exercised in CI; `requires-python`, classifiers, the CI matrix, the install documentation, the README and release material converge on this set. | Gate 8, which reads `README.md` and `docs/install.md` as well (ruled 2026-09-22) |
+
+## Changes from `artifacts/goal.md` at `fe14858d`
+
+| Old | New | Why |
+|---|---|---|
+| Eleven `##` sections and an unnumbered "Supported interpreters" section, each with a paragraph and a "Held by" paragraph | one table, goals 1 to 12, statement and check side by side | one comparable fact per row (`AGENTS.md` §11 condition 1); 148 lines become about 40 |
+| §1 draws the researcher / AI skills diagram | goal 1 points to the same diagram in `artifacts/direction.md` (Identity) | the file says it does not restate `direction.md`, and the diagram there is identical; the topology sentence is kept |
+| §2 draws `code <-> documentation <-> tests` | "Code, documentation and tests describe and verify the scientific surface together" | the three-way relation stated in words; the diagram is also in `direction.md` (Authority) |
+| §3 "Control is two things jnwb does have: ..." | "Control is scientific choices as explicit caller inputs, and refusal boundaries that are real" | same two things, one clause |
+| §4 "does not produce a plausible value" | "produces no plausible value" | wording only |
+| §5 "None entered in 0.2.6 or enters in 0.2.7; the public NWB mutation and execution APIs are 0.2.8 work in the todo stack" | kept verbatim | a schedule inside a durable goal; `decisions.md` D4 asks whether to drop the version from it. Not changed here, because it is ruled text |
+| §7 purpose / entry-point table | one sentence naming the three entry points | three rows of one fact each; the pairs are unchanged |
+| "Supported interpreters" unnumbered | goal 12 | every other goal is numbered, and the section has a check like the rest |
+| Header sentence "A cycle's scope is its version section ... (section 9)" | "(goal 9)" | the numbering it points to is now a goal number |
+
+No goal, check, date or ruled value is added, removed or weakened.
