@@ -227,9 +227,10 @@ exercised. What replaced it is stated in `artifacts/goal.md`, not here.
 Load the skill before doing the work rather than reinventing its contents.
 
 The shipped skills under `skills/`, and what each covers, are tabled in `docs/agents.md`.
-Two skills are repository-only, in `artifacts/skills/`, and do not ship. `jnwb-fact-action`
-covers execution control ($F \to R \to A \to V \to S$), authority loading order and
-independent verification. `jnwb-review` covers what that verification inspects.
+The repository-only skills are in `artifacts/skills/` and do not ship.
+`artifacts/skills/jnwb-fact-action` covers execution control ($F \to R \to A \to V \to S$),
+authority loading order and independent verification. `artifacts/skills/jnwb-review` covers
+what that verification inspects.
 
 Where a host skill overlaps a jnwb skill, the jnwb skill governs jnwb operations; the host
 skill adds only checks the jnwb skill leaves open.

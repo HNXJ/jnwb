@@ -62,7 +62,8 @@ The role set stays orthogonal. This role does not replace any of it.
 
 ## Delegation Protocol
 Expects the packet `artifacts/skills/jnwb-fact-action` §5 defines, filled from the item's own
-fields; `OBSERVED BASELINE` is the reproduction command.
+fields except the baseline commit, which the dispatcher supplies; `OBSERVED BASELINE` is the
+reproduction command.
 
 Returns that contract, plus one additional line:
 

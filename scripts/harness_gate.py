@@ -1330,7 +1330,7 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     `artifacts/agents.md` is the agent entry page `README.md` links to, and is held to them too.
 
     `skills/**/*.md` and `skills/**/*.yaml` are scanned too: the skills ship in the sdist and are published at
-    `jnwb.SKILLS_URL`, so they are public. The skill about working on this repository lives
+    `jnwb.SKILLS_URL`, so they are public. The skills about working on this repository live
     under `artifacts/skills/`, which is not scanned.
     """
     root = repo_root or REPO_ROOT

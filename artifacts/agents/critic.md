@@ -23,4 +23,4 @@ The `critic` role is a strictly read-only role responsible for adversarial scrut
 
 ## Delegation Protocol
 Expects the packet `artifacts/skills/jnwb-fact-action` §5 defines, and returns its contract.
-Adds one requirement: `UNRESOLVED` names every identified risk the review could not close.
+Adds one requirement: the return names every identified risk, stating each closed one as closed and listing each open one under `UNRESOLVED`.

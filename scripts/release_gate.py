@@ -161,10 +161,10 @@ FORBIDDEN_COMPONENTS = frozenset({
     # exists; the old rule caught it only because `.lab` was a substring match.
     "dist", ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
     ".lab", ".lab_bundle_build", "outputs",
-    # The repository's working rules and the skill about working on this repository. Both
-    # stay out of the sdist; a component match on the file and folder names catches either
+    # The repository's working rules and the skills about working on this repository. All
+    # stay out of the sdist; a component match on the file and folder names catches each
     # one wherever a manifest change puts it.
-    "AGENTS.md", "jnwb-fact-action",
+    "AGENTS.md", "jnwb-fact-action", "jnwb-review",
 })
 
 #: Pollution markers forbidden anywhere in an entry name, including inside a file name.

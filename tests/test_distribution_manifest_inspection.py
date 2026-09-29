@@ -80,10 +80,11 @@ def test_the_grafted_agent_surface_is_not_rejected() -> None:
 
 
 @pytest.mark.parametrize(
-    "entry", ["jnwb-0.2.5/AGENTS.md", "jnwb-0.2.5/skills/jnwb-fact-action/SKILL.md"]
+    "entry", ["jnwb-0.2.5/AGENTS.md", "jnwb-0.2.5/skills/jnwb-fact-action/SKILL.md",
+              "jnwb-0.2.5/skills/jnwb-review/SKILL.md"]
 )
 def test_the_repositorys_own_working_rules_are_rejected(entry: str) -> None:
-    """The working rules and the process skill stay out of the sdist."""
+    """The working rules and the process skills stay out of the sdist."""
     assert forbidden_entries([entry]), entry
 
 
