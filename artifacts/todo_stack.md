@@ -32,7 +32,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
-| B figures and state | 08-03, 08-04, 08-01 | `docs/09_decoding_and_visual_qc.md`, `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
+| B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
 | C rules and proposals | 08-06, 08-08 | `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, the `AGENTS.md` tests, `artifacts/evidence/0.2.8/api_proposals/**` |
 
 Lane C drafts 08-06, then the two 08-08 proposals; the 0.2.8 question round is asked once both
@@ -57,30 +57,18 @@ Stop: a carried check would be lost by the compaction.
 
 Release: required-0.2.8.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `tests/test_figure_form.py`, `tests/test_generated_figures_are_maintained.py`, `tests/test_synthetic_figures_are_labelled.py`.
+Writes: `tests/test_generated_figures_are_maintained.py`, `.github/workflows/workflow.yml`.
 Source: section 6 of the figure QC report (`artifacts/evidence/0.2.8/figure_qc.md`). Each check is built by a fixture of its own case and is red on the baseline
 figure the report names.
 - P-307: every venv and CI leg skips all 20 figure comparisons on a Matplotlib minor mismatch. Check: a pinned Matplotlib in one CI leg, or a comparison tolerant of the minor version, so one leg compares.
 Accept: each check fails on the baseline figure its bullet names and passes on a clean fixture.
 Stop: a check needs a renderer CI does not have.
 
-### 08-03 Figure content defects
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-02.
-Writes: `docs/generate_figures.py`, `docs/figure_style.py`, `docs/assets/figures/*.png`, `docs/index.md`, `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`.
-Source: section 4 of the figure QC report. The three blocker rows (fig01 a, fig04 a, fig09 a)
-landed in 0.2.7. A fig07 sentence change on `docs/09` lands with this item.
-Accept: 08-02 passes; the QC probes re-run clean (fig04 median offset near 0, no text-line hits,
-equal shared-x extents); `python scripts/docs_build.py` is strict-clean; each regenerated pair is
-eye-checked in both themes at displayed size.
-Stop: a fix would need a jnwb call whose output differs from the page's own text.
-
 ### 08-04 The quickstart figure
 
 Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-03.
-Writes: `examples/quickstart_jnwb.py`, `examples/figures/*`, `docs/assets/jnwb_quickstart*.png`, `docs/quickstart.md`.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `examples/quickstart_jnwb.py`, `examples/figures/*`, `docs/assets/jnwb_quickstart*.png`, `docs/quickstart.md`, `tests/test_figure_form.py`.
 - Quickstart QC row: the refusal texts sit over the histogram and are crossed by the observed line; 6.4 pt captions show at about 5.6 px; serif font and a palette unlike fig01-fig10; band labels print "-0.0". Check: the refusal text above the bars or in the caption, captions sized by QC-7 or moved to the page, `docs/figure_style.py` shared, `+0.0` formatting.
 - P-76: every quickstart run dirties two tracked files through SVG dates and random ids. Check: `rcParams["svg.hashsalt"]` and `metadata={"Date": None}`, and two runs byte-identical.
 Accept: 08-02 passes on the quickstart; two consecutive runs leave `git status` clean.
