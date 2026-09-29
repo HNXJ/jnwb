@@ -148,6 +148,36 @@ def test_a_test_reaches_an_export_only_through_an_import_of_the_package():
     assert found == ["Question", "events", "plot_psth", "plot_raster"]
 
 
+@pytest.mark.parametrize("target, expected", [
+    ("vis.canvas", True),
+    ("vis.canvas.PlotlyPublicationCanvas", True),
+    ("vis.canvas.no_such_name", False),
+    ("vis.no_such_module", False),
+])
+def test_a_target_behind_a_missing_extra_resolves_from_source(target, expected):
+    class ExtraMissing:
+        __file__ = str(REPO_ROOT / "jnwb" / "__init__.py")
+
+        def __getattr__(self, name):
+            raise ImportError("an optional extra is not installed")
+
+    record = build_fact_graph._route_targets(ExtraMissing(), {}, [["skill", target]])
+    assert record[target]["resolves"] is expected
+
+
+def test_an_export_behind_a_missing_extra_is_recorded_from_its_source():
+    class ExtraMissing:
+        __file__ = str(REPO_ROOT / "jnwb" / "__init__.py")
+        __all__ = ["vis"]
+
+        def __getattr__(self, name):
+            raise ImportError("an optional extra is not installed")
+
+    exports, implements = build_fact_graph._exports(ExtraMissing(), REPO_ROOT, [])
+    assert exports["vis"] == {"kind": "module", "signature": None, "switches": []}
+    assert implements == [["jnwb/vis/__init__.py", "vis"]]
+
+
 def test_routes_are_read_from_bullet_heads_and_from_a_module_table():
     text = (
         "- `jnwb.a(x)`, `jnwb.b(x)`: returns what `jnwb.c` also returns.\n"

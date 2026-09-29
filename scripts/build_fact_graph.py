@@ -244,7 +244,17 @@ def _exports(package: Any, root: Path, switches: Sequence[str]):
     exports: Dict[str, Dict[str, Any]] = {}
     implements: List[List[str]] = []
     for name in sorted(package.__all__):
-        obj = getattr(package, name)
+        try:
+            obj = getattr(package, name)
+        except ImportError:
+            # A subpackage behind an optional extra: recorded from its source, so the graph is
+            # the same whichever extras the building interpreter has.
+            source = Path(package.__file__).parent / name / "__init__.py"
+            if not source.is_file():
+                raise
+            exports[name] = {"kind": "module", "signature": None, "switches": []}
+            implements.append([_rel(source, root), name])
+            continue
         signature = _signature(obj)
         params: List[str] = []
         if signature is not None:
@@ -315,6 +325,39 @@ def _routes(root: Path) -> Tuple[List[str], List[List[str]]]:
     return skills, edges
 
 
+def resolves_in_source(package_dir: Path, target: str) -> bool:
+    """Whether ``target`` names a module under ``package_dir``, or a top-level name one defines.
+
+    Used when importing the target fails because an optional extra is not installed: the
+    module then exists on disk but cannot be imported, and the graph must not depend on which
+    extras the building interpreter has.
+    """
+    parts = target.split(".")
+    base = package_dir
+    for index, part in enumerate(parts):
+        if (base / part).is_dir() and (base / part / "__init__.py").is_file():
+            base = base / part
+            continue
+        if (base / f"{part}.py").is_file():
+            rest = parts[index + 1:]
+            return not rest or (len(rest) == 1 and rest[0] in _top_level_names(base / f"{part}.py"))
+        return index > 0 and index == len(parts) - 1 and part in _top_level_names(base / "__init__.py")
+    return True
+
+
+def _top_level_names(path: Path) -> set:
+    names = set()
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            for t in (node.targets if isinstance(node, ast.Assign) else [node.target]):
+                names.update(n.id for n in ast.walk(t) if isinstance(n, ast.Name))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update((a.asname or a.name).split(".")[0] for a in node.names)
+    return names
+
+
 def _route_targets(package: Any, exports: Dict[str, Any], routes: Sequence[Sequence[str]]):
     targets = {}
     for target in sorted({t for _, t in routes}):
@@ -326,6 +369,8 @@ def _route_targets(package: Any, exports: Dict[str, Any], routes: Sequence[Seque
             resolves = True
         except AttributeError:
             resolves = False
+        except ImportError:
+            resolves = resolves_in_source(Path(package.__file__).parent, target)
         targets[target] = {"export": head if head in exports else None, "resolves": resolves}
     return targets
 
