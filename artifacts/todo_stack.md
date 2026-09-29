@@ -58,23 +58,7 @@ Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `tests/test_figure_form.py`, `tests/test_generated_figures_are_maintained.py`, `tests/test_synthetic_figures_are_labelled.py`.
 Source: section 6 of the figure QC report (`artifacts/evidence/0.2.8/figure_qc.md`). Each check is built by a fixture of its own case and is red on the baseline
 figure the report names.
-- QC-1 theme contrast: each `THEMES[theme]` value against that theme's page background, at least 3 for data marks and 4.5 for text. Check: fig03 and fig08 `faint` fail.
-- QC-2 rendered contrast: composite each PNG on its page background and bound the share of ink below 1.5, with a declared mesh exemption. Check: fig03 and fig08 fail; fig05's dark mesh floor is flagged for a decision.
-- QC-3 text placement: every text and annotation bbox against lines, patches and other texts in its axes, and inside the canvas, the quickstart generator included. Check: fig08 and the quickstart permutation panel fail.
-- QC-4 shared x: axes that share x have equal pixel x-extent. Check: fig05 fails.
-- QC-5 axis units: every visible axis has a label, and a physical quantity carries a parenthesised unit. Check: fig04 and fig08 fail.
-- QC-6 declared unit: a panel that plots a result declaring `unit` labels its axis with that unit. Check: the 0.2.7 fig09 label, planted, fails.
-- QC-7 displayed size: minimum font times dpi/72 times displayed width over natural width is at least 9 px at the topic-page and gallery widths. Check: the quickstart captions fail.
-- QC-8 one style source: every generator takes font family, size tiers and width from one module, checked by AST. Check: the serif quickstart and the 7.0/7.2/7.5 pt spread fail.
-- QC-9 colormaps: `cmap=` values come from a perceptual set or a declared diverging map. Check: a planted `jet` fails.
-- QC-10 computed values: every figure function calls a public `jnwb.` symbol, and no reference line sits at a bare literal unless listed as a theoretical constant. Check: fig08, fig01 `1000.0` and fig07 `0.5` fail.
-- QC-11 captions: a `jnwb.<name>` in a panel title appears in the caption and in `jnwb.__all__`, and the synthetic-caption test reads `<img>` tags. Check: the gallery's fig03 "PSTH" caption fails.
-- QC-12 fit on its grid: a fit drawn over a spectrum is evaluated on the drawn grid, with a bounded median log residual. Check: the 0.2.7 fig04 fit, planted, fails (+0.263 decades).
-- P-241: the contrast check exempts `THEMES` and parses only 6-digit hex and four names. Check: QC-1 and QC-2 replace the exemption, and a named colour such as `navy` is parsed.
-- P-276: the self-test does not pin the changed-pixel slack (1e-5). Check: raising it to 2e-4 fails a test.
 - P-307: every venv and CI leg skips all 20 figure comparisons on a Matplotlib minor mismatch. Check: a pinned Matplotlib in one CI leg, or a comparison tolerant of the minor version, so one leg compares.
-- Figure checks: the legend test compares texts only with its own axes' legend, tests scatter by centre, skips images, and misses the quickstart. Check: QC-3 covers each case with a fixture.
-- Legend check reach: a `QuadMesh`, `ax.images`, a single-point scatter, marker extent, twin axes, `fig.legend` and annotation arrows are unseen. Check: each is a fixture case.
 Accept: each check fails on the baseline figure its bullet names and passes on a clean fixture.
 Stop: a check needs a renderer CI does not have.
 
@@ -86,17 +70,6 @@ Writes: `docs/generate_figures.py`, `docs/figure_style.py`, `docs/assets/figures
 Source: section 4 of the figure QC report. The three blocker rows (fig01 a, fig04 a, fig09 a)
 landed in 0.2.7. `docs/09` belongs to
 07-30; a fig07 sentence change on that page is reported there.
-- fig01: gold and violet carry no key; the boundary is the retyped literal `1000.0`; V1 and V2 are adjacent blue-violets; V3 text is 2.45:1 on dark; panel A's right half is empty. Check: a two-entry key, `threshold=` passed and drawn from one variable, a distinguishable categorical triple, a tightened xlim.
-- fig02: the shaded band is unlabelled SEM computed by hand; no onset marker in the raster; "Δ=15ms" and "tau=25ms" lack a space. Check: "±1 SEM" from `raster_psth`'s `sem_rate_hz`, `axvline(0)` in panel A, spaced units.
-- fig03: raw points 1.32:1 on white; "Binned Rate (raw counts)" labels simulated Hz; the truth label omits tau 30 ms; the gallery caption says PSTH. Check: at least 3:1 in each theme, "Simulated noisy rate", `tau=30 ms` in the label, the caption corrected.
-- fig04: the PSD axis has no unit. Check: "(a.u.²/Hz)".
-- fig05: the colorbar narrows panel B so the time axes misalign; the COI outline does not say which side is excluded; magma's floor is 1.22:1 on dark. Check: equal colorbar slots or `constrained_layout`; the masked region hatched and named in the legend; the floor decided under QC-2.
-- fig06: a 0.04 dB Jensen gap drawn as bars from 0 on a 0-5 axis; the axis label is redundant. Check: per-unit ratios with realistic spread, or differences from ratio-of-means with the dB values printed.
-- fig07: the chance line is the literal 0.5 across AUC and F1; the mean line shares the bars' colour; the panel titles are misaligned. Check: chance scoped to AUC or F1 chance from the label prior; a contrasting mean line; one title height.
-- fig08: the annotation is crossed by the observed line; the x axis has no unit and says "fire rate"; the null and p are retyped numpy; "Monte Carlo" and "Exact" in one label; the null fill is 1.32:1. Check: `jnwb.exact_sign_flip(diffs, alternative="greater", rng=...)`, the annotation left of the line, "one-sided Monte Carlo p", "Mean paired difference (Hz)".
-- fig09: the net PSI band is unmarked while out-of-band points are drawn; no markers on seven points; `psi_freqs` recomputed. Check: the summed band shaded, markers, `psi.spectrum["psi_freqs"]`.
-- fig10: "LFP (µV / a.u.)" reads as a ratio; the raw trace is called an envelope; the two channels are indistinguishable; 40 % of each axis is empty legend band. Check: "LFP (a.u.)", "Raw (contaminated)", one channel or an offset, a compact legend.
-- Cross-figure style: sizes vary 7.0/7.2/7.5 pt, figsize 6.5 to 7.4 in, and gallery (311 px) and mobile (343 px) text is illegible and unlinked. Check: `docs/figure_style.py` sets family, size tiers and width; gallery images link to full size.
 Accept: 08-02 passes; the QC probes re-run clean (fig04 median offset near 0, no text-line hits,
 equal shared-x extents); `python scripts/docs_build.py` is strict-clean; each regenerated pair is
 eye-checked in both themes at displayed size.

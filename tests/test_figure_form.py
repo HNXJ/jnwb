@@ -31,13 +31,17 @@ from __future__ import annotations
 import ast
 import importlib.util
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from tests.test_synthetic_figures_are_labelled import figure_captions
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+from tests.test_synthetic_figures_are_labelled import figure_captions  # noqa: E402
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
@@ -51,7 +55,6 @@ from matplotlib.transforms import Bbox  # noqa: E402
 
 import jnwb  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
 DOC_GENERATOR = DOCS / "generate_figures.py"
 QUICKSTART = REPO_ROOT / "examples" / "quickstart_jnwb.py"
@@ -60,6 +63,11 @@ GENERATORS = [DOC_GENERATOR, QUICKSTART]
 FIGURES = sorted((DOCS / "assets" / "figures").glob("*.png")) + sorted(
     (DOCS / "assets").glob("jnwb_quickstart*.png")
 )
+
+#: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
+#: `scripts/docs_form_gate.py` reads the pages with these same two patterns.
+IMAGE_LINE = re.compile(r"^!\[[^\]]*\]\((assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)
+IMG_TAG = re.compile(r'<img src="(assets/[^"]+?)(\.dark)?\.png#only-(light|dark)"')
 
 #: Page backgrounds of the built site (`docs/_theme_override.css`), by theme.
 PAGE = {"light": "#ffffff", "dark": "#1b1b1b"}
@@ -78,10 +86,7 @@ THEME_ROLES = {
 NOT_A_COLOUR = {"suffix", "stem", "formats"}
 
 #: Colours drawn over a figure element rather than over the page, by generator function.
-DRAWN_OVER_A_FIGURE: dict[str, dict[str, str]] = {
-    "fig05_complex_tfr": {"white": "the legend text inside its dark box over the TFR image",
-                          "#2d2d2d": "the legend box behind white legend text"},
-}
+DRAWN_OVER_A_FIGURE: dict[str, dict[str, str]] = {}
 
 #: Widths, in CSS px, at which the built site displays a figure: a topic page at a 1440 px
 #: viewport, and a cell of the two-column gallery on the landing page. A gallery image that
@@ -341,6 +346,17 @@ def _drawn_texts(fig) -> list[Text]:
     return texts
 
 
+def _renderer(fig):
+    """Draw the figure and return its renderer. A figure closed through pyplot can be left with
+    a bare canvas (Matplotlib 3.11 leaves one), so an Agg canvas is attached first."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    if not hasattr(fig.canvas, "get_renderer"):
+        FigureCanvasAgg(fig)
+    fig.canvas.draw()
+    return fig.canvas.get_renderer()
+
+
 def _legend_overlaps(fig) -> list[str]:
     """Data, texts and arrows any legend is drawn over, on any axes of the figure.
 
@@ -348,8 +364,7 @@ def _legend_overlaps(fig) -> list[str]:
     legend, of an axes or of the figure, is compared with the artists of every axes, so a twin
     axes' data counts; meshes and images count by their drawn extent, point clouds and markers
     by their size, lines by their path, and an annotation by its text and its arrow."""
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
+    renderer = _renderer(fig)
     marks = _marks(fig, renderer)
     texts = _annotations(fig)
     hits = []
@@ -364,8 +379,7 @@ def _legend_overlaps(fig) -> list[str]:
 
 def _text_collisions(fig) -> list[str]:
     """Texts that meet each other, texts among the data that meet it, and texts off the canvas."""
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
+    renderer = _renderer(fig)
     canvas = fig.bbox.padded(1.0)
     legend_texts = {id(t) for lg in _legends(fig) for t in lg.get_texts() + [lg.get_title()]}
     texts = _drawn_texts(fig)
@@ -427,7 +441,7 @@ def _names_a_unit(label: str) -> bool:
 
 def _axis_label_failures(fig) -> list[str]:
     """A numeric axis with tick labels drawn has a label; a physical quantity names its unit."""
-    fig.canvas.draw()
+    _renderer(fig)
     drawn = {id(t) for t in _drawn_texts(fig)}
     hits = []
     for index, ax in enumerate(fig.axes):
@@ -465,10 +479,13 @@ def _declared_unit_failures(fig, results) -> list[str]:
     declared = [r for r in results if isinstance(getattr(r, "unit", None), str)]
     hits = []
     for index, ax in enumerate(fig.axes):
-        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines()]
+        # Lines drawn in data coordinates only: a reference line's ydata is in axes fractions.
+        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines()
+                 if line.get_transform() == ax.transData]
         drawn = [y for y in drawn if y.size > 1 and np.ptp(y) > 0]
         bars = np.asarray([p.get_height() for p in ax.patches if isinstance(p, Rectangle)], float)
-        if bars.size:
+        # Whole-number heights are counts, as in a histogram, not an estimate a result declares.
+        if bars.size and not np.all(bars == np.round(bars)):
             drawn.append(bars)
         for r in declared:
             if any(np.isin(y, arr).all() for y in drawn for arr in _values(r) if arr.size):
@@ -478,7 +495,7 @@ def _declared_unit_failures(fig, results) -> list[str]:
 
 
 def _smallest_text_pt(fig) -> float:
-    fig.canvas.draw()
+    _renderer(fig)
     return min(t.get_fontsize() for t in _drawn_texts(fig))
 
 
@@ -595,7 +612,8 @@ def _colormap_violations(source: str) -> list[str]:
 
 #: Reference-drawing calls and the arguments that are positions in data coordinates.
 REFERENCE_CALLS = {"axhline": (1, {"y"}), "axvline": (1, {"x"}),
-                   "axhspan": (2, {"ymin", "ymax"}), "axvspan": (2, {"xmin", "xmax"})}
+                   "axhspan": (2, {"ymin", "ymax"}), "axvspan": (2, {"xmin", "xmax"}),
+                   "hlines": (1, {"y"}), "vlines": (1, {"x"})}
 
 
 def _literal(node):
@@ -675,8 +693,7 @@ def _load(path: Path, name: str):
 def _finish(drawn: Drawn) -> Drawn:
     """Draw now, under the rcParams the generator set, and keep the pixels and mesh extents."""
     fig = drawn.fig
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
+    renderer = _renderer(fig)
     drawn.rgba = np.asarray(fig.canvas.buffer_rgba()).copy()
     drawn.exempt = [c.get_window_extent(renderer) for ax in fig.axes for c in ax.collections
                     if isinstance(c, QuadMesh)] + [im.get_window_extent(renderer)
@@ -768,39 +785,21 @@ QUICKSTART_NAMES = {"jnwb_quickstart.png", "jnwb_quickstart.dark.png"}
 
 #: Figures that still fail a check, by check and figure, with what is wrong. A listed figure that
 #: starts to pass fails the suite, so the entry is removed with the repair.
-_DARK = ".dark.png"
-_QS = ("jnwb_quickstart.png", "jnwb_quickstart.dark.png")
+QUICKSTART_REASONS = {
+    "theme contrast": "FAINT is too faint in both themes",
+    "legends": "the decoding legend covers a bar",
+    "text placement": "the refusal texts sit over the histogram and its observed line",
+    "declared unit": "the Granger axis does not name its unit",
+}
 AWAITING: dict[tuple[str, str], str] = {
-    ("theme contrast", "generate_figures.py"): "light edge and faint, and dark faint, are too faint",
-    ("theme contrast", "quickstart_jnwb.py"): "FAINT is too faint in both themes",
-    ("ink contrast", "fig03_onset_fitting.png"): "the raw points are #e0e0e0 on white",
-    ("ink contrast", "fig08_permutation_null.png"): "the null fill is #e0e0e0 on white",
-    **{("legends", f"fig05_complex_tfr_coi{s}"): "the COI legend sits on the TFR mesh" for s in (".png", _DARK)},
-    **{("legends", n): "the decoding legend covers a bar" for n in _QS},
-    **{("text placement", f"fig08_permutation_null{s}"): "the p annotation is crossed by the observed line"
-       for s in (".png", _DARK)},
-    **{("text placement", n): "the refusal texts sit over the histogram and its observed line" for n in _QS},
-    **{("shared x", f"fig05_complex_tfr_coi{s}"): "the colorbar narrows panel B" for s in (".png", _DARK)},
-    **{("axis labels", f"fig04_psd_spectral_tilt{s}"): "the PSD axis names no unit" for s in (".png", _DARK)},
-    **{("axis labels", f"fig05_complex_tfr_coi{s}"): "the colorbar unit is |z|²" for s in (".png", _DARK)},
-    **{("axis labels", f"fig08_permutation_null{s}"): "the difference axis names no unit" for s in (".png", _DARK)},
-    **{("declared unit", n): "the Granger axis does not name its unit" for n in _QS},
-    **{("displayed size", f"index.md:{n}.png"): "the gallery shows it at 311 px and does not link it"
-       for n in ("fig10_artifact_repair", "fig05_complex_tfr_coi", "fig09_directed_connectivity",
-                 "fig03_onset_fitting", "fig08_permutation_null", "fig07_population_decoding")},
+    ("theme contrast", "quickstart_jnwb.py"): QUICKSTART_REASONS["theme contrast"],
+    **{(check, n): why for check, why in QUICKSTART_REASONS.items() if check != "theme contrast"
+       for n in sorted(QUICKSTART_NAMES)},
     ("displayed size", "quickstart.md:jnwb_quickstart.png"): "5.8 pt text in an 11 in figure",
-    ("style source", "generate_figures.py"): "sizes and widths are typed per call",
     ("style source", "quickstart_jnwb.py"): "a serif family and sizes typed per call",
-    ("style source", STYLE_MODULE.name): "the style module does not exist",
-    ("computed values", "generate_figures.py"): "fig01, fig05 and fig07 draw typed positions",
-    **{("computed values", f"fig08_permutation_null{s}"): "the null is computed in numpy"
-       for s in (".png", _DARK)},
+    ("captions", "quickstart.md:jnwb_quickstart.png"): "the caption names no function",
     ("captions", "09_decoding_and_visual_qc.md:fig07_population_decoding.png"):
         "the caption does not name nested_cv_linear_svm",
-    **{("captions", f"index.md:{n}.png"): "the gallery caption names no function"
-       for n in ("fig10_artifact_repair", "fig05_complex_tfr_coi", "fig09_directed_connectivity",
-                 "fig03_onset_fitting", "fig07_population_decoding")},
-    ("captions", "quickstart.md:jnwb_quickstart.png"): "the caption names no function",
 }
 
 
@@ -855,11 +854,9 @@ def test_no_figure_paints_its_own_background(png):
 
 def test_every_figure_on_a_page_has_both_variants():
     shown = {}
-    image_line = re.compile(r"^!\[[^\]]*\]\((assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)
-    img_tag = re.compile(r'<img src="(assets/[^"]+?)(\.dark)?\.png#only-(light|dark)"')
     for page in sorted(DOCS.rglob("*.md")):
         text = page.read_text(encoding="utf-8")
-        for stem, dark, scheme in image_line.findall(text) + img_tag.findall(text):
+        for stem, dark, scheme in IMAGE_LINE.findall(text) + IMG_TAG.findall(text):
             assert (scheme == "dark") == bool(dark), f"{page.name}: {stem} variant and scheme disagree"
             shown.setdefault((page.name, stem), set()).add(scheme)
     assert shown, "no themed figure found; the reader has stopped working"
@@ -1053,10 +1050,14 @@ def _legend_reach_cases():
 
 
 def test_the_legend_check_sees_every_kind_of_artist():
-    cases = _legend_reach_cases()
-    missed = [what for what, f in cases.items() if not _legend_overlaps(f)]
-    for f in cases.values():
-        plt.close(f)
+    # The cases place a legend over an artist by layout, and the layout follows font size and
+    # figure size. Build and measure them under Matplotlib's defaults, whatever an earlier test
+    # left in rcParams.
+    with plt.style.context("default"):
+        cases = _legend_reach_cases()
+        missed = [what for what, f in cases.items() if not _legend_overlaps(f)]
+        for f in cases.values():
+            plt.close(f)
     assert not missed, f"the legend check does not see {missed}"
 
     x, y = np.meshgrid(np.linspace(0, 1, 40), np.linspace(0, 1, 40))
@@ -1237,8 +1238,8 @@ def test_the_source_rules_catch_their_cases():
     assert not _colormap_violations('ax.pcolormesh(x, y, z, cmap="magma")\n')
     literal = ("def f(ax, t0):\n    ax.axvline(1000.0)\n    ax.axhline(y=-0.5)\n"
                "    ax.axvspan(200, 400)\n    ax.axvline(t0)\n    ax.axhline(0)\n"
-               "    ax.axhline(t0, xmin=0.1)\n")
-    assert len(_literal_references(literal)) == 4, _literal_references(literal)
+               "    ax.axhline(t0, xmin=0.1)\n    ax.hlines(0.5, -0.4, 0.4)\n")
+    assert len(_literal_references(literal)) == 5, _literal_references(literal)
 
     recorder = _Recorder(jnwb)
     recorder.log = log = []

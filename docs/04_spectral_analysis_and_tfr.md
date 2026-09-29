@@ -298,8 +298,8 @@ tfr_res = jnwb.complex_tfr(
 ![Complex Morlet TFR and Cone of Influence](assets/figures/fig05_complex_tfr_coi.dark.png#only-dark)
 
 Panel A of that figure is a synthetic LFP trace carrying one transient oscillatory burst and panel B is
-`jnwb.complex_tfr` on it with the cone of influence drawn, so the region the next paragraph
-excludes is visible as an outline rather than described.
+`jnwb.complex_tfr` on it with the cone of influence drawn and the region outside it veiled: what
+the next paragraph excludes is visible, not described.
 
 **What `coi_mask` excludes, and why the average comes after it.** Convolution runs with
 `mode="same"`, so near each edge part of the kernel hangs off the signal and is filled with

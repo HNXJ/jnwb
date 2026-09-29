@@ -1,8 +1,8 @@
 """Generate 10 canonical figures for jnwb documentation.
 
-Executes only verified jnwb public primitives on synthetic test signals
-with known ground truth, producing reproducible high-resolution figures
-for docs/assets/figures/.
+Each figure draws results of public jnwb calls on synthetic test signals with known ground
+truth, producing reproducible figures for docs/assets/figures/. Fonts, size tiers and the
+figure width come from docs/figure_style.py.
 
 Usage:
     python docs/generate_figures.py                     # rewrite docs/assets/figures/
@@ -15,18 +15,24 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add repo root to path. Guarded: the suite executes this module in-process, and an
-# unconditional prepend there puts the checkout ahead of an installed jnwb.
-REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# The repository root, for jnwb, and this folder, for the style module. Guarded: the suite
+# executes this module in-process, and an unconditional prepend there puts the checkout ahead
+# of an installed jnwb.
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent
+for _path in (REPO_ROOT, HERE):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
+import figure_style as style
 import jnwb
 
 FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
@@ -40,29 +46,18 @@ C_GOLD = "#c3aa5f"
 C_GRAY = "#888888"
 C_RED = "#d9534f"
 C_GREEN = "#2e7d32"
+#: A neutral veil over the part of a time-frequency map that is excluded; magma holds no gray.
+C_VEIL = "#808080"
 
 THEMES = {
-    "light": {"fg": "#2d2d2d", "edge": "#b0b0b0", "faint": "#e0e0e0", "suffix": ".png"},
-    "dark": {"fg": "#e0e0e0", "edge": "#6a6a6a", "faint": "#555555", "suffix": ".dark.png"},
+    "light": {"fg": "#2d2d2d", "edge": "#8a8a8a", "faint": "#8a8a8a", "suffix": ".png"},
+    "dark": {"fg": "#e0e0e0", "edge": "#707070", "faint": "#707070", "suffix": ".dark.png"},
 }
 C_DARK = THEMES["light"]["fg"]
 C_LIGHT_GRAY = THEMES["light"]["faint"]
 SUFFIX = THEMES["light"]["suffix"]
 
-plt.rcParams.update({
-    "font.family": "sans-serif",
-    "font.size": 8.5,
-    "axes.titlesize": 9.5,
-    "axes.labelsize": 8.5,
-    "xtick.labelsize": 7.5,
-    "ytick.labelsize": 7.5,
-    "legend.fontsize": 7.5,
-    "figure.titlesize": 10.5,
-    "axes.linewidth": 0.8,
-    "axes.facecolor": "none",
-    "figure.facecolor": "none",
-    "savefig.transparent": True,
-})
+style.apply()
 
 
 def apply_theme(name):
@@ -85,66 +80,80 @@ def _save(fig, name):
     fig.savefig(OUT_DIR / name.replace(".png", SUFFIX))
 
 
+#: One colour per area; separable under protan, deutan and tritan simulation.
+AREA_COLOURS = {"V1": "#1565c0", "V2": "#ff9800", "V3": "#00acc1"}
+#: The depth fig01 classifies at, passed to the classifier and drawn from the same name.
+DEPTH_THRESHOLD_UM = 1000.0
+
+
 def fig01_addressing():
     """Figure 1: Channel addressing & geometric depth classification."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.2), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.4), dpi=style.DPI,
+                                   gridspec_kw={"width_ratios": [1, 1.25]})
 
     n_ch = 24
-    areas_str = "V1, V2, V3"
     elec_df = pd.DataFrame({
         "channel_id": np.arange(n_ch),
-        "location": [areas_str] * n_ch,
+        "location": ["V1, V2, V3"] * n_ch,
         "group_name": ["probeA"] * n_ch,
         "z": np.linspace(200.0, 1800.0, n_ch),
         "depth_unit": ["um"] * n_ch,
     })
 
     mapped_areas = [jnwb.map_peak_channel_to_area(ch, elec_df) for ch in range(n_ch)]
-    layers = [jnwb.classify_layer_from_depth(ch, elec_df) for ch in range(n_ch)]
+    depth_classes = [jnwb.classify_layer_from_depth(ch, elec_df, threshold=DEPTH_THRESHOLD_UM)
+                     for ch in range(n_ch)]
 
-    colors = {"V1": "#5c6bc0", "V2": C_VIOLET, "V3": "#8e24aa"}
-    bar_colors = [colors[a] for a in mapped_areas]
-
-    # Panel A: Multi-area probe mapping
-    ax1.scatter(np.zeros(n_ch), range(n_ch), c=bar_colors, s=60, edgecolors=C_DARK, zorder=3)
+    # Panel A: one area per block of contacts, each named beside its own dots
     ax1.plot(np.zeros(n_ch), range(n_ch), color=C_GRAY, lw=1.5, zorder=2)
+    ax1.scatter(np.zeros(n_ch), range(n_ch), c=[AREA_COLOURS[a] for a in mapped_areas], s=45,
+                edgecolors=C_DARK, linewidths=0.5, zorder=3)
     ax1.set_yticks(range(0, n_ch, 4))
-    ax1.set_xlim(-0.5, 1.2)
+    ax1.set_xlim(-0.25, 1.0)
     ax1.set_xticks([])
-    for i in [0, 8, 16]:
+    for i in (0, 8, 16):
         area = mapped_areas[i]
-        ax1.annotate(f"Channel {i}-{i+7}: {area}", xy=(0.08, i + 3.5), fontsize=7.5, color=colors[area], fontweight="bold")
-    ax1.set_ylabel("Electrode Contact Index")
-    ax1.set_title("A. Multi-Area Probe Partitioning\n(jnwb.map_peak_channel_to_area)", pad=8)
+        ax1.annotate(f"Channels {i}-{i + 7}: {area}", xy=(0.12, i + 3.5), va="center",
+                     fontsize=style.SMALL, color=C_DARK)
+    ax1.set_ylabel("Electrode contact index")
+    ax1.set_title("A. Area per contact\n(jnwb.map_peak_channel_to_area)", pad=8)
     ax1.invert_yaxis()
 
-    # Panel B: Geometric depth classification
+    # Panel B: the class of each contact, keyed, with the threshold it was classified at
     z_coords = elec_df["z"].values
-    l_colors = [C_GOLD if l == "Superficial" else C_VIOLET for l in layers]
-    ax2.barh(range(n_ch), z_coords, color=l_colors, edgecolor="none", height=0.7)
-    ax2.axvline(1000.0, color=C_RED, ls="--", lw=1.0)
-    # The boundary is labelled beside its line, in the rows where the bars stop short of it;
-    # any legend box would cross the line or the bars.
-    ax2.annotate("Boundary (1000 µm)", xy=(1000.0, 1.0), xytext=(4, 0), textcoords="offset points",
-                 color=C_RED, va="center", fontsize=7.5)
+    colours = [C_GOLD if c == "Superficial" else C_VIOLET for c in depth_classes]
+    ax2.barh(range(n_ch), z_coords, color=colours, edgecolor="none", height=0.7)
+    ax2.axvline(DEPTH_THRESHOLD_UM, color=C_RED, ls="--", lw=1.0)
+    ax2.set_xlim(0.0, 2800.0)
     ax2.set_yticks(range(0, n_ch, 4))
     ax2.set_xlabel("Depth z (µm)")
-    ax2.set_ylabel("Channel Index")
-    ax2.set_title("B. Geometric Depth Class\n(jnwb.classify_layer_from_depth)", pad=8)
+    ax2.set_ylabel("Channel index")
+    ax2.set_title("B. Geometric depth class\n(jnwb.classify_layer_from_depth)", pad=8)
     ax2.invert_yaxis()
+    ax2.legend(handles=[
+        Patch(color=C_GOLD, label="Superficial (z ≤ threshold)"),
+        Patch(color=C_VIOLET, label="Deep (z > threshold)"),
+        Line2D([], [], color=C_RED, ls="--", lw=1.0,
+               label=f"threshold = {DEPTH_THRESHOLD_UM:.0f} µm"),
+    ], frameon=False, loc="upper right")
 
     fig.tight_layout()
     _save(fig, "fig01_addressing_laminar.png")
     plt.close(fig)
 
 
+#: The window and bin width of fig02's PSTH, in ms relative to onset.
+PSTH_WINDOW_MS = (-300.0, 600.0)
+PSTH_BIN_MS = 15.0
+
+
 def fig02_spikes_psth():
     """Figure 2: Spiking raster and PSTH with right-open time bins."""
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6.5, 3.8), sharex=True, dpi=180, gridspec_kw={"height_ratios": [1.2, 1]})
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(style.WIDTH, 3.9), sharex=True, dpi=style.DPI,
+                                   gridspec_kw={"height_ratios": [1.2, 1]})
 
     rng = np.random.default_rng(42)
     n_trials = 30
-    spikes_list = []
     trial_starts = np.arange(n_trials) * 1.5
     all_spikes = []
 
@@ -154,33 +163,26 @@ def fig02_spikes_psth():
         t_resp = rng.uniform(0.04, 0.25, rng.poisson(0.21 * 35.0))
         t_post = rng.uniform(0.25, 0.6, rng.poisson(0.35 * 8.0))
         spk_rel = np.sort(np.concatenate([t_base, t_resp, t_post]))
-        spikes_list.append(spk_rel)
         all_spikes.extend(spk_rel + t_start)
         ax1.vlines(spk_rel * 1000, t_idx, t_idx + 0.8, color=C_DARK, lw=0.7)
 
-    ax1.set_ylabel("Trial Index")
-    ax1.set_title("A. Spike Raster (30 Trials)", pad=8)
+    ax1.axvline(0, color=C_GRAY, ls=":", lw=1.0)
+    ax1.set_ylabel("Trial index")
+    ax1.set_title(f"A. Spike raster ({n_trials} trials)", pad=8)
     ax1.set_ylim(-0.5, n_trials + 0.5)
 
-    # PSTH via jnwb.bin_spikes
-    counts, centers = jnwb.bin_spikes(
-        spikes_list,
-        window=(-0.3, 0.6),
-        bin_size_ms=15.0,
-        output="rate",
-        return_centers=True,
-    )
-    mean_rate = np.mean(counts, axis=0)
-    sem_rate = np.std(counts, axis=0) / np.sqrt(n_trials)
-    centers_ms = centers * 1000.0
+    centers_ms, mean_rate, sem_rate = jnwb.raster_psth(
+        np.asarray(all_spikes), trial_starts, win_ms=PSTH_WINDOW_MS, bin_ms=PSTH_BIN_MS)
 
-    ax2.plot(centers_ms, mean_rate, color=C_VIOLET, lw=1.5, label="PSTH Mean Rate")
-    ax2.fill_between(centers_ms, mean_rate - sem_rate, mean_rate + sem_rate, color=C_VIOLET, alpha=0.25)
+    ax2.plot(centers_ms, mean_rate, color=C_VIOLET, lw=1.5, label="Mean rate")
+    ax2.fill_between(centers_ms, mean_rate - sem_rate, mean_rate + sem_rate, color=C_VIOLET,
+                     alpha=0.35, lw=0, label="±1 SEM")
     ax2.axvline(0, color=C_GRAY, ls=":", lw=1.0)
+    ax2.set_ylim(0, float(np.max(mean_rate + sem_rate)) * 1.45)
     ax2.set_xlabel("Time relative to onset (ms)")
-    ax2.set_ylabel("Firing Rate (Hz)")
-    ax2.set_title("B. Binned PSTH (jnwb.bin_spikes, Δ=15ms, right-open)", pad=8)
-    ax2.legend(frameon=False, loc="upper right")
+    ax2.set_ylabel("Firing rate (Hz)")
+    ax2.set_title(f"B. PSTH (jnwb.raster_psth, Δ = {PSTH_BIN_MS:.0f} ms, right-open bins)", pad=8)
+    ax2.legend(frameon=False, loc="upper right", ncol=2)
 
     fig.tight_layout()
     _save(fig, "fig02_raster_psth.png")
@@ -189,33 +191,36 @@ def fig02_spikes_psth():
 
 def fig03_onset():
     """Figure 3: Causal exponential smoothing and bounded onset latency fit."""
-    fig, ax = plt.subplots(figsize=(6.8, 3.2), dpi=180)
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.3), dpi=style.DPI)
 
     rng = np.random.default_rng(7)
     bin_ms = 5.0
+    smooth_tau_ms = 25.0
     t = np.arange(-150.0, 400.0, bin_ms)
     t0_true = 85.0
     tau_true = 30.0
     true_rate = 6.0 + 24.0 * np.where(t >= t0_true, 1.0 - np.exp(-(t - t0_true) / tau_true), 0.0)
     noisy_rate = np.maximum(0, true_rate + rng.normal(0, 3.0, len(t)))
 
-    # jnwb causal exponential smoothing
-    smoothed = jnwb.causal_exp_smooth(noisy_rate, bin_ms=bin_ms, tau_ms=25.0)
-
-    # jnwb bounded onset fitting
+    smoothed = jnwb.causal_exp_smooth(noisy_rate, bin_ms=bin_ms, tau_ms=smooth_tau_ms)
     fit = jnwb.fit_exponential_onset(t, smoothed, t0_bounds_ms=(0.0, 250.0))
     pred = jnwb.onset_model(t, fit["t0"], fit["tau"], fit["amplitude"], fit["baseline"])
 
-    ax.scatter(t, noisy_rate, color=C_LIGHT_GRAY, s=12, label="Binned Rate (raw counts)", zorder=2)
-    ax.plot(t, smoothed, color=C_GOLD, lw=1.2, label="Causal Filter (tau=25ms, no backward leakage)", zorder=3)
-    ax.plot(t, pred, color=C_VIOLET, lw=1.8, label=f"Bounded Fit: t0={fit['t0']:.1f}ms, tau={fit['tau']:.1f}ms (R²={fit['r2']:.2f})", zorder=4)
+    ax.scatter(t, noisy_rate, color=C_LIGHT_GRAY, s=10, label="Simulated noisy rate", zorder=2)
+    ax.plot(t, smoothed, color=C_GOLD, lw=1.2,
+            label=f"Causal filter (tau = {smooth_tau_ms:.0f} ms, no backward leakage)", zorder=3)
+    ax.plot(t, pred, color=C_VIOLET, lw=1.8,
+            label=f"Bounded fit: t0 = {fit['t0']:.1f} ms, tau = {fit['tau']:.1f} ms "
+                  f"(R² = {fit['r2']:.2f})", zorder=4)
     ax.axvline(fit["t0"], color=C_VIOLET, ls="--", lw=1.0, zorder=1)
-    ax.axvline(t0_true, color=C_GREEN, ls=":", lw=1.2, label=f"True Ground Truth (t0={t0_true:.0f}ms)", zorder=1)
+    ax.axvline(t0_true, color=C_GREEN, ls=":", lw=1.2,
+               label=f"Ground truth (t0 = {t0_true:.0f} ms, tau = {tau_true:.0f} ms)", zorder=1)
 
+    ax.set_ylim(0, float(np.max(noisy_rate)) * 1.02)
     ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("Firing Rate (Hz)")
-    ax.set_title("Causality-Bounded Onset Latency Fitting (jnwb.fit_exponential_onset)", pad=8)
-    ax.legend(frameon=False, loc="lower right", fontsize=7.2)
+    ax.set_ylabel("Firing rate (Hz)")
+    ax.set_title("Causality-bounded onset latency fit (jnwb.fit_exponential_onset)", pad=8)
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, -0.2), ncol=2)
 
     fig.tight_layout()
     _save(fig, "fig03_onset_fitting.png")
@@ -228,7 +233,7 @@ FIG04_RHYTHM_HZ = 10.0
 
 def fig04_spectral_tilt():
     """Figure 4: Power Spectral Density and aperiodic spectral tilt."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.1), dpi=style.DPI)
 
     fs = 1000.0
     duration = 5.0
@@ -246,7 +251,8 @@ def fig04_spectral_tilt():
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title(f"A. Raw LFP Time Series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)", pad=8)
+    ax1.set_title(f"A. Raw LFP time series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)",
+                  pad=8)
 
     # Panel B: PSD + power-law fit to that same PSD. spectral_tilt fits its own Welch
     # spectrum, on a different grid, so its line cannot be drawn over this one.
@@ -261,52 +267,66 @@ def fig04_spectral_tilt():
     fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 
     ax2.loglog(freqs[:119], psd[:119], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={-fit.exponent:.2f}\n(R²={fit.r_squared:.2f})")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8,
+               label=f"Power-law fit: slope={-fit.exponent:.2f}\n(R² = {fit.r_squared:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
-    ax2.set_ylabel("Power Spectral Density")
-    ax2.set_title("B. Aperiodic Fit (jnwb.aperiodic_fit)", pad=8)
-    ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
+    ax2.set_ylabel("Power spectral density (a.u.²/Hz)")
+    ax2.set_title("B. Aperiodic fit (jnwb.aperiodic_fit)", pad=8)
+    ax2.legend(frameon=False, loc="lower left")
 
     fig.tight_layout()
     _save(fig, "fig04_psd_spectral_tilt.png")
     plt.close(fig)
 
 
+#: fig05's injected burst: its frequency and its window in ms.
+BURST_HZ = 30.0
+BURST_MS = (200.0, 400.0)
+
+
 def fig05_complex_tfr():
     """Figure 5: Complex Morlet Wavelet TFR and Cone of Influence (COI)."""
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6.8, 4.2), sharex=True, dpi=180, gridspec_kw={"height_ratios": [1, 2]})
+    fig = plt.figure(figsize=(style.WIDTH, 4.6), dpi=style.DPI)
+    # The colorbar takes a column of its own, so the two time axes keep one width.
+    grid = fig.add_gridspec(2, 2, height_ratios=[1, 2], width_ratios=[1, 0.025])
+    ax1 = fig.add_subplot(grid[0, 0])
+    ax2 = fig.add_subplot(grid[1, 0], sharex=ax1)
+    cax = fig.add_subplot(grid[1, 1])
 
     fs = 1000.0
     t = np.arange(700) / fs
+    t_ms = t * 1000.0
     rng = np.random.default_rng(3)
     sig = rng.normal(0, 0.4, len(t))
-    # Inject 30 Hz burst from 200ms to 400ms
-    burst_mask = (t >= 0.2) & (t <= 0.4)
-    sig[burst_mask] += 2.0 * np.sin(2 * np.pi * 30.0 * t[burst_mask])
+    burst_mask = (t_ms >= BURST_MS[0]) & (t_ms <= BURST_MS[1])
+    sig[burst_mask] += 2.0 * np.sin(2 * np.pi * BURST_HZ * t[burst_mask])
 
-    ax1.plot(t * 1000, sig, color=C_DARK, lw=0.8)
-    ax1.axvspan(200, 400, color=C_GOLD, alpha=0.2, label="Injected 30 Hz rhythm")
+    ax1.plot(t_ms, sig, color=C_DARK, lw=0.8)
+    ax1.axvspan(*BURST_MS, color=C_GOLD, alpha=0.25, lw=0)
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. LFP Signal with Transient Oscillatory Burst", pad=8)
-    ax1.legend(frameon=False, loc="upper right")
+    ax1.set_title("A. LFP signal with a transient oscillatory burst", pad=8)
+    ax1.tick_params(labelbottom=False)
 
     freqs = np.linspace(8.0, 60.0, 50)
     tfr = jnwb.complex_tfr(sig, fs=fs, freqs=freqs, n_cycles=5.0, normalization="amplitude")
 
-    power = tfr.power  # (n_freqs, n_times)
-    im = ax2.pcolormesh(t * 1000, freqs, power, cmap="magma", shading="auto")
-    cbar = fig.colorbar(im, ax=ax2, orientation="vertical", pad=0.02, aspect=15)
-    cbar.set_label("Power (|z|²)", fontsize=7.5)
+    im = ax2.pcolormesh(t_ms, freqs, tfr.power, cmap="magma", shading="auto")
+    cbar = fig.colorbar(im, cax=cax)
+    cbar.set_label("Power (a.u.²)")
 
-    # Cone of influence boundary
-    coi_mask = tfr.coi_mask
-    ax2.contour(t * 1000, freqs, coi_mask, levels=[0.5], colors=[C_VIOLET], linewidths=1.2, linestyles="--")
-    ax2.plot([], [], color=C_VIOLET, ls="--", lw=1.5, label="COI Boundary (tfr.coi_mask)")
+    # coi_mask is True where a coefficient is free of edge effects; the rest is veiled.
+    excluded = (~tfr.coi_mask).astype(float)
+    ax2.contourf(t_ms, freqs, excluded, levels=[0.5, 1.5], colors=[C_VEIL], alpha=0.6)
+    ax2.contour(t_ms, freqs, tfr.coi_mask.astype(float), levels=[0.5], colors=[C_VIOLET],
+                linewidths=1.2, linestyles="--")
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("Frequency (Hz)")
-    ax2.set_title("B. Complex Morlet TFR & Cone of Influence (jnwb.complex_tfr)", pad=8)
-    # Top centre, between the two arms of the cone; the box keeps the text readable over the mesh.
-    ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper center", labelcolor="white", fontsize=7.5)
+    ax2.set_title("B. Complex Morlet TFR and cone of influence (jnwb.complex_tfr)", pad=8)
+    ax2.legend(handles=[
+        Patch(color=C_GOLD, alpha=0.25, label=f"Injected {BURST_HZ:.0f} Hz burst (panel A)"),
+        Line2D([], [], color=C_VIOLET, ls="--", lw=1.2, label="Cone of influence (tfr.coi_mask)"),
+        Patch(color=C_VEIL, alpha=0.6, label="Edge-affected, excluded"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=3)
 
     fig.tight_layout()
     _save(fig, "fig05_complex_tfr_coi.png")
@@ -315,13 +335,13 @@ def fig05_complex_tfr():
 
 def fig06_aggregate_db():
     """Figure 6: Power ratio aggregation and the Log-Last rule."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.2), dpi=style.DPI)
 
     rng = np.random.default_rng(99)
     n_units = 40
     baseline_power = rng.uniform(2.0, 15.0, n_units)
-    # Target power: true modulation of 2.5x with noise
-    power = baseline_power * rng.uniform(1.8, 3.2, n_units)
+    # Per-unit modulation around 2.5x with the right-skewed spread of real power ratios
+    power = baseline_power * rng.lognormal(np.log(2.5), 0.8, n_units)
 
     ratios = power / baseline_power
     db_individual = jnwb.to_db(ratios)
@@ -334,121 +354,149 @@ def fig06_aggregate_db():
     db_wrong_mean = float(np.mean(db_individual))
 
     # Panel A: Distribution of individual unit power ratios
-    ax1.hist(ratios, bins=12, color="#7986cb", edgecolor=C_DARK, lw=0.6)
-    ax1.axvline(np.mean(ratios), color=C_VIOLET, lw=1.5, label=f"Mean Ratio ({np.mean(ratios):.2f})")
-    ax1.set_xlabel("Power Ratio (Target / Baseline)")
-    ax1.set_ylabel("Unit Count")
-    ax1.set_title("A. Per-Unit Power Ratios (Ratio Scale)", pad=8)
-    ax1.legend(frameon=False)
+    ax1.hist(ratios, bins=16, color="#7986cb", edgecolor=C_DARK, lw=0.6)
+    ax1.axvline(np.mean(ratios), color=C_VIOLET, lw=1.5, label=f"Mean ratio ({np.mean(ratios):.2f})")
+    ax1.set_xlabel("Power ratio (target / baseline)")
+    ax1.set_ylabel("Unit count")
+    ax1.set_title("A. Per-unit power ratios", pad=8)
+    ax1.legend(frameon=False, loc="upper right")
 
     # Panel B: Aggregated Decibel Estimands
-    labels = ["Mean of Ratios\n(equal weight)", "Ratio of Means\n(power weighted)", "Mean of Decibels\n[WRONG Jensen Error]"]
+    labels = ["Mean of\nratios", "Ratio of\nmeans", "Mean of dB\n(Jensen error)"]
     values = [float(db_mean_ratios), float(db_ratio_means), db_wrong_mean]
-    colors = [C_VIOLET, C_GOLD, C_RED]
-
-    bars = ax2.bar(range(3), values, color=colors, width=0.55, edgecolor=C_DARK, lw=0.6)
+    bars = ax2.bar(range(3), values, color=[C_VIOLET, C_GOLD, C_RED], width=0.55,
+                   edgecolor=C_DARK, lw=0.6)
     ax2.set_xticks(range(3))
-    ax2.set_xticklabels(labels, fontsize=7.0)
+    ax2.set_xticklabels(labels)
     for b, val in zip(bars, values):
-        ax2.text(b.get_x() + b.get_width() / 2, val + 0.08, f"{val:.3f} dB", ha="center", fontsize=7.5, fontweight="bold")
-    ax2.set_ylim(0, max(values) * 1.25)
-    ax2.set_ylabel("Aggregated Decibels (dB)")
-    ax2.set_title("B. Decibel Aggregation Contracts\n(jnwb.aggregate_to_db)", pad=8)
+        ax2.annotate(f"{val:.2f} dB", (b.get_x() + b.get_width() / 2, val), xytext=(0, 3),
+                     textcoords="offset points", ha="center", va="bottom", fontsize=style.SMALL,
+                     fontweight="bold")
+    ax2.set_ylim(0, max(values) * 1.2)
+    ax2.set_ylabel("Aggregate (dB)")
+    ax2.set_title("B. Decibel aggregation\n(jnwb.aggregate_to_db)", pad=8)
 
     fig.tight_layout()
     _save(fig, "fig06_aggregate_to_db.png")
     plt.close(fig)
 
 
+#: Chance AUC: an uninformative score ranks a random positive above a random negative half the
+#: time. F1 has no such constant, so no chance line is drawn for it.
+AUC_CHANCE = 0.5
+
+
 def fig07_decoding():
     """Figure 7: Population decoding with nested CV and majority baseline."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.2), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.3), dpi=style.DPI)
 
     rng = np.random.default_rng(21)
     n_trials = 80
     n_feat = 10
+    n_splits = 5
     labels = np.array([0] * 40 + [1] * 40)
     # Signal in feature 0 and 1
     X = rng.normal(0, 1.0, (n_trials, n_feat))
     X[labels == 1, :2] += 0.95
 
-    res = jnwb.nested_cv_linear_svm(X, labels, n_splits=5)
+    res = jnwb.nested_cv_linear_svm(X, labels, n_splits=n_splits)
     fold_accs = res["fold_accuracies"]
     mean_acc = res["accuracy"]
     base_acc = res["majority_baseline_accuracy"]
 
     # Panel A: Fold Accuracies vs Baseline
-    ax1.bar(range(1, 6), fold_accs * 100, color=C_VIOLET, width=0.5, edgecolor=C_DARK, lw=0.6)
-    ax1.axhline(mean_acc * 100, color=C_VIOLET, ls="-", lw=1.2, label=f"Outer CV Mean ({mean_acc*100:.1f}%)")
-    ax1.axhline(base_acc * 100, color=C_RED, ls="--", lw=1.2, label=f"Majority Baseline ({base_acc*100:.1f}%)")
-    ax1.set_xlabel("Outer CV Fold")
-    ax1.set_ylabel("Decoding Accuracy (%)")
+    ax1.bar(range(1, len(fold_accs) + 1), fold_accs * 100, color=C_VIOLET, width=0.5,
+            edgecolor=C_DARK, lw=0.6)
+    ax1.axhline(mean_acc * 100, color=C_GOLD, ls="-", lw=1.4,
+                label=f"Outer-CV mean ({mean_acc * 100:.1f}%)")
+    ax1.axhline(base_acc * 100, color=C_RED, ls="--", lw=1.2,
+                label=f"Majority baseline ({base_acc * 100:.1f}%)")
+    ax1.set_xlabel("Outer CV fold")
+    ax1.set_ylabel("Decoding accuracy (%)")
     # Accuracy cannot pass 100%, so the band above it is free for the legend.
     ax1.set_ylim(0, 135)
     ax1.set_yticks(range(0, 101, 20))
-    ax1.set_title("A. Cross-Validated Accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
-    ax1.legend(frameon=False, loc="upper right", fontsize=7.2)
+    ax1.set_title("A. Outer-fold accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
+    ax1.legend(frameon=False, loc="upper right")
 
-    # Panel B: the out-of-fold AUC and F1 the decoder returns, against chance. The result
-    # carries no decision scores, so no ROC curve can be drawn from it.
+    # Panel B: the out-of-fold AUC and F1 the decoder returns. The result carries no decision
+    # scores, so no ROC curve can be drawn from it.
     scores = [res["auc"], res["f1"]]
     ax2.bar([0, 1], scores, color=C_VIOLET, width=0.5, edgecolor=C_DARK, lw=0.6)
     for i, value in enumerate(scores):
-        ax2.text(i, value + 0.02, f"{value:.2f}", ha="center", va="bottom", fontsize=7.5)
-    ax2.axhline(0.5, color=C_GRAY, ls=":", lw=1.0, label="Chance (0.50)")
+        ax2.annotate(f"{value:.2f}", (i, value), xytext=(0, 3), textcoords="offset points",
+                     ha="center", va="bottom", fontsize=style.SMALL)
+    ax2.hlines(AUC_CHANCE, -0.4, 0.4, color=C_GRAY, ls=":", lw=1.2,
+               label=f"Chance AUC ({AUC_CHANCE:.2f})")
     ax2.set_xticks([0, 1])
     ax2.set_xticklabels(["AUC", "F1"])
     ax2.set_ylim(0, 1.3)
     ax2.set_yticks(np.linspace(0.0, 1.0, 6))
     ax2.set_ylabel("Out-of-fold score")
-    ax2.set_title("B. Out-of-Fold AUC and F1", pad=8)
-    ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
+    ax2.set_title("B. Out-of-fold AUC and F1\n(pooled over the outer folds)", pad=8)
+    ax2.legend(frameon=False, loc="upper right")
 
     fig.tight_layout()
     _save(fig, "fig07_population_decoding.png")
     plt.close(fig)
 
 
+#: fig08's number of sign-flip draws, for the drawn null and for the p-value.
+N_DRAWS = 2000
+NULL_QUANTILE = 95.0
+
+
 def fig08_permutation():
-    """Figure 8: Within-group permutation null distribution and hypothesis testing."""
-    fig, ax = plt.subplots(figsize=(6.5, 3.2), dpi=180)
+    """Figure 8: Within-pair sign-flip null distribution and a one-sided p-value."""
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.3), dpi=style.DPI)
 
     rng = np.random.default_rng(101)
     n = 60
-    # Paired fire rate differences with true positive effect
-    diffs = rng.normal(0.18, 0.45, n)
-    obs_diff = float(np.mean(diffs))
+    # Paired firing rates (Hz) under two conditions, with a true positive difference
+    effect = rng.normal(0.18, 0.45, n)
+    rate_b = rng.normal(10.0, 2.0, n)
+    rate_a = rate_b + effect
+    diffs = rate_a - rate_b
 
-    # Permutation test via paired sign flips (within-group / within-pair exchangeability)
-    n_shuffles = 2000
-    flips = rng.choice([-1.0, 1.0], size=(n_shuffles, n))
-    null_dist = flips @ diffs / n
-    p_val = float((1.0 + np.sum(null_dist >= obs_diff)) / (n_shuffles + 1.0))
+    # The null: condition labels exchanged within each pair, which flips that pair's sign
+    values = np.concatenate([rate_a, rate_b])
+    labels = np.repeat([1, 0], n)
+    pairs = np.tile(np.arange(n), 2)
+    null = np.empty(N_DRAWS)
+    for i in range(N_DRAWS):
+        swapped = jnwb.permute_labels(labels, groups=pairs, scheme="within_group", rng=rng)
+        null[i] = np.where(swapped == 1, 1.0, -1.0) @ values / n
+    observed, p_value, _ = jnwb.exact_sign_flip(diffs, alternative="greater", n_mc=N_DRAWS, rng=rng)
 
-    ax.hist(null_dist, bins=35, color=C_LIGHT_GRAY, edgecolor=C_GRAY, lw=0.5, density=True, label="Permutation Null (Sign-Flips)")
-    ax.axvline(obs_diff, color=C_RED, lw=2.0, label=f"Observed Difference ({obs_diff:.3f})")
-    ax.axvline(np.percentile(null_dist, 95), color=C_GOLD, ls="--", lw=1.2, label="95th Percentile (α=0.05)")
+    ax.hist(null, bins=35, color=C_LIGHT_GRAY, edgecolor="none", density=True,
+            label="Sign-flip null (labels exchanged within pairs)")
+    ax.axvline(observed, color=C_RED, lw=2.0, label=f"Observed mean difference ({observed:.3f} Hz)")
+    ax.axvline(np.percentile(null, NULL_QUANTILE), color=C_GOLD, ls="--", lw=1.2,
+               label=f"{NULL_QUANTILE:.0f}th percentile of the null")
+    top = ax.get_ylim()[1]
+    ax.set_ylim(0, top * 1.45)
+    ax.annotate(f"one-sided\nMonte Carlo\np = {p_value:.4f}", xy=(observed, top * 1.2),
+                xytext=(-6, 0), textcoords="offset points", ha="right", va="center",
+                fontsize=style.SMALL, fontweight="bold", color=C_RED)
 
-    ax.annotate(
-        f"Monte Carlo p = {p_val:.4f}\n(Exact (1 + Σ) / (N + 1))",
-        xy=(obs_diff, 1.5), xytext=(obs_diff * 0.6, 3.2),
-        fontsize=8.0, fontweight="bold", color=C_RED,
-        arrowprops=dict(arrowstyle="->", color=C_RED, lw=1.0),
-    )
-
-    ax.set_xlabel("Mean Paired Difference (Δ Fire Rate)")
-    ax.set_ylabel("Probability Density")
-    ax.set_title("Paired Sign-Flip Permutation Null", pad=8)
-    ax.legend(frameon=False, loc="upper left", fontsize=7.5)
+    ax.set_xlabel("Mean paired difference (Hz)")
+    ax.set_ylabel("Probability density (1/Hz)")
+    ax.set_title("Paired sign-flip null (jnwb.exact_sign_flip, jnwb.permute_labels)", pad=8)
+    ax.legend(frameon=False, loc="upper left")
 
     fig.tight_layout()
     _save(fig, "fig08_permutation_null.png")
     plt.close(fig)
 
 
+#: fig09's Granger order and the band its net PSI sums.
+GC_ORDER = 15
+PSI_BAND = (10.0, 45.0)
+
+
 def fig09_directed_connectivity():
     """Figure 9: Directed Functional Connectivity (Granger causality & Phase Slope Index)."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.4, 3.2), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.4), dpi=style.DPI)
 
     fs = 1000.0
     n_trials = 30
@@ -467,37 +515,47 @@ def fig09_directed_connectivity():
     y_trials[:, lag:] += 0.8 * x_filt[:, :-lag]
 
     # Panel A: Granger causality
-    gc = jnwb.granger(x_filt, y_trials, order=15)
-    bars = ax1.bar(["X → Y\n(simulated lead)", "Y → X\n(none simulated)"], [gc.x_to_y, gc.y_to_x], color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
+    gc = jnwb.granger(x_filt, y_trials, order=GC_ORDER)
+    bars = ax1.bar(["X → Y\n(simulated lead)", "Y → X\n(none simulated)"], [gc.x_to_y, gc.y_to_x],
+                   color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
     for b_item, val, p_val in zip(bars, [gc.x_to_y, gc.y_to_x], [gc.p_x_to_y, gc.p_y_to_x]):
         p_str = "p < 0.001" if p_val < 0.001 else f"p = {p_val:.3f}"
-        ax1.text(b_item.get_x() + b_item.get_width() / 2, val + 0.01, f"{val:.3f}\n({p_str})", ha="center", fontsize=7.2)
-    ax1.set_ylabel("Log Variance Ratio")
-    ax1.set_ylim(0, max(gc.x_to_y, gc.y_to_x) * 1.35)
-    ax1.set_title("A. Bivariate Granger Causality\n(jnwb.granger, order=15)", pad=8)
+        ax1.annotate(f"{val:.3f}\n({p_str})", (b_item.get_x() + b_item.get_width() / 2, val),
+                     xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                     fontsize=style.SMALL)
+    ax1.set_ylabel("Log variance ratio")
+    ax1.set_ylim(0, max(gc.x_to_y, gc.y_to_x) * 1.4)
+    ax1.set_title(f"A. Bivariate Granger causality\n(jnwb.granger, order={GC_ORDER})", pad=8)
 
-    # Panel B: Phase Slope Index
-    psi = jnwb.phase_slope_index(x_filt, y_trials, fs=fs, bands=(10.0, 45.0))
-    freqs = psi.spectrum["freqs"]
-    freq_centers = (freqs[:-1] + freqs[1:]) / 2.0
+    # Panel B: Phase Slope Index, per frequency bin, with the band the net value sums
+    psi = jnwb.phase_slope_index(x_filt, y_trials, fs=fs, bands=PSI_BAND)
+    psi_freqs = psi.spectrum["psi_freqs"]
     psi_spec = psi.spectrum["psi_per_freq"]
-    mask = (freq_centers >= 5.0) & (freq_centers <= 50.0)
+    mask = (psi_freqs >= 5.0) & (psi_freqs <= 50.0)
 
-    ax2.plot(freq_centers[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, label=f"Net PSI = {psi.x_to_y:+.3f}\n(Positive = X leads Y)")
+    ax2.axvspan(*PSI_BAND, color=C_GOLD, alpha=0.2, lw=0,
+                label=f"Summed band ({PSI_BAND[0]:.0f}-{PSI_BAND[1]:.0f} Hz)")
+    ax2.plot(psi_freqs[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, marker="o", ms=3.5,
+             label=f"Net PSI = {psi.x_to_y:+.3f} (positive: X leads Y)")
     ax2.axhline(0, color=C_GRAY, ls="--", lw=0.8)
     ax2.set_xlabel("Frequency (Hz)")
-    ax2.set_ylabel("PSI per Frequency Bin (dimensionless)")
-    ax2.set_title("B. Phase Slope Index Spectrum\n(jnwb.phase_slope_index)", pad=8)
-    ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
+    ax2.set_ylabel("PSI per frequency bin (dimensionless)")
+    ax2.set_title("B. Phase slope index spectrum\n(jnwb.phase_slope_index)", pad=8)
+    ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
     _save(fig, "fig09_directed_connectivity.png")
     plt.close(fig)
 
 
+#: fig10's detection threshold and contaminated trial.
+Z_THRESH = 5.0
+HIT_TRIAL = 5
+
+
 def fig10_artifact_repair():
     """Figure 10: Multichannel trial-segmented LFP artifact detection and repair."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.4, 3.2), dpi=180)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.2), dpi=style.DPI)
 
     rng = np.random.default_rng(88)
     n_trials, n_ch, n_t = 30, 8, 500
@@ -505,41 +563,39 @@ def fig10_artifact_repair():
     seg = rng.normal(0, 1.0, (n_trials, n_ch, n_t))
     seg += 1.8 * np.sin(2 * np.pi * 12.0 * t / 1000.0)
 
-    # Inject massive synchronous transient at trial 5
-    hit_trial = 5
-    seg[hit_trial, :, 180:240] += 35.0
+    # Inject massive synchronous transient
+    seg[HIT_TRIAL, :, 180:240] += 35.0
 
-    repaired, frac, diag = jnwb.repair_lfp_trials(seg, times_ms=t, z_thresh=5.0)
-    # Both panels leave the band above the traces free for their legends.
-    y_lo = float(seg[hit_trial, :2].min())
-    y_hi = float(seg[hit_trial, :2].max())
-    y_lim = (y_lo - 2.0, y_hi + 0.7 * (y_hi - y_lo))
+    repaired, frac, diag = jnwb.repair_lfp_trials(seg, times_ms=t, z_thresh=Z_THRESH)
+    raw = seg[HIT_TRIAL, 0]
+    # Both legends sit below their axes, so the traces keep the full height.
+    y_lo, y_hi = float(raw.min()), float(raw.max())
+    y_lim = (y_lo - 2.0, y_hi + 0.08 * (y_hi - y_lo))
     y_ticks = np.arange(0.0, y_hi, 10.0)
 
-    # Panel A: Raw contaminated trial
-    ax1.plot(t, seg[hit_trial, 0], color=C_RED, lw=1.0, label="Contaminated Raw (Ch 0)")
-    ax1.plot(t, seg[hit_trial, 1], color="#e57373", lw=0.8, alpha=0.7, label="Contaminated Raw (Ch 1)")
+    # Panel A: one channel of the contaminated trial
+    ax1.plot(t, raw, color=C_RED, lw=1.0, label="Raw (contaminated), channel 0")
     ax1.set_xlabel("Time (ms)")
-    ax1.set_ylabel("LFP (µV / a.u.)")
-    ax1.set_title(f"A. Injected Synchronous Artifact\n(Trial {hit_trial}, Peak z = {diag['synchrony_z_max']:.0f})", pad=8)
+    ax1.set_ylabel("LFP (a.u.)")
+    ax1.set_title(f"A. Injected synchronous artifact\n(trial {HIT_TRIAL}, "
+                  f"peak z = {diag['synchrony_z_max']:.0f})", pad=8)
     ax1.set_ylim(*y_lim)
     ax1.set_yticks(y_ticks)
-    ax1.legend(frameon=False, loc="upper right", fontsize=7.2)
+    ax1.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
-    # Panel B: Cleaned vs Repaired overlay
-    ax2.plot(t, seg[hit_trial, 0], color=C_GRAY, lw=1.2, label="Original Artifact Envelope")
-    ax2.plot(t, repaired[hit_trial, 0], color=C_VIOLET, lw=1.2, label="Repaired (Median Substitution)")
-    # The window is shaded over the traces' range only, so it stays clear of the legend band.
+    # Panel B: the same channel before and after repair
+    ax2.plot(t, raw, color=C_GRAY, lw=1.2, label="Raw (contaminated)")
+    ax2.plot(t, repaired[HIT_TRIAL, 0], color=C_VIOLET, lw=1.2, label="Repaired (median substitution)")
     # The shaded samples are the detector's output: every sample the repair changed on any channel.
-    replaced = np.any(repaired[hit_trial] != seg[hit_trial], axis=0)
+    replaced = np.any(repaired[HIT_TRIAL] != seg[HIT_TRIAL], axis=0)
     ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=C_GOLD, alpha=0.2, lw=0,
-                     label="Samples replaced (z_thresh=5.0)")
+                     label=f"Samples replaced (z_thresh = {Z_THRESH:.1f})")
     ax2.set_ylim(*y_lim)
     ax2.set_yticks(y_ticks)
     ax2.set_xlabel("Time (ms)")
-    ax2.set_ylabel("LFP (µV / a.u.)")
-    ax2.set_title("B. Repaired Signal Overlay\n(jnwb.repair_lfp_trials)", pad=8)
-    ax2.legend(frameon=False, loc="upper right", fontsize=7.2)
+    ax2.set_ylabel("LFP (a.u.)")
+    ax2.set_title("B. Repaired signal overlay\n(jnwb.repair_lfp_trials)", pad=8)
+    ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
 
     fig.tight_layout()
     _save(fig, "fig10_artifact_repair.png")
