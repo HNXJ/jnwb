@@ -70,6 +70,9 @@ FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
 FACT_HEADER = ("ID", "Domain", "Predicate", "Held by", "Ruled")
 FACT_TABLES = ("Boundary", "Design", "Identity", "Science", "Skills", "Release")
 CONSTANT_HEADER = ("Constant", "Values", "Ruled")
+#: The section that ends the fact tables; every section between the first fact table and it
+#: must be a fact table.
+CONSTANTS_HEADING = "Constants"
 
 _ADDRESS = re.compile(r" at 0x[0-9A-Fa-f]+")
 _BACKTICKED = re.compile(r"`([^`]+)`")
@@ -119,26 +122,46 @@ def _fact_like(header: Sequence[str]) -> bool:
                              or "Predicate" in header)
 
 
+def _fact_region(text: str) -> List[str]:
+    """The section headings from the first fact table's heading up to ``Constants``."""
+    headings = [line[3:].strip() for line in text.splitlines() if line.startswith("## ")]
+    start = next((i for i, h in enumerate(headings) if h in FACT_TABLES), None)
+    if start is None:
+        return []
+    end = next((i for i in range(start, len(headings)) if headings[i] == CONSTANTS_HEADING),
+               len(headings))
+    return headings[start:end]
+
+
 def read_facts(text: str) -> List[Dict[str, Any]]:
     """The typed fact rows of ``text``: one dict per row, with its table and its holders.
 
-    Raises ``FactSourceError`` on a fact-like header that is not the fact header, a row of the
-    wrong width, or a fact ID used twice.
+    Raises ``FactSourceError`` on a fact-like header that is not the fact header; on a section
+    between the first fact table and ``Constants`` that is not one of ``FACT_TABLES``, or a
+    table there whose header is not the fact header, whatever its header says; on a row of the
+    wrong width; on an empty fact ID; and on a fact ID used twice.
     """
+    region = _fact_region(text)
+    strays = [h for h in region if h not in FACT_TABLES]
+    if strays:
+        raise FactSourceError(f"sections {strays} sit among the fact tables and are not one of "
+                              f"{list(FACT_TABLES)}")
     facts: List[Dict[str, Any]] = []
     seen: Dict[str, str] = {}
     for table, header, rows in _all_tables(text):
         if tuple(header) != FACT_HEADER:
-            if _fact_like(header):
-                raise FactSourceError(f"section {table!r}: the table header {header} looks "
-                                      f"like a fact table and is not {list(FACT_HEADER)}")
+            if _fact_like(header) or table in region:
+                raise FactSourceError(f"section {table!r}: the table header {header} is not "
+                                      f"the fact header {list(FACT_HEADER)}")
             continue
         for row in rows:
             if len(row) != len(FACT_HEADER):
                 raise FactSourceError(f"{table}: a fact row has {len(row)} cells, not "
                                       f"{len(FACT_HEADER)}: {row}")
             fact_id, domain, predicate, held_by, ruled = row
-            fact_id = fact_id.strip("`")
+            fact_id = fact_id.strip("`").strip()
+            if not fact_id:
+                raise FactSourceError(f"{table}: a fact row has an empty ID: {row}")
             if fact_id in seen:
                 raise FactSourceError(f"fact {fact_id} appears in {seen[fact_id]} and {table}")
             seen[fact_id] = table

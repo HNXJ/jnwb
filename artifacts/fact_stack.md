@@ -62,7 +62,7 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 
 | ID | Domain | Predicate | Held by | Ruled |
 |---|---|---|---|---|
-| I1 | numeric public operations | each declares input signal class, output estimand, unit, and frame or index base, and composition edges type-check | `todo:10-10` | fact stack; Q11 2026-09-29 |
+| I1 | numeric public operations | each declares input signal class, estimator, output estimand, unit, and frame or index base; none of the five is silently substituted across a `jnwb` boundary, and composition edges type-check | `todo:10-10` | fact stack; Q11 2026-09-29 |
 | I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `todo:10-10` | fact stack; Q11 2026-09-29 |
 | I3 | a `jnwb` function boundary | units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently; an intentional break is stated at the change site | `todo:10-10` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3) |
 

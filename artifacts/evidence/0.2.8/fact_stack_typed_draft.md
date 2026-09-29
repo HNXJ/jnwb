@@ -71,7 +71,7 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 
 | ID | Domain | Predicate | Held by | Ruled |
 |---|---|---|---|---|
-| I1 | numeric public operations | each declares input signal class, output estimand, unit, and frame or index base, and composition edges type-check | `todo:10-10` | fact stack; Q11 2026-09-29 |
+| I1 | numeric public operations | each declares input signal class, estimator, output estimand, unit, and frame or index base; none of the five is silently substituted across a `jnwb` boundary, and composition edges type-check | `todo:10-10` | fact stack; Q11 2026-09-29 |
 | I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `todo:10-10` | fact stack; Q11 2026-09-29 |
 | I3 | a `jnwb` function boundary | units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently; an intentional break is stated at the change site | `todo:10-10` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3) |
 
@@ -155,7 +155,7 @@ not this draft, changed the clause's form.
 | fact: scientific choices | jnwb supplies primitives | D1 |
 | fact: composable operations | jnwb exposes composable operations and ships no fixed scientific pipeline or study-specific workflow graph | D1 (ruled Q8: defined by delegation) |
 | fact: composable operations | downstream projects compose calls and own sequencing choices that affect interpretation | D1 ("names every sequenced choice as a parameter") |
-| fact: estimator identity | signal class, estimator, units and frame are never silently substituted across a boundary | I1, I2 |
+| fact: estimator identity | signal class, estimator, units and frame are never silently substituted across a boundary | I1 (signal class, estimator, estimand, unit, frame; ruled 2026-09-29 that I1 names the estimator), I2 |
 | fact: estimator identity | a wrapper or default that would change the estimand names the choice or fails | I2 |
 | fact: skill creation | a skill is created only when a coherent surface exists, has routing complexity, and no existing skill handles it more simply | K5 |
 | fact: skill creation | skill count is not an objective; a declining or ad-hoc-implementation skill is not created | K5 |

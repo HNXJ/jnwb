@@ -167,14 +167,24 @@ def test_the_six_fact_tables_are_read_and_constants_beside_them():
     assert build_fact_graph.read_constants(text) == {"k": ["3"]}
 
 
+SEVENTH = "## Tooling\n\n| Key | Area | Claim | Holder | When |\n|---|---|---|---|---|\n| X9 | d | p | h | r |\n\n"
+CONSTANTS_SECTION = "## Constants\n\n| Constant | Values | Ruled |\n|---|---|---|\n| `k` | `3` | r |\n"
+
+
 @pytest.mark.parametrize("text, message", [
     (fact_source(header="| ID | Domain | Predicate | Held-by | Ruled |\n|---|---|---|---|---|\n"),
-     "looks like a fact table"),
+     "is not the fact header"),
     (fact_source(rows=["| T0 | d | p | `gate:1` | r |\n"] * 6), "fact T0 appears in"),
+    (fact_source(rows=["| | d | p | `gate:1` | r |\n"] + [
+        f"| T{i} | d | p | `gate:1` | r |\n" for i in range(1, 6)]), "empty ID"),
     (fact_source(tables=build_fact_graph.FACT_TABLES[:5]), "not exactly"),
     (fact_source(tables=build_fact_graph.FACT_TABLES + ("Extra",),
-                 rows=[f"| T{i} | d | p | `gate:1` | r |\n" for i in range(7)]), "not exactly"),
-], ids=["header typo", "duplicate id", "missing table", "extra table"])
+                 rows=[f"| T{i} | d | p | `gate:1` | r |\n" for i in range(7)]), "not one of"),
+    (fact_source() + SEVENTH + CONSTANTS_SECTION, "not one of"),
+    (fact_source() + SEVENTH.replace("## Tooling\n\n", "") + CONSTANTS_SECTION,
+     "is not the fact header"),
+], ids=["header typo", "duplicate id", "empty id", "missing table", "extra fact table",
+        "seventh section with an untriggering header", "second table inside a fact section"])
 def test_a_malformed_fact_source_is_refused(tmp_path, text, message):
     path = tmp_path / "facts.md"
     path.write_bytes(text.encode("utf-8"))

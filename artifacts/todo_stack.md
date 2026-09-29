@@ -301,7 +301,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
 - S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
 - S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
-- K1 partition with k = 3 exclusive operations per shipped domain skill; the planned-skill list moves here as plan. Check: a two-operation planted skill is VIOLATED.
+- K1 partition with k = 3 exclusive operations per shipped domain skill. Check: a two-operation planted skill is VIOLATED.
 - Planned skills, moved from the fact stack as plan (Q14): the planned set is twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` are gated on their public APIs and neither is a required endpoint: if the router can route a capability cleanly, no skill is manufactured for it. Check: each planned skill is created only when K1 and K5 hold for it.
 Accept: the Science and Skills tables report no UNHELD fact.
 Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
