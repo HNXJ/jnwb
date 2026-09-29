@@ -154,43 +154,58 @@ class TestNJobsDoesNotChangeResults:
     def test_directed_network_is_invariant_to_worker_and_blas_thread_count(self):
         """Bit identity at a length where the BLAS dot product threads.
 
-        The test above uses 6 trials of 400 samples, so every sum in the fit runs over a
-        few thousand rows and BLAS keeps it on one thread. At 12000 samples the residual
-        sum of squares crossed that threshold: its rounding followed the BLAS thread count,
-        which differs between the parent and each worker, and ``matrix`` moved by about
-        1e-9 relative with ``n_jobs`` and with the thread count of a serial call.
+        The test above uses 6 trials of 400 samples, so every sum in the fit runs over
+        about 2400 rows and BLAS keeps it on one thread. At 12000 samples the residual sums
+        crossed the threshold of about ten thousand: their rounding followed the BLAS thread
+        count, which differs between the parent and each worker, and ``matrix`` moved by
+        about 1e-9 relative with ``n_jobs`` and with the thread count of a serial call. The
+        Ljung-Box p-values in each pair's diagnostics moved the same way, so every numeric
+        leaf of the result is compared, not only the two matrices.
+
+        On this fixture the case arises only where BLAS threads the dot product; elsewhere
+        the assertions hold trivially and lose nothing.
         """
         threadpoolctl = pytest.importorskip("threadpoolctl")
         from jnwb.connectivity import directed_network
 
-        n_times = 12000
-        # The case this test is named for exists only where the BLAS dot product gives
-        # different roundings at one thread and at the default; otherwise nothing below
-        # could fail.
-        probe = np.random.default_rng(0).standard_normal((8, n_times))
-        default_dots = [np.dot(v, v) for v in probe]
-        with threadpoolctl.threadpool_limits(limits=1):
-            single_dots = [np.dot(v, v) for v in probe]
-        if default_dots == single_dots:
-            pytest.skip(f"the BLAS dot product does not thread at {n_times} elements here")
-
         gen = np.random.default_rng(3)
-        sig = gen.standard_normal((4, n_times))
+        sig = gen.standard_normal((4, 12000))
         sig[1, 3:] += 0.5 * sig[0, :-3]
+
+        def leaves(value, path):
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    yield from leaves(item, f"{path}.{key}")
+            elif isinstance(value, (list, tuple)):
+                for i, item in enumerate(value):
+                    yield from leaves(item, f"{path}[{i}]")
+            elif isinstance(value, (float, int, np.number, np.ndarray)) and not isinstance(
+                value, (bool, np.bool_)
+            ):
+                yield path, np.asarray(value)
 
         def run(n_jobs):
             out = directed_network(sig, method="granger", n_jobs=n_jobs)
-            return out["matrix"], out["p_matrix"]
+            found = {
+                name: out[name] for name in ("matrix", "p_matrix", "q_matrix")
+            }
+            for pair, res in out["results"].items():
+                for attr in ("x_to_y", "y_to_x", "net", "p_x_to_y", "p_y_to_x"):
+                    found[f"{pair}.{attr}"] = np.asarray(getattr(res, attr), dtype=float)
+                found.update(leaves(res.diagnostics, f"{pair}.diagnostics"))
+            return found
 
-        m1, p1 = run(1)
+        serial = run(1)
+        assert any("ljung_box_pvalue" in key for key in serial)
         with threadpoolctl.threadpool_limits(limits=1):
-            m_one, p_one = run(1)
-        np.testing.assert_array_equal(m_one, m1)
-        np.testing.assert_array_equal(p_one, p1)
+            one_thread = run(1)
+        runs = {"BLAS threads=1": one_thread}
         for n_jobs in (2, 4, 8, -1):
-            m, p = run(n_jobs)
-            np.testing.assert_array_equal(m, m1, err_msg=f"n_jobs={n_jobs}")
-            np.testing.assert_array_equal(p, p1, err_msg=f"n_jobs={n_jobs}")
+            runs[f"n_jobs={n_jobs}"] = run(n_jobs)
+        for label, got in runs.items():
+            assert got.keys() == serial.keys(), label
+            for key, ref in serial.items():
+                np.testing.assert_array_equal(got[key], ref, err_msg=f"{label}: {key}")
 
     def test_defaults_are_serial(self):
         """A library that saturates every core by default fights the caller's own pool."""

@@ -1106,7 +1106,7 @@ def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float) -> Tuple[float, np
 def _sum_of_products(a: np.ndarray, b: np.ndarray) -> float:
     """``sum(a * b)`` in an order fixed by the length alone.
 
-    ``np.dot`` on two vectors calls the BLAS dot product, which above a few thousand
+    ``np.dot`` on two vectors calls the BLAS dot product, which above about ten thousand
     elements splits the sum across threads; its rounding then depends on the BLAS thread
     count, and a worker process runs a different count from the parent. NumPy's pairwise
     ``sum`` does not thread.
