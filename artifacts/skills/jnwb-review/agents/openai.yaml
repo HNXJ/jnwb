@@ -1,0 +1,5 @@
+interface:
+  display_name: jnwb-review
+  description: Review checks for jnwb. Lists what a review applies to each changed artifact - computation, figure, prose, statistics and citation.
+policy:
+  allow_implicit_invocation: true

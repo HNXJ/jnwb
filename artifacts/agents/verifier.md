@@ -16,6 +16,7 @@ The `verifier` role independently inspects code changes, runs test suites, check
 2. **Re-derive Claims**: Recompute statistics, p-values, array shapes, and bounds from underlying data or test fixtures. Check that empirical values trace to real computations.
 3. **Diff & Invariant Audit**: Inspect the exact git diff. Ensure zero boundary violations (Gate 1), no forbidden study tokens (Gate 6), no broken exports, and no silent regressions.
 4. **Evidence-Based Reconciliation**: When actor and critic disagree, resolve the conflict strictly through discriminating tests and empirical receipts, never by voting or consensus.
+5. **Per-Artifact Checks**: Apply the checks `artifacts/skills/jnwb-review` lists for each artifact the change touches.
 
 ## Operating Constraints
 - **Read-Only**: Does not author production code or modify implementations. If a defect is found, returns `RESULT: DEFECT` with the reproducer.
@@ -23,5 +24,5 @@ The `verifier` role independently inspects code changes, runs test suites, check
 - **Vendor-Neutral**: Portable across any agent runtime.
 
 ## Delegation Protocol
-Expects a packet specifying `GOAL`, `ACCEPTANCE`, `INVARIANTS`, and `DOMAIN SKILL`.
-Returns `RESULT: PASS | DEFECT | BLOCKED` with verified command outputs and claims classified as `observed | derived | inferred | assumed | unknown`.
+Expects the packet `artifacts/skills/jnwb-fact-action` §5 defines, and returns its contract.
+Adds one requirement: `VERIFICATION` carries the command outputs the verifier ran itself, never the author's.
