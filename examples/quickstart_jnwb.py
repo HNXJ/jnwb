@@ -14,8 +14,13 @@ WHY SIMULATED, AND HOW IT IS MARKED
     is labelled SIMULATED in the figure itself, per this repo's rule that synthetic content is
     never presented as measured. No number here is an empirical result about any dataset.
 
+STYLE
+    Fonts, size tiers and the figure width come from `docs/figure_style.py`, the module every
+    documentation figure uses, so the script runs from a checkout.
+
 OUTPUT
-    examples/figures/jnwb_quickstart.{svg,png} and jnwb_quickstart.dark.png
+    examples/figures/jnwb_quickstart.{svg,png} and jnwb_quickstart.dark.png. Two runs write the
+    same bytes: the SVG carries no date and its element ids come from a fixed salt.
 """
 from __future__ import annotations
 
@@ -27,9 +32,7 @@ from pathlib import Path
 # Python puts THIS directory on sys.path, not the repository root, so a plain
 # `import jnwb` resolves to whatever happens to be installed. Running this file from a
 # checkout while an older jnwb sits in site-packages renders a figure of that older
-# library, and every panel still says CORRECT. Prefer the checkout this file belongs to;
-# a copy downloaded next to a pip-installed jnwb finds no sibling package and is
-# unaffected.
+# library, and every panel still says CORRECT. Prefer the checkout this file belongs to.
 # A run that is deliberately qualifying an installed copy says so with
 # JNWB_EXPECTED_PACKAGE_ROOT, and then this guard stands aside.
 _CHECKOUT = Path(__file__).resolve().parents[1]
@@ -37,30 +40,54 @@ if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") and (
     _CHECKOUT / "jnwb" / "__init__.py"
 ).exists():
     sys.path.insert(0, str(_CHECKOUT))
+if str(_CHECKOUT / "docs") not in sys.path:
+    sys.path.append(str(_CHECKOUT / "docs"))
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt          # noqa: E402
 import numpy as np                       # noqa: E402
 
+import figure_style as style             # noqa: E402
 import jnwb                              # noqa: E402
 
 FS = 1000.0
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
+#: Seeds the SVG element ids, so two runs write the same file.
+SVG_SALT = "jnwb-quickstart"
 
 #: Foreground colours per theme. The figure is drawn on a transparent background twice: the light
 #: theme writes jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png.
 THEMES = {
-    "light": {"FG": "#222222", "FG2": "#444444", "FG3": "#333333", "FAINT": "#BBBBBB",
-              "ACCENT": "#08306B", "TRUTH": "#1B7837", "BAD": "#8B0000",
+    "light": {"FG": "#2d2d2d", "FG2": "#555555", "FG3": "#2d2d2d", "FAINT": "#8a8a8a",
+              "ACCENT": "#7048e8", "TRUTH": "#2e7d32", "BAD": "#c62828",
               "stem": "jnwb_quickstart", "formats": ("svg", "png")},
-    "dark": {"FG": "#e6e6e6", "FG2": "#bbbbbb", "FG3": "#cccccc", "FAINT": "#666666",
-             "ACCENT": "#6baed6", "TRUTH": "#5aae61", "BAD": "#ef6f6c",
+    "dark": {"FG": "#e0e0e0", "FG2": "#bbbbbb", "FG3": "#cccccc", "FAINT": "#707070",
+             "ACCENT": "#9775fa", "TRUTH": "#66bb6a", "BAD": "#ef6f6c",
              "stem": "jnwb_quickstart.dark", "formats": ("png",)},
 }
 COLOURS = ("FG", "FG2", "FG3", "FAINT", "ACCENT", "TRUTH", "BAD")
 FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD = (THEMES["light"][k] for k in COLOURS)
-NEUTRAL = "#999999"
+#: The second series of a comparison, as in the documentation figures.
+GOLD = "#c3aa5f"
+
+
+def _signed(value: float) -> str:
+    """One decimal with its sign, and zero printed as +0.0 rather than -0.0."""
+    return f"{round(value, 1) + 0.0:+.1f}"
+
+
+def _label_bars(ax, values, text) -> None:
+    """Write `text(v)` just above each bar, or above zero for a negative bar."""
+    for i, v in enumerate(values):
+        ax.annotate(text(v), xy=(i, max(v, 0.0)), xytext=(0, 2), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=style.SMALL, color=FG3)
+
+
+def _headroom(ax, share: float) -> None:
+    """Raise the top of the y axis by `share` of its span, so a legend sits above the data."""
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi + share * (hi - lo))
 
 
 def panel_artifact(ax) -> str:
@@ -84,7 +111,8 @@ def panel_artifact(ax) -> str:
     ax.plot(t, repaired[hit[0], 0], color=ACCENT, lw=0.9, label="after repair_lfp_trials")
     ax.set_xlabel("time (ms)")
     ax.set_ylabel("LFP (a.u.)")
-    ax.legend(frameon=False, fontsize=6.5, loc="upper left")
+    _headroom(ax, 0.45)
+    ax.legend(frameon=False, loc="upper left")
     ok = diag["n_flagged_cells"] == expected and touched == hit
     return (f"flagged {diag['n_flagged_cells']} of {expected} injected (trial, time) cells in "
             f"trials {touched} ({'EXACT' if ok else 'MISMATCH'}); peak synchrony z = "
@@ -94,26 +122,29 @@ def panel_artifact(ax) -> str:
 def panel_band_power(ax) -> str:
     """Band-limited power against a baseline: jnwb.band_power + jnwb.CANONICAL_BANDS."""
     rng = np.random.default_rng(1)
+    injected_hz = 22.0
     t = np.arange(4000) / FS
     base = rng.normal(0, 1, t.size)
-    boost = base + 3.0 * np.sin(2 * np.pi * 22.0 * t)            # a real beta increase
+    boost = base + 3.0 * np.sin(2 * np.pi * injected_hz * t)     # a real beta increase
     names = list(jnwb.CANONICAL_BANDS)
     db = [
         jnwb.band_power(boost, fs=FS, freq_range=jnwb.CANONICAL_BANDS[b], baseline=base)
         for b in names
     ]
-    cols = ["#3d5afe", "#EE0000", "#FF8C00", "#FF00FF", "#00A000"]
-    ax.bar(range(len(names)), db, color=cols, width=0.62)
+    ax.bar(range(len(names)), db, color=ACCENT, width=0.62)
     ax.axhline(0, color=FG2, lw=0.8)
     ax.set_xticks(range(len(names)))
-    ax.set_xticklabels([n.replace("_", "\n") for n in names], fontsize=6.5)
-    for i, v in enumerate(db):
-        ax.text(i, v + 0.5, f"{v:+.1f}", ha="center", fontsize=6.2, color=FG3)
+    ax.set_xticklabels([n.replace("_", "\n") for n in names])
+    _label_bars(ax, db, _signed)
     ax.set_ylabel("power vs baseline (dB)")
-    ax.set_ylim(min(0, min(db)) - 1, max(db) * 1.22)
-    win = names[int(np.argmax(db))]
-    ax.annotate("22 Hz injected here", xy=(2, db[2]), xytext=(2.6, max(db) * 0.75),
-                fontsize=6.5, color=TRUTH,
+    ax.set_ylim(min(0, min(db)) - 1, max(db) * 1.25)
+    top = int(np.argmax(db))
+    win = names[top]
+    # The label sits over the empty bars left of the largest one, and its arrow meets that
+    # bar's left edge below its value label.
+    ax.annotate(f"{injected_hz:.0f} Hz injected here", xy=(top - 0.31, db[top] * 0.75),
+                xytext=(top - 0.55, max(db) * 0.95), ha="right", va="center",
+                fontsize=style.SMALL, color=TRUTH,
                 arrowprops=dict(arrowstyle="->", color=TRUTH, lw=0.8))
     return f"largest increase in {win} ({'CORRECT' if win == 'beta' else 'UNEXPECTED'})"
 
@@ -122,7 +153,7 @@ def panel_onset(ax) -> str:
     """Causal smoothing and a causality-bounded onset fit: causal_exp_smooth, fit_exponential_onset."""
     rng = np.random.default_rng(2)
     bin_ms, t0_true, tau_true = 5.0, 120.0, 25.0
-    t = np.arange(-300.0, 500.0, bin_ms)
+    t = np.arange(-500.0, 500.0, bin_ms)
     rate = 5.0 + 20.0 * np.where(t >= t0_true, 1 - np.exp(-(t - t0_true) / tau_true), 0.0)
     noisy = rate + rng.normal(0, 1.5, t.size)
     sm = jnwb.causal_exp_smooth(noisy, bin_ms=bin_ms, tau_ms=30.0)
@@ -130,12 +161,14 @@ def panel_onset(ax) -> str:
 
     ax.plot(t, noisy, color=FAINT, lw=0.7, label="simulated rate")
     ax.plot(t, sm, color=ACCENT, lw=1.4, label="causal_exp_smooth")
-    ax.axvline(t0_true, color=TRUTH, lw=1.2, ls="--", label=f"true onset {t0_true:.0f} ms")
-    ax.axvline(fit["t0"], color=BAD, lw=1.2, label=f"fitted $t_0$ {fit['t0']:.0f} ms")
+    ax.axvline(t0_true, color=TRUTH, lw=1.2, ls="--", label="true $t_0$")
+    ax.axvline(fit["t0"], color=BAD, lw=1.2, label="fitted $t_0$")
     ax.set_xlabel("time (ms)")
     ax.set_ylabel("rate (Hz)")
-    ax.legend(frameon=False, fontsize=6.2, loc="upper left")
-    return f"recovered $t_0$ within {abs(fit['t0'] - t0_true):.0f} ms, $R^2$ = {fit['r2']:.2f}"
+    # Upper left: before the onset the rate sits at its floor, so the key fits there.
+    ax.legend(frameon=False, loc="upper left")
+    return (f"true $t_0$ {t0_true:.0f} ms, fitted {fit['t0']:.0f} ms: within "
+            f"{abs(fit['t0'] - t0_true):.0f} ms, $R^2$ = {fit['r2']:.2f}")
 
 
 def panel_permutation(ax) -> str:
@@ -158,7 +191,7 @@ def panel_permutation(ax) -> str:
     # on a single value. jnwb will not produce that null any more: with one label per
     # group every permutation is the identity, so the "null" is a point mass and any
     # p-value from it is 1.0 by construction. The refusal states the same lesson more
-    # strongly than the degenerate histogram did, so it is drawn rather than avoided.
+    # strongly than the degenerate histogram did, so its own first sentence is the caption.
     try:
         within = [acc(jnwb.permute_labels(y, groups=groups, scheme="within_group",
                                           rng=rng)) for _ in range(300)]
@@ -166,17 +199,12 @@ def panel_permutation(ax) -> str:
         caption = ("a within-group null on group-constant labels cannot move; the "
                    "global null can, and would look significant")
     except ValueError as refusal:
-        ax.text(0.5, 0.55, "scheme=\"within_group\"\nrefused", transform=ax.transAxes,
-                ha="center", va="center", fontsize=7.5, color=BAD, weight="bold")
-        ax.text(0.5, 0.34, textwrap.fill(str(refusal).split(":")[0], 34),
-                transform=ax.transAxes, ha="center", va="center", fontsize=5.8,
-                color=BAD)
-        caption = ("the within-group null is refused here, not merely narrow: labels are "
-                   "nested in groups, so every permutation is the identity. The global "
-                   "null does move, and would look significant")
+        caption = (f"refused: {str(refusal).split('. ')[0]}. The global null does move, "
+                   "and would look significant")
     ax.set_xlabel("readout accuracy under the null")
     ax.set_ylabel("permutations")
-    ax.legend(frameon=False, fontsize=6.2, loc="upper left")
+    _headroom(ax, 0.6)
+    ax.legend(frameon=False, loc="upper left")
     return caption
 
 
@@ -190,13 +218,11 @@ def panel_connectivity(ax) -> str:
         x[i] = 0.55 * x[i - 1] + rng.normal(0, 1)
         y[i] = 0.35 * y[i - 1] + 0.60 * x[i - 2] + rng.normal(0, 1)
     r = jnwb.granger(x, y, order="auto")
-    ax.bar([0, 1], [r.x_to_y, r.y_to_x], color=[ACCENT, NEUTRAL], width=0.55)
+    ax.bar([0, 1], [r.x_to_y, r.y_to_x], color=[ACCENT, GOLD], width=0.55)
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(["X $\\rightarrow$ Y\n(true direction)", "Y $\\rightarrow$ X"], fontsize=7)
-    for i, v in enumerate((r.x_to_y, r.y_to_x)):
-        ax.text(i, v + max(r.x_to_y, 1e-3) * 0.03, f"{v:.3f}", ha="center", fontsize=6.5,
-                color=FG3)
-    ax.set_ylabel("Granger influence")
+    ax.set_xticklabels(["X $\\rightarrow$ Y\n(true direction)", "Y $\\rightarrow$ X"])
+    _label_bars(ax, (r.x_to_y, r.y_to_x), lambda v: f"{v:.3f}")
+    ax.set_ylabel(f"Granger influence ({r.unit})")
     ax.set_ylim(0, max(r.x_to_y, r.y_to_x) * 1.20)
     ok = r.x_to_y > r.y_to_x
     return (f"net = {r.net:+.3f} in the simulated direction "
@@ -212,14 +238,14 @@ def panel_decoding(ax) -> str:
     X_nul = rng.normal(0, 1, (n, d))                             # nothing to decode
     a = jnwb.nested_cv_linear_svm(X_sig, labels, n_splits=5)
     b = jnwb.nested_cv_linear_svm(X_nul, labels, n_splits=5)
-    ax.bar([0, 1], [a["accuracy"], b["accuracy"]], color=[ACCENT, NEUTRAL], width=0.55)
+    ax.bar([0, 1], [a["accuracy"], b["accuracy"]], color=[ACCENT, GOLD], width=0.55)
     ax.axhline(a["majority_baseline_accuracy"], color=TRUTH, lw=1.3, ls="--",
                label="majority baseline")
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(["signal present", "no signal"], fontsize=7)
+    ax.set_xticklabels(["signal present", "no signal"])
     ax.set_ylabel("accuracy")
     ax.set_ylim(0, 1)
-    ax.legend(frameon=False, fontsize=6.5, loc="lower right")
+    ax.legend(frameon=False, loc="upper right")
     return (f"{a['accuracy']:.2f} with signal vs {b['accuracy']:.2f} without; "
             "the baseline is returned, never assumed to be 0.5")
 
@@ -232,6 +258,8 @@ PANELS = [
     ("Directed connectivity", "jnwb.granger", panel_connectivity),
     ("Population decoding", "jnwb.nested_cv_linear_svm", panel_decoding),
 ]
+#: Characters per caption line, for a caption as wide as its panel.
+CAPTION_WIDTH = 48
 
 
 def main() -> None:
@@ -244,33 +272,37 @@ def main() -> None:
     global FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD
     for theme in THEMES.values():
         FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD = (theme[k] for k in COLOURS)
-        plt.rcParams.update({"font.family": "serif", "font.size": 8, "axes.titlesize": 8.5,
-                             "svg.fonttype": "none", "axes.linewidth": 0.8,
-                             "figure.facecolor": "none", "axes.facecolor": "none",
-                             "savefig.transparent": True, "text.color": FG,
-                             "axes.labelcolor": FG, "xtick.color": FG, "ytick.color": FG,
-                             "axes.edgecolor": FG2, "legend.labelcolor": FG})
-        fig, axes = plt.subplots(2, 3, figsize=(11.0, 6.8))
-        fig.subplots_adjust(hspace=0.70, wspace=0.30, left=0.06, right=0.985, top=0.855,
-                            bottom=0.155)
+        style.apply()
+        plt.rcParams.update({"svg.fonttype": "none", "svg.hashsalt": SVG_SALT,
+                             "text.color": FG, "axes.labelcolor": FG, "axes.titlecolor": FG,
+                             "xtick.color": FG, "ytick.color": FG, "axes.edgecolor": FG2,
+                             "legend.labelcolor": FG})
+        fig, axes = plt.subplots(3, 2, figsize=(style.WIDTH, 11.0), dpi=style.DPI)
+        fig.subplots_adjust(hspace=1.1, wspace=0.34, left=0.09, right=0.98, top=0.89,
+                            bottom=0.08)
 
         for ax, (title, api, fn) in zip(axes.ravel(), PANELS):
             caption = fn(ax)
-            ax.set_title(f"{title}\n{api}", loc="left", fontsize=8, color=FG)
-            ax.text(0.0, -0.28, "\n".join(textwrap.wrap(caption, 62)), transform=ax.transAxes,
-                    fontsize=6.4, color=FG2, va="top")
+            ax.set_title(f"{title}\n{api}", loc="left", fontsize=style.LABEL)
+            # Below the x-axis label, whatever its height, and as wide as the panel.
+            ax.annotate("\n".join(textwrap.wrap(caption, CAPTION_WIDTH)), xy=(0.0, 0.0),
+                        xycoords=("axes fraction", ax.xaxis.label), xytext=(0, -3),
+                        textcoords="offset points", ha="left", va="top",
+                        fontsize=style.SMALL, color=FG2)
             print(f"  {api:44s} {caption}")
 
         fig.suptitle("jnwb quickstart - six operations, each checked against a known ground truth",
-                     fontsize=12, y=0.965)
-        fig.text(0.5, 0.917, "ALL DATA ON THIS FIGURE IS SIMULATED. No panel is an empirical "
-                             "result about any recording.", ha="center", fontsize=8, color=BAD,
-                 style="italic")
+                     fontsize=style.TITLE, y=0.975)
+        fig.text(0.5, 0.945, "ALL DATA ON THIS FIGURE IS SIMULATED. No panel is an empirical "
+                             "result about any recording.", ha="center", fontsize=style.LABEL,
+                 color=BAD, style="italic")
         for ext in theme["formats"]:
             p = os.path.join(OUT, f"{theme['stem']}.{ext}")
-            fig.savefig(p, dpi=200)
+            # An SVG records its creation date unless told not to; a PNG records none.
+            fig.savefig(p, dpi=style.DPI, metadata={"Date": None} if ext == "svg" else None)
             print(f"wrote {p}")
         plt.close(fig)
+
 
 if __name__ == "__main__":
     main()

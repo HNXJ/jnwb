@@ -48,10 +48,11 @@ import numpy as np
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.png#only-light)
 ![jnwb Quickstart Figure](assets/jnwb_quickstart.dark.png#only-dark)
 
-Each of the six panels is one operation on synthetic data: artifact repair, band power, onset
-fitting, label permutation, Granger causality and nested-CV decoding. The figure is committed
-output from a run of the command below; if a panel disagrees with what the script prints on
-your machine, the script is authoritative.
+Each panel is one operation on synthetic data: artifact repair (`repair_lfp_trials`), band
+power (`band_power`), onset fitting (`causal_exp_smooth`, `fit_exponential_onset`), permutation
+(`permute_labels`), Granger (`granger`) and decoding (`nested_cv_linear_svm`). The figure is
+committed output from a run of the command below; if a panel disagrees with the script's output
+on your machine, the script is authoritative.
 
 ```bash
 python examples/quickstart_jnwb.py
