@@ -298,7 +298,7 @@ Waits: both copies must pass today, so nothing passes falsely.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
 - S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
 - S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
 - K1 partition with k = 3 exclusive operations per shipped domain skill. Check: a two-operation planted skill is VIOLATED.
@@ -516,7 +516,7 @@ Stop: none beyond the standing ones.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `jnwb/_declarations.py`.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`.
 - I1 declared signature types for every numeric public operation, and type-checked composition edges. Check: a spikes-to-LFP-only edge, planted, is VIOLATED.
 - B3 lexicon and exceptions table. Check: a planted defaulted `window=` with no cited reason is VIOLATED.
 Accept: the Identity table and B3 report no UNHELD fact.
@@ -650,7 +650,7 @@ Waits: public API; Hamm rules the surface.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
 - D1 delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED.
 - D2 and D3 category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED.
 Accept: the Design table reports no UNHELD fact.
@@ -789,10 +789,10 @@ Waits: neither directory ships.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `tests/test_harness_gate_study_tokens.py`.
+Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`.
 - R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function.
 - B2: Gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit repaired or shown generic. Check: a planted study token in `tests/` fails.
-Accept: `scripts/ontology_gate.py` prints UNHELD 0 and VIOLATED 0.
+Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
 Stop: a workflow change would alter the ruled publication order.
 
 ### 12-08 Every routed method cites a published source
