@@ -48,23 +48,9 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 1 | 07-01 |
-| 2 | 07-29, by hand before the release pull request merges |
+| 1 | 07-29, by hand before the release pull request merges |
 
 The 0.2.8 items are not scheduled in this cycle.
-
-### 07-01 Findings carried from 0.2.6
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: per finding. Blocked by: none.
-Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`.
-Each finding below was deferred under `AGENTS.md` section 11 during 0.2.6 and meets the blocker
-predicate by the independent classification of 2026-09-27; the findings that do not are in 07-26
-under 0.2.8. The second pass of that date added P-240 and clauses of P-241, P-331 and P-332,
-and folded clauses of P-336 and P-348 into P-327 and P-349. A packet takes one finding and
-narrows the write set to its paths. P-345 leads.
-
-- IB-99: `zflip` accepts a wrong velocity when one end contact carries a signal independent of the others (a contact outside cortex, in CSF or on a broken channel): with 5 bins in band a random phase often reaches R² 0.7, two independent signals over about 61 segments often reach wPLI 0.15, the coupled pairs carry the omnibus surrogate test, and the depth fit takes the outlier at the end, so about 7 in 100 such recordings are accepted with a delay 3.2 to 5.3 times the true one (14 in 100 before the pair gate). Float32 or int16 ramps and dense piecewise-linear contacts are instances. Required for 0.2.7 (R1, classified 2026-09-28): an accepted delay can be wrong (invariant 8). Ruled by Hamm: each adjacent pair's wPLI must beat its own phase-randomised surrogate null at `alpha` before the pair is identifiable. Check: the independent-end-contact construction, seeds 10000 to 10099 with bandpassed, white and 1/f² noise, is accepted at a rate within the surrogate test's level, an interior independent contact is measured too, the clean-wave delay is unchanged, and the CHANGELOG says so.
 
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
@@ -420,8 +406,8 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: the shipped hover is correct, infinite values are documented as gaps, and the empty case fails loudly.
 - Directed estimator edges: `transfer_entropy`'s `bias_corrected_*` values keep the Miller-Madow term on data and surrogates, so under zero-lag mixing they sit off zero (+1.6e-3 bits at 4 bins, +2.0e-2 at 8); `directed_network(method="psi", jackknife=False)` returns an all-NaN `q_matrix` with `fdr_family_size` 0 and no warning; the TE large-n excess of about one degree of freedom near n = 4000 to 8000 has an inferred mechanism (rare history cells) that no test pins. Check: the docstring says the corrected values are not zero-centred under dependence, `directed_network` warns when no pair returns a p, and a record states the measured excess by n.
   deferred-0.2.8: no p depends on the corrected values, the missing q is visible as NaN, and the TE residue is stated in the docstring and page with its measured size.
-- Zflip long ramps: in a recording with a constant or round-off-linear contact no pair is identifiable, since the surrogates are skipped, where the pairs that do not touch that contact could take their own nulls; the zero-gradient refusal is now unreachable through the public API, a kept guard; cumsum-built ramps longer than about 32000 samples exceed the 1000-eps ramp width (3430 at 1e5 samples), where a unit-SD signal on a 1e12 offset measures 4503, so no single width separates them at that length. Check: a long cumsum ramp is refused by a rule that does not refuse the offset signal.
-  deferred-0.2.8: the pair coupling test refuses a long-ramp contact at level `alpha`.
+- Zflip long ramps: in a recording with a constant or round-off-linear contact no pair is identifiable, since the surrogates are skipped, where the pairs that do not touch that contact could take their own nulls; the zero-gradient refusal is now unreachable through the public API, a kept guard that no test reaches (a `zero_width = 0` mutant survives); the docs-operation check of the fewer-than-3-bins statement runs at `n_surrogates=0`, where `accepted` is always False, so it tests nothing; cumsum-built ramps longer than about 32000 samples exceed the 1000-eps ramp width (3430 at 1e5 samples), where a unit-SD signal on a 1e12 offset measures 4503, so no single width separates them at that length. Check: a long cumsum ramp is refused by a rule that does not refuse the offset signal.
+  deferred-0.2.8: at defaults the `min_wpli` gate refuses long ramps first and the pair coupling test refuses a long-ramp contact at level `alpha`.
 - MCP signal reference edges: no test pins the channel axis of a `channel_by_time` series in the reader check; a TimeSeries carrying a `channel_conversion` outside the schema reports it while the reader ignores it; `acquisition_channel` accepts an infinite rate; the sweep row for the MCP module omits the reference tool's own handler.
   deferred-0.2.8: each fails loudly or needs a file outside the schema, and no shipped number changes.
 - Sweep site fingerprint: a reviewed handler edited in place keeps its site key, so a changed return passes under its old reason. Check: a key that carries a fingerprint of the handler body, with the row churn it causes weighed, or the gap kept stated.
