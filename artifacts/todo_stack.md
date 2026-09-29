@@ -137,11 +137,13 @@ Stop: a rule would change meaning.
 
 Release: required-0.2.8.
 Role: jnwb-developer. Skill: none. Blocked by: 08-05.
-Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`.
+Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`.
 - RP-3: the release gate stops at its first failure after a 12 to 30 minute suite. Check: state freshness, the extracted smoke script and the release body run before the suite.
 - RP-4: the full matrix ran four times on one commit at release. Check: skip a run whose tree already passed, and measure the saving.
 - Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under load. Check: a timeout scaled to the machine, or a cheaper subprocess.
 - Load-sensitive state generation: `test_generation_is_deterministic_apart_from_its_timestamp` recorded the harness gate FAILED once under load. Check: the cause named and removed.
+- Install line: `CONTRIBUTING.md` line 21 installs `.[test,docs]`, but `tests/test_docs_call_shapes.py` fails at collection without plotly (the `vis` extra); found by cowork on 2026-09-29. Check: the documented install runs the suite to collection.
+- Absent-extra handling: `test_mkdocs_strict_build` fails without the `docs` extra while `test_diagrams_render` skips; found by cowork on 2026-09-29. Check: one rule for an absent extra, applied to both.
 - xflip calibration wall time: 297 s to 503 s across lanes with identical rates. Check: dev and head back to back on one machine.
 Accept: one release-gate run on a tree with a stale state file fails within a minute.
 Stop: reordering would let a later step pass on an unverified artifact.
@@ -208,6 +210,20 @@ Accept: a test fails when a normalised invariant line appears in two skills, `do
 excluded; a restated `docs/` definition becomes the link; the summed length of the skills does not
 grow.
 Stop: removing a restatement leaves a routing row without a dimension its operation requires.
+
+### 08-09 The fact stack as typed tables, with the ontology gate
+
+Release: required-0.2.8.
+AUTONOMY: none for the landing of `artifacts/fact_stack.md`; the draft is `max`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `artifacts/fact_stack.md`, `scripts/build_ontology.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `.gitignore`.
+Ruled 2026-09-29 (quiz Q1 to Q19, `artifacts/rulings/2026-09-29.md`).
+- The fact stack as six tables of typed predicate rows with their constant tables, drafted from today's facts and `AGENTS.md` §4 with no change of meaning. Check: Hamm approves the draft; a map from every old clause to a row is returned.
+- `scripts/build_ontology.py` writes the generated graph (entities from `jnwb.__all__` and signatures, docs pages, routing rows, tests and gates; relations implements, documents, routes, verifies, constrains), git-ignored like `artifacts/state.md`. Check: regenerated twice at one commit, byte-identical.
+- `scripts/ontology_gate.py` reports every fact HELD, VIOLATED or UNHELD and fails on VIOLATED; a harness gate runs it. Check: a planted violation of one HELD fact fails it; the UNHELD count is printed.
+- The lifecycle chain (Q10) is the first computed fact. Check: a routed operation with no test is VIOLATED.
+Accept: the gate runs in the harness with 0 VIOLATED; each UNHELD fact names the item that holds it.
+Stop: a fact's meaning would change in the rewrite.
 
 # 0.2.9
 
@@ -342,6 +358,17 @@ Writes: `scripts/docs_form_gate.py`, `scripts/docs_build.py`, `tests/test_docume
 Accept: the gate and tests share one implementation per rule; the suite leaves the tree clean.
 Stop: merging would drop a case one copy catches.
 Waits: both copies must pass today, so nothing passes falsely.
+
+### 09-04 Science and Skills facts held
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 08-09.
+Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+- S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
+- S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
+- K1 partition with k = 3 exclusive operations per shipped domain skill; the planned-skill list moves here as plan. Check: a two-operation planted skill is VIOLATED.
+Accept: the Science and Skills tables report no UNHELD fact.
+Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 # 0.2.10
 
@@ -526,6 +553,16 @@ Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`,
 Accept: each check passes.
 Stop: none beyond the standing ones.
 
+### 10-10 Identity and scientific-choice facts held
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 08-09.
+Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `jnwb/_declarations.py`.
+- I1 declared signature types for every numeric public operation, and type-checked composition edges. Check: a spikes-to-LFP-only edge, planted, is VIOLATED.
+- B3 lexicon and exceptions table. Check: a planted defaulted `window=` with no cited reason is VIOLATED.
+Accept: the Identity table and B3 report no UNHELD fact.
+Stop: a declaration would change a public signature without a ruling.
+
 # 0.2.11
 
 Theme: NWB reading and writing are complete: every container `inspect` lists is readable, and the
@@ -624,6 +661,16 @@ Accept: a cache key includes input hash, parameters and version, with an invalid
 control changes a number.
 Stop: a control would change a number.
 Waits: public API; Hamm rules the surface.
+
+### 11-03 Design facts held
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 08-09.
+Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+- D1 delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED.
+- D2 and D3 category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED.
+Accept: the Design table reports no UNHELD fact.
+Stop: a category outside the ruled allowlists would be needed.
 
 # 0.2.12
 
@@ -738,6 +785,16 @@ Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONT
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 Stop: an id is a literal a parser fixture needs.
 Waits: neither directory ships.
+
+### 12-07 Release and study-vocabulary facts held; no fact UNHELD
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 08-09.
+Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `tests/test_harness_gate_study_tokens.py`.
+- R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function.
+- B2: Gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit repaired or shown generic. Check: a planted study token in `tests/` fails.
+Accept: `scripts/ontology_gate.py` prints UNHELD 0 and VIOLATED 0.
+Stop: a workflow change would alter the ruled publication order.
 
 ## Out of scope for 0.2.8 to 0.2.12
 
