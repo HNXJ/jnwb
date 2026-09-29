@@ -171,9 +171,7 @@ trigger and table repair, and the verification lines are done. The figure-test s
 and the `AGENTS.md` §7 line to 08-06, so the lanes share no file. `.claude/` is git-ignored, so the
 verifier dispatch file is a local step and not a tracked write. Ruled by the integrator (85): the
 MCP tool count stays in `docs/agents.md`, because a test holds it to the live registry.
-- Role files point to one contract: `authority.md` points to `AGENTS.md` §3; each role expects the §5 packet and adds only its own fields; docs-harness loses its skill count and both "100%".
 - `artifacts/skills/` line endings levelled, with Gate 16 held per tree (`decisions.md` D3).
-- `artifacts/skills/jnwb-review` holds the review table from the audit; critic, verifier, docs-harness and fact-action V point to it.
 - Landmark-viz checks: the layout sentence and its checks bullet become one inspect-the-PNG check, with a render-at-final-size line.
 - One skill table: the router's table and `docs/agents.md` agree, held by a test. Check: the lfp-spectral, spiking and nwb-data rows, which differ today, are reconciled.
 - Unit-quality wording: "Visual QC" becomes "unit-quality plots" in `docs/09_decoding_and_visual_qc.md`, its nav label and `docs/common_mistakes.md`, with any fig07 sentence 08-03 reports.
