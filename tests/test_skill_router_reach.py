@@ -3,7 +3,8 @@
 `skills/jnwb/SKILL.md` is the entry point: a skill it never names is reachable only by an
 agent that already knows it exists. Each skill also carries its description twice, in the
 SKILL.md frontmatter and in `agents/openai.yaml`, and a host reads whichever file it loads;
-two texts for one description let the two hosts route differently.
+two texts for one description let the two hosts route differently. The router's routing table
+is copied onto `docs/agents.md` for readers without a checkout, and the copy is held equal to it.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import yaml
 
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 ROUTER = SKILLS / "jnwb" / "SKILL.md"
+DOCS_AGENTS = SKILLS.parent / "docs" / "agents.md"
+ROUTING_HEADER = "| Task | Skill |"
 
 
 def _skill_dirs() -> list[str]:
@@ -50,9 +53,24 @@ def test_a_skill_named_only_outside_the_routing_section_is_unreached() -> None:
     assert "`jnwb-x`" in section and "`jnwb-demo`" not in section
 
 
+_ROW_HEAD_END = re.compile(r"`:\s")
+
+
 def _routed_operations(text: str) -> list[str]:
-    """The `jnwb.` operation each routing bullet opens with, in order."""
-    return re.findall(r"^- `(jnwb\.[\w.]+)", text, re.M)
+    """Every `jnwb.` operation a routing bullet routes, in order.
+
+    A routing bullet opens with one or more backticked calls and ends its head at the colon
+    after the last of them. Every call in the head is routed by that bullet; a call named in
+    the description after the colon is a mention, not a route.
+    """
+    found: list[str] = []
+    for line in text.splitlines():
+        if not line.startswith("- `jnwb."):
+            continue
+        end = _ROW_HEAD_END.search(line)
+        head = line[: end.start() + 1] if end else line
+        found.extend(re.findall(r"`(jnwb\.[\w.]+)", head))
+    return found
 
 
 def test_each_operation_has_one_routing_row() -> None:
@@ -66,20 +84,76 @@ def test_each_operation_has_one_routing_row() -> None:
     assert not shared, f"operations routed by more than one row: {shared}"
 
 
-def test_a_row_repeated_in_two_skills_is_found() -> None:
-    row = "- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Binned arrays.\n"
-    assert _routed_operations(row + "- plain bullet\n") == ["jnwb.raster_psth"]
+def test_the_row_parser_reads_every_call_a_bullet_routes() -> None:
+    rows = (
+        "- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Binned arrays.\n"
+        "- `jnwb.audit_units(nwb)`, `jnwb.audit_electrodes(nwb)`: Two audits.\n"
+        "- `jnwb.jrsa(x1, x2)`: Reverse of `jnwb.granger(X, Y)`.\n"
+        "- plain bullet naming `jnwb.band_power(x)`\n"
+    )
+    assert _routed_operations(rows) == [
+        "jnwb.raster_psth", "jnwb.audit_units", "jnwb.audit_electrodes", "jnwb.jrsa"]
 
 
-def test_the_docs_skill_table_is_the_skill_directories_and_states_no_count() -> None:
+def test_a_second_call_routed_in_two_skills_is_found() -> None:
+    """The second call of a two-call bullet is a route: routed again elsewhere, it is shared."""
+    first = "- `jnwb.audit_units(nwb)`, `jnwb.audit_electrodes(nwb)`: Two audits.\n"
+    second = "- `jnwb.audit_electrodes(nwb)`: One audit.\n"
+    assert set(_routed_operations(first)) & set(_routed_operations(second)) == {
+        "jnwb.audit_electrodes"}
+
+
+def _table_rows(text: str, header: str) -> list[str]:
+    """The body rows of the first table whose header line is `header`, stripped."""
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == header), None)
+    assert start is not None, f"no table headed {header!r}"
+    rows = []
+    for line in lines[start + 1:]:
+        line = line.strip()
+        if not line.startswith("|"):
+            break
+        if not re.fullmatch(r"\|(?:\s*:?-+:?\s*\|)+", line):
+            rows.append(line)
+    return rows
+
+
+_COUNT_WORDS = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+"
+_SKILL_COUNT = re.compile(rf"\b(?:{_COUNT_WORDS})\b(?= (?:[\w-]+ )?skills\b)", re.I)
+
+
+def _stated_skill_counts(text: str) -> list[str]:
+    """Every number written in front of "skills", with at most one word between them."""
+    return _SKILL_COUNT.findall(text)
+
+
+def test_the_docs_skill_table_is_the_routers_table() -> None:
+    """`docs/agents.md` kept a second skill table that disagreed with the router's."""
+    router = _table_rows(_routing_section(ROUTER.read_text(encoding="utf-8")), ROUTING_HEADER)
+    docs = _table_rows(DOCS_AGENTS.read_text(encoding="utf-8"), ROUTING_HEADER)
+    assert router, "the router's routing table has no rows"
+    assert docs == router, "docs/agents.md's routing table differs from the router's"
+
+
+def test_the_docs_page_names_every_skill_and_states_no_count() -> None:
     """`docs/agents.md` wrote the skill count in prose, a second copy of the directory listing."""
-    page = (SKILLS.parent / "docs" / "agents.md").read_text(encoding="utf-8")
-    table = page.partition("| Skill | Covers |")[2].partition("\n\n")[0]
-    listed = re.findall(r"^\| `([\w-]+)` \|", table, re.M)
-    assert sorted(listed) == _skill_dirs(), f"the table lists {listed}"
-    words = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+"
-    counted = re.findall(rf"\b(?:{words})\b(?= (?:domain )?skills\b)", page, re.I)
+    page = DOCS_AGENTS.read_text(encoding="utf-8")
+    named = sorted(set(re.findall(r"`(jnwb(?:-[\w-]+)?)`", page)) & set(_skill_dirs()))
+    assert named == _skill_dirs(), f"docs/agents.md names only {named}"
+    counted = _stated_skill_counts(page)
     assert not counted, f"docs/agents.md states a skill count: {counted}"
+
+
+@pytest.mark.parametrize("text", ["Nine shipped skills", "nine domain skills", "9 skills"])
+def test_a_planted_skill_count_is_caught(text: str) -> None:
+    assert _stated_skill_counts(f"The repository has {text} in it.")
+
+
+def test_a_skill_table_row_changed_on_one_side_is_caught() -> None:
+    table = f"{ROUTING_HEADER}\n|---|---|\n| Spike trains | `jnwb-spiking` |\n\nAfter.\n"
+    assert _table_rows(table, ROUTING_HEADER) == ["| Spike trains | `jnwb-spiking` |"]
+    changed = table.replace("Spike trains", "Spike trains and LFP")
+    assert _table_rows(changed, ROUTING_HEADER) != _table_rows(table, ROUTING_HEADER)
 
 
 @pytest.mark.parametrize("skill", _skill_dirs())

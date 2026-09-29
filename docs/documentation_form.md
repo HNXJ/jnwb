@@ -37,12 +37,13 @@ page violates a rule, the fix goes to the generator or the script it includes.
 | F5 | One surface form per concept, taken from the vocabulary list. | machine-checked against the [vocabulary list](#vocabulary) below |
 | F6 | Every figure is referenced by the prose next to it, and no page carries a figure that repeats what its adjacent table already says. | review |
 | F7 | No page states a fact that a gate or a test does not enforce and no command in the page demonstrates. | review |
+| F8 | No term from the [slop lexicon](#slop-lexicon) appears in prose. | machine-checked against the lexicon below, across `docs/`, `README.md`, `skills/` and the tutorial scripts |
 
 F1 had two violations, at `04_spectral_analysis_and_tfr.md:103` and
 `06_spikes_psth_and_onset_dynamics.md:74` — both a function name used as a heading, both now
 `###`. The count is zero and is machine-checked, so it stays zero without being watched.
 
-`scripts/docs_form_gate.py` runs F1, F5, the navigation rules N1, N2, N3 and N5, figure rule
+`scripts/docs_form_gate.py` runs F1, F5, F8, the navigation rules N1, N2, N3 and N5, figure rule
 G2, and the F2 detector, and prints one PASS or FAIL line for each. The rows whose column reads
 review are checked by a reader: F3, F4, F6, F7, N4 and G3.
 
@@ -105,6 +106,24 @@ Terms measured and found to be one concept under two spellings are on the first 
 measured and found to be two concepts — `shank` against `probe`, `region` against `area`,
 `site` against `channel` — are not, because every occurrence of each was the right word.
 
+## Slop lexicon
+
+F8's list. Each term is matched as a whole word, in any case, in prose with code spans stripped,
+so the terms are backticked here for the same reason as the vocabulary. A term on this list says
+nothing a plain word would not, or claims a quality instead of stating the fact that would show it.
+
+| Kind | Terms |
+|---|---|
+| Inflated verbs | `delve`, `delves`, `delving`, `leverage`, `leverages`, `leveraged`, `leveraging`, `unlock`, `unlocks`, `empower`, `empowers`, `embark`, `embarks`, `showcase`, `showcases`, `showcasing`, `unleash`, `unleashes`, `supercharge`, `revolutionize`, `revolutionizes`, `streamline`, `streamlines` |
+| Claimed qualities | `seamless`, `seamlessly`, `effortless`, `effortlessly`, `cutting-edge`, `state-of-the-art`, `groundbreaking`, `game-changer`, `game-changing`, `unparalleled`, `holistic`, `meticulous`, `meticulously`, `intricate`, `vibrant`, `bustling`, `pivotal`, `crucial` |
+| Figurative nouns | `tapestry`, `realm`, `testament`, `synergy`, `synergies` |
+| Filler connectives | `furthermore`, `moreover`, `notably`, `essentially`, `fundamentally`, `arguably`, `truly` |
+| Filler phrases | `it is worth noting`, `it's worth noting`, `plays a crucial role`, `in today's`, `dive into`, `deep dive`, `needless to say`, `rest assured` |
+
+Measured and left off: `robust`, which names a statistic (a robust z-score) on the pages that use
+it; `powerful`, which appears only inside a cited title, and a title is quoted, never edited;
+`comprehensive`, whose one use is a code comment in an example.
+
 ## Length
 
 A ceiling is a review trigger, not a gate. Shorter is not the acceptance condition; shorter while
@@ -113,17 +132,18 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 837, `recipes` at 348 and `agents` at 888 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 837, `recipes` at 348 sit under it |
 | Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 
-Measured 2026-09-28 with `wc -w`. Four pages sit over their ceiling, and each owes the one
+Measured 2026-09-29 with `wc -w`. Five pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
+| `agents` | 971 | it carries the router skill's routing table whole, for readers without a checkout, and a test holds the copy equal to the router; a shortened copy would fail that test |
 | `common_mistakes` | 2461 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1754 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
 | `04_spectral_analysis_and_tfr` | 1988 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |

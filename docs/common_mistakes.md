@@ -125,7 +125,7 @@ print("Fold Majority Baseline:", res["majority_baseline_accuracy"])
 This removes scaler and hyperparameter-selection leakage, not block leakage. The folds are drawn over rows with no `groups`, so trials
 from one block fall on both sides of a fold boundary and share its slow drift. Report
 `accuracy` as an upper bound on the block-held-out accuracy, as
-[Decoding & Visual QC](09_decoding_and_visual_qc.md) describes.
+[Decoding & Unit-Quality Plots](09_decoding_and_visual_qc.md) describes.
 
 ---
 

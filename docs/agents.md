@@ -80,17 +80,20 @@ Inside an unpacked sdist the skill files are present but the pages they link to 
 resolves only in a checkout.
 The pointer above is the route that works from anywhere.
 
-| Skill | Covers |
+The entry point is the router skill, `jnwb`. Its routing table, copied here, sends each task to
+the skill that covers it:
+
+| Task | Skill |
 |---|---|
-| `jnwb` | Router, scientific safeguards, entry point |
-| `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing, unit QC |
-| `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, response significance |
-| `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |
-| `jnwb-statistics` | Bootstrap, permutation, multiple comparisons, RNG |
-| `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
-| `jnwb-connectivity` | Granger, PSI, transfer entropy |
-| `jnwb-figures` | Matplotlib figures, unit-quality plots, figure export |
-| `jnwb-landmark-viz` | Plotly figures through `jnwb.vis` (the optional `vis` extra) |
+| NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| Spike trains: binning, PSTH, causal smoothing, onset latency, response significance, spike-field locking | `jnwb-spiking` |
+| LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
+| Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
+| Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
+| Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
+| Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
+| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
+| Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 The router skill carries the safeguards worth reading even if you never install a skill:
 
