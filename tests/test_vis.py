@@ -20,7 +20,9 @@ Tests:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
 import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -178,7 +180,9 @@ def test_canvas_colorbar_placement():
 
 # kaleido drives a headless browser. Two at once under `pytest -n` failed to shut down
 # intermittently, so every test that exports through it shares one xdist group, which
-# `--dist loadgroup` in pyproject.toml runs on a single worker.
+# `--dist loadgroup` in pyproject.toml runs on a single worker. The group also renders in one
+# browser for the whole session (`session_browser` in conftest.py), so no export waits on a
+# shutdown; the retry below covers a kaleido that cannot keep one.
 BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
 
 
@@ -223,6 +227,111 @@ def test_only_a_browser_shutdown_timeout_is_retried():
     with pytest.raises(RuntimeError, match="the figure is wrong"):
         retry_browser_shutdown(broken)
     assert len(calls) == 1
+
+
+@pytest.mark.xdist_group("browser_export")
+def test_exports_in_the_group_render_in_the_session_browser():
+    kaleido = pytest.importorskip("kaleido")
+    if not hasattr(kaleido, "start_sync_server"):
+        pytest.skip("this kaleido opens a browser per export")
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        kaleido.start_sync_server()  # warns when a session browser is already running
+    running = any("already open" in str(w.message) for w in seen)
+    if not running:
+        kaleido.stop_sync_server(silence_warnings=True)
+    assert running, "each export would open and shut down a browser of its own"
+
+
+def test_a_call_to_a_dead_session_browser_raises_its_ending(session_browser_parts):
+    parts = session_browser_parts
+    launch = FileNotFoundError("no browser")
+
+    class Server:
+        """kaleido's server with its thread already ended, and a call that waits forever."""
+
+        async def _server(self):
+            raise launch
+
+        def call_function(self, cmd, *args, **kwargs):
+            threading.Event().wait()
+
+    server = Server()
+    parts.install(server)
+    server.call_function.seconds = 600  # only the dead thread can end the call in time
+
+    def serve():
+        try:
+            asyncio.run(server._server())
+        except FileNotFoundError:
+            pass
+
+    server._thread = threading.Thread(target=serve)
+    server._thread.start()
+    server._thread.join()
+    out = {}
+
+    def call():
+        try:
+            server.call_function("calc_fig")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call to a dead server blocked"
+    assert isinstance(out["error"], parts.failed), out
+    assert out["error"].__cause__ is launch
+
+
+def test_a_session_browser_call_that_never_answers_raises(session_browser_parts):
+    out = {}
+
+    def call():
+        try:
+            session_browser_parts.bounded(threading.Event().wait, 0.5, "render")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call that never answers blocked past its bound"
+    assert isinstance(out["error"], session_browser_parts.failed)
+    assert "gave no render in 0.5 s" in str(out["error"])
+
+
+def test_an_empty_first_figure_fails_the_session_browser(session_browser_parts):
+    parts = session_browser_parts
+    with pytest.raises(parts.failed, match="empty figure"):
+        parts.first_figure(lambda figure, opts: b"")
+    assert parts.first_figure(lambda figure, opts: b"<svg/>") == b"<svg/>"
+
+
+def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(session_browser_parts):
+    browser_stopper = session_browser_parts.stop
+    before = threading.excepthook
+
+    class Kaleido:
+        """Raises `err` on its own thread when stopped, as kaleido's server thread does."""
+
+        def __init__(self, err):
+            self.err = err
+
+        def stop_sync_server(self, silence_warnings):
+            def close():
+                raise self.err
+
+            thread = threading.Thread(target=close)
+            thread.start()
+            thread.join()
+
+    with pytest.warns(RuntimeWarning, match="shutdown timed out"):
+        browser_stopper(Kaleido(RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)))
+    with pytest.raises(RuntimeError, match="the figure is wrong"):
+        browser_stopper(Kaleido(RuntimeError("the figure is wrong")))
+    assert threading.excepthook is before
 
 
 @pytest.mark.xdist_group("browser_export")
