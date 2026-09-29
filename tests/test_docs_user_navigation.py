@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
 MKDOCS = REPO_ROOT / "mkdocs.yml"
@@ -34,11 +36,31 @@ CONTRIBUTOR_MARKERS = (
 )
 
 
+def nav_targets(mkdocs: Path = MKDOCS) -> list[str]:
+    """Every `.md` file on the parsed nav of `mkdocs`, in order, as written.
+
+    Read through YAML, so a commented-out line is not an entry: it is not on the site either.
+    """
+    config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+    found: list[str] = []
+
+    def walk(node):
+        if isinstance(node, str):
+            if node.endswith(".md"):
+                found.append(node)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+
+    walk(config.get("nav") or [])
+    return found
+
+
 def _nav_targets():
-    """Every `.md` file named on the nav, in order, as written."""
-    nav = MKDOCS.read_text(encoding="utf-8").split("\nnav:", 1)[1]
-    nav = nav.split("\n\n\n", 1)[0]
-    return re.findall(r":\s*([A-Za-z0-9_/\.\-]+\.md)\s*$", nav, re.M)
+    return nav_targets(MKDOCS)
 
 
 def test_the_navigation_is_read_at_all():
@@ -57,11 +79,37 @@ def test_no_page_is_listed_twice():
     assert not duplicates, f"listed more than once on the nav: {sorted(duplicates)}"
 
 
+def excluded_from_the_site(mkdocs: Path = MKDOCS) -> set[str]:
+    """The `exclude_docs` entries of `mkdocs`: files under `docs/` the build does not publish."""
+    config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+    return {line.strip() for line in (config.get("exclude_docs") or "").splitlines()
+            if line.strip() and not line.strip().startswith("#")}
+
+
+def _excluded_from_the_site():
+    return excluded_from_the_site(MKDOCS)
+
+
+def orphaned_pages(docs: Path = DOCS, mkdocs: Path = MKDOCS) -> set[str]:
+    """Pages under `docs` that the build publishes and no live nav entry reaches."""
+    present = {p.relative_to(docs).as_posix() for p in docs.rglob("*.md")}
+    return present - set(nav_targets(mkdocs)) - excluded_from_the_site(mkdocs)
+
+
 def test_no_page_is_orphaned():
-    on_nav = set(_nav_targets())
-    present = {p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md")}
-    assert present - on_nav == set(), (
-        f"pages exist but are on no nav entry: {sorted(present - on_nav)}"
+    """Every published page is on the nav. A page the build excludes is not published."""
+    orphans = orphaned_pages(DOCS, MKDOCS)
+    assert orphans == set(), f"pages exist but are on no nav entry: {sorted(orphans)}"
+
+
+def test_no_excluded_page_is_on_the_nav():
+    """An excluded page on the nav is a dead link on the site, and would hide a user page."""
+    excluded = _excluded_from_the_site()
+    assert "documentation_form.md" in excluded, (
+        "the exclusion list was not read, or the contributor contract is published again"
+    )
+    assert not excluded & set(_nav_targets()), (
+        f"excluded from the build but on the nav: {sorted(excluded & set(_nav_targets()))}"
     )
 
 
@@ -73,6 +121,21 @@ def test_no_page_on_the_user_navigation_addresses_contributors():
                 f"docs/{target} names {marker!r}, which a reader who installed jnwb does not "
                 "have; contributor material belongs in CONTRIBUTING.md or AGENTS.md"
             )
+
+
+def test_no_published_page_names_the_release_checks_or_links_the_form_contract():
+    """The landing and install pages described jnwb by its release checks, and the glossary
+    linked the contributor contract that the build no longer publishes."""
+    for page, phrase in (("index.md", "gate-enforced"), ("index.md", "release gate"),
+                         ("install.md", "gate-enforced"), ("install.md", "release gate")):
+        assert phrase not in (DOCS / page).read_text(encoding="utf-8"), (
+            f"docs/{page} says {phrase!r}, which describes a repository check, not the library"
+        )
+    pages = [p for p in DOCS.rglob("*.md") if p.name != "documentation_form.md"]
+    assert len(pages) >= 25, f"only {len(pages)} pages read"
+    linking = [p.relative_to(DOCS).as_posix() for p in pages
+               if re.search(r"\]\([^)]*documentation_form", p.read_text(encoding="utf-8"))]
+    assert not linking, f"pages link the unpublished form contract: {linking}"
 
 
 def test_the_specification_page_kept_what_only_it_documented():

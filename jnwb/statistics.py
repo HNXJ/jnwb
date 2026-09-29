@@ -31,13 +31,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from ._parallel import parallel_map, spawn_seeds
-from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import DEFAULT_SEED, RNGLike, recorded_rng, resolve_rng
 from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
 from ._spread import is_constant as _is_constant
 import pandas as pd
 from scipy import stats
 
-from .permutation import permute_labels
+from .permutation import _count_at_least_as_extreme, permute_labels
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +192,6 @@ def exact_sign_flip(
         n_total = 1 << n
         chunk_size = min(n_total, 65536)
         count = 0
-        obs_abs = abs(obs_mean)
 
         for start in range(0, n_total, chunk_size):
             end = min(start + chunk_size, n_total)
@@ -200,13 +199,7 @@ def exact_sign_flip(
             bits = (indices >> np.arange(n, dtype=np.uint32)) & 1
             signs = np.where(bits, 1.0, -1.0)
             null_means = (signs @ arr) / float(n)
-
-            if alt == "two-sided":
-                count += int(np.sum(np.abs(null_means) >= obs_abs - tol))
-            elif alt == "greater":
-                count += int(np.sum(null_means >= obs_mean - tol))
-            else:  # less
-                count += int(np.sum(null_means <= obs_mean + tol))
+            count += _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
 
         p_value = float(count / n_total)
     else:
@@ -220,12 +213,7 @@ def exact_sign_flip(
         null_means = (signs @ arr) / float(n)
 
         # Exact finite Monte Carlo p-value with (1 + k) / (B + 1)
-        if alt == "two-sided":
-            k = int(np.sum(np.abs(null_means) >= abs(obs_mean) - tol))
-        elif alt == "greater":
-            k = int(np.sum(null_means >= obs_mean - tol))
-        else:  # less
-            k = int(np.sum(null_means <= obs_mean + tol))
+        k = _count_at_least_as_extreme(null_means, obs_mean, alt, atol=tol)
 
         p_value = float((1.0 + k) / (float(n_mc) + 1.0))
         p_floor = float(1.0 / (float(n_mc) + 1.0))
@@ -306,7 +294,7 @@ def paired_fire_prob_test(
     fires_null: np.ndarray,
     n_shuffles: int,
     n_bootstrap: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
 ) -> Dict:
     """Paired binary test: P(fire | target window) vs P(fire | paired baseline window).
 
@@ -325,13 +313,14 @@ def paired_fire_prob_test(
         fires_null: (n,) bool array, the paired baseline/control condition.
         n_shuffles: number of sign-flip draws for the shuffle-null p-value.
         n_bootstrap: number of paired-bootstrap draws for the risk-difference CI.
-        rng: explicit numpy.random.Generator.
+        rng: an int seed, a numpy.random.Generator, or None for fresh OS entropy.
 
     Returns:
         dict with p_fire_target, p_fire_baseline, risk_difference (+ CI),
         odds_ratio (+ CI), p_value_fire_shuffle, n_trials. All-NaN/p=1.0 when fewer than 2
         paired trials are available.
     """
+    rng = resolve_rng(rng, func_name="paired_fire_prob_test")
     t = np.asarray(fires_target, dtype=bool)
     u = np.asarray(fires_null, dtype=bool)
     # `n = min(len(t), len(u))` silently paired trial i of one condition with trial i of
@@ -368,7 +357,8 @@ def paired_fire_prob_test(
 
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null_dist = flips @ diff / n
-    p_value = (1.0 + np.sum(null_dist >= obs)) / (n_shuffles + 1.0)
+    k = _count_at_least_as_extreme(null_dist, obs, "greater", atol=_tie_tolerance(diff))
+    p_value = (1.0 + k) / (n_shuffles + 1.0)
 
     boot_idx = rng.integers(0, n, size=(n_bootstrap, n))
     boot_diffs = diff[boot_idx].mean(axis=1)
@@ -461,7 +451,7 @@ def shuffle_pvalue_paired(
     a: np.ndarray,
     b: np.ndarray,
     n_shuffles: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
     alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a - b)`` via paired sign-flips.
@@ -474,6 +464,7 @@ def shuffle_pvalue_paired(
         ValueError: If ``a`` and ``b`` differ in length (they were truncated to the shorter,
             pairing unrelated trials), contain NaN or Inf, or ``n_shuffles`` < 1.
     """
+    rng = resolve_rng(rng, func_name="shuffle_pvalue_paired")
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     if len(a) != len(b):
@@ -489,14 +480,8 @@ def shuffle_pvalue_paired(
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
     null = flips @ diff / n
-    tol = _tie_tolerance(diff)
-    if alt == "greater":
-        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
-    elif alt == "less":
-        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
-    return obs, float(p)
+    k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(diff))
+    return obs, float((1.0 + k) / (n_shuffles + 1.0))
 
 
 def _require_alternative(alternative: str, func_name: str) -> str:
@@ -521,7 +506,7 @@ def shuffle_pvalue_unpaired(
     a: np.ndarray,
     b: np.ndarray,
     n_shuffles: int,
-    rng: np.random.Generator,
+    rng: RNGLike,
     alternative: str = "two-sided",
 ) -> Tuple[float, float]:
     """Shuffle-controlled p-value for ``mean(a) - mean(b)`` via label-shuffling.
@@ -536,6 +521,7 @@ def shuffle_pvalue_unpaired(
     Raises:
         ValueError: If ``a`` or ``b`` contains NaN or Inf, or ``n_shuffles`` < 1.
     """
+    rng = resolve_rng(rng, func_name="shuffle_pvalue_unpaired")
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
@@ -550,14 +536,8 @@ def shuffle_pvalue_unpaired(
     for i in range(n_shuffles):
         rng.shuffle(pooled)
         null[i] = float(np.mean(pooled[:n_a]) - np.mean(pooled[n_a:]))
-    tol = _tie_tolerance(pooled)
-    if alt == "greater":
-        p = (1.0 + np.sum(null >= obs - tol)) / (n_shuffles + 1.0)
-    elif alt == "less":
-        p = (1.0 + np.sum(null <= obs + tol)) / (n_shuffles + 1.0)
-    else:
-        p = (1.0 + np.sum(np.abs(null) >= abs(obs) - tol)) / (n_shuffles + 1.0)
-    return obs, float(p)
+    k = _count_at_least_as_extreme(null, obs, alt, atol=_tie_tolerance(pooled))
+    return obs, float((1.0 + k) / (n_shuffles + 1.0))
 
 
 def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
@@ -654,14 +634,14 @@ def shuffle_r2_ci(
         "shuffle_r2_ci",
     )
     r2_obs = _r2(y_true, y_score)
-    rng = np.random.default_rng(random_state)
+    rng = resolve_rng(random_state, func_name="shuffle_r2_ci")
     null = np.empty(n_shuffle)
     scheme = "global" if groups is None else "within_group"
     for i in range(n_shuffle):
         y_perm = permute_labels(y_true, groups=groups, scheme=scheme, rng=rng)
         null[i] = _r2(y_perm, y_score)
     # Every comparison against a NaN is False, which would put p at its floor, 1/(B+1).
-    k = int(np.sum(null >= r2_obs))
+    k = _count_at_least_as_extreme(null, r2_obs, "greater")
     p_val = float((1 + k) / (n_shuffle + 1)) if np.isfinite(r2_obs) else float("nan")
     return {
         "r2_observed": r2_obs,
@@ -1267,7 +1247,8 @@ class StatisticalAnalysis:
             perm_y = combined[perm_idx[n_x:]]
             perm_diffs[i] = np.mean(perm_x) - np.mean(perm_y)
 
-        k = int(np.sum(np.abs(perm_diffs) >= np.abs(obs_diff) - _tie_tolerance(combined)))
+        k = _count_at_least_as_extreme(perm_diffs, obs_diff, "two-sided",
+                                       atol=_tie_tolerance(combined))
         p_value = (1 + k) / (n_permutations + 1)
 
         return {
@@ -1539,11 +1520,18 @@ def cross_modal_comparison(
         lag_range_ms: (min_ms, max_ms) lag window to search; only used when ``bin_ms`` is given.
         bin_ms: bin width in ms of the (already frequency/trial-reduced) 1D series. ``None``
             skips the lag sweep and preserves the original zero-lag-only behavior.
+        n_permutations: circular shifts in the null of ``lag_corrected_pvalue``.
+        rng: randomness of that null: an ``int`` seed, a ``Generator``, from which one child
+            seed is drawn and used, or ``None`` (default) for fresh OS entropy. The result's
+            ``surrogate_seed_entropy`` is the seed that ran, and passing it back as ``rng``
+            reproduces ``lag_corrected_pvalue``; it is ``None`` when no sweep ran. ``seed``
+            is the old spelling and still works.
 
     Returns:
         dict with correlation (StatisticalAnalysis.correlate output at the best lag), n_samples,
         lag_ms (0.0 unless a sweep ran), lfp_leads_spikes (True when the best lag is negative,
-        i.e. the TFR/LFP signal is shifted earlier than spikes), interpretation -- or
+        i.e. the TFR/LFP signal is shifted earlier than spikes), surrogate_seed_entropy,
+        interpretation -- or
         {'error': ...} when inputs are missing or too short.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='cross_modal_comparison')
@@ -1614,6 +1602,7 @@ def cross_modal_comparison(
             'n_samples': n_pts,
             'lag_ms': 0.0,
             'lfp_leads_spikes': False,
+            'surrogate_seed_entropy': None,
             'interpretation': 'Zero-lag linear correlation between trial-averaged LFP envelope and spike counts',
         }
 
@@ -1665,12 +1654,15 @@ def cross_modal_comparison(
     # 600-sample series holds only about six non-overlapping windows of 101 lags: whichever
     # window contains the global maximum wins, so the restricted p cannot resolve below
     # about 1/6. The full-circle null measured 4.0%.
-    gen = np.random.default_rng(seed)
+    gen, seed_entropy = recorded_rng(seed, "cross_modal_comparison")
     null_max = np.empty(int(n_permutations), dtype=float)
     for b in range(int(n_permutations)):
         y_null = np.roll(y, int(gen.integers(1, n_pts)))
         null_max[b] = max(_abs_pearson(*_lag_align(x, y_null, sh)) for sh in shifts)
-    lag_corrected_p = float((1 + np.sum(null_max >= best_abs_r)) / (int(n_permutations) + 1))
+    lag_corrected_p = float(
+        (1 + _count_at_least_as_extreme(null_max, best_abs_r, "greater"))
+        / (int(n_permutations) + 1)
+    )
 
     # How small a corrected p this configuration can even produce. A circular shift lands a
     # genuine peak back inside the searched window with probability about
@@ -1694,6 +1686,7 @@ def cross_modal_comparison(
         'n_lags_searched': len(shifts),
         'uncorrected_pvalue': float(best_corr['parametric']['pval']),
         'lag_corrected_pvalue': lag_corrected_p,
+        'surrogate_seed_entropy': seed_entropy,
         'significant_lag_corrected': bool(lag_corrected_p < 0.05),
         'lag_search_resolution_floor': float(resolution_floor),
         'warnings': (
@@ -1734,10 +1727,12 @@ def cluster_permutation_test(
 
     Finite Monte Carlo p-values are computed with exact pseudo-count correction:
         p = (1 + k) / (B + 1)
-    where k is the number of permutation draws at least as extreme as the observed cluster:
-        - For tail='greater': k = sum(max_null_stats >= observed_stat)
-        - For tail='less':    k = sum(max_null_stats <= observed_stat)
-        - For tail='both':    k = sum(max_null_stats >= abs(observed_stat))
+    where k is the number of permutation draws at least as extreme as the observed cluster,
+    with tol = 100 * eps * |observed_stat| so that a draw reproducing the observed split with
+    its sum taken in another order counts:
+        - For tail='greater': k = sum(max_null_stats >= observed_stat - tol)
+        - For tail='less':    k = sum(max_null_stats <= observed_stat + tol)
+        - For tail='both':    k = sum(max_null_stats >= abs(observed_stat) - tol)
 
     Args:
         X: Sample array for condition 1, shape (n_samples_X, ...).
@@ -1897,19 +1892,46 @@ def cluster_permutation_test(
         constant = _is_constant(x1, axis=0) & _is_constant(x2, axis=0)
         return _finite_t(m1 - m2, se, constant, x1[0] - x2[0])
 
+    def _labelled_maps(t_map: np.ndarray) -> List[Tuple[np.ndarray, int]]:
+        maps = []
+        if tail in ("both", "greater"):
+            maps.append(ndimage.label(t_map > threshold))
+        if tail in ("both", "less"):
+            maps.append(ndimage.label(t_map < -threshold))
+        return maps
+
+    def _cluster_sums(t_map: np.ndarray, labeled: np.ndarray, n_labels: int) -> List[float]:
+        """The sum of ``t_map`` over each label ``1..n_labels``, in label order.
+
+        One stable sort of the S labelled points and one sum per contiguous run: O(M + S
+        log S) for a map of M points, where a full-map mask per cluster was O(K M). The
+        stable sort keeps each cluster's points in C order, so each run is the array
+        ``t_map[labeled == i]`` itself and its sum is bitwise the same.
+        """
+        flat = labeled.ravel()
+        points = np.flatnonzero(flat)
+        points = points[np.argsort(flat[points], kind="stable")]
+        values = t_map.ravel()[points]
+        bounds = np.concatenate(([0], np.cumsum(np.bincount(flat[points], minlength=n_labels + 1)[1:])))
+        return [float(np.sum(values[bounds[i]:bounds[i + 1]])) for i in range(n_labels)]
+
     def _extract_clusters(t_map: np.ndarray) -> List[Tuple[float, np.ndarray]]:
         found = []
-        if tail in ("both", "greater"):
-            pos_labeled, n_pos = ndimage.label(t_map > threshold)
-            for i in range(1, n_pos + 1):
-                c_mask = (pos_labeled == i)
-                found.append((float(np.sum(t_map[c_mask])), c_mask))
-        if tail in ("both", "less"):
-            neg_labeled, n_neg = ndimage.label(t_map < -threshold)
-            for i in range(1, n_neg + 1):
-                c_mask = (neg_labeled == i)
-                found.append((float(np.sum(t_map[c_mask])), c_mask))
+        for labeled, n_labels in _labelled_maps(t_map):
+            sums = _cluster_sums(t_map, labeled, n_labels)
+            found.extend((s, labeled == i) for i, s in enumerate(sums, start=1))
         return found
+
+    def _extremal_cluster_stat(t_map: np.ndarray) -> float:
+        sums = [s for labeled, n_labels in _labelled_maps(t_map)
+                for s in _cluster_sums(t_map, labeled, n_labels)]
+        if len(sums) == 0:
+            return 0.0
+        if tail == "greater":
+            return max(sums)
+        if tail == "less":
+            return min(sums)
+        return max(abs(s) for s in sums)
 
     # 1. Observed statistic map and clusters
     obs_t = _calc_t_paired(diff) if paired else _calc_t_unpaired(X_arr, Y_arr)
@@ -1949,14 +1971,8 @@ def cluster_permutation_test(
             idx1 = np.flatnonzero(p_labels == 1)
             p_t = _calc_t_unpaired(pooled[idx0], pooled[idx1])
 
-        p_clusters = _extract_clusters(p_t)
-        if len(p_clusters) == 0:
-            return 0.0
-        if tail == "greater":
-            return max(c[0] for c in p_clusters)
-        if tail == "less":
-            return min(c[0] for c in p_clusters)
-        return max(abs(c[0]) for c in p_clusters)
+        # A null draw needs only the extremal sum, never a cluster mask.
+        return _extremal_cluster_stat(p_t)
 
     max_null_stats = np.asarray(
         parallel_map(_one_permutation, permutation_seeds, n_jobs=n_jobs), dtype=float
@@ -1965,12 +1981,11 @@ def cluster_permutation_test(
     # 3. Exact finite Monte Carlo p-values with (1 + k) / (B + 1)
     cluster_results: List[Dict[str, Union[float, np.ndarray]]] = []
     for stat, mask in obs_clusters:
-        if tail == "greater":
-            k = int(np.sum(max_null_stats >= stat))
-        elif tail == "less":
-            k = int(np.sum(max_null_stats <= stat))
-        else:  # both
-            k = int(np.sum(max_null_stats >= abs(stat)))
+        # 'both' compares |stat| with a null that is already a maximum of |sums|.
+        if tail == "less":
+            k = _count_at_least_as_extreme(max_null_stats, stat, "less")
+        else:
+            k = _count_at_least_as_extreme(max_null_stats, abs(stat), "greater")
         p_val = (1.0 + k) / (n_permutations + 1.0)
         cluster_results.append({
             'statistic': stat,

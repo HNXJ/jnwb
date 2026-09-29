@@ -48,9 +48,31 @@ class TestPermuteLabelsContract:
         with pytest.raises(ValueError, match="groups"):
             permute_labels(np.array([0, 1, 0, 1]), scheme="within_group", rng=rng)
 
-    def test_rejects_non_generator_rng(self):
-        with pytest.raises(TypeError, match="Generator"):
-            permute_labels(np.array([0, 1]), scheme="global", rng=42)
+    @pytest.mark.parametrize("bad", [2.5, True, np.random.SeedSequence(0), [1, 2]])
+    def test_takes_an_int_generator_or_none_and_refuses_the_rest(self, bad):
+        y = np.arange(20)
+        np.testing.assert_array_equal(
+            permute_labels(y, scheme="global", rng=42),
+            permute_labels(y, scheme="global", rng=np.random.default_rng(42)),
+        )
+        assert sorted(permute_labels(y, scheme="global", rng=None)) == list(y)
+        with pytest.raises(TypeError, match="rng"):
+            permute_labels(y, scheme="global", rng=bad)
+
+    def test_a_generator_or_none_base_seed_is_returned_and_reproduces_the_plan(self):
+        labels, groups = [0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 1, 1]
+        for rng in (None, np.random.default_rng(3)):
+            plan = build_permutation_plan(labels, groups, n_permutations=4, rng=rng)
+            assert type(plan["seed"]) is int
+            again = build_permutation_plan(labels, groups, n_permutations=4, rng=plan["seed"])
+            assert again["draw_manifest"].equals(plan["draw_manifest"])
+
+    def test_rng_none_draws_a_fresh_base_seed_per_call(self):
+        """A fixed base seed standing in for None would still replay above."""
+        labels, groups = [0, 1, 0, 1, 0, 1], [0, 0, 0, 1, 1, 1]
+        seeds = {build_permutation_plan(labels, groups, n_permutations=1, rng=None)["seed"]
+                 for _ in range(3)}
+        assert len(seeds) == 3
 
     def test_groups_length_mismatch_raises(self):
         rng = np.random.default_rng(0)

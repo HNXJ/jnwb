@@ -30,12 +30,14 @@ GENERATED_FILES = (
     "artifacts/benchmarks/import_breakdown.json",
     "artifacts/benchmarks/vflip_calibration_0.2.4.md",
     "artifacts/benchmarks/vflip_calibration_0.2.4_raw.json",
+    "artifacts/benchmarks/peak_memory.json",
 )
 
 WRITERS = (
     "scripts/generate_api_md.py",
     "scripts/benchmark_import.py",
     "scripts/calibrate_vflip.py",
+    "scripts/measure_peak_memory.py",
 )
 
 
@@ -132,6 +134,7 @@ class TestGeneratorsPinTheirLineEndings:
         )
 
 
+@pytest.mark.requires_git_checkout
 class TestGeneratedFilesAreLf:
     @pytest.mark.parametrize("rel", GENERATED_FILES)
     def test_the_stored_bytes_contain_no_carriage_return(self, rel: str):
@@ -164,6 +167,7 @@ class TestGeneratedFilesAreLf:
         assert tracked.returncode == 0, f"{rel} is not tracked: {tracked.stderr.strip()}"
 
 
+@pytest.mark.requires_git_checkout
 class TestTheApiDocIsByteIdenticalToItsGenerator:
     def test_regenerating_it_would_change_no_stored_byte(self):
         """`check_api_md_is_generated` compares normalized text and cannot see endings.

@@ -17,6 +17,8 @@ from dateutil.tz import tzutc
 from pynwb import NWBFile, NWBHDF5IO
 from pynwb.epoch import TimeIntervals
 
+from .._rng import resolve_rng
+
 # Neutral interval table names (not project-specific omission/RF/flash names).
 TASK_TABLE = "test_synth_task"
 RF_TABLE = "test_synth_rf"
@@ -110,7 +112,7 @@ def _synthetic_lfp(
     fs_hz: float,
     seed: int,
 ) -> np.ndarray:
-    rng = np.random.default_rng(seed)
+    rng = resolve_rng(seed, func_name="build_synth_nwb", name="SynthNWBBuildOptions.seed")
     t = np.arange(n_samples, dtype=np.float64) / fs_hz
     data = np.empty((n_samples, n_channels), dtype=np.float32)
     for ch in range(n_channels):

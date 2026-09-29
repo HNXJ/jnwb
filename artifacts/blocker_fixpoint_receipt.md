@@ -1,35 +1,29 @@
-# Blocker fixpoint receipt, 0.2.6.1
+# Blocker fixpoint receipt, 0.2.7
 
 | Field | Value |
 |---|---|
-| commit | `5cf625d43934c02ee7d5e2fe64b49150b929979d` |
+| commit | `cb972c4888ffc40ba92365442cb46c5cb9c0d782` |
 | new release-blocking problems found | 0 |
-| ruling | 2026-09-25: the 0.2.6.1 patch carries the silently wrong results and misleading documentation found in the shipped 0.2.6, and the three defects of the same kind its verifiers measured |
-| pass | Independent verifiers, none of whom wrote what they verified, then one closure pass over `v0.2.6..b18c35d1`. Each verifier reproduced the defect at the commit before its repair, confirmed the repair with probes of its own design, and killed mutants of the repair after proving its selector passed on the unmutated tree |
+| ruling | `AGENTS.md` §11 condition 3, amended 2026-09-23: the terminating condition is an independent blocker-focused pass that finds no new release-blocking problem; next-cycle observations become `deferred-0.2.8` entries |
+| pass | Independent critics, none of whom wrote what they reviewed: a closure pass over every deferral and the changes since v0.2.6, then a delta review of each change that landed after it |
 
 ## Verification
 
-| Scope | Verified at | Verdict | Findings, then repaired and re-verified |
+| Scope | Verified at | Verdict | New blockers |
 |---|---|---|---|
-| `jrsa` circular-shift null for paired metrics | `eaebbaf9` | PASS; FPR 0.048 default against 0.530 iid on 400 independent AR(1) pairs; `iid` equals 0.2.6 in 76 cases | A test gap (axis-0 rotation survived) and the "aligned axis" wording: repaired in `935a1cb2` and `df33ee7c` |
-| `jrsa` row-metric warning and paired-bootstrap refusal (ruled 2026-09-25) | `45525efb` | PASS; numbers byte-identical to 0.2.6 with `iid` | The `block_len` rule, a refusal test for `block`, the `adim` and `lag` docstrings: repaired in `df33ee7c` |
-| Symbolic transfer entropy refused; directed estimators honour `rng` | `bc04a791` | PASS; int seeds byte-identical to 0.2.6 | A pre-existing few-trial surrogate defect, ruled and repaired as below |
-| Directed surrogates circularly shift below 7 trials (ruled 2026-09-25) | `a3096b3b` | PASS; pooled FPR 0.045 to 0.053 at 3 to 6 trials; 1, 2, 7 and 12 trials byte-identical | A stale quickstart sentence (`b48f9ab0`) and a behaviour test at 4 to 6 trials (`4f92dff1`) |
-| Documentation that invited wrong claims | `d18937f0` | PASS for the changes; four more wordings found | Repaired in `540fc074` and, for the Granger docstrings, `bc04a791` |
-| Closure over `v0.2.6..b18c35d1`, extended to `3b646e4b` | `b18c35d1` | PASS | Every changelog claim re-measured; 87 of 102 int-seed cases bit-identical to 0.2.6 and the 15 others only in surrogate fields at 3 and 6 trials, as ruled |
+| Closure pass: every `deferred-0.2.8` entry attacked with one question (could it make evidence used to qualify 0.2.7 falsely pass), a blocker sweep of `v0.2.6..b9943452`, the 0.2.7 required sections, and a run of each release-gate step | `b9943452` | PASS; two stale deferral reasons (P-227, P-307) restated from the pass's receipts | 0 |
+| `zflip` per-pair surrogate test and the no-surrogate ruling, reviewed in two rounds with the critic's own constructions (8 contacts, lag 1, a zero-lag-correlated end contact) | `32bb77c9` | PASS; false accepts 0 to 1 in 100 against a level of 2/51 | 0 |
+| Plotly export tests on one bounded session browser, reviewed in two rounds, with a browser killed mid-session | `e5477a5c` | PASS | 0 |
+| The version bump to 0.2.7, the CHANGELOG heading, the version-derived test literals and the benchmark records, reviewed by the integrator against the diff | `66766b2a` | PASS | 0 |
+| The release gate's archive check at `1c68dfc6` refused the sdist, which the isolated build had given `AGENTS.md` although `MANIFEST.in` never included it: an explicit `exclude AGENTS.md`, and the manifest test now requires it and refuses any directive that adds the file back | `0c288f1b` | PASS: the rebuilt sdist holds no `AGENTS.md` | 0; the defect is repaired before release, and nothing released shipped it |
+| An independent visual check of every docs figure, in both themes and at displayed size, found three that could cause wrong use: fig01 named a geometric depth class a cortical layer, fig04 drew a power-law fit over a spectrum it was not fitted to, and fig09 gave the phase slope index a rad/Hz unit. The figures, their captions and three figure-form tests are repaired, and the remaining quality findings are deferred to 0.2.8 | `cb972c48` | PASS | 0 after the repair |
 
-`3b646e4b` compares two pinned floats to `rtol=1e-12` after CI's Linux legs differed in the last
-bits; the closure pass reviewed it and found no platform dependence in the patch. `5cf625d4`
-applies the pass's changelog precision correction and moves its observations to the todo stack.
-Every finding that is not a blocker is a `deferred-0.2.7` entry in `artifacts/todo_stack.md`
-(IB-39 to IB-55).
-
-## Receipts
+## Receipts at `cb972c48`
 
 | Check | Result |
 |---|---|
-| Full suite at `b18c35d1` (closure pass) | 4887 passed, 6 skipped, 0 failed |
-| Full suite at `b18c35d1` (dispatcher) | 4888 passed, 5 skipped, 0 failed |
-| Harness gates | 19 PASS, 0 FAIL, 0 NOT RUN, 0 ERROR |
-| Closure mutants | 6 of 7 killed; the survivor, a block null that keeps block order, is IB-53 |
-| New release-blocking problems found | 0 |
+| Full suite, `-n 12` | 5769 passed, 9 skipped, 0 failed |
+| Harness gates | 21 PASS, 0 FAIL, 0 NOT RUN, 0 ERROR |
+| Peak-memory record | `jnwb_version` 0.2.7, measured on a clean tree at `7246934f` |
+| CI at `1c68dfc6` | every test leg and the distribution build passed |
+| dev ruleset | the admin bypass removed on 2026-09-29; `bypass_actors` reads back empty and the deletion and non-fast-forward rules stay |

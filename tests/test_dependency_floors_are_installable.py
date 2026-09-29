@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import sys
+import textwrap
 import tomllib
 from pathlib import Path
 
@@ -203,6 +204,95 @@ def test_the_gate_actually_runs_the_floor_check_before_it_builds_anything() -> N
     ]
     assert built_at, "main() no longer builds a distribution; this test is stale"
     assert checked_at < min(built_at), "the floors are checked after the build"
+
+
+def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> None:
+    """Installable is not tested. The matrix legs install the newest releases, so without
+    this leg a floor is a claim no run exercises."""
+    yaml = pytest.importorskip("yaml")
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"]["test-floors"]
+    assert "if" not in job, "a conditional job is not required by the release gate"
+    with open(ROOT / "pyproject.toml", "rb") as fh:
+        declared = tomllib.load(fh)["project"]["requires-python"]
+    # The floor's own patch release: `>=3.12` admits 3.12.0, and a bare `3.12` makes
+    # setup-python install the newest 3.12 patch, so no leg ran the interpreter declared.
+    floor = re.search(r">=\s*(\d+\.\d+(?:\.\d+)?)", declared).group(1)
+    floor += ".0" * (2 - floor.count("."))
+    assert str(job["env"]["FLOOR_PYTHON"]) == floor, (job["env"]["FLOOR_PYTHON"], floor)
+    setup = [step for step in job["steps"] if "setup-python" in str(step.get("uses", ""))]
+    assert len(setup) == 1, setup
+    assert setup[0]["with"]["python-version"] == "${{ env.FLOOR_PYTHON }}", setup[0]
+    assert "allow-prereleases" not in setup[0]["with"], setup[0]
+    body = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    for required in ["declared_dependency_floors", "--resolution lowest-direct"]:
+        assert required in body, f"the floors leg no longer contains {required!r}"
+    installs = [line for line in body.splitlines() if "pip install" in line and ".[test" in line]
+    assert len(installs) == 1, installs
+    assert "-c /tmp/floors.txt" in installs[0], (
+        f"the package is installed without the floor constraints: {installs[0]!r}")
+
+
+#: Shell forms that make a failing command exit 0.
+SWALLOWED_EXIT = re.compile(r"\|\||;\s*(true|exit\s+0)\b|\bset\s+\+e\b|&\s*$", re.M)
+
+
+@pytest.mark.parametrize("job_id", ["test", "test-floors"])
+def test_a_failing_suite_fails_its_job(job_id: str) -> None:
+    """`continue-on-error` at job or step level, or an `|| true` after pytest, turns a red
+    suite into a green job, and the release gate reads job conclusions."""
+    yaml = pytest.importorskip("yaml")
+    job = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")
+    )["jobs"][job_id]
+    assert not job.get("continue-on-error"), f"{job_id} is continue-on-error"
+    steps = [step for step in job["steps"] if "pytest" in str(step.get("run", ""))]
+    assert steps, f"{job_id} no longer runs pytest"
+    for step in job["steps"]:
+        assert not step.get("continue-on-error"), f"{job_id}: {step.get('name')!r}"
+    for step in steps:
+        run = str(step["run"])
+        assert not SWALLOWED_EXIT.search(run), f"{job_id}: {step.get('name')!r} swallows the exit"
+
+
+def _floor_check_snippet(tmp_path: Path) -> Path:
+    """The workflow's own check of the resolved floors, with its paths moved to `tmp_path`."""
+    yaml = pytest.importorskip("yaml")
+    job = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")
+    )["jobs"]["test-floors"]
+    run = next(str(s["run"]) for s in job["steps"] if "floors.lock" in str(s.get("run", "")))
+    snippets = re.findall(r"python - <<'PY'\n(.*?)\n\s*PY\n", run, re.S)
+    code = next(s for s in snippets if "open('/tmp/floors.lock')" in s)
+    code = textwrap.dedent(code).replace("/tmp/", tmp_path.as_posix() + "/")
+    path = tmp_path / "check_floors.py"
+    path.write_text(code, encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("raise_one", [False, True], ids=["held", "resolved-higher"])
+def test_a_floor_that_resolves_higher_fails_the_leg(tmp_path: Path, raise_one: bool) -> None:
+    """Runs the workflow's check on a lock at the declared floors, and on one where a single
+    package resolved above its floor, which must fail rather than warn."""
+    import subprocess
+
+    floors = {name.lower(): floor for extra, name, floor in declared_dependency_floors()
+              if not extra}
+    lock = dict(floors)
+    if raise_one:
+        name = sorted(lock)[0]
+        lock[name] = lock[name] + ".post99"
+    (tmp_path / "floors.lock").write_text(
+        "".join(f"{n}=={v}\n" for n, v in lock.items()), encoding="utf-8")
+    done = subprocess.run([sys.executable, str(_floor_check_snippet(tmp_path))], cwd=ROOT,
+                          capture_output=True, text=True)
+    if raise_one:
+        assert done.returncode != 0, done.stdout
+        assert "do not hold" in done.stderr, done.stderr
+    else:
+        assert done.returncode == 0, done.stderr
+        assert (tmp_path / "floors.txt").read_text(encoding="utf-8").count("==") == len(floors)
 
 
 def test_the_scipy_floor_covers_the_scipy_api_this_package_calls() -> None:

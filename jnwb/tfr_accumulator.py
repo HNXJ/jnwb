@@ -3,15 +3,20 @@
 Accumulates ``n``, ``mean``, ``M2`` (Chan/Golub/LeVeque parallel Welford merge -- numerically
 stable, no catastrophic cancellation on TFR power's large-mean/small-variance profile) alongside
 the two complex accumulators ``sum_z`` (evoked power) and ``sum_unit_z`` (ITC), decided up front
-because phase cannot be recovered from power after the fact.
+because phase cannot be recovered from power after the fact. When each trial is added with its
+own baseline, ``sum_ratio`` sums the per-trial power ratios for the same reason: a mean of
+ratios cannot be recovered from the trial means.
 
 The property the whole design rests on: ``merge(A, B) == summarize(A ∪ B)`` to floating-point
 tolerance. Tested in tests/test_tfr_accumulator.py.
 
 In memory the accumulators are float64 and complex128. ``write`` halves that on the way to
-disk -- ``mean`` and ``M2`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
+disk -- ``mean``, ``M2`` and ``sum_ratio`` to float32, ``sum_z`` and ``sum_unit_z`` to complex64, ``n`` to
 int32 -- so a summary that has been through HDF5 carries single-precision sufficient
 statistics, and merges of reloaded groups hold to that tolerance rather than to float64's.
+Assigning a read-back array to an accumulator casts it to float64/complex128, and ``n`` to
+int64, so trials added after a reload accumulate at full precision and a merge of reloaded
+groups does not overflow the int32 product of their counts.
 The downcast is deliberate: these arrays are (channels, freqs, times) and the storage is
 the binding cost. Nothing here promised otherwise, but nothing said it either.
 """
@@ -89,6 +94,104 @@ def _is_trial_averaged(obj) -> bool:
     return any(np.may_share_memory(obj, buffer) for buffer in list(_TRIAL_AVERAGED_BUFFERS.values()))
 
 
+def _baseline_ndim_problem(baseline_ndim: int, data_ndim: int, data_name: str) -> Optional[str]:
+    """What is wrong with a baseline numpy would align with the data's trailing axes, or None.
+
+    A per-frequency baseline of shape ``(n_freqs,)`` against ``(n_freqs, n_times)`` data lands
+    on the time axis, silently whenever the two counts are equal.
+    """
+    if baseline_ndim in (0, data_ndim):
+        return None
+    return (
+        f"baseline has {baseline_ndim} dimension(s) and {data_name} has {data_ndim}; numpy "
+        "would align the baseline with the trailing axes, so a per-frequency baseline "
+        "would divide along time. Pass a scalar or give the baseline the same number of "
+        "dimensions, e.g. baseline[:, None] for a per-frequency baseline against "
+        "(n_freqs, n_times)."
+    )
+
+
+def _refuse_baseline_ndim(baseline_ndim: int, data_ndim: int, data_name: str) -> None:
+    """Raise ``ValueError`` for a baseline :func:`_baseline_ndim_problem` objects to."""
+    problem = _baseline_ndim_problem(baseline_ndim, data_ndim, data_name)
+    if problem is not None:
+        raise ValueError(problem)
+
+
+_INT64_MAX = int(np.iinfo(np.int64).max)
+
+
+def _as_counts(value, name: str) -> np.ndarray:
+    """``value`` as int64 counts, refusing anything a cast would change.
+
+    A bare ``astype(int64)`` truncates 2.7 to 2, reads True as 1, wraps
+    ``np.uint64(2**64 - 1)`` to -1 and accepts a negative count.
+    """
+    def refuse(why: str):
+        return ValueError(f"{name} must hold non-negative integral counts within int64; {why}.")
+
+    raw = np.asarray(value)  # an int beyond int64 becomes an object array, handled below
+    kind = raw.dtype.kind
+    if kind == "O":
+        flat = raw.ravel().tolist()
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in flat):
+            raise refuse(f"got {raw.dtype} values that are not all integers")
+        if any(v < 0 or v > _INT64_MAX for v in flat):
+            raise refuse("got a negative value or one beyond int64")
+        return np.array(flat, dtype=np.int64).reshape(raw.shape)
+    if kind == "b":
+        raise refuse("got booleans")
+    if kind not in ("f", "i", "u"):
+        raise refuse(f"got {raw.dtype}")
+    if kind == "f" and not (np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))):
+        raise refuse(f"got {raw.dtype} values that are not whole numbers")
+    # Floats compare below 2**63, the first float past int64; integers compare exactly.
+    top = np.max(raw) if raw.size else 0
+    if (float(top) >= 2.0**63) if kind == "f" else (int(top) > _INT64_MAX):
+        raise refuse("got a value beyond int64")
+    if raw.size and np.min(raw) < 0:
+        raise refuse("got a negative value")
+    return raw.astype(np.int64)
+def _refuse_infinite_baseline(infinite_reaching: np.ndarray) -> None:
+    """Refuse an infinite baseline at a cell that reaches a ratio.
+
+    ``power / inf`` is 0 and its decibels are ``-inf``: a number, where ``relative_power``
+    raises on the same input.
+    """
+    if np.any(infinite_reaching):
+        raise ValueError(
+            "baseline is infinite at a cell that reaches a ratio, which would give a ratio of "
+            "0 and -inf dB; relative_power refuses the same input. Exclude those cells."
+        )
+
+
+def _refuse_ratio_overflow(overflowed: np.ndarray) -> None:
+    """Refuse a ratio that overflowed to inf from finite power and a positive baseline.
+
+    A baseline small enough relative to the power divides it past the float64 range, or the
+    mean of such ratios passes it, so the ratio is inf with only a RuntimeWarning.
+    """
+    if np.any(overflowed):
+        raise ValueError(
+            "the power / baseline ratio overflows to inf from finite power: the baseline is "
+            "small enough that the ratio, or its mean, passes the float64 range. Exclude those "
+            "cells or rescale power and baseline together."
+        )
+
+
+def _refuse_sum_overflow(overflowed: np.ndarray, name: str) -> None:
+    """Refuse a sum of finite ``name`` values that overflowed to inf in a ratio of means.
+
+    An infinite summed baseline gives a ratio of 0 and -inf dB; an infinite summed power gives
+    +inf dB. Neither is a property of the data.
+    """
+    if np.any(overflowed):
+        raise ValueError(
+            f"the summed {name} overflows to inf from finite values, so the ratio of means "
+            "cannot be formed in float64. Rescale power and baseline together."
+        )
+
+
 class TFRAccumulator:
     """Poolable sufficient statistics for complex TFR. Accumulate in float64/complex128.
 
@@ -135,6 +238,9 @@ class TFRAccumulator:
         self.M2 = np.zeros(shape, np.float64)
         self.sum_z = np.zeros(shape, np.complex128)
         self.sum_unit_z = np.zeros(shape, np.complex128)
+        # Sum of per-trial power / baseline ratios, allocated by the first add_trial that
+        # passes a baseline. None means no trial carried one.
+        self.sum_ratio: Optional[np.ndarray] = None
 
     @property
     def shape(self) -> tuple:
@@ -155,11 +261,115 @@ class TFRAccumulator:
     def mean(self, value) -> None:
         self._mean = _register_trial_averaged(np.array(value, dtype=np.float64))
 
-    def add_trial(self, z: np.ndarray, valid: Optional[np.ndarray] = None) -> None:
-        """z: complex (n_ch, n_freq, n_time) for ONE trial. valid: bool mask, same shape."""
+    # The other accumulators cast on assignment as `mean` does, so a summary read back from
+    # `write`'s int32/float32/complex64 datasets keeps accumulating in int64/float64/complex128.
+    # An int32 `n` would overflow `self.n * other.n` in `merge` from n = 46341.
+    def _stored(name: str, dtype, optional: bool = False, integral: bool = False):
+        attr = "_" + name
+
+        def fget(self):
+            return getattr(self, attr)
+
+        def fset(self, value):
+            if optional and value is None:
+                setattr(self, attr, None)
+                return
+            if integral:
+                setattr(self, attr, _as_counts(value, name))
+                return
+            setattr(self, attr, np.asarray(value, dtype=dtype))
+
+        return property(fget, fset)
+
+    n = _stored("n", np.int64, integral=True)
+    M2 = _stored("M2", np.float64)
+    sum_z = _stored("sum_z", np.complex128)
+    sum_unit_z = _stored("sum_unit_z", np.complex128)
+    sum_ratio = _stored("sum_ratio", np.float64, optional=True)
+    del _stored
+
+    def add_trial(
+        self,
+        z: np.ndarray,
+        valid: Optional[np.ndarray] = None,
+        *,
+        baseline: Optional[np.ndarray] = None,
+    ) -> None:
+        """Add ONE trial.
+
+        Args:
+            z: complex ``(n_ch, n_freq, n_time)`` coefficients of this trial. Integer or
+                boolean input is cast to complex128.
+            valid: bool mask, same shape. ``None`` marks every finite coefficient valid.
+            baseline: this trial's own baseline power, ratio-scale and non-negative, a
+                scalar or an array with the accumulator's number of dimensions that
+                broadcasts to its shape -- for example ``(n_ch, n_freq, 1)``
+                from the trial's baseline window, or a full ``abs(z_baseline) ** 2``. When
+                given, the trial's ``abs(z) ** 2 / baseline`` is added to :attr:`sum_ratio`
+                at the cells ``valid`` marks, so :meth:`mean_of_ratios` can form the
+                per-trial ratio mean without holding the trials. Either every trial carries
+                a baseline or none does. A NaN baseline at a valid cell propagates NaN into
+                that cell's mean, as ``aggregate_to_db`` does with ``nan_policy="propagate"``.
+                A zero or infinite baseline at a cell ``valid`` excludes is ignored, as
+                ``aggregate_to_db(nan_policy="omit")`` ignores one where power is NaN, so
+                ``to_db(acc.mean_of_ratios())`` equals that call over the stacked trials with
+                the invalid cells' power set to NaN.
+
+        Raises:
+            ValueError: if ``baseline`` is complex (pass power, not coefficients), negative,
+                zero or infinite at a cell ``valid`` marks, so small at such a cell that
+                finite power divided by it overflows to inf (a baseline small enough that the
+                ratio overflows), neither a
+                scalar nor of the accumulator's
+                number of dimensions, not
+                broadcastable, or if this trial and earlier ones disagree on carrying a
+                baseline.
+        """
+        z = np.asarray(z)
+        if z.dtype.kind not in "fc":
+            # Cast before any state changes: an integer z raised in the ITC update, after the
+            # running mean had already taken the trial.
+            z = z.astype(np.complex128)
         if valid is None:
             valid = np.isfinite(z.real) & np.isfinite(z.imag)
         p = np.abs(z) ** 2
+        ratio = None
+        if baseline is not None:
+            b = np.asarray(baseline)
+            if np.iscomplexobj(b):
+                raise ValueError(
+                    "baseline is complex; pass baseline power (abs(z_baseline) ** 2), not "
+                    "coefficients"
+                )
+            _refuse_baseline_ndim(b.ndim, len(self.shape), "the accumulator")
+            b = np.broadcast_to(b.astype(np.float64, copy=False), self.shape)
+            if np.any(b < 0):
+                raise ValueError(
+                    "baseline contains negative values, so it is not ratio-scale power; "
+                    "decibels are never accumulated"
+                )
+            if np.any(valid & (b == 0)):
+                raise ValueError(
+                    "baseline is zero at a valid cell, so the ratio is infinite there; "
+                    "relative_power and aggregate_to_db refuse the same input. Mark those "
+                    "cells invalid with valid= instead."
+                )
+            _refuse_infinite_baseline(valid & np.isinf(b))
+            if self.sum_ratio is None and np.any(self.n > 0):
+                raise ValueError(
+                    "earlier trials were added without a baseline, so a per-trial ratio "
+                    "mean over all trials cannot be formed; pass baseline= to every trial"
+                )
+            # Formed before any state changes, so a trial that raises leaves nothing behind.
+            with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                elementwise = p / b
+            _refuse_ratio_overflow(valid & np.isinf(elementwise) & np.isfinite(p))
+            ratio = np.where(valid, elementwise, 0.0)
+        elif self.sum_ratio is not None:
+            raise ValueError(
+                "earlier trials carried a baseline; pass baseline= to every trial so the "
+                "per-trial ratio mean covers the same trials as power()"
+            )
 
         # Welford update, masked; an empty cell's running mean starts from zero whatever was
         # assigned to it.
@@ -176,6 +386,10 @@ class TFRAccumulator:
         self.sum_unit_z += np.where(
             valid & (mag > 0), np.divide(z, mag, out=np.zeros_like(z), where=mag > 0), 0
         )
+        if ratio is not None:
+            if self.sum_ratio is None:
+                self.sum_ratio = np.zeros(self.shape, np.float64)
+            self.sum_ratio += ratio
 
     def merge(self, other: "TFRAccumulator") -> "TFRAccumulator":
         """Exact pooling. merge(A, B) == summarize(A union B)."""
@@ -192,6 +406,18 @@ class TFRAccumulator:
         out._mean = _register_trial_averaged(mean)
         out.sum_z = self.sum_z + other.sum_z
         out.sum_unit_z = self.sum_unit_z + other.sum_unit_z
+        if self.sum_ratio is not None or other.sum_ratio is not None:
+            for acc in (self, other):
+                if acc.sum_ratio is None and np.any(acc.n > 0):
+                    raise ValueError(
+                        "refusing to merge: one accumulator carries per-trial ratios and the "
+                        "other holds trials added without a baseline"
+                    )
+            none = np.zeros(self.shape, np.float64)
+            out.sum_ratio = (
+                (none if self.sum_ratio is None else self.sum_ratio)
+                + (none if other.sum_ratio is None else other.sum_ratio)
+            )
         return out
 
     # ---- derived quantities ----
@@ -202,6 +428,26 @@ class TFRAccumulator:
         """Trial-mean power; NaN where no trial was valid."""
         out = _register_trial_averaged(np.where(self.n > 0, self._mean, np.nan))
         return out.view(_TrialAveragedPower)
+
+    def mean_of_ratios(self) -> np.ndarray:
+        """Mean over trials of each trial's ``abs(z) ** 2 / baseline``; NaN where no trial was valid.
+
+        This is the ``how="mean_of_ratios"`` estimand of ``aggregate_to_db``, formed per trial
+        as the trials stream in, so its decibels are ``to_db(acc.mean_of_ratios())``: the
+        logarithm is taken once, after the mean. :meth:`power` cannot give this estimand,
+        because a ratio of trial means is a ratio of means.
+
+        Raises:
+            ValueError: if no trial was added with ``baseline=``.
+        """
+        if self.sum_ratio is None:
+            raise ValueError(
+                "no trial carried a baseline; pass add_trial(z, valid, baseline=...) for "
+                "every trial to form the per-trial ratio mean"
+            )
+        return np.divide(
+            self.sum_ratio, self.n, out=np.full_like(self.sum_ratio, np.nan), where=self.n > 0
+        )
 
     def var(self) -> np.ndarray:
         return np.divide(self.M2, self.n - 1, out=np.full_like(self.M2, np.nan), where=self.n > 1)
@@ -236,6 +482,10 @@ class TFRAccumulator:
         h5group.create_dataset(
             "sum_unit_z", data=self.sum_unit_z.astype(np.complex64), chunks=ch, **filt
         )
+        if self.sum_ratio is not None:
+            h5group.create_dataset(
+                "sum_ratio", data=self.sum_ratio.astype(np.float32), chunks=ch, **filt
+            )
         for k, v in meta.items():
             h5group.attrs[k] = v
 

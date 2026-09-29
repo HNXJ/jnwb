@@ -1,7 +1,7 @@
 """Every runnable instruction in the documentation states what it needs.
 
 `examples/` is not a package, so `[tool.setuptools.packages.find] include = ["jnwb*"]`
-leaves it out of the wheel, and `MANIFEST.in` grafts `skills` and `AGENTS.md` but not
+leaves it out of the wheel, and `MANIFEST.in` grafts `skills` but not
 `examples`, so it is out of the sdist too. `python examples/tutorials/NN_*.py` was
 nonetheless the only runnable line on all nine tutorial pages and on `quickstart.md`, and
 `install.md` led with `pip install jnwb` and offered a clone as a development alternative.

@@ -116,6 +116,11 @@ rel_db = jnwb.relative_power(power, baseline, model="log_ratio")
 The model names are in `jnwb.RELATIVE_POWER_MODELS`. The returned estimand is the requested
 one; nothing converts silently between linear and decibel.
 
+`baseline` is a scalar or has `power`'s number of dimensions; a per-frequency baseline against
+`(n_freqs, n_times)` power is `baseline[:, None]`. A baseline with fewer dimensions aligns with
+the trailing axes and is broadcast with a `FutureWarning`; the next release raises
+`ValueError`, as `aggregate_to_db` does.
+
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
 
@@ -126,13 +131,14 @@ the log-last rule forbids, and prints all three in dB so the gap is a number rat
 ### Spectral Tilt, Harmonic Analysis & Referencing
 
 ```python
-# Estimate 1/f spectral tilt / exponent from time series
+# Log-log slope of the spectrum from a time series (negative for 1/f; see below)
 tilt_res = jnwb.spectral_tilt(lfp_trace, fs=1000.0, freq_range=(1.0, 100.0))
+slope = tilt_res["slope"]
 
 # Direct aperiodic fit on pre-computed spectrum (fixed or knee mode)
 # freqs: (n_freqs,) in Hz; psd: (..., n_freqs) in (U_in)^2/Hz
 fit_res = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 40.0), mode="fixed")
-# Returns jnwb.AperiodicFitResult with offset, exponent, knee, r_squared, accepted
+# Returns jnwb.AperiodicFitResult with offset, exponent (positive for 1/f decay), knee, r_squared, accepted
 
 # Harmonic distortion analysis
 harmonics = jnwb.harmonic_analysis(lfp_trace, fs=1000.0, harmonic_orders=3)
@@ -160,8 +166,14 @@ is evidence of current entering there, not of which structure supplied it.
 ![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.dark.png#only-dark)
 
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
-falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
-aperiodic exponent from it, near -2.
+falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.aperiodic_fit` recovering the
+log-log slope, near -2, from the `jnwb.compute_psd` spectrum drawn under it, over 15-90 Hz
+because the fit removes no peaks.
+
+**Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
+-exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
+returns the slope, near -2, under the key `slope`; `exponent` reads it with a
+`DeprecationWarning` until the next release.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 
@@ -318,8 +330,8 @@ correct answer -- there is no uncontaminated estimate to report.
 
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
-- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM. Its output has already averaged over trials, so `aggregate_to_db(how="mean_of_ratios")` refuses it; pass per-trial power for that estimand.
-- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). Omitting `select=` is deprecated: it falls back to a preset and warns:
+- **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM. Its output has already averaged over trials, so `aggregate_to_db(how="mean_of_ratios")` refuses it. For that estimand, add each trial with its own baseline power (`add_trial(..., baseline=...)`) and take `jnwb.to_db(acc.mean_of_ratios())`.
+- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). `select=` is required; omitting it raises `TypeError` before writing; `select=[]` casts nothing:
 
 ```python
 # src and dst are filesystem paths to .nwb files; select names datasets by their path in the file

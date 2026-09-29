@@ -48,23 +48,28 @@ class TestNwbReadErrors:
 
 
 class TestDepthClassColumn:
-    def test_a_multi_file_read_emits_depth_class_and_warns_once_for_the_layer_copy(
-            self, tmp_path):
-        """Each file is enriched separately; the deprecated copy is announced once per call."""
+    def test_a_multi_file_read_emits_depth_class_and_no_layer_column(self, tmp_path):
+        """Each file is enriched separately; no ``layer`` column is written or warned about."""
+        import warnings
+
         from jnwb.testing.nwb_fixtures import write_synth_nwb
 
         paths = [tmp_path / "ses-01_a.nwb", tmp_path / "ses-02_b.nwb"]
         for path in paths:
             write_synth_nwb(path)
-        with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
             units = get_all_units_metadata(paths)
-        ours = [w for w in record if "depth_class" in str(w.message)]
-        assert len(ours) == 1, [str(w.message) for w in ours]
-        assert ours[0].filename == __file__
+        about_layer = [
+            str(w.message) for w in record
+            if issubclass(w.category, (FutureWarning, DeprecationWarning))
+            or "layer" in str(w.message)
+        ]
+        assert about_layer == []
+        assert "layer" not in units.columns
         assert set(units["session_id"]) == {1, 2}
         # The synthetic units carry no peak channel, so the class is the honest 'Unknown'.
         assert set(units["depth_class"]) == {"Unknown"}
-        pd.testing.assert_series_equal(units["layer"], units["depth_class"], check_names=False)
 
 
 def test_a_quality_filter_with_no_usable_quality_excludes_every_unit_loudly(tmp_path):
@@ -283,7 +288,7 @@ class TestUnitCensusReport:
     def test_a_default_call_on_a_frame_with_only_layer_warns_that_depth_is_not_split(self):
         units = _synthetic_units().drop(columns="depth_class")
         units["layer"] = ["Superficial", "Deep", "Superficial", "Deep"]
-        with pytest.warns(FutureWarning, match=r"'depth_class'.*'layer'"):
+        with pytest.warns(UserWarning, match=r"'depth_class'.*'layer' column is not read"):
             census = unit_census_report(units)
         assert "layer" not in census.columns
 

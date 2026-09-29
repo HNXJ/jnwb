@@ -297,8 +297,8 @@ class TestTrajectoryPinsItsSigns:
         result = compute_population_trajectory(
             session, "V1", epochs, n_components=3, device="cpu")
 
-        assert result["explained_variance"] == pytest.approx(
-            float(np.sum(s[:3] ** 2) / np.sum(s ** 2)), rel=1e-12)
+        np.testing.assert_allclose(result["explained_variance_ratio"],
+                                   s[:3] ** 2 / np.sum(s ** 2), rtol=1e-12)
 
 
 @requires_cuda

@@ -7,8 +7,8 @@ P-83. `docs/quickstart.md` prints ``float(jrsa_res.p)``. That raised `TypeError:
 as shape ``(1,)`` while their siblings `value`, `statistic` and `effect` were 0-d. The
 asymmetry, not the page, was the defect: `_p_from_null` wrapped its single scalar in
 `np.atleast_1d`. Patching the page would have left the next reader to write the same line.
-`pyproject.toml` declares ``numpy>=1.26.0`` and `float()` on a one-element array raises
-under NumPy>=2, so the documented line was unrunnable on the declared floor.
+`float()` on a one-element array raises under NumPy>=2, the declared floor, so the documented
+line was unrunnable on every supported NumPy.
 
 P-85. The `correction` docstring listed ``cluster`` and ``maxT``. Neither exists; both
 raise. Public documentation that causes wrong use.
@@ -21,9 +21,11 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 (P-151).
 """
 
-import pickle
+import contextlib
+import io
 import re
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -54,9 +56,21 @@ def test_the_documented_quickstart_line_runs(quickstart_inputs):
     This is the discriminator for P-83. Before the repair it raised `TypeError`.
     """
     X, Y = quickstart_inputs
-    jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
-    line = f"jRSA alignment: {jrsa_res.value:.4f}, p-value: {float(jrsa_res.p):.4f}"
-    assert line.startswith("jRSA alignment: ")
+    page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(encoding="utf-8")
+    lines = page.splitlines()
+    calls = [i for i, ln in enumerate(lines) if ln.startswith("jrsa_res = jnwb.jrsa(")]
+    assert len(calls) == 1, calls
+    # The page's own print line, which follows the call, rather than a copy of it here.
+    printed = lines[calls[0] + 1]
+    assert printed.startswith("print(") and "jrsa_res" in printed, printed
+    ns = {"jnwb": jnwb, "X": X, "Y": Y}
+    out = io.StringIO()
+    with warnings.catch_warnings(), contextlib.redirect_stdout(out):
+        warnings.simplefilter("error")
+        exec(lines[calls[0]], ns)
+        exec(printed, ns)
+    jrsa_res = ns["jrsa_res"]
+    assert out.getvalue().startswith("jRSA alignment: "), out.getvalue()
     assert 0.0 < float(jrsa_res.p) <= 1.0
 
 
@@ -69,7 +83,8 @@ def test_p_and_q_have_the_same_shape_as_value(quickstart_inputs, correction):
     """
     X, Y = quickstart_inputs
     res = jnwb.jrsa(
-        X, Y, metric="rsa", stats=True, permutations=100, rng=0, correction=correction
+        X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0,
+        correction=correction,
     )
     expected = np.shape(res.value)
     for sibling in SCALAR_SIBLINGS:
@@ -88,7 +103,7 @@ def test_p_and_q_have_the_same_shape_as_value(quickstart_inputs, correction):
 def test_float_of_p_does_not_raise(quickstart_inputs):
     """`float()` on a one-element array raises under NumPy>=2, the declared floor."""
     X, Y = quickstart_inputs
-    res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+    res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
     assert isinstance(float(res.p), float)
     assert isinstance(float(res.q), float)
 
@@ -121,81 +136,40 @@ def test_multiple_lags_still_give_a_vector_p():
 
 
 # ---------------------------------------------------------------------------
-# `p[0]` and `q[0]` keep answering for one release, with a FutureWarning
+# A single-lag result's fields are plain 0-d arrays: `[0]` raises
 # ---------------------------------------------------------------------------
+
+SCALAR_FIELDS = ("value", "statistic", "effect", "p", "q")
+
 
 @pytest.fixture(scope="module")
 def scalar_result(quickstart_inputs):
     X, Y = quickstart_inputs
-    return jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, rng=0)
+    return jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
 
 
-@pytest.mark.parametrize("name", ["p", "q"])
-def test_float_of_a_scalar_p_value_does_not_warn(scalar_result, name):
+@pytest.mark.parametrize("name", SCALAR_FIELDS)
+def test_a_scalar_field_is_a_plain_0d_array(scalar_result, name):
     v = getattr(scalar_result, name)
+    assert type(v) is np.ndarray
     assert v.shape == ()
-    assert isinstance(v, np.ndarray)
     assert v.dtype == np.float64
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert isinstance(float(v), float)
         assert v[()] == float(v)
 
 
-@pytest.mark.parametrize("name", ["p", "q"])
-def test_indexing_zero_returns_the_scalar_with_a_future_warning(scalar_result, name):
+@pytest.mark.parametrize("name", SCALAR_FIELDS)
+def test_indexing_a_scalar_field_raises(scalar_result, name):
+    """`[0]` on the former shape-(1,) `p` and `q` answered with a warning for one release."""
     v = getattr(scalar_result, name)
-    with pytest.warns(FutureWarning, match=rf"JRSAResult\.{name} .*0\.2\.7"):
-        got = v[0]
-    assert type(got) is np.float64
-    assert got == float(v)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(IndexError):
+            v[0]
 
 
-@pytest.mark.parametrize("name", ["p", "q"])
-def test_any_other_index_on_a_scalar_p_value_still_raises(scalar_result, name):
-    with pytest.raises(IndexError):
-        getattr(scalar_result, name)[1]
-
-
-_OPS = {
-    "mul": lambda v: v * 2,
-    "radd": lambda v: 1.0 + v,
-    "neg": lambda v: -v,
-    "lt": lambda v: v < 0.05,
-    "eq": lambda v: v == v,
-    "isnan": np.isnan,
-    "log": np.log,
-    "nanmin": np.nanmin,
-    "mean": np.mean,
-    "sum": lambda v: v.sum(),
-    "where": lambda v: np.where(v < 1, v, 0.0),
-    "stack": lambda v: np.stack([v, v]),
-    "asarray": np.asarray,
-    "array": np.array,
-    "atleast_1d": lambda v: np.atleast_1d(v),
-    "repr": repr,
-    "str": str,
-    "pickle": lambda v: pickle.loads(pickle.dumps(v)),
-}
-
-
-@pytest.mark.parametrize("op", sorted(_OPS))
-@pytest.mark.parametrize("name", ["p", "q"])
-def test_a_scalar_p_value_computes_exactly_like_a_plain_array(scalar_result, name, op):
-    """Every result has the type, dtype and bytes it has for a plain 0-d ndarray."""
-    v = getattr(scalar_result, name)
-    plain = v.view(np.ndarray)
-    assert type(plain) is np.ndarray
-    got, want = _OPS[op](v), _OPS[op](plain)
-    assert type(got) is type(want), (op, type(got), type(want))
-    if isinstance(want, str):
-        assert got == want
-    else:
-        assert np.asarray(got).dtype == np.asarray(want).dtype
-        assert np.asarray(got).tobytes() == np.asarray(want).tobytes()
-
-
-def test_a_multi_lag_p_is_a_plain_vector_without_the_shim():
+def test_a_multi_lag_p_is_a_plain_vector():
     rng = np.random.default_rng(3)
     a = rng.normal(size=(40, 6))
     b = a + 0.4 * rng.normal(size=(40, 6))
@@ -265,7 +239,7 @@ def test_every_documented_correction_is_actually_accepted(method):
     X = rng.normal(size=(6, 8, 20))
     Y = X + 0.3 * rng.normal(size=(6, 8, 20))
     res = jnwb.jrsa(
-        X, Y, metric="rsa", stats=True, permutations=10, rng=0, correction=method
+        X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0, correction=method
     )
     assert res.parameters["correction"] == method
 
@@ -296,6 +270,7 @@ def test_the_withdrawn_methods_raise_rather_than_falling_back(method):
     Y = X + 0.3 * rng.normal(size=(6, 8, 20))
     with pytest.raises(ValueError, match="Unrecognized correction method"):
         jnwb.jrsa(
-            X, Y, metric="rsa", stats=True, permutations=10, rng=0, correction=method
+            X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0,
+            correction=method,
         )
     assert method not in _documented_corrections()

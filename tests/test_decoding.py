@@ -86,6 +86,82 @@ class TestNestedCvLinearSvm:
             assert key in result
 
 
+def _rng_probe_data():
+    g = np.random.default_rng(0)
+    X = g.normal(size=(60, 5))
+    y = np.repeat([0, 1], 30)
+    X[y == 1, 0] += 1.0
+    return X, y, np.tile(np.arange(6), 10)
+
+
+class TestNestedCvRng:
+    @pytest.mark.parametrize("grouped", [False, True])
+    def test_rng_none_leaves_the_global_random_state_alone(self, grouped):
+        """`rng=None` reached scikit-learn as `random_state=None`, which draws the folds,
+        and the grouped path's group order, from NumPy's global RandomState."""
+        X, y, groups = _rng_probe_data()
+        np.random.seed(123)
+        before = np.random.get_state()
+        nested_cv_linear_svm(X, y, n_splits=3, rng=None,
+                             groups=groups if grouped else None)
+        after = np.random.get_state()
+        assert before[0] == after[0] and before[2:] == after[2:]
+        np.testing.assert_array_equal(before[1], after[1])
+
+    def test_rng_none_is_not_reproduced_by_the_global_seed(self):
+        """A fixed seed standing in for None would pass the test above; resetting the
+        global seed before each call must not make the partitions repeat."""
+        X, y, _ = _rng_probe_data()
+        seen = set()
+        for _ in range(5):
+            np.random.seed(0)
+            r = nested_cv_linear_svm(X, y, n_splits=3, rng=None)
+            seen.add((tuple(r["fold_accuracies"]), r["f1"], r["auc"]))
+        assert len(seen) > 1
+
+    @pytest.mark.parametrize("grouped, folds, f1, auc, c", [
+        (False, [0.8, 0.7, 0.8], 0.75, 0.8788888888888888, 1.0),
+        (True, [0.95, 0.85, 0.85], 0.8852459016393442, 0.9233333333333333, 0.1),
+    ])
+    def test_an_int_rng_reproduces_its_folds(self, grouped, folds, f1, auc, c):
+        """Pinned before `rng=None` stopped passing through: an int seed is unchanged."""
+        X, y, groups = _rng_probe_data()
+        r = nested_cv_linear_svm(X, y, n_splits=3, rng=7, groups=groups if grouped else None)
+        np.testing.assert_allclose(r["fold_accuracies"], folds, rtol=1e-12)
+        np.testing.assert_allclose([r["f1"], r["auc"]], [f1, auc], rtol=1e-12)
+        assert r["best_params"] == {"C": c}
+
+    @staticmethod
+    def _scores(r):
+        return (tuple(r["fold_accuracies"]), r["f1"], r["auc"], r["best_params"]["C"])
+
+    @pytest.mark.parametrize("kind", ["none", "generator"])
+    def test_the_recorded_seed_reproduces_the_folds_and_scores(self, kind, monkeypatch):
+        X, y, groups = _rng_probe_data()
+        rng = None if kind == "none" else np.random.default_rng(11)
+        calls = _record_grouped_splits(monkeypatch)
+        first = nested_cv_linear_svm(X, y, n_splits=3, rng=rng, groups=groups)
+        assert isinstance(first["seed"], int)
+        first_folds = [[(tr.tolist(), te.tolist()) for tr, te in c["folds"]] for c in calls]
+        calls.clear()
+        again = nested_cv_linear_svm(X, y, n_splits=3, rng=first["seed"], groups=groups)
+        assert again["seed"] == first["seed"]
+        assert [[(tr.tolist(), te.tolist()) for tr, te in c["folds"]] for c in calls] == first_folds
+        assert self._scores(again) == self._scores(first)
+
+    def test_the_reproduction_is_not_vacuous(self):
+        """Fresh draws must partition differently, or equal scores prove nothing."""
+        X, y, _ = _rng_probe_data()
+        runs = [nested_cv_linear_svm(X, y, n_splits=3, rng=None) for _ in range(5)]
+        assert len({r["seed"] for r in runs}) == 5
+        assert len({self._scores(r) for r in runs}) > 1
+
+    def test_an_int_rng_is_recorded_as_given(self):
+        X, y, _ = _rng_probe_data()
+        assert nested_cv_linear_svm(X, y, n_splits=3, rng=7)["seed"] == 7
+        assert nested_cv_linear_svm(X[:1], y[:1], n_splits=3)["seed"] is None
+
+
 def _trials(n_groups=3, n_per_group=2, n_analyses=1):
     rows = []
     trial_id = 0
@@ -238,3 +314,243 @@ class TestCrossValidationIsolation:
         # An 80/20 split decodes at the baseline here, so accuracy alone would read as a
         # strong result. The baseline on the same splits is what makes that visible.
         assert out["accuracy"] == pytest.approx(out["majority_baseline_accuracy"], abs=0.1)
+
+
+def _noisy_two_class():
+    rng = np.random.default_rng(20260925)
+    labels = np.array([0] * 26 + [1] * 22)
+    X = rng.normal(size=(48, 6))
+    X[labels == 1, :2] += 0.6
+    return X, labels
+
+
+def _group_offset_data(n_groups=20, n_per_group=6, n_features=30, seed=0):
+    """Labels constant within a group, features a per-group offset with no class signal.
+
+    A decoder that has seen other trials of the test trial's group can identify the
+    group, and through it the label; one that has not can only guess.
+    """
+    rng = np.random.default_rng(seed)
+    groups = np.repeat(np.arange(n_groups), n_per_group)
+    labels = np.repeat(np.arange(n_groups) % 2, n_per_group)
+    offsets = rng.normal(scale=3.0, size=(n_groups, n_features))
+    X = offsets[groups] + rng.normal(scale=0.3, size=(groups.size, n_features))
+    return X, labels, groups
+
+
+def _record_grouped_splits(monkeypatch):
+    """Record every grouped split the decoder draws: trial count, fold count and folds."""
+    import jnwb.decoding as decoding
+
+    calls = []
+    original = decoding._grouped_splits
+
+    def recording(X, y, codes, n_splits, random_state):
+        folds = original(X, y, codes, n_splits, random_state)
+        calls.append({"n": len(codes), "n_splits": n_splits, "folds": folds})
+        return folds
+
+    monkeypatch.setattr(decoding, "_grouped_splits", recording)
+    return calls
+
+
+class TestNestedCvGroups:
+    # Computed by running the pre-`groups` implementation (commit 27f400a2) on
+    # `_noisy_two_class()`. The data is noisy enough that every fold changes the numbers,
+    # so a changed partition cannot reproduce them.
+    PINNED = {
+        42: dict(
+            accuracy=0.7244444444444443,
+            fold_accuracies=[0.8, 0.7, 0.9, 0.7777777777777778, 0.4444444444444444],
+            f1=0.7111111111111111, auc=0.7797202797202797, C=0.1,
+            majority=0.5422222222222223,
+        ),
+        7: dict(
+            accuracy=0.6666666666666666,
+            fold_accuracies=[0.8, 0.5, 0.7, 0.5555555555555556, 0.7777777777777778],
+            f1=0.5789473684210527, auc=0.736013986013986, C=0.1,
+            majority=0.5422222222222223,
+        ),
+    }
+
+    @pytest.mark.parametrize("seed", [42, 7])
+    @pytest.mark.parametrize("pass_none", [False, True])
+    def test_a_call_without_groups_is_numerically_unchanged(self, seed, pass_none):
+        X, labels = _noisy_two_class()
+        kwargs = {"groups": None} if pass_none else {}
+        if seed != 42:
+            kwargs["rng"] = seed
+        res = nested_cv_linear_svm(X, labels, n_splits=5, **kwargs)
+        want = self.PINNED[seed]
+        exact = dict(rel=0, abs=1e-12)
+        assert res["status"] == "success" and res["cv_scheme"] == "nested_stratified"
+        assert res["fold_accuracies"].tolist() == pytest.approx(want["fold_accuracies"], **exact)
+        assert res["accuracy"] == pytest.approx(want["accuracy"], **exact)
+        assert res["f1"] == pytest.approx(want["f1"], **exact)
+        assert res["auc"] == pytest.approx(want["auc"], **exact)
+        assert res["best_params"] == {"C": want["C"]}
+        assert res["majority_baseline_accuracy"] == pytest.approx(want["majority"], **exact)
+
+    def test_grouped_folds_never_split_a_group(self, monkeypatch):
+        """Asserted on the folds the decoder iterated, captured at the splitter."""
+        import jnwb.decoding as decoding
+
+        calls = _record_grouped_splits(monkeypatch)
+        X, labels, groups = _group_offset_data(n_groups=12)
+        ids = np.array([f"block-{g}" for g in groups], dtype=object)  # opaque ids, encoded
+        res = nested_cv_linear_svm(X, labels, n_splits=4, groups=ids)
+        assert res["status"] == "success"
+        assert res["cv_scheme"] == "nested_stratified_group"
+
+        outer = [c for c in calls if c["n"] == groups.size]
+        assert len(outer) == 1, "the outer folds were not drawn by the grouped splitter"
+        outer_folds = outer[0]["folds"]
+        assert len(outer_folds) == len(res["fold_accuracies"]) == 4
+        tested = np.concatenate([test for _, test in outer_folds])
+        assert np.array_equal(np.sort(tested), np.arange(groups.size))
+        # Checked against the caller's ids, not the codes the splitter saw.
+        for train, test in outer_folds:
+            assert not set(ids[train]) & set(ids[test])
+
+        # Inner behaviour: C is searched over folds that hold out groups of the outer
+        # training set, one grouped search per outer fold.
+        inner = [c for c in calls if c["n"] != groups.size]
+        assert len(inner) == len(outer_folds)
+        for call, (train, _test) in zip(inner, outer_folds):
+            assert call["n"] == train.size
+            inner_ids = ids[train]
+            for i_train, i_test in call["folds"]:
+                assert not set(inner_ids[i_train]) & set(inner_ids[i_test])
+
+    def test_grouped_outer_folds_keep_class_balance(self):
+        """``StratifiedGroupKFold(shuffle=True)`` before scikit-learn 1.8 shuffled the
+        per-group class counts without their groups, so its folds were not stratified;
+        on 1.3.1 this design averaged 0.218 against 0.106 for the route used here."""
+        import jnwb.decoding as decoding
+
+        groups = np.repeat(np.arange(12), 6)
+        n_class1 = np.tile(np.arange(1, 7), 2)
+        labels = np.concatenate([np.r_[np.ones(k), np.zeros(6 - k)] for k in n_class1]).astype(int)
+        X = np.zeros((groups.size, 1))
+        worst = []
+        for rs in range(40):
+            folds = decoding._grouped_splits(X, labels, groups, 4, rs)
+            worst.append(max(abs(labels[te].mean() - labels.mean()) for _, te in folds))
+        assert np.mean(worst) <= 0.15, np.mean(worst)
+
+    def test_grouped_folds_are_pinned_per_seed_and_differ_between_seeds(self):
+        """The same held-out groups on every supported scikit-learn: checked on 1.3.1
+        and 1.8.0. A seed that stopped reaching the folds, or a splitter left to shuffle
+        on its own, changes them."""
+        import jnwb.decoding as decoding
+
+        groups = np.repeat(np.arange(12), 6)
+        n_class1 = np.tile(np.arange(1, 7), 2)
+        labels = np.concatenate([np.r_[np.ones(k), np.zeros(6 - k)] for k in n_class1]).astype(int)
+        X = np.zeros((groups.size, 1))
+
+        def held_out(rs):
+            folds = decoding._grouped_splits(X, labels, groups, 4, rs)
+            return [sorted(set(groups[te].tolist())) for _, te in folds]
+
+        assert held_out(0) == [[3, 9, 11], [1, 5, 7], [0, 2, 10], [4, 6, 8]]
+        assert held_out(1) == [[0, 2, 11], [1, 5, 9], [6, 8, 10], [3, 4, 7]]
+
+    def test_n_splits_is_clipped_to_groups_and_to_the_minority_class(self, monkeypatch):
+        calls = _record_grouped_splits(monkeypatch)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 12)
+        labels = np.tile([0, 1], 18)
+        res = nested_cv_linear_svm(rng.normal(size=(36, 4)), labels, n_splits=10, groups=groups)
+        assert len(res["fold_accuracies"]) == 3 and calls[0]["n_splits"] == 3
+
+        # Two class-1 trials in six groups: the minority count caps the folds, as it does
+        # without groups.
+        calls.clear()
+        groups = np.repeat(np.arange(6), 4)
+        labels = np.zeros(24, dtype=int)
+        labels[[0, 4]] = 1
+        res = nested_cv_linear_svm(rng.normal(size=(24, 4)), labels, n_splits=5, groups=groups)
+        assert len(res["fold_accuracies"]) == 2 and calls[0]["n_splits"] == 2
+
+    def test_inner_folds_are_capped_by_the_training_groups(self, monkeypatch):
+        calls = _record_grouped_splits(monkeypatch)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 12)
+        labels = np.tile([0, 1], 18)
+        nested_cv_linear_svm(rng.normal(size=(36, 4)), labels, n_splits=3, groups=groups)
+        inner = [c for c in calls if c["n"] != groups.size]
+        assert [c["n_splits"] for c in inner] == [2, 2, 2]
+
+    def test_an_inner_split_that_would_hold_one_class_falls_back_to_fixed_c(self, monkeypatch):
+        """Group 2 is all class 0, so an outer fold that trains on groups {1, 2} or {0, 2}
+        has an inner split training on group 2 alone; only the fold that holds out group 2
+        can search C."""
+        import jnwb.decoding as decoding
+
+        searches = []
+
+        class Counting(decoding.GridSearchCV):
+            def fit(self, X, y=None, **kw):
+                searches.append(len(y))
+                return super().fit(X, y, **kw)
+
+        monkeypatch.setattr(decoding, "GridSearchCV", Counting)
+        rng = np.random.default_rng(0)
+        groups = np.repeat(np.arange(3), 6)
+        labels = np.r_[np.tile([0, 1], 6), np.zeros(6)].astype(int)
+        res = nested_cv_linear_svm(rng.normal(size=(18, 3)), labels, n_splits=3, groups=groups)
+        assert res["status"] == "success" and len(res["fold_accuracies"]) == 3
+        assert searches == [12], searches
+
+    def test_grouped_folds_remove_the_group_identity_shortcut(self):
+        X, labels, groups = _group_offset_data()
+        rowwise = nested_cv_linear_svm(X, labels, n_splits=5)
+        grouped = nested_cv_linear_svm(X, labels, n_splits=5, groups=groups)
+        assert rowwise["accuracy"] > 0.9, rowwise["accuracy"]
+        assert grouped["accuracy"] < 0.7, grouped["accuracy"]
+
+    def test_fewer_than_two_groups_is_a_status(self):
+        X, labels = _noisy_two_class()
+        res = nested_cv_linear_svm(X, labels, n_splits=5, groups=np.zeros(len(labels)))
+        assert res["status"] == "insufficient_groups_for_cv" and np.isnan(res["accuracy"])
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            np.arange(47),
+            np.r_[np.arange(47.0), np.nan],
+            np.array([*range(47), float("nan")], dtype=object),
+            np.array([*range(47), None], dtype=object),
+            np.array([*range(24), *[f"b{i}" for i in range(24)]], dtype=object),
+        ],
+        ids=["short", "float-nan", "object-nan", "object-none", "unorderable"],
+    )
+    def test_groups_need_one_comparable_id_per_trial(self, bad):
+        X, labels = _noisy_two_class()
+        with pytest.raises(ValueError, match="groups"):
+            nested_cv_linear_svm(X, labels, n_splits=5, groups=bad)
+
+    def test_groups_is_keyword_only(self):
+        X, labels = _noisy_two_class()
+        with pytest.raises(TypeError):
+            nested_cv_linear_svm(X, labels, 5, 42, np.arange(len(labels)) % 4)
+
+
+def test_two_class_bilinear_probability_is_the_documented_uncalibrated_logistic():
+    """`jnwb.bilinear` documents two-class `predict_proba` as sigmoid(D_1 - D_0) of mirrored
+    one-vs-rest scores, about sigmoid(2 D_1), and says it is not calibrated."""
+    import jnwb.bilinear as bilinear
+
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 2, 200)
+    X = rng.normal(size=(200, 4, 6))
+    X += 0.3 * (2 * y - 1)[:, None, None] * np.outer(rng.normal(size=4), rng.normal(size=6))
+    model = bilinear.BilinearLogisticRegression(rank=1, random_state=0).fit(X, y)
+    D = model.decision_function(X)
+    np.testing.assert_allclose(model.predict_proba(X)[:, 1], 1 / (1 + np.exp(D[:, 0] - D[:, 1])),
+                               rtol=0, atol=1e-12)
+    np.testing.assert_allclose(D[:, 0], -D[:, 1], rtol=0, atol=1e-3 * np.abs(D).max())
+    doc = bilinear.__doc__ + bilinear.BilinearLogisticRegression.predict_proba.__doc__
+    assert "not calibrated" in doc and "uncalibrated" in doc
+    assert "for calibrated probabilities" not in doc

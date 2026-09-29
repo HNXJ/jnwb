@@ -131,3 +131,34 @@ class TestRasterPsth:
         assert np.allclose(mean, 1000.0)
         # 0.3 / 0.1 is 2.9999999999999996 in floating point, and is still three whole bins.
         assert raster_psth(self.STEADY_1KHZ, np.array([1.0]), (0.0, 0.3), 0.1)[0].size == 3
+
+    def test_a_list_or_unsorted_train_gives_the_sorted_array_result(self):
+        """A list `st` raised TypeError from the comparison mask; an unsorted train with a
+        repeated spike must still count every spike in each window."""
+        onsets = np.array([1.0, 2.0])
+        st = [2.35, 1.02, 0.93, 1.31, 2.07, 2.07, 1.93, 1.01, 0.5]
+        want = raster_psth(np.sort(np.array(st)), onsets, (-100.0, 300.0), 50.0)
+        for got in (raster_psth(st, onsets, (-100.0, 300.0), 50.0),
+                    raster_psth(np.array(st), onsets, (-100.0, 300.0), 50.0)):
+            for g, w in zip(got, want):
+                np.testing.assert_array_equal(g, w)
+        # Three spikes per trial, at -70, +10, +20 ms and at -70, +70, +70 ms; 20 Hz is one
+        # spike per 50 ms bin averaged over the two trials.
+        np.testing.assert_array_equal(want[1], [20.0, 0.0, 20.0, 20.0, 0.0, 0.0, 0.0, 0.0])
+
+    def test_the_window_is_start_inclusive_and_end_exclusive(self):
+        """Edges exactly representable in binary: 1.0 - 0.25 and 1.0 + 0.5. The spike at the
+        start counts in the first bin; the spike at the end is outside the window."""
+        _, mean, _ = raster_psth([0.75, 1.5], np.array([1.0]), (-250.0, 500.0), 250.0)
+        np.testing.assert_array_equal(mean, [4.0, 0.0, 0.0])
+
+    def test_a_spike_selected_at_the_window_start_is_counted_despite_ms_rounding(self):
+        """1.9 s is selected for onset 2.0 s and window start -100 ms, but (1.9 - 2.0) * 1000
+        is -100.00000000000009, below the first edge, and the histogram dropped it."""
+        onset = 2.0
+        spike = onset + (-100.0) / 1000.0
+        assert (spike - onset) * 1000.0 < -100.0  # the fixture carries the rounding
+        _, mean, _ = raster_psth(np.array([spike]), np.array([onset]), (-100.0, 100.0), 10.0)
+        expected = np.zeros(20)
+        expected[0] = 100.0  # one spike in a 10 ms bin over one trial
+        np.testing.assert_array_equal(mean, expected)

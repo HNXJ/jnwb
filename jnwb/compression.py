@@ -8,11 +8,11 @@ Public entry point: :func:`compress_fp32`.
     stats = jnwb.compress_fp32(src, dst, select=lfp)                        # explicit destination
     stats = jnwb.compress_fp32(src, dst, select=lfp, verify=False)          # skip verification
 
-``select=`` names the datasets to cast to float32. A call without it falls back to the anchored
-LFP/MUAE preset below and emits ``FutureWarning``; ``select=`` becomes required in 0.2.7.
+``select=`` is required and names the datasets to cast to float32; ``select=[]`` casts nothing
+and still chunks, compresses and compacts the file.
 
-Implements nwb_tfr_storage_spec.md Part 1 -- float64->float32 for LFP/MUAE, chunking,
-gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
+Implements nwb_tfr_storage_spec.md Part 1 -- float32 for the datasets named in ``select=``,
+chunking, gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
 and typically yields multi-fold size reduction on large electrophysiology sessions; run
 ``verify=True`` on your file to measure the exact ratio.
 
@@ -45,9 +45,10 @@ file is reclaimed this way on real sessions. Compaction is mandatory, not an opt
 **4. Multi-session NWB layouts are not structurally uniform.** Probe count and LFP/MUAE path
 nesting vary independently (flat `probe_N_lfp/data` vs an extra `probe_N_lfp_data` nesting level).
 Hardcoded paths validated on one layout silently matched nothing on another, which would have
-shipped a "successful" conversion that never compressed the dominant data type. LFP/MUAE paths
-are DISCOVERED (:func:`_find_lfp_muae_paths`); spike-train paths remain constants but raise
-loudly if absent rather than skipping silently.
+shipped a "successful" conversion that never compressed the dominant data type. The caller
+therefore names the datasets to cast in ``select=``, and each is checked to exist and be
+floating before anything is written; spike-train paths remain constants but raise loudly if
+absent rather than skipping silently.
 
 **5. Some sessions already carry `starting_time` alongside a redundant `timestamps` array.**
 Creating a second one collides. The redundant array is dropped only after reconstructing
@@ -71,8 +72,6 @@ from __future__ import annotations
 import posixpath
 import sys
 import time
-import re
-import warnings
 from pathlib import Path
 
 import h5py
@@ -92,57 +91,9 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 # write corrects it.
 CONVERSION_ENTRY_POINT = "jnwb.compress_fp32"
 
-# LFP/MUAE paths are DISCOVERED, not hardcoded -- multi-session audits exposed flat vs nested
-# `probe_N_lfp_data` layouts and varying probe counts. Probe count and nesting are independent
-# variables; neither can be assumed from another file already checked. The prior hardcoded
-# flat-path tuple silently matched NOTHING on nested layouts: Step 2's `if path not in dst:
-# continue` skipped every LFP/MUAE array with no warning, which would have shipped a "successful"
-# conversion that never actually compressed the dominant data type. Caught before it was
-# reported, by noticing the run crashed on an UNRELATED bug (the starting_time collision below)
-# before reaching verification -- had that second bug not existed, the silent skip would have
-# gone unnoticed. _find_lfp_muae_paths matches by REGEX on the path, tolerant of any nesting.
-# Anchored to the TWO known nesting shapes only (flat, or one extra `<probe>_data` level via a
-# backreference) -- a naive "contains probe_N_lfp anywhere" match also caught the small
-# electrodes-region-index dataset nested INSIDE the LFP group
-# (probe_0_lfp/probe_0_lfp_data/electrodes/data), which has a different rank/shape and crashed
-# create_dataset on a chunk-rank mismatch. Caught in the synthetic fixture before it could repeat
-# against a real 100+ GiB file.
-#
-# ANCHORED, and matched with `fullmatch` rather than `search`. The pattern used to end in
-# `/data$` and be applied with `.search()`, so it matched any path whose TAIL contained the
-# corpus name: `stimulus/probe_0_lfp/data`, `analysis/probe_0_lfp/data`,
-# `scratch/backup_probe_0_lfp/data`, `general/extra/probe_0_lfp/data`, `scratch/probe_0_muae/data`
-# and `acquisition/my_probe_0_lfp/data` were all selected for the IRREVERSIBLE float32 downcast --
-# 6 of 6 adversarial names. A dataset in `scratch/` being silently downcast is not a selection
-# policy anyone chose. Two independent things are anchored here: the group must sit directly under
-# `acquisition/` (the head anchor), and `probe_N_lfp` must be a WHOLE path segment rather than the
-# tail of one, which is what rejects `my_probe_0_lfp`. Measured on the real corpus across 22
-# sessions: selection is identical to the unanchored form on all of them, because every real match
-# already sits under `acquisition/`. This narrows the exposure to hand-built and future files; it
-# does not re-baseline what the corpus selects.
-#
-# `^` and `$` are redundant under `fullmatch` and are written anyway: they keep the invariant
-# true if the call site ever reverts to `search`, which is the exact slip this comment is about. A
-# mutation run confirmed the need -- with the anchors absent, swapping `fullmatch` for `search`
-# reselected `scratch/acquisition/probe_0_lfp/data` and `acquisition/probe_0_lfp/datastore` while
-# every adversarial name listed above still passed.
-_LFP_MUAE_RE = re.compile(r"^acquisition/(probe_\d+_(?:lfp|muae))(?:/\1_data)?/data$")
-
-
-def _find_lfp_muae_paths(f: h5py.File) -> list[str]:
-    paths: list[str] = []
-
-    def w(name, obj):
-        if isinstance(obj, h5py.Dataset) and _LFP_MUAE_RE.fullmatch(name):
-            paths.append("/" + name)
-
-    f.visititems(w)
-    return sorted(set(paths))
-
-
 SPIKE_TRAIN_PATH = "processing/spike_train/spike_train_data/data"
 CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/data"
-# Verified identical across audited multi-session files unlike LFP/MUAE above,
+# Verified identical across audited multi-session files, unlike the LFP/MUAE layouts,
 # so these stay as constants -- but convert() asserts they exist rather than silently skipping,
 # so a fourth session with yet another convention fails LOUDLY instead of repeating the LFP bug.
 
@@ -152,15 +103,17 @@ CONVOLVED_PATH = "processing/convolved_spike_train/convolved_spike_train_data/da
 # returning that no-op.
 _GUARDED_PATHS = frozenset({SPIKE_TRAIN_PATH, CONVOLVED_PATH})
 
-_PRESET_WARNING = (
-    "no select= given, so the float32 cast falls back to the anchored LFP/MUAE preset "
-    "(acquisition/probe_N_lfp and acquisition/probe_N_muae). select= becomes required in "
-    "0.2.7: pass the dataset paths to cast, e.g. select=['acquisition/probe_0_lfp/data']."
-)
+def _require_selection(select) -> None:
+    """Refuse ``select=None`` before any file is opened or written."""
+    if select is None:
+        raise TypeError(
+            "select= is required: pass the floating-point dataset paths to cast to float32, "
+            "e.g. select=['acquisition/probe_0_lfp/data'], or select=[] to cast nothing"
+        )
 
 
 def _resolve_selection(src: h5py.File, select) -> list[str]:
-    """The datasets to cast: the preset when ``select`` is None, otherwise exactly ``select``.
+    """The datasets to cast: exactly ``select``.
 
     Every named path must be a dataset in ``src`` with a floating dtype, and
     must not be a path convert() rewrites afterwards. Anything else raises before a byte is
@@ -173,8 +126,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
     refusals also compare the object itself (h5py objects compare equal when they are the same
     HDF5 object), because a hard or soft link opens its target under the link's own name.
     """
-    if select is None:
-        return _find_lfp_muae_paths(src)
+    _require_selection(select)
     if isinstance(select, (str, bytes)):
         raise TypeError(
             "select= takes a list of dataset paths, not one string; write select=[path]"
@@ -477,17 +429,20 @@ def compact(src_path: Path, dst_path: Path) -> int:
         return _structural_copy(s, d)
 
 
-def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False, *, select=None) -> dict:
+def convert(src_path: Path, dst_path: Path, drop_convolved: bool = False, *, select) -> dict:
     """Convert ``src_path`` into ``dst_path``; ``select`` is as in :func:`compress_fp32`."""
-    if select is None:
-        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
-    return _convert(src_path, dst_path, drop_convolved, select)
+    return _convert(src_path, dst_path, drop_convolved, _selection_of(src_path, select))
 
 
-def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, select) -> dict:
-    with h5py.File(src_path, "r") as _src:
-        cast_paths = _resolve_selection(_src, select)
+def _selection_of(src_path: Path, select) -> list[str]:
+    """:func:`_resolve_selection` on the file at ``src_path``; opens it read-only."""
+    _require_selection(select)
+    with h5py.File(src_path, "r") as src:
+        return _resolve_selection(src, select)
 
+
+def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: list) -> dict:
+    """The conversion itself; ``cast_paths`` is the output of :func:`_selection_of`."""
     if drop_convolved:
         print("!! --drop-convolved-spike-train forces the spec's original behavior. "
               "No kernel parameters are recoverable for this array (checked 2026-08-08, see "
@@ -660,21 +615,24 @@ def verify_roundtrip(
     src_path: Path,
     dst_path: Path,
     n_check: int = 200_000,
-    collapsed: "list | None" = None,
-    cast: "list | None" = None,
+    *,
+    collapsed: list,
+    cast: list,
 ) -> dict:
     """Byte-level sampling of the transformed datasets, PLUS a real pynwb parse -- v1's bug was
     invisible to byte comparison alone, so the pynwb read is not optional.
 
     ``collapsed`` is ``stats["timestamps_collapsed"]``, the paths whose source timestamps were
-    actually deleted. It used to be a hardcoded two-element list, so every *other* array
-    discovered by ``_find_timestamp_paths`` was collapsed and then never verified. Timestamp
-    reconstruction is also checked over the full array rather than the first ``n_check`` rows,
-    because drift is smallest at the start by construction -- the one place the old check looked.
+    actually deleted, and is required: a default checked two hardcoded groups and reported the
+    collapsed arrays as verified. Timestamp reconstruction is checked over the full array rather
+    than the first ``n_check`` rows, because drift is smallest at the start by construction.
 
-    ``cast`` is ``stats["cast_paths"]``, the datasets actually cast; the preset is checked when it
-    is None. Checking the preset after a ``select=`` call would report arrays that were never
-    cast and skip the ones that were.
+    ``cast`` is ``stats["cast_paths"]``, the datasets actually cast, and is required: a check
+    over any other set would report arrays that were never cast and skip the ones that were.
+    Each cast dataset must be in both files, be float32, have the source's shape and equal the
+    float32 cast of the source over the rows checked. A cast path absent from either file, or a
+    collapsed group without ``starting_time`` in the destination or ``timestamps`` in the
+    source, is a failed check.
     """
     results = {"ok": True, "checks": []}
 
@@ -684,14 +642,24 @@ def verify_roundtrip(
             results["ok"] = False
 
     with h5py.File(src_path, "r") as s, h5py.File(dst_path, "r") as d:
-        for path in (_find_lfp_muae_paths(s) if cast is None else cast):
-            if path not in d:
+        for path in cast:
+            if path not in s:
+                rec(f"{path} present in the source", False, "MISSING")
                 continue
-            n = min(n_check, s[path].shape[0])
-            raw = s[path][:n]
-            conv = d[path][:n].astype(np.float64)
-            err = float(np.max(np.abs(raw - conv)))
-            rec(f"{path} first {n} rows max abs err", err < 1e-3, f"{err:.6e}")
+            if path not in d:
+                rec(f"{path} present in the destination", False, "MISSING")
+                continue
+            src_ds, dst_ds = s[path], d[path]
+            rec(f"{path} dtype is float32", dst_ds.dtype == np.float32, str(dst_ds.dtype))
+            rec(f"{path} shape matches the source", dst_ds.shape == src_ds.shape,
+                f"{dst_ds.shape} vs {src_ds.shape}")
+            n = min(n_check, src_ds.shape[0])
+            # A cast is deterministic, so the destination must equal it exactly. An absolute
+            # tolerance passed a zeroed destination at volt scale and failed a correct cast
+            # whose float32 spacing exceeded it.
+            expected = src_ds[:n].astype(np.float32)
+            eq = np.array_equal(dst_ds[:n], expected, equal_nan=True)
+            rec(f"{path} first {n} rows equal the float32 cast", eq, "exact" if eq else "MISMATCH")
 
         if SPIKE_TRAIN_PATH in s and SPIKE_TRAIN_PATH in d:
             n = min(n_check, s[SPIKE_TRAIN_PATH].shape[0])
@@ -708,10 +676,7 @@ def verify_roundtrip(
                 eq = np.array_equal(s[path][:], d[path][:])
                 rec(f"{path} full exact match", eq, "exact" if eq else "MISMATCH")
 
-        if collapsed is None:
-            ts_paths = ["acquisition/probe_0_lfp", "processing/spike_train/spike_train_data"]
-        else:
-            ts_paths = sorted({posixpath.dirname(str(p)) for p, _rate in collapsed})
+        ts_paths = sorted({posixpath.dirname(str(p)) for p, _rate in collapsed})
         for grp in ts_paths:
             if grp + "/starting_time" in d and grp + "/timestamps" in s:
                 st = float(d[grp + "/starting_time"][()])
@@ -730,6 +695,11 @@ def verify_roundtrip(
                     err < 1e-6,
                     f"{err:.6e}",
                 )
+            else:
+                # The source timestamps were deleted, so a group that cannot be reconstructed
+                # is a failure, not a skip.
+                rec(f"{grp} starting_time present in the destination and timestamps in the source",
+                    False, "MISSING")
 
     # The check v1 lacked: does this actually parse as valid NWB. The bar is "does not parse
     # WORSE than the source", not "parses cleanly" -- observed on a large nested-layout session,
@@ -780,9 +750,9 @@ def compress_fp32(
     verify: bool = True,
     n_check: int = 200_000,
     overwrite: bool = False,
-    select: "list[str] | None" = None,
+    select: "list[str]",
 ) -> dict:
-    """Compress one NWB file: float32 LFP/MUAE, chunking, gzip1+shuffle, compaction.
+    """Compress one NWB file: cast the select= datasets to float32, chunk, gzip1+shuffle, compact.
 
     Args:
         src: path to the NWB file to compress. Never modified.
@@ -791,8 +761,8 @@ def compress_fp32(
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
             nothing. Each path is checked, cast and reported under the name of the dataset it
             opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is
-            IRREVERSIBLE. ``None`` falls back to the anchored LFP/MUAE preset and emits
-            ``FutureWarning``; ``select=`` becomes required in 0.2.7.
+            IRREVERSIBLE. Required: omitting it or passing ``None`` raises ``TypeError``
+            before anything is written.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
             to regenerate it from) -- see point 7 in the module docstring. Warns loudly.
@@ -820,22 +790,22 @@ def compress_fp32(
             conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset. A
             hard or soft link to either of the first two is refused like its target. Every
             ``select`` refusal comes before anything is written.
-        TypeError: ``select`` is a single string, or names a group or a dataset whose dtype is
-            not floating, an integer or boolean one included.
+        TypeError: ``select`` is omitted, ``None`` or a single string, or names a group or a
+            dataset whose dtype is not floating, an integer or boolean one included.
         RuntimeError: ``verify`` is True and a verification check failed. ``dst`` has been
             written and is left in place for inspection; the message names every failed check.
     """
+    _require_selection(select)
     src = Path(src)
     if not src.exists():
         raise FileNotFoundError(f"source NWB not found: {src}")
     dst = Path(dst) if dst is not None else src.with_suffix(".fp32.nwb")
     if dst.exists() and not overwrite:
         raise FileExistsError(f"destination exists (pass overwrite=True): {dst}")
+    cast_paths = _selection_of(src, select)
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    if select is None:
-        warnings.warn(_PRESET_WARNING, FutureWarning, stacklevel=2)
-    stats = _convert(src, dst, drop_convolved, select)
+    stats = _convert(src, dst, drop_convolved, cast_paths)
     stats["ratio"] = stats["src_bytes"] / stats["dst_bytes"] if stats["dst_bytes"] else float("nan")
     stats["src_path"] = str(src)
     stats["dst_path"] = str(dst)

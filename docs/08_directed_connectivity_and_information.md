@@ -83,19 +83,29 @@ print("Beta-band summary:", spectral_res.per_band.get("beta"))
 PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention — observational directionality, not perturbational causality.
 
 ```python
+x_long = rng.normal(size=4000)
+y_long = np.zeros(4000)
+y_long[5:] = 0.6 * x_long[:-5] + rng.normal(size=3995)   # X leads Y by 5 samples
+
 psi_res = jnwb.phase_slope_index(
-    X, Y,
+    x_long, y_long,
     fs=1000.0,
-    bands={"beta": (14.0, 30.0), "gamma": (30.0, 80.0)},
+    bands={"beta": (14.0, 30.0), "gamma": (32.0, 80.0)},
+    nperseg=250,          # 4 Hz resolution, 31 segments
     jackknife=True,
     n_surrogates=200,
     rng=0,
 )
-print("PSI X -> Y:", psi_res.x_to_y)
+print("PSI X -> Y:", psi_res.x_to_y, "lead p:", psi_res.p_net)
+print("coupling p:", psi_res.diagnostics["p_coupling_surrogate"])
 print("Band summaries:", psi_res.per_band)
-if psi_res.spectrum is not None:
-    print("Freqs:", psi_res.spectrum["freqs"][:3], "...")
 ```
+
+`p_net` (equal to `p_x_to_y` and `p_y_to_x`) is the jackknife t test of a lead. A shifted Y
+loses every dependence on X, zero lag included, so `p_coupling_surrogate` tests coupling, not a
+lead. Under a zero-lag common source the lead p rejects at 0.06 to 0.08 for a nominal 0.05; the
+surrogate p, at up to 0.46. Set `nperseg` so the record holds tens of segments: the default
+gives 7.
 
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
@@ -136,6 +146,13 @@ the discretization (`estimator`, `bins`) as well as on the coupling.
 `estimator="symbolic"` (ordinal patterns) raises `ValueError`. Its surrogate null is not
 calibrated under zero-lag mixing: two noisy copies of one white source, with no directed
 coupling, test significant in both directions. Use `"quantile"`.
+
+`"quantile"` is safe under zero-lag mixing only for a white common source: a coloured one gives
+X's past information about Y's present beyond Y's noisy past, and TE, like Granger, rejects. The
+surrogate p compares plug-in values; `bias_correction` changes only the estimate. At 4 bins and
+`k = l = 1` a white common source is rejected at 0.025 to 0.06 for a nominal 0.05 (n = 500 to
+8000), reaching about 0.06 near n = 4000 to 8000 and decaying at larger n. The p is conservative at large state spaces: at 8 bins or `k = l = 2`, none of 1000 pairs
+rejected.
 
 ---
 
@@ -183,17 +200,39 @@ network = jnwb.directed_network(
     method="granger",
     order=2,
     fdr=True,
-    n_surrogates=50,
+    n_surrogates=200,
     rng=0,
 )
 print("Labels:", network["labels"])
-print("Net matrix shape:", network["matrix"].shape)
+print("Directed matrix shape:", network["matrix"].shape)   # M[i, j]: influence of i on j
+```
+
+Over 6 ordered pairs a lone true edge has a Benjamini-Hochberg q of at least
+`6 / (n_surrogates + 1)`, so it needs 120 surrogates to reach 0.05.
+
+Each edge is fitted on its pair alone. A common driver (Z drives X and, later, Y) or an indirect
+path (X drives Z, Z drives Y) therefore appears as a direct X -> Y edge; conditioning on the
+other signal through `granger(..., Z=...)` removes that spurious edge:
+
+```python
+z = rng.normal(size=2000)
+x_drv, y_drv = np.zeros(2000), np.zeros(2000)
+x_drv[1:] = 0.6 * z[:-1] + rng.normal(size=1999)
+y_drv[3:] = 0.6 * z[:-3] + rng.normal(size=1997)
+
+pairwise = jnwb.granger(x_drv, y_drv, order="auto", max_lag=20)
+given_z = jnwb.granger(x_drv, y_drv, order="auto", max_lag=20, Z=z)
+print(f"X -> Y p: {pairwise.p_x_to_y:.2g} alone, {given_z.p_x_to_y:.2g} given Z")
 ```
 
 ### Graph topology metrics (`network_topology`)
 
+Threshold the significance mask, not the raw matrix. Granger values are non-negative, so a
+threshold of 0 on `network["matrix"]` keeps every edge and gives density 1.
+
 ```python
-topo = jnwb.network_topology(network["matrix"], threshold=0.0)
+significant = (network["q_matrix"] < 0.05).astype(float)
+topo = jnwb.network_topology(significant, threshold=0.5)
 print("In-degrees:", topo["in_degrees"])
 print("Out-degrees:", topo["out_degrees"])
 print("Density:", topo["density"])

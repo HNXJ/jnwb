@@ -163,11 +163,16 @@ class TestIdentifiability:
 
 class TestInference:
     def test_no_surrogate_test_means_no_acceptance(self, wave):
+        """Without surrogates no pair has its null, so no delay is reported at all."""
+        assert _zflip(wave).accepted
         res = _zflip(wave, n_surrogates=0)
         assert np.isnan(res.p_value)
-        assert res.delay_identifiable
+        assert not res.adjacent_identifiable.any() and not res.delay_identifiable
+        assert np.isnan(res.tau_per_channel_s) and res.apparent_velocity_m_s is None
+        assert res.directionality == "unidentifiable"
         assert not res.accepted
         assert "not performed" in res.rejection_reason
+        assert "surrogates are needed to establish a delay" in res.rejection_reason
 
     @pytest.mark.parametrize("n_surrogates", [-1, 2.5])
     def test_invalid_surrogate_count_is_rejected(self, wave, n_surrogates):
@@ -295,18 +300,35 @@ class TestSignConventionFromGroundTruth:
             "deep_to_superficial",
         }
 
-    @pytest.mark.parametrize("n_samples", [256, 512, 2048, 40000])
+    @pytest.mark.parametrize("n_samples", [512, 2048, 40000])
     def test_a_clean_wave_is_detected_at_every_supported_length(self, n_samples):
         """The N // 2 default keeps enough bins in the fit band at short lengths.
 
         Under the coherence family's N // 8 the same wave is rejected at N = 256 and
         N = 512 (32 and 64 samples per segment leave under three bins in 15-35 Hz);
-        at N >= 1024 the two rules agree. That is why zflip does not share it.
+        at N >= 1024 the two rules agree. That is why zflip does not share it. 199
+        surrogates: at 512 samples 19 left the pair test passing in 14 of 20 seeds.
         """
-        result = _zflip(self._variable_length_wave(n_samples, noise=0.005))
+        result = _zflip(self._variable_length_wave(n_samples, noise=0.005), n_surrogates=199)
         assert result.accepted
         assert result.tau_per_channel_s > 0
         assert result.directionality == "superficial_to_deep"
+
+    def test_three_in_band_bins_at_256_samples_cannot_show_a_pair_coupled(self):
+        """At N = 256 the default band holds 3 bins, where about 10% of independent-phase
+        surrogates tie a pair wPLI of 1.0, so no pair passes its own surrogate test.
+
+        The segmentation still leaves enough bins for the phase fit: the refusal is the
+        pair test's, not the frequency-support check's.
+        """
+        wave = self._variable_length_wave(256, noise=0.005)
+        for n_surrogates in (19, 199):
+            result = _zflip(wave, n_surrogates=n_surrogates)
+            assert np.all(result.adjacent_wpli == 1.0) and not result.accepted
+            assert np.all(result.adjacent_linearity_r2 >= 0.70)
+            assert "Insufficient frequency bins" not in result.rejection_reason
+            assert "wPLI not significant against its own phase surrogates" in (
+                result.rejection_reason)
 
     @pytest.mark.parametrize("n_samples", [256, 512])
     def test_a_short_noisy_wave_is_declined_rather_than_mis_directed(self, n_samples):

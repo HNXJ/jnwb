@@ -103,7 +103,7 @@ DEVICE_CALLS = {
     "rdm": lambda d: jnwb.rdm(POP[:30], device=d),
     "vflip": lambda d: jnwb.vflip(np.abs(LAMINAR[:, :64]) + 1.0, np.linspace(1, 200, 64), device=d),
     "vflip_from_lfp": lambda d: jnwb.vflip_from_lfp(LAMINAR, FS, device=d),
-    "jrsa": lambda d: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, device=d),
+    "jrsa": lambda d: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, device=d),
 }
 
 #: Exports whose ``device`` is a record of what ran, not a request; they select nothing.
@@ -296,13 +296,13 @@ class TestAnUnavailableDeviceIsAnnounced:
 
     def test_jrsa_says_an_accelerator_backend_was_not_used(self):
         result, messages = _runtime_messages(
-            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, backend="cupy"))
+            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, backend="cupy"))
         assert any("backend='cupy'" in m and "CPU" in m for m in messages), messages
         assert result.execution["backend"] == "numpy"
 
     def test_jrsa_is_silent_about_a_cpu_backend(self):
         _, messages = _runtime_messages(
-            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, rng=0, backend="numpy"))
+            lambda: jnwb.jrsa(POP[:30], POP[30:60], permutations=10, null="iid", rng=0, backend="numpy"))
         assert not [m for m in messages if "backend=" in m]
 
     def test_parallel_map_says_it_ran_serially_without_joblib(self, monkeypatch):
@@ -318,6 +318,19 @@ class TestTheResultRecordsTheDevice:
     def test_a_cpu_run_records_the_cpu(self, name):
         result, _ = _runtime_messages(lambda: DEVICE_CALLS[name]("cpu"))
         assert RECORD[name](result) == "cpu"
+
+    def test_covariance_pca_records_cuda_on_its_pytorch_path(self, monkeypatch):
+        """With CuPy absent the covariance PCA runs its SVD through PyTorch, and a result
+        computed there says so."""
+        if not _torch_has_cuda_in_a_fresh_process():
+            pytest.skip("PyTorch is absent or reaches no CUDA device, in a fresh process")
+        # One key, restored alone: clearing sys.modules evicts a torch loaded inside.
+        monkeypatch.setitem(sys.modules, "cupy", None)
+        result, messages = _runtime_messages(
+            lambda: jnwb.PopulationAnalyzer.population_trajectory(POP, device="cuda"))
+        assert result["device_used"] == "cuda", messages
+        cpu = jnwb.PopulationAnalyzer.population_trajectory(POP, device="cpu")
+        assert _worst_relative_gap(cpu, result) <= CUDA_RTOL
 
     def test_covariance_pca_pins_each_component_sign_on_the_cpu(self):
         components = jnwb.PopulationAnalyzer.population_trajectory(POP, device="cpu")["components"]

@@ -33,7 +33,6 @@ import jnwb
 
 CANONICAL_SKILLS = {
     "jnwb",
-    "jnwb-fact-action",
     "jnwb-nwb-data",
     "jnwb-spiking",
     "jnwb-lfp-spectral",
@@ -47,6 +46,9 @@ CANONICAL_SKILLS = {
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT_DIR / "skills"
 DOCS_DIR = ROOT_DIR / "docs"
+#: The contributor-process skill. It governs how this repository is changed, not how jnwb is
+#: used, so it lives outside the shipped `skills/` tree.
+PROCESS_SKILL = ROOT_DIR / "artifacts" / "skills" / "jnwb-fact-action" / "SKILL.md"
 
 
 def _executable_source(text: str) -> str:
@@ -305,6 +307,11 @@ def _live_default_matches(live, written: str) -> bool:
         return str(live) == written
 
 
+#: The corpus held 120 inline routing calls when this was set. A floor far below the count
+#: only trips on mass deletion; this one fails once more than three rows disappear.
+_ROUTING_ROWS_FLOOR = 117
+
+
 def test_skill_routing_signatures_match_runtime():
     """Routing rows must be callable as written, not merely name real parameters.
 
@@ -375,10 +382,11 @@ def test_skill_routing_signatures_match_runtime():
                 f"gets a TypeError, or supplies them in the wrong order"
             )
 
-    assert checked >= 65, (
-        f"only {checked} routing rows were matched; rows that are not matched are not "
-        f"checked, which is how 7 tuple-bearing rows and 4 StatisticalAnalysis rows went "
-        f"unread"
+    assert checked >= _ROUTING_ROWS_FLOOR, (
+        f"only {checked} routing rows were matched against a floor of {_ROUTING_ROWS_FLOOR}; "
+        f"rows that are not matched are not checked, which is how 7 tuple-bearing rows and "
+        f"4 StatisticalAnalysis rows went unread. Removing rows on purpose lowers the floor "
+        f"in the same change"
     )
 
 
@@ -411,7 +419,7 @@ def test_every_inline_routing_call_is_reached_by_the_parser():
         "routing rows exist that the parser never yields, so nothing checks them: "
         + "; ".join(divergences)
     )
-    assert total_found >= 65, (
+    assert total_found >= _ROUTING_ROWS_FLOOR, (
         f"only {total_found} routing rows found in the whole skill corpus; agreement "
         f"between two readings of an empty corpus is not evidence of anything"
     )
@@ -1144,15 +1152,15 @@ class TestEvidenceConflictProbes:
         )
         assert _fact_stack_writers([gate]) == []
 
-    # Both read through SKILLS_DIR rather than a bare relative path: a path relative to
+    # Both read through ROOT_DIR rather than a bare relative path: a path relative to
     # the current directory resolves only when pytest is run from the repository root.
     def test_the_conflict_rule_is_still_stated_in_the_skill(self):
-        text = (SKILLS_DIR / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "MUST NOT autonomously add, edit, or delete facts" in text
         assert "empirical receipts and discriminating tests" in text
 
     def test_conflicting_conclusions_are_resolved_by_receipts_not_consensus(self):
-        text = (SKILLS_DIR / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "never through voting or consensus" in text
 
 
@@ -1551,7 +1559,8 @@ class TestRowsAgainstTheLiveCall:
          lambda: jnwb.compute_population_trajectory(
              _ProbeSession(), "V1", pd.DataFrame({"start_time": [1.0, 3.0, 5.0, 7.0]}),
              time_window_ms=(-100.0, 200.0)),
-         ["trajectory", "explained_variance", "unit_ids", "bin_centers"]),
+         ["trajectory", "explained_variance", "explained_variance_ratio",
+          "explained_variance_per_component", "unit_ids", "bin_centers"]),
         ("jnwb-population", "build_representation_ladder",
          lambda: jnwb.build_representation_ladder(np.random.default_rng(1).normal(size=(4, 3, 5))),
          ["X_rate", "X_vec", "X_structured", "contract"]),
@@ -1590,14 +1599,14 @@ class TestRowsAgainstTheLiveCall:
             direct.accepted, direct.crossover_contact)
 
     def test_the_two_exponents_have_opposite_signs_and_a_batch_is_a_list(self):
-        """`exponent` means a positive decay rate in one function and a signed slope in the
-        other. A 1/f-like trace must give opposite signs, or the row's warning is wrong."""
+        """`aperiodic_fit`'s `exponent` is a positive decay rate and `spectral_tilt`'s `slope`
+        a signed slope. A 1/f-like trace must give opposite signs, or the row is wrong."""
         trace = np.random.default_rng(21).normal(size=4000).cumsum()
         tilt = jnwb.spectral_tilt(trace, fs=1000.0)
         freqs, psd = jnwb.compute_psd(trace, 1000.0)
         freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit refuses the 0 Hz bin
         fit = jnwb.aperiodic_fit(freqs, psd, (2.0, 100.0))
-        assert fit.accepted and fit.exponent > 0 > tilt["exponent"], (fit, tilt)
+        assert fit.accepted and fit.exponent > 0 > tilt["slope"], (fit, tilt)
 
         batch = jnwb.aperiodic_fit(freqs, np.stack([psd, psd, psd]), (2.0, 100.0))
         assert isinstance(batch, list) and len(batch) == 3
@@ -1681,3 +1690,144 @@ class TestRowsAgainstTheLiveCall:
         plan = jnwb.build_permutation_plan([0, 1, 0, 1], [1, 1, 2, 2], n_permutations=2, rng=3)
         digests = plan["draw_manifest"]["label_digest"]
         assert all(re.fullmatch(r"[0-9a-f]{64}", d) for d in digests), list(digests)
+
+    def test_the_laminar_derivative_row_states_the_shape_and_offset_the_call_returns(self):
+        """Output row `k` of both second-derivative calls sits on input channel `k + 1`.
+
+        A reader who plots the output against the input depths without that offset draws every
+        sink and source one contact too shallow. The impulse is the discriminator: a unit
+        potential on channel 3 alone puts the curvature minimum on output row 2, not row 3.
+        """
+        row = _row_text("jnwb-lfp-spectral", "current_source_density_1d")
+        assert "two fewer channels" in row, row
+        assert re.search(r"output row `k` is input channel `k \+ 1`", row), row
+
+        pitch_um, sigma = 100.0, 0.3
+        dz2 = (pitch_um * 1e-6) ** 2
+        lfp = np.random.default_rng(31).normal(size=(6, 40))
+        curvature = jnwb.voltage_curvature_1d(lfp, pitch_um=pitch_um)
+        csd = jnwb.current_source_density_1d(lfp, pitch_um=pitch_um, conductivity_s_per_m=sigma)
+        assert curvature.shape == csd.shape == (4, 40)
+        for k in range(4):
+            np.testing.assert_allclose(
+                curvature[k], (lfp[k + 2] - 2.0 * lfp[k + 1] + lfp[k]) / dz2, rtol=1e-12
+            )
+        np.testing.assert_allclose(csd, -sigma * curvature, rtol=1e-12)
+
+        impulse = np.zeros((6, 1))
+        impulse[3] = 1.0
+        assert int(np.argmin(jnwb.voltage_curvature_1d(impulse, pitch_um=pitch_um))) == 2
+
+    def test_fdr_is_named_as_benjamini_hochberg_and_never_as_family_wise(self):
+        """FDR and family-wise error control are different guarantees; a label joining them
+        tells a reader that `fdr_correct` controls the error rate it does not."""
+        texts = {}
+        for skill in sorted(CANONICAL_SKILLS):
+            texts[f"{skill}/SKILL.md"] = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+            texts[f"{skill}/agents/openai.yaml"] = (
+                SKILLS_DIR / skill / "agents" / "openai.yaml"
+            ).read_text(encoding="utf-8")
+        joined = [
+            name for name, text in texts.items()
+            if re.search(r"family[- ]wise\s+(?:FDR|false discovery)", " ".join(text.split()), re.I)
+        ]
+        assert joined == [], f"these files call FDR family-wise: {joined}"
+        for name in ("jnwb-statistics/SKILL.md", "jnwb-statistics/agents/openai.yaml"):
+            assert "FDR (Benjamini-Hochberg)" in " ".join(texts[name].split()), name
+
+    def test_the_decoding_chance_line_is_the_measured_baseline(self):
+        """A chance line at 1/K overstates decoding whenever classes are unbalanced; the
+        population skill's rule is the majority baseline, so every figure sentence about
+        chance has to route there."""
+        text = (SKILLS_DIR / "jnwb-landmark-viz" / "SKILL.md").read_text(encoding="utf-8")
+        chance = [s for s in _sentence_units(text) if re.search(r"\bchance\b", s, re.I)]
+        assert chance, "the figure skill no longer says where a decoding chance line goes"
+        unrouted = [s for s in chance if "majority_baseline" not in s]
+        assert unrouted == [], f"chance sentences that do not route to the baseline: {unrouted}"
+
+
+CONTRIBUTING = ROOT_DIR / "CONTRIBUTING.md"
+
+
+def _skill_template() -> List[str]:
+    """Section names of the table under `### What a skill contains`, in order."""
+    text = CONTRIBUTING.read_text(encoding="utf-8")
+    block = text.split("### What a skill contains", 1)[1].split("\n### ", 1)[0]
+    rows = [line for line in block.splitlines() if line.startswith("|")]
+    names = [row.split("|")[1].strip() for row in rows[2:]]
+    assert rows and rows[0].split("|")[1].strip() == "Section" and len(names) >= 2, (
+        f"the section table in CONTRIBUTING.md was not found or is empty: {rows}"
+    )
+    return names
+
+
+def _router_template() -> List[str]:
+    """The template with the router's extra section inserted where CONTRIBUTING.md says."""
+    text = " ".join(CONTRIBUTING.read_text(encoding="utf-8").split())
+    match = re.search(r"with one more, (\w[\w ]*?), after (\w[\w ]*?);", text)
+    assert match, "CONTRIBUTING.md no longer states the router's form"
+    extra, after = match.groups()
+    names = _skill_template()
+    assert after in names, f"the router's extra section follows {after!r}, not in {names}"
+    i = names.index(after) + 1
+    return names[:i] + [extra] + names[i:]
+
+
+def _sections(text: str) -> List[str]:
+    """Names of every level-2 heading outside fenced code, each required to be numbered 1..n."""
+    headings, fenced = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced and line.startswith("## "):
+            headings.append(line[3:].strip())
+    names = []
+    for n, heading in enumerate(headings, start=1):
+        match = re.fullmatch(rf"{n}\. (.+)", heading)
+        assert match, f"heading {heading!r} is not numbered {n}"
+        names.append(match.group(1))
+    return names
+
+
+def _assert_form(text: str, expected: List[str], label: str) -> None:
+    found = _sections(text)
+    assert [s.casefold() for s in found] == [s.casefold() for s in expected], (
+        f"{label}: sections {found} do not match the form in CONTRIBUTING.md, {expected}"
+    )
+
+
+@pytest.mark.parametrize("skill", sorted(CANONICAL_SKILLS - {"jnwb"}))
+def test_every_domain_skill_has_the_template_sections_in_order(skill):
+    text = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+    _assert_form(text, _skill_template(), skill)
+
+
+def test_the_router_has_the_form_contributing_states():
+    text = (SKILLS_DIR / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
+    _assert_form(text, _router_template(), "jnwb")
+
+
+def _numbered(names: List[str], first: int = 1) -> str:
+    return "\n".join(f"## {n}. {name}" for n, name in enumerate(names, start=first))
+
+
+def test_the_form_check_accepts_the_template_and_ignores_fenced_headings():
+    template = _skill_template()
+    assert _assert_form(_numbered(template), template, "template") is None
+    fenced = "```\n## 1. Inside a fence\n```\n" + _numbered(template)
+    assert _assert_form(fenced, template, "fenced") is None
+
+
+@pytest.mark.parametrize("case", ["deleted", "swapped", "unnumbered", "misnumbered", "renamed"])
+def test_a_skill_off_the_template_fails_the_form_check(case):
+    """Each case keeps the section count or the names intact, so no weaker check passes them all."""
+    template = _skill_template()
+    text = {
+        "deleted": _numbered(template[1:]),
+        "swapped": _numbered([template[1], template[0]] + template[2:]),
+        "unnumbered": _numbered(template).replace("## 1. ", "## ", 1),
+        "misnumbered": _numbered(template, first=2),
+        "renamed": _numbered(template[:-1] + [template[-1] + " notes"]),
+    }[case]
+    with pytest.raises(AssertionError):
+        _assert_form(text, template, case)

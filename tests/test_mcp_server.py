@@ -143,6 +143,141 @@ class TestMCPServer(unittest.TestCase):
         self.assertIn("access_hint", res)
         self.assertIsInstance(res["estimated_size_mb"], float)
 
+    def _scaled_file(self):
+        """Two int16 channels with every NWB scaling and timing field set away from its default."""
+        path = str(pathlib.Path(self.temp_dir.name) / "scaled.nwb")
+        nwbfile = pynwb.NWBFile(session_description="scaled", identifier="SCALED",
+                                session_start_time=datetime.now(timezone.utc))
+        device = nwbfile.create_device(name="probe0")
+        eg = nwbfile.create_electrode_group(name="eg0", description="d", location="V1", device=device)
+        for _ in range(2):
+            nwbfile.add_electrode(x=0.0, y=0.0, z=0.0, imp=0.0, location="V1", filtering="none", group=eg)
+        region = nwbfile.create_electrode_table_region(region=[0, 1], description="both")
+        stored = np.random.default_rng(0).integers(-500, 500, size=(100, 2)).astype(np.int16)
+        nwbfile.add_acquisition(pynwb.ecephys.ElectricalSeries(
+            name="Scaled", data=stored, electrodes=region, conversion=2.5e-6, offset=0.125,
+            channel_conversion=[1.0, 4.0], starting_time=3.0, rate=1000.0,
+        ))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+        return path, stored
+
+    def test_the_reference_carries_what_turns_stored_values_into_physical_ones(self):
+        import jnwb
+
+        path, stored = self._scaled_file()
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertEqual(res["conversion"], 2.5e-6)
+        self.assertEqual(res["offset"], 0.125)
+        self.assertEqual(res["channel_conversion"], [1.0, 4.0])
+        self.assertEqual((res["rate_hz"], res["starting_time"]), (1000.0, 3.0))
+        self.assertEqual((res["layout"], res["layout_basis"]), ("time_by_channel", "electrode_count"))
+        self.assertEqual(res["reader"], f"jnwb.acquisition_channel({path!r}, name='Scaled', channel=k)")
+        for field in ("conversion", "channel_conversion", "offset", "starting_time"):
+            self.assertIn(field, res["access_hint"])
+        # The fields alone reproduce what the named reader returns, channel by channel.
+        for k in range(2):
+            by_fields = res["conversion"] * res["channel_conversion"][k] * stored[:, k] + res["offset"]
+            with pytest.warns(UserWarning, match="starting_time"):
+                by_reader, rate = jnwb.acquisition_channel(path, name="Scaled", channel=k)
+            np.testing.assert_allclose(by_reader, by_fields, rtol=0, atol=1e-12)
+            self.assertEqual(rate, res["rate_hz"])
+
+    def test_the_reference_says_the_layout_is_unknown_instead_of_guessing_it(self):
+        import h5py
+
+        # No type and no electrode region: nothing in the file says which axis is channels.
+        with h5py.File(self.file_path, "a") as f:
+            group = f["acquisition"].create_group("untyped")
+            group.create_dataset("data", data=np.zeros((10, 50), dtype=np.float32))
+            group.create_dataset("starting_time", data=0.0).attrs["rate"] = 1000.0
+        res = prepare_signal_reference(self.file_path, "/acquisition/untyped/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["layout"], res["layout_basis"], res["reader"]), ("unknown", None, None))
+        self.assertIn("layout is unknown", res["access_hint"])
+        self.assertNotIn("channels, time", res["access_hint"])
+
+    def test_the_reader_is_named_only_where_it_reads(self):
+        """No reader for a series without a rate, or one the resolver cannot name; a reader
+        wherever one is named returns the series."""
+        import warnings
+
+        import jnwb
+        from pynwb.behavior import Position
+
+        path = str(pathlib.Path(self.temp_dir.name) / "readers.nwb")
+        nwbfile = pynwb.NWBFile(session_description="r", identifier="R",
+                                session_start_time=datetime.now(timezone.utc))
+        nwbfile.add_acquisition(pynwb.TimeSeries(
+            name="stamped", data=np.arange(20.0), unit="m", timestamps=np.linspace(0, 1, 20)))
+        mod = nwbfile.create_processing_module(name="behavior", description="b")
+        position = Position(name="Position")
+        position.create_spatial_series(name="xy", data=np.ones((50, 2)), reference_frame="r", rate=60.0)
+        mod.add(position)
+        mod.add(pynwb.TimeSeries(name="direct", data=np.arange(50.0), unit="a", rate=60.0))
+        with pynwb.NWBHDF5IO(path, "w") as io:
+            io.write(nwbfile)
+
+        stamped = prepare_signal_reference(path, "/acquisition/stamped/data")
+        self.assertEqual((stamped["rate_hz"], stamped["reader"]), (None, None))
+        self.assertEqual(stamped["timestamps_path"], "/acquisition/stamped/timestamps")
+        wrapped = prepare_signal_reference(path, "/processing/behavior/Position/xy/data")
+        self.assertEqual(wrapped["rate_hz"], 60.0)
+        self.assertIsNone(wrapped["reader"])
+        with self.assertRaises(jnwb.NWBInspectError):
+            jnwb.acquisition_channel(path, name="behavior/Position/xy")
+        direct = prepare_signal_reference(path, "/processing/behavior/direct/data")
+        self.assertEqual(direct["reader"],
+                         f"jnwb.acquisition_channel({path!r}, name='behavior/direct', channel=k)")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            values, rate = jnwb.acquisition_channel(path, name="behavior/direct")
+        np.testing.assert_array_equal(values, np.arange(50.0))
+        self.assertEqual(rate, 60.0)
+
+    def test_no_reader_for_a_series_the_reader_refuses(self):
+        """A NaN rate and a channel_conversion of the wrong length each make
+        `acquisition_channel` raise, so neither gets a reader; the rest of the reference stays."""
+        import h5py
+
+        import jnwb
+
+        path, _ = self._scaled_file()
+        with h5py.File(path, "a") as f:
+            f["acquisition/Scaled/starting_time"].attrs["rate"] = float("nan")
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertTrue(np.isnan(res["rate_hz"]))
+        self.assertIsNone(res["reader"])
+        with self.assertRaises(jnwb.NWBInspectError):
+            jnwb.acquisition_channel(path, name="Scaled", channel=0)
+
+        with h5py.File(path, "a") as f:
+            f["acquisition/Scaled/starting_time"].attrs["rate"] = 1000.0
+            del f["acquisition/Scaled/channel_conversion"]
+            f["acquisition/Scaled"].create_dataset("channel_conversion", data=[1.0, 2.0, 3.0])
+        res = prepare_signal_reference(path, "/acquisition/Scaled/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["rate_hz"], res["channel_conversion"]), (1000.0, [1.0, 2.0, 3.0]))
+        self.assertIsNone(res["reader"])
+        with self.assertRaisesRegex(ValueError, "channel_conversion"):
+            jnwb.acquisition_channel(path, name="Scaled", channel=0)
+
+    def test_a_file_the_resolver_cannot_open_still_gets_its_reference(self):
+        """HDF5 that is not NWB: pynwb refuses it, which means no reader, not an error."""
+        import h5py
+
+        path = str(pathlib.Path(self.temp_dir.name) / "plain.h5")
+        with h5py.File(path, "w") as f:
+            group = f.create_group("acquisition/X")
+            group.create_dataset("data", data=np.arange(10.0))
+            group.create_dataset("starting_time", data=0.0).attrs["rate"] = 100.0
+        res = prepare_signal_reference(path, "/acquisition/X/data")
+        self.assertNotIn("error", res)
+        self.assertEqual((res["rate_hz"], res["starting_time"], res["layout"]), (100.0, 0.0, "time"))
+        self.assertIsNone(res["reader"])
+
     def test_prepare_signal_reference_not_found(self):
         res = prepare_signal_reference(self.file_path, "/non/existent/path")
         self.assertIn("error", res)

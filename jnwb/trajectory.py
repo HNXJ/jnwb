@@ -12,6 +12,7 @@ import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._dictlike import RenamedKeyDict
 from ._spread import zscore
 from .gpu_pca import pin_component_signs
 
@@ -95,7 +96,7 @@ def compute_population_trajectory(
     n_components: int = 3,
     quality: Optional[str] = None,
     device: str = 'cpu'
-) -> Dict[str, Union[np.ndarray, List[int], float]]:
+) -> Dict[str, Union[np.ndarray, List[int], float, str]]:
     """
     Compute population trajectory using standardized correlation PCA (SVD).
     Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.
@@ -105,8 +106,9 @@ def compute_population_trajectory(
         are centered and z-scored to unit variance before SVD. Units contribute equally
         to total variance regardless of baseline firing rate; a unit whose rate never
         changes contributes nothing. This contrasts with
-        :meth:`jnwb.analyzers.UnitAnalyzer.population_trajectory` which computes
-        unstandardized covariance PCA (centering only).
+        :meth:`jnwb.analyzers.PopulationAnalyzer.population_trajectory` which computes
+        unstandardized covariance PCA (centering only). Both name the variances as
+        scikit-learn's ``PCA`` does.
 
     Args:
         session: session object exposing ``get_units`` and ``get_spike_times``
@@ -121,10 +123,22 @@ def compute_population_trajectory(
     Returns:
         Dict with:
         - trajectory: (n_trials, n_components, n_bins) projected coordinates
-        - explained_variance: explained variance ratio of kept components
+        - explained_variance_ratio: (n_components,) each component's share of the total
+          variance, as in scikit-learn's PCA
+        - explained_variance_per_component: (n_components,) variance of the z-scored data
+          along each component, ``S**2 / (n_samples - 1)`` with
+          ``n_samples = n_trials * n_bins``; scikit-learn's ``explained_variance_``
+        - explained_variance: float, the fraction the kept components explain together,
+          which is ``np.nansum(explained_variance_ratio)``. Reading it emits a
+          ``FutureWarning``: in the next release this key carries the per-component
+          variance, as in scikit-learn.
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
         - device_used: 'cpu' or 'cuda', the device that performed the SVD
+
+        Both variance arrays are NaN for a component that could not be estimated (fewer
+        units or samples than ``n_components``), and they and ``explained_variance`` are
+        NaN when there is no variance to decompose or no population.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -138,12 +152,14 @@ def compute_population_trajectory(
         # "PCA ran and explained nothing" rather than "PCA did not run". `TFRAnalyzer`
         # already answers NaN for the same condition. Zero stays valid only where zero was
         # estimated from observations.
-        return {
+        return _trajectory_result({
             'trajectory': np.full((n_trials, n_components, n_bins), np.nan),
             'explained_variance': float('nan'),
+            'explained_variance_ratio': np.full(n_components, np.nan),
+            'explained_variance_per_component': np.full(n_components, np.nan),
             'unit_ids': [],
             'bin_centers': bin_centers
-        }
+        })
 
     # Reshape X to (n_trials * n_bins, n_units) to perform PCA over the unit dimension
     X_flat = X.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
@@ -181,33 +197,78 @@ def compute_population_trajectory(
     else:
         proj_np, V_np, S_np = _svd_numpy()
 
-    # Both branches already agree to 1e-13 in float64; what differed was the sign LAPACK
-    # and cuSOLVER happened to pick for each component, which showed up as trajectory
-    # components of opposite sign. See :func:`jnwb.gpu_pca.pin_component_signs`.
-    V_np, proj_np = pin_component_signs(V_np, proj_np)
-
-    # Calculate variance explained ratio
-    total_var = np.sum(S_np ** 2)
-    # No total variance means no ratio, not a ratio of zero.
-    explained_variance = (
-        np.sum(S_np[:actual_components] ** 2) / total_var if total_var > 0.0 else np.nan
-    )
-
-    # If requested n_components > actual_components, pad projection along component axis
-    if actual_components < n_components:
-        # These components do not exist -- there were not enough units or samples to
-        # estimate them. Zero-padding made them indistinguishable from a component whose
-        # projection was measured to be zero.
-        pad_width = ((0, 0), (0, n_components - actual_components))
-        proj_np = np.pad(proj_np, pad_width, mode="constant", constant_values=np.nan)
+    proj_np, _, explained_variance, explained_variance_ratio, explained_total = (
+        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components))
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
 
-    return {
+    return _trajectory_result({
         'trajectory': trajectory,
-        'explained_variance': float(explained_variance),
+        'explained_variance': explained_total,
+        'explained_variance_ratio': explained_variance_ratio,
+        'explained_variance_per_component': explained_variance,
         'unit_ids': unit_ids,
         'bin_centers': bin_centers,
         'device_used': resolved,
-    }
+    })
+
+
+def _kept_components(
+    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    """Pin signs, name the variances and pad to ``n_components``, from one SVD.
+
+    Args:
+        S: every singular value of the centred (or standardised) data.
+        Vt: the kept right singular vectors, ``(n_kept, n_features)``.
+        projection: the data projected on them, ``(n_samples, n_kept)``.
+        n_samples: rows of the decomposed data.
+        n_components: components requested; ``n_kept`` may be fewer.
+
+    Returns:
+        ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
+        The variances are per component, as scikit-learn's PCA names them, and
+        ``explained_total`` is the kept components' share together. With no total variance
+        there is no ratio and no variance, so all three are NaN. A requested component
+        beyond ``n_kept`` does not exist -- too few features or samples -- so its column of
+        ``projection``, its row of ``Vt`` and its variances are NaN; zero would read as a
+        component measured to be zero.
+    """
+    # CPU and CUDA SVDs agree to 1e-13 in float64 except in the sign each picks per
+    # component. See :func:`jnwb.gpu_pca.pin_component_signs`.
+    Vt, projection = pin_component_signs(Vt, projection)
+    n_kept = Vt.shape[0]
+    dtype = np.asarray(S).dtype
+    power = S[:n_kept] ** 2
+    total_var = np.sum(S ** 2)
+    if total_var > 0.0:
+        explained_variance = power / (n_samples - 1)
+        explained_variance_ratio = power / total_var
+        explained_total = float(np.sum(power) / total_var)
+    else:
+        explained_variance = np.full(n_kept, np.nan, dtype=dtype)
+        explained_variance_ratio = np.full(n_kept, np.nan, dtype=dtype)
+        explained_total = float('nan')
+
+    missing = n_components - n_kept
+    if missing > 0:
+        projection = np.pad(projection, ((0, 0), (0, missing)), constant_values=np.nan)
+        Vt = np.pad(Vt, ((0, missing), (0, 0)), constant_values=np.nan)
+        explained_variance = np.pad(explained_variance, (0, missing), constant_values=np.nan)
+        explained_variance_ratio = np.pad(explained_variance_ratio, (0, missing),
+                                          constant_values=np.nan)
+    return projection, Vt, explained_variance, explained_variance_ratio, explained_total
+
+
+_EXPLAINED_VARIANCE_CHANGES = (
+    "compute_population_trajectory: 'explained_variance' is the fraction of variance the "
+    "kept components explain together. In the next release it becomes each component's "
+    "variance, as in scikit-learn's PCA. Read 'explained_variance_ratio' (each component's "
+    "share; np.nansum of it is this value) or 'explained_variance_per_component' instead."
+)
+
+
+def _trajectory_result(data: dict) -> RenamedKeyDict:
+    """The result dict; reading ``explained_variance`` warns that its meaning changes."""
+    return RenamedKeyDict(data, changing={'explained_variance': _EXPLAINED_VARIANCE_CHANGES})

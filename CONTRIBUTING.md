@@ -55,8 +55,9 @@ python scripts/docs_build.py
 ```
 
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
-  change touches anything version-sensitive.
-- **`harness_gate.py`** — 19 repository gates: the project boundary, skill-tree uniqueness,
+  change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
+  `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
+- **`harness_gate.py`** — 21 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
   floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
@@ -65,8 +66,11 @@ python scripts/docs_build.py
   identifiers in code, NWB onboarding alignment, repository-process vocabulary in `docs/`
   and stack identifiers in `jnwb/`, `docs/` and the files its pages include,
   stack form, line-ending consistency, stack pointers that resolve, the `docs/api.md` Type
-  column against the runtime object, and frozen-validated functions against their verified
-  bodies. It fails on structure, not behaviour.
+  column and parameter kinds against the runtime object, frozen-validated functions against
+  their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
+  that generated file is present (Gate 20 only reads it; regenerate with
+  `python scripts/reconstruct_state.py`), and the computational contract of
+  `scripts/computational_contract_gate.py`. It fails on structure, not behaviour.
 
 **Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.
@@ -85,8 +89,16 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — runs the suite in parallel and prints its wall time and ten slowest
-  tests, then builds the wheel, installs it in a clean venv, and smoke-tests the installed
+- **`release_gate.py`** — first refuses the release while the working tree has an uncommitted
+  change, the problem stack holds a row, a todo item is still required for this cycle, or the
+  closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
+  `artifacts/benchmarks/peak_memory.json` names a version other than the one the tree declares.
+  It then runs the suite
+  in parallel and prints its wall time and ten slowest tests, prints the peak memory of a
+  fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet, nothing
+  written: each operation's peak resident size above its resident size before it, exact on
+  Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
+  its peak cannot be reset; the script's docstring tables each platform), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
   package. It catches packaging mistakes (a module missing from the wheel, a
   broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
@@ -94,7 +106,8 @@ python scripts/release_gate.py
   dependency fails. Run it before tagging, not before pushing: it needs network access to
   build an environment and an authenticated `gh` to read the pipeline, and no CI job executes
   it — the workflow imports `forbidden_entries` from it to check the built artifacts and never
-  calls its `main`.
+  calls its `main`. The script's module docstring lists every step in the order it runs, and
+  `tests/test_module_docstrings_match_their_code.py` holds that list to the steps.
 
   If `gh` is unavailable, unauthenticated, or the commit has no finished run, the CI step
   reports *unresolved* and the gate stops. That is deliberate: the alternative passes hardest
@@ -202,7 +215,9 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
-- **Lockstep Updates**: Any modification to a public symbol must update both the relevant documentation guide (`docs/`) and repository skill (`skills/`) in the same commit.
+- **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
+  contract for tables, vocabulary, length, navigation and figures. It is kept off the
+  published site.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py
@@ -235,10 +250,14 @@ Extending an existing skill is the default.
 |---|---|
 | Trigger | The requests that should load this skill |
 | Routing | One row per operation: `jnwb.fn(args)` and when to use it |
-| Invariants | The scientific constraints composition must respect, each stated once |
+| Invariants & Safeguards | The scientific constraints composition must respect, each stated once |
 | Minimal workflow | One runnable example on synthetic data |
 | Verification | How an agent checks its result |
 | Documentation | Links to the `docs/` pages that define the operations |
+
+Each section is a numbered `## ` heading, in this order. The router, `skills/jnwb/SKILL.md`, has
+the same sections with one more, Execution, after Routing; its Routing rows name skills rather
+than operations, and its Execution section states the device and worker rules every skill shares.
 
 `skills/<name>/agents/openai.yaml` carries `interface.display_name` (equal to `<name>`),
 `interface.description`, and `policy.allow_implicit_invocation: true`.
@@ -263,6 +282,7 @@ State a default only where it changes how the operation must be called, and give
 harness Gate 2 check, on every run:
 
 - the skill directory is in `CANONICAL_SKILLS`, and `skills/` is the only skill tree;
+- each domain skill has the sections above in order, and the router has its own form;
 - frontmatter and `openai.yaml` match the shape above;
 - every routed `jnwb.` symbol is in `jnwb.__all__` and every routing row's arguments bind to
   `inspect.signature` of the live function;
@@ -271,10 +291,7 @@ harness Gate 2 check, on every run:
 
 A public API change updates the routing rows in the same commit (`AGENTS.md` §8); the signature
 check fails the suite otherwise. Adding a skill also adds its row to the router
-(`skills/jnwb/SKILL.md`) and to the skill table in `AGENTS.md` §7.
-
-Routing tests that exercise all four outcomes for every skill are planned for 0.2.7
-(`artifacts/planned_post_0.2.6.md`).
+(`skills/jnwb/SKILL.md`) and to the skill table in `docs/agents.md`.
 
 ## Repository root freeze and `artifacts/` policy
 
@@ -344,7 +361,7 @@ Every contributor adheres to these scientific invariants:
        │
 5. Test Full     Run pytest tests/ ensuring zero regressions.
        │
-6. Reconcile     Update docs/ and skills/ in lockstep with code changes.
+6. Reconcile     Update docs/ and skills/ (see "What goes in a change").
        │
 7. mkdocs strict Verify warning-free documentation compilation.
        │
@@ -363,13 +380,24 @@ the version that will carry it, most consequential first. It holds only what is 
 done — a finished item is deleted, because git and the changelog already record it. If you
 finish something, delete it from the stack in the same commit.
 
+Bullet edits go through `scripts/stack_edit.py`: `delete`, `replace`, `insert-after` and `sub`
+(one substring inside a bullet). A bullet is addressed by a delimited prefix of its first line
+that must match exactly one bullet; `--section` narrows the match to one heading. The script
+preserves the file's line endings, refuses an edit whose result no longer parses as bullets, and
+replaces the file only after every check passes. `--dry-run` prints the diff; new text comes from
+a UTF-8 file. Whole `###` items, field lines and table rows are out of its reach and are edited
+by hand.
+
 ## Releasing
 
 Maintainers only, and only from a clean `dev` with the three pre-push checks green and
 `release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
-   entry.
+   entry; run `python scripts/measure_peak_memory.py --write` and commit
+   `artifacts/benchmarks/peak_memory.json` in the same commit as the version. All of this lands
+   before the closure pass, whose receipt then covers the record; `release_gate.py` refuses a
+   record that names another version.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
@@ -379,16 +407,29 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
    `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
    all went through a PR merge; this step said "fast-forward" through all of them.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build) only — it does **not**
-   upload to PyPI.
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build), then the
+   `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
+   downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs that file into a fresh
+   environment with every dependency from PyPI, runs `pip check`, and runs
+   `scripts/smoke_installed.py` against it from outside the checkout. It does **not** upload
+   to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published` and uploads to production PyPI via trusted publishing.
+   job runs on `release: published`. Its first step waits for the tag push run and fails
+   unless that run's `publish-testpypi` and `verify-testpypi` jobs, one of each name, both
+   concluded `success`. It then downloads that push run's distribution artifact, not the
+   release run's rebuild, requires each file's sha256 to equal the one TestPyPI records for
+   it, and only then uploads those files to production PyPI via trusted publishing.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
-**TestPyPI:** push an `rc` tag (`vX.Y.ZrcN`) or publish a GitHub Release marked prerelease;
-either path runs the `publish-testpypi` job. `workflow_dispatch` with target `testpypi` is
-also available for maintainers.
+**TestPyPI:** every `v*` tag push runs the `publish-testpypi` job, an `rc` tag
+(`vX.Y.ZrcN`) as well as a final one; a release event never does, because PyPI receives the
+files the tag's push run uploaded to TestPyPI, checked against TestPyPI's hashes.
+`workflow_dispatch` with target `testpypi` is also
+available for maintainers; it uploads but does not verify, since no tag names the version.
+
+The build job and `verify-testpypi` run the same `scripts/smoke_installed.py`;
+`release_gate.py` STEP 7 keeps its own, larger smoke script.
 
 ## Reporting a problem
 

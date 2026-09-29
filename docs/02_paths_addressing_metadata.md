@@ -102,7 +102,7 @@ Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to u
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
 
-`layer` is a deprecated copy of `depth_class`, removed in the next release. The call emits `FutureWarning` whenever it writes `layer`; pandas cannot warn when a column is read, so the warning fires even if `layer` is never used. `jnwb.get_all_units_metadata` emits both columns the same way, with one warning per call, and `jnwb.unit_census_report` with `group_by=None` groups by `depth_class`.
+`jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. None of these writes a `layer` column.
 
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 
@@ -124,7 +124,7 @@ For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on dupl
 
 ### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
 
-Estimates phase gradients across ordered laminar contacts and, only when the phase is linear in frequency at every adjacent pair, an apparent per-contact phase delay and velocity:
+Estimates phase gradients across ordered laminar contacts and, only when every adjacent pair's wPLI is at least `min_wpli` and its phase is linear in frequency, an apparent per-contact phase delay and velocity:
 
 ```python
 # lfp_matrix: (n_channels, n_samples) ordered along probe shaft
@@ -145,7 +145,17 @@ print("Apparent velocity (m/s):", z_res.apparent_velocity_m_s)
 contact in seconds, fitted to the phase gradient across depth, and `NaN` with
 `delay_identifiable=False` when any adjacent pair or the fit across depth fails its
 identifiability gate (phase-frequency $R^2$ at least `min_linearity_r2`, at least 3
-frequency bins, a delay inside the unambiguous interval, depth-fit $R^2 \ge 0.5$);
+frequency bins, a delay inside the unambiguous interval, pair wPLI at least `min_wpli`,
+pair wPLI significant against its own phase-randomised surrogates at `alpha`, each contact
+carrying at least `min_band_power_fraction` of its detrended power inside `freq_range`,
+depth-fit $R^2 \ge 0.5$). With `n_surrogates=0` no pair has its null, so no delay is
+reported. The in-band fraction does not catch power leaking
+into either band edge: with the default band and segment length, a sinusoid from about
+9.5 Hz up to the lower edge, and from the upper edge to about 38 Hz, i.e. within the main
+lobe of an edge bin, can carry 0.01 to 0.7 of its power in the band, pass it and still give
+a delay. The segments are linearly detrended, so drift and shared slow power do not bias the
+delay; broadband background independent at each contact still can (about +7% for a 1/f$^2$
+background three times the wave's amplitude);
 `apparent_velocity_m_s` is that
 gradient expressed as a speed in meters per second, using `pitch_um` for the spacing.
 It is an *apparent* phase velocity, not a conduction velocity: a phase gradient of this
@@ -159,8 +169,8 @@ three as a conduction speed or as evidence that one layer drives another is the
 association-to-causality step that [Architecture &
 Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.
 
-![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.png#only-light)
-![Spatial and Laminar Addressing](assets/figures/fig01_addressing_laminar.dark.png#only-dark)
+![Area and Depth-Class Addressing](assets/figures/fig01_addressing_laminar.png#only-light)
+![Area and Depth-Class Addressing](assets/figures/fig01_addressing_laminar.dark.png#only-dark)
 
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe

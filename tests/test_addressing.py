@@ -13,6 +13,7 @@ from jnwb.addressing import (
     parse_probe_areas,
     probe_geometry,
     ProbeGeometry,
+    _resolve_electrode_row,
 )
 
 
@@ -249,7 +250,7 @@ def test_map_peak_channel_to_area_non_contiguous_probe_indices():
     assert map_peak_channel_to_area(90, elec) == "V2"
 
 
-def test_enrich_units_dataframe_maps_area_layer_and_stability():
+def test_enrich_units_dataframe_maps_area_depth_class_and_stability():
     elec = _electrodes_df()
     units = pd.DataFrame(
         {
@@ -260,12 +261,7 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
         }
     )
 
-    import pytest
-
-    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'.*0\.2\.7") as record:
-        enriched = enrich_units_dataframe(units, elec)
-    # The warning points at the caller, not at jnwb internals.
-    assert [w.filename for w in record if "depth_class" in str(w.message)] == [__file__]
+    enriched = enrich_units_dataframe(units, elec)
 
     # cluster_id renamed to unit_id (SC-002 terminology alignment)
     assert "unit_id" in enriched.columns
@@ -284,8 +280,6 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
     assert area_values[1] == "PFC"
     assert pd.isna(area_values[2])
     assert list(enriched["depth_class"]) == ["Superficial", "Deep", "Superficial"]
-    # The deprecated copy is equal to it, row for row.
-    assert list(enriched["layer"]) == list(enriched["depth_class"])
 
     # Stability flag: quality >= 1.0; legacy stable_plus alias removed
     assert list(enriched["is_stable"]) == [True, False, True]
@@ -297,31 +291,42 @@ def test_enrich_units_dataframe_maps_area_layer_and_stability():
 
 
 def test_enrich_units_dataframe_without_electrodes_defaults_unknown():
-    import pytest
-
     units = pd.DataFrame({"peak_channel_id": [0, 1]})
-    with pytest.warns(FutureWarning, match=r"'layer'.*'depth_class'"):
-        enriched = enrich_units_dataframe(units, None)
+    enriched = enrich_units_dataframe(units, None)
 
     assert enriched["area"].isna().all()
     assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
-    assert list(enriched["layer"]) == ["Unknown", "Unknown"]
     assert enriched["group_name"].isna().all()
     # No quality column provided -> no stability label is invented
     assert "is_stable" not in enriched.columns
     assert "stable_plus" not in enriched.columns
 
 
-def test_a_layer_column_the_caller_supplied_is_kept_and_not_warned_about():
-    """Without electrode geometry the function writes no ``layer``, so it has nothing to warn of."""
+@pytest.mark.parametrize("with_electrodes", [True, False], ids=["electrodes", "no_electrodes"])
+def test_enrich_writes_no_layer_column_and_returns_a_supplied_one_unchanged(with_electrodes):
+    """Neither path writes ``layer`` or warns about it, and a caller's own ``layer`` survives.
+
+    The electrode path is the one that matters for the second half: it computes a depth class,
+    so a copy written there would overwrite the caller's values with 'Superficial'/'Deep'.
+    """
     import warnings
 
-    units = pd.DataFrame({"peak_channel_id": [0, 1], "layer": ["L2/3", "L5"]})
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", FutureWarning)
-        enriched = enrich_units_dataframe(units, None)
-    assert list(enriched["layer"]) == ["L2/3", "L5"]
-    assert list(enriched["depth_class"]) == ["Unknown", "Unknown"]
+    elec = _electrodes_df() if with_electrodes else None
+    units = pd.DataFrame({"peak_channel_id": [0, 1]})
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        enriched = enrich_units_dataframe(units, elec)
+        supplied = enrich_units_dataframe(units.assign(layer=["L2/3", "L5"]), elec)
+    about_layer = [
+        str(w.message) for w in record
+        if issubclass(w.category, (FutureWarning, DeprecationWarning)) or "layer" in str(w.message)
+    ]
+    assert about_layer == []
+    assert "layer" not in enriched.columns
+    assert list(supplied["layer"]) == ["L2/3", "L5"]
+    expected = ["Superficial", "Deep"] if with_electrodes else ["Unknown", "Unknown"]
+    assert list(enriched["depth_class"]) == expected
+    assert list(supplied["depth_class"]) == expected
 
 
 def test_enrich_units_dataframe_categorical_quality():
@@ -393,6 +398,97 @@ def test_enrich_units_dataframe_no_fabricated_probeA():
     )
     enriched_probe = enrich_units_dataframe(units, elec_probe)
     assert list(enriched_probe["group_name"]) == ["shank2"]
+
+
+def _probe_table(id_col="channel_id", id_values=None):
+    per, locs = 8, ["V1", "V2, V3", "MT/MST", "VISpm2/3"]
+    d = {"location": [locs[i // per] for i in range(4 * per)],
+         "group_name": [f"p{i // per}" for i in range(4 * per)],
+         "z": np.tile(np.linspace(0.0, 2000.0, per), 4),
+         "depth_unit": "um"}
+    if id_col is not None:
+        d[id_col] = id_values if id_values is not None else np.arange(4 * per) + 100.0
+    return pd.DataFrame(d, index=None if id_col else np.arange(4 * per) * 3 + 1)
+
+
+_DUPLICATE_ID = np.arange(32) + 100.0
+_DUPLICATE_ID[20] = 105.0          # the first match, row 5, must win
+_GAP_ID = np.arange(32) + 100.0
+_GAP_ID[3] = np.nan                # 103 is then in 'id' only, and must not resolve
+
+
+@pytest.mark.parametrize("elec, n_resolved", [
+    (_probe_table(), 11),
+    (_probe_table(id_values=_DUPLICATE_ID), 11),
+    (_probe_table(id_values=_GAP_ID).assign(id=np.arange(32) + 100), 10),
+    (_probe_table(id_values=(np.arange(32) + 100).astype(np.uint16)), 11),
+    # A text column never equals the integer channel ID, so nothing resolves.
+    (_probe_table(id_values=[str(v) for v in range(100, 132)]), 0),
+    (_probe_table(id_col=None), 7),
+], ids=["float", "duplicate", "gap", "uint", "string", "index"])
+def test_enrich_agrees_with_the_per_channel_functions(elec, n_resolved):
+    """enrich resolves each channel once and caches it; every unit must still read what the
+    public per-channel functions return for its own peak channel."""
+    ids = [100.0, 105, "106", 103.0, 111.0, 125.0, 131, 4.0, 7, 999.0, np.nan, None, "x",
+           105.0, 125, 10, 13.0, 16, 118.0, 122, 28, 43.0]
+    got = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+
+    def cells(values):  # a column may hold a missing label as None or NaN
+        return [None if v is None or (isinstance(v, float) and np.isnan(v)) else v
+                for v in values]
+
+    assert cells(got["area"]) == cells(map_peak_channel_to_area(x, elec) for x in ids)
+    assert cells(got["depth_class"]) == [classify_layer_from_depth(x, elec) for x in ids]
+    rows = [_resolve_electrode_row(x, elec)[1] for x in ids]
+    assert cells(got["group_name"]) == [None if r is None else r["group_name"] for r in rows]
+    assert got["area"].notna().sum() == n_resolved
+
+
+@pytest.mark.parametrize("fast", [True, False], ids=["table", "per_call"])
+def test_an_id_missing_from_the_first_identifier_column_resolves_to_nothing(fast):
+    """'channel_id' and 'id' number the channels differently here; 103 exists only as an 'id'.
+    A lookup that moved on to 'id' would return the row of a different channel."""
+    channel_id = np.arange(32) + 100.0
+    channel_id[3] = np.nan
+    # An object column takes the per-call path; float64 takes the lookup table.
+    elec = _probe_table(id_values=channel_id if fast else pd.array(channel_id, dtype=object))
+    elec = elec.assign(id=np.arange(32) + 90)
+    assert elec["id"].eq(103).any()
+    assert _resolve_electrode_row(103, elec) == (None, None)
+    assert map_peak_channel_to_area(103, elec) is None
+    got = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [103, 104]}), elec)
+    assert got["area"].tolist()[0] is None or pd.isna(got["area"].tolist()[0])
+    assert got["area"].tolist()[1] == "V1"
+
+
+@pytest.mark.parametrize("dtype, stored, asked", [
+    (np.float32, 16777216, 16777217),   # 2**24 + 1 rounds to 2**24 in float32
+    (np.float16, 2048, 2049),           # 2**11 + 1 rounds to 2**11 in float16
+])
+def test_enrich_agrees_on_a_narrow_float_identifier_column(dtype, stored, asked):
+    """`==` rounds the asked ID to the column's mantissa, so the per-channel functions match
+    a neighbouring stored ID; enrich must return the same answer."""
+    values = (np.arange(32) + 100).astype(dtype)
+    values[0] = stored
+    elec = _probe_table(id_values=values)
+    ids = [asked, stored, 101]
+    got = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+    assert list(got["area"]) == [map_peak_channel_to_area(x, elec) for x in ids] == ["V1"] * 3
+    assert list(got["depth_class"]) == [classify_layer_from_depth(x, elec) for x in ids]
+
+
+def test_enrich_applies_the_threshold_it_is_given():
+    """z = 1142.9 um is Deep at the default 1000 um and Superficial at 1500 um."""
+    elec = _probe_table()
+    ids = [100.0, 104.0, 105.0, 107.0]
+    default = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec)
+    raised = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": ids}), elec,
+                                    threshold=1500.0, threshold_unit="um")
+    assert list(default["depth_class"]) == ["Superficial", "Deep", "Deep", "Deep"]
+    assert list(raised["depth_class"]) == ["Superficial", "Superficial", "Superficial", "Deep"]
+    assert list(raised["depth_class"]) == [
+        classify_layer_from_depth(x, elec, threshold=1500.0, threshold_unit="um") for x in ids
+    ]
 
 
 # ---------------------------------------------------------------------------------------------

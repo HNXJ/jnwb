@@ -88,15 +88,19 @@ def test_the_transfer_entropy_formula_gives_k_to_the_target_and_l_to_the_source(
     assert re.findall(r"X_\{t-u:t-u-(\w)[^}]*\}", formula) == ["l"], formula
 
 
-def test_the_decoder_page_does_not_promise_group_holdout_from_a_call_that_has_none():
+def test_the_decoder_page_shows_group_holdout_through_the_parameter_that_does_it():
     params = inspect.signature(jnwb.nested_cv_linear_svm).parameters
-    assert "groups" not in params, (
-        "nested_cv_linear_svm now takes groups; the caveat on docs/09 is stale and should "
-        "become an example that passes them"
+    assert params["groups"].kind is inspect.Parameter.KEYWORD_ONLY, (
+        "nested_cv_linear_svm no longer takes groups by keyword; docs/09 shows a call that "
+        "passes them"
     )
     page = _page("09_decoding_and_visual_qc.md")
-    assert "does not hold out groups" in page
-    assert "assign_outer_folds" in page, "the page does not say where the protection is"
+    assert "Without `groups` this call does not hold out groups" in page, (
+        "the page no longer says the default folds are row-wise"
+    )
+    assert re.search(r"nested_cv_linear_svm\([^)]*groups=", page), (
+        "the page does not show a call that holds out groups"
+    )
 
 
 def test_the_cross_modal_example_reports_the_numbers_it_actually_produces():

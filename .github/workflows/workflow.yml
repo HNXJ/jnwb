@@ -30,15 +30,18 @@ permissions:
 # One run per ref. Two pushes in quick succession ran overlapping publish-capable
 # pipelines; the later one now cancels the earlier. Tags and releases are excluded: those
 # are the refs that actually publish, and cancelling one mid-upload is the failure this
-# is meant to prevent, not a cost worth paying for a faster queue.
+# is meant to prevent, not a cost worth paying for a faster queue. The event is part of the
+# key: a tag's release run waits for that tag's push run to publish to TestPyPI, and in one
+# group it would queue behind the run it is waiting for.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
 
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -64,12 +67,86 @@ jobs:
           python -m pip install ".[test,docs,vis]"
 
       - name: Run pytest
+        # -n auto: one worker per core. The browser-backed export tests share an xdist group,
+        # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         run: |
-          pytest -v tests/
+          pytest -v -n auto tests/
+
+  test-floors:
+    # The matrix legs install the newest release of every dependency, so the `>=` floors in
+    # pyproject.toml are claims no other leg exercises. This leg resolves each core dependency
+    # to the lowest release that installs alongside the others, on the floor interpreter, and
+    # runs the suite there. A floor that resolves higher than declared fails the job, as does
+    # any test. A failure here means a declared floor no longer holds, and
+    # scripts/release_gate.py requires this job to succeed like every other unconditional job.
+    # The interpreter is the declared floor's first patch release: `requires-python >=3.12`
+    # admits 3.12.0, and "3.12" would install the newest 3.12 patch, which no user is held to.
+    name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FLOOR_PYTHON: "3.12.0"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.FLOOR_PYTHON }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.FLOOR_PYTHON }}
+
+      - name: Resolve the declared floors
+        # The floors are read with scripts/release_gate.py's parser rather than a second one.
+        # Only the core dependencies are pinned; the test tooling resolves around them.
+        run: |
+          python -m pip install --upgrade pip uv
+          python - <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = [(name, floor) for extra, name, floor in declared_dependency_floors() if not extra]
+          pathlib.Path('/tmp/floors.in').write_text(''.join(f'{n}>={f}\n' for n, f in core))
+          PY
+          uv pip compile --python-version "$FLOOR_PYTHON" --resolution lowest-direct \
+            /tmp/floors.in -o /tmp/floors.lock
+          python - <<'PY'
+          import re, sys
+          sys.path.insert(0, '.')
+          from scripts.release_gate import declared_dependency_floors
+          core = {n.lower(): f for extra, n, f in declared_dependency_floors() if not extra}
+          pins = {}
+          for line in open('/tmp/floors.lock'):
+              m = re.match(r'([A-Za-z0-9_.\-]+)==(\S+)', line)
+              if m and m.group(1).lower() in core:
+                  pins[m.group(1).lower()] = m.group(2)
+          missing = sorted(set(core) - set(pins))
+          if missing:
+              sys.exit(f'no resolved version for {missing}')
+          higher = []
+          with open('/tmp/floors.txt', 'w') as out:
+              for name in sorted(pins):
+                  out.write(f'{name}=={pins[name]}\n')
+                  print(f'{name}: declared >={core[name]}, installed {pins[name]}')
+                  if pins[name] != core[name]:
+                      higher.append(name)
+                      print(f'::error::{name}>={core[name]} resolves to {pins[name]} beside the '
+                            f'other floors, so the declared floor cannot be installed or tested')
+          if higher:
+              sys.exit(f'declared floors that do not hold: {higher}')
+          PY
+
+      - name: Install dependencies at the floors
+        run: |
+          python -m pip install ".[test,docs,vis]" -c /tmp/floors.txt
+          python -m pip list
+
+      - name: Run pytest
+        run: |
+          pytest -v -n auto tests/
 
   build:
     name: Build & Validate Distribution
-    needs: test
+    needs: [test, test-floors]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,43 +207,12 @@ jobs:
           /tmp/clean_env/bin/pip install --upgrade pip
           /tmp/clean_env/bin/pip install dist/*.whl
           /tmp/clean_env/bin/pip check
+          # The version the wheel's file name carries (PEP 427: name-version-...).
+          version=$(basename dist/*.whl | cut -d- -f2)
           cd /tmp
-          /tmp/clean_env/bin/python -c "
-          import sys, os
-          try:
-              import omission
-              raise RuntimeError('omission is unexpectedly importable!')
-          except ModuleNotFoundError:
-              print('PASS: omission is strictly absent and unimportable')
-          import jnwb
-          print('Installed jnwb version:', jnwb.__version__)
-          print('Installed location:', jnwb.__file__)
-          # The wheel is installed without extras, so jnwb.vis must name its extra, not resolve.
-          from jnwb._lazy_exports import OPTIONAL_SUBMODULES
-          missing = [s for s in jnwb.__all__ if s not in OPTIONAL_SUBMODULES and not hasattr(jnwb, s)]
-          assert not missing, f'Missing exports: {missing}'
-          for name, extra in OPTIONAL_SUBMODULES.items():
-              try:
-                  getattr(jnwb, name)
-              except ImportError as exc:
-                  assert f'pip install jnwb[{extra}]' in str(exc), exc
-              else:
-                  raise AssertionError(f'jnwb.{name} resolved without the {extra} extra')
-          print(f'PASS: {len(jnwb.__all__)} public exports resolved or name their extra')
-
-          # Representative installed-package workflows across modules
-          import numpy as np
-          rng = np.random.default_rng(42)
-          tfr = jnwb.complex_tfr(rng.normal(size=500), fs=1000.0, freqs=np.linspace(10, 40, 4))
-          assert tfr.shape == (4, 500)
-          freqs, psd = jnwb.compute_multitaper_psd(rng.normal(size=512), fs=1000.0)
-          assert len(freqs) == len(psd)
-          filt = jnwb.bandpass_filter(rng.normal(size=500), fs=1000.0, low_cut=8.0, high_cut=40.0)
-          assert filt.shape == (500,)
-          ppc = jnwb.pairwise_phase_consistency(rng.uniform(-np.pi, np.pi, 40))
-          assert np.isfinite(ppc)
-          print('PASS: Installed wheel verified in clean virtualenv')
-          "
+          # The same script the TestPyPI verify job runs; from /tmp, so the import is the wheel's.
+          /tmp/clean_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
+            --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
 
       - name: Run the test suite against the installed wheel
         shell: bash
@@ -239,7 +285,11 @@ jobs:
   publish-testpypi:
     name: Publish to TestPyPI
     needs: build
-    if: (github.event_name == 'release' && github.event.release.prerelease) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && contains(github.ref, 'rc')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
+    # Every tag push publishes to TestPyPI, a final tag as well as an rc one, and the release
+    # event does not: publish-pypi below uploads the files this job uploaded, downloaded from
+    # the tag's push run and checked against TestPyPI's hashes, once that upload and its
+    # verification both succeeded.
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -264,11 +314,65 @@ jobs:
           packages-dir: dist/
           verbose: true
 
+  verify-testpypi:
+    # The candidate as a user gets it: the tag's version installed from TestPyPI into a fresh
+    # environment, then the build job's smoke script run against it from outside the checkout.
+    # Only the candidate wheel is fetched from TestPyPI, without dependencies; it is then
+    # installed from that local file with the default index, so every dependency comes from
+    # PyPI and none can resolve to a TestPyPI upload of the same name.
+    name: Verify the TestPyPI upload
+    needs: publish-testpypi
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the tag's version from TestPyPI and smoke-test it
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          python -m venv /tmp/testpypi_env
+          /tmp/testpypi_env/bin/pip install --upgrade pip
+          # The index can lag the upload by minutes; ten attempts, thirty seconds apart.
+          for attempt in $(seq 1 10); do
+            if /tmp/testpypi_env/bin/pip download --no-cache-dir --no-deps --only-binary :all: \
+                --index-url https://test.pypi.org/simple/ "jnwb==$version" -d /tmp/candidate; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "::error::jnwb==$version could not be downloaded from TestPyPI"
+              exit 1
+            fi
+            sleep 30
+          done
+          wheels=(/tmp/candidate/jnwb-*.whl)
+          if [ "${#wheels[@]}" -ne 1 ] || [ ! -f "${wheels[0]}" ]; then
+            echo "::error::expected one jnwb wheel from TestPyPI, found: ${wheels[*]}"
+            exit 1
+          fi
+          /tmp/testpypi_env/bin/pip install --no-cache-dir "${wheels[0]}"
+          /tmp/testpypi_env/bin/pip check
+          cd /tmp
+          /tmp/testpypi_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
+            --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
+
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    # Production PyPI is published only when a GitHub Release is published for the tag.
-    # Tag push alone runs test + build only (no upload), avoiding duplicate publish attempts.
+    # Production PyPI is published only when a GitHub Release is published for the tag, and
+    # only after the tag's push run published it to TestPyPI and verified it from there. The
+    # two are separate runs, so `needs:` cannot order them; the first step reads the push
+    # run's two jobs instead. What is uploaded is that push run's distribution artifact, the
+    # files TestPyPI received, not this run's rebuild; each file's sha256 must equal the one
+    # TestPyPI records for it before anything is uploaded.
     if: github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease
     runs-on: ubuntu-latest
     environment:
@@ -277,12 +381,93 @@ jobs:
     permissions:
       id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
       contents: read
+      actions: read    # To read the tag push run's TestPyPI jobs
     steps:
-      - name: Download distribution artifacts
+      - name: Require the tag push to have published this commit to TestPyPI
+        # Waits up to an hour for that run, then fails. Both the upload and its verification
+        # must conclude success in one run; anything else -- failure, skipped, cancelled, no
+        # such job, or two jobs of one name -- fails the step and nothing reaches PyPI. The
+        # run that passed is the step's `run_id` output.
+        id: testpypi
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          SHA: ${{ github.sha }}
+          TESTPYPI_JOB: Publish to TestPyPI
+          VERIFY_JOB: Verify the TestPyPI upload
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 3600))
+          while :; do
+            runs=$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$SHA&per_page=100" \
+              --jq '.workflow_runs[] | select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml") | .id')
+            conclusions=""
+            matched=""
+            for run in $runs; do
+              jobs="repos/$REPO/actions/runs/$run/jobs?per_page=100"
+              # A job not listed yet has not concluded either; two jobs of one name cannot say
+              # which of them uploaded, and read as ambiguous.
+              upload=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.TESTPYPI_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
+              verify=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.VERIFY_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
+              pair="${upload:-pending}+${verify:-pending}"
+              conclusions="$conclusions $pair"
+              if [ "$pair" = "success+success" ] && [ -z "$matched" ]; then
+                matched="$run"
+              fi
+            done
+            conclusions=$(echo $conclusions)
+            echo "TestPyPI upload+verify of the $TAG push run(s) at $SHA: ${conclusions:-none yet}"
+            case " $conclusions " in
+              *" success+success "*)
+                echo "run_id=$matched" >> "$GITHUB_OUTPUT"
+                exit 0 ;;
+              *pending*|"  ")
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  echo "::error::no TestPyPI publication and verification of $TAG concluded within an hour"
+                  exit 1
+                fi
+                sleep 60 ;;
+              *)
+                echo "::error::the $TAG push run did not publish and verify on TestPyPI ($conclusions); PyPI is not published"
+                exit 1 ;;
+            esac
+          done
+
+      - name: Download the distribution artifacts TestPyPI received
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
+          run-id: ${{ steps.testpypi.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Require every file to match its TestPyPI upload byte for byte
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          curl -fsSL "https://test.pypi.org/pypi/jnwb/$version/json" -o /tmp/testpypi.json
+          remote=$(jq '.urls | length' /tmp/testpypi.json)
+          count=0
+          for file in dist/*; do
+            name=$(basename "$file")
+            want=$(jq -r --arg name "$name" '[.urls[] | select(.filename == $name) | .digests.sha256] | if length == 1 then .[0] else "" end' /tmp/testpypi.json)
+            have=$(sha256sum "$file" | cut -d' ' -f1)
+            if [ -z "$want" ] || [ "$want" != "$have" ]; then
+              echo "::error::$name does not match TestPyPI's jnwb $version (sha256 $have, TestPyPI ${want:-none})"
+              exit 1
+            fi
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ] || [ "$count" -ne "$remote" ]; then
+            echo "::error::dist/ holds $count file(s) and TestPyPI's jnwb $version holds $remote"
+            exit 1
+          fi
+          echo "all $count file(s) match TestPyPI's jnwb $version"
 
       - name: Publish to PyPI via Trusted Publishing
         # Same pin as the TestPyPI job, and for the same reason.

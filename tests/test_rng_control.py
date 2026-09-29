@@ -148,8 +148,15 @@ class TestNoneNowMeansFreshEntropy:
         a, _ = ab
         assert SA.bootstrap_ci(a) == SA.bootstrap_ci(a)
 
-    def test_sklearn_random_state_passes_none_through(self):
-        assert sklearn_random_state(None, func_name="t") is None
+    def test_sklearn_random_state_draws_none_from_fresh_entropy(self):
+        """Passing None on let scikit-learn draw from NumPy's global RandomState."""
+        np.random.seed(5)
+        before = np.random.get_state()[1].copy()
+        seed = sklearn_random_state(None, func_name="t")
+        assert isinstance(seed, int)
+        np.testing.assert_array_equal(np.random.get_state()[1], before)
+        np.random.seed(5)
+        assert len({sklearn_random_state(None, func_name="t") for _ in range(5)}) > 1
 
 
 class TestOneSpellingAcceptsASeedOrAGenerator:
@@ -268,17 +275,28 @@ class TestDirectedEstimatorsHonourRng:
         again = DIRECTED[name](first.params["surrogate_seed_entropy"])
         assert _null_of(again) == _null_of(first)
 
-    def test_an_int_seed_is_recorded_and_keeps_its_stream(self, name):
-        """An int seed draws `default_rng(seed)`, the stream it drew before 06-203."""
+    def test_an_int_seed_is_recorded_and_keeps_its_stream(self, name, monkeypatch):
+        """An int seed draws `default_rng(seed)`, the stream it has always drawn: the null
+        of a `default_rng(0)` Generator consumed in place, as the helper did before."""
         res = DIRECTED[name](0)
         assert res.params["seed"] == 0 and res.params["surrogate_seed_entropy"] == 0
+        import jnwb._rng
+        import jnwb.connectivity
+
+        monkeypatch.setattr(jnwb.connectivity, "_surrogate_rng", jnwb._rng.surrogate_rng)
         assert _null_of(res) == _null_of(DIRECTED[name](np.random.default_rng(0)))
 
-    def test_a_generator_is_used_in_place(self, name):
+    def test_a_generator_records_the_child_seed_that_reproduces_p(self, name):
+        """A Generator gives up one draw; the surrogates run on it and the result records it,
+        so re-running from the recorded seed alone reproduces every p."""
         gen = np.random.default_rng(7)
         first, second = DIRECTED[name](gen), DIRECTED[name](gen)
-        assert first.params["surrogate_seed_entropy"] is None
-        assert _null_of(first) == _null_of(DIRECTED[name](7))
+        ref = np.random.default_rng(7)
+        child = [int(ref.integers(0, 2**63 - 1)) for _ in range(2)]
+        assert first.params["surrogate_seed_entropy"] == child[0]
+        assert second.params["surrogate_seed_entropy"] == child[1]
+        again = DIRECTED[name](first.params["surrogate_seed_entropy"])
+        assert _null_of(again) == _null_of(first)
         assert _null_of(second) != _null_of(first)
 
     def test_a_float_is_refused_rather_than_truncated(self, name):

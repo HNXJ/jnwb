@@ -12,6 +12,7 @@ Public API: exactly one function.
 
 from __future__ import annotations
 
+import numbers
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -21,8 +22,9 @@ import numpy as np
 
 from ._backend import CPU, CUDA, resolve_device
 from ._parallel import parallel_map
-from ._rng import Default, RNGLike, resolve_seed_alias
+from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 from ._spread import is_constant, zscore
+from .permutation import _count_at_least_as_extreme
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -179,7 +181,10 @@ def jrsa(
         Aligned dimension(s). Default -1. It steers alignment, `reduction` (axes named
         here) and `window`. Nothing downstream follows it: the paired metrics pair samples
         and resample the last axis, the observation-axis metrics resample axis 0 (see
-        `null`), and `lag` rolls the last axis.
+        `null`), and `lag` shifts the axis the metric treats as observations, comparing the
+        overlap only. So an `adim` other than the default that does not name that axis
+        raises ValueError when a permutation null, `bootstrap` or a nonzero `lag` is used:
+        ``adim=0`` with pearson on a 2-D input would return the result of ``adim=-1``.
     labels : list[str] or None
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
@@ -190,6 +195,18 @@ def jrsa(
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
+        Each key names an axis of `adim`: a label, ``"axis_<d>"`` for an unlabelled int
+        `d` of a tuple (``adim=(-3, -2)`` gives ``"axis_-3"`` and ``"axis_-2"``), or
+        ``"aligned"`` for a single int. Any other key raises.
+        A reduced axis stays at length 1, except axis 0 for rsa, cka, rv, hsic,
+        distance_correlation and procrustes: that axis is removed, so averaging the trials
+        of a (trials, conditions, units) input compares conditions, as ``x.mean(0)`` would.
+        `lag`, the null and `window` then number the axes of the reduced input, and a
+        `window` on the removed axis raises. `result.axes` keeps the input's numbering.
+        ``nan_policy='omit'`` acts on the input's axis 0 (the trials) before the reduction:
+        a NaN drops its whole trial, so the result differs from ``nanmean`` over trials, and
+        a condition that is NaN in every trial leaves no trial and raises. `bootstrap`, like
+        the null, resamples the reduced input's axis 0 (the conditions).
     metric : str
         Similarity metric.  One of: pearson, spearman, kendall, cosine,
         rsa, cka, rv, hsic, distance_correlation, mutual_information,
@@ -201,15 +218,24 @@ def jrsa(
         x1), the reverse of ``jnwb.granger(X, Y).x_to_y``; ``phase_slope`` is positive
         when x1 leads x2, as ``jnwb.phase_slope_index(x, y).x_to_y`` is when x leads y.
     lag : int | tuple | array-like
-        Temporal lag(s) in samples. Each rolls x2 circularly along the last axis, whatever
-        `adim` names.
+        Temporal lag(s) in samples. A lag of l pairs x1[t] with x2[t - l] along the axis the
+        metric treats as observations, whatever `adim` names: the last axis for the paired
+        metrics, axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes (the axes
+        of `null`). Only the overlap is compared, so each lag drops |l| samples, and the
+        null and bootstrap act on that shortened series; `execution['n_overlap']` records
+        the samples used (a list for several lags). |l| must be below the axis length. The
+        lag used to be circular, which paired each series' end with its start.
     window : tuple | int or None
         Analysis window as **sample indices** along the aligned axis: ``(start, stop)``,
         half-open, with negative values counted from the end as in Python slicing, or an
         integer width centred on the axis. This is not a time -- `jrsa` takes no sampling
         rate and cannot convert one. The docstring used to read "e.g. (-500, 500) ms",
         which on a 6-sample axis clamped to the whole axis and returned the unwindowed
-        answer with no warning.
+        answer with no warning. For rsa, cka, rv, hsic, distance_correlation and procrustes
+        at the default ``adim=-1`` the aligned axis is the last, the features, while `lag`
+        and the null act on axis 0, the observations: ``jrsa(x, y, metric='cka',
+        window=(0, 20))`` on (200, 40) input keeps 20 of the 40 features and all 200
+        observations. To window the observations, pass ``adim=0``.
     sliding : bool
         Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
         accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
@@ -221,7 +247,10 @@ def jrsa(
     detrend : bool
         Linear-detrend each input.
     nan_policy : str
-        omit | raise | propagate.
+        omit | raise | propagate. ``'omit'`` drops every observation that is NaN anywhere:
+        a sample of the last axis for the paired metrics, a row of axis 0 for rsa, cka, rv,
+        hsic, distance_correlation and procrustes (the axes of `null`). An input with no
+        observations left raises ValueError for every metric.
     stats : bool
         Compute inferential statistics.
     permutations : int
@@ -232,7 +261,7 @@ def jrsa(
         raises unless ``null='iid'`` is named, declaring the samples exchangeable: on
         autocorrelated data single-sample resampling undercovers, and on independent AR(1)
         pairs with coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs.
-        A block bootstrap is planned for 0.2.7.
+        No block bootstrap is implemented.
     correction : str
         Multiple-comparison correction: none | bonferroni | holm |
         holm-sidak | fdr_bh | fdr_by.
@@ -256,8 +285,9 @@ def jrsa(
         kendall, cosine, mutual_information, granger_ssr_ftest,
         transfer_entropy_histogram_nats and phase_slope -- and axis 0, the observations, for
         rsa, cka, rv, hsic, distance_correlation and procrustes. The last axis is the
-        aligned axis only at the default ``adim=-1``: the null and `lag` act on axis -1
-        whatever `adim` names, so put time last.
+        aligned axis only at the default ``adim=-1``: for the paired metrics the null and
+        `lag` act on axis -1 whatever `adim` names, so put time last. Another `adim` that
+        does not name the permuted axis raises ValueError (see `adim`).
 
         - ``'circular_shift'`` rotates x2 by a shift drawn uniformly from 0 to n - 1, the
           same shift for every row. Each series keeps its autocorrelation, so the null
@@ -271,12 +301,13 @@ def jrsa(
         - ``'iid'`` permutes single samples, which is exchangeable only when the samples
           are independent. On a time axis it must be named: on two independent AR(1)
           series with coefficient 0.9 it rejects at p <= 0.05 about half the time.
-        - ``None`` (default) is ``'circular_shift'`` for the paired metrics and ``'iid'``
-          for the observation-axis metrics, whose rows are conditions or observations.
-          For those metrics the default warns (UserWarning) whenever a null is formed:
-          when axis 0 is time the i.i.d. row permutation is invalid -- cka and rv rejected
-          every one of 40 independent AR(1) pairs at p <= 0.05 -- and from 0.2.7 `null`
-          must be named for them. Naming any scheme, ``'iid'`` included, silences it.
+        - ``None`` (default) is ``'circular_shift'`` for the paired metrics. The
+          observation-axis metrics have no default: forming a null for them without naming
+          `null` raises ValueError, because whether their rows are exchangeable depends on
+          what the rows are. Name ``'iid'`` for exchangeable conditions or observations and
+          ``'circular_shift'`` when axis 0 is time, where the i.i.d. row permutation is
+          invalid -- cka and rv rejected every one of 40 independent AR(1) pairs at
+          p <= 0.05. ``'block'`` is not calibrated for these metrics (see above).
 
         ``execution['null']`` records the scheme that ran, or None when no permutation null
         was formed. Before 0.2.6.1 every metric used ``'iid'``.
@@ -312,8 +343,9 @@ def jrsa(
         interval are identical. `execution['batch_size']` records what ran, which is
         always None, on the same rule as `backend` and `device`: `parameters` carries the
         request, `execution` carries what happened.
-    random_state : int or None
+    random_state : int, numpy.random.Generator or None
         Random seed for reproducibility, for both the permutation null and the bootstrap.
+        Any other type raises ``TypeError``.
         May also be passed as ``seed``, the spelling used by the rest of the package;
         passing both is an error. Leaving it None seeds from OS entropy, so the p-value
         and confidence interval will differ between runs on identical input.
@@ -332,7 +364,9 @@ def jrsa(
         ``'granger_ssr_ftest'``, and ``fs``, ``nperseg``, ``noverlap``, ``bands`` and
         ``jackknife`` for ``'phase_slope'``. A keyword the chosen metric does not declare
         raises TypeError rather than being silently ignored. The histogram TE conditions on
-        one past sample of each series and takes no history length.
+        one past sample of each series and takes no history length. ``granger_ssr_ftest``,
+        ``phase_slope`` and ``transfer_entropy_histogram_nats`` take one series per input:
+        a multi-row input raises ValueError.
 
     Returns
     -------
@@ -423,7 +457,7 @@ def jrsa(
     )
 
     # --- pipeline -------------------------------------------------------------
-    rng = np.random.default_rng(random_state)
+    rng = resolve_rng(random_state, func_name="jrsa")
     # `device` used to be recorded verbatim, so `device='bogus_device'` ran and was
     # reported as the device, while all 15 `resolve_device` sites raise for the same
     # string. Routing it here makes jrsa refuse an unknown device like every other
@@ -448,15 +482,21 @@ def jrsa(
     bk = _get_backend(backend, resolved_device)
 
     x1, x2 = _prepare_inputs(x1, x2, bk)
-    x1, x2 = _validate_inputs(x1, x2, nan_policy)
+    x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
     x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)
+    ndim_in = x1.ndim
     x1, x2, aligned_axes = _align_dimensions(
         x1, x2, axis_map, align, align_mode, verbose
     )
+    window_axes = axis_map
     if reduction is not None:
         x1, x2 = _reduce_dimensions(x1, x2, axis_map, reduction)
+        if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS:
+            x1, x2, window_axes = _drop_reduced_observation_axis(
+                x1, x2, axis_map, reduction, window, metric
+            )
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
-    x1, x2, windows = _make_windows(x1, x2, axis_map, window, sliding)
+    x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
     # --- dispatch metric ------------------------------------------------------
     _LEGACY_JRSA_METRIC_NAMES = {
         "granger": "granger_ssr_ftest",
@@ -492,37 +532,42 @@ def jrsa(
     # _OBSERVATION_AXIS_0_METRICS: for those, axis=-1 is the feature axis and shuffling it
     # is a no-op, which collapsed the null to a point mass and returned p = 1.0 always.
     perm_axis = 0 if metric_key in _OBSERVATION_AXIS_0_METRICS else -1
+    _refuse_an_adim_the_resampling_ignores(
+        metric, adim, axis_map, ndim_in, x1.ndim < ndim_in, perm_axis,
+        permutation_p=permutation_p, bootstrap=bootstrap, lag=lag,
+    )
     # Paired metrics compare samples along the aligned axis, usually time, where single
     # samples are not exchangeable: an i.i.d. shuffle there rejected about half of
     # independent AR(1) pairs at phi = 0.9.
-    null_scheme = null if null is not None else ("iid" if perm_axis == 0 else "circular_shift")
     if perm_axis == 0 and null is None and permutation_p:
-        warnings.warn(
-            f"jrsa(metric={metric!r}): the default null permutes the rows of axis 0 as "
-            "exchangeable. If axis 0 is time, name null='circular_shift' or null='block': on "
-            "independent AR(1) series the default rejected every pair for cka and rv. From "
-            "0.2.7 `null` must be named for this metric; null='iid' keeps the current result "
-            "and silences this warning.",
-            UserWarning,
-            stacklevel=2,
+        raise ValueError(
+            f"jrsa(metric={metric!r}) needs a named null=: its permutation null resamples the "
+            "rows of axis 0, and whether they are exchangeable depends on what they are. Name "
+            "null='iid' when the rows are exchangeable conditions or observations, and "
+            "null='circular_shift' when axis 0 is time: on independent AR(1) series the i.i.d. "
+            "row permutation rejected every pair for cka and rv. null='block' is not "
+            "calibrated for this metric: with block_len=20 it rejected cka at p <= 0.05 for "
+            "0.30 of independent AR(1) pairs (coefficient 0.9, 200 samples). Without a "
+            "permutation null (stats=False or permutations=0) no scheme is needed."
         )
+    null_scheme = null if null is not None else "circular_shift"
     if bootstrap > 0 and perm_axis == -1 and null != "iid":
         raise ValueError(
             f"jrsa(metric={metric!r}): bootstrap resamples single samples of the last axis, "
             "which undercovers on autocorrelated data: on independent AR(1) pairs with "
             "coefficient 0.9 the 95% interval of pearson covered 0 for 0.475 of pairs. Name "
-            "null='iid' to declare the samples exchangeable, or set bootstrap=0. A block "
-            "bootstrap is planned for 0.2.7."
+            "null='iid' to declare the samples exchangeable, or set bootstrap=0."
         )
 
     if verbose:
         print(f"[jrsa] computing {metric!r} …")
 
     # --- temporal lag iteration -----------------------------------------------
-    lags = [lag] if isinstance(lag, (int, float)) else list(lag)
-    
+    # np.ndim, not isinstance(int): a NumPy integer or 0-d array is one lag.
+    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
+
     if len(lags) <= 1:
-        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag)
+        x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, lag, axis=perm_axis)
         value, statistic, effect, p_raw, df = metric_fn(
             x1_lagged, x2_lagged, axis=-1, **kwargs
         )
@@ -564,7 +609,7 @@ def jrsa(
         null_dist_list, ci_list = [], []
         
         for l in lags:
-            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l)
+            x1_lagged, x2_lagged = _apply_lag(x1, x2, axis_map, l, axis=perm_axis)
             v, s, e, p, d = metric_fn(x1_lagged, x2_lagged, axis=-1, **kwargs)
             if not permutation_p:
                 p = _one_sided_parametric_p(v, p, alternative)
@@ -621,6 +666,9 @@ def jrsa(
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
     exec_meta["null"] = null_scheme if permutation_p else None
     exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
+    _n_axis = x1.shape[perm_axis]
+    _overlap = [_n_axis - abs(int(l)) if x2 is not None else _n_axis for l in lags]
+    exec_meta["n_overlap"] = _overlap[0] if len(lags) <= 1 else _overlap
 
     result = _make_result(
         value=value,
@@ -680,9 +728,10 @@ def _prepare_inputs(x1, x2, backend_ctx: dict):
     return x1, x2
 
 
-def _validate_inputs(x1, x2, nan_policy: str):
+def _validate_inputs(x1, x2, nan_policy: str, metric=None):
     """Shape checks and NaN handling on both CPU and GPU namespaces."""
     xp1 = _get_xp(x1)
+    size_before = x1.size
     if x1.ndim < 1:
         raise ValueError("x1 must have at least 1 dimension.")
     if nan_policy == "raise" and xp1.any(xp1.isnan(x1)):
@@ -703,58 +752,82 @@ def _validate_inputs(x1, x2, nan_policy: str):
             f"{tuple(x2.shape)}. jrsa compares paired observations, so neither the "
             f"observation count nor the feature count is truncated to match."
         )
+    # The observation axis: axis 0 for the metrics that read rows as observations, the last
+    # axis for the paired metrics. Dropping along the last axis for every metric removed a
+    # feature column of cka or rsa instead of the observation that held the NaN.
+    obs_axis = 0 if str(metric).lower() in _OBSERVATION_AXIS_0_METRICS else x1.ndim - 1
     if nan_policy == "omit":
+        # Keep an observation only when neither input is NaN anywhere in it.
+        nan_mask = xp1.isnan(x1)
         if x2 is not None:
-            xp2 = _get_xp(x2)
-            # Find joint valid mask (neither is NaN) along the last axis
-            # For multi-dimensional inputs, we assume the last axis contains the paired samples.
-            # We want to keep samples where both x1 and x2 are not NaN.
-            nan_mask = xp1.isnan(x1) | xp2.isnan(x2)
-            # Find indices along the last axis where all dimensions are valid (no NaN in any feature/dimension)
-            # In general, if there are multiple dimensions, we project the mask down to the last axis.
-            if x1.ndim > 1:
-                # Collapse over non-last axes to find any NaN position
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
-            x2 = xp2.take(x2, valid_indices, axis=-1)
-        else:
-            nan_mask = xp1.isnan(x1)
-            if x1.ndim > 1:
-                reduce_axes = tuple(range(x1.ndim - 1))
-                any_nan = nan_mask.any(axis=reduce_axes)
-            else:
-                any_nan = nan_mask
-            valid_indices = xp1.where(~any_nan)[0]
-            x1 = xp1.take(x1, valid_indices, axis=-1)
+            nan_mask = nan_mask | _get_xp(x2).isnan(x2)
+        other_axes = tuple(ax for ax in range(x1.ndim) if ax != obs_axis)
+        any_nan = nan_mask.any(axis=other_axes) if other_axes else nan_mask
+        valid_indices = xp1.where(~any_nan)[0]
+        x1 = xp1.take(x1, valid_indices, axis=obs_axis)
+        if x2 is not None:
+            x2 = _get_xp(x2).take(x2, valid_indices, axis=obs_axis)
     # propagate: do nothing, let downstream handle
+    # No values left -- an input with a zero-length axis, or `omit` dropping every sample
+    # because some condition is NaN throughout. The metrics disagreed here: hsic,
+    # mutual_information and transfer_entropy_histogram_nats returned 0.0 computed from
+    # nothing, which reads as "no dependence", six others returned NaN and five raised. Every
+    # metric now raises.
+    if x1.size == 0 or (x2 is not None and x2.size == 0):
+        detail = ""
+        if nan_policy == "omit" and size_before > 0:
+            empty = [] if x1.ndim < 2 else sorted(
+                tuple(int(i) for i in idx)
+                for idx in np.argwhere(np.all(np.asarray(nan_mask), axis=obs_axis))
+            )
+            detail = (
+                f" nan_policy='omit' dropped every observation (axis {obs_axis}), because each "
+                f"one is NaN somewhere"
+                + (f"; position(s) {empty} of the other axes are NaN throughout" if empty else "")
+                + "."
+            )
+        raise ValueError(
+            f"jrsa(metric={metric!r}): no samples remain (shape {tuple(x1.shape)}), so the "
+            f"metric has nothing to compute from.{detail}"
+        )
     return x1, x2
+
+
+def _is_axis_index(value) -> bool:
+    """An integer axis: a Python or NumPy integer, not a bool."""
+    return isinstance(value, numbers.Integral) and not isinstance(value, (bool, np.bool_))
 
 
 def _standardize_dimensions(x1, x2, adim, labels):
     """Normalise adim to a dict {name: axis_index}."""
     axis_map = {}
-    if isinstance(adim, int):
-        axis_map["aligned"] = adim % x1.ndim
+    # numbers.Integral, not int: np.int64(0) failed isinstance(int) and fell through to -1.
+    if _is_axis_index(adim):
+        axis_map["aligned"] = int(adim) % x1.ndim
     elif isinstance(adim, (tuple, list)):
         for i, d in enumerate(adim):
             if isinstance(d, str):
                 if labels is None:
                     raise ValueError("labels required when adim contains strings.")
                 axis_map[d] = labels.index(d)
-            else:
+            elif _is_axis_index(d):
+                d = int(d)
                 key = labels[d] if labels and d < len(labels) else f"axis_{d}"
                 axis_map[key] = d % x1.ndim
+            else:
+                raise TypeError(
+                    f"jrsa: each entry of adim must be an int or a str; got "
+                    f"{type(d).__name__} at position {i}."
+                )
     elif isinstance(adim, str):
         if labels is None:
             raise ValueError("labels required when adim is a string.")
         axis_map[adim] = labels.index(adim)
     else:
-        axis_map["aligned"] = -1 % x1.ndim
+        raise TypeError(
+            f"jrsa: adim must be an int, a str, or a tuple or list of them; got "
+            f"{type(adim).__name__}. Another type used to be read as adim=-1."
+        )
     return x1, x2, axis_map
 
 
@@ -912,13 +985,87 @@ def _reduce_dimensions(x1, x2, axis_map, reduction: dict):
                 f"jrsa: unrecognized reduction {op_str!r} for axis {name!r}. "
                 f"Valid options: {list(REDUCTION_OPS)}."
             )
-        ax = axis_map.get(name)
-        if ax is None:
-            continue
+        if name not in axis_map:
+            # Skipping it returned the unreduced value while `parameters['reduction']`
+            # recorded the request.
+            raise ValueError(
+                f"jrsa: reduction key {name!r} names no axis of `adim`. The axes are "
+                f"{list(axis_map)}."
+            )
+        ax = axis_map[name]
         x1 = _reduce_one(x1, op_str, ax)
         if x2 is not None:
             x2 = _reduce_one(x2, op_str, ax)
     return x1, x2
+
+
+def _refuse_an_adim_the_resampling_ignores(metric, adim, axis_map, ndim_in, dropped_axis_0,
+                                           perm_axis, *, permutation_p, bootstrap, lag):
+    """Raise when a non-default `adim` would be ignored by the null, bootstrap or `lag`.
+
+    Those act on a fixed axis of the input: the last for the paired metrics, axis 0 for the
+    row metrics, or axis 1 when a reduction removed axis 0. With ``adim=0`` on a 2-D input,
+    pearson returned the value and p of ``adim=-1`` exactly, and a lag shifted the last
+    axis. A non-default `adim` is accepted with any of the three only when it names that
+    axis; following `adim` is not implemented. An `adim` naming only the last axis, as the
+    default ``adim=-1`` does, is exempt: for the row metrics it names the features while
+    the resampling acts on the observations, as the docstring states.
+    """
+    used = [name for name, on in (("the permutation null", permutation_p),
+                                  ("bootstrap", bootstrap > 0),
+                                  ("lag", bool(np.any(np.asarray(lag) != 0)))) if on]
+    if not used or set(axis_map.values()) == {ndim_in - 1}:
+        return
+    acted = ndim_in - 1 if perm_axis == -1 else (1 if dropped_axis_0 else 0)
+    if acted in axis_map.values():
+        return
+    kind = ("the last axis, for a paired metric" if perm_axis == -1 else
+            "the observations of a row metric")
+    raise ValueError(
+        f"jrsa(metric={metric!r}, adim={adim!r}): {', '.join(used)} act(s) on axis {acted} of "
+        f"the input ({kind}) whatever `adim` names, and `adim` does not name it, so the "
+        "result would not follow `adim`. Name that axis in `adim`, use the default adim=-1 "
+        "with the aligned axis last, or drop the resampling (stats=False or "
+        "permutations=0, bootstrap=0, lag=0)."
+    )
+
+
+def _window_axis_name(axis_map):
+    """The `axis_map` entry `window` applies to: ``'aligned'``, else the first `adim` axis."""
+    return "aligned" if "aligned" in axis_map else list(axis_map)[0]
+
+
+def _drop_reduced_observation_axis(x1, x2, axis_map, reduction, window, metric):
+    """Remove axis 0 of a row metric's input when `reduction` reduced it.
+
+    The row metrics read axis 0 as observations. A reduction keeps the reduced axis at
+    length 1, which left one observation and a NaN (cka) or an error (rsa): averaging trials
+    of a (trials, conditions, units) input gave NaN where cka on ``x.mean(0)`` gave 0.69. The
+    axis is removed instead, so the next axis becomes the observations, and `lag` and the
+    permutation null act on it. Returns the axis numbering `window` reads after the removal;
+    `axis_map` itself, which the result records, keeps the numbering of the input.
+    """
+    reduced = {axis_map[name] for name in reduction if name in axis_map}
+    if 0 not in reduced:
+        return x1, x2, axis_map
+    if x1.ndim < 2:
+        raise ValueError(
+            f"jrsa(metric={metric!r}): the reduction removes axis 0 of a 1-D input, which "
+            "leaves no observation axis."
+        )
+    if window is not None:
+        target = _window_axis_name(axis_map)
+        if axis_map[target] == 0:
+            raise ValueError(
+                f"jrsa(metric={metric!r}): `window` applies to axis {target!r}, which the "
+                "reduction removed. Window the input before reducing it, or name the axis to "
+                "window first in `adim`."
+            )
+    xp = _get_xp(x1)
+    x1 = xp.squeeze(x1, axis=0)
+    if x2 is not None:
+        x2 = _get_xp(x2).squeeze(x2, axis=0)
+    return x1, x2, {name: ax - 1 for name, ax in axis_map.items() if ax != 0}
 
 
 def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
@@ -972,7 +1119,7 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     """
     if window is None:
         return x1, x2, None
-    ax = axis_map.get("aligned", axis_map.get(list(axis_map.keys())[0], -1))
+    ax = axis_map[_window_axis_name(axis_map)]
     n = x1.shape[ax]
     if isinstance(window, (int, float)):
         half = int(window) // 2
@@ -1008,26 +1155,35 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     return x1, x2, (start, stop)
 
 
-def _apply_lag(x1, x2, axis_map, lag):
-    """Apply temporal lag(s) by rolling along the last axis on CPU or GPU.
-    If multiple lags are passed, returns stacked arrays of shape (n_lags, ...).
+def _apply_lag(x1, x2, axis_map, lag, axis=-1):
+    """Pair x1[t] with x2[t - lag] along ``axis``, keeping only the overlap, on CPU or GPU.
+
+    ``axis`` is the observation axis: -1 for the paired metrics, 0 for
+    `_OBSERVATION_AXIS_0_METRICS`, whose last axis holds features they are invariant to.
+    A lag of l drops |l| samples: x1 keeps ``[l:]`` and x2 ``[:n - l]`` for l > 0, x1
+    ``[:n - |l|]`` and x2 ``[|l|:]`` for l < 0. The lag used to be circular (``roll``),
+    which paired the end of each series with its start. One lag per call; `jrsa` loops.
     """
-    if lag == 0 or (hasattr(lag, "__len__") and len(lag) == 1 and lag[0] == 0):
-        return x1, x2
     if x2 is None:
         return x1, x2
-    lags = [lag] if isinstance(lag, (int, float)) else list(lag)
+    lags = [lag] if np.ndim(lag) == 0 else list(np.asarray(lag).ravel())
+    if len(lags) != 1:
+        raise ValueError(f"_apply_lag takes one lag per call; got {len(lags)}.")
+    shift = int(lags[0])
+    if shift == 0:
+        return x1, x2
     xp = _get_xp(x2)
-    
-    if len(lags) == 1:
-        shift = int(lags[0])
-        return x1, xp.roll(x2, shift, axis=-1)
-    
-    # Stack multiple shifted copies along a new first axis
-    # The output will have shape (n_lags, ...)
-    x1_stacked = xp.stack([x1 for _ in lags], axis=0)
-    x2_stacked = xp.stack([xp.roll(x2, int(l), axis=-1) for l in lags], axis=0)
-    return x1_stacked, x2_stacked
+    n = x2.shape[axis]
+    if abs(shift) >= n:
+        raise ValueError(
+            f"jrsa: lag={shift} leaves no overlap on an axis of {n} samples; |lag| must be "
+            f"below {n}."
+        )
+    k = abs(shift)
+    head, tail = xp.arange(0, n - k), xp.arange(k, n)
+    if shift > 0:
+        return xp.take(x1, tail, axis=axis), xp.take(x2, head, axis=axis)
+    return xp.take(x1, head, axis=axis), xp.take(x2, tail, axis=axis)
 
 
 # ===========================================================================
@@ -1211,12 +1367,7 @@ def _p_from_null(value, null_dist, alternative):
     n = len(null_dist)
     if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
         return np.asarray(np.nan, dtype=np.float64)
-    if alternative == "two-sided":
-        k = int(np.sum(np.abs(null_dist) >= np.abs(obs)))
-    elif alternative == "greater":
-        k = int(np.sum(null_dist >= obs))
-    else:
-        k = int(np.sum(null_dist <= obs))
+    k = _count_at_least_as_extreme(null_dist, obs, alternative)
     p = (1 + k) / (n + 1)
     return np.asarray(p, dtype=np.float64)
 
@@ -1326,7 +1477,7 @@ def _multiple_correction(p: np.ndarray, method: str, alpha: float) -> np.ndarray
             raise ImportError(
                 f"jrsa correction={method!r} requires 'statsmodels', which is a declared "
                 f"dependency of jnwb and could not be imported. Install it "
-                f"(pip install 'statsmodels>=0.14.0'), or pass correction='bonferroni', "
+                f"(pip install 'statsmodels>=0.14.5'), or pass correction='bonferroni', "
                 f"which jnwb computes without it."
             ) from exc
     return q.reshape(np.asarray(p).shape)
@@ -1759,8 +1910,9 @@ def _distance_correlation(x1, x2, axis=-1, **kwargs):
 def _mutual_information(x1, x2, axis=-1, bins=32, **kwargs):
     """Mutual information via histogram estimator."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_paired_shape(x1, x2, "mutual_information")
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()
     c_xy, xe, ye = np.histogram2d(a, b, bins=bins)
     c_xy = c_xy / c_xy.sum()
     c_x = c_xy.sum(axis=1)
@@ -1801,9 +1953,11 @@ def _grangercausalitytests_compat(data, maxlag):
 def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
     """Granger causality F-statistic (x2 → x1) with best lag selection by AIC."""
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "granger_ssr_ftest", "jnwb.granger")
+    _require_paired_shape(x1, x2, "granger_ssr_ftest")
     try:
         a = x1.ravel()
-        b = x2.ravel()[:len(a)]
+        b = x2.ravel()
         data = np.column_stack([a, b])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -1841,6 +1995,35 @@ def _granger(x1, x2, axis=-1, max_lag=5, **kwargs):
         return np.float64(np.nan), None, None, None, None
 
 
+def _require_one_series(x, metric, trial_function):
+    """Refuse an input holding more than one row for a metric that reads temporal order.
+
+    Flattening several rows into one series made the last sample of each row the past of the
+    first sample of the next, so every join between rows entered the estimate as a time step.
+    """
+    if int(np.prod(x.shape[:-1])) > 1:
+        raise ValueError(
+            f"jrsa(metric={metric!r}) takes one series per input; got shape "
+            f"{tuple(x.shape)}. Flattening the rows would count each join between rows as a "
+            "time transition, and pooling the rows or averaging per-row values are different "
+            f"estimators. Pass one row at a time, or use {trial_function}, which takes "
+            "(n_trials, n_times)."
+        )
+
+
+def _require_paired_shape(x1, x2, metric):
+    """Refuse two inputs of different shapes for a metric that pairs their flattened samples.
+
+    Pairing by ``x2.ravel()[:len(a)]`` truncated a longer second input and returned a
+    number computed on the samples that happened to line up.
+    """
+    if x1.shape != x2.shape:
+        raise ValueError(
+            f"jrsa(metric={metric!r}) pairs the samples of x1 and x2 one to one, so both "
+            f"need the same shape; got {tuple(x1.shape)} and {tuple(x2.shape)}."
+        )
+
+
 def _entropy(probs):
     """Calculate Shannon entropy in nats from probability array."""
     probs = probs[probs > 0]
@@ -1854,10 +2037,16 @@ def _transfer_entropy(x1, x2, axis=-1, bins=10, **kwargs):
     used to be declared here and never read, so `jrsa(..., k=5)` passed the keyword check
     and returned the one-sample answer; without it, `k` is refused like any unknown option.
     `jnwb.transfer_entropy` takes the target and source history lengths.
+
+    Only one series per input is accepted. Flattening several rows into one series made the
+    last sample of each row the past of the first sample of the next, so every join between
+    rows was counted as a time transition.
     """
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "transfer_entropy_histogram_nats", "jnwb.transfer_entropy")
+    _require_paired_shape(x1, x2, "transfer_entropy_histogram_nats")
     a = x1.ravel()
-    b = x2.ravel()[:len(a)]
+    b = x2.ravel()
     
     # We estimate TE(Y -> X) = H(X_t, X_{t-1}) + H(X_{t-1}, Y_{t-1}) - H(X_{t-1}) - H(X_t, X_{t-1}, Y_{t-1})
     # with Y = b, X = a.
@@ -1913,9 +2102,10 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
     from .connectivity import phase_slope_index as _psi_impl
 
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
+    _require_one_series(x1, "phase_slope", "jnwb.phase_slope_index")
+    _require_paired_shape(x1, x2, "phase_slope")
     a = x1.ravel()
-    b = x2.ravel()[: len(a)]
-    n = min(len(a), len(b))
+    b = x2.ravel()
     if fs is None:
         fs = 2.0  # normalized frequency: Nyquist == 1.0
         if bands is None:
@@ -1929,7 +2119,7 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
                 stacklevel=2,
             )
     res = _psi_impl(
-        a[:n], b[:n], fs=fs, bands=bands, nperseg=nperseg,
+        a, b, fs=fs, bands=bands, nperseg=nperseg,
         noverlap=noverlap, jackknife=jackknife,
     )
     band = next(iter(res.per_band.values()))
@@ -2004,76 +2194,6 @@ def _make_exec_meta(backend_ctx, device, t0, random_state):
     }
 
 
-class _ScalarPValue(np.ndarray):
-    """0-d float array that still answers ``[0]``, with a `FutureWarning`, until 0.2.7.
-
-    `p` and `q` of a single-lag result used to be shape ``(1,)`` and are now 0-d like
-    `value`. A 0-d array raises `IndexError` on ``[0]``, which would break code written
-    against the old shape without notice. This view returns the scalar ``self[()]`` for
-    ``[0]`` and changes nothing else: every other index is the base ndarray's, and ufuncs
-    and NumPy functions receive a plain ndarray, so ``p * 2``, ``p < 0.05`` and
-    ``np.isnan(p)`` return exactly what they return for a plain 0-d array (a NumPy scalar).
-    It pickles as a plain ndarray, so a stored result does not depend on this class, which
-    0.2.7 removes.
-    """
-
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if "out" in kwargs:
-            kwargs["out"] = _plain_arrays(kwargs["out"])
-        return getattr(ufunc, method)(*_plain_arrays(inputs), **kwargs)
-
-    def __array_function__(self, func, types, args, kwargs):
-        return super().__array_function__(
-            func, (np.ndarray,), _plain_arrays(args), _plain_arrays(kwargs)
-        )
-
-    def __getitem__(self, key):
-        if (
-            self.ndim == 0
-            and isinstance(key, (int, np.integer))
-            and not isinstance(key, (bool, np.bool_))
-            and key == 0
-        ):
-            field_name = getattr(self, "_field_name", "p")
-            warnings.warn(
-                f"JRSAResult.{field_name} is 0-d; indexing it with [0] is deprecated and "
-                f"raises IndexError in 0.2.7. Use float(result.{field_name}) or "
-                f"result.{field_name}[()].",
-                FutureWarning,
-                stacklevel=2,
-            )
-            return super().__getitem__(())
-        return super().__getitem__(key)
-
-    def __repr__(self):
-        return repr(self.view(np.ndarray))
-
-    def __reduce_ex__(self, protocol):
-        return np.asarray(self).__reduce_ex__(protocol)
-
-
-def _plain_arrays(obj):
-    """Replace every `_ScalarPValue` in a (nested) tuple, list or dict with a plain view."""
-    if isinstance(obj, _ScalarPValue):
-        return obj.view(np.ndarray)
-    if isinstance(obj, tuple):
-        return tuple(_plain_arrays(o) for o in obj)
-    if isinstance(obj, list):
-        return [_plain_arrays(o) for o in obj]
-    if isinstance(obj, dict):
-        return {k: _plain_arrays(v) for k, v in obj.items()}
-    return obj
-
-
-def _scalar_p_value(a, field_name):
-    """Wrap a 0-d p-value array in `_ScalarPValue`; anything else is returned unchanged."""
-    if a is None or np.ndim(a) != 0:
-        return a
-    out = np.asarray(a).view(_ScalarPValue)
-    out._field_name = field_name
-    return out
-
-
 def _make_result(
     value, statistic, effect, p, q, df, ci,
     metric, axes, aligned_axes, labels, parameters,
@@ -2090,8 +2210,8 @@ def _make_result(
         value=_to_numpy(value) if value is not None else np.float64(np.nan),
         statistic=_to_numpy(statistic),
         effect=_to_numpy(effect),
-        p=_scalar_p_value(_to_numpy(p), "p"),
-        q=_scalar_p_value(_to_numpy(q), "q"),
+        p=_to_numpy(p),
+        q=_to_numpy(q),
         df=_to_numpy(df),
         ci=_to_numpy(ci),
         metric=metric,

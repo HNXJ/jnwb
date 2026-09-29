@@ -12,7 +12,7 @@ the four outcomes a skill can end a task in.
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
 | MCP server | yes (needs the `mcp` extra) | File inspection only — three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
-| `AGENTS.md` | **no** (in the sdist) | Repository map, working rules, recipes |
+| `AGENTS.md` | **no** (source checkout only) | Repository map and working rules; the recipes are on [Recipes](recipes.md) |
 
 An agent given only the installed package can discover the API from docstrings and
 [the public API page](api.md). What it will not discover is the part that stops it producing
@@ -35,7 +35,7 @@ python -m jnwb.mcp_server
 |---|---|---|
 | `inspect_nwb` | `(file_path)` | Structure and metadata: acquisitions, units, electrodes, every interval table with columns and sample values |
 | `get_event_codes_and_timings` | `(file_path, event_group_path=None)` | Event and trial codes with their timestamps |
-| `prepare_signal_reference` | `(file_path, dataset_path)` | A lazy handle to a large dataset, without loading it |
+| `prepare_signal_reference` | `(file_path, dataset_path)` | A dataset's shape, scaling, timing and layout, and the jnwb call that reads it in physical units, without loading it |
 
 Wire it into an MCP-speaking client the usual way:
 
@@ -57,7 +57,7 @@ to the real layout instead of an assumed one.
 
 ## The skills
 
-Ten skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
+Nine skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
 alongside an `agents/openai.yaml` manifest. The canonical tree is `skills/`, and a copy under
 `jnwb/` would be a second tree, which the repository's own gates forbid. To use them, clone the
@@ -72,17 +72,17 @@ against the API it is holding:
 ```python
 import jnwb
 
-jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.6.1/skills'
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.7/skills'
 ```
 
-Inside an unpacked sdist the skill files are present but their links to `docs/` are not:
-`docs/` is pruned, so 11 of their 12 repository-relative links resolve only in a checkout.
+Inside an unpacked sdist the skill files are present but the pages they link to are not:
+`docs/` and `AGENTS.md` stay out of the sdist, so every repository-relative link in a skill
+resolves only in a checkout.
 The pointer above is the route that works from anywhere.
 
 | Skill | Covers |
 |---|---|
 | `jnwb` | Router, scientific safeguards, entry point |
-| `jnwb-fact-action` | Execution control, authority loading order, independent verification |
 | `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing |
 | `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, unit QC |
 | `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |

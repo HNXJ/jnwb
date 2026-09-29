@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy import stats
 
 import jnwb
 from jnwb.laminar import xflip
@@ -14,24 +15,42 @@ from jnwb.testing import (
 )
 
 
+#: Seeds per null for a false-acceptance rate bound. The bound is count <= floor(alpha * N):
+#: the observed rate is at or below alpha. At 15 seeds that floor is 0, so one chance
+#: acceptance (0.067) failed a correctly calibrated null; 60 is the smallest N at which the
+#: floor reaches 3, the count expected at a true rate of exactly alpha, so the check reads
+#: as a rate rather than as "never". Under a one-sided binomial, a null whose true rate is
+#: alpha exceeds the bound with probability 0.35 and one at twice alpha with probability
+#: 0.86, so the seeds are fixed and the check catches a gross failure rather than
+#: estimating the rate; the receipt measures the rates at 30 seeds and 200 surrogates.
+NULL_SEEDS = 60
+NULL_ALPHA = 0.05
+NULL_MAX_ACCEPTED = int(np.floor(NULL_ALPHA * NULL_SEEDS))
+
+#: Seeds and bound for the p of `n_blocks=None`, whose choice of count is what can inflate
+#: it. The bound is the one-sided 99% binomial quantile at alpha: a null whose p falls at or
+#: below alpha at a true rate of alpha exceeds it with probability at most 0.01, so a failure
+#: says the rate is above alpha rather than that the seeds were unlucky. The seeds are
+#: enough that a count chosen without repeating the choice on the surrogates exceeds it.
+AUTO_COUNT_SEEDS = 200
+AUTO_COUNT_MAX_SIGNIFICANT = int(stats.binom.ppf(0.99, AUTO_COUNT_SEEDS, NULL_ALPHA))
+
+
 class TestXFlipNullCalibration:
     """Verify false-positive rate control across null ensembles."""
 
     def test_white_noise_fpr_controlled(self):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = 0
         for s in range(n_seeds):
             white = synth_white_noise(shape=(16, 400), rng=s + 500)
             res = xflip(white, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 600)
             if res.accepted:
                 accepted += 1
-        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
-        # the assertion is written as the count it actually is. The rate this bounds is
-        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
-        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_ar_noise_fpr_controlled(self):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = 0
         for s in range(n_seeds):
             ar = synth_ar_noise(600, n_channels=16, fs=1000.0, tau_s=0.030, rng=s + 700)
@@ -45,10 +64,27 @@ class TestXFlipNullCalibration:
             )
             if res.accepted:
                 accepted += 1
-        # 0.07 at 15 seeds admits exactly one acceptance, which is what this asserts.
-        # Correlated noise is the one family whose rate the surrogate test alone
-        # controls, and the receipt measures it at 0.067 over 30 seeds.
-        assert accepted <= 1, f"{accepted}/{n_seeds} AR null seeds accepted"
+        # Correlated noise is the one family whose rate the surrogate test alone controls,
+        # so it is held to the same rate bound as the others: these seeds accept 3 of 60,
+        # at the bound.
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} AR null seeds accepted"
+
+    @pytest.mark.parametrize("null", ["white_noise", "ar_noise"])
+    def test_auto_block_count_p_is_calibrated(self, null):
+        # The p itself, not acceptance: the other gates only lower the acceptance rate.
+        significant = 0
+        for s in range(AUTO_COUNT_SEEDS):
+            if null == "white_noise":
+                data, extra = synth_white_noise(shape=(16, 400), rng=s + 500), {}
+            else:
+                data = synth_ar_noise(600, n_channels=16, fs=1000.0, tau_s=0.030, rng=s + 700)
+                extra = {"surrogate_method": "autocorr_preserving"}
+            res = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40,
+                        rng=s + 900, **extra)
+            significant += res.p_values["omnibus"] <= NULL_ALPHA
+        assert significant <= AUTO_COUNT_MAX_SIGNIFICANT, (
+            f"{significant}/{AUTO_COUNT_SEEDS} {null} seeds have p <= {NULL_ALPHA}"
+        )
 
     def test_acceptance_requires_the_surrogate_test_to_pass(self):
         """The gate these tests are named for, asserted rather than assumed.
@@ -61,9 +97,10 @@ class TestXFlipNullCalibration:
         boundary-drop gates reject those nulls on their own. Only the AR-noise case
         above notices, and only as a rate.
 
-        Correlated noise is where the distinction is visible: the other gates open and
-        the surrogate test is the sole reason for rejection on 14 of 25 seeds, with
-        omnibus p running to 0.56. Acceptance must therefore imply significance.
+        Here the contrast and boundary-drop gates are opened (`min_contrast=0`,
+        `min_boundary_drop=0`; the contrast gate then rejects only a negative contrast),
+        so on correlated noise the surrogate test is the sole reason for most rejections,
+        and every acceptance must carry p <= alpha.
         """
         alpha = 0.05
         sole_surrogate = 0
@@ -77,6 +114,8 @@ class TestXFlipNullCalibration:
                 surrogate_method="autocorr_preserving",
                 rng=s + 600,
                 alpha=alpha,
+                min_contrast=0,
+                min_boundary_drop=0,
             )
             p = float(res.p_values["omnibus"])
             if res.accepted:
@@ -96,7 +135,7 @@ class TestXFlipNullCalibration:
         )
 
     def test_periodic_common_response_fpr_controlled(self):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = 0
         for s in range(n_seeds):
             ch_data = synth_periodic_response(
@@ -111,13 +150,10 @@ class TestXFlipNullCalibration:
             res = xflip(ch_data, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 1000)
             if res.accepted:
                 accepted += 1
-        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
-        # the assertion is written as the count it actually is. The rate this bounds is
-        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
-        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
     def test_smooth_spatial_gradient_rejected(self):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = 0
         n_ch = 16
         for s in range(n_seeds):
@@ -130,10 +166,7 @@ class TestXFlipNullCalibration:
             res = xflip(data, n_blocks=2, min_block_size=3, n_surrogates=40, rng=s + 1200)
             if res.accepted:
                 accepted += 1
-        # At 15 seeds `fpr <= 0.05` admits no acceptance at all -- one is 0.067 -- so
-        # the assertion is written as the count it actually is. The rate this bounds is
-        # measured at 30 seeds in artifacts/benchmarks/xflip_calibration_0.2.5.md.
-        assert accepted == 0, f"{accepted}/{n_seeds} null seeds accepted"
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
 
 class TestXFlipAlternativeRecovery:
@@ -223,7 +256,7 @@ class TestXFlipGradientGateOnBothPaths:
 
     @pytest.mark.parametrize("contiguous", [True, False])
     def test_smooth_spatial_gradient_rejected_on_both_paths(self, contiguous):
-        n_seeds = 15
+        n_seeds = NULL_SEEDS
         accepted = sum(
             bool(
                 xflip(
@@ -237,7 +270,7 @@ class TestXFlipGradientGateOnBothPaths:
             )
             for s in range(n_seeds)
         )
-        assert accepted / n_seeds <= 0.05
+        assert accepted <= NULL_MAX_ACCEPTED, f"{accepted}/{n_seeds} null seeds accepted"
 
     @pytest.mark.parametrize("contiguous", [True, False])
     def test_the_gradient_is_rejected_by_the_drop_gate_not_by_accident(self, contiguous):

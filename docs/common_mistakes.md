@@ -143,7 +143,7 @@ location = electrodes_df.loc[10, "location"]
 In high-density probes where noisy or non-connected channels are removed, `electrodes_df` has non-contiguous channel IDs or a standard `0..N-1` `RangeIndex`. Looking up by integer index returns the wrong contact or throws a `KeyError`.
 
 ### The Correct Pattern
-Use `jnwb`'s robust channel resolution functions, which prioritize explicit identifier columns (`channel_id`, `id`, `electrode_id`) before falling back to index lookup:
+Use `jnwb`'s channel resolution functions. They search one identifier column, the first of `channel_id`, `id` and `electrode_id` present, and a channel missing from it resolves to `None`; the row index is read only when the table has none of the three:
 
 ```python
 # CORRECT: Robust addressing handles filtered, non-contiguous, or multi-area probes
@@ -184,9 +184,10 @@ print(f"Y -> X log variance ratio: {gc.y_to_x:.4f} (p = {gc.p_y_to_x:.4f})")
 Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or very narrowband signal as evidence of no directional lead:
 
 ```python
-# TRAP (receipt, seed=42, n_surrogates=50): a 20 Hz sinusoid with 10 ms delay
-# in a 19–21 Hz band gives net PSI = nan and band z = nan (single frequency bin).
-# The same delay on 15–30 Hz broadband noise gives net ≈ 0.93 and band z ≈ 9.8.
+# TRAP (receipt: 2000 samples at 1 kHz, seed=42, n_surrogates=50): a 20 Hz sinusoid
+# with 10 ms delay in a 19–21 Hz band gives net PSI = nan and band z = nan (one 2 Hz bin
+# at the default nperseg of 500). The same delay on 15–30 Hz broadband noise gives
+# net ≈ 0.93 and band z ≈ 9.8.
 ```
 
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
@@ -292,8 +293,8 @@ onsets = jnwb.event_onsets(
 
 The guards are there to be used rather than worked around. Several interval tables and none
 named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
-does not exist raises `ColumnNotFoundError` listing the columns that do; a table with no
-`codes` column returns its onsets and warns that it found no codes. Each message contains
+does not exist raises `ColumnNotFoundError` listing the columns that do; on a table with no
+`codes` column, `events` returns its onsets and warns that it found no codes. Each message contains
 the argument you need, so the fix is to pass it rather than to fall back to a default.
 
 `examples/tutorials/00_your_own_file.py` is this pattern end to end on a file it has never
@@ -321,7 +322,7 @@ from observations.
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
 res = jnwb.compute_population_trajectory(session, area="NONEXISTENT", epochs_df=epochs)
 assert np.all(np.isnan(res["trajectory"]))
-assert np.isnan(res["explained_variance"])
+assert np.all(np.isnan(res["explained_variance_ratio"]))
 
 # An empty layer mask. The average over no channels is not zero.
 sup, deep = jnwb.TFRAnalyzer.average_across_channels(tfr, layer_mask=mask)
@@ -332,13 +333,13 @@ So check availability rather than magnitude:
 
 ```python
 # WRONG: an unobserved population and a silent one give the same answer
-if res["explained_variance"] == 0.0:
+if np.nansum(res["explained_variance_ratio"]) == 0.0:
     ...
 
 # CORRECT: the two conditions are distinguishable, so distinguish them
-if np.isnan(res["explained_variance"]):
+if np.all(np.isnan(res["explained_variance_ratio"])):
     ...          # PCA did not run -- nothing was selected
-elif res["explained_variance"] < 0.01:
+elif np.nansum(res["explained_variance_ratio"]) < 0.01:
     ...          # PCA ran and found almost no structure
 ```
 

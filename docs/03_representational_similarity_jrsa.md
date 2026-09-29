@@ -1,6 +1,6 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` runs representational similarity analysis (RSA) on neural time series: population firing rate tensors, multichannel LFP arrays, or any response tensor.
+`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP.
 
 ---
 
@@ -8,8 +8,8 @@
 
 RSA compares neural population geometry across experimental conditions without fitting a classifier.
 
-The diagram below is the call order. Two response tensors enter, one `JRSAResult` leaves, and
-`summary` and `plot` are read off that result rather than recomputed from the tensors.
+The diagram is the call order: two tensors enter, one `JRSAResult` leaves, and `summary` and
+`plot` read that result.
 
 ```mermaid
 graph LR
@@ -23,7 +23,7 @@ graph LR
 ### Key Capabilities
 - **Metrics** (14):
   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
-  `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats on flattened arrays.
+  `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats. The SSR F-test, `"phase_slope"` and the TE each take one series per input.
 - **Direction of the directed metrics**:
 
   | Metric | `jrsa(x1, x2, ...)` measures | Compare |
@@ -76,16 +76,19 @@ fig = result.plot()
 
 ### The Permutation Null (`null=`)
 
-Each permutation resamples x2 along one axis: the last axis for the paired metrics
-(`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`, `"mutual_information"`,
-`"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`), and axis 0, the
-conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_correlation"` and
-`"procrustes"`. The last axis is the aligned axis only at the default `adim=-1`: the null and
-`lag` act on axis -1 whatever `adim` names, so put time last.
+Each permutation resamples x2 along one axis, and `lag` shifts the same one, whatever `adim`
+names: the last axis for the paired metrics (`"pearson"`, `"spearman"`, `"kendall"`, `"cosine"`,
+`"mutual_information"`, `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`,
+`"phase_slope"`), so put time last, and axis 0, the observations, for `"rsa"`, `"cka"`, `"rv"`,
+`"hsic"`, `"distance_correlation"` and `"procrustes"`. A non-default `adim` that does not name
+that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. At the
+default `adim=-1` the axis-0 metrics window the features; `adim=0` windows the observations. A
+lag of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
+count.
 
 | `null=` | Resampling | Valid when |
 |---|---|---|
-| `None` (default) | `"circular_shift"` for the paired metrics, `"iid"` for the rest, with a warning | see those rows |
+| `None` (default) | `"circular_shift"` for the paired metrics; the axis-0 metrics have no default and raise `ValueError` | see those rows |
 | `"circular_shift"` | rotate x2 by a random shift of 0 to n - 1 samples | each series is stationary; autocorrelation is kept. p cannot fall below about 1/n |
 | `"block"` | permute consecutive blocks of `block_len` samples, which must be given | `block_len` spans several autocorrelation times. On independent AR(1) series with coefficient 0.9 (200 samples, 80 pairs), `block_len=20` rejected at p ≤ 0.05 for 0.30 of pairs with `"cka"` and 0.125 with `"pearson"`; `block_len=50` for 0.062 and 0.037 |
 | `"iid"` | permute single samples | samples are independent. On two independent AR(1) series with coefficient 0.9 it rejects at p ≤ 0.05 about half the time |
@@ -94,16 +97,14 @@ conditions or observations, for `"rsa"`, `"cka"`, `"rv"`, `"hsic"`, `"distance_c
 the block length. Before 0.2.6.1 every metric used `"iid"`, so p-values of the paired metrics
 on autocorrelated data have changed.
 
-For the axis-0 metrics the default warns (`UserWarning`) whenever a null is formed. When axis 0
-is time, the row permutation is invalid: `"cka"` and `"rv"` on independent AR(1) series rejected
-every one of 40 pairs at p ≤ 0.05. Name `"circular_shift"` or `"block"` there, and `"iid"` when
-the rows are exchangeable conditions; naming any scheme silences the warning. From 0.2.7 `null=`
-must be named for these metrics.
+The axis-0 metrics form a null only when `null=` is named: `"iid"` for exchangeable conditions,
+`"circular_shift"` when axis 0 is time, where the row permutation made `"cka"` and `"rv"` reject
+all 40 independent AR(1) pairs at p ≤ 0.05. `"block"` is not calibrated for them.
 
 `bootstrap > 0` with a paired metric raises unless `null="iid"` is named. The bootstrap resamples
 single samples, which undercovers on autocorrelated data: on independent AR(1) pairs with
-coefficient 0.9 the 95% interval of `"pearson"` covered 0 for 0.475 of pairs. A block bootstrap
-is planned for 0.2.7. The axis-0 metrics' bootstrap is unchanged.
+coefficient 0.9 the 95% interval of `"pearson"` covered 0 for 0.475 of pairs. No block bootstrap
+is implemented. The axis-0 metrics' bootstrap is unchanged.
 
 ```python
 # x1, x2: (12 conditions, 100 units, 50 timepoints); five blocks of 10 on the time axis
@@ -133,19 +134,22 @@ per_window = [
 values = np.array([float(r.value) for r in per_window])   # one value per window
 ```
 
+The lag drops 5 of each window's 20 samples, so the circular-shift null runs on 15 and p
+cannot fall below about 1/15, which is above 0.05.
+
 Each call forms its own permutation null, so correct the per-window p-values together
 (for example with `jnwb.StatisticalAnalysis.fdr_correct`) before reading any one of them.
 
 ## 4. Missing Condition Handling & Preprocessing Invariants
 
-- **Missing data (`nan_policy`)**: if conditions lack trials, `nan_policy="omit"` propagates `NaN` across the affected RDM pairs rather than fabricating zeros.
+- **Missing data (`nan_policy`)**: `nan_policy="omit"` drops each observation that is `NaN` anywhere: a last-axis sample for the paired metrics, a row of axis 0 for the axis-0 metrics; if none remain, every metric raises `ValueError`.
 - **Preprocessing**: standardizing each condition's pattern before correlation-distance RSA changes nothing, because correlation centers and scales each pattern itself. Z-scoring each feature across conditions does change the RDM.
 
 ---
 
 ## 5. Standalone RDM Operations (`jnwb.rdm`, `jnwb.rdm_similarity`)
 
-To build RDMs or compare precomputed dissimilarity matrices without running `jrsa`:
+To build or compare RDMs without `jrsa`:
 
 ```python
 # Compute pairwise distance matrix (N conditions x D features)

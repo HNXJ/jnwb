@@ -44,6 +44,33 @@ def right_open_counts(trains, start, end, bin_width, n_bins: int) -> np.ndarray:
     return np.asarray(rows, dtype=float).reshape(len(rows), n_bins)
 
 
+def onset_locked_counts(spike_times, onsets, start_s, stop_s, edges, scale: float,
+                        *, right_closed: bool) -> np.ndarray:
+    """Spike counts of each onset's window in ``edges``, counting every selected spike.
+
+    A spike is selected for an onset when it lies in ``[onset + start_s, onset + stop_s)``,
+    or ``[onset + start_s, onset + stop_s]`` with ``right_closed``, in seconds. Its time
+    relative to the onset, times ``scale`` (1000 for millisecond edges), is binned in
+    ``edges``, whose outer edges are ``start_s * scale`` and ``stop_s * scale``. The
+    subtraction and the scaling can round a selected spike just outside them -- onset 2.0 s
+    with a spike at 1.9 s gives -100.00000000000009 ms against a first edge of -100 -- and
+    :func:`numpy.histogram` would drop it, so relative times are clipped to the outer edges.
+    Values already inside are unchanged.
+
+    The train is sorted once, in float64, and each window is a binary search. A NaN sorts
+    last and is never selected. Returns a float array ``(n_onsets, len(edges) - 1)``.
+    """
+    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    onsets = np.asarray(onsets, dtype=float).ravel()
+    lo = np.searchsorted(st, onsets + start_s, side="left")
+    hi = np.searchsorted(st, onsets + stop_s, side="right" if right_closed else "left")
+    counts = np.zeros((onsets.size, len(edges) - 1))
+    for i, t0 in enumerate(onsets):
+        rel = np.clip((st[lo[i]:hi[i]] - t0) * scale, edges[0], edges[-1])
+        counts[i], _ = np.histogram(rel, bins=edges)
+    return counts
+
+
 def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
                     unit: str = "ms") -> int:
     """Number of ``bin_width`` bins spanning ``window``, refusing a span that is not whole bins.

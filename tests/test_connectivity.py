@@ -101,6 +101,13 @@ class TestNetworkTopology:
         result = network_topology(adj, threshold=0.3)
         assert result["n_edges"] == 2
 
+    def test_a_complex_matrix_is_refused_rather_than_cast_to_its_real_part(self):
+        """A purely imaginary coupling of 0.5 cast to float is 0: no edge, only a warning."""
+        adj = np.array([[0.0, 0.5j], [0.5j, 0.0]])
+        with pytest.raises(TypeError, match="complex"):
+            network_topology(adj, threshold=0.3)
+        assert network_topology(np.abs(adj), threshold=0.3)["n_edges"] == 2
+
 
 class TestAsTrials:
     def test_normalizes_1d_2d_and_list_input(self):
@@ -251,6 +258,137 @@ class TestGranger:
         assert result.x_to_y == pytest.approx(0.0, abs=0.01)
         assert result.y_to_x == pytest.approx(0.0, abs=0.01)
 
+    @staticmethod
+    def _var3(seed, n_trials, n_times):
+        """y depends on x at lags 1 and 3 and on its own lag 1: a VAR of order 3."""
+        rng = np.random.default_rng(seed)
+        burn = 100
+        x = rng.standard_normal((n_trials, n_times + burn))
+        e = rng.standard_normal(x.shape)
+        y = np.zeros_like(x)
+        for t in range(3, n_times + burn):
+            y[:, t] = 0.3 * y[:, t - 1] + 0.4 * x[:, t - 1] + 0.5 * x[:, t - 3] + e[:, t]
+        return x[:, burn:], y[:, burn:]
+
+    @pytest.mark.parametrize("n_z", [0, 1, 2])
+    @pytest.mark.parametrize("criterion", ["aic", "bic"])
+    def test_order_criteria_are_the_ml_likelihood_on_one_trimmed_sample(self, criterion, n_z):
+        """Order selection scores every candidate on the rows left after trimming the largest
+        candidate, with the ML variance RSS/N. statsmodels' OLS `aic`/`bic` are -2 log L plus
+        the penalty, with log L at the ML variance; on one sample they differ from the
+        criterion only by a constant, so differences across orders must agree. Conditioning
+        series enter both the regressors and the parameter count."""
+        import statsmodels.api as sm
+
+        from jnwb.connectivity import _granger_order_criteria
+
+        x, y = self._var3(11, 3, 120)
+        z_rng = np.random.default_rng(12)
+        zs = []
+        for _ in range(n_z):
+            z = z_rng.standard_normal(x.shape)
+            z[:, 1:] += 0.5 * y[:, :-1]  # informative about y's past, so it moves the fit
+            zs.append(z)
+        max_order = 6
+        got = _granger_order_criteria(x, y, zs, max_order, 0.0, criterion)
+
+        want = []
+        for p in range(1, max_order + 1):
+            rows, target = [], []
+            for tr in range(x.shape[0]):
+                for t in range(max_order, x.shape[1]):
+                    row = [y[tr, t - j] for j in range(1, p + 1)]
+                    row += [x[tr, t - j] for j in range(1, p + 1)]
+                    for z in zs:
+                        row += [z[tr, t - j] for j in range(1, p + 1)]
+                    rows.append(row)
+                    target.append(y[tr, t])
+            fit = sm.OLS(np.asarray(target), sm.add_constant(np.asarray(rows))).fit()
+            want.append(getattr(fit, criterion))
+        want = np.asarray(want)
+        np.testing.assert_allclose(got - got[0], want - want[0], rtol=0, atol=1e-8)
+
+    def test_auto_order_recovers_a_known_var_order(self):
+        x, y = self._var3(5, 10, 400)
+        result = granger(x, y, order="auto", criterion="bic", max_lag=8)
+        assert result.params["order_x_to_y"] == 3
+
+    def test_conditioning_on_a_common_driver_removes_a_spurious_lead(self):
+        """z drives x at lag 1 and y at lag 2, and x has no influence on y. Without z, the
+        past of x predicts y because it carries the past of z; with z in both models, the
+        x-to-y temporal-lag asymmetry disappears."""
+        rng = np.random.default_rng(8)
+        n_trials, n_times = 10, 400
+        z = rng.standard_normal((n_trials, n_times))
+        x = np.zeros_like(z)
+        y = np.zeros_like(z)
+        x[:, 1:] = 0.8 * z[:, :-1]
+        y[:, 2:] = 0.8 * z[:, :-2]
+        x += 0.5 * rng.standard_normal(x.shape)
+        y += 0.5 * rng.standard_normal(y.shape)
+
+        without = granger(x, y, order=3)
+        with_z = granger(x, y, order=3, Z=z)
+
+        assert without.p_x_to_y < 1e-10
+        assert without.x_to_y > 0.1
+        assert with_z.p_x_to_y > 0.01
+        assert with_z.x_to_y < 0.01
+        assert with_z.params["n_conditioning"] == 1
+
+
+class TestRowCodes:
+    """The row codes behind transfer entropy's joint states number distinct rows in
+    lexicographic order, the numbering `np.unique(axis=0)` gives."""
+
+    @staticmethod
+    def _reference(cols):
+        return np.unique(np.column_stack(cols), axis=0, return_inverse=True)[1].ravel()
+
+    def test_codes_equal_the_row_wise_unique_numbering(self):
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            n_cols = int(rng.integers(2, 6))
+            cols = [rng.integers(-3, int(rng.integers(1, 9)), size=3000) for _ in range(n_cols)]
+            np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+
+    def test_codes_are_exact_when_the_radix_product_overflows_int64(self):
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(1)
+        wide = [rng.integers(0, 2**40, size=500, dtype=np.int64) for _ in range(2)]
+        wide[0][:250] = wide[0][250:]  # repeated prefixes, so the second column orders them
+        np.testing.assert_array_equal(_codes(wide), self._reference(wide))
+
+    @pytest.mark.parametrize("dtype", [np.int8, np.int16])
+    def test_codes_are_exact_for_narrow_signed_dtypes(self, dtype):
+        """The shift to zero must not wrap: int8 100 - (-100) is 200, outside int8."""
+        from jnwb.connectivity import _codes
+
+        info = np.iinfo(dtype)
+        cols = [np.array([-100, 100, 0, -100, 100], dtype=dtype),
+                np.array([0, 1, 0, 1, 0], dtype=dtype)]
+        np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+        rng = np.random.default_rng(2)
+        cols = [rng.integers(info.min, info.max, size=2000, endpoint=True).astype(dtype)
+                for _ in range(3)]
+        np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+
+    def test_codes_are_exact_for_small_ranges_at_large_offsets(self):
+        """Values near 2**61 (and 2**63 unsigned) with a range of four. Without the shift to
+        zero, the key is the correct key plus a constant modulo 2**64; these offsets put that
+        constant 11 below 2**63, so the keys would cross the int64 boundary and reorder."""
+        from jnwb.connectivity import _codes
+
+        rng = np.random.default_rng(3)
+        for bases, dtype in (([2**61 - 1, 2**61, 5], np.int64),
+                             ([2**63 + 2**61 - 1, 2**63 + 2**61, 5], np.uint64)):
+            cols = [np.asarray(b, dtype=dtype) + rng.integers(0, 4, size=1000).astype(dtype)
+                    for b in bases]
+            np.testing.assert_array_equal(_codes(cols), self._reference(cols))
+
 
 
 class TestPhaseSlopeIndex:
@@ -313,6 +451,97 @@ class TestTransferEntropy:
         with pytest.raises(ValueError, match=r"not calibrated under zero-lag mixing.*"
                                              r"estimator='quantile'"):
             transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
+
+
+def _zero_lag_pair(n, seed):
+    """Two noisy copies of one white source: no directed coupling and no lead."""
+    rng = np.random.default_rng(seed)
+    s = rng.normal(size=n)
+    return s + 0.5 * rng.normal(size=n), s + 0.5 * rng.normal(size=n)
+
+
+class TestTransferEntropySurrogateComparesPlugInValues:
+    """The Miller-Madow term differs between the observed table and a surrogate's, because a
+    surrogate removes the zero-lag dependence and occupies more cells. Applied to both, it
+    made the test reject two noisy copies of one white source in 0.11 of cases at bins 4 and
+    0.37 at bins 8."""
+
+    def test_the_p_does_not_depend_on_the_bias_correction(self):
+        x, y = _zero_lag_pair(1000, 0)
+        mm = transfer_entropy(x, y, bins=6, n_surrogates=49, rng=3)
+        plug = transfer_entropy(x, y, bins=6, n_surrogates=49, rng=3, bias_correction=None)
+        # The correction still reaches the estimate, or the identity below is vacuous.
+        assert mm.x_to_y != pytest.approx(plug.x_to_y, abs=1e-6)
+        assert mm.diagnostics["bias_corrected_x_to_y"] != pytest.approx(
+            plug.diagnostics["bias_corrected_x_to_y"], abs=1e-6)
+        assert (mm.p_x_to_y, mm.p_y_to_x, mm.p_net) == (plug.p_x_to_y, plug.p_y_to_x, plug.p_net)
+        assert mm.diagnostics["surrogates"]["p_statistic"] == "plug_in"
+
+    def test_zero_lag_mixing_at_a_large_state_space_is_not_rejected(self):
+        """Pinned seeds: 15 of these 32 p-values fell below 0.05 when the surrogates carried
+        the correction; none does now."""
+        p = []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(16):
+                x, y = _zero_lag_pair(2000, seed)
+                res = transfer_entropy(x, y, bins=8, n_surrogates=49, rng=seed)
+                p += [res.p_x_to_y, res.p_y_to_x]
+        assert sum(v < 0.05 for v in p) <= 2, sorted(p)
+
+    def test_a_directed_coupling_is_still_detected(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=2000)
+        y = np.zeros(2000)
+        y[1:] = 0.6 * x[:-1] + rng.normal(size=1999)
+        res = transfer_entropy(x, y, n_surrogates=49, rng=0)
+        assert res.p_x_to_y < 0.05 and res.p_y_to_x > 0.05
+
+
+class TestPsiLeadPIsTheJackknife:
+    """A shifted or re-paired Y removes every X-Y dependence, so a surrogate p tests coupling:
+    under zero-lag mixing it rejected a lead that is not there in 0.46 of cases at nperseg 50."""
+
+    def test_the_lead_p_is_unchanged_by_surrogates_and_the_coupling_p_has_its_own_key(self):
+        x, y = _zero_lag_pair(2000, 0)
+        plain = phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50)
+        both = phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50,
+                                 n_surrogates=49, rng=0)
+        assert both.p_net == plain.p_net == both.p_x_to_y == both.p_y_to_x
+        assert both.diagnostics["p_source"] == "jackknife_z"
+        assert plain.diagnostics["p_coupling_surrogate"] is None
+        coupling = both.diagnostics["p_coupling_surrogate"]
+        assert coupling == both.per_band["band"]["p_surrogate"] and coupling != both.p_net
+
+    def test_a_multi_band_lead_p_is_the_omnibus_jackknife_whether_or_not_surrogates_run(self):
+        x, y = _zero_lag_pair(2000, 0)
+        bands = {"a": (5.0, 40.0), "b": (45.0, 100.0)}
+        plain = phase_slope_index(x, y, fs=1000.0, nperseg=50, bands=bands)
+        both = phase_slope_index(x, y, fs=1000.0, nperseg=50, bands=bands,
+                                 n_surrogates=49, rng=0)
+        assert plain.diagnostics["p_is_omnibus"] and plain.p_net is not None
+        assert both.p_net == plain.p_net == both.p_x_to_y == both.p_y_to_x
+        assert both.diagnostics["p_source"] == "jackknife_z"
+        assert both.diagnostics["p_coupling_surrogate"] is not None
+        assert both.p_net != both.diagnostics["p_coupling_surrogate"]
+
+    def test_without_the_jackknife_there_is_no_lead_p(self):
+        x, y = _zero_lag_pair(2000, 0)
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=50, n_surrogates=49, rng=0,
+                                jackknife=False, bands={"a": (5.0, 40.0), "b": (45.0, 100.0)})
+        assert res.p_net is None and res.p_x_to_y is None and res.p_y_to_x is None
+        assert res.diagnostics["p_source"] is None
+        assert 0.0 < res.diagnostics["p_coupling_surrogate"] <= 1.0
+
+    def test_zero_lag_mixing_is_not_read_as_a_lead(self):
+        """Pinned seeds: 9 of these 20 p_net values fell below 0.05 when p_net was the
+        surrogate p; none does now."""
+        p = []
+        for seed in range(20):
+            x, y = _zero_lag_pair(2000, seed)
+            p.append(phase_slope_index(x, y, fs=1000.0, bands=(5.0, 100.0), nperseg=50,
+                                       n_surrogates=49, rng=seed).p_net)
+        assert sum(v < 0.05 for v in p) <= 2, sorted(p)
 
 
 class TestDirectedConnectivityAndNetwork:
@@ -564,6 +793,25 @@ class TestTransferEntropyReportsDegenerateDiscretization:
         assert res.diagnostics["ok_for_interpretation"] is True
 
 
+@pytest.mark.parametrize("criterion", ["aic", "bic", "hqic"])
+def test_select_optimal_lag_scores_every_order_on_granger_common_sample(criterion):
+    """Each order was scored on its own n - p targets; on these 60-sample pairs that picked
+    another order than the common-sample criteria of `granger` in about a quarter of cases."""
+    from jnwb.connectivity import _granger_order_criteria, select_optimal_lag
+
+    n, max_lag = 60, 10
+    cap = min(max_lag, (n - 2) // 3)
+    for s in range(40):
+        e = np.random.default_rng(s).normal(size=(2, n))
+        x, y = np.zeros(n), np.zeros(n)
+        for t in range(2, n):
+            x[t] = 0.3 * x[t - 1] + 0.2 * x[t - 2] + 0.3 * y[t - 1] + e[0, t]
+            y[t] = 0.4 * y[t - 1] + e[1, t]
+        scores = _granger_order_criteria(y[None], x[None], [], cap, 0.0, criterion)
+        assert select_optimal_lag(x, y, max_lag=max_lag, criterion=criterion) == \
+            int(np.argmin(scores)) + 1, f"seed {s}"
+
+
 class TestCrossModalLagSearchPaysForItself:
     """`cross_modal_comparison` reported the p at the max-|r| lag without correcting for
     the search, so on independent white noise over 101 lags it called 99.5% of runs
@@ -619,6 +867,30 @@ class TestCrossModalLagSearchPaysForItself:
         res = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=100, seed=0)
         assert res["lag_search_resolution_floor"] == pytest.approx(101 / 600)
         assert any("lag_window_too_wide" in w for w in res["warnings"])
+
+    @pytest.mark.parametrize("rng", [None, 3, "generator"])
+    def test_the_recorded_seed_reproduces_the_corrected_p(self, rng):
+        """The result names the seed its null ran on, so it alone reproduces the p."""
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        given = np.random.default_rng(11) if rng == "generator" else rng
+        first = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=60, rng=given)
+        seed = first["surrogate_seed_entropy"]
+        assert isinstance(seed, int)
+        if rng == 3:
+            assert seed == 3
+        if rng == "generator":
+            assert seed == int(np.random.default_rng(11).integers(0, 2**63 - 1))
+        again = cross_modal_comparison(x, y, bin_ms=10.0, n_permutations=60, rng=seed)
+        assert again["lag_corrected_pvalue"] == first["lag_corrected_pvalue"]
+        assert again["surrogate_seed_entropy"] == seed
+
+    def test_no_seed_is_recorded_without_a_sweep(self):
+        from jnwb.statistics import cross_modal_comparison
+
+        x, y = self._independent()
+        assert cross_modal_comparison(x, y, rng=3)["surrogate_seed_entropy"] is None
 
 
 class TestPsiInferenceIsNotOverstated:
@@ -698,6 +970,46 @@ class TestPsiInferenceIsNotOverstated:
         assert in_band == pytest.approx(fwd.net, rel=1e-9)
         np.testing.assert_allclose(
             fwd.spectrum["psi_per_freq"], -rev.spectrum["psi_per_freq"], atol=1e-12)
+
+    @staticmethod
+    def _periodic(n=1024, period=32, seed=1):
+        """Period 32 with nperseg 64 and hop 32: every Welch segment is the same segment."""
+        return np.random.default_rng(seed).normal(size=period)[np.arange(n) % period]
+
+    @pytest.mark.parametrize("bands", [None, {"a": (5.0, 20.0), "b": (20.0, 45.0)}])
+    def test_a_jackknife_without_spread_has_no_z(self, bands):
+        """Y equal to a periodic X made every replicate agree to rounding: sd was 8e-32, z
+        -7.8e13, p 0.0 and ok_for_interpretation True."""
+        x = self._periodic()
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            res = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64, bands=bands)
+        assert res.diagnostics["n_segments"] >= 8
+        assert all(np.isnan(b["z"]) for b in res.per_band.values())
+        assert res.p_net is None
+        assert res.diagnostics["ok_for_interpretation"] is False
+        assert any("jackknife_spread_is_round_off" in w for w in res.diagnostics["warnings"])
+
+    def test_the_width_sits_between_round_off_and_a_part_in_1e9(self):
+        """Y equal to aperiodic noise leaves replicates that differ by round-off alone (sd
+        3.9e-18, the largest measured, against a width of 1.7e-12); a variation of one part
+        in 1e9 gives sd 1.1e-10 and keeps its z."""
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=1024)
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            same = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64)
+        assert np.isnan(same.per_band["full"]["z"])
+        perturbed = x + 1e-9 * rng.normal(size=1024)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(x, perturbed, fs=100.0, nperseg=64)
+        assert np.isfinite(res.per_band["full"]["z"])
+
+    def test_a_jackknife_with_spread_keeps_its_z(self):
+        """The guard sits at rounding: an ordinary lagged pair keeps a finite z and no warning."""
+        x, y = self._lagged_pair()
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=1024)
+        assert np.isfinite(res.per_band["full"]["z"])
+        assert not any("round_off" in w for w in res.diagnostics["warnings"])
 
 
 class TestGrangerNotTestedIsNotPassed:

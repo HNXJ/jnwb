@@ -105,13 +105,13 @@ class TestExecutionRecordsWhatRan:
         """
         x1, x2 = xy
         with pytest.raises(ValueError, match="[Uu]nrecognized correction"):
-            jnwb.jrsa(x1, x2, metric="cka", permutations=20, correction="bonferoni")
+            jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20, correction="bonferoni")
 
     @pytest.mark.parametrize("correction", ["fdr_bh", "bonferroni", "holm", "none"])
     def test_known_corrections_still_run_and_are_recorded(self, xy, correction):
         x1, x2 = xy
         res = jnwb.jrsa(
-            x1, x2, metric="cka", permutations=20, correction=correction, random_state=0
+            x1, x2, metric="cka", null="iid", permutations=20, correction=correction, random_state=0
         )
         assert res.parameters["correction"] == correction
 
@@ -139,14 +139,14 @@ class TestSeedRoundTrips:
 
     def test_the_recorded_seed_is_the_random_state_that_was_used(self, xy):
         x1, x2 = xy
-        res = jnwb.jrsa(x1, x2, metric="cka", permutations=50, random_state=7)
+        res = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=50, random_state=7)
         assert res.execution["seed"] == 7
 
     def test_feeding_the_recorded_seed_back_reproduces_the_run(self, xy):
         x1, x2 = xy
-        first = jnwb.jrsa(x1, x2, metric="cka", permutations=50, random_state=7)
+        first = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=50, random_state=7)
         again = jnwb.jrsa(
-            x1, x2, metric="cka", permutations=50, random_state=first.execution["seed"]
+            x1, x2, metric="cka", null="iid", permutations=50, random_state=first.execution["seed"]
         )
         np.testing.assert_array_equal(np.asarray(first.p), np.asarray(again.p))
         np.testing.assert_array_equal(
@@ -155,7 +155,7 @@ class TestSeedRoundTrips:
 
     def test_the_seed_alias_round_trips_too(self, xy):
         x1, x2 = xy
-        res = jnwb.jrsa(x1, x2, metric="cka", permutations=20, seed=3)
+        res = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20, seed=3)
         assert res.execution["seed"] == 3
 
     def test_an_unseeded_run_records_no_seed(self, xy):
@@ -163,7 +163,7 @@ class TestSeedRoundTrips:
         there looks exactly like a reproducible run and is not one.
         """
         x1, x2 = xy
-        assert jnwb.jrsa(x1, x2, metric="cka", permutations=20).execution["seed"] is None
+        assert jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20).execution["seed"] is None
 
 
 class TestBatchSizeIsRecordedAsWhatRan:
@@ -177,7 +177,7 @@ class TestBatchSizeIsRecordedAsWhatRan:
     def test_execution_reports_no_batching_however_much_was_asked_for(self, xy):
         x1, x2 = xy
         for asked in (None, 1, 4, 32, 10_000):
-            res = jnwb.jrsa(x1, x2, metric="cka", permutations=20,
+            res = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20,
                             batch_size=asked, random_state=7)
             assert res.execution["batch_size"] is None, (
                 f"execution claims batching for batch_size={asked!r}; jrsa does not chunk"
@@ -185,7 +185,7 @@ class TestBatchSizeIsRecordedAsWhatRan:
 
     def test_the_request_is_still_kept_where_requests_go(self, xy):
         x1, x2 = xy
-        res = jnwb.jrsa(x1, x2, metric="cka", permutations=20,
+        res = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20,
                         batch_size=32, random_state=7)
         assert res.parameters["batch_size"] == 32
 
@@ -194,10 +194,10 @@ class TestBatchSizeIsRecordedAsWhatRan:
         saying None -- the test is the pair to the one above, not a duplicate of it.
         """
         x1, x2 = xy
-        base = jnwb.jrsa(x1, x2, metric="cka", permutations=50, bootstrap=50,
+        base = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=50, bootstrap=50,
                          random_state=7)
         for asked in (1, 4, 32, 10_000):
-            other = jnwb.jrsa(x1, x2, metric="cka", permutations=50, bootstrap=50,
+            other = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=50, bootstrap=50,
                               batch_size=asked, random_state=7)
             np.testing.assert_array_equal(np.asarray(base.value), np.asarray(other.value))
             np.testing.assert_array_equal(np.asarray(base.p), np.asarray(other.p))
@@ -219,7 +219,7 @@ class TestBatchSizeIsRecordedAsWhatRan:
         x1, x2 = xy
         widths = set()
         for a in (0.5, 0.05, 0.01):
-            res = jnwb.jrsa(x1, x2, metric="cka", permutations=20, bootstrap=100,
+            res = jnwb.jrsa(x1, x2, metric="cka", null="iid", permutations=20, bootstrap=100,
                             alpha=a, random_state=7)
             ci = np.asarray(res.ci).ravel()
             widths.add((float(ci[0]), float(ci[1])))

@@ -95,7 +95,15 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     assert "graft skills" in directives, "the sdist no longer carries the skills at all"
-    assert "include AGENTS.md" in directives, "the sdist no longer carries AGENTS.md"
+    # The build copies AGENTS.md into the sdist unless it is excluded, so the rule is an
+    # `exclude AGENTS.md` directive and no directive that adds it back.
+    assert "exclude AGENTS.md" in directives, (
+        "the sdist carries the repository's working rules again"
+    )
+    assert not any(
+        "AGENTS.md" in line and not line.startswith(("exclude ", "global-exclude "))
+        for line in directives
+    ), "a directive adds the repository's working rules back to the sdist"
     assert "SKILLS_URL" in manifest, (
         "the comment does not say how an installed copy finds the skills"
     )
@@ -104,6 +112,7 @@ def test_the_manifest_comment_describes_what_the_manifest_does() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_there_is_exactly_one_skill_tree() -> None:
     """The ruling's hard constraint, and harness gate 2's: no copy under jnwb/.
 
@@ -115,8 +124,13 @@ def test_there_is_exactly_one_skill_tree() -> None:
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split()
     assert tracked, "git ls-files found no SKILL.md at all; this test would pass vacuously"
-    trees = {Path(name).parts[0] for name in tracked}
+    # `artifacts/skills/` holds the skills about working on this repository; `artifacts/` is
+    # pruned from the sdist, and no name may appear in both places.
+    trees = {Path(name).parts[0] for name in tracked if not name.startswith("artifacts/skills/")}
     assert trees == {"skills"}, f"tracked SKILL.md files live outside skills/: {sorted(trees)}"
+    shipped = {Path(name).parts[1] for name in tracked if name.startswith("skills/")}
+    internal = {Path(name).parts[2] for name in tracked if name.startswith("artifacts/skills/")}
+    assert not shipped & internal, f"one skill has two homes: {sorted(shipped & internal)}"
     assert not [name for name in tracked if name.startswith("jnwb/")], (
         "a second skill tree exists under jnwb/"
     )
@@ -164,4 +178,17 @@ def test_a_built_sdist_carries_every_skill() -> None:
         if name.endswith("SKILL.md") and name.count("/") >= 3
     }
     assert shipped == expected, f"sdist carries {sorted(shipped)}, repository has {sorted(expected)}"
-    assert any(name.endswith("/AGENTS.md") for name in names), "the sdist has no AGENTS.md"
+    assert not any(name.endswith("/AGENTS.md") for name in names), "the sdist has AGENTS.md"
+    assert not any("/artifacts/" in name for name in names), "the sdist has artifacts/"
+
+
+def test_the_router_names_no_file_only_a_checkout_has() -> None:
+    """The router ships in the sdist; `AGENTS.md`, `tests/` and `scripts/` do not.
+
+    It linked `AGENTS.md` and told the reader to run the suite and the docs build, three
+    instructions that fail everywhere but a clone. Contributor checks live in `CONTRIBUTING.md`.
+    """
+    text = (SKILLS / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
+    assert "## 6. Verification" in text, "the router's verification section was not read"
+    present = [m for m in ("AGENTS.md", "tests/", "scripts/") if m in text]
+    assert not present, f"skills/jnwb/SKILL.md names checkout-only paths: {present}"

@@ -143,6 +143,18 @@ def apply_publication_theme(fig: go.Figure) -> go.Figure:
     return fig
 
 
+def required_text(name: str, value: Any) -> str:
+    """Return ``value`` if it is a non-empty string; raise ``ValueError`` naming ``name`` otherwise."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string; got {value!r}")
+    return value
+
+
+def unit_label(quantity: str | None, unit: str) -> str:
+    """``"<quantity> (<unit>)"``, or ``unit`` alone when no quantity is named."""
+    return f"{quantity} ({unit})" if quantity else unit
+
+
 def configure_axis(
     axis_dict: Dict[str, Any],
     title: str | None = None,

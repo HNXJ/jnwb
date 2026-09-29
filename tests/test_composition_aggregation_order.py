@@ -98,7 +98,7 @@ def h6_chain():
     shape = (H6_N_CHANNELS, len(H6_FREQS), H6_N_TIMES)
     acc = jnwb.TFRAccumulator(shape=shape)
     baseline_acc = jnwb.TFRAccumulator(shape=shape)
-    stacked_power, stacked_baseline = [], []
+    stacked_power, stacked_baseline, z, valid = [], [], [], []
     for signal_trial, baseline_trial in zip(trials, baselines):
         tfr = jnwb.complex_tfr(signal_trial, fs=FS, freqs=H6_FREQS)
         baseline_tfr = jnwb.complex_tfr(baseline_trial, fs=FS, freqs=H6_FREQS)
@@ -106,9 +106,13 @@ def h6_chain():
         baseline_acc.add_trial(baseline_tfr.z, valid=baseline_tfr.coi_mask)
         stacked_power.append(np.abs(tfr.z) ** 2)
         stacked_baseline.append(np.abs(baseline_tfr.z) ** 2)
+        z.append(tfr.z)
+        valid.append(tfr.coi_mask)
     return {
         "acc": acc,
         "baseline_acc": baseline_acc,
+        "z": z,
+        "valid": valid,
         "power": np.asarray(stacked_power),
         "baseline": np.asarray(stacked_baseline),
         # Cells every trial marked valid. Edge cells have n == 0 under the COI mask, so their
@@ -373,3 +377,84 @@ class TestH6AccumulatorToDecibels:
 
         assert np.all(masked_power[coi_mask] > 0.0)
         np.testing.assert_array_equal(masked_power[coi_mask], unmasked_power[coi_mask])
+
+
+def _stream_in_chunks(chain, chunk_sizes):
+    """Each chunk streams into its own accumulator with per-trial baselines; the chunks merge."""
+    assert sum(chunk_sizes) == H6_N_TRIALS
+    shape = (H6_N_CHANNELS, len(H6_FREQS), H6_N_TIMES)
+    merged, start = None, 0
+    for size in chunk_sizes:
+        chunk = jnwb.TFRAccumulator(shape=shape)
+        for i in range(start, start + size):
+            chunk.add_trial(chain["z"][i], valid=chain["valid"][i], baseline=chain["baseline"][i])
+        merged = chunk if merged is None else merged.merge(chunk)
+        start += size
+    return merged
+
+
+CHUNKINGS = {
+    "one_chunk": [H6_N_TRIALS],
+    "uneven": [7, 5],
+    "fives": [5, 5, 2],
+    "one_trial_per_chunk": [1] * H6_N_TRIALS,
+}
+
+
+class TestH6StreamingMeanOfRatios:
+    """`add_trial(..., baseline=)` -> `mean_of_ratios()` -> `to_db`: the estimand the
+    accumulator route refuses through `power()`, delivered without holding the trials."""
+
+    @pytest.mark.parametrize("chunking", sorted(CHUNKINGS))
+    def test_streaming_equals_the_in_memory_mean_of_ratios(self, h6_chain, chunking):
+        """Equal to the stacked per-trial estimand, and separated from ratio_of_means by the
+        same pinned margin as the stacked value, whichever way the trials were chunked."""
+        chain = h6_chain
+        interior = chain["interior"]
+        streamed = _stream_in_chunks(chain, CHUNKINGS[chunking])
+        streamed_db = jnwb.to_db(streamed.mean_of_ratios())
+        in_memory = jnwb.aggregate_to_db(
+            chain["power"], chain["baseline"], how="mean_of_ratios", aggregate_over=0
+        )
+        np.testing.assert_allclose(streamed_db[interior], in_memory[interior], atol=1e-9)
+        # No trial is valid at the edge, so there is no estimate there.
+        assert np.all(np.isnan(streamed_db[streamed.n == 0]))
+
+        ratio_of_means = jnwb.aggregate_to_db(
+            chain["acc"].power(), chain["baseline_acc"].power(),
+            how="ratio_of_means", aggregate_over=None,
+        )
+        separation = np.abs(streamed_db[interior] - ratio_of_means[interior])
+        assert separation.min() == pytest.approx(H6_SEPARATION_MIN_DB, abs=DB_TOL)
+        assert np.median(separation) == pytest.approx(H6_SEPARATION_MEDIAN_DB, abs=DB_TOL)
+        assert np.median(separation) > H6_DECLARED_MARGIN_DB
+
+    def test_the_accumulator_holds_ratios_and_the_logarithm_is_taken_once(self, h6_chain):
+        """`mean_of_ratios()` is on the ratio scale; decibels appear only at `to_db`.
+
+        Pinned against the linear mean of per-trial ratios, so an accumulator that averaged
+        per-trial decibels and exponentiated back (a geometric mean) fails the equality, and
+        the log-first value is required to sit below the streamed one by more than 1 dB.
+        """
+        chain = h6_chain
+        interior = chain["interior"]
+        streamed = _stream_in_chunks(chain, CHUNKINGS["one_trial_per_chunk"])
+        linear = streamed.mean_of_ratios()
+        np.testing.assert_allclose(
+            linear[interior],
+            np.mean(chain["power"] / chain["baseline"], axis=0)[interior],
+            rtol=1e-12,
+        )
+        log_first = np.mean(jnwb.to_db(chain["power"] / chain["baseline"]), axis=0)
+        streamed_db = jnwb.to_db(linear)
+        assert np.all(log_first[interior] <= streamed_db[interior] + 1e-12)
+        assert np.median(streamed_db[interior] - log_first[interior]) > 1.0
+
+    def test_power_of_a_ratio_carrying_accumulator_is_still_refused(self, h6_chain):
+        """Carrying ratios does not make `power()` per-trial: the refusal is unchanged."""
+        streamed = _stream_in_chunks(h6_chain, CHUNKINGS["one_chunk"])
+        with pytest.raises(ValueError, match="needs per-trial power"):
+            jnwb.aggregate_to_db(
+                streamed.power(), h6_chain["baseline"].mean(axis=0),
+                how="mean_of_ratios", aggregate_over=None,
+            )

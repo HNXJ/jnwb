@@ -156,12 +156,44 @@ def _format_annotation(annotation: Any) -> str:
 
 
 def _format_parameter(param: inspect.Parameter) -> str:
+    name = param.name
+    if param.kind is inspect.Parameter.VAR_POSITIONAL:
+        name = f"*{name}"
+    elif param.kind is inspect.Parameter.VAR_KEYWORD:
+        name = f"**{name}"
     if param.annotation is inspect.Parameter.empty:
-        rendered = param.name
+        rendered = name
     else:
-        rendered = f"{param.name}: {_format_annotation(param.annotation)}"
+        rendered = f"{name}: {_format_annotation(param.annotation)}"
     if param.default is not inspect.Parameter.empty:
         rendered = f"{rendered} = {_format_default(param.default)}"
+    return rendered
+
+
+def _format_parameters(sig: inspect.Signature) -> List[str]:
+    """Each parameter rendered, with the ``/`` and ``*`` markers ``inspect`` would print.
+
+    Without the markers a keyword-only parameter reads as positional, and a reader who
+    passes it by position gets a TypeError from a call the page shows as valid.
+    """
+    rendered: List[str] = []
+    seen_positional_only = False
+    star_written = False
+    for param in sig.parameters.values():
+        kind = param.kind
+        if seen_positional_only and kind is not inspect.Parameter.POSITIONAL_ONLY:
+            rendered.append("/")
+            seen_positional_only = False
+        if kind is inspect.Parameter.POSITIONAL_ONLY:
+            seen_positional_only = True
+        elif kind is inspect.Parameter.VAR_POSITIONAL:
+            star_written = True
+        elif kind is inspect.Parameter.KEYWORD_ONLY and not star_written:
+            rendered.append("*")
+            star_written = True
+        rendered.append(_format_parameter(param))
+    if seen_positional_only:
+        rendered.append("/")
     return rendered
 
 
@@ -174,7 +206,7 @@ def _format_signature(obj: Any) -> str:
     except (TypeError, ValueError):
         line = _first_doc_line(obj)
         return f"*{line}*" if line else "*"
-    params = [_format_parameter(param) for param in sig.parameters.values()]
+    params = _format_parameters(sig)
     suffix = ""
     if sig.return_annotation is not inspect.Signature.empty:
         suffix = f" -> {_format_annotation(sig.return_annotation)}"
@@ -214,7 +246,13 @@ def _format_cell(obj: Any, kind: str) -> str:
         return _canonical_type_name(type(obj).__module__, type(obj).__qualname__)
     sig = _format_signature(obj)
     desc = _first_doc_line(obj)
-    if desc and not sig.startswith("*"):
+    if sig.startswith("*"):
+        return sig
+    # A code span, so Markdown reads the signature literally: a bare `*` marker otherwise
+    # opens emphasis that runs to the next `*`, and a `|` in `str | None` ends the table cell.
+    fence = "``" if "`" in sig else "`"
+    sig = f"{fence}{sig}{fence}"
+    if desc:
         return f"{sig}<br>*{desc}*"
     return sig
 

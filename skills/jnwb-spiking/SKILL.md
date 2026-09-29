@@ -7,20 +7,18 @@ description: Spike extraction, PSTH binning, physiological latency estimation, c
 # `jnwb-spiking` — Spike Dynamics, PSTH & Latency Estimation
 
 ## 1. Trigger
-Activate this skill when computing spike rasters, PSTHs, causal firing rate smoothing, physiological onset latencies, or unit response significance.
+Spike rasters, PSTHs, causal firing-rate smoothing, onset latencies, or unit response significance.
 
-## 2. Task-to-Operation Routing Matrix
+## 2. Routing
 - `jnwb.raster_psth(st, onsets, win_ms, bin_ms)` → `(t_ms, rate_hz, sem_hz)`: Trial-averaged PSTH: bin centres in ms, mean and SEM firing rate in Hz. The SEM is NaN for a single trial, and both rates are NaN with no onsets. A `win_ms` span that is not whole `bin_ms` bins raises `ValueError` naming the nearest valid windows.
-- `jnwb.causal_exp_smooth(rate, bin_ms, tau_ms)`: Apply forward-only finite exponential smoothing kernel ($5\tau$) with zero future leakage.
-- `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds_ms=None, tau_bounds_ms=None)`: Grid-search + bounded nonlinear least-squares fit of onset latency $t_0$.
-- `jnwb.compute_response_metrics(spike_times, epoch_onsets, baseline_window_s=..., response_window_s=...)`: Windows in **seconds** relative to each onset. Returns `baseline_rate` and `response_rate` (spikes/s), `response_count`, `response_zscore` (the response rate against the across-trial baseline rate; NaN, not 0, when the baseline has no across-trial variance), the median first-spike `latency` in seconds (`None` without a response spike) and `n_trials`. It computes no modulation index. `baseline_window` and `response_window` are the older spellings of the same arguments.
-- `jnwb.classify_response_significance(metrics, zscore_threshold=1.96)`: Significance classification from precomputed response metrics.
-- `jnwb.phase_locking_index(unit_spike_times, lfp_phase, lfp_timestamps, n_bins=18)`: Spike-field phase locking index. With no spike inside the LFP window, `n_spikes` is 0 and `pli`, `preferred_phase`, `rayleigh_z` and `rayleigh_pvalue` are NaN.
-
-- `jnwb.bin_spikes(spike_times, window_s=None, bin_size_ms=10.0, trial_starts=None, output="count", return_centers=False)`, `jnwb.fires_in_window(spike_times, onset_s, window_ms)`, `jnwb.rate_in_window(spike_times, onset_s, window_ms)` and `jnwb.fire_indicator(spike_times, onsets_s, window_ms)`: The half-open binning family. Every window is `[start, end)`, so a spike on a boundary belongs to exactly one bin and adjacent windows cannot both count it -- the double count `docs/common_mistakes.md` section 2 exists for. Use these rather than open-ended comparisons. `bin_spikes` requires `window_s` although the signature allows `None`: omitted, it raises `ValueError`. A `window_s` span that is not whole `bin_size_ms` bins raises `ValueError` naming the nearest valid windows.
-
-- `jnwb.gaussian_smooth_rate(rate, bin_ms, sigma_ms=20.0, axis=-1)`: Symmetrical **acausal** Gaussian smoothing of a binned rate. It moves signal backwards in time, so never measure an onset latency on a smoothed trace -- fit the unsmoothed rate.
+- `jnwb.bin_spikes(spike_times, window_s=None, bin_size_ms=10.0, trial_starts=None, output="count", return_centers=False)`, `jnwb.fires_in_window(spike_times, onset_s, window_ms)`, `jnwb.rate_in_window(spike_times, onset_s, window_ms)` and `jnwb.fire_indicator(spike_times, onsets_s, window_ms)`: The half-open binning family. Every window is `[start, end)`, so a spike on a boundary belongs to exactly one bin and adjacent windows cannot both count it (`docs/common_mistakes.md` section 2). Use these rather than open-ended comparisons. `bin_spikes` requires `window_s` although the signature allows `None`: omitted, it raises `ValueError`. A `window_s` span that is not whole `bin_size_ms` bins raises `ValueError` naming the nearest valid windows.
+- `jnwb.causal_exp_smooth(rate, bin_ms, tau_ms)`: Forward-only exponential kernel truncated at $5\tau$; no future leakage.
+- `jnwb.gaussian_smooth_rate(rate, bin_ms, sigma_ms=20.0, axis=-1)`: Symmetric **acausal** Gaussian smoothing of a binned rate. It moves signal backwards in time, so never measure an onset latency on a smoothed trace -- fit the unsmoothed rate.
+- `jnwb.fit_exponential_onset(t_ms, rate, t0_bounds_ms=None, tau_bounds_ms=None)`: Grid search, then bounded nonlinear least squares, for onset latency $t_0$.
 - `jnwb.onset_model(t, t0, tau, amplitude, baseline)`: The model `fit_exponential_onset` fits, defined in `docs/06_spikes_psth_and_onset_dynamics.md`. Use it to draw a fit, not to estimate one.
+- `jnwb.compute_response_metrics(spike_times, epoch_onsets, baseline_window_s=..., response_window_s=...)`: Windows in **seconds** relative to each onset; a window whose start is at or after its stop raises `ValueError`. Returns `baseline_rate` and `response_rate` (spikes/s), `response_count`, `response_zscore` (the response rate against the across-trial baseline rate; NaN, not 0, when the baseline has no across-trial variance), the median first-spike `latency` in seconds (`None` without a response spike), `n_trials`, the per-trial `baseline_rates`, `response_rates`, `baseline_counts` and `response_counts` arrays in onset order, and the window lengths `baseline_duration_s` and `response_duration_s`. It computes no modulation index. `baseline_window` and `response_window` are older spellings of the same arguments.
+- `jnwb.classify_response_significance(metrics, zscore_threshold=1.96, min_spike_count=5, alpha=0.05)`: Classifies the dict `compute_response_metrics` returns. `pvalue` is the two-sided conditional binomial test of the response and baseline spike counts summed over trials, exact for unequal window lengths and assuming Poisson firing within a trial. Bursting makes the p too small: with no effect, 5 Hz firing in bursts of four spikes over 200 trials puts about 30% of units below 0.05. Significance needs both `|response_zscore| >= zscore_threshold` (the effect size) and `pvalue < alpha`. A dict without the per-trial counts and window lengths is `'undefined'` with a `UserWarning` and p NaN; a NaN count is `'undefined'` with p NaN. A NaN `response_zscore` (a baseline with no across-trial variance) is `'undefined'` and not significant, and `pvalue` still carries the counts test. A negative or fractional count, count arrays that are not 1-D or differ in shape, and a window length that is not positive and finite raise `ValueError`.
+- `jnwb.phase_locking_index(unit_spike_times, lfp_phase, lfp_timestamps, n_bins=18)`: Spike-field phase locking index. With no spike inside the LFP window, `n_spikes` is 0 and `pli`, `preferred_phase`, `rayleigh_z` and `rayleigh_pvalue` are NaN.
 
 ## 3. Invariants & Safeguards
 1. **Causal Filter Geometry**: Never use acausal Gaussian smoothing when estimating response latency. `causal_exp_smooth` strictly operates on past bins ($t \le t_0$).
@@ -43,8 +41,8 @@ fit = jnwb.fit_exponential_onset(time_bins, smooth_hz, t0_bounds_ms=(0.0, 200.0)
 ```
 
 ## 5. Verification
-- Check that synthetic step/ramp signals recover true $t_0$ within grid tolerance.
-- Verify `causal_exp_smooth` impulse response is strictly zero for $t < 0$.
+- Synthetic step and ramp signals recover the true $t_0$ within grid tolerance.
+- The `causal_exp_smooth` impulse response is exactly zero for $t < 0$.
 
-## 6. Canonical Documentation Links
+## 6. Documentation
 - [`docs/06_spikes_psth_and_onset_dynamics.md`](../../docs/06_spikes_psth_and_onset_dynamics.md)

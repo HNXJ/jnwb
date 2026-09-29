@@ -7,7 +7,8 @@ said twelve while the runner printed thirteen, and gate 2 had been rewritten fro
 protected paths to skill-tree uniqueness without the list noticing.
 
   1. Frozen jnwb boundary: no unauthorized imports from project folders.
-  2. Skill tree uniqueness: every SKILL.md in the tree lives under skills/.
+  2. Skill tree uniqueness: every SKILL.md lives under skills/, or under artifacts/skills/
+     with a name no shipped skill uses.
   3. Machine-local path exclusion: rejects hardcoded drive letters in test suites.
   4. Root allowlist: permits only tracked, authorized root files.
   5. Public symbols documented: every public export is written about by a person.
@@ -25,8 +26,12 @@ protected paths to skill-tree uniqueness without the list noticing.
       the problem stack's Open section holds only its table.
   16. Line ending consistency: no tracked text file carries both conventions at once.
   17. Stack pointers resolve: Skill, Role and Blocked by name something on this tree.
-  18. API member types: each docs/api.md Type cell is true of the runtime object.
+  18. API member types: each docs/api.md Type cell, and each signature's parameter kinds, are
+      true of the runtime object.
   19. Frozen functions: each registered body still hashes to its independently verified value.
+  20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
+  21. Computational contract: execution switches select, precision requests are honoured, and
+      every export has a recorded computational order.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -268,17 +273,33 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Any, 
     return found is not None and found[0] == _canonical(directory) and found[1] == root_identity[1]
 
 
+def _skill_frontmatter_name(skill: Path) -> Optional[str]:
+    """The lower-cased `name:` from a SKILL.md frontmatter, or None when it declares none."""
+    found = re.match(r"---\r?\n(?:(?!---).*\r?\n)*?name:\s*(\S+)", skill.read_text(encoding="utf-8"))
+    return found.group(1).strip("'\"").lower() if found else None
+
+
 def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 2 (Skill Tree Uniqueness): every SKILL.md in the tree lives under skills/.
 
     This checked one hardcoded path, ``.agents/skills``, so a duplicate tree anywhere else
     passed: `jnwb/skills/` and `docs/skills/` were both accepted when constructed. The
     canonical tree is `skills/`, and a second one is the hazard whatever it is called.
+
+    One other location is allowed: ``artifacts/skills/``, which holds skills about working on
+    this repository rather than about using jnwb. ``artifacts/`` is pruned from the sdist, so
+    they never ship. The hazard is two copies of one skill drifting apart, so a skill there
+    whose name also exists under ``skills/`` is still a violation.
     """
     root = repo_root or REPO_ROOT
     violations = []
     identities: Dict[Any, Any] = {}
     git_unavailable: Optional[str] = None
+    # A copy is the same skill under any spelling: its folder name, compared without case, or
+    # the `name:` its frontmatter declares.
+    shipped = sorted((root / "skills").glob("*/SKILL.md"))
+    shipped_names = {p.parent.name.lower() for p in shipped}
+    shipped_names |= {n for n in map(_skill_frontmatter_name, shipped) if n}
     for skill in sorted(root.rglob("SKILL.md")):
         relative = skill.relative_to(root)
         if relative.parts[0] in EPHEMERAL_ROOT_DIRS:
@@ -289,6 +310,13 @@ def check_skill_tree_uniqueness(repo_root: Optional[Path] = None) -> List[str]:
                     continue  # a worktree is this tree seen twice, not two trees
             except GitUnavailable as exc:
                 git_unavailable = str(exc)  # nothing is excused without git's answer
+        if relative.parts[:2] == ("artifacts", "skills") and len(relative.parts) == 4:
+            if {relative.parts[2].lower(), _skill_frontmatter_name(skill)} & shipped_names:
+                violations.append(
+                    f"DUPLICATE_SKILL_TREE: {relative.as_posix()} repeats the shipped skill "
+                    f"skills/{relative.parts[2]}/. One skill has one home."
+                )
+            continue
         if relative.parts[0] != "skills":
             violations.append(
                 f"DUPLICATE_SKILL_TREE: {relative.as_posix()} is a SKILL.md outside skills/. "
@@ -1223,7 +1251,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
 #:
 #:   "agent", "skill", "routing"  -- public capabilities; `docs/agents.md` is an entire page of them
 #:   "batch"                      -- `docs/02:11` "batch jobs", `docs/api.md` `batch_size=`
-#:   "authority"                  -- `docs/agents.md:85` "authority loading order"
+#:   "authority"                  -- ordinary English; its one published use left with the process skill
 #:   "actor", "critic", "verifier" -- ordinary English before they are role names here
 #:
 #: Four of the six stems under `artifacts/agents/` are ordinary English, so only the two that are
@@ -1299,21 +1327,31 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
     `README.md` is scanned as well: it is the PyPI description, the most public page there is.
     It was held out while it linked `artifacts/todo_stack.md` from its Contributing section; the
     2026-09-23 ruling removed the link, so the page is held to the same terms as `docs/`.
+    `artifacts/agents.md` is the agent entry page `README.md` links to, and is held to them too.
+
+    `skills/**/*.md` and `skills/**/*.yaml` are scanned too: the skills ship in the sdist and are published at
+    `jnwb.SKILLS_URL`, so they are public. The skill about working on this repository lives
+    under `artifacts/skills/`, which is not scanned.
     """
     root = repo_root or REPO_ROOT
     violations = []
 
-    docs_dir = root / "docs"
-    pages = sorted(docs_dir.rglob("*.md")) if docs_dir.is_dir() else []
-
     # A sweep that finds no files reports no violations, which reads exactly like a clean tree.
     # Gate 8's three `if not path.exists()` blocks exist for the same reason.
-    if not pages:
-        return [
-            "INTERNAL_VOCABULARY: no public documentation found to scan under "
-            f"{docs_dir}; the sweep is broken, not the tree"
-        ]
-    pages += [page for page in (root / "README.md",) if page.is_file()]
+    pages: List[Path] = []
+    for surface in ("docs", "skills"):
+        found = sorted((root / surface).rglob("*.md")) if (root / surface).is_dir() else []
+        if surface == "skills" and found:
+            found += sorted((root / surface).rglob("*.yaml"))  # agents/openai.yaml ships too
+        if not found:
+            return [
+                "INTERNAL_VOCABULARY: no public documentation found to scan under "
+                f"{root / surface}; the sweep is broken, not the tree"
+            ]
+        pages += found
+    pages += [
+        page for page in (root / "README.md", root / "artifacts" / "agents.md") if page.is_file()
+    ]
 
     patterns = [(term, _internal_term_pattern(term)) for term in INTERNAL_PROCESS_TERMS]
     for page in pages:
@@ -1711,6 +1749,36 @@ def _unwrapped_sentences(text: str) -> List[str]:
     return [flat[a:b].strip() for a, b in spans]
 
 
+def _excise_blocked_by(body: str) -> str:
+    """`body` with every `Blocked by:` declaration replaced by a space, code spans left whole.
+
+    A declaration runs to the first newline or the first `.` outside a code span. A label quoted
+    inside a code span runs only to that span's closing backtick. Cutting a quoted label to the
+    next full stop removed the closing backtick, the unwrapped text then paired the orphaned
+    opening backtick with the next one, and the sentences in between merged into one span whose
+    suppression covered all of them.
+    """
+    mask = _code_span_mask(body)
+    pieces, last = [], 0
+    for label in re.finditer(r"Blocked by:", body):
+        if label.start() < last:
+            continue
+        index = label.end()
+        if mask[label.start()]:
+            while index < len(body) and body[index] != "`":
+                index += 1
+        else:
+            while index < len(body) and body[index] != "\n" and (
+                body[index] != "." or mask[index]
+            ):
+                index += 1
+        pieces.append(body[last:label.start()])
+        pieces.append(" ")
+        last = index
+    pieces.append(body[last:])
+    return "".join(pieces)
+
+
 def _blocked_by_none_contradictions(
     text: str,
 ) -> Tuple[List[Tuple[int, str, str]], List[Tuple[int, str, str, str]]]:
@@ -1745,7 +1813,7 @@ def _blocked_by_none_contradictions(
         # matches the phrase list on its own, and a first draft flagged 33 of 52 live items on
         # nothing but their own metadata. Removing only the first left a second declaration --
         # which a malformed item can carry -- readable as prose.
-        prose = re.sub(r"Blocked by:\s*[^.\n]*", " ", body)
+        prose = _excise_blocked_by(body)
         flat, spans = _unwrapped_spans(prose)
         stops = _stop_clause_spans(flat)
         for start, end in spans:
@@ -1957,7 +2025,8 @@ GENERATED_FROM = (
         "derived": "artifacts/state.md",
         "sources": ("<any HEAD move>",),
         "generator": "scripts/reconstruct_state.py",
-        "verified_by": "`--check`, which AGENTS.md section 3 Prepare runs before reading the file",
+        "verified_by": "gate 20, which compares the recorded HEAD with the live one when the "
+                       "file is present, and `--check`, which AGENTS.md section 3 Prepare runs",
         "tracked": False,
     },
 )
@@ -2493,6 +2562,64 @@ def api_member_kind(obj: Any) -> str:
     return "constant"
 
 
+def api_md_parameter_kinds(cell: str) -> Optional[List[Tuple[str, str]]]:
+    """``(name, kind)`` for each parameter a rendered ``(...)`` signature cell declares.
+
+    ``kind`` is the lower-cased ``inspect.Parameter`` kind name. The ``/`` and ``*`` markers,
+    ``*args`` and ``**kwargs`` decide it, as they do in Python source. Returns None when the
+    cell does not open with a signature (a class, or a callable ``inspect`` cannot sign).
+
+    Parsed here rather than taken from ``scripts.generate_api_md``, for the reason gate 18 gives:
+    a generator that drops a marker would otherwise write the same wrong kinds on both sides.
+    """
+    # The page renders a signature as a Markdown code span; the backticks are markup.
+    text = cell.strip().lstrip("`")
+    if not text.startswith("("):
+        return None
+    depth, quote, end = 0, "", -1
+    tokens: List[str] = []
+    start = 1
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote and text[index - 1] != "\\":
+                quote = ""
+        elif char in "'\"":
+            quote = char
+        elif char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+            if depth == 0:
+                end = index
+                break
+        elif char == "," and depth == 1:
+            tokens.append(text[start:index])
+            start = index + 1
+    if end < 0:
+        return None
+    tokens.append(text[start:end])
+
+    parsed: List[Tuple[str, str]] = []
+    keyword_only = False
+    for token in (t.strip() for t in tokens):
+        if not token:
+            continue
+        if token == "/":
+            parsed = [(name, "positional_only") for name, _ in parsed]
+        elif token == "*":
+            keyword_only = True
+        elif token.startswith("**"):
+            parsed.append((re.match(r"\*\*(\w+)", token).group(1), "var_keyword"))
+        elif token.startswith("*"):
+            parsed.append((re.match(r"\*(\w+)", token).group(1), "var_positional"))
+            keyword_only = True
+        else:
+            name = re.match(r"\w+", token)
+            parsed.append((name.group(0) if name else token,
+                           "keyword_only" if keyword_only else "positional_or_keyword"))
+    return parsed
+
+
 def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     """Gate 18 (API Member Types): each `docs/api.md` Type cell is true of the runtime object.
 
@@ -2512,9 +2639,14 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     deliberately **not** imported from `scripts.generate_api_md`: importing the generator's own
     classifier would rebuild the fixed point inside the gate that exists to break it.
 
-    **What this gate cannot see:** the *kind*, not the rendered signature or description. A row
-    correctly typed `function` whose description cell states the wrong arguments passes here;
-    `tests/test_docs_call_shapes.py` is what covers that, and P-84 records where it does not.
+    Each function row's parameter names and kinds are compared the same way, parsed from the
+    rendered cell by `api_md_parameter_kinds` and asked of `inspect.signature`, so a dropped `*`
+    or `/` marker fails here even when the generator and the page agree.
+
+    **What this gate cannot see:** annotations, defaults and the description. A row whose
+    parameters are right and whose defaults are wrong passes here;
+    `tests/test_docs_call_shapes.py` is what covers documented calls, and P-84 records where it
+    does not.
     """
     root = repo_root or REPO_ROOT
     page = root / "docs" / "api.md"
@@ -2524,7 +2656,7 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     import jnwb
 
     rows = [
-        (m.group(1), m.group(2).strip())
+        (m.group(1), m.group(2).strip(), m.group(3))
         for m in API_MD_ROW.finditer(page.read_text(encoding="utf-8"))
     ]
     violations: List[str] = []
@@ -2532,7 +2664,7 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
     # The vacuity guard comes first and is not optional. Every check below iterates `rows`, so a
     # regex that matches nothing satisfies all of them while asserting nothing -- and a Type
     # column nobody parses is exactly the hole this gate was added to close.
-    names = [name for name, _ in rows]
+    names = [name for name, _, _ in rows]
     exported = sorted(jnwb.__all__)
     if sorted(names) != exported:
         violations.append(
@@ -2546,7 +2678,10 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
 
     from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
-    for name, declared in rows:
+    import inspect
+
+    signed = 0
+    for name, declared, cell in rows:
         try:
             obj = getattr(jnwb, name)
         except ImportError:
@@ -2572,6 +2707,25 @@ def check_api_md_member_types(repo_root: Optional[Path] = None) -> List[str]:
                 "the page to the generator, and a wrong answer inside the generator is on both "
                 "sides of that comparison."
             )
+        if expected != "function":
+            continue
+        try:
+            live = [(p.name, p.kind.name.lower()) for p in inspect.signature(obj).parameters.values()]
+        except (TypeError, ValueError):
+            live = None
+        shown = api_md_parameter_kinds(cell)
+        if live is None and shown is None:
+            continue
+        signed += 1
+        if shown != live:
+            violations.append(
+                f"API_KIND: jnwb.{name}: docs/api.md shows parameters {shown}, inspect.signature "
+                f"gives {live}. A keyword-only parameter shown without its `*` reads as "
+                "positional, so the page documents a call that raises."
+            )
+    if not signed:
+        violations.append("API_KIND: no function row carried a signature, so the parameter-kind "
+                          "comparison checked nothing")
     return violations
 
 
@@ -2737,6 +2891,57 @@ def check_frozen_validated(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
+def check_state_file_head(repo_root: Optional[Path] = None) -> List[str]:
+    """Gate 20 (State File Head): a present artifacts/state.md records the live HEAD.
+
+    Check-only. The generator runs this harness to fill in its gate rows, so a gate that
+    regenerated the file would recurse. It reads the recorded HEAD with the generator's own
+    parser and compares it with ``git rev-parse HEAD``. An absent file passes: the file is
+    generated per tree and gitignored, so a fresh checkout correctly has none. A file with no
+    HEAD row, or a HEAD git cannot resolve, fails, because unknown is not current.
+    """
+    from scripts import reconstruct_state
+
+    root = repo_root or REPO_ROOT
+    relative = reconstruct_state.STATE_PATH.relative_to(reconstruct_state.REPO_ROOT)
+    path = root / relative
+    if not path.is_file():
+        return []
+    name = relative.as_posix()
+    regenerate = "Run: python scripts/reconstruct_state.py"
+    recorded = reconstruct_state.recorded_head(path.read_text(encoding="utf-8"))
+    if recorded is None:
+        return [f"{name} records no HEAD row, so nothing can say it is current. {regenerate}"]
+    done = _run_git(root, "rev-parse", "HEAD")
+    live = done.stdout.strip()
+    if done.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", live):
+        return [f"{name} records HEAD {recorded}, and git could not resolve the live HEAD "
+                f"(exit {done.returncode}), so the file cannot be shown current. {regenerate}"]
+    if recorded != live:
+        return [f"{name} was generated at {recorded} and HEAD is now {live}. {regenerate}"]
+    return []
+
+
+def check_computational_contract() -> List[str]:
+    """Gate 21 (Computational Contract): execution switches select, precision requests are
+    honoured, and every export has a recorded computational order.
+
+    Runs the three checks of `scripts/computational_contract_gate.py` on the imported package.
+    The suite runs them too (`tests/test_computational_contract_gate.py`), but an export added
+    without a recorded order left the suite red while every gate here stayed green, and the
+    gates are what the build job and a release read first. Each violation is prefixed with the
+    check that found it; a check that raised is reported as that check's violation.
+    """
+    import jnwb
+    from scripts import computational_contract_gate
+
+    return [
+        f"{name}: {violation}"
+        for name, violations, _ in computational_contract_gate.run_checks(jnwb)
+        for violation in violations
+    ]
+
+
 #: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
 #: because two gates compute their message from constants. The numbers are the ones this module's
 #: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
@@ -2744,7 +2949,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (1, _one(check_frozen_boundary, "FAIL: jnwb/ frozen boundary check failed:"),
      lambda: "PASS: jnwb/ frozen boundary clean (zero unauthorized project imports)."),
     (2, _one(check_skill_tree_uniqueness, "FAIL: Skill tree uniqueness violated:"),
-     lambda: "PASS: Single canonical skill tree verified (no .agents/skills/ duplicate)."),
+     lambda: "PASS: One skill tree: every SKILL.md is under skills/, or under artifacts/skills/ "
+             "without repeating a shipped skill."),
     (3, _one(check_no_hardcoded_test_paths,
              "FAIL: Hardcoded machine-local paths detected in tests:"),
      lambda: "PASS: Tests free of machine-local hardcoded drive paths."),
@@ -2773,7 +2979,8 @@ GATES: List[Tuple[int, Any, Any]] = [
     (13, _one(check_nwb_onboarding_alignment, "FAIL: NWB onboarding surface misaligned:"),
      lambda: "PASS: NWB onboarding workflow aligned across README, tutorials, skill, and MkDocs."),
     (14, _internal_vocabulary_checks,
-     lambda: "PASS: No internal process vocabulary in docs/ or README.md "
+     lambda: "PASS: No internal process vocabulary in docs/, skills/, README.md or "
+             "artifacts/agents.md "
              f"({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
              "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "
@@ -2797,12 +3004,20 @@ GATES: List[Tuple[int, Any, Any]] = [
              "every 'Blocked by:' item id is live)."),
     (18, _one(check_api_md_member_types,
               "FAIL: A docs/api.md Type cell is not true of the runtime object:"),
-     lambda: "PASS: docs/api.md Type column agrees with the runtime object, on an oracle that "
-             "does not import the generator."),
+     lambda: "PASS: docs/api.md Type column and each signature's parameter kinds agree with the "
+             "runtime object, on an oracle that does not import the generator."),
     (19, _one(check_frozen_validated,
               "FAIL: A frozen-validated function no longer matches its verified body:"),
      lambda: "PASS: Every frozen-validated function matches its verified body and names a "
              "killing test that exists."),
+    (20, _one(check_state_file_head, "FAIL: artifacts/state.md does not record the live HEAD:"),
+     lambda: "PASS: artifacts/state.md is absent or records the live HEAD (read only; the "
+             "generator runs this harness, so this gate never regenerates the file)."),
+    (21, _one(check_computational_contract,
+              "FAIL: The computational contract is broken:"),
+     lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
+             "reaches its deciding mechanism, every precision request is honoured or refused, "
+             "and every export has a recorded computational order)."),
 ]
 
 

@@ -194,16 +194,12 @@ class TestARequiredParameterStaysRequired:
         b = jnwb.build_permutation_plan(labels, groups, n_permutations=5, rng=3)
         assert str(a) == str(b)
 
-    @pytest.mark.parametrize("bad", ["a Generator", None, 2.5, True])
-    def test_it_is_the_one_function_that_cannot_take_a_generator(self, bad):
-        """Its product is a manifest of integer per-draw seeds, `rng + i`. A Generator
-        cannot name one and fresh entropy would make the manifest unreproducible, so it
-        refuses both explicitly instead of failing inside the loop on `seed + i`.
-        """
-        if bad == "a Generator":
-            bad = np.random.default_rng(0)
+    @pytest.mark.parametrize("bad", [2.5, True])
+    def test_a_float_or_bool_base_seed_is_refused(self, bad):
+        """A Generator or None becomes one int base seed that the plan returns; a float or
+        bool is refused rather than truncated inside the loop on `seed + i`."""
         labels, groups = np.array([0, 1] * 10), np.arange(20) // 2
-        with pytest.raises(TypeError, match="must be an int base seed"):
+        with pytest.raises(TypeError, match="rng must be an int seed"):
             jnwb.build_permutation_plan(labels, groups, n_permutations=3, rng=bad)
 
     def test_the_manifest_records_the_arithmetic_it_documents(self):

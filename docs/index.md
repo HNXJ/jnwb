@@ -49,7 +49,7 @@ print(f"Beta band power: {beta_power:.4f}")
 - [Architecture](architecture.md) — the two entry paths, how skills route, and what belongs in jnwb
 - [Philosophy & boundary](01_architecture_and_philosophy.md) — scope, units, and dataset independence
 - [Addressing & metadata](02_paths_addressing_metadata.md)
-- [Public API](api.md) — every symbol in `jnwb.__all__`, gate-enforced
+- [Public API](api.md) — every symbol in `jnwb.__all__`
 - [Common mistakes](common_mistakes.md) — the failure modes jnwb guards against
 - [Errors](errors.md) — what each refusal means and what to pass instead
 - [Analyzing with an agent](agents.md) — what ships, the MCP server, and the skills

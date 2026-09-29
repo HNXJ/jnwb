@@ -3,6 +3,8 @@ cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 
+import warnings
+
 import jnwb
 import numpy as np
 import pytest
@@ -219,7 +221,21 @@ class TestSpectralTilt:
         pink = np.cumsum(white)
         pink -= pink.mean()
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
-        assert result["exponent"] < 0
+        assert result["slope"] < 0
+
+    def test_the_exponent_key_is_the_slope_behind_a_deprecation_warning(self):
+        """`exponent` held the signed slope, the opposite sign of `aperiodic_fit`'s exponent.
+        `slope` carries it; `exponent` still reads it for one release, with a warning, and
+        is not a key of the dict."""
+        pink = np.cumsum(np.random.default_rng(0).standard_normal(20000))
+        result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
+        assert "slope" in result and "exponent" not in list(result)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            slope = result["slope"]
+        with pytest.warns(DeprecationWarning, match="'exponent' is deprecated.*read 'slope'"):
+            old = result["exponent"]
+        np.testing.assert_allclose(old, slope, rtol=1e-12)
 
     def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
         """INTENTIONAL BREAK (0.2.4).
@@ -232,13 +248,13 @@ class TestSpectralTilt:
             warnings.simplefilter("always")
             result = spectral_tilt(np.zeros(1000), sampling_rate=1000.0)
             assert len(record) == 0, f"Expected zero warnings, got: {[r.message for r in record]}"
-        assert np.isnan(result["exponent"])
+        assert np.isnan(result["slope"])
         assert np.isnan(result["offset"])
         assert np.isnan(result["fit_quality"])
 
     def test_constant_signal_has_undefined_tilt(self):
         result = spectral_tilt(np.full(1000, 5.0), sampling_rate=1000.0)
-        assert np.isnan(result["exponent"])
+        assert np.isnan(result["slope"])
         assert np.isnan(result["offset"])
         assert np.isnan(result["fit_quality"])
 
@@ -416,6 +432,103 @@ class TestAggregateToDb:
         with pytest.raises(ValueError, match="baseline contains negative"):
             aggregate_to_db(np.ones(3), -np.ones(3), how="mean_of_ratios")
 
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_a_zero_baseline_raises_as_relative_power_does(self, how, aggregate_over):
+        power = np.array([[2.0, 4.0]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            relative_power(power, baseline)
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=aggregate_over)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_a_zero_baseline_under_nan_power_is_exempt_only_under_omit(self, how):
+        power = np.array([[2.0, np.nan]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="propagate")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit"),
+            [to_db(2.0)], rtol=1e-12)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_a_zero_baseline_under_infinite_power_raises_under_omit(self, how):
+        """+inf power is not omitted, so its zero baseline reaches the ratio."""
+        power = np.array([[2.0, np.inf]])
+        baseline = np.array([[1.0, 0.0]])
+        with pytest.raises(ValueError, match="baseline contains zero"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit")
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_an_infinite_baseline_raises_as_relative_power_does(self, how, aggregate_over):
+        """power / inf is 0, which returned -inf dB where relative_power raises."""
+        power = np.array([[2.0, 4.0]])
+        baseline = np.array([[1.0, np.inf]])
+        with pytest.raises(ValueError, match="finite"):
+            relative_power(power, baseline)
+        with pytest.raises(ValueError, match="baseline is infinite"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=aggregate_over)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    def test_an_infinite_baseline_under_nan_power_is_exempt_only_under_omit(self, how):
+        power = np.array([[2.0, np.nan]])
+        baseline = np.array([[1.0, np.inf]])
+        with pytest.raises(ValueError, match="baseline is infinite"):
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="propagate")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, baseline, how=how, aggregate_over=1, nan_policy="omit"),
+            [to_db(2.0)], rtol=1e-12)
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_a_subnormal_baseline_whose_ratio_overflows_raises(self, how, aggregate_over):
+        """Finite power over the smallest subnormal overflows to +inf dB, with only a warning."""
+        power = np.array([[2.0, 4.0]])
+        tiny = np.full((1, 2), 5e-324)
+        with pytest.raises(ValueError, match="overflows"):
+            aggregate_to_db(power, tiny, how=how, aggregate_over=aggregate_over)
+        # A small baseline whose ratio stays in range is still a number.
+        assert np.all(np.isfinite(
+            aggregate_to_db(power, np.full((1, 2), 1e-300), how=how, aggregate_over=aggregate_over)))
+
+    @pytest.mark.parametrize("how", DB_AGGREGATIONS)
+    @pytest.mark.parametrize("aggregate_over", [None, 1])
+    def test_an_infinite_power_under_propagate_gives_inf_db_without_raising(self, how, aggregate_over):
+        """Infinite power is the input's, not an overflow, so the overflow checks leave it."""
+        out = aggregate_to_db(np.array([[2.0, np.inf]]), np.ones((1, 2)), how=how,
+                              aggregate_over=aggregate_over, nan_policy="propagate")
+        assert np.isposinf(out[0, 1] if aggregate_over is None else out[0])
+
+    def test_a_mean_of_finite_ratios_that_overflows_raises(self):
+        power, baseline = np.array([1e300, 1e300]), np.array([1e-8, 1e-8])
+        with pytest.raises(ValueError, match="overflows"):
+            aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_over=0)
+        with pytest.raises(ValueError, match="overflows"):
+            relative_power(power, baseline, model="mean_of_ratios", axis=0)
+
+    def test_a_summed_baseline_that_overflows_raises(self):
+        power, baseline = np.array([1.0, 1.0]), np.array([1e308, 1e308])
+        with pytest.raises(ValueError, match="summed baseline"):
+            aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
+        with pytest.raises(ValueError, match="summed baseline"):
+            relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+    def test_a_summed_power_that_overflows_is_named_and_the_baseline_is_not_blamed(self):
+        power, baseline = np.array([1e308, 1e308]), np.array([1.0, 1.0])
+        with pytest.raises(ValueError, match="summed power"):
+            aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
+        with pytest.raises(ValueError, match="summed power"):
+            relative_power(power, baseline, model="ratio_of_means", axis=0)
+
+    @pytest.mark.parametrize("model,axis", [
+        ("mean_of_ratios", None), ("mean_of_ratios", 1), ("ratio_of_means", 1), ("log_ratio", None),
+    ])
+    def test_relative_power_refuses_the_same_overflow(self, model, axis):
+        with pytest.raises(ValueError, match="overflows"):
+            relative_power(np.array([[2.0, 4.0]]), np.full((1, 2), 5e-324), model=model, axis=axis)
+
     def test_nan_policy_propagate_vs_omit(self):
         power = np.array([[2.0, np.nan]])
         baseline = np.ones((1, 2))
@@ -436,7 +549,7 @@ class TestAggregateToDb:
 
         # 2D array test with broadcasting
         p2 = np.array([[10.0, np.nan], [20.0, 30.0]])
-        b2 = np.array([10.0, 10.0])
+        b2 = np.array([[10.0, 10.0]])
         # For column 1, row 0 is NaN in p2, so only row 1 is valid (30.0 / 10.0 = 3.0)
         omitted2 = aggregate_to_db(p2, b2, how="ratio_of_means", aggregate_over=0, nan_policy="omit")
         # col 0: (10 + 20) / (10 + 10) = 30 / 20 = 1.5 -> to_db(1.5)
@@ -450,11 +563,22 @@ class TestAggregateToDb:
         np.testing.assert_allclose(
             aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline))
 
-    def test_broadcasts_baseline_against_power(self):
+    @pytest.mark.parametrize("baseline", [np.array([[2.0, 4.0]]), np.array([[2.0], [4.0]]), 2.0])
+    def test_broadcasts_baseline_against_power(self, baseline):
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        baseline = np.array([2.0, 4.0])
         np.testing.assert_allclose(
-            aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline))
+            aggregate_to_db(power, baseline, how="mean_of_ratios"), to_db(power / baseline),
+            rtol=1e-12)
+
+    def test_a_baseline_of_fewer_dimensions_is_refused_when_the_counts_are_equal(self):
+        """(n_freqs,) against (n_freqs, n_times) with n_freqs == n_times would divide time."""
+        power = np.arange(1.0, 10.0).reshape(3, 3)
+        per_freq = np.array([1.0, 2.0, 4.0])
+        with pytest.raises(ValueError, match=r"baseline\[:, None\]"):
+            aggregate_to_db(power, per_freq, how="mean_of_ratios")
+        np.testing.assert_allclose(
+            aggregate_to_db(power, per_freq[:, None], how="mean_of_ratios"),
+            to_db(power / per_freq[:, None]), rtol=1e-12)
 
     def test_aggregations_constant_is_the_documented_pair(self):
         assert DB_AGGREGATIONS == ("mean_of_ratios", "ratio_of_means")
@@ -488,7 +612,7 @@ class TestSpectralSamplingRateResolution:
         # 3. spectral_tilt
         res_tilt_fs = spectral_tilt(sig1, fs=fs)
         res_tilt_sr = spectral_tilt(sig1, sampling_rate=fs)
-        assert res_tilt_fs["exponent"] == pytest.approx(res_tilt_sr["exponent"])
+        assert res_tilt_fs["slope"] == pytest.approx(res_tilt_sr["slope"])
         assert res_tilt_fs["fit_quality"] == pytest.approx(res_tilt_sr["fit_quality"])
 
         # 4. band_power
@@ -1112,18 +1236,23 @@ class TestRelativePower:
         expected = (2.0 + 4.0 + 6.0 + 8.0) / (1.0 + 2.0 + 3.0 + 4.0)  # 20 / 10 = 2.0
         assert res == pytest.approx(expected)
 
-    def test_broadcasting_scalar_and_array_baselines(self):
-        """Scalar baseline broadcasts across multidimensional power tensor."""
+    def test_a_scalar_or_same_ndim_baseline_broadcasts_without_a_warning(self):
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        res_scalar = relative_power(power, 2.0, model="mean_of_ratios", axis=None)
-        expected = np.array([[1.0, 2.0], [4.0, 8.0]])
-        np.testing.assert_allclose(res_scalar, expected)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            res_scalar = relative_power(power, 2.0, model="mean_of_ratios", axis=None)
+            res_column = relative_power(power, np.array([[2.0], [4.0]]), model="mean_of_ratios")
+        np.testing.assert_allclose(res_scalar, [[1.0, 2.0], [4.0, 8.0]], rtol=1e-12)
+        np.testing.assert_allclose(res_column, [[1.0, 2.0], [2.0, 4.0]], rtol=1e-12)
 
-        # 1D baseline broadcasting along axis 0
-        baseline_1d = np.array([2.0, 4.0])
-        res_broadcast = relative_power(power, baseline_1d, model="mean_of_ratios", axis=None)
-        expected_bc = np.array([[1.0, 1.0], [4.0, 4.0]])
-        np.testing.assert_allclose(res_broadcast, expected_bc)
+    def test_a_baseline_of_fewer_dimensions_warns_that_it_will_be_refused(self):
+        """A (2,) baseline against (2, 2) power aligns with the trailing axis, dividing each
+        column, where aggregate_to_db and TFRAccumulator.add_trial refuse it. It still
+        broadcasts this release."""
+        power = np.array([[2.0, 4.0], [8.0, 16.0]])
+        with pytest.warns(FutureWarning, match=r"baseline\[:, None\].*next release raises"):
+            res = relative_power(power, np.array([2.0, 4.0]), model="mean_of_ratios")
+        np.testing.assert_allclose(res, [[1.0, 1.0], [4.0, 4.0]], rtol=1e-12)
 
     def test_preservation_of_linear_scale(self):
         """Linear ratios are never converted to decibels unless model='log_ratio'."""
@@ -1771,7 +1900,7 @@ class TestSpectralTiltBandIsHonest:
         x = self._pink()
         low = spectral_tilt(x, fs=1000.0, freq_range=(0.1, 100.0))
         at_floor = spectral_tilt(x, fs=1000.0, freq_range=(0.5, 100.0))
-        assert low["exponent"] == at_floor["exponent"]
+        assert low["slope"] == at_floor["slope"]
         assert low["fitted_band_hz"] == at_floor["fitted_band_hz"]
         assert low["fitted_band_hz"][0] > 0.5
         assert low["n_bins_fitted"] == at_floor["n_bins_fitted"] > 0
@@ -1780,13 +1909,13 @@ class TestSpectralTiltBandIsHonest:
         """A band with bins but no positive power is a different condition from a band
         with too few bins: the tilt is undefined, which is NaN, not a malformed request."""
         res = spectral_tilt(np.ones(4000), fs=1000.0)
-        assert np.isnan(res["exponent"])
+        assert np.isnan(res["slope"])
         assert np.isnan(res["offset"])
 
     def test_a_wide_band_still_recovers_a_plausible_exponent(self):
         res = spectral_tilt(self._pink(), fs=1000.0, freq_range=(1.0, 100.0))
-        assert np.isfinite(res["exponent"])
-        assert -3.0 < res["exponent"] < 0.0
+        assert np.isfinite(res["slope"])
+        assert -3.0 < res["slope"] < 0.0
         assert res["n_bins_fitted"] >= 6
 
 
@@ -1827,3 +1956,57 @@ class TestBandPowerEstimandIsDocumented:
         assert "power spectral density" in doc.lower()
         assert "units^2/Hz" in doc
         assert "independent of the bandwidth" in doc
+
+
+class TestCoherenceGpuFallbackKeepsTheNull:
+    """A CUDA failure part-way through the surrogate null fell back to the CPU after the
+    generator had advanced, so the CPU recompute drew different shifts: p differed from
+    a CPU run under the same reported seed."""
+
+    @staticmethod
+    def _signals():
+        r = np.random.default_rng(0)
+        x = r.standard_normal(2000)
+        return x, 0.5 * x + r.standard_normal(2000)
+
+    KW = dict(fs=500.0, freq_bands={"a": (8.0, 12.0), "b": (20.0, 40.0)}, rng=7, n_surrogates=40)
+
+    @pytest.mark.parametrize("fail_after", [5, 20])
+    def test_a_mid_null_failure_reproduces_the_cpu_result(self, monkeypatch, fail_after):
+        import jnwb.spectral as sp
+        from scipy import signal
+
+        x, y = self._signals()
+        cpu = sp.cross_area_coherence(x, y, device="cpu", **self.KW)
+        calls = {"n": 0}
+
+        def flaky_gpu(a, b, fs, nperseg, noverlap=None, **_):
+            calls["n"] += 1
+            if calls["n"] > fail_after:
+                raise RuntimeError("injected CUDA failure")
+            f, pxx = signal.welch(a, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            _, pyy = signal.welch(b, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            _, pxy = signal.csd(a, b, fs=fs, nperseg=nperseg, noverlap=noverlap)
+            return f, pxx, pyy, pxy
+
+        monkeypatch.setattr(sp, "resolve_device", lambda *a, **k: sp.CUDA)
+        monkeypatch.setattr(sp, "_welch_csd_gpu", flaky_gpu)
+        with pytest.warns(Warning):
+            fell_back = sp.cross_area_coherence(x, y, device="cuda", **self.KW)
+
+        assert calls["n"] == fail_after + 1
+        assert fell_back["device_used"] == "cpu"
+        assert fell_back["surrogate_seed_entropy"] == cpu["surrogate_seed_entropy"]
+        assert fell_back["band_significance"] == cpu["band_significance"]
+        np.testing.assert_allclose(fell_back["coherence_spectrum"], cpu["coherence_spectrum"], rtol=1e-12)
+
+    def test_an_invalid_device_leaves_the_callers_generator_untouched(self):
+        import jnwb.spectral as sp
+
+        x, y = self._signals()
+        gen = np.random.default_rng(3)
+        before = gen.bit_generator.state
+        kw = dict(self.KW, rng=gen)
+        with pytest.raises(ValueError):
+            sp.cross_area_coherence(x, y, device="no-such-device", **kw)
+        assert gen.bit_generator.state == before

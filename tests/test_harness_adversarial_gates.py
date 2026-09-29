@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+#: The contributor-process skill. It is not part of the shipped `skills/` tree.
+PROCESS_SKILL = REPO_ROOT / "artifacts" / "skills" / "jnwb-fact-action" / "SKILL.md"
 # Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
 # installed copy and silently redirect a wheel-qualification run back to the source tree.
 if str(REPO_ROOT) not in sys.path:
@@ -35,6 +37,7 @@ from scripts.harness_gate import (
     check_api_md_member_types,
     check_stack_form_consistency,
     check_stack_pointers_resolve,
+    check_state_file_head,
     validate_receipt_provenance,
 )
 
@@ -304,10 +307,8 @@ def summarize_log_normal_effects(unit_db_modulations):
         assert len(violations) == 1
         assert "HARDCODED_TEST_PATH" in violations[0]
 
-    def test_real_repository_passes_all_harness_gates(self):
-        """Integrity Probe: Live repository state must pass all preflight gates."""
-        from scripts.harness_gate import run_full_preflight
-        assert run_full_preflight() is True
+    # The live repository's full gate run is asserted once, with its PASS count, in
+    # tests/test_every_gate_runs.py::test_the_live_repository_passes_every_gate.
 
 
 class TestDocumentationDriftGates:
@@ -618,25 +619,28 @@ class TestProjectIdentifierGate:
 class TestHarnessResetContracts:
     """Deterministic tests for generalized harness reset structure and invariants."""
 
-    def test_jnwb_fact_action_skill_exists_and_is_routable(self):
-        skill_path = REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md"
-        assert skill_path.exists(), "skills/jnwb-fact-action/SKILL.md must exist"
-        text = skill_path.read_text(encoding="utf-8")
+    def test_the_process_skill_exists_outside_the_shipped_tree(self):
+        assert PROCESS_SKILL.exists(), f"{PROCESS_SKILL} must exist"
+        text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "F -> R -> A -> V -> S" in text
         assert "High freedom in hypothesis generation; zero freedom in project-fact completion" in text
 
+        assert not (REPO_ROOT / "skills" / "jnwb-fact-action").exists(), (
+            "the process skill is back in the shipped skills/ tree"
+        )
         router_text = (REPO_ROOT / "skills" / "jnwb" / "SKILL.md").read_text(encoding="utf-8")
-        assert "jnwb-fact-action" in router_text, "Router skills/jnwb/SKILL.md must route substantial work to jnwb-fact-action"
+        assert "jnwb-fact-action" not in router_text, (
+            "the shipped router routes to a skill that does not ship"
+        )
 
     def test_all_referenced_domain_skills_exist(self):
         skills_dir = REPO_ROOT / "skills"
         assert skills_dir.exists()
         skill_names = {d.name for d in skills_dir.iterdir() if d.is_dir()}
 
-        # Verify all 7 domain skills plus router and execution-control skill
+        # Verify the domain skills plus the router
         expected = {
             "jnwb",
-            "jnwb-fact-action",
             "jnwb-nwb-data",
             "jnwb-spiking",
             "jnwb-lfp-spectral",
@@ -656,7 +660,7 @@ class TestHarnessResetContracts:
         "these strings appear" was the proxy, "the skill delegates the order" is the invariant.
         Ruled 2026-09-19 (06-61, candidate C).
         """
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         section = self._loading_order_section(skill_text)
@@ -809,7 +813,7 @@ class TestHarnessResetContracts:
         reproduced it on the right tree, which is how P-28 survived three fan-outs with the
         contract already carrying that field. Both fields, and the procedure in exactly one place.
         """
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         assert "BASELINE COMMIT:" in skill_text, (
@@ -838,7 +842,7 @@ class TestHarnessResetContracts:
         Asserted on meaning rather than on a phrase: the rule must tie the whole-suite
         requirement to test-file scope, so a packet that cannot add a test file is not forced
         to run everything and the rule stays proportionate."""
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(
+        skill_text = PROCESS_SKILL.read_text(
             encoding="utf-8"
         )
         assert "ACCEPTANCE:" in skill_text, "the packet contract lost its ACCEPTANCE field"
@@ -896,7 +900,7 @@ class TestHarnessResetContracts:
         assert "Human-authorized durable facts" in fact_stack
         assert "Hamm" in fact_stack
 
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "fact_stack.md` is strictly human-authorized" in skill_text
 
     @staticmethod
@@ -946,9 +950,9 @@ class TestHarnessResetContracts:
         # The ROLE enum in the delegation contract was a field name nothing read: a role
         # could be added here and never offered to a dispatcher, or listed there and have
         # no definition to load. Both halves now have to agree.
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         enum_line = re.search(r"^ROLE:\s*(.+)$", skill_text, re.MULTILINE)
-        assert enum_line, "skills/jnwb-fact-action/SKILL.md has no ROLE: enum to validate"
+        assert enum_line, "the process skill has no ROLE: enum to validate"
         enumerated = {r.strip() for r in enum_line.group(1).split("|")}
         assert enumerated == existing_role_files, (
             f"ROLE enum and artifacts/agents/ disagree: {enumerated ^ existing_role_files}"
@@ -1023,7 +1027,7 @@ class TestHarnessResetContracts:
             self._roles_agents_md_enumerates("| `skills/` | Task skills |")
 
     def test_actor_cannot_be_sole_verifier_contract(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "actor" in skill_text and "sole verifier" in skill_text
 
         actor_text = (REPO_ROOT / "artifacts" / "agents" / "actor.md").read_text(encoding="utf-8")
@@ -1045,7 +1049,7 @@ class TestHarnessResetContracts:
                 assert p not in text, f"Role {md.name} contains downstream project name {p!r}"
 
     def test_delegation_packet_and_return_contracts_exist(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         packet_fields = [
             "ROLE:", "DOMAIN SKILL:", "GOAL:", "TODO ITEM:", "AUTHORITIES:",
             "RELEVANT FACTS:", "OBSERVED BASELINE:", "INVARIANTS:",
@@ -1061,7 +1065,7 @@ class TestHarnessResetContracts:
             assert field in skill_text, f"Missing return contract field {field}"
 
     def test_conflicting_conclusions_require_evidence_reconciliation(self):
-        skill_text = (REPO_ROOT / "skills" / "jnwb-fact-action" / "SKILL.md").read_text(encoding="utf-8")
+        skill_text = PROCESS_SKILL.read_text(encoding="utf-8")
         assert "Evidence Reconciliation" in skill_text
         assert "never through voting" in skill_text
 
@@ -1081,7 +1085,37 @@ class TestGate14InternalProcessVocabulary:
         docs.mkdir()
         for name, body in pages.items():
             (docs / f"{name}.md").write_text(body, encoding="utf-8")
+        skill = tmp_path / "skills" / "jnwb"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("A clean skill.\n", encoding="utf-8")
         return tmp_path
+
+    def test_a_shipped_skill_is_scanned_and_the_process_skill_is_not(self, tmp_path: Path):
+        """The skills ship and are published; the repository's own process skill does not."""
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "SKILL.md").write_text(
+            "Queue it on the todo stack.\n", encoding="utf-8"
+        )
+        internal = root / "artifacts" / "skills" / "process"
+        internal.mkdir(parents=True)
+        (internal / "SKILL.md").write_text("Hand the packet over.\n", encoding="utf-8")
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "skills/jnwb/SKILL.md:1" in violations[0], violations
+
+    def test_a_shipped_skill_yaml_is_scanned(self, tmp_path: Path):
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "agents").mkdir()
+        (root / "skills" / "jnwb" / "agents" / "openai.yaml").write_text(
+            "prompt: Queue it on the todo stack.\n", encoding="utf-8"
+        )
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "openai.yaml:1" in violations[0], violations
+
+    def test_an_empty_skills_tree_is_a_failure_and_not_a_pass(self, tmp_path: Path):
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "skills" / "jnwb" / "SKILL.md").unlink()
+        violations = check_internal_process_vocabulary(root)
+        assert violations and "sweep is broken" in violations[0], violations
 
     def test_a_page_naming_a_delegation_packet_fails(self, tmp_path: Path):
         """06-68's stated discriminator, in its stated words.
@@ -1163,6 +1197,16 @@ class TestGate14InternalProcessVocabulary:
         (root / "README.md").write_text("Queued work: artifacts/todo_stack.md\n", encoding="utf-8")
         violations = check_internal_process_vocabulary(root)
         assert len(violations) == 1 and "README.md:1" in violations[0], violations
+
+    def test_the_agent_entry_page_is_scanned_like_a_docs_page(self, tmp_path: Path):
+        """`artifacts/agents.md` is where the README sends an agent."""
+        root = self._docs(tmp_path, guide="A clean page.\n")
+        (root / "artifacts").mkdir()
+        (root / "artifacts" / "agents.md").write_text(
+            "Adapt a role in artifacts/agents/actor.md\n", encoding="utf-8"
+        )
+        violations = check_internal_process_vocabulary(root)
+        assert len(violations) == 1 and "artifacts/agents.md:1" in violations[0], violations
 
     def test_the_live_docs_tree_passes(self):
         """The four pages that legitimately describe agent-assisted use stay unedited."""
@@ -1279,6 +1323,8 @@ class TestGate14ProcessIdentifiersInLibrary:
         root = self._library(tmp_path, "The anchors were missing (P-12).")
         (root / "docs").mkdir()
         (root / "docs" / "page.md").write_text("A public page.\n", encoding="utf-8")
+        (root / "skills" / "jnwb").mkdir(parents=True)
+        (root / "skills" / "jnwb" / "SKILL.md").write_text("A clean skill.\n", encoding="utf-8")
         monkeypatch.setattr(harness_gate, "REPO_ROOT", root)
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
@@ -1777,6 +1823,7 @@ class TestGate16LineEndingConsistency:
     `git apply --check` runs failed in one release before the cause was found.
     """
 
+    @pytest.mark.requires_git_checkout
     def test_the_live_tree_passes(self):
         """Pristine first: a selector that collects nothing also returns a non-empty list."""
         assert check_line_ending_consistency() == []
@@ -2170,3 +2217,127 @@ class TestApiMdMemberTypes:
             for alias in node.names
         }
         assert not any("generate_api_md" in name for name in names), names
+
+
+# ------------------------------------------------- gate 20: the state file's recorded HEAD
+
+
+def _state_body(head: str) -> str:
+    return f"# State\n\n| Quantity | Value |\n|---|---|\n| HEAD | `{head}` |\n"
+
+
+class TestGate20StateFileHead:
+    """A present `artifacts/state.md` must record the HEAD it describes.
+
+    The fixture is a scratch repository with its own commit, so its HEAD differs from this
+    checkout's: a gate that compared against the wrong repository fails the matching case.
+    """
+
+    ZERO = "0" * 40
+
+    @staticmethod
+    def _repo(tmp_path: Path) -> "tuple[Path, str]":
+        import subprocess
+
+        root = tmp_path / "tree"
+        (root / "artifacts").mkdir(parents=True)
+        git = ["git", "-c", "user.name=gate fixture", "-c", "user.email=fixture@example.invalid",
+               "-c", "commit.gpgsign=false"]
+        subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+        (root / "README").write_text("fixture\n", encoding="utf-8", newline="\n")
+        subprocess.run([*git, "add", "README"], cwd=root, check=True)
+        subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
+                              text=True, check=True).stdout.strip()
+        assert re.fullmatch(r"[0-9a-f]{40}", head) and head != TestGate20StateFileHead.ZERO
+        return root, head
+
+    def test_an_absent_file_passes(self, tmp_path: Path):
+        root, _ = self._repo(tmp_path)
+        assert not (root / "artifacts" / "state.md").exists()
+        assert check_state_file_head(root) == []
+
+    def test_a_file_recording_the_live_head_passes(self, tmp_path: Path):
+        """Pristine first: every failure below is a kill only if this passes."""
+        root, head = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text(_state_body(head), encoding="utf-8",
+                                                     newline="\n")
+        assert check_state_file_head(root) == []
+
+    def test_a_zeroed_head_row_fails_naming_both_commits(self, tmp_path: Path):
+        import hashlib
+
+        root, head = self._repo(tmp_path)
+        state = root / "artifacts" / "state.md"
+        state.write_text(_state_body(head), encoding="utf-8", newline="\n")
+        assert check_state_file_head(root) == []
+        state.write_text(_state_body(self.ZERO), encoding="utf-8", newline="\n")
+        before = hashlib.sha256(state.read_bytes()).hexdigest()
+
+        violations = check_state_file_head(root)
+
+        assert len(violations) == 1, violations
+        assert self.ZERO in violations[0] and head in violations[0], violations
+        assert "python scripts/reconstruct_state.py" in violations[0], violations
+        # Read only: the generator runs the harness, so a gate that rewrote the file would
+        # recurse, and one that repaired it would hide the staleness it exists to report.
+        assert hashlib.sha256(state.read_bytes()).hexdigest() == before
+
+    def test_a_head_differing_only_in_its_last_character_fails(self, tmp_path: Path):
+        """A prefix comparison, such as the 12 characters `--check` prints, passes this."""
+        root, head = self._repo(tmp_path)
+        near = head[:-1] + ("0" if head[-1] != "0" else "1")
+        assert near != head and near[:39] == head[:39]
+        (root / "artifacts" / "state.md").write_text(_state_body(near), encoding="utf-8",
+                                                     newline="\n")
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and near in violations[0] and head in violations[0], violations
+
+    def test_an_unresolvable_head_fails(self, tmp_path: Path, monkeypatch):
+        """Outside any repository the live HEAD is unknown, and unknown is not current."""
+        monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+        (tmp_path / "artifacts").mkdir()
+        (tmp_path / "artifacts" / "state.md").write_text(_state_body("a" * 40),
+                                                         encoding="utf-8", newline="\n")
+        violations = check_state_file_head(tmp_path)
+        assert len(violations) == 1 and "could not resolve" in violations[0], violations
+
+    def test_a_file_with_no_head_row_fails(self, tmp_path: Path):
+        root, _ = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text("# State\n\nno head row\n",
+                                                     encoding="utf-8", newline="\n")
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and "no HEAD row" in violations[0], violations
+
+    def test_the_head_row_is_read_by_the_generator_parser(self, tmp_path: Path, monkeypatch):
+        """The gate calls the generator's parser rather than a retyped copy of it."""
+        import scripts.reconstruct_state as generator
+
+        root, head = self._repo(tmp_path)
+        (root / "artifacts" / "state.md").write_text(_state_body(head), encoding="utf-8",
+                                                     newline="\n")
+        monkeypatch.setattr(generator, "recorded_head", lambda text: "f" * 40)
+        violations = check_state_file_head(root)
+        assert len(violations) == 1 and "f" * 40 in violations[0], violations
+
+    def test_the_generator_builds_with_the_old_file_removed(self, tmp_path: Path, monkeypatch):
+        """`build()` runs the harness. With a stale file still on disk, this gate would fail
+        inside the build and the new file would record that failure as the tree's verdict."""
+        import scripts.reconstruct_state as generator
+
+        state = tmp_path / "artifacts" / "state.md"
+        state.parent.mkdir()
+        state.write_text(_state_body(self.ZERO), encoding="utf-8", newline="\n")
+        seen = []
+
+        def build() -> str:
+            seen.append(state.exists())
+            return "built\n"
+
+        monkeypatch.setattr(generator, "STATE_PATH", state)
+        monkeypatch.setattr(generator, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(generator, "build", build)
+        monkeypatch.setattr(sys, "argv", ["reconstruct_state.py"])
+        assert generator.main() == 0
+        assert seen == [False], "build() ran while the file it replaces was still on disk"
+        assert state.read_text(encoding="utf-8") == "built\n"

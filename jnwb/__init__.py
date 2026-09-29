@@ -11,15 +11,15 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.6.1'
-__release_date__ = '2026-09-25'
+__version__ = '0.2.7'
+__release_date__ = '2026-09-29'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
 #: Where the agent skills live. They are not in the wheel and are not importable: a skill
 #: is read by a harness that is pointed at a directory, and `site-packages` is the worst
 #: place to put something that has to be pointed at. Copying the tree under `jnwb/` would
-#: also create the second skill tree that harness gate 2 forbids. The sdist carries them
+#: also create a second copy of the skills, free to drift from the first. The sdist carries them
 #: at its root, which reaches whoever unpacks the tarball and nobody who runs
 #: `pip install`, so this pointer is what an installed copy can offer. It names the tag
 #: matching this version, not a branch, so the skills found are the ones written against
@@ -244,6 +244,8 @@ __all__ = [
     'Alignment',
     'EpochCollection',
     'Question',
+    'Preflight',
+    'preflight',
     'Result',
     'Interpretation',
     'Figure',

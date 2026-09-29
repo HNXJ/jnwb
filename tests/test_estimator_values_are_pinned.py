@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import statsmodels.formula.api as smf
-from scipy import stats
 
 from jnwb.artifact_repair import detect_band_outliers, repair_lfp_trials
 from jnwb.connectivity import (
@@ -88,7 +87,7 @@ class TestSpectralTiltIsFittedOnTwoDecimalLogAxes:
 
         out = spectral_tilt(brownian, fs=1000.0, freq_range=(5.0, 100.0))
 
-        assert out["exponent"] == pytest.approx(-2.0, abs=0.25), out["exponent"]
+        assert out["slope"] == pytest.approx(-2.0, abs=0.25), out["slope"]
 
     def test_the_offset_is_reported_in_linear_power(self):
         """`offset` is 10**intercept, so it is positive whatever the trace's scale."""
@@ -425,21 +424,34 @@ class TestSpectralGrangerIntegratesToTheTimeDomainValue:
 
 
 class TestResponseSignificanceReportsATwoSidedP:
-    def test_the_five_percent_critical_value_returns_five_percent(self):
-        """z = 1.95996 is the two-sided 5% point. One-sided returns 0.025 -- a smaller
-        p from the same z, which reads as a stronger result than the data support."""
-        z = 1.959963984540054
+    # Ten trials, 0.15 s response and 0.20 s baseline windows: under equal rates each of the
+    # N spikes lands in the response with probability q = 3/7.
+    @staticmethod
+    def _metrics(z, base, resp):
+        return {"response_zscore": z, "response_count": 50,
+                "baseline_counts": base, "response_counts": resp,
+                "baseline_duration_s": 0.2, "response_duration_s": 0.15}
 
+    def test_every_spike_in_the_response_gives_q_to_the_tenth(self):
+        """K_r = N = 10: P(K_r = 10) = q^10, and every outcome in the other tail is more
+        probable, so the two-sided p is q^10 alone."""
         out = classify_response_significance(
-            {"response_zscore": z, "response_count": 50})
+            self._metrics(3.5, np.zeros(10, dtype=int), np.ones(10, dtype=int)))
 
-        assert out["pvalue"] == pytest.approx(0.05)
+        np.testing.assert_allclose(out["pvalue"], (3 / 7) ** 10, rtol=1e-12)
 
-    def test_a_second_z_matches_the_normal_survival_function(self):
-        out = classify_response_significance(
-            {"response_zscore": 1.0, "response_count": 50})
+    def test_a_suppressed_response_adds_the_other_tail(self):
+        """K_r = 0 of N = 10: P(0) = (4/7)^10, and in the other tail P(9) and P(10) are no
+        more probable, so the two-sided p is their sum. One-sided would return (4/7)^10 --
+        a smaller p from the same data, which reads as a stronger result than the data
+        support."""
+        down = classify_response_significance(
+            self._metrics(-3.5, np.ones(10, dtype=int), np.zeros(10, dtype=int)))
 
-        assert out["pvalue"] == pytest.approx(2.0 * stats.norm.sf(1.0))
+        q = 3 / 7
+        expected = (1 - q) ** 10 + 10 * q ** 9 * (1 - q) + q ** 10
+        np.testing.assert_allclose(down["pvalue"], expected, rtol=1e-12)
+        assert down["is_significant"] and down["confidence"] == "high"
 
 
 class TestGaussianSmoothingUsesTheSigmaItWasGiven:

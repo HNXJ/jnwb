@@ -3,8 +3,11 @@ significance classification, spike-LFP phase locking).
 """
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
+from scipy import stats
 
 from jnwb.spiking import (
     compute_response_metrics,
@@ -51,6 +54,29 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(4 / 0.15)
         assert metrics["response_count"] == 12
 
+    def test_per_trial_rates_are_returned_in_onset_order(self):
+        onsets = np.array([0.0, 10.0, 20.0])
+        spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1
+        m = compute_response_metrics(spikes, onsets)
+        np.testing.assert_allclose(m["baseline_rates"], np.array([1, 2, 0]) / 0.2, rtol=1e-12)
+        np.testing.assert_allclose(m["response_rates"], np.array([2, 0, 1]) / 0.15, rtol=1e-12)
+        silent = compute_response_metrics(np.array([]), onsets)
+        np.testing.assert_array_equal(silent["baseline_rates"], np.zeros(3))
+        np.testing.assert_array_equal(silent["response_rates"], np.zeros(3))
+
+    def test_per_trial_counts_and_window_lengths_are_returned(self):
+        onsets = np.array([0.0, 10.0, 20.0])
+        spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1
+        m = compute_response_metrics(spikes, onsets)
+        assert m["baseline_counts"].dtype.kind == "i" and m["response_counts"].dtype.kind == "i"
+        np.testing.assert_array_equal(m["baseline_counts"], [1, 2, 0])
+        np.testing.assert_array_equal(m["response_counts"], [2, 0, 1])
+        np.testing.assert_allclose([m["baseline_duration_s"], m["response_duration_s"]],
+                                   [0.2, 0.15], rtol=1e-12)
+        silent = compute_response_metrics(np.array([]), onsets)
+        np.testing.assert_array_equal(silent["baseline_counts"], [0, 0, 0])
+        np.testing.assert_allclose(silent["response_duration_s"], 0.15, rtol=1e-12)
+
     def test_exact_boundary_conditions_right_open(self):
         # Onset at 0.0. Contiguous windows: baseline [-0.2, 0.0), response [0.0, 0.2)
         onsets = np.array([0.0])
@@ -65,6 +91,19 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(1 / 0.2)  # exactly 1 spike at 0.0
         assert metrics["response_count"] == 1  # only spike at 0.0, spike at 0.2 is excluded
 
+    # A reversed window used to return a negative count with a positive rate.
+    @pytest.mark.parametrize("window", [(0.15, 0.0), (0.1, 0.1)])
+    def test_reversed_or_empty_baseline_window_raises(self, window):
+        spikes = np.array([-0.2, -0.1, 0.05, 0.1])
+        with pytest.raises(ValueError, match="baseline_window_s"):
+            compute_response_metrics(spikes, np.array([0.0, 1.0]), baseline_window_s=window)
+
+    @pytest.mark.parametrize("window", [(0.15, 0.0), (0.1, 0.1)])
+    def test_reversed_or_empty_response_window_raises(self, window):
+        spikes = np.array([-0.2, -0.1, 0.05, 0.1])
+        with pytest.raises(ValueError, match="response_window_s"):
+            compute_response_metrics(spikes, np.array([0.0, 1.0]), response_window_s=window)
+
 
 class TestClassifyResponseSignificance:
     def test_below_min_spike_count_is_low_confidence(self):
@@ -73,14 +112,156 @@ class TestClassifyResponseSignificance:
         assert result["confidence"] == "low"
         assert not result["is_significant"]
 
+    # Twenty trials, 0.20 s baseline and 0.15 s response windows (the defaults): 40 baseline
+    # and 100 response spikes, where equal rates would put 3/7 of them in the response.
+    BASE = np.tile([2, 1, 3, 2, 2], 4)
+    RESP = np.tile([5, 4, 6, 5, 5], 4)
+
+    def _metrics(self, z, base=BASE, resp=RESP, d_b=0.2, d_r=0.15):
+        return {"response_count": int(np.nansum(resp)), "response_zscore": z,
+                "baseline_counts": base, "response_counts": resp,
+                "baseline_duration_s": d_b, "response_duration_s": d_r}
+
     def test_strong_zscore_is_significant_high_confidence(self):
-        result = classify_response_significance({"response_count": 10, "response_zscore": 4.0})
+        result = classify_response_significance(self._metrics(4.0))
         assert result["is_significant"]
         assert result["confidence"] == "high"
 
     def test_weak_zscore_is_not_significant(self):
-        result = classify_response_significance({"response_count": 10, "response_zscore": 0.5})
+        result = classify_response_significance(self._metrics(0.5))
         assert not result["is_significant"]
+
+    def test_the_p_value_is_the_conditional_binomial_test(self):
+        out = classify_response_significance(self._metrics(4.0))
+        np.testing.assert_allclose(
+            out["pvalue"], stats.binomtest(100, 140, 0.15 / 0.35).pvalue, rtol=1e-12)
+
+    def test_the_p_value_falls_as_trials_accumulate_at_a_fixed_effect(self):
+        """The p derived from an effect size did not depend on the trial count."""
+        base, resp = np.array([1, 0, 2, 1, 1]), np.array([2, 1, 2, 3, 2])
+        p = [classify_response_significance(
+                 self._metrics(2.5, np.tile(base, k), np.tile(resp, k)), min_spike_count=0
+             )["pvalue"] for k in (1, 2, 4, 8)]
+        assert all(later < earlier for earlier, later in zip(p, p[1:])), p
+        assert p[-1] < 1e-4, p
+
+    def test_no_spikes_in_either_window_gives_p_one(self):
+        zeros = np.zeros(20, dtype=int)
+        out = classify_response_significance(self._metrics(0.0, zeros, zeros), min_spike_count=0)
+        assert out["pvalue"] == 1.0 and out["confidence"] == "none"
+
+    def test_counts_at_the_expected_share_are_not_significant_whatever_the_zscore(self):
+        """The effect-size gate passes at z = 4, but 30 of 70 spikes is exactly the 3/7 share
+        equal rates predict."""
+        out = classify_response_significance(
+            self._metrics(4.0, np.full(10, 4), np.full(10, 3)))
+        assert out["is_significant"] is False
+        assert out["pvalue"] == 1.0 and out["confidence"] == "none"
+
+    def test_alpha_is_the_level_the_p_value_is_held_to(self):
+        loose = classify_response_significance(self._metrics(4.0))
+        assert loose["is_significant"] and 0.0 < loose["pvalue"] < 1e-6
+        strict = classify_response_significance(self._metrics(4.0), alpha=loose["pvalue"] / 2)
+        assert strict["is_significant"] is False and strict["confidence"] == "none"
+        with pytest.raises(ValueError, match="alpha"):
+            classify_response_significance(self._metrics(4.0), alpha=0.0)
+
+    def test_p_below_alpha_is_strict(self):
+        base, resp = np.array([2, 1, 2, 1, 2]), np.array([3, 3, 2, 3, 3])
+        p = classify_response_significance(self._metrics(2.5, base, resp))["pvalue"]
+        assert 0.0 < p < 1.0
+        at = classify_response_significance(self._metrics(2.5, base, resp), alpha=p)
+        above = classify_response_significance(
+            self._metrics(2.5, base, resp), alpha=float(np.nextafter(p, 1.0)))
+        assert at["is_significant"] is False and above["is_significant"] is True
+
+    def test_mismatched_or_length_one_counts_raise(self):
+        with pytest.raises(ValueError, match="differ in shape"):
+            classify_response_significance(self._metrics(4.0, self.BASE[:-1], self.RESP))
+        with pytest.raises(ValueError, match="differ in shape"):
+            classify_response_significance(self._metrics(4.0, self.BASE[:1], self.RESP))
+
+    def test_two_dimensional_counts_raise(self):
+        with pytest.raises(ValueError, match="1-D"):
+            classify_response_significance(
+                self._metrics(4.0, self.BASE.reshape(4, 5), self.RESP.reshape(4, 5)))
+
+    def test_a_nan_count_is_undefined(self):
+        """A NaN is a count that is present and unmeasured, not a missing key: no warning."""
+        resp = self.RESP.astype(float)
+        resp[3] = np.nan
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = classify_response_significance(self._metrics(4.0, self.BASE, resp))
+        assert out["confidence"] == "undefined" and np.isnan(out["pvalue"])
+        assert out["is_significant"] is False
+
+    @pytest.mark.parametrize("bad", [-1, 2.5], ids=["negative", "fractional"])
+    def test_a_count_that_is_not_a_non_negative_integer_raises(self, bad):
+        resp = self.RESP.astype(float)
+        resp[3] = bad
+        with pytest.raises(ValueError, match="non-negative integers"):
+            classify_response_significance(self._metrics(4.0, self.BASE, resp))
+
+    @pytest.mark.parametrize("d_r", [0.0, np.inf], ids=["zero", "infinite"])
+    def test_a_window_length_that_is_not_positive_and_finite_raises(self, d_r):
+        with pytest.raises(ValueError, match="positive and finite"):
+            classify_response_significance(self._metrics(4.0, d_r=d_r))
+
+    def test_a_dict_without_window_lengths_is_undefined_with_a_warning(self):
+        m = self._metrics(4.0)
+        del m["baseline_duration_s"], m["response_duration_s"]
+        with pytest.warns(UserWarning, match="duration_s"):
+            out = classify_response_significance(m)
+        assert out["confidence"] == "undefined" and np.isnan(out["pvalue"])
+
+    def test_a_summary_without_per_trial_counts_is_undefined_with_a_warning(self):
+        with pytest.warns(UserWarning, match="per-trial counts"):
+            out = classify_response_significance({"response_count": 10, "response_zscore": 4.0})
+        assert out["confidence"] == "undefined" and out["is_significant"] is False
+        assert np.isnan(out["pvalue"])
+
+    @pytest.mark.parametrize("windows", [
+        ((-0.25, -0.05), (0.0, 0.15)),   # the defaults: 0.20 s against 0.15 s
+        ((-0.2, 0.0), (0.0, 0.2)),
+    ], ids=["default_unequal", "equal"])
+    def test_at_zero_effect_the_false_positive_rate_is_at_most_alpha(self, windows):
+        """Homogeneous 2 Hz Poisson units over 500 trials. A test on paired rate differences
+        is miscalibrated when the windows differ in length: a response spike is worth
+        6.67 Hz and a baseline spike 5 Hz, so the null differences are skewed. The bound is
+        alpha plus three binomial standard errors over the 300 simulated units. The median p
+        is held near 0.5 so that a test which never rejects cannot pass."""
+        rng = np.random.default_rng(20260926)
+        onsets = np.arange(500) * 1.0 + 1.0
+        n_units, alpha = 300, 0.05
+        p = []
+        for _ in range(n_units):
+            st = np.sort(rng.uniform(0.0, 502.0, rng.poisson(2.0 * 502.0)))
+            m = compute_response_metrics(st, onsets, baseline_window_s=windows[0],
+                                         response_window_s=windows[1])
+            p.append(classify_response_significance(m, zscore_threshold=0.0,
+                                                    min_spike_count=0)["pvalue"])
+        p = np.array(p)
+        assert not np.isnan(p).any()
+        bound = alpha + 3.0 * np.sqrt(alpha * (1 - alpha) / n_units)
+        assert np.mean(p < alpha) <= bound, (np.mean(p < alpha), bound)
+        assert 0.3 < np.median(p) < 0.7, np.median(p)
+
+    def test_bursting_at_zero_effect_rejects_about_thirty_percent(self):
+        """The limit the docstring states: 5 Hz firing in bursts of four spikes 4 ms apart,
+        200 trials, default windows, no effect. The test counts each spike of a burst as an
+        independent event, so about 30% of 300 units fall below p = 0.05."""
+        rng = np.random.default_rng(20260927)
+        onsets = np.arange(200) * 1.0 + 1.0
+        p = []
+        for _ in range(300):
+            starts = rng.uniform(0.0, 202.0, rng.poisson(5.0 / 4 * 202.0))
+            st = np.sort((starts[:, None] + np.arange(4) * 0.004).ravel())
+            m = compute_response_metrics(st, onsets)
+            p.append(classify_response_significance(m, zscore_threshold=0.0,
+                                                    min_spike_count=0)["pvalue"])
+        rate = float(np.mean(np.array(p) < 0.05))
+        assert 0.2 < rate < 0.4, rate
 
 
 class TestPhaseLockingIndex:
@@ -287,8 +468,25 @@ class TestResponseMetricsDoNotManufactureResponses:
         assert m["response_rate"] > 100.0
         assert np.isnan(m["response_zscore"])
         sig = classify_response_significance(m)
-        assert sig["confidence"] == "undefined" and np.isnan(sig["pvalue"])
+        assert sig["confidence"] == "undefined"
+        np.testing.assert_allclose(
+            sig["pvalue"], stats.binomtest(4000, 4000, 0.15 / 0.35).pvalue, rtol=1e-12)
         assert sig["is_significant"] is False
+
+    def test_a_silent_baseline_still_reports_the_counts_p(self):
+        """40 trials of 3 response spikes over a zero baseline. The z-score needs baseline
+        variance and is NaN, but the counts test does not: 120 of 120 spikes where equal
+        rates put 3/7 in the response. The p was reported as NaN."""
+        onsets = np.arange(40) * 1.0 + 1.0
+        st = np.sort(np.concatenate([o + np.array([0.01, 0.05, 0.1]) for o in onsets]))
+        m = compute_response_metrics(st, onsets)
+        assert np.isnan(m["response_zscore"])
+        assert int(np.sum(m["baseline_counts"])) == 0 and m["response_count"] == 120
+        sig = classify_response_significance(m)
+        np.testing.assert_allclose(
+            sig["pvalue"], stats.binomtest(120, 120, 0.15 / 0.35).pvalue, rtol=1e-12)
+        assert sig["pvalue"] < 1e-44
+        assert sig["confidence"] == "undefined" and sig["is_significant"] is False
 
     def test_a_genuine_response_is_still_detected(self):
         rng = np.random.default_rng(3)

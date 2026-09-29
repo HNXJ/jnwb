@@ -7,9 +7,12 @@ repo_name: HNXJ/jnwb
 
 docs_dir: docs
 
+# documentation_form.md is the contributor contract the pages are held to. It stays under
+# docs/ because the form tests read it there, and it is kept off the published site.
 exclude_docs: |
   conf.py
   README.md
+  documentation_form.md
 
 theme:
   name: material
@@ -86,6 +89,7 @@ nav:
       - Welcome: index.md
       - Installation: install.md
       - Quickstart: quickstart.md
+      - Recipes: recipes.md
       - Analyzing with an Agent: agents.md
 
   - Tutorials:
@@ -123,7 +127,6 @@ nav:
   - Design & conventions:
       - Architecture: architecture.md
       - Philosophy & Boundary: 01_architecture_and_philosophy.md
-      - Documentation Form: documentation_form.md
       - Glossary: glossary.md
 
 

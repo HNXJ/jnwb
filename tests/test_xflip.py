@@ -203,6 +203,41 @@ class TestXFlipContiguousPartitioning:
         assert res.n_blocks == 2
         assert res.boundaries == (8,)
 
+    def test_auto_block_count_recovers_blocks_that_share_a_background(self):
+        # Four blocks sharing a background correlation of 0.3: a selector that scores only
+        # within-block pairs merges them.
+        data, _, _ = synth_correlation_blocks(
+            (4, 4, 4, 4), within_corr=0.8, between_corr=0.3, n_samples=400, rng=7
+        )
+        res = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=107)
+        assert res.accepted is True
+        assert res.boundaries == (4, 8, 12)
+
+    def test_auto_block_count_p_accounts_for_the_choice(self):
+        # Every surrogate repeats the choice of count, so the reported p is never below the
+        # chosen count's own p on the same surrogates, and exceeds it when another count
+        # would have been chosen on some surrogate.
+        strictly_above = 0
+        for seed in range(6):
+            data = synth_white_noise(shape=(16, 400), rng=seed + 40)
+            auto = xflip(data, n_blocks=None, min_block_size=3, n_surrogates=40, rng=seed)
+            k = len(auto.block_bounds)
+            fixed = xflip(data, n_blocks=k, min_block_size=3, n_surrogates=40, rng=seed)
+            assert fixed.boundaries == auto.boundaries
+            assert auto.p_values["omnibus"] >= fixed.p_values["omnibus"]
+            strictly_above += auto.p_values["omnibus"] > fixed.p_values["omnibus"]
+        assert strictly_above > 0
+
+    def test_auto_block_count_tie_goes_to_the_smallest_count(self):
+        # All off-diagonal correlations equal: every count has p = 1 and no contrast above its
+        # surrogates, so the tie-break alone decides, and it takes the least structure.
+        corr = np.full((12, 12), 0.5)
+        np.fill_diagonal(corr, 1.0)
+        res = xflip(corr, n_blocks=None, min_block_size=3, n_surrogates=20, rng=0,
+                    is_corr_matrix=True)
+        assert len(res.boundaries) == 1
+        assert res.p_values["omnibus"] == 1.0
+
 
 class TestXFlipSurrogatesAndInference:
     """Test autocorrelation preservation, p-value resolution, and determinism."""
@@ -340,6 +375,87 @@ class TestXFlipUnrestricted:
         assert res.labels[0] != res.labels[1]
 
 
+TIE = 100 * np.finfo(float).eps
+
+
+def _at_least(a, b):
+    """``a`` is at least ``b`` to within the width every jnwb null uses for a correlation
+    contrast: 100 machine epsilons of ``b``, and of 1."""
+    return a >= b - TIE * max(1.0, abs(b))
+
+
+def _min_p_by_brute_force(obs, surr):
+    """The count-selection p written out as counts over every pair of draws, a draw counting
+    another within round-off of its own contrast."""
+    draws = np.vstack([obs[None], surr])
+    n, k = draws.shape
+    at_least = np.array([[sum(_at_least(draws[l, i], draws[j, i]) for l in range(n))
+                          for i in range(k)]
+                         for j in range(n)])
+    smallest = at_least.min(axis=1)
+    return at_least, smallest, [sum(smallest <= smallest[j]) / n for j in range(n)]
+
+
+class TestTheCountSelectionTest:
+    """`_select_count_by_min_p` on draws built to be exchangeable, away from any partition."""
+
+    def test_size_is_at_most_alpha_on_exchangeable_draws(self):
+        from scipy import stats
+
+        from jnwb.laminar import _select_count_by_min_p
+
+        # The observation and 40 surrogates drawn alike, three correlated counts, half the
+        # draws rounded so that ties occur. Under exchangeability p <= alpha has probability
+        # at most alpha; the bound is the one-sided 99.9% binomial quantile at alpha.
+        rng = np.random.default_rng(0)
+        n_trials, n_surr, alpha = 20000, 40, 0.05
+        chol = np.linalg.cholesky(
+            np.array([[1.0, 0.6, 0.4], [0.6, 1.0, 0.6], [0.4, 0.6, 1.0]])
+        )
+        significant = 0
+        for _ in range(n_trials):
+            draws = rng.normal(size=(n_surr + 1, 3)) @ chol.T
+            if rng.random() < 0.5:
+                draws = np.round(draws, 1)
+            significant += _select_count_by_min_p(draws[0], draws[1:])[1] <= alpha
+        assert significant <= int(stats.binom.ppf(0.999, n_trials, alpha)), significant
+
+    def test_matches_brute_force_and_treats_the_observation_as_one_draw(self):
+        from jnwb.laminar import _select_count_by_min_p
+
+        rng = np.random.default_rng(1)
+        for trial in range(400):
+            k = int(rng.integers(1, 4))
+            s = int(rng.integers(1, 30))
+            if trial % 2:
+                draws = rng.integers(0, 4, size=(s + 1, k)).astype(float)
+            else:
+                draws = rng.normal(size=(s + 1, k))
+            at_least, smallest, p_brute = _min_p_by_brute_force(draws[0], draws[1:])
+            chosen, p = _select_count_by_min_p(draws[0], draws[1:])
+            assert p == p_brute[0]
+            assert at_least[0, chosen] == smallest[0]
+            # Swapping a surrogate into the observation's place gives that draw's p on the
+            # same pool: the observation is ranked as one of the draws, not apart from them.
+            j = int(rng.integers(1, s + 1))
+            swapped = draws.copy()
+            swapped[[0, j]] = swapped[[j, 0]]
+            assert _select_count_by_min_p(swapped[0], swapped[1:])[1] == p_brute[j]
+            if k == 1:
+                assert p == (1 + np.sum(_at_least(draws[1:, 0], draws[0, 0]))) / (1 + s)
+
+    def test_draws_that_tie_to_round_off_count_each_other(self):
+        """A surrogate an ulp below the observation reproduces it; a bare comparison ranked
+        the observation alone at the top."""
+        from jnwb.laminar import _select_count_by_min_p
+
+        obs = np.array([0.3])
+        surr = np.array([[np.nextafter(0.3, 0.0)], [0.1], [0.2]])
+        chosen, p = _select_count_by_min_p(obs, surr)
+        assert (chosen, p) == (0, 0.5)
+        assert p == _min_p_by_brute_force(obs, surr)[2][0]
+
+
 class TestXFlipContainer:
     """Test XFlipResult dataclass accessors and serialization."""
 
@@ -357,6 +473,26 @@ class TestXFlipContainer:
         assert "modularity" in d
         assert "p_values" in d
         assert "accepted" in d
+
+    def test_boundaries_are_plain_ints_and_survive_json(self):
+        import json
+
+        data, _, _ = synth_correlation_blocks([4, 4, 4], n_samples=400, rng=2)
+        res = xflip(data, n_blocks=3, n_surrogates=5, rng=0)
+        assert len(res.boundaries) == 2
+        assert all(type(b) is int for b in res.boundaries)
+        assert all(type(v) is int for pair in res.block_bounds for v in pair)
+
+        # Arrays are encoded explicitly; any NumPy scalar left in the result raises.
+        def arrays_only(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            raise TypeError(type(obj).__name__)
+
+        back = json.loads(json.dumps(res.to_dict(), default=arrays_only))
+        assert back["boundaries"] == list(res.boundaries)
+        assert back["block_bounds"] == [list(pair) for pair in res.block_bounds]
+        assert back["boundary_drops"] == {str(b): v for b, v in res.boundary_drops.items()}
 
 
 class TestTheContiguousPartitionIsStillTheArgmax:
@@ -382,12 +518,13 @@ class TestTheContiguousPartitionIsStillTheArgmax:
     """
 
     @staticmethod
-    def _objective(corr, cuts, gamma):
+    def _objective(corr, cuts):
         """The quantity the DP maximises, summed directly from `corr`.
 
-        An oracle written from the docstring -- "S(u, v) is sum of off-diagonal
-        correlations in [u, v), P(u, v) is (v-u)(v-u-1)/2" -- rather than from either
-        implementation, so it cannot inherit a mistake from the code under test.
+        An oracle written from the docstring -- "S(u, v) is the sum of off-diagonal
+        correlations within [u, v), P(u, v) = (v-u)(v-u-1)/2", each block scoring
+        S**2 / P -- rather than from either implementation, so it cannot inherit a
+        mistake from the code under test.
         """
         total = 0.0
         for u, v in cuts:
@@ -395,7 +532,8 @@ class TestTheContiguousPartitionIsStillTheArgmax:
             for i in range(u, v):
                 for j in range(i + 1, v):
                     s += corr[i, j]
-            total += s - gamma * (0.5 * (v - u) * (v - u - 1))
+            pairs = 0.5 * (v - u) * (v - u - 1)
+            total += s * s / pairs if pairs > 0 else 0.0
         return total
 
     @staticmethod
@@ -428,12 +566,10 @@ class TestTheContiguousPartitionIsStillTheArgmax:
             m = rng.uniform(-1.0, 1.0, (n, n))
             corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
             np.fill_diagonal(corr, 1.0)
-            triu = np.triu_indices(n, k=1)
-            gamma = float(np.mean(corr[triu]))
 
             bounds, _, _, _ = _optimal_contiguous_partition(corr, n_blocks, min_size)
-            got = self._objective(corr, bounds, gamma)
-            best = max(self._objective(corr, p, gamma)
+            got = self._objective(corr, bounds)
+            best = max(self._objective(corr, p)
                        for p in self._all_contiguous_partitions(n, n_blocks, min_size))
 
             assert got == pytest.approx(best, rel=1e-12), (
@@ -445,9 +581,8 @@ class TestTheContiguousPartitionIsStillTheArgmax:
         m = rng.uniform(-1.0, 1.0, (12, 12))
         corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
         np.fill_diagonal(corr, 1.0)
-        gamma = float(np.mean(corr[np.triu_indices(12, k=1)]))
 
-        scores = {self._objective(corr, p, gamma)
+        scores = {self._objective(corr, p)
                   for p in self._all_contiguous_partitions(12, 2, 2)}
 
         assert len(scores) > 1, "the oracle gives every partition the same score"
@@ -573,3 +708,178 @@ class TestTheContiguousPartitionIsStillTheArgmax:
         assert a[0] == b[0]
         assert a[1] == b[1]
         assert np.array_equal(a[3], b[3])
+
+
+def _scalar_partition_cuts(corr, n_blocks, min_block_size):
+    """The partition search as a scalar loop over (k, j, u), kept as the reference.
+
+    The search scores all split points of one block count as an array. This loop scores
+    them one at a time with the same arithmetic and keeps the first strictly greater
+    value, so the two must agree cut for cut, ties included.
+    """
+    n = corr.shape[0]
+    prefix = np.zeros((n + 1, n + 1))
+    prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
+    diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
+
+    def w(u, v):
+        sz = v - u
+        total = prefix[v, v] - prefix[u, v] - prefix[v, u] + prefix[u, u]
+        s = 0.5 * (total - (diag_cum[v] - diag_cum[u]))
+        pairs = 0.5 * sz * (sz - 1)
+        return float(s * s / pairs) if pairs > 0 else 0.0
+
+    dp = np.full((n_blocks + 1, n + 1), -np.inf)
+    parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
+    for j in range(min_block_size, n + 1):
+        dp[1, j] = w(0, j)
+    for k in range(2, n_blocks + 1):
+        for j in range(k * min_block_size, n + 1):
+            best_val, best_u = -np.inf, -1
+            for u in range((k - 1) * min_block_size, j - min_block_size + 1):
+                if dp[k - 1, u] == -np.inf:
+                    continue
+                val = dp[k - 1, u] + w(u, j)
+                if val > best_val:
+                    best_val, best_u = val, u
+            dp[k, j], parent[k, j] = best_val, best_u
+    if dp[n_blocks, n] == -np.inf:
+        return ()
+    cuts, j = [], n
+    for k in range(n_blocks, 1, -1):
+        j = int(parent[k, j])
+        cuts.append(j)
+    return tuple(reversed(cuts))
+
+
+class TestThePartitionSearchMatchesTheScalarLoop:
+    """The array form of the search must return the cuts a scalar loop returns.
+
+    Exact ties are included on purpose: every off-diagonal equal makes the answer depend
+    on the tie-break alone, which is where an argmax and a loop can part company.
+    """
+
+    @staticmethod
+    def _matrices():
+        rng = np.random.default_rng(7)
+        for n in (6, 13, 24, 40):
+            m = rng.uniform(-1.0, 1.0, (n, n))
+            corr = np.clip(0.5 * (m + m.T), -1.0, 1.0)
+            np.fill_diagonal(corr, 1.0)
+            yield corr
+            yield np.corrcoef(rng.standard_normal((n, 60))
+                              + np.cumsum(rng.standard_normal((n, 1)), axis=0))
+            tie = np.full((n, n), 0.5)
+            np.fill_diagonal(tie, 1.0)
+            yield tie
+        # Mirror-symmetric with non-dyadic values: 0.7 on two equal end blocks, 0.3
+        # elsewhere. Mirrored partitions tie in exact arithmetic, so the answer rests on the
+        # last bits of each score, and summing the prefix terms in another order moves the
+        # cut (9 channels did not show it; 10 do). The 0.5 matrix above is exact in binary
+        # and cannot.
+        mirror = np.full((10, 10), 0.3)
+        mirror[:3, :3] = 0.7
+        mirror[7:, 7:] = 0.7
+        np.fill_diagonal(mirror, 1.0)
+        yield mirror
+
+    @pytest.mark.parametrize("n_blocks", [2, 3, 4])
+    @pytest.mark.parametrize("min_block_size", [1, 2, 3])
+    def test_identical_cuts(self, n_blocks, min_block_size):
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        for corr in self._matrices():
+            want = _scalar_partition_cuts(corr, n_blocks, min_block_size)
+            got = _optimal_contiguous_partition(corr, n_blocks, min_block_size)[1]
+            assert tuple(int(c) for c in got) == want, (
+                f"n={corr.shape[0]}: array search cut at {got}, scalar loop at {want}")
+
+    def test_an_infeasible_request_returns_one_block(self):
+        from jnwb.laminar import _optimal_contiguous_partition
+
+        bounds, boundaries, _, labels = _optimal_contiguous_partition(np.eye(5), 3, 2)
+        assert bounds == ((0, 5),) and boundaries == ()
+        assert not labels.any()
+
+
+class TestXFlipRecordsItsSeed:
+    """The result alone must reproduce its p-values: `rng=None` draws fresh entropy, and
+    unless the result records it, a run cannot be repeated."""
+
+    @staticmethod
+    def _data():
+        # White noise, so the p-values sit away from the 1/(n_surrogates+1) floor and a
+        # different surrogate stream gives a different p.
+        return synth_white_noise(shape=(12, 300), rng=5)
+
+    def test_the_entropy_recorded_for_rng_none_reproduces_p(self):
+        data = self._data()
+        first = xflip(data, n_surrogates=40, rng=None)
+        again = xflip(data, n_surrogates=40, rng=first.surrogate_seed_entropy)
+
+        assert isinstance(first.surrogate_seed_entropy, int)
+        assert again.p_values == first.p_values
+        assert again.surrogate_seed_entropy == first.surrogate_seed_entropy
+        assert first.to_dict()["surrogate_seed_entropy"] == first.surrogate_seed_entropy
+
+    def test_the_reproduction_is_not_vacuous(self):
+        """Two fresh draws must disagree somewhere, or equal p-values prove nothing."""
+        data = self._data()
+        draws = {tuple(sorted(xflip(data, n_surrogates=40, rng=None).p_values.items()))
+                 for _ in range(4)}
+        assert len(draws) > 1
+
+    def test_an_int_seed_is_recorded_as_given_and_draws_the_same_stream(self):
+        data = self._data()
+        res = xflip(data, n_surrogates=40, rng=123)
+        assert res.surrogate_seed_entropy == 123
+        assert res.p_values == xflip(data, n_surrogates=40,
+                                     rng=np.random.default_rng(123)).p_values
+
+    def test_a_generator_and_an_untested_partition_record_none(self):
+        data = self._data()
+        assert xflip(data, n_surrogates=10,
+                     rng=np.random.default_rng(1)).surrogate_seed_entropy is None
+        assert xflip(data, n_surrogates=0, rng=3).surrogate_seed_entropy is None
+
+    @pytest.mark.parametrize("bad", [2.7, True])
+    def test_a_float_or_bool_seed_is_refused(self, bad):
+        with pytest.raises(TypeError, match="rng"):
+            xflip(self._data(), n_surrogates=5, rng=bad)
+
+
+def _one_block_beside_background(seed, edge=6, n=16, rho=0.8, n_samples=1000):
+    """Contacts 0..edge-1 share one source; contacts edge..n-1 are independent noise."""
+    rng = np.random.default_rng(seed)
+    common = rng.standard_normal(n_samples)
+    data = rng.standard_normal((n, n_samples))
+    data[:edge] = np.sqrt(rho) * common + np.sqrt(1.0 - rho) * data[:edge]
+    return data
+
+
+class TestOneBlockBesideAnUncorrelatedBackground:
+    """The true boundary is the edge of the correlated block.
+
+    An objective that penalises every within-block pair by the probe-wide mean
+    correlation favours blocks of equal size, and cut this case at 7 to 9 in every seed.
+    """
+
+    def test_the_boundary_is_found_at_the_block_edge(self):
+        for seed in range(3):
+            res = xflip(_one_block_beside_background(seed), n_blocks=2, min_block_size=2,
+                        n_surrogates=50, rng=seed)
+            assert res.boundaries == (6,), f"seed={seed}: cut at {res.boundaries}"
+
+    def test_an_accepted_boundary_is_the_block_edge(self):
+        """Worse than missing the edge: a cut inside the background was accepted in 3 of
+        these 10 seeds, because the omnibus test answers whether any structure exists,
+        not where it is."""
+        accepted = 0
+        for seed in range(10):
+            res = xflip(_one_block_beside_background(seed), n_blocks=2, min_block_size=2,
+                        n_surrogates=50, rng=seed)
+            if res.accepted:
+                accepted += 1
+                assert res.boundaries == (6,), f"seed={seed}: accepted a cut at {res.boundaries}"
+        # The block is real, so rejecting everything would pass the loop above vacuously.
+        assert accepted >= 8, f"only {accepted} of 10 seeds accepted the block"

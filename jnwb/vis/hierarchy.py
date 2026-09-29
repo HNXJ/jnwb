@@ -13,7 +13,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text
 
 
 def plot_hierarchy_regression(
@@ -29,10 +29,11 @@ def plot_hierarchy_regression(
     p_perm: Optional[float] = None,
     null_line: Optional[float] = None,
     null_ribbon: Optional[Tuple[float, float]] = None,
-    y_label: str = "Prevalence (%)",
     title: Optional[str] = "Hierarchy Alignment",
     marker_color: str = "#2C3E50",
     fit_line_color: str = "#C0392B",
+    *,
+    y_label: str,
 ) -> None:
     """
     Render a cortical hierarchy regression panel with caller-supplied error bars and null.
@@ -52,11 +53,17 @@ def plot_hierarchy_regression(
         p_perm: Permutation test p-value.
         null_line: Reference horizontal line (e.g. 5% alpha ceiling).
         null_ribbon: Tuple (lower, upper) for null distribution confidence interval.
-        y_label: Label for y-axis.
         title: Panel title.
         marker_color: Hex color for area points.
         fit_line_color: Hex color for regression fit line.
+        y_label: Y-axis label naming the quantity and its unit, for example
+            ``"Prevalence (%)"`` or ``"Onset latency (ms)"``. Required; ``values`` can be
+            either.
+
+    Raises:
+        ValueError: ``y_label`` is not a non-empty string.
     """
+    required_text("y_label", y_label)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     hierarchy_ranks = np.asarray(hierarchy_ranks, dtype=float)
@@ -144,7 +151,7 @@ def plot_hierarchy_regression(
             ),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Area: %{text}<br>Rank: %{x}<br>Value: %{y:.2f}%<br>CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>",
+            hovertemplate="Area: %{text}<br>Rank: %{x}<br>Value: %{y:.2f}<br>CI: [%{customdata[0]:.2f}, %{customdata[1]:.2f}]<extra></extra>",
             customdata=np.column_stack([ci_low, ci_high]),
             showlegend=False,
         )

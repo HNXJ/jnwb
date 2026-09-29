@@ -61,7 +61,8 @@ def test_trajectory_gives_a_constant_unit_no_weight(device, monkeypatch):
         results[rate] = traj.compute_population_trajectory(None, "A", None, n_components=3,
                                                            device=device)
     np.testing.assert_array_equal(results[1 / 0.03]["trajectory"], results[0.0]["trajectory"])
-    assert results[1 / 0.03]["explained_variance"] == results[0.0]["explained_variance"]
+    np.testing.assert_array_equal(results[1 / 0.03]["explained_variance_ratio"],
+                                  results[0.0]["explained_variance_ratio"])
 
 
 def test_jrsa_standardize_takes_a_constant_row_to_zero():

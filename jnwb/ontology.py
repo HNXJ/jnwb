@@ -14,6 +14,7 @@ Core objects:
 - Alignment: reference frame for epochs
 - EpochCollection: filtered trials
 - Question: scientific hypothesis
+- Preflight: the outcome of ``preflight(question)``, checked before an analysis runs
 - Result: analysis output with statistics
 - Interpretation: meaning and claims
 - Figure: visualization
@@ -23,7 +24,7 @@ Core objects:
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, ClassVar, Tuple
 
 import pandas as pd
 
@@ -302,6 +303,20 @@ class Question:
     Pure data. No methods. No execution.
     Frozen dataclass: immutable, serializable, hashable.
 
+    The fields after ``metadata`` describe a planned analysis for ``preflight`` and all
+    default to empty, so a ``Question`` built from the first five fields alone is unchanged.
+    ``hypothesis`` states the goal.
+
+    - ``signal_units``: the unit of each signal, keyed by the name in ``signals``
+      (``{"lfp": "V"}``). Distinct from ``inference_unit``, the unit of inference.
+    - ``data``, ``paradigm``, ``verification_plan``: free-text descriptions.
+    - ``axes``: the axis order of each signal, keyed by signal name (``{"lfp": "trials x time"}``).
+    - ``conditions``, ``required_skills``: names.
+    - ``unsupported_inference``: set by the caller when the question asks for an inference no
+      operation supports; the text is the reason. ``preflight`` then declines.
+    - ``non_identifiable``: set by the caller when the result cannot be identified from these
+      inputs; the text is the reason. ``preflight`` then reports a failure.
+
     Scientific Contracts:
     - SC-002: Inferential unit must be explicit
     """
@@ -310,6 +325,15 @@ class Question:
     contrast: str  # e.g., "baseline vs response", "AAAB vs AAXB"
     inference_unit: str  # "unit", "session", "subject"
     metadata: Dict[str, Any] = field(default_factory=dict)
+    signal_units: Dict[str, str] = field(default_factory=dict)
+    data: str = ""
+    paradigm: str = ""
+    axes: Dict[str, str] = field(default_factory=dict)
+    conditions: List[str] = field(default_factory=list)
+    required_skills: List[str] = field(default_factory=list)
+    verification_plan: str = ""
+    unsupported_inference: str = ""
+    non_identifiable: str = ""
 
     def __hash__(self):
         """Enable Question as cache key."""
@@ -327,7 +351,174 @@ class Question:
             'contrast': self.contrast,
             'inference_unit': self.inference_unit,
             'metadata': self.metadata,
+            'signal_units': self.signal_units,
+            'data': self.data,
+            'paradigm': self.paradigm,
+            'axes': self.axes,
+            'conditions': self.conditions,
+            'required_skills': self.required_skills,
+            'verification_plan': self.verification_plan,
+            'unsupported_inference': self.unsupported_inference,
+            'non_identifiable': self.non_identifiable,
         }
+
+
+@dataclass(frozen=True)
+class Preflight:
+    """
+    The outcome of checking a planned analysis before it runs.
+
+    One of four outcomes, with the reason and, for a request, the inputs it needs:
+
+    - ``"supported"``: the operations exist and the inputs are present; compose and execute.
+    - ``"request"``: an input is missing; ``missing`` names each one.
+    - ``"failure"``: the result would not be identifiable from these inputs.
+    - ``"decline"``: the inference is one no operation supports.
+
+    Every field is plain data, so a script can score outcomes from the object or from
+    ``to_dict()`` alone. ``missing`` is non-empty exactly when ``outcome`` is ``"request"``.
+    """
+    outcome: str
+    reason: str
+    missing: Tuple[str, ...] = ()
+
+    OUTCOMES: ClassVar[Tuple[str, ...]] = ("supported", "request", "failure", "decline")
+
+    def __post_init__(self):
+        if self.outcome not in self.OUTCOMES:
+            raise ValueError(f"outcome={self.outcome!r} is not one of {self.OUTCOMES}")
+        if not isinstance(self.reason, str) or not self.reason.strip():
+            raise ValueError("reason must be a non-empty string")
+        missing = tuple(self.missing)
+        if not all(isinstance(m, str) and m.strip() for m in missing):
+            raise ValueError(f"missing must hold non-empty strings, got {missing!r}")
+        if (self.outcome == "request") != bool(missing):
+            raise ValueError(
+                "missing is non-empty exactly when outcome is 'request'; "
+                f"got outcome={self.outcome!r}, missing={missing!r}"
+            )
+        object.__setattr__(self, "missing", missing)
+
+    def to_dict(self) -> Dict:
+        return {
+            'outcome': self.outcome,
+            'reason': self.reason,
+            'missing': list(self.missing),
+        }
+
+
+def _stated(value: Any) -> bool:
+    """Whether a field carries content: a non-blank string or a non-empty collection."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return bool(value)
+
+
+#: The four inputs without which no analysis can be composed.
+_PREFLIGHT_REQUIRED: Tuple[str, ...] = ("signals", "signal_units", "contrast", "inference_unit")
+#: Inputs a plan should state; their absence is reported in the reason and requests nothing.
+_PREFLIGHT_OPTIONAL: Tuple[str, ...] = (
+    "hypothesis", "data", "paradigm", "axes", "conditions", "required_skills",
+    "verification_plan",
+)
+
+
+def preflight(question: Question) -> Preflight:
+    """Check a planned analysis before it runs and return one of the four outcomes.
+
+    The checks run in this order, and the first that applies decides the outcome:
+
+    1. ``"decline"`` when ``question.unsupported_inference`` is stated. The caller declares
+       the unsupported inference; jnwb holds no list of claims.
+    2. ``"request"`` when any of ``signals``, ``signal_units``, ``contrast`` or
+       ``inference_unit`` is empty, a signal name in ``signals`` is blank, or a signal in
+       ``signals`` has no unit in ``signal_units`` (no entry, a blank string or ``None``).
+       ``missing`` names each: a field by its
+       name, a blank signal name by its position as ``signals[<index>]``, an absent unit as
+       ``signal_units[<repr of the signal>]``, once per signal.
+    3. ``"failure"`` when ``question.non_identifiable`` is stated: the caller declares
+       that the result cannot be identified from these inputs.
+    4. ``"supported"`` otherwise.
+
+    The reason carries the caller's text for a decline or a failure, and ends by naming
+    the optional fields left empty (``hypothesis``, ``data``, ``paradigm``, ``axes``,
+    ``conditions``, ``required_skills``, ``verification_plan``). An empty optional field
+    never changes the outcome.
+
+    Parameters
+    ----------
+    question : Question
+        The planned analysis.
+
+    Returns
+    -------
+    Preflight
+        ``outcome``, ``reason`` and ``missing``, all plain data.
+
+    Raises
+    ------
+    TypeError
+        If ``question`` is not a ``Question``, ``signals`` is a string, ``signal_units`` is
+        not a dict or holds a unit that is neither a string nor ``None``, or ``unsupported_inference`` or
+        ``non_identifiable`` is not a string.
+    """
+    if not isinstance(question, Question):
+        raise TypeError(f"preflight takes a Question, got {type(question).__name__}")
+    if not isinstance(question.signal_units, dict):
+        raise TypeError(
+            "signal_units maps each signal name to its unit, e.g. {'lfp': 'V'}; "
+            f"got {type(question.signal_units).__name__}"
+        )
+    if isinstance(question.signals, str):
+        raise TypeError(f"signals is a list of signal names, e.g. ['lfp']; got the string {question.signals!r}")
+    for name in ("unsupported_inference", "non_identifiable"):
+        if not isinstance(getattr(question, name), str):
+            raise TypeError(f"{name} is a string; got {type(getattr(question, name)).__name__}")
+    for signal, unit in question.signal_units.items():
+        if unit is not None and not isinstance(unit, str):
+            raise TypeError(
+                f"signal_units[{signal!r}] is a unit string, e.g. 'V'; got {type(unit).__name__}"
+            )
+
+    absent = [name for name in _PREFLIGHT_OPTIONAL if not _stated(getattr(question, name))]
+    not_stated = f" Not stated: {', '.join(absent)}." if absent else ""
+
+    if _stated(question.unsupported_inference):
+        return Preflight(
+            outcome="decline",
+            reason=f"Unsupported inference: {question.unsupported_inference.strip().rstrip('.')}.{not_stated}",
+        )
+
+    missing = [name for name in _PREFLIGHT_REQUIRED if not _stated(getattr(question, name))]
+    signals = list(question.signals) if _stated(question.signals) else []
+    blank = [i for i, signal in enumerate(signals) if isinstance(signal, str) and not signal.strip()]
+    missing += [f"signals[{i}]" for i in blank]
+    if _stated(question.signal_units):
+        named = [signal for i, signal in enumerate(signals) if i not in blank]
+        missing += [
+            f"signal_units[{signal!r}]"
+            for signal in dict.fromkeys(named)
+            if not _stated(question.signal_units.get(signal))
+        ]
+    if missing:
+        return Preflight(
+            outcome="request",
+            reason=f"Required inputs are missing: {', '.join(missing)}.{not_stated}",
+            missing=tuple(missing),
+        )
+
+    if _stated(question.non_identifiable):
+        return Preflight(
+            outcome="failure",
+            reason=f"Not identifiable: {question.non_identifiable.strip().rstrip('.')}.{not_stated}",
+        )
+
+    return Preflight(
+        outcome="supported",
+        reason=f"Every required input is present.{not_stated}",
+    )
 
 
 @dataclass(frozen=True)
@@ -479,6 +670,8 @@ __all__ = [
     'Alignment',
     'EpochCollection',
     'Question',
+    'Preflight',
+    'preflight',
     'Result',
     'Interpretation',
     'Figure',

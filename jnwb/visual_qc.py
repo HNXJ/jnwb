@@ -281,15 +281,16 @@ def compare_session_quality(
     Plot cross-session quality metrics.
 
     Args:
-        sessions_comparison_df: DataFrame from diagnostics.compare_sessions()
+        sessions_comparison_df: one row per session, with columns ``session_id``,
+            ``snr_mean`` and ``total_units``, and optionally ``snr_good_rate`` (a
+            fraction, 0 to 1, plotted as a percentage).
         figsize: Figure size
 
     Returns:
         matplotlib figure
 
     Example:
-        >>> comparison = diagnostics.compare_sessions(nwb_paths)
-        >>> fig = plot_session_quality_comparison(comparison)
+        >>> fig = compare_session_quality(sessions_df)
     """
     fig, axes = plt.subplots(1, 3, figsize=figsize)
     fig.suptitle('Cross-Session Quality Comparison', fontsize=14, fontweight='bold')

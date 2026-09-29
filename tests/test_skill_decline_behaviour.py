@@ -28,17 +28,15 @@ import pytest
 import jnwb
 
 SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills"
-OUTCOMES = ("supported", "request", "failure", "decline")
+OUTCOMES = jnwb.Preflight.OUTCOMES
 
 _ROUTER = (
     "routes to the domain skills and runs no operation of its own; each outcome is tested at "
     "the skill it routes to"
 )
-_PROCESS = "governs how changes to this repository are made and routes to no jnwb operation"
 
 NOT_REQUIRED: dict[tuple[str, str], str] = {
     **{("jnwb", o): _ROUTER for o in OUTCOMES},
-    **{("jnwb-fact-action", o): _PROCESS for o in OUTCOMES},
     ("jnwb-figures", "request"): (
         "its routes draw arrays and axes the caller already holds; no scientific input can be "
         "missing"
@@ -111,7 +109,7 @@ def _spectrolaminar(crossover_depth=None):
     kwargs = {} if crossover_depth is None else {"crossover_depth": crossover_depth}
     jviz.laminar.plot_spectrolaminar_map(
         canvas=canvas, row=0, col=0, rel_power=rng.random((20, 8)),
-        freqs=np.arange(1, 21), depths=np.linspace(0.0, 1.0, 8), **kwargs,
+        freqs=np.arange(1, 21), depths=np.linspace(0.0, 1.0, 8), depth_unit="relative", **kwargs,
     )
     notes = [a.text for a in canvas.fig.layout.annotations if "Crossover" in (a.text or "")]
     return canvas, notes
@@ -265,8 +263,8 @@ def _():
         jnwb.permute_labels(y, rng=np.random.default_rng(0))
     with pytest.raises(ValueError, match="requires groups"):
         jnwb.permute_labels(y, scheme="within_group", rng=np.random.default_rng(0))
-    with pytest.raises(TypeError, match="explicit numpy.random.Generator"):
-        jnwb.permute_labels(y, scheme="global", rng=0)
+    with pytest.raises(TypeError, match="rng must be an int seed"):
+        jnwb.permute_labels(y, scheme="global", rng=0.5)
 
 
 @case("jnwb-statistics", "failure")
@@ -335,12 +333,14 @@ def _():
 
 @case("jnwb-population", "decline")
 def _():
-    assert_states("jnwb-population", "it takes no `groups` and no fold column, so it cannot hold out whole blocks")
+    assert_states("jnwb-population", "decoding across groups needs each class in at least two groups")
     rng = np.random.default_rng(0)
-    with pytest.raises(TypeError, match="groups"):
-        jnwb.nested_cv_linear_svm(
-            rng.normal(size=(12, 4)), np.array([0, 1] * 6), n_splits=3, groups=np.arange(12) % 3
-        )
+    # Class 1 lives only in group 0, so holding that group out leaves no class-1 trial to
+    # train on: a cross-group accuracy for it cannot be estimated, and the call says so.
+    labels = np.array([1] * 4 + [0] * 8)
+    groups = np.repeat([0, 1, 2], 4)
+    with pytest.raises(ValueError, match="at least two groups"):
+        jnwb.nested_cv_linear_svm(rng.normal(size=(12, 4)), labels, n_splits=3, groups=groups)
 
 
 # --------------------------------------------------------------------------------- nwb-data

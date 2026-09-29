@@ -15,9 +15,11 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add repo root to path
+# Add repo root to path. Guarded: the suite executes this module in-process, and an
+# unconditional prepend there puts the checkout ahead of an installed jnwb.
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import matplotlib
 matplotlib.use("Agg")
@@ -84,7 +86,7 @@ def _save(fig, name):
 
 
 def fig01_addressing():
-    """Figure 1: Channel addressing & laminar depth classification."""
+    """Figure 1: Channel addressing & geometric depth classification."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.2), dpi=180)
 
     n_ch = 24
@@ -116,16 +118,19 @@ def fig01_addressing():
     ax1.set_title("A. Multi-Area Probe Partitioning\n(jnwb.map_peak_channel_to_area)", pad=8)
     ax1.invert_yaxis()
 
-    # Panel B: Laminar depth classification
+    # Panel B: Geometric depth classification
     z_coords = elec_df["z"].values
     l_colors = [C_GOLD if l == "Superficial" else C_VIOLET for l in layers]
     ax2.barh(range(n_ch), z_coords, color=l_colors, edgecolor="none", height=0.7)
-    ax2.axvline(1000.0, color=C_RED, ls="--", lw=1.0, label="Boundary (1000 µm)")
+    ax2.axvline(1000.0, color=C_RED, ls="--", lw=1.0)
+    # The boundary is labelled beside its line, in the rows where the bars stop short of it;
+    # any legend box would cross the line or the bars.
+    ax2.annotate("Boundary (1000 µm)", xy=(1000.0, 1.0), xytext=(4, 0), textcoords="offset points",
+                 color=C_RED, va="center", fontsize=7.5)
     ax2.set_yticks(range(0, n_ch, 4))
     ax2.set_xlabel("Depth z (µm)")
     ax2.set_ylabel("Channel Index")
-    ax2.set_title("B. Cortical Layer from Depth\n(jnwb.classify_layer_from_depth)", pad=8)
-    ax2.legend(frameon=False, loc="lower right")
+    ax2.set_title("B. Geometric Depth Class\n(jnwb.classify_layer_from_depth)", pad=8)
     ax2.invert_yaxis()
 
     fig.tight_layout()
@@ -210,11 +215,15 @@ def fig03_onset():
     ax.set_xlabel("Time (ms)")
     ax.set_ylabel("Firing Rate (Hz)")
     ax.set_title("Causality-Bounded Onset Latency Fitting (jnwb.fit_exponential_onset)", pad=8)
-    ax.legend(frameon=False, loc="upper left", fontsize=7.2)
+    ax.legend(frameon=False, loc="lower right", fontsize=7.2)
 
     fig.tight_layout()
     _save(fig, "fig03_onset_fitting.png")
     plt.close(fig)
+
+
+#: The rhythm fig04 adds to its aperiodic background.
+FIG04_RHYTHM_HZ = 10.0
 
 
 def fig04_spectral_tilt():
@@ -231,27 +240,31 @@ def fig04_spectral_tilt():
     pink = np.cumsum(white)
     pink -= pink.mean()
     pink /= pink.std()
-    lfp = pink + 0.8 * np.sin(2 * np.pi * 10.0 * t)
+    lfp = pink + 0.8 * np.sin(2 * np.pi * FIG04_RHYTHM_HZ * t)
 
     # Panel A: Time trace
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. Raw LFP Time Series\n(random-walk background + 10 Hz rhythm)", pad=8)
+    ax1.set_title(f"A. Raw LFP Time Series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)", pad=8)
 
-    # Panel B: PSD + Tilt fit
+    # Panel B: PSD + power-law fit to that same PSD. spectral_tilt fits its own Welch
+    # spectrum, on a different grid, so its line cannot be drawn over this one.
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
-    tilt = jnwb.spectral_tilt(lfp, sampling_rate=fs, freq_range=(2.0, 90.0))
+    freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit takes positive frequencies only; drop DC
+    # aperiodic_fit removes no peaks, so the range starts above the rhythm's.
+    fit_range = (15.0, 90.0)
+    fit = jnwb.aperiodic_fit(freqs, psd, freq_range=fit_range)
 
-    mask = (freqs >= 2.0) & (freqs <= 90.0)
+    mask = (freqs >= fit_range[0]) & (freqs <= fit_range[1])
     f_fit = freqs[mask]
-    fitted_psd = tilt["offset"] * (f_fit ** tilt["exponent"])
+    fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 
-    ax2.loglog(freqs[1:120], psd[1:120], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['exponent']:.2f}\n(R²={tilt['fit_quality']:.2f})")
+    ax2.loglog(freqs[:119], psd[:119], color=C_GRAY, lw=1.0, label="Welch PSD")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={-fit.exponent:.2f}\n(R²={fit.r_squared:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power Spectral Density")
-    ax2.set_title("B. Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
+    ax2.set_title("B. Aperiodic Fit (jnwb.aperiodic_fit)", pad=8)
     ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
 
     fig.tight_layout()
@@ -288,11 +301,12 @@ def fig05_complex_tfr():
     # Cone of influence boundary
     coi_mask = tfr.coi_mask
     ax2.contour(t * 1000, freqs, coi_mask, levels=[0.5], colors=[C_VIOLET], linewidths=1.2, linestyles="--")
-    ax2.plot([], [], color="white", ls="--", lw=1.5, label="COI Boundary (tfr.coi_mask)")
+    ax2.plot([], [], color=C_VIOLET, ls="--", lw=1.5, label="COI Boundary (tfr.coi_mask)")
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("Frequency (Hz)")
     ax2.set_title("B. Complex Morlet TFR & Cone of Influence (jnwb.complex_tfr)", pad=8)
-    leg = ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper left", labelcolor="white", fontsize=7.5)
+    # Top centre, between the two arms of the cone; the box keeps the text readable over the mesh.
+    ax2.legend(frameon=True, facecolor="#2d2d2d", edgecolor="none", loc="upper center", labelcolor="white", fontsize=7.5)
 
     fig.tight_layout()
     _save(fig, "fig05_complex_tfr_coi.png")
@@ -369,9 +383,11 @@ def fig07_decoding():
     ax1.axhline(base_acc * 100, color=C_RED, ls="--", lw=1.2, label=f"Majority Baseline ({base_acc*100:.1f}%)")
     ax1.set_xlabel("Outer CV Fold")
     ax1.set_ylabel("Decoding Accuracy (%)")
-    ax1.set_ylim(0, 105)
+    # Accuracy cannot pass 100%, so the band above it is free for the legend.
+    ax1.set_ylim(0, 135)
+    ax1.set_yticks(range(0, 101, 20))
     ax1.set_title("A. Cross-Validated Accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
-    ax1.legend(frameon=False, loc="lower right", fontsize=7.2)
+    ax1.legend(frameon=False, loc="upper right", fontsize=7.2)
 
     # Panel B: the out-of-fold AUC and F1 the decoder returns, against chance. The result
     # carries no decision scores, so no ROC curve can be drawn from it.
@@ -382,10 +398,11 @@ def fig07_decoding():
     ax2.axhline(0.5, color=C_GRAY, ls=":", lw=1.0, label="Chance (0.50)")
     ax2.set_xticks([0, 1])
     ax2.set_xticklabels(["AUC", "F1"])
-    ax2.set_ylim(0, 1.05)
+    ax2.set_ylim(0, 1.3)
+    ax2.set_yticks(np.linspace(0.0, 1.0, 6))
     ax2.set_ylabel("Out-of-fold score")
     ax2.set_title("B. Out-of-Fold AUC and F1", pad=8)
-    ax2.legend(frameon=False, loc="lower right", fontsize=7.5)
+    ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
 
     fig.tight_layout()
     _save(fig, "fig07_population_decoding.png")
@@ -469,7 +486,7 @@ def fig09_directed_connectivity():
     ax2.plot(freq_centers[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, label=f"Net PSI = {psi.x_to_y:+.3f}\n(Positive = X leads Y)")
     ax2.axhline(0, color=C_GRAY, ls="--", lw=0.8)
     ax2.set_xlabel("Frequency (Hz)")
-    ax2.set_ylabel("Phase Slope (rad/Hz)")
+    ax2.set_ylabel("PSI per Frequency Bin (dimensionless)")
     ax2.set_title("B. Phase Slope Index Spectrum\n(jnwb.phase_slope_index)", pad=8)
     ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
 
@@ -493,6 +510,11 @@ def fig10_artifact_repair():
     seg[hit_trial, :, 180:240] += 35.0
 
     repaired, frac, diag = jnwb.repair_lfp_trials(seg, times_ms=t, z_thresh=5.0)
+    # Both panels leave the band above the traces free for their legends.
+    y_lo = float(seg[hit_trial, :2].min())
+    y_hi = float(seg[hit_trial, :2].max())
+    y_lim = (y_lo - 2.0, y_hi + 0.7 * (y_hi - y_lo))
+    y_ticks = np.arange(0.0, y_hi, 10.0)
 
     # Panel A: Raw contaminated trial
     ax1.plot(t, seg[hit_trial, 0], color=C_RED, lw=1.0, label="Contaminated Raw (Ch 0)")
@@ -500,12 +522,20 @@ def fig10_artifact_repair():
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (µV / a.u.)")
     ax1.set_title(f"A. Injected Synchronous Artifact\n(Trial {hit_trial}, Peak z = {diag['synchrony_z_max']:.0f})", pad=8)
+    ax1.set_ylim(*y_lim)
+    ax1.set_yticks(y_ticks)
     ax1.legend(frameon=False, loc="upper right", fontsize=7.2)
 
     # Panel B: Cleaned vs Repaired overlay
-    ax2.plot(t, seg[hit_trial, 0], color=C_LIGHT_GRAY, lw=1.2, label="Original Artifact Envelope")
+    ax2.plot(t, seg[hit_trial, 0], color=C_GRAY, lw=1.2, label="Original Artifact Envelope")
     ax2.plot(t, repaired[hit_trial, 0], color=C_VIOLET, lw=1.2, label="Repaired (Median Substitution)")
-    ax2.axvspan(180, 240, color=C_GOLD, alpha=0.2, label="Detected Window (z > 5.0)")
+    # The window is shaded over the traces' range only, so it stays clear of the legend band.
+    # The shaded samples are the detector's output: every sample the repair changed on any channel.
+    replaced = np.any(repaired[hit_trial] != seg[hit_trial], axis=0)
+    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=C_GOLD, alpha=0.2, lw=0,
+                     label="Samples replaced (z_thresh=5.0)")
+    ax2.set_ylim(*y_lim)
+    ax2.set_yticks(y_ticks)
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("LFP (µV / a.u.)")
     ax2.set_title("B. Repaired Signal Overlay\n(jnwb.repair_lfp_trials)", pad=8)

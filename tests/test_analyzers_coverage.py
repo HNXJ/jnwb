@@ -12,6 +12,7 @@ Focus areas:
 import contextlib
 import sys
 import unittest
+import warnings
 import numpy as np
 import pandas as pd
 
@@ -203,11 +204,12 @@ class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
         self.assertGreater(len(result['acg']), 0)
 
 
-class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
+class TestAutocorrelogramRefractoryTestIsRemoved(unittest.TestCase):
     """The test took the Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre
-    about 6 ms), so an over-filled bin read as a single unit and an empty one did not."""
+    about 6 ms), so an over-filled bin read as a single unit and an empty one did not. Its
+    keys were NaN with a FutureWarning for one release and are now gone."""
 
-    KEYS = ('refractory_period_violation', 'refr_count', 'baseline_count')
+    REMOVED = ('refractory_period_violation', 'is_single_unit', 'refr_count', 'baseline_count')
 
     @staticmethod
     def _trains():
@@ -219,15 +221,15 @@ class TestAutocorrelogramRefractoryTestIsWithdrawn(unittest.TestCase):
         clean = np.cumsum(0.010 + rng.exponential(0.05, 12000))
         return {'contaminated': contaminated, 'clean dip': clean}
 
-    def test_no_train_reads_as_a_single_unit_and_the_keys_are_withdrawn(self):
+    def test_the_keys_are_removed_and_nothing_warns(self):
         for name, train in self._trains().items():
             with self.subTest(train=name):
-                with self.assertWarnsRegex(FutureWarning, r"inverted.*0\.2\.7.*quality_metrics"):
+                with warnings.catch_warnings():
+                    warnings.simplefilter('error')
                     result = UnitAnalyzer.autocorrelogram(train, max_lag_ms=50, bin_size_ms=1)
-                self.assertIsNone(result['is_single_unit'])
-                for key in self.KEYS:
-                    self.assertIsInstance(result[key], float)
-                    self.assertTrue(np.isnan(result[key]), key)
+                self.assertEqual(set(result), {'acg', 'lag_times_ms', 'device_used'})
+                for key in self.REMOVED:
+                    self.assertNotIn(key, result)
                 self.assertEqual(len(result['acg']), 50)
                 np.testing.assert_allclose(result['lag_times_ms'], np.arange(1, 51))
                 self.assertEqual(result['device_used'], 'cpu')
@@ -264,6 +266,64 @@ class TestPopulationAnalyzerNetwork(unittest.TestCase):
         result = PopulationAnalyzer.network_connectivity(corr_matrix, threshold=0.4)
         self.assertGreaterEqual(result['n_edges'], 0)
         self.assertLessEqual(result['n_edges'], 3)
+
+    def test_the_graph_is_the_one_network_topology_computes(self):
+        """The method calls the routed function rather than keeping a copy of its rule."""
+        from unittest.mock import patch
+        import jnwb.connectivity as connectivity
+
+        corr = np.random.default_rng(5).uniform(-1, 1, size=(6, 6))
+        with patch.object(connectivity, 'network_topology',
+                          wraps=connectivity.network_topology) as spy:
+            result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        spy.assert_called_once()
+        topology = connectivity.network_topology(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], topology['n_edges'] // 2)
+        self.assertEqual(result['degree_distribution'], topology['in_degrees'])
+
+    def test_a_complex_entry_is_thresholded_on_its_modulus(self):
+        corr = np.array([[1, 0.1 + 0.9j], [0.1 - 0.9j, 1]])
+        result = PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+        self.assertEqual(result['n_edges'], 1)
+
+    def test_a_nan_entry_raises_rather_than_reading_as_no_edge(self):
+        corr = np.eye(4)
+        corr[0, 1] = corr[1, 0] = np.nan
+        with self.assertRaisesRegex(ValueError, "NaN or Inf off the diagonal"):
+            PopulationAnalyzer.network_connectivity(corr, threshold=0.3)
+
+
+class TestPopulationAnalyzerPieChartData(unittest.TestCase):
+    """A filter on a column the table lacks refuses; it used to count every unit."""
+
+    UNITS = pd.DataFrame({
+        'area': ['V1', 'V1', 'V4', 'MT'],
+        'quality_label': ['good', 'mua', 'good', 'good'],
+    })
+
+    def test_a_filter_on_an_absent_column_raises(self):
+        with self.assertRaisesRegex(ValueError, r"absent from units: \['areaa'\]"):
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'areaa': 'V1'})
+
+    def test_another_filter_error_is_not_relabelled_as_an_absent_column(self):
+        units = self.UNITS.iloc[:2]
+        with self.assertRaises(ValueError) as err:
+            PopulationAnalyzer.pie_chart_data(units, {'area': np.array(['V1', 'V4', 'MT'])})
+        self.assertNotIn('absent', str(err.exception))
+
+    def test_a_filter_on_a_present_column_counts_only_the_matching_units(self):
+        res = PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': 'V1'})
+        self.assertEqual(res['counts'], {'good': 1, 'mua': 1})
+        self.assertEqual(res['total'], 2)
+
+    def test_the_filter_is_filter_by_criteria(self):
+        from unittest.mock import patch
+        import jnwb.metadata as metadata
+
+        with patch.object(metadata, 'filter_by_criteria',
+                          wraps=metadata.filter_by_criteria) as spy:
+            PopulationAnalyzer.pie_chart_data(self.UNITS, {'area': ['V1', 'MT']})
+        spy.assert_called_once()
 
 
 class TestPopulationAnalyzerCompareCriteria(unittest.TestCase):
@@ -381,6 +441,36 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
                 self.assertEqual(result.shape[1], 3)
 
 
+class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
+    """The window is [onset + pre, onset + post], both edges inclusive, but spike - onset
+    rounded a spike on either edge just outside the outer bin edges and np.histogram dropped
+    it: on these onsets, 114 of 405 at the left edge and 147 of 405 at the right."""
+
+    ONSETS = 2.0 + 0.7 * np.arange(405)
+
+    def _counts(self, spikes):
+        res = UnitAnalyzer.psth(spikes, self.ONSETS, bin_size_ms=10, window_ms=(-100, 200))
+        return np.rint(res['psth'] * 0.010 * len(self.ONSETS))
+
+    def test_a_spike_on_the_left_edge_counts_in_the_first_bin(self):
+        spikes = self.ONSETS - 0.1
+        self.assertGreater(np.sum(spikes - self.ONSETS < -0.1), 0)  # the fixture rounds out
+        counts = self._counts(spikes)
+        self.assertEqual(counts[0], len(self.ONSETS))
+        self.assertEqual(counts.sum(), len(self.ONSETS))
+
+    def test_a_spike_on_the_right_edge_counts_in_the_last_bin(self):
+        spikes = self.ONSETS + 0.2
+        self.assertGreater(np.sum(spikes - self.ONSETS > 0.2), 0)  # the fixture rounds out
+        counts = self._counts(spikes)
+        self.assertEqual(counts[-1], len(self.ONSETS))
+        self.assertEqual(counts.sum(), len(self.ONSETS))
+
+    def test_a_spike_past_either_edge_is_not_counted(self):
+        spikes = np.concatenate([self.ONSETS - 0.1 - 1e-6, self.ONSETS + 0.2 + 1e-6])
+        self.assertEqual(self._counts(spikes).sum(), 0)
+
+
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
     """Test UnitAnalyzer quality assessment."""
 
@@ -392,6 +482,28 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertIn('refr_violations_pct', result)
         self.assertIn('fano_factor', result)
+
+    def test_spike_order_does_not_change_any_metric(self):
+        """Unsorted, a backward step was a negative interval counted as a violation, and the
+        first and last entries were read as the span: 51% violations where there were 1%."""
+        rng = np.random.default_rng(0)
+        st = np.sort(rng.uniform(0.0, 100.0, 500))
+        ref = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        expected_pct = 100.0 * np.sum(np.diff(st) * 1000 < 2) / (len(st) - 1)
+        self.assertEqual(ref['refr_violations_pct'], expected_pct)
+        shuffled = UnitAnalyzer.quality_metrics(rng.permutation(st), 300.0, 5.0)
+        self.assertEqual(shuffled, ref)
+
+    def test_a_non_finite_or_multi_dimensional_train_raises(self):
+        """A NaN read as a good single unit, an infinity raised OverflowError and a 2-D
+        array was pooled into one train."""
+        st = np.sort(np.random.default_rng(0).uniform(0.0, 100.0, 500))
+        for bad in (np.nan, np.inf):
+            with self.subTest(value=bad):
+                with self.assertRaisesRegex(ValueError, "1 NaN or infinite value"):
+                    UnitAnalyzer.quality_metrics(np.append(st, bad), 300.0, 5.0)
+        with self.assertRaisesRegex(ValueError, r"must be one 1-D train; got shape \(2, 250\)"):
+            UnitAnalyzer.quality_metrics(st.reshape(2, 250), 300.0, 5.0)
 
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
@@ -433,6 +545,94 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                         runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
                         self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
 
+
+class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
+    """Components and variances that cannot be estimated are NaN, as in
+    compute_population_trajectory."""
+
+    def test_components_that_could_not_be_estimated_are_nan_not_missing(self):
+        # Two units support two components; the other two do not exist.
+        X = np.random.default_rng(42).standard_normal((50, 2))
+        res = PopulationAnalyzer.population_trajectory(X, n_components=4)
+        self.assertEqual(res['projection'].shape, (50, 4))
+        self.assertEqual(res['components'].shape, (4, 2))
+        self.assertTrue(np.all(np.isfinite(res['projection'][:, :2])))
+        self.assertTrue(np.all(np.isnan(res['projection'][:, 2:])))
+        self.assertTrue(np.all(np.isnan(res['components'][2:])))
+        for key in ('explained_variance', 'explained_variance_ratio'):
+            self.assertEqual(res[key].shape, (4,))
+            self.assertTrue(np.all(np.isfinite(res[key][:2])) and np.all(np.isnan(res[key][2:])))
+        np.testing.assert_allclose(np.nansum(res['explained_variance_ratio']), 1.0, rtol=1e-12)
+
+    def test_a_population_with_no_variance_has_no_explained_variance(self):
+        res = PopulationAnalyzer.population_trajectory(np.full((20, 5), 3.0), n_components=2)
+        self.assertTrue(np.all(np.isnan(res['explained_variance_ratio'])))
+        self.assertTrue(np.all(np.isnan(res['explained_variance'])))
+        self.assertEqual(res['explained_variance_ratio'].shape, (2,))
+
+
+class TestTFRAnalyzerCompareConditions(unittest.TestCase):
+    """One t-test per location is a family; the count that answers "which differ" is corrected."""
+
+    SHAPE = (4, 40, 100)          # 16000 locations
+
+    def _pair(self, seed, effect=0.0):
+        rng = np.random.default_rng(seed)
+        a = rng.normal(size=self.SHAPE + (12,))
+        b = rng.normal(size=self.SHAPE + (14,))
+        b[0, :5] += effect        # 500 locations carry the effect, when there is one
+        return a, b
+
+    def test_null_data_leaves_the_fdr_count_near_zero_and_the_uncorrected_near_alpha_n(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(0))
+        n = res['n_tests']
+        self.assertEqual(n, 16000)
+        # Binomial(16000, 0.05): mean 800, sd 27.6.
+        self.assertLess(abs(res['n_significant_uncorrected'] - 0.05 * n), 4 * 27.6)
+        self.assertLessEqual(res['n_significant_fdr'], 2)
+        self.assertEqual(res['fraction_significant_uncorrected'], res['n_significant_uncorrected'] / n)
+
+    def test_the_fdr_count_is_the_library_correction_of_the_p_values(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(1, effect=2.0))
+        q = StatisticalAnalysis.fdr_correct(res['p_values'])
+        np.testing.assert_allclose(res['q_values'], q, rtol=1e-12)
+        self.assertEqual(res['n_significant_fdr'], int((q < 0.05).sum()))
+        # The effect survives correction: the count is not zero by construction.
+        self.assertGreater(res['n_significant_fdr'], 400)
+
+    def test_a_location_without_a_p_value_is_not_in_the_family(self):
+        a, b = self._pair(2)
+        a[0, 0, 0] = 1.0
+        b[0, 0, 0] = 1.0
+        res = TFRAnalyzer.compare_conditions(a, b)
+        self.assertTrue(np.isnan(res['q_values'][0]))
+        tested = np.isfinite(res['p_values'])
+        np.testing.assert_allclose(res['q_values'][tested],
+                                   StatisticalAnalysis.fdr_correct(res['p_values'][tested]),
+                                   rtol=1e-12)
+        # The count and the uncorrected fraction use the family the FDR correction uses.
+        self.assertEqual(res['n_tests'], int(tested.sum()))
+        self.assertEqual(res['n_tests'], 16000 - 1)
+        self.assertEqual(res['fraction_significant_uncorrected'],
+                         res['n_significant_uncorrected'] / res['n_tests'])
+
+    def test_no_location_with_a_p_value_is_an_empty_family(self):
+        a = np.ones((2, 3, 4, 5))
+        res = TFRAnalyzer.compare_conditions(a, a.copy())
+        self.assertEqual(res['n_tests'], 0)
+        self.assertEqual(res['n_significant_uncorrected'], 0)
+        self.assertEqual(res['n_significant_fdr'], 0)
+        self.assertTrue(np.isnan(res['fraction_significant_uncorrected']))
+
+    def test_the_old_key_names_read_the_uncorrected_values_with_a_warning(self):
+        res = TFRAnalyzer.compare_conditions(*self._pair(3))
+        self.assertNotIn('n_significant', list(res))
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res['n_significant'], res['n_significant_uncorrected'])
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(res.get('fraction_significant'),
+                             res['fraction_significant_uncorrected'])
+        self.assertIn('n_significant', res)
 
 
 if __name__ == '__main__':

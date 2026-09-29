@@ -6,6 +6,643 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-09-29
+
+### Added
+
+- `jnwb.vflip`, `jnwb.vflip_from_lfp` and `jnwb.label_layers` take keyword-only
+  `depth_axis=` (`"x"`, `"y"` or `"z"`, the geometry column that is depth) and `shallow_end=`
+  (`"min"` or `"max"`, the end of that column nearest the surface), declared together.
+  `"x"`, `"y"` and `"z"` are columns 0, 1 and 2 of `contact_positions`, so `"z"` is `rel_z`
+  for a table without `x`/`y`/`z`. With a declaration the fit runs from the shallow contact:
+  `crossover_contact`, `low_peak_contact`, `high_peak_contact`, `profile`, the `orientation`
+  argument and result, and `crossover_depth_um` are all in that order, so the same probe
+  gives one fit, one depth and one labelling whatever order the electrode table lists it in.
+  `VFlipResult` records `depth_anchor` (`"shallowest"`, or `"row_order"` without a
+  declaration) with the `depth_axis` and `shallow_end` it used. Without a declaration nothing
+  changes: depth runs from the first contact of `linear_order`, which follows the table's
+  rows. An unknown axis or end, only one of the two, a declaration without a
+  `probe_geometry`, an axis whose values at the two end contacts are within 1e-6 um of each
+  other, or a `label_layers` declaration that differs from the one the fit was made with
+  raises `ValueError`. `ProbeGeometry` is unchanged.
+- A declared fit whose motif resolves as `"deep_to_superficial"`, which puts the deep layers
+  at the declared shallow end, is rejected with `rejection_reason="declaration_contradicted"`;
+  `label_layers` then labels every channel `'na'`. The reason is checked after every other
+  acceptance test, so a fit without support reports `"insufficient_support"` and an
+  `orientation` argument the peaks disagree with reports `"orientation_mismatch"`. A
+  declaration passed with `orientation="deep_to_superficial"` raises `ValueError` before any
+  fitting, in `vflip` and `vflip_from_lfp`. Undeclared fits are unaffected.
+- `jnwb.preflight(question)` and `jnwb.Preflight`: check a planned analysis before it runs.
+  The result's `outcome` is one of `"supported"`, `"request"`, `"failure"` and `"decline"`,
+  with a `reason` and, for a request, the `missing` inputs; `to_dict()` is JSON-ready. Checked
+  in order: a stated `unsupported_inference` declines; an empty `signals`, `signal_units`,
+  `contrast` or `inference_unit`, a blank signal name (named as `signals[<index>]`), or a
+  signal without a unit (absent, blank or `None`), requests; a stated `non_identifiable` reports
+  a failure; anything else is supported. A unit in `signal_units` that is neither a string nor
+  `None` raises `TypeError`.
+- `jnwb.Question` gains optional fields, all empty by default so existing constructions are
+  unchanged: `signal_units`, `data`, `paradigm`, `axes`, `conditions`, `required_skills`,
+  `verification_plan`, `unsupported_inference` and `non_identifiable`. `to_dict()` includes them.
+- `TFRAccumulator.add_trial` takes a keyword-only `baseline=`, the trial's own baseline power,
+  and `TFRAccumulator.mean_of_ratios()` returns the mean over trials of each trial's power
+  ratio, so `to_db(acc.mean_of_ratios())` streams `aggregate_to_db(how="mean_of_ratios")`
+  without holding the trials. With a `valid` mask the stacked equivalent sets the invalid cells
+  to NaN and passes `nan_policy="omit"`. Either every trial carries a baseline or none does;
+  `merge` pools the ratio sums and `write` stores them as `sum_ratio`. `aggregate_to_db` still
+  refuses `how="mean_of_ratios"` on `power()`.
+- `nested_cv_linear_svm` takes keyword-only `groups=` (one id per trial) to hold out whole
+  groups. Outer and inner folds become `StratifiedGroupKFold` over the groups in an order drawn
+  from `rng`, `n_splits` is clipped to the minority-class count and the group count, and
+  `cv_scheme` is `"nested_stratified_group"`. The inner search falls back to `C=1.0` when an
+  inner training split would hold one class. Fewer than two groups returns status
+  `"insufficient_groups_for_cv"`; a missing id, NaN or infinity in a float array of ids, ids
+  that cannot be compared, and
+  an outer training fold with a single class raise `ValueError`. A call without `groups`
+  returns the same numbers as before.
+- `XFlipResult.surrogate_seed_entropy` records the entropy the surrogate generator was built
+  from: the seed for an int `rng`, the fresh OS entropy drawn for `rng=None`. Passing it back as
+  `rng` reproduces `p_values`. It is `None` for a caller's `Generator` and when no surrogates
+  ran. `to_dict()` includes it. An int seed draws the same stream as before.
+- `ZFlipResult.surrogate_seed_entropy`, on the same rule as `XFlipResult`'s: passing it back as
+  `rng` reproduces `p_value`; `None` for a caller's `Generator` and when no surrogates ran.
+  `to_dict()` includes it. An int seed draws the same stream as before.
+- `nested_cv_linear_svm` returns `seed`, the int its folds, group order and `SVC` were seeded
+  with: `rng` itself for an int, the int drawn for a `Generator` or `None`. Passing it back as
+  `rng` reproduces the folds and scores. It is `None` for a status other than `"success"`.
+- `compute_population_trajectory` returns `explained_variance_ratio` (each component's share of
+  the total) and `explained_variance_per_component` (each component's variance,
+  `S**2 / (n_samples - 1)` of the z-scored data), both `(n_components,)` as scikit-learn's
+  `PCA` defines `explained_variance_ratio_` and `explained_variance_`, and NaN where a
+  component could not be estimated.
+- `compute_response_metrics` returns the per-trial `baseline_rates`, `response_rates`,
+  `baseline_counts` and `response_counts` (integers), in onset order and zero when there are no
+  spikes, and the window lengths `baseline_duration_s` and `response_duration_s`. No key is
+  removed.
+- `VFlipResult.crossover_z_um`: the crossover's z coordinate in the probe geometry's own frame
+  (um), interpolated along the shaft. `None` without a `probe_geometry`, when z does not vary
+  along the shaft, or when the fit is rejected. `to_dict()` includes it.
+
+### Changed
+
+- **`transfer_entropy` p-values change (breaking).** The surrogate test compares plug-in TE,
+  for the data and for every surrogate, whatever `bias_correction` is; Miller-Madow applies
+  only to the reported `x_to_y`, `y_to_x`, `net` and `bias_corrected_*`, whose values do not
+  change. A surrogate removes the zero-lag X-Y dependence and occupies more joint cells, so a
+  correction applied to both made two noisy copies of one white source test significant in
+  0.11 of cases at 4 bins and 0.37 at 8 bins (n = 2000). Under that null the p now rejects at
+  0.025 to 0.06 for a nominal 0.05 (4 bins, n = 500 to 8000; about 0.06 near n = 4000 to 8000,
+  decaying at larger n) and is conservative at large state
+  spaces. `diagnostics['surrogates']['p_statistic']` is `"plug_in"`. Migration: none needed to
+  run; a p computed before this release under the default `bias_correction="mm"` on correlated
+  inputs is not comparable, so recompute it. The p now equals the one given by
+  `bias_correction=None`.
+- **`phase_slope_index` p-values change (breaking).** `p_net`, `p_x_to_y` and `p_y_to_x` are
+  the jackknife t test of a non-zero PSI whenever `jackknife=True`, with or without
+  `n_surrogates`; they were the surrogate p whenever `n_surrogates > 0`. A shifted or re-paired
+  Y removes all X-Y dependence, so the surrogate p tests coupling, not a lead: under a zero-lag
+  common source it rejected in 0.00 to 0.46 of cases depending on segment length and band. It
+  is now `diagnostics['p_coupling_surrogate']` (per band, still `per_band[name]['p_surrogate']`).
+  With `jackknife=False` the three p fields are None. The lead p rejects a zero-lag common source
+  at 0.06 to 0.08 for a nominal 0.05. `diagnostics['p_source']` is `"jackknife_z"` or None.
+  Migration: read `diagnostics['p_coupling_surrogate']` where the surrogate p was meant, and
+  keep `jackknife=True` for a lead p; `directed_network(method="psi")` then corrects the
+  jackknife p.
+- `classify_response_significance` reports the conditional binomial `pvalue` when
+  `response_zscore` is NaN, a baseline with no across-trial variance; it returned NaN. The test
+  needs no baseline variance: 40 trials of 3 response spikes over a silent baseline give
+  p = 7e-45 at the default windows. `confidence` stays `'undefined'` and `is_significant` False, because the
+  effect-size cutoff cannot be evaluated. Malformed counts or window lengths now raise
+  `ValueError` in that case too, where the NaN z-score returned before they were checked. The
+  docstring states the bursting limit: with no effect, 5 Hz firing in bursts of four spikes over
+  200 trials puts about 30% of units below p = 0.05.
+- **`jrsa` row metrics need a named `null=` to form a permutation null (breaking).** For `rsa`,
+  `cka`, `rv`, `hsic`, `distance_correlation` and `procrustes`, `null=None` with `stats=True`
+  and `permutations > 0` raises `ValueError`; in 0.2.6.1 it warned and permuted the rows as
+  exchangeable. `rsa` is the default metric, so a bare `jrsa(x1, x2)` raises. Name
+  `null="iid"` for exchangeable conditions, which gives the 0.2.6.1 numbers, and
+  `null="circular_shift"` when axis 0 is time. The guidance no longer offers `"block"` for these
+  metrics: at `block_len=20` it rejected `cka` for 0.30 of independent AR(1) pairs.
+- **`jrsa(metric="transfer_entropy_histogram_nats")` refuses several rows (breaking).** It
+  flattened the input, which made the last sample of each row the past of the first sample of
+  the next, so every join between rows counted as a time transition. It raises `ValueError` for
+  an input with more than one row; pass one series per call, or use `jnwb.transfer_entropy` for
+  `(n_trials, n_times)`.
+- **`jrsa(metric="granger_ssr_ftest")` and `jrsa(metric="phase_slope")` refuse several rows
+  (breaking).** Both flattened the input into one series, so each join between rows entered as
+  a time step, and the value depended on the order of the rows. Both raise `ValueError` for
+  more than one row; a 1-D or `(1, n)` input gives the value it gave before. For trials use
+  `jnwb.granger` or `jnwb.phase_slope_index`, which take `(n_trials, n_times)`.
+- **`jrsa(nan_policy="omit")` drops the observation of a row metric.** For the six metrics
+  above it dropped the last-axis column holding the NaN, which removed a feature from every
+  observation; it now drops the row of axis 0. Values change wherever such an input held a NaN.
+- **The core dependency floors are raised to the lowest releases the test suite passes on
+  (breaking for older environments).** The previous floors were installable but untested, and
+  on Python 3.12 they failed: they could not be installed together (`pynwb 2.0.0` requires
+  `pandas<2`), `joblib 1.1` hangs `n_jobs` loops, `scipy` before 1.17 raises on constant groups
+  in `compare_multiple_groups` where 1.17 returns NaN, `enrich_units_dataframe` disagreed with
+  `map_peak_channel_to_area` on a float32 or float16 identifier column under NumPy 1.x
+  promotion, and `pynwb` before 3.1 cannot read files that use `ElectrodesTable`. Those
+  releases then set the rest: `scipy 1.17` needs `numpy>=1.26.4`, and `statsmodels` before
+  0.14.5 does not import against it; `pandas`, `h5py`, `matplotlib` and `scikit-learn` below
+  the new floors do not import under NumPy 2; `pynwb 3.1` needs `hdmf>=4.1`. New floors:
+
+  | Package | Was | Now |
+  |---|---|---|
+  | numpy | 1.26.0 | 2.0.0 |
+  | scipy | 1.11.2 | 1.17.0 |
+  | pandas | 2.1.1 | 2.2.2 |
+  | h5py | 3.10.0 | 3.11.0 |
+  | pynwb | 2.0.0 | 3.1.0 |
+  | hdmf | 3.1.0 | 4.1.0 |
+  | matplotlib | 3.7.3 | 3.8.4 |
+  | scikit-learn | 1.3.1 | 1.4.2 |
+  | statsmodels | 0.14.0 | 0.14.5 |
+  | joblib | 1.1.0 | 1.2.0 |
+
+  A CI job now installs these floors on Python 3.12 and runs the suite, so a floor that stops
+  holding fails the build.
+- **`map_peak_channel_to_area`, `classify_layer_from_depth` and `enrich_units_dataframe` search
+  only the first identifier column present (breaking).** The order is `channel_id`, then `id`,
+  then `electrode_id`. A channel missing from `channel_id` was looked up in `id`, which can
+  number channels differently, and returned another channel's area and depth; it now resolves
+  to `None` and its depth class to `"Unknown"`. Where the two columns do number the same
+  channels, fill the gaps before the call to keep the old result:
+  `electrodes_df["channel_id"] = electrodes_df["channel_id"].fillna(electrodes_df["id"])`.
+- **`aggregate_to_db` refuses a `baseline` that is neither a scalar nor of `power`'s number of
+  dimensions (breaking).** numpy aligned a shorter baseline with the trailing axes, so a
+  per-frequency `(n_freqs,)` baseline against `(n_freqs, n_times)` power divided along time,
+  silently whenever the two counts were equal. It raises `ValueError`; pass `baseline[:, None]`.
+  `TFRAccumulator.add_trial(baseline=)` refuses the same shapes.
+- **`aggregate_to_db` raises `ValueError` on a zero baseline (breaking).** It returned +inf dB
+  there with the divide warning suppressed, where `relative_power` raised on the same input.
+  Exclude those units, or set their power to NaN and pass `nan_policy="omit"`: under `"omit"` a
+  zero where power is NaN is omitted with its cell and not refused.
+  `TFRAccumulator.add_trial(baseline=)` raises on a zero baseline at a cell `valid` marks; a
+  zero at an invalid cell never enters the sums, so `to_db(acc.mean_of_ratios())` still equals
+  `aggregate_to_db(nan_policy="omit")` over the stacked trials with invalid power set to NaN.
+- **`aggregate_to_db` and `TFRAccumulator.add_trial(baseline=)` raise `ValueError` on an
+  infinite baseline and on a ratio that overflows (breaking).** An infinite baseline gave a
+  ratio of 0, and -inf dB, where `relative_power` raised on the same input; it now raises at
+  every cell where a zero baseline would, and is ignored where a zero would be (a cell `valid`
+  excludes, or NaN power under `nan_policy="omit"`). A NaN baseline keeps its meaning. A
+  baseline small enough that the ratio overflows -- finite power over it, or the mean of such
+  ratios, past the float64 range -- returned +inf dB with only a `RuntimeWarning`; it raises in
+  both, and in `relative_power`. Under `"ratio_of_means"` a summed baseline that overflows gave
+  0 (-inf dB) and a summed finite power that overflows gave +inf; each raises, naming the sum
+  that overflowed, in `aggregate_to_db` and `relative_power`. An infinite power under
+  `nan_policy="propagate"` still gives +inf dB. Values are otherwise unchanged.
+- **`network_topology` raises `TypeError` on a complex matrix (breaking).** It cast to float,
+  keeping the real part with only a `ComplexWarning`, so a purely imaginary coupling counted as
+  no edge. Pass `np.abs(matrix)` to threshold the magnitude. `network_connectivity` already takes
+  the magnitude first and is unchanged.
+- **`VFlipResult.crossover_depth_um` is always shaft rank times contact spacing (breaking).**
+  When the geometry's z varied along the shaft it was the absolute z, which carries the
+  table's origin and direction, while `label_layers(depth_range_um=)` compares against rank
+  times pitch; on a shaft whose z falls with depth the two ran in opposite directions. It now
+  is `crossover_contact` times the spacing, from the first contact of `linear_order`, whose
+  direction follows the table's row order. Callers whose z varied along the shaft and who read
+  it as absolute z read `crossover_z_um` instead. With a `probe_geometry`, `vflip` and
+  `vflip_from_lfp` raise `ValueError` when `contact_spacing` disagrees with the geometry's
+  `nominal_pitch`, which `label_layers` measures depth with: `contact_spacing=50` on a 100 um
+  geometry gave a depth that selected half the contacts through `depth_range_um`.
+- **`classify_response_significance` tests the response against its baseline (breaking).**
+  `pvalue` is the two-sided conditional binomial test of two Poisson counts: with `K_r`
+  response and `K_b` baseline spikes summed over trials, `K_r` is Binomial(`K_r + K_b`,
+  `d_r / (d_r + d_b)`) under equal rates, where `d_r` and `d_b` are the window lengths
+  (`scipy.stats.binomtest`). It is exact for windows of different lengths, assumes Poisson
+  firing within a trial, and falls as trials accumulate. It was a normal p derived from
+  `response_zscore`, an effect size whose p did not depend on the trial count. Significance now
+  needs `p < alpha` (new keyword-only `alpha=0.05`, strict) as well as
+  `|response_zscore| >= zscore_threshold`, so a unit with few trials that passed the z cutoff
+  alone can be classified 'none'. A dict without the per-trial counts and window lengths, such
+  as one built by hand from summary values, is 'undefined' with a `UserWarning` and a NaN
+  `pvalue`; pass the dict `compute_response_metrics` returns. A NaN count is 'undefined';
+  count arrays that are not 1-D or differ in shape, a negative or fractional count, and a
+  window length that is not positive and finite raise `ValueError`.
+- `jrsa`: a nonzero `lag` compares only the overlapping samples, x1[t] with x2[t - lag],
+  dropping |lag| samples, instead of rolling x2 circularly, which paired each series' end with
+  its start (on a trended series the realigning lag gave r well below 1). The null and bootstrap
+  run on the shortened series; `execution['n_overlap']` records the samples used; |lag| >= n
+  raises. Values at a nonzero lag change.
+- **`jnwb.vis` laminar plots require `depth_unit=` (breaking).** `plot_spectrolaminar_map`,
+  `plot_opposing_gradients` and `plot_csd` take a keyword-only `depth_unit` (`'mm'`, `'um'` or
+  `'relative'`) with no default, label the depth axis from it, and raise `ValueError` for any
+  other value. They used to infer the unit from the largest depth, so a 0 to 1.55 mm probe was
+  labelled relative depth. Callers add `depth_unit=` to each call.
+- **`jnwb.vis.plot_csd` requires `value_unit=` (breaking).** The colorbar read "CSD (mV/mm²)"
+  by default, but `current_source_density_1d` returns A/m³ and `voltage_curvature_1d` returns
+  V/m², so a default call mislabelled either input. `value_unit` is keyword-only with no
+  default; the colorbar reads `value_unit` alone, or `"<colorbar_title> (<value_unit>)"` when
+  `colorbar_title` names the quantity, and the hover text carries the unit. An empty or blank
+  unit raises `ValueError`. `title` now defaults to None (no panel title) instead of "Current
+  Source Density (CSD)", which was wrong for a curvature input. Callers add `value_unit=`, for
+  example `"A/m³"` or `"V/m²"`, and pass `title=` to keep a panel title.
+- **`jnwb.vis.plot_sorted_heatmap` requires `value_unit=` (breaking).** The colorbar read
+  "Rate (Δz)" by default whatever `rate_matrix` held. `value_unit` is keyword-only with no
+  default and follows `plot_csd`: the colorbar reads `value_unit`, or
+  `"<colorbar_title> (<value_unit>)"`; the hover text carries the unit; an empty or blank unit
+  raises `ValueError`. `colorbar_title` now defaults to None and names only the quantity.
+  Callers add `value_unit=` (for example `"spikes/s"` or `"z"`) and replace a full label such
+  as `colorbar_title="Rate (z)"` with `colorbar_title="Rate", value_unit="z"`.
+- **`jnwb.vis.plot_hierarchy_regression` requires `y_label=` (breaking).** The y axis read
+  "Prevalence (%)" by default, and the hover appended "%" to every value, although `values`
+  may be onset latency. `y_label` is now keyword-only with no default, an empty or blank label
+  raises `ValueError`, and the hover shows the value without a unit. `y_label` moved behind
+  `title`, `marker_color` and `fit_line_color`: a call that passed it positionally, as the
+  thirteenth argument, passes it by keyword instead. Callers add `y_label=`, for example
+  `"Prevalence (%)"` or `"Onset latency (ms)"`.
+- **`jnwb.vis.plot_spectrolaminar_map` refuses values outside [0, 1] (breaking).** The colour
+  scale is fixed to [0, 1], so a larger or negative value was clipped to the end of the scale
+  without a word; `jnwb.relative_power` returns an unbounded ratio to baseline, or dB. A finite
+  value of `rel_power` below 0 or above 1 now raises `ValueError`; non-finite values are still
+  drawn as gaps. Callers pass fractions in [0, 1], for example power normalised across
+  contacts per frequency.
+- **`compress_fp32` and `jnwb.compression.convert` require `select=` (breaking).** `select=` is
+  keyword-only with no default in both; a call that omits it, or passes `select=None`, raises
+  `TypeError` before anything is written. The anchored LFP/MUAE preset and its `FutureWarning`
+  are removed. Callers name the floating-point datasets to cast, or pass `select=[]` to cast
+  nothing, which is also the route for a file whose LFP is stored as integers. A refused
+  `select=` no longer leaves the destination's new parent directory behind.
+- **`jnwb.compression.verify_roundtrip` requires `cast=` (breaking).** `cast=` is keyword-only
+  with no default and names the datasets to check, normally `stats["cast_paths"]`. Without it
+  the function checked the LFP/MUAE preset, reporting arrays a `select=` call never cast.
+- **`jnwb.compression.verify_roundtrip` requires `collapsed=` (breaking).** `collapsed=` is
+  keyword-only with no default, normally `stats["timestamps_collapsed"]`. Without it the
+  function checked two hardcoded groups and reported `ok=True` with the collapsed timestamps
+  never checked. A `cast=` path absent from the destination is now a failed check; it was
+  skipped. Direct callers pass `collapsed=` by keyword; `compress_fp32` is unchanged.
+- **`TFRAnalyzer.compare_conditions` counts only locations with a p-value (breaking).**
+  `n_tests` and the denominator of `fraction_significant_uncorrected` now use the family the FDR
+  correction already used, so a location constant in both conditions no longer counts as a test
+  that could not pass. With no such location the fraction is NaN; it was 0.0.
+- **`PopulationAnalyzer.population_trajectory` returns `n_components` components (breaking).**
+  A requested component beyond `min(n_time_bins, n_units)` is a NaN column of `projection`, a
+  NaN row of `components` and NaN variances, as in `compute_population_trajectory`; the arrays
+  were shorter than `n_components`.
+- **`PopulationAnalyzer.population_trajectory` has no variances without variance (breaking).**
+  With no total variance `explained_variance` and `explained_variance_ratio` are NaN; both were
+  zeros. `explained_variance_ratio` is now `S**2 / sum(S**2)`, as in
+  `compute_population_trajectory`, which can change its last digit.
+- **The sdist no longer ships `AGENTS.md` or the `jnwb-fact-action` skill.** Both describe how
+  the jnwb repository itself is changed rather than how jnwb is used. The sdist carries the nine
+  analysis skills under `skills/`; `jnwb.SKILLS_URL` names them for an installed copy. The wheel
+  is unchanged.
+- **`xflip` partitions by a new objective (cuts can change on existing data).** The
+  contiguous search maximises the sum over blocks of S²/P, a block's within-block
+  correlation sum squared over its pair count: the block-constant least-squares fit. It
+  replaces the sum of each within-block correlation minus the probe-wide mean, which favoured
+  blocks of equal size: beside an uncorrelated background it cut toward the middle of the
+  probe, and the surrogate test could still accept that cut (3 of 10 seeds with 16 contacts
+  and a block of 6). Squaring discards sign, so a block of negative mean correlation scores as
+  a positive one. The calibration receipt is regenerated: power on every alternative is
+  unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
+  accepted none, below `alpha=0.05`.
+- **`xflip(n_blocks=None)` chooses the block count by the smallest surrogate p, and its p
+  accounts for the choice (the count and p can change on existing data).** Each count from 2
+  to `min(4, n_channels // min_block_size)` is partitioned and tested against the same
+  surrogates, the count with the smallest p is reported, and the omnibus p repeats that
+  choice on every surrogate. It took the count with the highest contrast and reported that
+  count's p as though it had been fixed in advance, so the p was too small: at 200
+  surrogates, 0.105 of AR(1) null seeds and 0.074 of white-noise seeds had p at or below
+  0.05. The calibration receipt now carries these null rows over 1000 seeds and 200
+  surrogates on both `contiguous` paths: with the choice repeated, AR(1) 0.060 and 0.054
+  against 0.054 and 0.061 at a fixed count of 2, and white noise 0.030 and 0.046 against
+  0.040 and 0.048. Ties at the smallest p go to the count whose contrast lies the most
+  surrogate standard deviations above the surrogate mean, then to the smallest count. When a
+  count's partition beats every surrogate, every count sits at the floor and the
+  standardised contrast decides; the omnibus p does not depend on the tie-break. The
+  per-boundary p-values are the chosen count's own. On 16 to 18 contacts at a within-block
+  correlation of 0.8, the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at
+  a shared background correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and
+  rejected. A call costs about one fixed-count call at each candidate count. Calls with an
+  integer `n_blocks` return the same values as before.
+- `xflip` accepts only an int, a Generator or None; bool, SeedSequence, bit generators, lists and
+  RandomState now raise TypeError (a float already did).
+- **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
+  bit generator, list or RandomState now raises `TypeError` (a float already did). An int, a
+  Generator and None draw the same streams as before.
+- **`zflip` reports no delay without surrogates (behaviour change).** A pair's delay is
+  identifiable only against its own surrogate null, so with `n_surrogates=0`, or with a
+  constant or linear-in-time contact, which skips the surrogates, every entry of
+  `adjacent_identifiable` is False, `adjacent_delays_s` and `tau_per_channel_s` are NaN,
+  `delay_identifiable` is False and `directionality` is `"unidentifiable"`. `rejection_reason`
+  says surrogates are needed to establish a delay. Before, `n_surrogates=0` still reported a
+  delay while `accepted` was False; pass `n_surrogates` to obtain one.
+- **`jrsa` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
+  bit generator, list or RandomState now raises `TypeError`, under every spelling of the
+  argument. An int, a Generator and None draw the same streams as before.
+- **`cross_modal_comparison` accepts only an int, a Generator or None as `rng` (breaking).** A
+  bool, SeedSequence, bit generator, list or RandomState now raises `TypeError` when the lag
+  sweep draws its null. An int, a Generator and None draw the same streams as before.
+- **`shuffle_r2_ci` accepts only an int, a Generator or None as `rng` (breaking).** A bool,
+  SeedSequence, bit generator, list or RandomState now raises `TypeError`. An int, a Generator
+  and None draw the same streams as before.
+- **The `jnwb.testing.synth` builders accept only an int, a Generator or None as `rng`
+  (breaking).** `synth_white_noise`, `synth_ar_noise`, `synth_periodic_response`,
+  `synth_correlation_blocks`, `synth_phase_gradient`, `synth_unequal_groups` and
+  `synth_laminar_motif` raise `TypeError` for a bool, SeedSequence, bit generator, list or
+  RandomState. An int, a Generator and None give the same data as before.
+- **`jnwb.testing.build_canonical_tutorial_nwb(seed=)` and `build_synth_nwb` with
+  `SynthNWBBuildOptions(seed=)` accept only an int, a Generator or None as `seed`
+  (breaking).** A bool, SeedSequence, bit generator, list or RandomState now raises
+  `TypeError`. An int and a Generator build the same file as before.
+- `permute_labels`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired` and
+  `paired_fire_prob_test` accept an int seed or None as `rng` as well as a Generator. An int
+  seed draws the stream `np.random.default_rng(seed)` draws, and a Generator is advanced as
+  before. `rng` is still required. A float, bool, SeedSequence or list raises `TypeError`
+  where the last three raised `AttributeError`.
+- **`shuffle_pvalue_paired` and `shuffle_pvalue_unpaired` refuse a legacy
+  `np.random.RandomState` (breaking).** They called its `choice` and `shuffle` methods, so it
+  ran; it now raises `TypeError`. Pass `np.random.default_rng(seed)` or the int seed.
+- `build_permutation_plan` accepts a Generator or None as `rng` as well as an int. Either gives
+  one int base seed, drawn from the Generator or from a fresh `default_rng()`, which the plan
+  returns as `seed`; passing it back as `rng` reproduces the manifest. An int is the base
+  seed as before. `rng` is still required.
+- `xflip`'s contiguous partition search scores every split point of a block count as one array.
+  On a given objective the cuts are identical to a scalar loop's. The search is 3 to 29 times faster from 32 to
+  256 channels; a whole `xflip` call on 32 channels is about 1.3 times faster, because the
+  surrogates and their correlation matrices dominate it.
+- `unit_census_report`: the warning for a default call on a frame with a `layer` column and no
+  `depth_class` is a `UserWarning`, not a `FutureWarning`. It says the census is not split by
+  depth, that `layer` is not read, and that `enrich_units_dataframe` supplies `depth_class`.
+- `granger(order="auto")` scores every candidate order on one sample, trimmed by the largest
+  candidate, with the maximum-likelihood residual variance `RSS / N` (Lütkepohl 2005, section
+  4.3). It used to divide by `N - k` and fit each order to its own sample, so candidates were
+  compared on different data. Selected orders, and the values computed at them, can change;
+  `granger_spectral(order="auto")` and `directed_connectivity`/`directed_network` with
+  `method="granger"` select through the same path. A fixed `order` is unaffected.
+- `transfer_entropy` numbers joint states through one integer key per row instead of a
+  row-wise `np.unique`: 7 to 15 times faster on 4 to 12 trials, with identical values,
+  p-values and surrogate statistics.
+- `TFRAnalyzer.compare_conditions` reports a corrected count beside the uncorrected one. One
+  t-test per location counts about 5% of locations on null data (796 of 16000 in a seeded
+  run). `n_significant_uncorrected` and `fraction_significant_uncorrected` hold those values;
+  `n_significant_fdr` counts locations whose Benjamini-Hochberg adjusted p-value, in the new
+  `q_values` array from `fdr_correct` over the locations with a finite p, is below 0.05 (0 in
+  the same run). `summary` names both counts.
+- `PopulationAnalyzer.pie_chart_data` raises `ValueError` when a `criteria` key names a column
+  the table does not have. The filter was skipped, so the counts covered every unit. It filters
+  through `filter_by_criteria`; the counts for present columns are unchanged.
+- `PopulationAnalyzer.network_connectivity` computes the graph through `network_topology` and
+  so raises `ValueError` as it does, for a matrix that is not square 2-D, a NaN or Inf off the
+  diagonal (it read as no edge) or a threshold that is not finite. Values for a valid matrix,
+  complex ones included, are unchanged.
+- `raster_psth` finds each trial's spikes by binary search on the sorted train instead of
+  masking the whole train per onset: 0.44 s to 0.05 s at 200,000 spikes and 2,000 onsets, with
+  byte-identical output under NumPy 2. Spike times are compared in float64; NumPy 1.x compared
+  a float32 train in float32, so a spike within float32 rounding of a window edge can move.
+- `enrich_units_dataframe` resolves and classifies each peak channel once, from one pass over the
+  electrode table, instead of comparing against the whole table three times per unit: 4.5 s to
+  0.13 s at 4,000 units and 1,536 electrodes, with identical output.
+- `cluster_permutation_test` sums each cluster from one sort of the suprathreshold points
+  instead of masking the whole map once per cluster, and a permutation draw builds no masks:
+  20.0 s to 2.6 s on a 200 by 200 map with about 10,000 clusters and 20 permutations. Cluster
+  statistics, p-values and `max_null_stats` are bitwise identical.
+
+### Deprecated
+
+- The meaning of `compute_population_trajectory`'s `explained_variance`. It is still one
+  fraction for all kept components together, `np.nansum(explained_variance_ratio)`, and reading
+  it emits a `FutureWarning`: in the next release the key carries each component's variance, as
+  in scikit-learn and `PopulationAnalyzer.population_trajectory`. Read
+  `explained_variance_ratio` or `explained_variance_per_component` instead. A copy made through
+  `dict(...)`, iteration or JSON keeps the old value without a warning.
+- `TFRAnalyzer.compare_conditions` keys `n_significant` and `fraction_significant`. They still
+  read, as the uncorrected values, with a `DeprecationWarning`, and are no longer listed among
+  the result's keys. They are removed in the next release.
+- `spectral_tilt`'s key `exponent`. The log-log slope is now under `slope`, negative for a 1/f
+  decay; `exponent` still reads the same value with a `DeprecationWarning` and is removed in the
+  next release, so that `exponent` means the positive decay rate `aperiodic_fit` reports, which
+  is `-slope`. `exponent` is no longer listed among the result's keys, so a copy made through
+  `dict(...)`, iteration or JSON carries `slope` only.
+- A `relative_power` baseline with fewer dimensions than `power`, other than a scalar. numpy
+  aligns it with the trailing axes, so a `(n_freqs,)` baseline against `(n_freqs, n_times)` power
+  divided along time. It is still broadcast, with a `FutureWarning`, and raises `ValueError` in
+  the next release, as `aggregate_to_db` and `TFRAccumulator.add_trial` already do. Pass
+  `baseline[:, None]` for a per-frequency baseline.
+
+### Removed
+
+- **The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata` (breaking).**
+  Deprecated in 0.2.6, it was an exact copy of `depth_class`; read `depth_class` instead. Code
+  that reads `layer` from their output now raises `KeyError`. The `FutureWarning` about it is
+  gone, and a `layer` column already on the input is returned unchanged, where the electrode
+  path used to overwrite it with the depth class.
+- **`JRSAResult.p[0]` and `JRSAResult.q[0]` on a single-lag result (breaking).** `p` and `q`
+  are plain 0-d arrays like `value`, so `[0]` raises `IndexError` where it returned the scalar
+  with a `FutureWarning`. Use `float(result.p)` or `result.p[()]`.
+- **The refractory keys of `UnitAnalyzer.autocorrelogram` (breaking).** Deprecated in 0.2.6,
+  `refractory_period_violation`, `is_single_unit`, `refr_count` and `baseline_count` are no
+  longer returned, and the `FutureWarning` about them is gone; reading one raises `KeyError`.
+  The result holds `acg`, `lag_times_ms` and `device_used`. The single-unit check is
+  `UnitAnalyzer.quality_metrics`.
+
+### Fixed
+
+- Permutation and surrogate p-values count a null draw that reproduces the observed statistic
+  as reaching it when the two agree to within 100 machine epsilons of the observed value, the
+  width `scipy.stats.permutation_test` uses. A draw that swaps tied values sums the same terms
+  in another order and can land an ulp short of the observed value; a bare comparison skipped
+  it, so p came out too small. **p-values change on tied or repeated input**, and rise:
+  `jrsa` with ties in `x1` (0.006 to 0.013 where the exact p is 0.05), `shuffle_r2_ci` with
+  tied scores, `cross_modal_comparison` with periodic spikes, `cluster_permutation_test` when
+  a row of X equals a row of Y, `granger`, `granger_spectral` and `phase_slope_index` when one
+  signal's trials are identical, and `xflip` at a fixed `n_blocks`. Under `n_blocks=None`,
+  `xflip` ranks every draw against the others with the same width before comparing the
+  integer counts, which re-ranks the surrogates too, so a tied p can move either way (on
+  ulp-tied draws over two counts, 0.892 fell to 0.838); it stays a valid p over the S + 1
+  exchangeable draws. `transfer_entropy`,
+  the band surrogates of `cross_area_coherence`, `zflip`, `paired_fire_prob_test`,
+  `shuffle_pvalue_paired`,
+  `shuffle_pvalue_unpaired`, `exact_sign_flip` and `StatisticalAnalysis.permutation_test` use
+  the same rule; the mean-difference tests keep their existing width, which is wider. A
+  statistic that cancels takes an absolute floor on the width: 100 eps for the `xflip`
+  contrast; 100 eps for each `granger` and `granger_spectral` direction and band, whose value
+  `log(var_r / var_f)` rounds at the scale of the variance ratio rather than its own, and
+  100 eps times `max(1, |x_to_y|) + max(1, |y_to_x|)` for the `granger` net p; 100 eps times
+  both directions' sum for the `transfer_entropy` net p; and 100 eps times the bin-pair count
+  for `phase_slope_index`. With identical target trials and no coupling, `granger` gave
+  p_x_to_y 0.0198 where the exact p is 1.0. One repeated X trial against Y trials that pair
+  x + h with x - h makes every PSI zero in exact arithmetic; its p rose from 0.085 to 1.0,
+  the exact p. Untied continuous input counts the same draws as before.
+- `phase_slope_index` reports `z` and `sd` as NaN, the jackknife p as None and
+  `ok_for_interpretation=False`, with a `RuntimeWarning`, when the leave-one-segment-out
+  replicates agree to rounding. Identical segments (a periodic signal) with Y equal to X gave
+  sd 8e-32, z -7.8e13, p 0.0 and `ok_for_interpretation=True`. The width is
+  `8 * eps * n_segments * (n_bins - 1)`, twice the rounding bound of a replicate whose
+  coherencies have magnitude at most 1.
+- `zflip` reports a pair with a constant contact as not identifiable, with NaN
+  `adjacent_delays_s` and `adjacent_linearity_r2`. The constant contact's spectrum is
+  rounding residue whose phase can be linear in frequency, and such a pair was marked
+  identifiable with a finite delay (R^2 0.997 and 0.11 s on a noiseless wave).
+- `zflip` requires each adjacent pair's wPLI to be at least `min_wpli` for that pair's delay to
+  be identifiable, so `accepted` now also depends on each pair's coupling, not only on
+  `mean_wpli`. A weakly coupled pair with a linear phase entered the depth fit, and a
+  well-coupled mean accepted the result; `rejection_reason` names such pairs.
+- `zflip` takes `min_band_power_fraction=0.01`: a contact carrying less than that fraction of
+  its power inside `freq_range`, read from the detrended segment spectra the phase slope
+  uses, makes both of its adjacent pairs unidentifiable, and `rejection_reason` names it. A
+  contact carrying only an out-of-band sinusoid passed the pair wPLI gate through window
+  leakage (pair wPLI 0.16 to 0.31) and was accepted with a delay 10 to 13 times the true
+  one. For the default band, a sinusoid from about 9.5 Hz up to the lower edge, and from the
+  upper edge to about 38 Hz, i.e. within the main lobe of an edge bin, can carry 0.01 to 0.7
+  of its power in the band and still pass.
+- `zflip`'s delay, wPLI and surrogate null now come from an STFT whose segments are linearly
+  detrended. Shared slow power leaked into the band through the window and biased the delay
+  upward (a shared 2 Hz component at 30 SD by 12%, a 1 Hz one at 100 SD by 34%; now 1.3% and
+  1.2%). Shared slow power also lowered the observed wPLI and, once each contact's phases
+  were randomised, inflated the surrogate null, which could suppress significance (p 0.76,
+  now 0.02, for a weak wave in noise with a shared 2 Hz component at 30 SD). Delays, wPLI
+  values and p-values change for every input: by a small amount, unless it carries a DC
+  offset, drift or slow power. Broadband background independent at each contact is not
+  removed and can still bias the delay (about +7% for a 1/f^2 background three times the
+  wave).
+- `zflip` refuses a contact that is a straight line in time to within round-off as it
+  refuses a constant one, and `rejection_reason` names it. The per-segment detrend reduced
+  such a ramp to round-off residue, which passed the gates and was accepted with a delay five
+  to six times the true one. A ramp built by cumulative summation leaves round-off that grows
+  with its length; from about 32000 samples it can exceed the width and is measured rather
+  than refused.
+- `zflip` requires each adjacent pair's wPLI to be significant against its own
+  phase-randomised surrogate null at `alpha` for that pair's delay to be identifiable. The
+  pair nulls come from the surrogates the mean is already tested against, so no further
+  random draws are made and `p_value` is unchanged. A contact carrying a signal independent
+  of the others, such as a contact outside cortex or on a broken channel, can fit a linear
+  phase (R^2 0.7 from 5 in-band bins) and reach pair wPLI 0.15, while the coupled pairs carry
+  the mean past its test; on a 5-contact wave with one end contact replaced by independent
+  noise, 7 in 100 recordings were accepted with a delay 3.2 to 5.3 times the true one, now 1
+  in 100. Each pair is tested at `alpha` without a multiplicity correction. A record of 256
+  samples is no longer accepted at the default band: its 3 in-band bins let about 10% of
+  independent-phase surrogates tie a pair wPLI of 1.0, so no pair passes.
+- `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
+  gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
+- `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed
+  its linearity or unambiguous-interval check, and names a failed depth fit (cumulative delay
+  not linear in contact index, or a zero gradient) on its own. It reported the phase gate for
+  any non-identifiable delay, including one refused only for weak coupling.
+- `granger`, `granger_spectral`, `phase_slope_index`, `transfer_entropy` and
+  `cross_modal_comparison` given a `Generator` draw one child seed from it, run their
+  surrogates on `default_rng(child)` and record the child as `surrogate_seed_entropy`, so
+  passing it back as `rng` reproduces the p-values. The Generator was used in place and
+  `surrogate_seed_entropy` was `None`, so the result alone could not reproduce p. The p-values
+  for a given Generator change; an `int` seed or `None` draws what it drew before.
+- `cross_modal_comparison` reports `surrogate_seed_entropy`, the seed of the circular-shift
+  null behind `lag_corrected_pvalue`, and `None` when no lag sweep ran. With the default
+  `rng=None` the seed was drawn and not reported.
+- `jrsa` raises `ValueError` for an `adim` other than the default that does not name the axis
+  its permutation null, `bootstrap` and `lag` act on (the last axis for the paired metrics,
+  axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes). Those act on that axis
+  whatever `adim` names, so `adim=0` with pearson returned the value and p of `adim=-1`. Without
+  any of the three, every `adim` runs as before.
+- `jrsa` reads a NumPy integer `adim`, alone or in a tuple, as that axis. `np.int64(0)` failed an
+  `int` check and ran as `adim=-1`, so `window=(0, 5)` windowed the last axis instead of axis 0.
+  An `adim` that is not an integer, a string, or a tuple or list of them, including
+  `None`, a float and a bool, raises `TypeError`; it was read as `adim=-1`.
+- `jrsa`'s docstring and the jrsa page state that at the default `adim=-1` the six axis-0
+  metrics window the features while `lag` and the null act on the observations, and that
+  `adim=0` windows the observations.
+- `select_optimal_lag`, which `granger_causality(order='auto')` uses, scores every order on one
+  sample, the targets left after trimming the largest candidate order, as `granger` does. Each
+  order was scored on its own `n - p` targets; on 60-sample pairs that selected another order
+  than the common-sample criteria in 53 of 200 cases.
+- `UnitAnalyzer.quality_metrics` sorts the spike times first. Unsorted, a backward step was a
+  negative interval counted as a refractory violation, and the first and last entries were read
+  as the recording's span: a shuffled 500-spike train read 51% violations where the sorted one
+  read 1%. A train that is not 1-D or holds a NaN or an infinity raises `ValueError`: a NaN read
+  as a good single unit, an infinity raised `OverflowError` and a 2-D array was pooled into one
+  train.
+- `UnitAnalyzer.psth` counts a spike on either edge of `[pre, post]`. Subtracting the onset
+  rounded it just outside the outer bin edges and the histogram dropped it: with a spike on each
+  edge of 405 trials 0.7 s apart, 114 were lost at the left edge and 147 at the right. It now bins as
+  `jnwb.viz.raster_psth` does, clipping each selected spike's relative time to the outer edges,
+  with its right edge still inclusive. With no onsets it returns NaN rates where it raised.
+
+- `jrsa` raises `ValueError` for a `reduction` key that names no axis of `adim`, and the
+  message lists the axes that exist. The key was skipped, so the unreduced value came back while
+  `parameters['reduction']` recorded the request: with `adim=(-3, -2)` the keys are `"axis_-3"`
+  and `"axis_-2"`, and `{"axis_0": "mean"}` or `{0: "mean"}` reduced nothing.
+- `jrsa`'s `mutual_information`, `granger_ssr_ftest`, `transfer_entropy_histogram_nats` and
+  `phase_slope` estimators raise `ValueError` when the two inputs differ in shape. They paired
+  the flattened samples by truncating the second input to the length of the first and returned
+  a number. `jrsa` already refused the mismatch at its entry; matched inputs give the same values.
+- `jrsa`: a `reduction` over axis 0 of `rsa`, `cka`, `rv`, `hsic`, `distance_correlation` or
+  `procrustes` removes that axis, so the next axis becomes the observations. It kept the axis
+  at length 1, which left one observation: averaging the trials of a `(trials, conditions,
+  units)` input returned NaN for `cka` (0.69 on `x.mean(0)`) and raised for `rsa`. The value now
+  equals the metric of `x.mean(0)`; `lag`, the null and `window` act on the reduced input, and
+  a `window` on the removed axis raises `ValueError`. The paired metrics are unchanged.
+- `raster_psth` counts every spike its window selects. The selection is in seconds and the
+  binning in ms, and the conversion could round a selected spike just past an outer edge:
+  onset 2.0 s and a spike at 1.9 s gave -100.00000000000009 ms against a first edge of -100, and
+  the spike was dropped. Only such spikes move, into the first or last bin.
+- `TFRAccumulator`: assigning `M2`, `sum_z`, `sum_unit_z` or `sum_ratio` casts to float64 or
+  complex128, as assigning `mean` already did, so a summary read back from `write`'s
+  float32/complex64 datasets keeps accumulating at double precision. `add_trial` casts an
+  integer `z` to complex128 before any state changes; it raised after the running mean had
+  taken the trial.
+- `TFRAccumulator`: assigning `n` stores an int64 copy of non-negative whole counts within
+  int64, and raises `ValueError` for anything else.
+  - `write` stores `n` as int32, and `merge` of two reloaded accumulators multiplied the counts
+    in int32, which overflows from 46341 trials per cell and returned a wrong `M2` without an
+    error.
+  - Refused: a fraction (2.7 was stored as 2), NaN or inf, a negative count, a boolean (True was
+    stored as 1), an unsigned value above the int64 maximum (`np.uint64(2**64 - 1)` wrapped to
+    -1), and a larger integer or float, which raised `OverflowError` or wrapped. An object array
+    is accepted only when every element is a non-negative Python int within int64; any other
+    object array is refused (a float element such as 2.5 was cast to 2).
+  - A whole float such as 3.0 is stored as the int64 3, and a non-negative integer is unchanged.
+  - An int64 array was stored as the caller's own array, so writing to that array afterwards
+    changed the accumulator's counts.
+- `XFlipResult.boundaries` and `block_bounds` hold Python ints. They held NumPy int64 from the
+  contiguous search, so `json.dumps` of `to_dict()` failed on them and on the `boundary_drops`
+  keys.
+- `jrsa`: a NumPy integer or 0-d array `lag` is one lag; it raised `TypeError`.
+- `jrsa`: `lag` now shifts the observation axis (axis 0) for `rsa`, `cka`, `rv`,
+  `hsic`, `distance_correlation` and `procrustes`. It used to roll the feature axis, which these
+  metrics are invariant to, so every lag returned the lag-0 value. The lag axis of the paired metrics is unchanged.
+- `cross_area_coherence`: when the CUDA path fails part-way through the surrogate null, the CPU
+  fallback reuses the shifts already drawn, so p equals a CPU run under the same seed and a
+  caller's generator advances once. Before, the fallback drew new shifts from the advanced
+  generator.
+- `jnwb.compression.verify_roundtrip` (and so `compress_fp32(verify=True)`) requires each cast
+  dataset to equal `source.astype(float32)` exactly. It accepted any destination within an
+  absolute 1e-3, so a zeroed destination passed at volt scale and a correct cast near 5e4, where
+  the float32 spacing is 3.9e-3, failed.
+- `jnwb.compression.verify_roundtrip` fails a cast dataset that is not float32 in the
+  destination, whose shape differs from the source's, or that is absent from the source. It fails
+  a collapsed timestamps group without `starting_time` in the destination or `timestamps` in the
+  source; it skipped that group and could return `ok=True` with its timestamps never checked.
+- `jrsa`: an input with no values left, from a zero-length axis under any `nan_policy` or from
+  `nan_policy="omit"` dropping every sample because one condition is NaN throughout, raises
+  `ValueError` naming the metric, and under `omit` that condition, for every metric. `hsic`,
+  `mutual_information` and
+  `transfer_entropy_histogram_nats` returned 0.0 computed from zero samples, six metrics
+  returned NaN and five raised unrelated errors.
+- `nested_cv_linear_svm(rng=None)` draws one seed from a fresh `numpy.random.default_rng()` for
+  its folds, group order and `SVC`. It passed `None` to scikit-learn, which read and advanced
+  NumPy's global `RandomState`. An int `rng` gives the same folds as before. A global
+  `np.random.seed` no longer makes `rng=None` reproducible; pass an int.
+- `compute_response_metrics` raises `ValueError` when either window's start is at or after its
+  stop. A reversed window returned a negative spike count with a positive rate.
+- `raster_psth` accepts a list of spike times; it raised an unrelated `TypeError`.
+- MCP `prepare_signal_reference` returns the series' `conversion`, `offset`,
+  `channel_conversion`, `unit`, `rate_hz`, `starting_time` or `timestamps_path`, `n_channels`,
+  `layout`, `layout_basis` and `reader`, and its `access_hint` gives the physical-value formula and
+  the sample times. Its hint told the caller to slice the stored `data` directly, which skips the
+  scaling and the start time, and read the channel axis from which dimension was longer.
+  `layout` is `"unknown"` unless the electrode region or the schema decides it. `reader` names
+  `jnwb.acquisition_channel` only when the layout is known, the series has a finite constant
+  rate, any `channel_conversion` has one factor per channel, and `jnwb.resolve_acquisition`
+  accepts the series' path as its name; otherwise it is `None`. A file the resolver cannot open,
+  such as HDF5 that is not NWB, still returns the reference, with no reader.
+- `jnwb.bilinear`: the documentation no longer calls two-class `predict_proba` calibrated. It is
+  sigmoid(D_1 - D_0) of two mirrored one-vs-rest scores, about sigmoid(2 D_1), and overconfident
+  on held-out trials.
+- Documentation figures 1, 3, 5, 7 and 10: no legend is drawn over data. A legend without a box
+  had nothing between its text and the bars or traces under it on the transparent background, and
+  figure 5's boxed legend hid the top of the cone-of-influence contour. Figure 10 shades the
+  samples `repair_lfp_trials` replaced, not the injected window.
+
 ## [0.2.6.1] - 2026-09-25
 
 ### Changed

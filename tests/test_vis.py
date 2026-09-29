@@ -20,7 +20,10 @@ Tests:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
+import warnings
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -175,16 +178,173 @@ def test_canvas_colorbar_placement():
 # 3. Triple Export & Vector Text Verification Tests
 # ==============================================================================
 
+# kaleido drives a headless browser. Two at once under `pytest -n` failed to shut down
+# intermittently, so every test that exports through it shares one xdist group, which
+# `--dist loadgroup` in pyproject.toml runs on a single worker. The group also renders in one
+# browser for the whole session (`session_browser` in conftest.py), so no export waits on a
+# shutdown; the retry below covers a kaleido that cannot keep one.
+BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
+
+
+def retry_browser_shutdown(call, attempts=3):
+    """Runs `call`, again when only the browser's shutdown timed out, as it can on a loaded
+    machine even alone on its worker. Any other error is raised at once; each retry warns, so
+    the log shows it fired. `tests/test_docs_call_shapes.py` keeps the same helper."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return call()
+        except RuntimeError as err:
+            if BROWSER_SHUTDOWN_TIMEOUT not in str(err) or attempt == attempts:
+                raise
+            warnings.warn(f"browser shutdown timed out; attempt {attempt + 1} of {attempts}",
+                          RuntimeWarning, stacklevel=2)
+
+
+def test_only_a_browser_shutdown_timeout_is_retried():
+    calls = []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)
+        return "exported"
+
+    with pytest.warns(RuntimeWarning, match="shutdown timed out"):
+        assert retry_browser_shutdown(flaky) == "exported"
+    assert len(calls) == 3
+
+    def always():
+        raise RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)
+
+    with pytest.warns(RuntimeWarning), pytest.raises(RuntimeError):
+        retry_browser_shutdown(always)
+
+    def broken():
+        calls.append(1)
+        raise RuntimeError("the figure is wrong")
+
+    calls.clear()
+    with pytest.raises(RuntimeError, match="the figure is wrong"):
+        retry_browser_shutdown(broken)
+    assert len(calls) == 1
+
+
+@pytest.mark.xdist_group("browser_export")
+def test_exports_in_the_group_render_in_the_session_browser():
+    kaleido = pytest.importorskip("kaleido")
+    if not hasattr(kaleido, "start_sync_server"):
+        pytest.skip("this kaleido opens a browser per export")
+    with warnings.catch_warnings(record=True) as seen:
+        warnings.simplefilter("always")
+        kaleido.start_sync_server()  # warns when a session browser is already running
+    running = any("already open" in str(w.message) for w in seen)
+    if not running:
+        kaleido.stop_sync_server(silence_warnings=True)
+    assert running, "each export would open and shut down a browser of its own"
+
+
+def test_a_call_to_a_dead_session_browser_raises_its_ending(session_browser_parts):
+    parts = session_browser_parts
+    launch = FileNotFoundError("no browser")
+
+    class Server:
+        """kaleido's server with its thread already ended, and a call that waits forever."""
+
+        async def _server(self):
+            raise launch
+
+        def call_function(self, cmd, *args, **kwargs):
+            threading.Event().wait()
+
+    server = Server()
+    parts.install(server)
+    server.call_function.seconds = 600  # only the dead thread can end the call in time
+
+    def serve():
+        try:
+            asyncio.run(server._server())
+        except FileNotFoundError:
+            pass
+
+    server._thread = threading.Thread(target=serve)
+    server._thread.start()
+    server._thread.join()
+    out = {}
+
+    def call():
+        try:
+            server.call_function("calc_fig")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call to a dead server blocked"
+    assert isinstance(out["error"], parts.failed), out
+    assert out["error"].__cause__ is launch
+
+
+def test_a_session_browser_call_that_never_answers_raises(session_browser_parts):
+    out = {}
+
+    def call():
+        try:
+            session_browser_parts.bounded(threading.Event().wait, 0.5, "render")
+        except BaseException as err:  # noqa: BLE001
+            out["error"] = err
+
+    caller = threading.Thread(target=call, daemon=True)
+    caller.start()
+    caller.join(20)
+    assert not caller.is_alive(), "a call that never answers blocked past its bound"
+    assert isinstance(out["error"], session_browser_parts.failed)
+    assert "gave no render in 0.5 s" in str(out["error"])
+
+
+def test_an_empty_first_figure_fails_the_session_browser(session_browser_parts):
+    parts = session_browser_parts
+    with pytest.raises(parts.failed, match="empty figure"):
+        parts.first_figure(lambda figure, opts: b"")
+    assert parts.first_figure(lambda figure, opts: b"<svg/>") == b"<svg/>"
+
+
+def test_only_a_shutdown_timeout_of_the_session_browser_is_forgiven(session_browser_parts):
+    browser_stopper = session_browser_parts.stop
+    before = threading.excepthook
+
+    class Kaleido:
+        """Raises `err` on its own thread when stopped, as kaleido's server thread does."""
+
+        def __init__(self, err):
+            self.err = err
+
+        def stop_sync_server(self, silence_warnings):
+            def close():
+                raise self.err
+
+            thread = threading.Thread(target=close)
+            thread.start()
+            thread.join()
+
+    with pytest.warns(RuntimeWarning, match="shutdown timed out"):
+        browser_stopper(Kaleido(RuntimeError(BROWSER_SHUTDOWN_TIMEOUT)))
+    with pytest.raises(RuntimeError, match="the figure is wrong"):
+        browser_stopper(Kaleido(RuntimeError("the figure is wrong")))
+    assert threading.excepthook is before
+
+
+@pytest.mark.xdist_group("browser_export")
 def test_canvas_save_and_seal_triple_export(tmp_path, sample_argument_data):
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=80.0, rows=1, cols=1, tags=[["A"]])
     canvas.fig.add_trace(go.Scatter(x=[0, 1, 2], y=[10, 20, 15], mode="lines+markers"))
 
-    out_paths = canvas.save_and_seal(
+    out_paths = retry_browser_shutdown(lambda: canvas.save_and_seal(
         output_dir=tmp_path,
         basename="test_figure",
         argument_object=sample_argument_data,
         png_dpi=150,
-    )
+    ))
 
     assert "svg" in out_paths and out_paths["svg"].exists()
     assert "png" in out_paths and out_paths["png"].exists()
@@ -220,6 +380,7 @@ def test_spectrolaminar_map_primitive():
         freqs=freqs,
         depths=depths,
         crossover_depth=0.4,
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
@@ -227,6 +388,26 @@ def test_spectrolaminar_map_primitive():
     assert len(heatmap_traces) == 1
     assert heatmap_traces[0].zmin == 0.0
     assert heatmap_traces[0].zmax == 1.0
+
+
+@pytest.mark.parametrize("bad", [-0.01, 1.01])
+def test_spectrolaminar_map_refuses_values_outside_unit_range(bad):
+    """The colour scale is fixed to [0, 1]; a ratio to baseline was clipped without a word."""
+    rel_power = np.full((5, 4), 0.5)
+    rel_power[2, 1] = bad
+    rel_power[0, 0] = np.nan  # a gap, not a refusal
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=r"fractions in \[0, 1\].*relative_power"):
+        plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.arange(1.0, 6.0),
+                                depths=np.linspace(0.0, 1.0, 4), depth_unit="relative")
+
+
+def test_spectrolaminar_map_accepts_the_closed_unit_range_with_gaps():
+    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5]])
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0]),
+                            depths=np.array([0.0, 1.0]), depth_unit="relative")
+    assert any(isinstance(t, go.Heatmap) for t in canvas.fig.data)
 
 
 def test_no_crossover_depth_is_drawn_unless_the_caller_computed_one():
@@ -237,13 +418,13 @@ def test_no_crossover_depth_is_drawn_unless_the_caller_computed_one():
 
     bare = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     plot_spectrolaminar_map(canvas=bare, row=0, col=0, rel_power=rel_power, freqs=freqs,
-                            depths=depths)
+                            depths=depths, depth_unit="relative")
     assert not any("Crossover" in (a.text or "") for a in bare.fig.layout.annotations)
     assert not any(isinstance(t, go.Scatter) for t in bare.fig.data)
 
     given = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     plot_spectrolaminar_map(canvas=given, row=0, col=0, rel_power=rel_power, freqs=freqs,
-                            depths=depths, crossover_depth=0.37)
+                            depths=depths, crossover_depth=0.37, depth_unit="relative")
     assert any("Crossover (0.37)" in (a.text or "") for a in given.fig.layout.annotations)
 
 
@@ -265,6 +446,7 @@ def test_opposing_gradients_primitive():
         crossover_depth=0.4,
         ci_gamma=ci_gamma,
         ci_alphabeta=ci_ab,
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
@@ -285,10 +467,165 @@ def test_csd_primitive():
         time_ms=time_ms,
         depths=depths,
         layer_boundaries={"L4": 0.4, "L5/6": 0.65},
+        value_unit="A/m³",
+        depth_unit="relative",
     )
 
     traces = canvas.fig.data
     assert any(isinstance(t, go.Heatmap) for t in traces)
+
+
+def _csd_colorbar(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+             depths=np.arange(3.0), depth_unit="mm", **kwargs)
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    return heatmap.colorbar.title.text
+
+
+@pytest.mark.parametrize("kwargs, label", [
+    ({"value_unit": "V/m²"}, "V/m²"),
+    ({"value_unit": "A/m³", "colorbar_title": "CSD"}, "CSD (A/m³)"),
+])
+def test_csd_colorbar_carries_the_declared_unit(kwargs, label):
+    """The colorbar read "CSD (mV/mm²)" whatever unit the matrix was in."""
+    assert _csd_colorbar(**kwargs) == label
+
+
+def test_csd_hover_carries_the_declared_unit():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+             depths=np.arange(3.0), value_unit="V/m²", depth_unit="mm")
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    assert "V/m²" in heatmap.hovertemplate
+
+
+def test_csd_draws_no_panel_title_unless_given():
+    """The default title asserted current source density for a voltage-curvature input too."""
+    def titles(**kwargs):
+        canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+        plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
+                 depths=np.arange(3.0), value_unit="V/m²", depth_unit="mm", **kwargs)
+        return [a.text for a in canvas.fig.layout.annotations if a.yref == "paper"]
+
+    assert titles() == []
+    assert titles(title="Voltage curvature") == ["<b>Voltage curvature</b>"]
+
+
+def test_csd_value_unit_is_required():
+    with pytest.raises(TypeError, match="value_unit"):
+        _csd_colorbar()
+
+
+@pytest.mark.parametrize("unit", ["", "  "])
+def test_csd_value_unit_must_be_non_empty(unit):
+    with pytest.raises(ValueError, match="value_unit"):
+        _csd_colorbar(value_unit=unit)
+
+
+def _sorted_heatmap(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_sorted_heatmap(canvas, 0, 0, np.ones((3, 4)), np.arange(4.0), **kwargs)
+    (heatmap,) = [t for t in canvas.fig.data if isinstance(t, go.Heatmap)]
+    return heatmap
+
+
+@pytest.mark.parametrize("kwargs, label", [
+    ({"value_unit": "spikes/s"}, "spikes/s"),
+    ({"value_unit": "z", "colorbar_title": "Rate"}, "Rate (z)"),
+])
+def test_sorted_heatmap_colorbar_carries_the_declared_unit(kwargs, label):
+    """The colorbar read "Rate (Δz)" whatever the matrix held."""
+    assert _sorted_heatmap(**kwargs).colorbar.title.text == label
+
+
+def test_sorted_heatmap_hover_carries_the_declared_unit():
+    assert "spikes/s" in _sorted_heatmap(value_unit="spikes/s").hovertemplate
+
+
+def test_sorted_heatmap_value_unit_is_required():
+    with pytest.raises(TypeError, match="value_unit"):
+        _sorted_heatmap()
+
+
+@pytest.mark.parametrize("unit", ["", "  "])
+def test_sorted_heatmap_value_unit_must_be_non_empty(unit):
+    with pytest.raises(ValueError, match="value_unit"):
+        _sorted_heatmap(value_unit=unit)
+
+
+def _laminar_call(name, depths, **kwargs):
+    """Draw one laminar panel on a fresh canvas and return the depth-axis title."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    n = len(depths)
+    if name == "map":
+        plot_spectrolaminar_map(canvas, 0, 0, rel_power=np.full((5, n), 0.5),
+                                freqs=np.arange(1.0, 6.0), depths=depths, **kwargs)
+    elif name == "gradients":
+        plot_opposing_gradients(canvas, 0, 0, gamma_power=np.linspace(1, 0, n),
+                                alphabeta_power=np.linspace(0, 1, n), depths=depths, **kwargs)
+    else:
+        plot_csd(canvas, 0, 0, csd_matrix=np.ones((n, 4)), time_ms=np.arange(4.0),
+                 depths=depths, value_unit="A/m³", **kwargs)
+    _, y_axis = canvas.get_axis_names(0, 0)
+    yaxis_name = "yaxis" if y_axis == "y" else f"yaxis{y_axis[1:]}"
+    return getattr(canvas.fig.layout, yaxis_name).title.text
+
+
+LAMINAR_PLOTS = ["map", "gradients", "csd"]
+
+
+@pytest.mark.parametrize("name", LAMINAR_PLOTS)
+@pytest.mark.parametrize("unit, label", [
+    ("mm", "Cortical Depth (mm)"),
+    ("um", "Cortical Depth (μm)"),
+    ("relative", "Relative Depth (0=Pia, 1=WM)"),
+])
+def test_laminar_depth_axis_is_labelled_from_the_declared_unit(name, unit, label):
+    """A 0-1.55 mm probe was labelled relative depth because the unit was read off the maximum."""
+    assert _laminar_call(name, np.linspace(0.0, 1.55, 8), depth_unit=unit) == label
+
+
+@pytest.mark.parametrize("name", LAMINAR_PLOTS)
+def test_laminar_depth_unit_is_required_and_validated(name):
+    with pytest.raises(TypeError, match="depth_unit"):
+        _laminar_call(name, np.linspace(0.0, 1.0, 8))
+    with pytest.raises(ValueError, match="'mm', 'um' or 'relative'"):
+        _laminar_call(name, np.linspace(0.0, 1.0, 8), depth_unit="cm")
+
+
+def test_granger_spectra_draws_the_inputs():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    freqs = np.linspace(1.0, 100.0, 7)
+    gc_ff = np.array([0.013, 0.21, 0.37, 0.05, 0.11, 0.002, 0.3])
+    gc_fb = gc_ff[::-1] / 3.0
+    null = np.column_stack([np.linspace(0.01, 0.02, 7), np.linspace(0.04, 0.09, 7)])
+    plot_granger_spectra(canvas, 0, 0, freqs, gc_ff, gc_fb, null_ribbon=null,
+                         ff_label="X → Y", fb_label="Y → X")
+    low, high, ff, fb = canvas.fig.data
+    for trace, y in [(low, null[:, 0]), (high, null[:, 1]), (ff, gc_ff), (fb, gc_fb)]:
+        np.testing.assert_allclose(trace.x, freqs, rtol=1e-12)
+        np.testing.assert_allclose(trace.y, y, rtol=1e-12)
+    assert high.fill == "tonexty"
+    assert (ff.name, fb.name) == ("X → Y", "Y → X")
+    assert canvas.fig.layout.xaxis.title.text == "Frequency (Hz)"
+    assert canvas.fig.layout.yaxis.title.text == "Granger Causality"
+
+
+def test_rsm_heatmap_draws_the_inputs():
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    labels = ["a", "b", "c"]
+    rsm = np.array([[0.0, 0.31, 0.72], [0.31, 0.0, 0.113], [0.72, 0.113, 0.0]])
+    plot_rsm_heatmap(canvas, 0, 0, rsm, labels, colorbar_title="1 - r")
+    (heatmap,) = canvas.fig.data
+    np.testing.assert_allclose(np.asarray(heatmap.z, dtype=float), rsm, rtol=1e-12)
+    assert list(heatmap.x) == labels and list(heatmap.y) == labels
+    assert heatmap.colorbar.title.text == "1 - r"
+    assert canvas.fig.layout.yaxis.autorange == "reversed"
+    # An asymmetric matrix: row i is the y label, column j the x label.
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_rsm_heatmap(canvas, 0, 0, np.array([[0.0, 0.2], [0.7, 0.0]]), ["a", "b"])
+    assert canvas.fig.data[0].z[0][1] == 0.2
 
 
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():
@@ -353,6 +690,7 @@ def test_hierarchy_regression_primitive():
         r_squared=0.82,
         p_perm=0.012,
         null_line=5.0,
+        y_label="Prevalence (%)",
     )
 
     traces = canvas.fig.data
@@ -360,6 +698,30 @@ def test_hierarchy_regression_primitive():
     data_traces = [t for t in traces if hasattr(t, "error_y") and t.error_y.visible]
     assert len(data_traces) == 1
     assert data_traces[0].error_y.visible is True
+
+
+def _hierarchy_y_title(**kwargs):
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    v = np.array([80.0, 95.0, 110.0])
+    plot_hierarchy_regression(canvas, 0, 0, hierarchy_ranks=np.arange(3), values=v,
+                              ci_low=v - 5, ci_high=v + 5, area_labels=["a", "b", "c"], **kwargs)
+    return canvas.fig.layout.yaxis.title.text
+
+
+def test_hierarchy_axis_label_is_the_callers():
+    """The axis read "Prevalence (%)" by default although values may be onset latency."""
+    assert _hierarchy_y_title(y_label="Onset latency (ms)") == "Onset latency (ms)"
+
+
+def test_hierarchy_axis_label_is_required():
+    with pytest.raises(TypeError, match="y_label"):
+        _hierarchy_y_title()
+
+
+@pytest.mark.parametrize("label", ["", "  "])
+def test_hierarchy_axis_label_must_be_non_empty(label):
+    with pytest.raises(ValueError, match="y_label"):
+        _hierarchy_y_title(y_label=label)
 
 
 def test_spectral_modulation_matrix_primitive():

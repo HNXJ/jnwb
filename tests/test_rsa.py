@@ -132,7 +132,7 @@ def test_jrsa_delegation_parity():
     x2 = x1 + 0.3 * rng.normal(size=(30, 15))
 
     # jrsa with metric='rsa'
-    res_jrsa = jnwb.jrsa(x1, x2, metric="rsa")
+    res_jrsa = jnwb.jrsa(x1, x2, metric="rsa", null="iid")
 
     # Direct rdm computation
     v1 = jnwb.rdm(x1, metric="correlation", condensed=True)

@@ -1,7 +1,7 @@
 """
-Anatomical addressing and cortical layer mapping for NWB electrode tables.
+Anatomical addressing and geometric depth classes for NWB electrode tables.
 
-Maps units/channels to areas and layers from electrode metadata, and standardizes
+Maps units/channels to areas and depth classes from electrode metadata, and standardizes
 units DataFrame fields (unit_id, area, depth_class, quality flags). Probe labels are
 split on comma or slash only, keeping a slash inside an atlas layer label; this module
 carries no area vocabulary and does not normalize spelling or aliases.
@@ -9,8 +9,7 @@ carries no area vocabulary and does not normalize spelling or aliases.
 
 from dataclasses import dataclass
 import logging
-import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
 
@@ -89,9 +88,11 @@ def parse_probe_areas(label: str) -> tuple:
 def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     """Resolve an electrode row from electrodes_df by channel ID.
 
-    Checks explicit identifier columns ('channel_id', 'id', 'electrode_id') first
-    to avoid row index / channel ID substitution when DataFrame index is reset or non-default,
-    falling back to DataFrame index lookup.
+    The ID is looked up in the first identifier column present, in the order 'channel_id',
+    'id', 'electrode_id', so a reset or non-default DataFrame index is never read as a channel
+    ID. Only that column is searched: the columns can number channels differently, so an ID
+    missing from it resolves to nothing rather than to a row of another numbering. The
+    DataFrame index is used only when no identifier column exists.
 
     Returns:
         (row_index, row_series) or (None, None) if not found.
@@ -104,21 +105,26 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     except (ValueError, TypeError, OverflowError):
         return None, None
 
-    # 1. Check explicit channel identifier columns first
-    has_explicit_id_col = False
-    for id_col in ['channel_id', 'id', 'electrode_id']:
-        if id_col in electrodes_df.columns:
-            has_explicit_id_col = True
-            matches = electrodes_df.index[electrodes_df[id_col] == val]
-            if len(matches) > 0:
-                idx = matches[0]
-                return idx, electrodes_df.loc[idx]
+    id_col = _identifier_column(electrodes_df)
+    if id_col is not None:
+        matches = electrodes_df.index[electrodes_df[id_col] == val]
+        if len(matches) > 0:
+            idx = matches[0]
+            return idx, electrodes_df.loc[idx]
+        return None, None
 
-    # 2. Fall back to DataFrame index ONLY IF no explicit channel ID column was present
-    if not has_explicit_id_col and val in electrodes_df.index:
+    if val in electrodes_df.index:
         return val, electrodes_df.loc[val]
 
     return None, None
+
+
+def _identifier_column(electrodes_df: pd.DataFrame) -> Optional[str]:
+    """The channel identifier column :func:`_resolve_electrode_row` searches, or None."""
+    for id_col in ('channel_id', 'id', 'electrode_id'):
+        if id_col in electrodes_df.columns:
+            return id_col
+    return None
 
 
 def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame) -> Optional[str]:
@@ -133,6 +139,61 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
         Brain area name (e.g. 'V1', 'PFC', 'FEF') or None if unresolved
     """
     idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
+    return _area_from_row(peak_channel_id, idx, row, electrodes_df, {})
+
+
+_MISSING = object()
+
+
+def _electrode_row_resolver(electrodes_df: pd.DataFrame):
+    """Return ``val -> (row_index, row)`` agreeing with :func:`_resolve_electrode_row`.
+
+    ``val`` is the integer channel ID that function derives. When the identifier column it
+    searches has a NumPy integer, unsigned, boolean or float64 dtype, one pass over the column
+    builds a first-match table, so a lookup is O(1) rather than a comparison over the whole
+    table; a float64 column is keyed with ``float(val)``, the conversion ``==`` applies. A
+    narrower float column is excluded because ``==`` rounds ``val`` to that float's mantissa
+    (16777217 equals a float32 16777216), which a table keyed on exact values would miss. Any
+    other identifier column, or none, falls back to :func:`_resolve_electrode_row` per call.
+    """
+    id_col = _identifier_column(electrodes_df)
+    fast = id_col is not None and (
+        isinstance(electrodes_df[id_col], pd.Series)
+        and isinstance(electrodes_df[id_col].dtype, np.dtype)
+        and (electrodes_df[id_col].dtype.kind in 'iub'
+             or electrodes_df[id_col].dtype == np.float64)
+    )
+    if not fast:
+        return lambda val: _resolve_electrode_row(val, electrodes_df)
+
+    col = electrodes_df[id_col]
+    first: dict = {}
+    for key, idx in zip(col.to_numpy().tolist(), electrodes_df.index):
+        first.setdefault(key, idx)
+    is_float = col.dtype.kind == 'f'
+
+    def resolve(val):
+        idx = first.get(float(val) if is_float else val, _MISSING)
+        if idx is not _MISSING:
+            return idx, electrodes_df.loc[idx]
+        return None, None
+
+    return resolve
+
+
+def _channel_key(peak_channel_id):
+    """The integer :func:`_resolve_electrode_row` looks up, or None where it finds nothing."""
+    if pd.isna(peak_channel_id):
+        return None
+    try:
+        return int(float(peak_channel_id))
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def _area_from_row(peak_channel_id, idx, row, electrodes_df: pd.DataFrame,
+                   probe_cache: dict) -> Optional[str]:
+    """The area of an already resolved electrode row; ``probe_cache`` holds each probe's rows."""
     if row is None:
         return None
 
@@ -168,12 +229,18 @@ def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame
 
             group_col = 'group_name' if 'group_name' in electrodes_df.columns else col_to_check
             probe_key = row.get(group_col)
-            probe_rows = electrodes_df[electrodes_df[group_col] == probe_key]
-            n_channels_on_probe = len(probe_rows)
+            # Only plain scalar keys are cached, so every cache key hashes.
+            cacheable = probe_key is None or isinstance(probe_key, (str, int, float, np.number))
+            probe_indices = probe_cache.get((group_col, probe_key)) if cacheable else None
+            if probe_indices is None:
+                probe_rows = electrodes_df[electrodes_df[group_col] == probe_key]
+                probe_indices = list(probe_rows.index)
+                if cacheable:
+                    probe_cache[(group_col, probe_key)] = probe_indices
+            n_channels_on_probe = len(probe_indices)
             if n_channels_on_probe == 0:
                 return loc_str.split(',')[0].strip()
 
-            probe_indices = list(probe_rows.index)
             local_idx = probe_indices.index(idx)
 
             edges = np.linspace(0, n_channels_on_probe, len(areas) + 1)
@@ -249,9 +316,9 @@ def classify_layer_from_depth(
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
 ) -> str:
-    """Classify unit cortical layer using z depth coordinates.
+    """Classify a unit's geometric depth class from electrode z depth.
 
-    Classifies layer based on electrode z depth ('Superficial' for <= threshold,
+    Thresholds electrode z depth ('Superficial' for <= threshold,
     'Deep' for > threshold). To prevent scientific errors from unit ambiguity,
     depth units must be explicitly provided via ``depth_unit`` or declared in
     ``electrodes_df`` metadata/columns ('depth_unit', 'z_unit', 'unit').
@@ -276,12 +343,20 @@ def classify_layer_from_depth(
         threshold_unit: Optional unit of threshold (e.g. 'um', 'mm').
 
     Returns:
-        Cortical layer label ('Deep', 'Superficial', or 'Unknown')
+        Geometric depth class ('Deep', 'Superficial', or 'Unknown'), not a cortical layer
     """
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return "Unknown"
 
-    idx, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
+    _, row = _resolve_electrode_row(peak_channel_id, electrodes_df)
+    return _depth_class_from_row(peak_channel_id, row, electrodes_df, depth_unit, threshold,
+                                 threshold_unit)
+
+
+def _depth_class_from_row(peak_channel_id, row, electrodes_df: pd.DataFrame,
+                          depth_unit: Optional[str], threshold: Optional[float],
+                          threshold_unit: Optional[str]) -> str:
+    """The depth class of an already resolved electrode row."""
     if row is None:
         return "Unknown"
 
@@ -351,13 +426,7 @@ def enrich_units_dataframe(
     'Unknown') is written to ``depth_class``. It is a threshold on electrode depth, not a
     cortical layer; the electrophysiological laminar identity is ``jnwb.label_layers``.
 
-    ``layer`` is a deprecated copy of ``depth_class`` and is removed in jnwb 0.2.7. Whenever
-    this function writes it, the call emits ``FutureWarning``. pandas has no hook on reading a
-    column, so the warning fires at the call whether or not ``layer`` is read afterwards. With
-    no electrode geometry, a ``layer`` column already on ``units_df`` is kept as supplied and
-    nothing is written or warned. Read ``depth_class``; until 0.2.7 the warning can be
-    silenced with ``warnings.filterwarnings("ignore", message="The 'layer' column",
-    category=FutureWarning)``.
+    No ``layer`` column is written. One already on ``units_df`` is returned as supplied.
 
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
     membership in the accepted good labels otherwise -- and is not added when ``units_df``
@@ -379,39 +448,6 @@ def enrich_units_dataframe(
     Returns:
         Standardized and enriched DataFrame
     """
-    df, wrote_layer = _enrich_units_dataframe(
-        units_df,
-        electrodes_df,
-        depth_unit=depth_unit,
-        threshold=threshold,
-        threshold_unit=threshold_unit,
-    )
-    if wrote_layer:
-        _warn_legacy_layer_column(stacklevel=3)
-    return df
-
-
-_LEGACY_LAYER_WARNING = (
-    "The 'layer' column is a deprecated copy of 'depth_class', the geometric "
-    "Deep/Superficial/Unknown class, and is removed in jnwb 0.2.7. Read 'depth_class'."
-)
-
-
-def _warn_legacy_layer_column(stacklevel: int = 2) -> None:
-    """Emit the ``FutureWarning`` for the deprecated ``layer`` column."""
-    warnings.warn(_LEGACY_LAYER_WARNING, FutureWarning, stacklevel=stacklevel)
-
-
-def _enrich_units_dataframe(
-    units_df: pd.DataFrame,
-    electrodes_df: Optional[pd.DataFrame],
-    *,
-    depth_unit: Optional[str] = None,
-    threshold: Optional[float] = None,
-    threshold_unit: Optional[str] = None,
-) -> Tuple[pd.DataFrame, bool]:
-    """:func:`enrich_units_dataframe` without the warning; also says whether ``layer`` was written."""
-    wrote_layer = False
     df = units_df.copy()
 
     # 1. Standardize unit_id column
@@ -427,26 +463,33 @@ def _enrich_units_dataframe(
 
     # 2. Enrich anatomical mapping if electrodes_df is provided
     if electrodes_df is not None and len(electrodes_df) > 0 and 'peak_channel_id' in df.columns:
-        df['area'] = df['peak_channel_id'].apply(lambda x: map_peak_channel_to_area(x, electrodes_df))
-        df['depth_class'] = df['peak_channel_id'].apply(
-            lambda x: classify_layer_from_depth(
-                x,
-                electrodes_df,
-                depth_unit=depth_unit,
-                threshold=threshold,
-                threshold_unit=threshold_unit,
-            )
-        )
-        df['layer'] = df['depth_class']
-        wrote_layer = True
-
-        # Resolve group_name/probe mapping
+        # Units share channels, so each channel is resolved and classified once and every
+        # unit on it reads the cached answer: the per-unit step is a dict lookup instead of
+        # three comparisons over the whole electrode table.
         col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)
+        resolve = _electrode_row_resolver(electrodes_df)
+        probe_cache: dict = {}
+        per_channel: dict = {}
+
+        def _enrich(x):
+            key = _channel_key(x)
+            try:
+                return per_channel[key]
+            except KeyError:
+                pass
+            idx, row = (None, None) if key is None else resolve(key)
+            per_channel[key] = (
+                _area_from_row(x, idx, row, electrodes_df, probe_cache),
+                _depth_class_from_row(x, row, electrodes_df, depth_unit, threshold,
+                                      threshold_unit),
+                row.get(col_group) if row is not None and col_group is not None else None,
+            )
+            return per_channel[key]
+
+        df['area'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[0])
+        df['depth_class'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[1])
         if col_group is not None:
-            def _get_group(x):
-                _, r = _resolve_electrode_row(x, electrodes_df)
-                return r.get(col_group) if r is not None else None
-            df['group_name'] = df['peak_channel_id'].apply(_get_group)
+            df['group_name'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[2])
         else:
             df['group_name'] = None
     else:
@@ -454,9 +497,6 @@ def _enrich_units_dataframe(
             df['area'] = None
         if 'depth_class' not in df.columns:
             df['depth_class'] = 'Unknown'
-        if 'layer' not in df.columns:
-            df['layer'] = df['depth_class']
-            wrote_layer = True
         if 'group_name' not in df.columns:
             df['group_name'] = None
 
@@ -496,7 +536,7 @@ def _enrich_units_dataframe(
     # Ensure clean RangeIndex (0 to N-1) to guarantee row-position lookup in get_spike_times
     df = df.reset_index(drop=True)
 
-    return df, wrote_layer
+    return df
 
 
 # Smallest advance along the shaft axis, as a fraction of the mean advance, that still

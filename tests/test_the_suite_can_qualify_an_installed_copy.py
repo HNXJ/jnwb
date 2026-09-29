@@ -73,6 +73,72 @@ def test_no_test_module_puts_the_checkout_ahead_of_the_package_under_test() -> N
     )
 
 
+def _unguarded_prepends(source: str, name: str) -> list[str]:
+    """`sys.path.insert(0, X)` not directly under `if X not in sys.path:`.
+
+    A script prepends the checkout so that its command line measures the checkout's jnwb. The
+    suite imports those scripts and calls their functions in-process, and there an unguarded
+    prepend re-shadows the installed copy for every test that runs after it, in that worker
+    only: `reconstruct_state.build()` did exactly that on the installed-wheel CI leg of
+    2026-09-28. Guarded, the prepend is a no-op inside the suite, whose test modules have
+    already appended the root before importing anything from `scripts`.
+    """
+    tree = ast.parse(source)
+    guarded: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        test = node.test
+        if not (
+            isinstance(test, ast.Compare)
+            and len(test.ops) == 1
+            and isinstance(test.ops[0], ast.NotIn)
+            and ast.unparse(test.comparators[0]) == "sys.path"
+        ):
+            continue
+        for stmt in node.body:
+            call = stmt.value if isinstance(stmt, ast.Expr) else None
+            if isinstance(call, ast.Call) and len(call.args) == 2 and (
+                ast.unparse(call.args[1]) == ast.unparse(test.left)
+            ):
+                guarded.add(id(call))
+    offenders = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr != "insert" or ast.unparse(node.func.value) != "sys.path":
+            continue
+        if not node.args or ast.unparse(node.args[0]) != "0" or id(node) in guarded:
+            continue
+        inserted = ast.unparse(node.args[1]) if len(node.args) > 1 else ""
+        offenders.append(f"{name}:{node.lineno} prepends {inserted} unconditionally")
+    return offenders
+
+
+#: Trees whose Python files the suite imports or executes in-process. `docs/` is here because
+#: `test_figure_form.py` executes `docs/generate_figures.py`, whose unconditional prepend was the
+#: route by which the checkout still reached the front of `sys.path` on the installed-wheel leg
+#: after `reconstruct_state.build()` was guarded. `examples/` has its own opt-out guard, pinned
+#: by `test_every_example_guard_stands_aside_for_a_deliberate_installed_run`.
+IN_PROCESS_TREES = ("scripts", "docs")
+
+
+def test_no_script_prepends_the_checkout_unconditionally() -> None:
+    """Every Python file in those trees, because any of them can be loaded by a test."""
+    scripts = sorted(p for tree in IN_PROCESS_TREES for p in (ROOT / tree).rglob("*.py"))
+    assert len(scripts) > 10, f"only {len(scripts)} scripts found; the glob is wrong"
+    assert (ROOT / "docs" / "generate_figures.py") in scripts, "docs/ is no longer scanned"
+    offenders = []
+    for script in scripts:
+        offenders += _unguarded_prepends(
+            script.read_text(encoding="utf-8"), script.relative_to(ROOT).as_posix()
+        )
+    assert not offenders, (
+        "these prepend to sys.path even when the directory is already on it, which inside "
+        f"the suite puts the checkout ahead of the package under test: {offenders}"
+    )
+
+
 _REPO_DIRS = ("skills", "docs", "examples", "scripts", "artifacts", "tests", "jnwb")
 
 
@@ -280,6 +346,19 @@ def test_this_file_would_have_caught_the_defects_it_documents() -> None:
     ]
     assert inserts, "the scanner would not have seen the prepend it was written for"
     assert not any("scripts" in ast.unparse(node.args[1]) for node in inserts)
+
+    # The prepend `reconstruct_state.build()` carried until 2026-09-28, and the guarded form.
+    old_build = "import sys\ndef build():\n    sys.path.insert(0, str(REPO_ROOT))\n"
+    assert _unguarded_prepends(old_build, "old.py"), "the unguarded prepend was not seen"
+    for source in (
+        "import sys\nif str(REPO_ROOT) not in sys.path:\n    sys.path.insert(0, str(REPO_ROOT))\n",
+        "import sys\nsys.path.append(str(REPO_ROOT))\n",
+    ):
+        assert not _unguarded_prepends(source, "ok.py"), f"flagged: {source!r}"
+    # A guard on one directory does not license a prepend of another.
+    assert _unguarded_prepends(
+        "import sys\nif str(A) not in sys.path:\n    sys.path.insert(0, str(B))\n", "old.py"
+    ), "a mismatched guard was accepted"
 
     # The scanners themselves, not a copy of their logic. The second path and the aliased
     # assertion are the two spellings that reached the installed-wheel CI leg on 2026-09-22.

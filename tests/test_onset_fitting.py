@@ -121,3 +121,53 @@ class TestFitExponentialOnset:
         fit = fit_exponential_onset(t_ms, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))
         assert set(fit.keys()) == {"t0", "tau", "amplitude", "baseline", "r2", "converged", "cost", "bound_status"}
         assert fit["bound_status"] is None
+
+
+class TestANoiseOnlyPSTH:
+    """`bound_status` checks t0 alone, so a fit to a PSTH with no response usually reads
+    None; what marks it is `tau` at an end of its bounds and `r2` near 0. The docs state
+    this for the quickstart's PSTH and for noise PSTHs in general; these tests hold both.
+    """
+
+    ONSETS = np.array([1.0, 3.0, 5.0, 7.0])
+    TAU_BOUNDS = (1.0, 150.0)  # the default `tau_bounds_ms`
+
+    def _fit(self, spike_times):
+        from jnwb import raster_psth
+
+        t_ms, rate, _ = raster_psth(spike_times, self.ONSETS, win_ms=(-100.0, 400.0), bin_ms=10.0)
+        return fit_exponential_onset(t_ms, rate, t0_bounds_ms=(0.0, 250.0))
+
+    def _tau_at_a_bound(self, fit):
+        return min(abs(fit["tau"] - b) for b in self.TAU_BOUNDS) < 1e-2
+
+    def test_the_quickstart_psth(self):
+        """The page's own code blocks, run in order up to its onset fit, so the draw is the
+        page's and not a retyped copy that can fall out of step with it."""
+        import contextlib
+        import io
+        import re
+        from pathlib import Path
+
+        page = (Path(__file__).resolve().parents[1] / "docs" / "quickstart.md").read_text(
+            encoding="utf-8")
+        blocks = re.findall(r"```python\n(.*?)```", page, flags=re.S)
+        upto = next(i for i, b in enumerate(blocks) if "fit_exponential_onset" in b)
+        namespace: dict = {}
+        with contextlib.redirect_stdout(io.StringIO()):
+            for block in blocks[:upto + 1]:
+                exec(compile(block, "docs/quickstart.md", "exec"), namespace)
+        fit = namespace["onset_fit"]
+
+        assert fit["bound_status"] is None
+        assert self._tau_at_a_bound(fit), fit["tau"]
+        assert abs(fit["r2"]) < 0.05, fit["r2"]
+
+    def test_noise_psths_usually_read_none_with_tau_at_a_bound_and_r2_near_zero(self):
+        fits = [self._fit(np.sort(np.random.default_rng(seed).uniform(0, 10, 200)))
+                for seed in range(20)]
+        unflagged = [f for f in fits if f["bound_status"] is None]
+
+        assert len(unflagged) > len(fits) / 2, f"{len(unflagged)} of {len(fits)} read None"
+        assert sum(self._tau_at_a_bound(f) for f in unflagged) > len(unflagged) / 2
+        assert max(f["r2"] for f in unflagged) < 0.2

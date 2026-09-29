@@ -260,9 +260,9 @@ def _probe_jrsa():
     # These p-values fall on about thirty likely values, and two fresh draws coincide on
     # about 4% of pairs (measured: 32 distinct in 200 calls; seen on CI). Up to three
     # further calls are compared, as for xflip.
-    first = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, rng=None).p).tolist()
+    first = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, null="iid", rng=None).p).tolist()
     for _ in range(3):
-        later = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, rng=None).p).tolist()
+        later = np.asarray(jnwb.jrsa(a, b, stats=True, permutations=200, null="iid", rng=None).p).tolist()
         if later != first:
             break
     return first, later
@@ -272,11 +272,13 @@ def _probe_cross_modal_comparison():
     seed = np.random.default_rng(11)
     u, v = seed.normal(size=300), seed.normal(size=300)
     key = "lag_corrected_pvalue"
-    # A permutation p-value takes one of about a dozen likely values here, so two fresh
-    # calls coincide about one run in fifty (seen on CI). Three calls a side make an
-    # exact agreement by chance about one in 10**5.
+    # Eleven lags rather than the default 101: the null loop's cost is lags x permutations,
+    # and the lag count does not change what is asserted. Two fresh calls then coincide on
+    # about one pair in twenty (measured: 24 distinct p-values in 40 calls), so four calls a
+    # side make an exact agreement by chance about one in 10**5.
     return tuple(
-        tuple(jnwb.cross_modal_comparison(u, v, bin_ms=10.0, rng=None)[key] for _ in range(3))
+        tuple(jnwb.cross_modal_comparison(u, v, lag_range_ms=(-50, 50), bin_ms=10.0,
+                                          rng=None)[key] for _ in range(4))
         for _side in range(2)
     )
 

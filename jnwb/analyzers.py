@@ -11,12 +11,12 @@ Changes vs. previous version:
 """
 
 import logging
-import warnings
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import bins_within, whole_bin_count
-from .gpu_pca import pin_component_signs
+from ._bins import bins_within, onset_locked_counts, whole_bin_count
+from ._dictlike import RenamedKeyDict
+from .trajectory import _kept_components
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -186,12 +186,24 @@ class TFRAnalyzer:
         Vectorized: runs ttest_ind across all (ch × freq × time) locations at once
         instead of a Python loop, ≈ 100× faster for large arrays.
 
+        One t-test per location with a finite p-value is a family of ``n_tests`` tests, so
+        about 5% of them pass ``p < 0.05`` on null data. ``n_significant_uncorrected``
+        counts those and ``fraction_significant_uncorrected`` divides by ``n_tests`` (NaN
+        when no location has a p-value); ``n_significant_fdr`` counts locations whose
+        Benjamini-Hochberg adjusted p-value (:func:`jnwb.fdr_correct` over the same family)
+        is below 0.05. A location without a p-value, such as one constant in both
+        conditions, is in none of these.
+
         Args:
             tfr1: TFR from condition 1 (ch × freq × time × trials1)
             tfr2: TFR from condition 2 (ch × freq × time × trials2)
 
         Returns:
-            Dict with mean_diff, n_significant, fraction_significant
+            Dict with ``n_tests``, ``n_significant_uncorrected``,
+            ``fraction_significant_uncorrected``, ``n_significant_fdr``, ``mean_diff``,
+            ``p_values``, ``q_values`` (NaN where p is NaN), ``t_statistics`` and ``summary``.
+            ``n_significant`` and ``fraction_significant`` still read, as the uncorrected
+            values, with a ``DeprecationWarning``; they are removed in the next release.
         """
         if tfr1.shape[:-1] != tfr2.shape[:-1]:
             raise ValueError("TFR spatial shapes must match (ch × freq × time)")
@@ -203,18 +215,30 @@ class TFRAnalyzer:
         # Vectorized independent t-test across all locations simultaneously
         t_stat, p_val = stats.ttest_ind(t1, t2, axis=1)
 
-        n_sig = int((p_val < 0.05).sum())
-        n_total = len(p_val)
+        # A constant location has no p-value and is not a test in the family, for the
+        # count, the uncorrected fraction and the FDR correction alike.
+        tested = np.isfinite(p_val)
+        n_total = int(tested.sum())
+        n_sig = int((p_val[tested] < 0.05).sum())
+        q_val = np.full(p_val.shape, np.nan)
+        q_val[tested] = StatisticalAnalysis.fdr_correct(p_val[tested])
+        n_fdr = int((q_val < 0.05).sum())
 
-        return {
+        return RenamedKeyDict({
             'n_tests':             n_total,
-            'n_significant':       n_sig,
-            'fraction_significant': n_sig / n_total if n_total > 0 else 0.0,
+            'n_significant_uncorrected': n_sig,
+            'fraction_significant_uncorrected': n_sig / n_total if n_total > 0 else float('nan'),
+            'n_significant_fdr':   n_fdr,
             'mean_diff':           float(np.mean(tfr1) - np.mean(tfr2)),
             'p_values':            p_val,          # (space,) array
+            'q_values':            q_val,
             't_statistics':        t_stat,
-            'summary': f"{n_sig} / {n_total} locations p < 0.05",
-        }
+            'summary': (f"{n_sig} / {n_total} locations p < 0.05 uncorrected; "
+                        f"{n_fdr} with Benjamini-Hochberg q < 0.05"),
+        }, aliases={
+            'n_significant': 'n_significant_uncorrected',
+            'fraction_significant': 'fraction_significant_uncorrected',
+        })
 
     @staticmethod
     def by_layer(tfr_data: np.ndarray, layer_bounds: Dict) -> Dict:
@@ -343,7 +367,9 @@ class UnitAnalyzer:
                 of ``bin_size_ms`` bins.
 
         Returns:
-            Dict with PSTH, CI, and statistics
+            Dict with PSTH, CI, and statistics. With no onsets there is no trial to average:
+            ``psth``, ``sem`` and the ``bootstrap_ci`` values are NaN, ``n_trials`` is 0, and
+            NumPy and SciPy warn about the empty mean.
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
@@ -354,14 +380,11 @@ class UnitAnalyzer:
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
-        trial_psths = []
-        for onset in trial_onsets:
-            mask = ((spike_times >= onset + win_sec[0]) &
-                    (spike_times <= onset + win_sec[1]))
-            psth_trial, _ = np.histogram(spike_times[mask] - onset, bins=bin_edges)
-            trial_psths.append(psth_trial / bin_sec)
-
-        trial_psths = np.array(trial_psths)
+        # [onset + pre, onset + post], both edges inclusive. The subtraction used to round a
+        # spike on either edge just outside the outer bin edges, where np.histogram dropped
+        # it: with onsets 0.7 s apart from 2 s, 114 of 405 at the left edge and 147 at the right.
+        trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
+                                          bin_edges, 1.0, right_closed=True) / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
         sem_psth  = stats.sem(trial_psths, axis=0)
 
@@ -385,12 +408,12 @@ class UnitAnalyzer:
         and ``acg`` holds the ``n`` positive-lag bins centred on ``lag_times_ms``,
         ``bin_size_ms * (1, ..., n)``.
 
-        The refractory test this returned is withdrawn: it took the Poisson upper tail of
-        the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an over-filled
-        refractory bin read as a single unit and a clean one did not. Its keys ``refractory_period_violation``, ``refr_count`` and
-        ``baseline_count`` are ``NaN`` and ``is_single_unit`` is ``None``, with a
-        ``FutureWarning``; they are removed in 0.2.7. The single-unit check is
-        :meth:`quality_metrics`, from inter-spike intervals under 2 ms.
+        There is no refractory test here. The one this returned was inverted: it took the
+        Poisson upper tail of the bin covering about 5.5 to 6.5 ms (centre about 6 ms), so an
+        over-filled refractory bin read as a single unit and a clean one did not. Its keys
+        ``refractory_period_violation``, ``is_single_unit``, ``refr_count`` and
+        ``baseline_count`` are removed. The single-unit check is :meth:`quality_metrics`,
+        from inter-spike intervals under 2 ms.
 
         Args:
             spike_times: Spike times in seconds
@@ -400,7 +423,7 @@ class UnitAnalyzer:
 
         Returns:
             Dict with ``acg``, ``lag_times_ms``, ``device_used`` (the device that computed
-            the histogram) and the four withdrawn keys above.
+            the histogram).
         """
         resolved = resolve_device(device, context='UnitAnalyzer.autocorrelogram', prefer='cupy')
         if len(spike_times) < 10:
@@ -417,23 +440,10 @@ class UnitAnalyzer:
         if len(acg) == 0:
             return {'error': 'ACG computation failed'}
 
-        warnings.warn(
-            "UnitAnalyzer.autocorrelogram: the refractory test is withdrawn because it was "
-            "inverted (an over-filled refractory bin read as a single unit). "
-            "'refractory_period_violation', 'refr_count' and 'baseline_count' are NaN and "
-            "'is_single_unit' is None; these keys are removed in 0.2.7. Use "
-            "UnitAnalyzer.quality_metrics (ISI < 2 ms) as the single-unit check.",
-            FutureWarning,
-            stacklevel=2,
-        )
         return {
-            'acg':                        acg,
-            'lag_times_ms':               lag_times * 1000,
-            'refractory_period_violation': float('nan'),
-            'is_single_unit':             None,
-            'refr_count':                 float('nan'),
-            'baseline_count':             float('nan'),
-            'device_used':                ran_on[0],
+            'acg':          acg,
+            'lag_times_ms': lag_times * 1000,
+            'device_used':  ran_on[0],
         }
 
     # Pairs held on the device at once. 4.19e6 float64 differences is 32 MiB, which
@@ -548,13 +558,34 @@ class UnitAnalyzer:
         Fano factor computed via np.histogram (no Python loop over 1-s windows).
 
         Args:
-            spike_times: Spike times in seconds
+            spike_times: Spike times in seconds, in any order; they are sorted first.
+                Unsorted, a backward step read as a negative interval, counted as a
+                refractory violation, and the first and last entries were taken as the
+                recording's span.
             waveform_duration_us: Trough-to-peak duration (µs)
             firing_rate: Mean firing rate (Hz)
 
         Returns:
             Dict with quality scores
+
+        Raises:
+            ValueError: If ``spike_times`` is not 1-D or holds a NaN or an infinity. A NaN
+                sorted last, made the mean interval NaN and still read as a good single
+                unit; a 2-D array was pooled into one train.
         """
+        spike_times = np.asarray(spike_times, dtype=float)
+        if spike_times.ndim != 1:
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times must be one 1-D train; got shape "
+                f"{spike_times.shape}. Call it once per unit."
+            )
+        if not np.all(np.isfinite(spike_times)):
+            raise ValueError(
+                "UnitAnalyzer.quality_metrics: spike_times holds "
+                f"{int(np.sum(~np.isfinite(spike_times)))} NaN or infinite value(s); drop "
+                "them first."
+            )
+        spike_times = np.sort(spike_times)
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 
@@ -661,25 +692,22 @@ class PopulationAnalyzer:
 
         Args:
             units: Units DataFrame
-            criteria: Dict of filtering criteria
+            criteria: Dict of filtering criteria, applied by :func:`jnwb.filter_by_criteria`.
 
         Returns:
             Dict with counts and percentages
-        """
-        filtered = units.copy()
 
-        for key, value in (criteria or {}).items():
-            if key not in filtered.columns:
-                continue
-            if isinstance(value, tuple) and len(value) == 2:
-                filtered = filtered[
-                    (pd.to_numeric(filtered[key], errors='coerce') >= value[0]) &
-                    (pd.to_numeric(filtered[key], errors='coerce') <= value[1])
-                ]
-            elif isinstance(value, (list, set)):
-                filtered = filtered[filtered[key].isin(value)]
-            else:
-                filtered = filtered[filtered[key] == value]
+        Raises:
+            ValueError: If a ``criteria`` key names a column ``units`` does not have. The
+                filter used to be skipped, so the counts covered every unit.
+        """
+        # Imported here: jnwb.metadata imports pynwb, which this module otherwise never needs.
+        from .metadata import filter_by_criteria
+
+        absent = [k for k in (criteria or {}) if k not in units.columns]
+        if absent:
+            raise ValueError(f"pie_chart_data: criteria name column(s) absent from units: {absent!r}")
+        filtered = filter_by_criteria(units, criteria or {}, unknown="raise")
 
         found = False
         for col in ('quality_category', 'quality_label'):
@@ -712,22 +740,32 @@ class PopulationAnalyzer:
             threshold: |r| > threshold counts as a connection
 
         Returns:
-            Dict with graph metrics (n_nodes, n_edges, density, degree distribution)
-        """
-        binary_adj = np.abs(correlation_matrix) > threshold
-        np.fill_diagonal(binary_adj, False)
+            Dict with graph metrics (n_nodes, n_edges, density, degree distribution).
+            ``n_edges`` counts undirected edges, half the directed count of
+            :func:`jnwb.network_topology`, which thresholds the matrix and supplies the
+            degrees.
 
-        n_nodes  = binary_adj.shape[0]
-        n_edges  = int(binary_adj.sum()) // 2
+        Raises:
+            ValueError: As :func:`jnwb.network_topology` does, for a matrix that is not
+                square 2-D, a NaN or Inf off the diagonal, or a threshold that is not finite.
+        """
+        from .connectivity import network_topology
+
+        # The threshold is on |r|. network_topology refuses a complex matrix, so take the
+        # modulus here.
+        if np.iscomplexobj(correlation_matrix):
+            correlation_matrix = np.abs(correlation_matrix)
+        topology = network_topology(correlation_matrix, threshold=threshold)
+        n_nodes  = topology['n_nodes']
+        n_edges  = topology['n_edges'] // 2
         density  = 2 * n_edges / (n_nodes * (n_nodes - 1)) if n_nodes > 1 else 0.0
-        degrees  = binary_adj.sum(axis=0)
 
         return {
             'n_nodes':              n_nodes,
             'n_edges':              n_edges,
             'density':              float(density),
-            'mean_degree':          float(np.mean(degrees)),
-            'degree_distribution':  degrees.tolist(),
+            'mean_degree':          topology['mean_degree'],
+            'degree_distribution':  topology['in_degrees'],
             'threshold':            threshold,
         }
 
@@ -767,39 +805,35 @@ class PopulationAnalyzer:
             sign, and cuSOLVER and LAPACK pick each component's sign independently, so
             without the pin a CUDA component and its projection could have the opposite sign
             to the CPU one.
+
+            As in :func:`jnwb.compute_population_trajectory`, a component beyond
+            ``min(n_time_bins, n_units)`` does not exist, so its projection column,
+            component row and variances are NaN, and with no total variance both variance
+            arrays are NaN.
         """
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
 
-        device_used = CPU
+        def _result(s: np.ndarray, vt: np.ndarray, device_used: str) -> Dict[str, np.ndarray]:
+            vt = vt[:n_components, :]
+            projection, vt, explained_variance, explained_variance_ratio, _ = _kept_components(
+                s, vt, X_centered @ vt.T, n_samples, n_components)
+            return {
+                'projection': projection,
+                'components': vt,
+                'explained_variance': explained_variance,
+                'explained_variance_ratio': explained_variance_ratio,
+                'device_used': device_used,
+            }
+
         if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
-            gpu_success = False
             last_exc = None
             try:
                 import cupy as cp
                 X_gpu = cp.asarray(X_centered)
                 u, s, vt = cp.linalg.svd(X_gpu, full_matrices=False)
-
-                u = cp.asnumpy(u)
-                s = cp.asnumpy(s)
-                vt = cp.asnumpy(vt)
-
-                projection = X_centered @ vt.T[:, :n_components]
-                vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-                explained_variance = (s ** 2) / (n_samples - 1)
-                total_variance = np.sum(explained_variance)
-                explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-                device_used = CUDA
-                gpu_success = True
-                return {
-                    'projection': projection[:, :n_components],
-                    'components': vt[:n_components, :],
-                    'explained_variance': explained_variance[:n_components],
-                    'explained_variance_ratio': explained_variance_ratio[:n_components],
-                    'device_used': device_used,
-                }
+                return _result(cp.asnumpy(s), cp.asnumpy(vt), CUDA)
             except Exception as e:
                 last_exc = e
                 log.warning(f"GPU trajectory SVD via cupy failed: {e}. Trying PyTorch...")
@@ -809,45 +843,14 @@ class PopulationAnalyzer:
                         X_gpu = torch.as_tensor(X_centered, device='cuda')
                         if not X_gpu.is_floating_point():
                             X_gpu = X_gpu.to(torch.float64)
-                        u, s, v = torch.linalg.svd(X_gpu, full_matrices=False)
-
-                        u = u.cpu().numpy()
-                        s = s.cpu().numpy()
-                        vt = v.cpu().numpy()
-
-                        projection = X_centered @ vt.T[:, :n_components]
-                        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-                        explained_variance = (s ** 2) / (n_samples - 1)
-                        total_variance = np.sum(explained_variance)
-                        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-                        device_used = CUDA
-                        gpu_success = True
-                        return {
-                            'projection': projection[:, :n_components],
-                            'components': vt[:n_components, :],
-                            'explained_variance': explained_variance[:n_components],
-                            'explained_variance_ratio': explained_variance_ratio[:n_components],
-                            'device_used': device_used,
-                        }
+                        u, s, vt = torch.linalg.svd(X_gpu, full_matrices=False)
+                        return _result(s.cpu().numpy(), vt.cpu().numpy(), CUDA)
                 except Exception as e2:
                     last_exc = e2
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
 
-            if not gpu_success and last_exc is not None:
+            if last_exc is not None:
                 warn_device_fallback("population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
-        projection = X_centered @ vt.T[:, :n_components]
-        vt, projection = pin_component_signs(vt[:n_components, :], projection[:, :n_components])
-        explained_variance = (s ** 2) / (n_samples - 1)
-        total_variance = np.sum(explained_variance)
-        explained_variance_ratio = explained_variance / total_variance if total_variance > 0 else explained_variance
-
-        return {
-            'projection': projection[:, :n_components],
-            'components': vt[:n_components, :],
-            'explained_variance': explained_variance[:n_components],
-            'explained_variance_ratio': explained_variance_ratio[:n_components],
-            'device_used': device_used,
-        }
+        return _result(s, vt, CPU)

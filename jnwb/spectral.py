@@ -15,11 +15,12 @@ import numpy as np
 from scipy import optimize, signal, stats
 import pandas as pd
 
-from ._dictlike import DictAccessMixin
+from ._dictlike import DictAccessMixin, RenamedKeyDict
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._layout import require_channel_major
 from ._parallel import parallel_map
-from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
+from ._rng import DEFAULT_SEED, RNGLike, surrogate_rng
+from .permutation import _count_at_least_as_extreme
 from ._spread import is_constant as _is_constant
 
 log = logging.getLogger(__name__)
@@ -328,7 +329,9 @@ def aggregate_to_db(
 
     Args:
         power: signal-interval power, ratio-scale and non-negative. Any shape.
-        baseline: baseline power for the same units, broadcastable against ``power``.
+        baseline: baseline power for the same units, a scalar or an array with ``power``'s
+            number of dimensions that broadcasts against it: a per-frequency baseline for
+            ``(n_freqs, n_times)`` power is ``baseline[:, None]``.
         how: which estimand to form, named explicitly -- no default. ``"mean_of_ratios"``
             weights every unit equally; ``"ratio_of_means"`` weights each unit by its own
             baseline power (see :data:`DB_AGGREGATIONS`). Geometric mean is deliberately not
@@ -344,8 +347,17 @@ def aggregate_to_db(
         Decibel array, reduced along ``aggregate_over``.
 
     Raises:
-        ValueError: if ``how`` or ``nan_policy`` is not recognised, or if any input is
-            negative. The negativity check is the dB-input tripwire: a ratio-scale power is
+        ValueError: if ``how`` or ``nan_policy`` is not recognised, if ``baseline`` is
+            neither a scalar nor of ``power``'s number of dimensions (numpy would align a
+            shorter one with the trailing axes, which puts a per-frequency baseline on the
+            time axis whenever the two counts are equal), if ``baseline`` contains a zero
+            or an infinity that reaches a ratio (the ratio would be infinite or 0;
+            :func:`relative_power` refuses both) -- under ``nan_policy="omit"`` one where
+            ``power`` is NaN is omitted with its cell and not refused -- if a ratio formed
+            from finite power, or its mean, overflows to inf (a baseline small enough that
+            the ratio overflows), if under ``"ratio_of_means"`` the summed baseline or the
+            summed finite power overflows to inf, or if any
+            input is negative. The negativity check is the dB-input tripwire: a ratio-scale power is
             non-negative by definition, whereas decibel arrays routinely carry negative
             values, so passing decibels in here fails loudly instead of computing a plausible
             wrong number. It is a guard, not a proof -- an all-positive dB array cannot be
@@ -355,7 +367,9 @@ def aggregate_to_db(
             through ``memoryview`` or ``as_strided`` -- numpy results and ``tolist()``), which has
             already averaged over trials and so can only give a ratio of means. A copy made
             by ``np.array``, by assignment into another array, or read back from
-            ``TFRAccumulator.write`` carries no mark and is not refused.
+            ``TFRAccumulator.write`` carries no mark and is not refused. The streaming form of
+            this estimand is ``to_db(acc.mean_of_ratios())`` after every trial was added with
+            ``add_trial(..., baseline=...)``.
 
     Example:
         >>> import numpy as np
@@ -375,17 +389,26 @@ def aggregate_to_db(
     if nan_policy not in ("propagate", "omit"):
         raise ValueError(f"nan_policy must be 'propagate' or 'omit'; got {nan_policy!r}")
 
-    from .tfr_accumulator import _is_trial_averaged
+    from .tfr_accumulator import (
+        _is_trial_averaged,
+        _refuse_baseline_ndim,
+        _refuse_infinite_baseline,
+        _refuse_ratio_overflow,
+        _refuse_sum_overflow,
+    )
 
     if how == "mean_of_ratios" and any(_is_trial_averaged(arr) for arr in (power, baseline)):
         raise ValueError(
             "how='mean_of_ratios' needs per-trial power, and TFRAccumulator.power() has already "
             "averaged over trials, so a ratio of its output is ratio_of_means whatever `how` "
             "names. Stack per-trial power (abs(tfr.z) ** 2) along a trial axis and pass that "
-            "axis as aggregate_over, or name how='ratio_of_means'."
+            "axis as aggregate_over; or stream it: add each trial with "
+            "TFRAccumulator.add_trial(z, valid, baseline=...) and take "
+            "to_db(acc.mean_of_ratios()); or name how='ratio_of_means'."
         )
     p = np.asarray(power, dtype=float)
     b = np.asarray(baseline, dtype=float)
+    _refuse_baseline_ndim(b.ndim, p.ndim, "power")
     for name, arr in (("power", p), ("baseline", b)):
         if arr.size and np.any(arr < 0):
             raise ValueError(
@@ -393,15 +416,37 @@ def aggregate_to_db(
                 "are already decibels, do not aggregate them: pass the underlying power and "
                 "baseline and let this function take the logarithm last."
             )
+    zero = b == 0
+    infinite = np.isinf(b)
+    if nan_policy == "omit":
+        # A cell whose power is NaN is omitted, so its baseline never reaches a ratio.
+        zero = zero & ~np.isnan(p)
+        infinite = infinite & ~np.isnan(p)
+    if np.any(zero):
+        raise ValueError(
+            "baseline contains zero values, so the ratio is infinite there; relative_power "
+            "refuses the same input. Exclude those units, or set their power to NaN and pass "
+            "nan_policy='omit'."
+        )
+    _refuse_infinite_baseline(infinite)
 
     mean = np.nanmean if nan_policy == "omit" else np.mean
     total = np.nansum if nan_policy == "omit" else np.sum
 
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        if aggregate_over is None or how == "mean_of_ratios":
+            _refuse_ratio_overflow(np.isinf(p / b) & np.isfinite(p))
         if aggregate_over is None:
             aggregated = p / b
         elif how == "mean_of_ratios":
             aggregated = mean(p / b, axis=aggregate_over)
+            # Finite ratios can still sum past the float64 range inside the mean; an
+            # infinite power is the input's and is not an overflow.
+            power_inf = np.any(
+                np.isinf(np.broadcast_to(p, np.broadcast_shapes(p.shape, b.shape))),
+                axis=aggregate_over,
+            )
+            _refuse_ratio_overflow(np.isposinf(aggregated) & ~power_inf)
         else:
             b_bc = np.broadcast_to(b, p.shape)
             if nan_policy == "omit":
@@ -414,6 +459,17 @@ def aggregate_to_db(
                 num = total(p, axis=aggregate_over)
                 den = total(b_bc, axis=aggregate_over)
                 aggregated = num / den
+            # Infinite baselines were refused above and omit drops infinite power, so an
+            # infinite sum here is an overflow of finite values -- except a power sum that
+            # contains an infinite power under propagate, which is the input's.
+            power_inf = (
+                np.zeros(np.shape(aggregated), dtype=bool)
+                if nan_policy == "omit"
+                else np.any(np.isinf(p), axis=aggregate_over)
+            )
+            _refuse_sum_overflow(np.isposinf(den), "baseline")
+            _refuse_sum_overflow(np.isposinf(num) & ~power_inf, "power")
+            _refuse_ratio_overflow(np.isposinf(aggregated) & ~power_inf)
         return to_db(aggregated)
 
 
@@ -748,21 +804,9 @@ def cross_area_coherence(
     # uniform and the floor it implies is reported. Pass n_surrogates=10 for the old
     # cost.
     # The seed is in the signature, not here: `inspect.signature` reports the stream a
-    # bare call draws. `SeedSequence` is kept because it is the only route to the entropy
-    # `surrogate_seed_entropy` reports -- including for `rng=None`, where it captures the
-    # OS entropy that was drawn so the caller can reproduce a fresh-entropy run.
-    # `resolve_rng` is called for its type contract (a float or bool seed is refused
-    # rather than truncated); its Generator is discarded because the disclosing one is
-    # built from the sequence.
-    seed_entropy = None
-    if not isinstance(rng, np.random.Generator):
-        # An int seed or None. A caller-supplied Generator is used as-is instead, so
-        # successive calls advance one stream rather than restarting it, and its position
-        # is not recoverable -- surrogate_seed_entropy stays None for that case alone.
-        resolve_rng(rng, func_name="cross_area_coherence")
-        seed_sequence = np.random.SeedSequence(rng)
-        seed_entropy = int(seed_sequence.entropy)
-        rng = np.random.default_rng(seed_sequence)
+    # bare call draws. The entropy is what `surrogate_seed_entropy` reports -- including
+    # for `rng=None`, so the caller can reproduce a fresh-entropy run.
+    rng, seed_entropy = surrogate_rng(rng, "cross_area_coherence")
 
     result = {
         'coherence_spectrum': np.array([]),
@@ -876,13 +920,6 @@ def cross_area_coherence(
         out['peak_coherence_freq'] = float(frequencies[peak_idx])
         out['peak_coherence_value'] = float(coherency[peak_idx])
 
-        low_val, high_val = 1, len(lfp_area2) - 1
-        shifts = (
-            rng.integers(low_val, high_val, size=int(n_surrogates))
-            if low_val < high_val
-            else np.zeros(int(n_surrogates), dtype=int)
-        )
-
         # One surrogate spectrum per shift, computed once and reused across bands.
         #
         # This preserves the null's cross-band dependence structure. The old code built
@@ -911,7 +948,8 @@ def cross_area_coherence(
                 float(np.mean(spectrum[mask])) if len(spectrum) > 0 else 0.0
                 for spectrum in surrogate_spectra
             ])
-            p_val = (np.sum(surrogate_cohs >= mean_coh_val) + 1) / (int(n_surrogates) + 1)
+            k = _count_at_least_as_extreme(surrogate_cohs, mean_coh_val, "greater")
+            p_val = (k + 1) / (int(n_surrogates) + 1)
             out['band_significance'][band_name] = float(p_val)
 
         return out
@@ -923,6 +961,17 @@ def cross_area_coherence(
     # work and recomputes everything, observed value included, on the CPU, so the
     # returned values share one estimator, named in `device_used`.
     device_used = resolve_device(device, context='cross_area_coherence', prefer='cupy')
+
+    # The shifts are drawn once, after the device resolves (an invalid device leaves a
+    # caller's generator untouched) and before any device attempt. Drawn inside
+    # `_compute_all`, a CUDA failure part-way through the null left `rng` advanced, so the
+    # CPU recompute drew different shifts and p differed from a CPU run under the same seed.
+    low_val, high_val = 1, len(lfp_area2) - 1
+    shifts = (
+        rng.integers(low_val, high_val, size=int(n_surrogates))
+        if low_val < high_val
+        else np.zeros(int(n_surrogates), dtype=int)
+    )
     # CPU workers are pointless once the estimator is on the GPU: each process would
     # build its own CUDA context, competing for the same device.
     device_requested_cuda = device_used == CUDA
@@ -952,7 +1001,7 @@ def spectral_tilt(
     """
     Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.
 
-    Fits log10(Power) = log10(Offset) + exponent * log10(freq) over the specified
+    Fits log10(Power) = log10(Offset) + slope * log10(freq) over the specified
     frequency range.
 
     Important Scientific Distinction:
@@ -979,7 +1028,8 @@ def spectral_tilt(
 
     Returns:
         Dict with:
-        - exponent: log-log slope (typically negative)
+        - slope: log-log slope, negative for a 1/f decay. :func:`aperiodic_fit` reports
+          the exponent, which is ``-slope``.
         - offset: power at 1 Hz (10^intercept)
         - fit_quality: R-squared of the linear fit
         - device_used: 'cpu' or 'cuda', the device that computed the spectrum
@@ -988,13 +1038,17 @@ def spectral_tilt(
         constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
         power.
 
+        Reading the key ``exponent`` returns ``slope`` with a ``DeprecationWarning``; it is
+        removed in the next release, so that ``exponent`` means the positive decay rate
+        wherever a spectral function reports one.
+
     Raises:
         ValueError: If ``lfp_trace`` is empty or contains NaN or Inf, or ``device`` is not a
             recognised device name.
 
     Example:
         >>> tilt = spectral_tilt(lfp_data, fs=1000.0, freq_range=(1.0, 100.0))
-        >>> print(f"Spectral exponent: {tilt['exponent']:.2f}")
+        >>> print(f"Log-log slope: {tilt['slope']:.2f}")
 
     References:
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
@@ -1005,8 +1059,8 @@ def spectral_tilt(
     lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
-    result = {
-        'exponent': float('nan'),
+    result = RenamedKeyDict({
+        'slope': float('nan'),
         'offset': float('nan'),
         'fit_quality': float('nan'),
         # The band actually fitted, which is not the band requested: bins at or below
@@ -1014,7 +1068,7 @@ def spectral_tilt(
         # a bit-identical exponent with nothing to say they had been silently merged.
         'fitted_band_hz': (float('nan'), float('nan')),
         'n_bins_fitted': 0,
-    }
+    }, aliases={'exponent': 'slope'})
 
     # Compute power spectrum
     resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)
@@ -1069,17 +1123,17 @@ def spectral_tilt(
     result['fitted_band_hz'] = (float(freqs[0]), float(freqs[-1]))
     result['n_bins_fitted'] = int(freqs.size)
     # Fit 1/f slope on log-log scale
-    # Power = Offset * f^exponent
-    # log(Power) = log(Offset) + exponent * log(freq)
+    # Power = Offset * f^slope
+    # log(Power) = log(Offset) + slope * log(freq)
     log_freqs = np.log10(freqs)
     log_power = np.log10(pxx[mask][valid])
 
     # Linear regression
     coeffs = np.polyfit(log_freqs, log_power, 1)
-    exponent = coeffs[0]
+    slope = coeffs[0]
     offset_log = coeffs[1]
 
-    result['exponent'] = float(exponent)
+    result['slope'] = float(slope)
     result['offset'] = float(10 ** offset_log)
 
     # Fit quality (R-squared)
@@ -1360,6 +1414,10 @@ def relative_power(
             Must be finite and strictly non-negative. Any shape.
         baseline: Baseline power array in the same physical units as ``power``, broadcastable against ``power``.
             Must be finite, strictly non-negative, and contain non-zero values where division occurs.
+            A scalar or an array with ``power``'s number of dimensions; a per-frequency baseline
+            against ``(n_freqs, n_times)`` power is ``baseline[:, None]``. A baseline with fewer
+            dimensions aligns with ``power``'s trailing axes: it is broadcast with a
+            ``FutureWarning`` this release and raises ``ValueError`` in the next.
         model: Estimand model, strictly one of ``"mean_of_ratios"``, ``"ratio_of_means"``, or ``"log_ratio"``.
             Default is ``"mean_of_ratios"``.
         axis: Axis or tuple of axes to reduce along when using ``"mean_of_ratios"`` or ``"ratio_of_means"``.
@@ -1378,7 +1436,7 @@ def relative_power(
     Raises:
         ValueError: If ``model`` is unrecognized; if any input is empty; if ``power`` or ``baseline``
             contains negative or non-finite (NaN/Inf) values; if ``baseline`` contains zeros causing
-            division by zero; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
+            division by zero; if the ratio or its mean overflows to inf (a baseline small enough that the ratio overflows); if the summed baseline or summed power overflows under ``"ratio_of_means"``; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
 
     Examples:
         >>> import numpy as np
@@ -1428,20 +1486,45 @@ def relative_power(
             f"baseline shape {b_arr.shape} cannot broadcast to power shape {p_arr.shape}."
         ) from e
 
+    from .tfr_accumulator import _baseline_ndim_problem
+
+    problem = _baseline_ndim_problem(b_arr.ndim, p_arr.ndim, "power")
+    if problem is not None:
+        warnings.warn(
+            f"relative_power: {problem} It is broadcast this release, as before; the next "
+            "release raises ValueError, as aggregate_to_db and TFRAccumulator.add_trial do.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")
 
-    if model == "mean_of_ratios":
-        if axis is None:
-            return p_arr / b_broadcast
-        return np.mean(p_arr / b_broadcast, axis=axis)
-    elif model == "ratio_of_means":
-        num = np.sum(p_arr, axis=axis)
-        den = np.sum(b_broadcast, axis=axis)
-        return num / den
-    else:  # log_ratio
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return 10.0 * np.log10(p_arr / b_broadcast)
+    from .tfr_accumulator import _refuse_ratio_overflow, _refuse_sum_overflow
+
+    # Inputs are finite here, so an infinite ratio, mean or sum is an overflow.
+    with np.errstate(over="ignore"):
+        if model == "mean_of_ratios":
+            quotient = p_arr / b_broadcast
+            _refuse_ratio_overflow(np.isinf(quotient))
+            if axis is None:
+                return quotient
+            averaged = np.mean(quotient, axis=axis)
+            _refuse_ratio_overflow(np.isinf(averaged))
+            return averaged
+        elif model == "ratio_of_means":
+            num = np.sum(p_arr, axis=axis)
+            den = np.sum(b_broadcast, axis=axis)
+            _refuse_sum_overflow(np.isinf(den), "baseline")
+            _refuse_sum_overflow(np.isinf(num), "power")
+            quotient = num / den
+            _refuse_ratio_overflow(np.isinf(quotient))
+            return quotient
+        else:  # log_ratio
+            quotient = p_arr / b_broadcast
+            _refuse_ratio_overflow(np.isinf(quotient))
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return 10.0 * np.log10(quotient)
 
 
 def band_power(

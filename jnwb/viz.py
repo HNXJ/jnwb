@@ -13,7 +13,7 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ._bins import whole_bin_count
+from ._bins import onset_locked_counts, whole_bin_count
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     contract (e.g. alongside ``UnitAnalyzer.raster``). Both are retained deliberately.
 
     Args:
-        st: 1D array of spike times (seconds).
+        st: 1D array or list of spike times (seconds), in any order.
         onsets: 1D array of trial onset times (seconds).
         win_ms: (start_ms, end_ms) window relative to each onset. Its span must be a whole
             number of ``bin_ms`` bins.
@@ -151,10 +151,11 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     if onsets.size == 0:
         # No trials, so no trial average. This returned zeros, which reads as a silent unit.
         return centers, np.full_like(centers, np.nan), np.full_like(centers, np.nan)
-    counts = np.zeros((onsets.size, edges.size - 1))
-    for i, t0 in enumerate(onsets):
-        s = (st[(st >= t0 + win_ms[0] / 1000.0) & (st < t0 + win_ms[1] / 1000.0)] - t0) * 1000.0
-        counts[i], _ = np.histogram(s, bins=edges)
+    # The window is [start, end), selected in seconds and binned in ms. The train is sorted
+    # in float64 first: a float32 train would otherwise be compared in float32 by some NumPy
+    # versions and in float64 by others.
+    counts = onset_locked_counts(st, onsets, win_ms[0] / 1000.0, win_ms[1] / 1000.0, edges,
+                                 1000.0, right_closed=False)
     rate = counts / (bin_ms / 1000.0)
     mean = rate.mean(axis=0)
     # NaN, not zeros. One trial has no dispersion to measure, and a returned 0.0 reads as

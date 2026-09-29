@@ -1,8 +1,8 @@
 """A dependency nothing invokes and a script nothing runs are both claims without a caller.
 
 `pytest-cov` was declared in the `test` extra and pulled onto all four CI cells on every push.
-There is no `addopts`, no `--cov` and no coverage configuration anywhere in the repository, so
-it was installed and never invoked. `pytest-xdist` was in the same position until the
+There was no `--cov` and no coverage configuration anywhere in the repository, so it was
+installed and never invoked. `pytest-xdist` was in the same position until the
 installed-wheel leg started passing `-n auto`; it stays, and this file is what would notice if
 that caller went away.
 
@@ -17,6 +17,8 @@ from __future__ import annotations
 import subprocess
 import tomllib
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,6 +73,7 @@ def _declared(extra: str) -> list[str]:
     return [item.split(">")[0].split("<")[0].split("[")[0].split("=")[0].strip() for item in items]
 
 
+@pytest.mark.requires_git_checkout
 def test_every_declared_test_dependency_has_a_caller() -> None:
     declared = _declared("test")
     corpus = _tracked_text()
@@ -106,6 +109,7 @@ def test_coverage_is_not_declared_while_nothing_measures_it() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_every_script_has_a_caller() -> None:
     """A script nothing runs is 625 lines of unexecuted claim; two of them were."""
     scripts = sorted(

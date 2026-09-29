@@ -682,7 +682,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 20 |
+| result container | 21 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -691,7 +691,8 @@ algorithm column still describes the replaced code for both rows.
 | scalar input | 1 |
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
-| **Total** | **50** |
+| plan description | 1 |
+| **Total** | **52** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -722,6 +723,7 @@ algorithm column still describes the replaced code for both rows.
 | `NWBEventError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `NWBInspectError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
+| `Preflight` | result container | frozen dataclass; __post_init__ validates the outcome, the reason and each name in `missing`, which a caller's plan bounds, not any data size. |
 | `ProbeGeometry` | result container | frozen dataclass, no __post_init__ (verified programmatically); binds references only. |
 | `Provenance` | result container | frozen dataclass, no __post_init__. Two init=False fields call a cached version lookup: fixed work, no input-size dependence. |
 | `Query` | result container | frozen dataclass, no __post_init__. |
@@ -742,6 +744,7 @@ algorithm column still describes the replaced code for both rows.
 | `io` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |
 | `mann_whitney_p_floor` | scalar input, domain-capped | Cost DOES grow with the numeric value (math.comb is bignum work: 0.58 us at n=5, 48 us at n=512), but float(n_comb) caps the domain: the largest working n1=n2 is 514, and 515 raises OverflowError. At the domain ceiling one call costs 48 us, about 100x below the noise floor, so no admissible size reaches the timing band. |
 | `paths` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |
+| `preflight` | plan description | Reads the fields of one `Question` and loops once over its named signals; it touches no data array, so no data dimension exists to scale. |
 | `setup_vector_graphics` | no input | Takes no data; sets 3 matplotlib rcParams. |
 | `vis` | module | Module-valued export (the optional `vis` extra): a namespace, not a callable. Nothing to scale. |
 | `visual_qc` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |

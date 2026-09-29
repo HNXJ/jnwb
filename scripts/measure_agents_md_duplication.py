@@ -9,8 +9,10 @@ of AGENTS.md, find the best-matching sentence anywhere else and report the score
 means the same claim has two homes and can disagree with itself, which is the actual defect.
 Shingled Jaccard on 4-grams of words, which survives rewording better than a literal diff.
 """
+import fnmatch
 import pathlib
 import re
+import subprocess
 import sys
 import unicodedata
 
@@ -28,21 +30,33 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 AGENTS = ROOT / "AGENTS.md"
 
-OTHERS = [
-    ROOT / "artifacts" / "goal.md",
-    ROOT / "artifacts" / "fact_stack.md",
-    ROOT / "artifacts" / "problem_stack.md",
-    ROOT / "artifacts" / "todo_stack.md",
-    ROOT / "artifacts" / "direction.md",
-    ROOT / "CONTRIBUTING.md",
-    ROOT / "docs" / "documentation_form.md",
+#: Tracked files only. A git-ignored file is present on one machine and absent on the next, so
+#: measuring it made the counts, and the ratchet over them, a property of whichever checkout ran.
+TRACKED = set(subprocess.run(
+    ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True,
+).stdout.splitlines())
+if not TRACKED:
+    sys.exit("git ls-files listed nothing; the corpus cannot be read")
+
+NAMED = [
+    "artifacts/goal.md",
+    "artifacts/fact_stack.md",
+    "artifacts/problem_stack.md",
+    "artifacts/todo_stack.md",
+    "artifacts/direction.md",
+    "CONTRIBUTING.md",
+    "docs/documentation_form.md",
+    # The published agent page holds the only table of shipped skills; section 7 points to it.
+    "docs/agents.md",
 ]
-OTHERS += sorted(ROOT.glob("skills/*/SKILL.md"))
-OTHERS += sorted(ROOT.glob("artifacts/agents/*.md"))
-# Dispatchable subagent definitions. They route over the role files and AGENTS.md rather than
-# restating either, and they are measured here so that stays true: a routing file nothing
-# measures is precisely where a second home for a claim appears without anyone noticing.
-OTHERS += sorted(ROOT.glob(".claude/agents/*.md"))
+PATTERNS = ["skills/*/SKILL.md", "artifacts/skills/*/SKILL.md", "artifacts/agents/*.md"]
+for rel in NAMED:
+    if rel not in TRACKED:
+        print(f"  MISSING (a pointer that went stale): {rel}")
+OTHERS = [ROOT / rel for rel in NAMED if rel in TRACKED]
+OTHERS += [ROOT / rel for rel in sorted(TRACKED)
+           if any(fnmatch.fnmatchcase(rel, pattern) and rel.count("/") == pattern.count("/")
+                  for pattern in PATTERNS)]
 
 WORD = re.compile(r"[a-z0-9_]+")
 N = 4
@@ -76,9 +90,6 @@ def jaccard(a: set, b: set) -> float:
 # Index every other authority.
 elsewhere = []
 for path in OTHERS:
-    if not path.exists():
-        print(f"  MISSING (a pointer that went stale): {path.relative_to(ROOT)}")
-        continue
     for s in sentences(path.read_text(encoding="utf-8")):
         elsewhere.append((path.relative_to(ROOT).as_posix(), s, shingles(s)))
 

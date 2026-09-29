@@ -17,10 +17,73 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import (
+    Default, REQUIRED, RNGLike, resolve_rng, resolve_seed_alias, sklearn_random_state,
+)
 import pandas as pd
 
 SCHEMES = ("within_group", "global")
+
+#: Relative width within which a null draw equals the observed statistic: 100 machine
+#: epsilons of the observed value, the tolerance ``scipy.stats.permutation_test`` uses to
+#: detect "numerically distinct but theoretically equal values in the null distribution".
+_TIE_RTOL = 100.0 * float(np.finfo(float).eps)
+
+_TAILS = ("greater", "less", "two-sided")
+
+
+def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float = 0.0) -> int:
+    """Number of null draws at least as extreme as ``observed``, ties within round-off included.
+
+    A draw that reproduces the observed statistic, such as a permutation that swaps tied
+    values, computes the same number with its terms summed in another order and can land an
+    ulp on the wrong side of it. A bare ``>=`` then skips the draw and the p-value
+    ``(1 + k) / (B + 1)`` comes out too small. A draw counts when it is within
+    ``tol = max(atol, _TIE_RTOL * |observed|)`` of the observed value on the extreme side:
+
+    - ``'greater'``: ``null >= observed - tol``;
+    - ``'less'``: ``null <= observed + tol``;
+    - ``'two-sided'``: ``|null| >= |observed| - tol``.
+
+    ``_TIE_RTOL`` is 100 machine epsilons, scipy's width. It is round-off: a draw of untied
+    continuous data lands that close to the observed value with probability of order
+    1e-14, so such data count the same draws as a bare comparison. ``atol`` is for a
+    caller that can bound the round-off of a statistic that cancels towards zero, where a
+    width relative to the value is too narrow; the mean differences of
+    :mod:`jnwb.statistics` pass one. NaN draws never count.
+    """
+    if alternative not in _TAILS:
+        raise ValueError(f"alternative must be one of {list(_TAILS)}; got {alternative!r}")
+    null = np.asarray(null, dtype=float)
+    obs = float(observed)
+    tol = _tie_width(obs, atol)
+    if alternative == "greater":
+        hit = null >= obs - tol
+    elif alternative == "less":
+        hit = null <= obs + tol
+    else:
+        hit = np.abs(null) >= abs(obs) - tol
+    return int(np.count_nonzero(hit))
+
+
+def _tie_width(observed, atol: float = 0.0):
+    """``max(atol, _TIE_RTOL * |observed|)``, elementwise for an array."""
+    return np.maximum(float(atol), _TIE_RTOL * np.abs(observed))
+
+
+def _count_each_at_least_as_extreme(values, *, atol: float = 0.0) -> np.ndarray:
+    """For every element ``v`` of ``values``, the number of elements at least ``v`` by the
+    rule of ``_count_at_least_as_extreme(values, v, 'greater', atol=atol)``.
+
+    One sort and one binary search per element, O(n log n) where calling that function once
+    per element is O(n^2); the counts are the same integers. ``values`` must be finite.
+    """
+    values = np.asarray(values, dtype=float)
+    if not np.all(np.isfinite(values)):
+        raise ValueError("values must be finite")
+    thresholds = values - _tie_width(values, atol)
+    ordered = np.sort(values)
+    return values.size - np.searchsorted(ordered, thresholds, side="left")
 
 
 def permute_labels(
@@ -28,7 +91,7 @@ def permute_labels(
     *,
     groups=None,
     scheme: str,
-    rng: np.random.Generator,
+    rng: RNGLike,
 ):
     """Permute labels under an explicitly named exchangeability scheme.
 
@@ -46,7 +109,8 @@ def permute_labels(
             when there is no grouping structure the CV scheme depends on; passing this scheme
             for grouped/LOCO-style CV reproduces the exchangeability mismatch and should be
             treated as a code-review red flag, not a default).
-        rng: an explicit numpy.random.Generator -- no implicit global RNG state.
+        rng: required. An int seed, a numpy.random.Generator (advanced in place), or None
+            for fresh OS entropy; NumPy's global state is never read.
 
     Returns:
         A permuted copy of `y`, same shape and dtype.
@@ -54,8 +118,7 @@ def permute_labels(
     y = np.asarray(y)
     if scheme not in SCHEMES:
         raise ValueError(f"scheme must be one of {SCHEMES}, got {scheme!r}")
-    if not isinstance(rng, np.random.Generator):
-        raise TypeError("rng must be an explicit numpy.random.Generator (e.g. np.random.default_rng(seed))")
+    rng = resolve_rng(rng, func_name="permute_labels")
 
     if scheme == "global":
         return rng.permutation(y)
@@ -98,7 +161,7 @@ def build_permutation_plan(
     groups: Iterable[object],
     *,
     n_permutations: int,
-    rng: int = Default(REQUIRED),
+    rng: RNGLike = Default(REQUIRED),
     seed: Any = Default(REQUIRED),
 ) -> dict:
     """Create an explicit within-group null plan (a manifest of digested draws); no model
@@ -111,24 +174,25 @@ def build_permutation_plan(
         labels: label array, any dtype.
         groups: group id per sample, same length as ``labels``.
         n_permutations: number of permutation draws to generate.
-        rng: base seed, an ``int``. Unlike the rest of the package this one cannot take a
-            ``Generator`` or ``None``: the plan's whole product is a manifest of integer
-            per-draw seeds, ``rng + i``, which a Generator cannot name and fresh entropy
-            would make unreproducible. (``seed`` is the old spelling and still works.)
+        rng: required. An ``int`` base seed, a ``Generator`` or ``None`` for fresh OS
+            entropy. Draw ``i`` is seeded with ``base + i``. An int is the base itself; a
+            Generator gives one int drawn from it and ``None`` one int from a fresh
+            ``default_rng()``. The base used is returned as ``seed``, and passing it back
+            as ``rng`` reproduces the plan. (``seed`` is the old spelling and still works.)
 
     Returns:
         dict with ``draw_manifest`` (DataFrame: permutation, seed, label_digest, n_samples,
-        n_groups), ``scheme`` (always "within_group"), ``seed``, ``n_permutations``, and
-        ``group_composition_preserved`` (always True).
+        n_groups), ``scheme`` (always "within_group"), ``seed`` (the int base seed used),
+        ``n_permutations``, and ``group_composition_preserved`` (always True).
+
+    Raises:
+        TypeError: If ``rng`` is not an int, a Generator or None.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed',
                               func_name='build_permutation_plan')
-    if not isinstance(seed, (int, np.integer)) or isinstance(seed, bool):
-        raise TypeError(
-            "build_permutation_plan: rng must be an int base seed, because the plan "
-            "records the integer seed `rng + i` of every draw; got "
-            f"{type(seed).__name__}."
-        )
+    # The manifest names every draw by an integer seed, so a Generator or None is turned
+    # into one int base seed first, and an int is used as given.
+    seed = sklearn_random_state(seed, func_name="build_permutation_plan")
     y = np.asarray(list(labels))
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:

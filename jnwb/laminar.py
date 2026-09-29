@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ._dictlike import DictAccessMixin
-from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias
+from ._rng import Default, REQUIRED, RNGLike, resolve_seed_alias, surrogate_rng
 from scipy import signal, stats
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
@@ -35,6 +35,7 @@ from scipy.stats import rankdata
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
 from ._spread import is_constant
+from .permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
 from .spectral import (
     MIN_COHERENCE_NPERSEG,
     _require_identifiable_segmentation,
@@ -77,8 +78,20 @@ class VFlipResult(DictAccessMixin):
             crossover reported near either end of the shaft as a bound rather than a point
             estimate, and prefer a probe whose span brackets the transition. Measured in
             `artifacts/benchmarks/vflip_calibration_0.2.4.md`.
-        crossover_depth_um: Physical cortical depth of the crossover in micrometers (um) along
-            the ordered contacts, or None if rejected or contact spacing is unavailable.
+        crossover_depth_um: Depth of the crossover along the ordered contacts in micrometers
+            (um): ``crossover_contact`` times the contact spacing, measured from the first
+            contact of the order the fit used -- `probe_geometry.linear_order`, whose
+            direction follows the electrode table's row order, or the row order itself
+            without a geometry. With a `probe_geometry` the spacing is its `nominal_pitch`
+            (a disagreeing `contact_spacing` raises), so this is the frame
+            :func:`label_layers` places contacts in (its `depth_range_um` compares against
+            rank times `nominal_pitch`), whatever the geometry's z coordinates are. None if
+            rejected or no contact spacing is available.
+        crossover_z_um: The crossover's z coordinate in the geometry's own frame, in
+            micrometers, interpolated between the z of the two contacts either side of it
+            along the shaft. It keeps the table's origin and direction, so on a shaft whose
+            z falls with depth it falls as ``crossover_depth_um`` rises. None if rejected,
+            if no `probe_geometry` was given, or if z does not vary along the shaft.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,
             and transition sharpness. Returned for both accepted and rejected fits.
         profile: 1D array of shape (n_channels,) containing the spectrolaminar difference
@@ -91,6 +104,9 @@ class VFlipResult(DictAccessMixin):
         accepted: Boolean flag indicating whether the spectrolaminar motif satisfies all
             acceptance criteria (support score >= threshold, valid monotonic crossover).
         rejection_reason: Diagnostic reason string if rejected, or None if accepted.
+            ``"declaration_contradicted"`` means a depth declaration put the shallow contact
+            first and a motif that passed every other acceptance test resolved as
+            ``"deep_to_superficial"`` in that frame.
         n_channels: Total number of evaluated contacts along the probe shaft.
         n_missing: Number of bad or missing contacts interpolated or masked during fitting.
         bad_channel_mask: Optional boolean array of shape (n_channels,) indicating bad or
@@ -98,9 +114,12 @@ class VFlipResult(DictAccessMixin):
         index_space: Which axis ``crossover_contact``, ``profile``, ``low_peak_contact`` and
             ``high_peak_contact`` are indexed on.
 
-            - ``"shaft_rank"``: position along the physical shaft, superficial end first.
-              Produced when `vflip` was given a `probe_geometry` carrying a usable
-              `linear_order`, which reorders the PSD rows before the fit.
+            - ``"shaft_rank"``: position along the physical shaft, starting from the end
+              `depth_anchor` names: the declared shallow contact under ``"shallowest"``,
+              the first contact of `linear_order` (which follows the table's row order and
+              may be the deep one) under ``"row_order"``. Produced when `vflip` was given a
+              `probe_geometry` carrying a usable `linear_order`, which reorders the PSD rows
+              before the fit.
             - ``"channel"``: the row order of the PSD array as supplied. Produced when no
               geometry was given, so no reordering happened.
 
@@ -108,6 +127,20 @@ class VFlipResult(DictAccessMixin):
             shaft. :func:`label_layers` always reads shaft-rank, so it refuses a
             ``"channel"`` result whenever the geometry it is handed has a non-identity
             `linear_order` rather than mixing the two axes silently.
+        depth_anchor: Which end of the shaft rank 0 is, and so where ``crossover_depth_um``
+            is measured from.
+
+            - ``"row_order"``: the first contact of `probe_geometry.linear_order`, whose
+              direction follows the electrode table's row order, or the first PSD row
+              without a geometry. Produced when no depth axis was declared.
+            - ``"shallowest"``: the contact at the declared shallow end of `depth_axis`, so
+              depth increases into tissue whatever the row order. Produced when `vflip`
+              was given `depth_axis` and `shallow_end`.
+
+            :func:`label_layers` must be given the same declaration.
+        depth_axis: The declared depth column of `probe_geometry.contact_positions`
+            (``"x"``, ``"y"`` or ``"z"``), or None.
+        shallow_end: Which end of `depth_axis` is shallow, ``"min"`` or ``"max"``, or None.
     """
 
     crossover_contact: Optional[float]
@@ -123,12 +156,20 @@ class VFlipResult(DictAccessMixin):
     n_missing: int
     bad_channel_mask: Optional[np.ndarray] = None
     index_space: str = "channel"
+    crossover_z_um: Optional[float] = None
+    depth_anchor: str = "row_order"
+    depth_axis: Optional[str] = None
+    shallow_end: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
         return {
             "crossover_contact": self.crossover_contact,
             "crossover_depth_um": self.crossover_depth_um,
+            "crossover_z_um": self.crossover_z_um,
+            "depth_anchor": str(self.depth_anchor),
+            "depth_axis": self.depth_axis,
+            "shallow_end": self.shallow_end,
             "support_score": float(self.support_score),
             "profile": self.profile.copy(),
             "low_peak_contact": int(self.low_peak_contact) if self.low_peak_contact is not None else None,
@@ -140,6 +181,79 @@ class VFlipResult(DictAccessMixin):
             "n_missing": int(self.n_missing),
             "index_space": str(self.index_space),
         }
+
+
+# Geometry columns a caller may declare as the depth axis, as `contact_positions` columns,
+# and which end of that axis is shallow.
+_DEPTH_AXES = ("x", "y", "z")
+_SHALLOW_ENDS = ("min", "max")
+
+
+def _refuse_a_deep_first_declaration(
+    orientation: str, depth_axis: Optional[str], shallow_end: Optional[str], func_name: str
+) -> None:
+    """A depth declaration puts the shallow contact first, so contact 0 cannot also be deep."""
+    if orientation == "deep_to_superficial" and (depth_axis is not None or shallow_end is not None):
+        raise ValueError(
+            f"{func_name}: orientation='deep_to_superficial' says contact 0 is deep, but "
+            f"depth_axis={depth_axis!r} with shallow_end={shallow_end!r} puts the shallow "
+            "contact first. Pass orientation='auto' or 'superficial_to_deep' with the "
+            "declaration, or drop the declaration."
+        )
+
+
+def _depth_anchored_order(
+    probe_geometry: Any,
+    order: Optional[np.ndarray],
+    depth_axis: Optional[str],
+    shallow_end: Optional[str],
+    func_name: str,
+) -> Tuple[Optional[np.ndarray], str]:
+    """The shaft order to fit and label in, and the anchor it carries.
+
+    Without a declaration the order is `probe_geometry.linear_order` as given, whose direction
+    follows the table's row order ('row_order'). With one, the order is reversed when needed so
+    rank 0 is the contact at the declared shallow end ('shallowest'). The geometry itself is
+    never modified.
+    """
+    if depth_axis is None and shallow_end is None:
+        return order, "row_order"
+    if depth_axis is None or shallow_end is None:
+        raise ValueError(
+            f"{func_name}: depth_axis and shallow_end are declared together; got "
+            f"depth_axis={depth_axis!r}, shallow_end={shallow_end!r}"
+        )
+    if depth_axis not in _DEPTH_AXES:
+        raise ValueError(f"{func_name}: depth_axis must be one of {_DEPTH_AXES}, got {depth_axis!r}")
+    if shallow_end not in _SHALLOW_ENDS:
+        raise ValueError(
+            f"{func_name}: shallow_end must be one of {_SHALLOW_ENDS}, got {shallow_end!r}"
+        )
+    positions = getattr(probe_geometry, "contact_positions", None)
+    if probe_geometry is None or positions is None:
+        raise ValueError(
+            f"{func_name}: a depth_axis declaration needs a probe_geometry with contact_positions"
+        )
+    positions = np.asarray(positions, dtype=float)
+    column = _DEPTH_AXES.index(depth_axis)
+    if positions.ndim != 2 or positions.shape[1] <= column:
+        raise ValueError(
+            f"{func_name}: probe_geometry.contact_positions has no {depth_axis!r} column "
+            f"(shape {positions.shape})"
+        )
+    if order is None or len(order) != positions.shape[0]:
+        raise ValueError(
+            f"{func_name}: a depth_axis declaration needs probe_geometry.linear_order over "
+            "every contact"
+        )
+    first, last = positions[order[0], column], positions[order[-1], column]
+    if not (np.isfinite(first) and np.isfinite(last)) or abs(last - first) <= 1e-6:
+        raise ValueError(
+            f"{func_name}: {depth_axis!r} does not change between the two ends of the shaft "
+            f"({first} and {last} um), so it cannot say which end is shallow"
+        )
+    shallow_first = first < last if shallow_end == "min" else first > last
+    return (np.asarray(order) if shallow_first else np.asarray(order)[::-1]), "shallowest"
 
 
 def _unit_range(values: np.ndarray) -> np.ndarray:
@@ -172,6 +286,8 @@ def vflip(
     min_channels: int = 8,
     min_peak_distance: int = 2,
     device: str = "cpu",
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> VFlipResult:
     """Vectorized Frequency-based Laminar Identity Profile (vFLIP).
 
@@ -214,19 +330,45 @@ def vflip(
         freqs: 1D array of strictly increasing frequency coordinates in Hz, shape `(n_freqs,)`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, whose
+            contact 0 is the declared shallow contact under a depth declaration, the first
+            contact of `probe_geometry.linear_order` otherwise, and PSD row 0 without a
+            geometry:
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Raises ValueError with a depth declaration, which puts the shallow contact
+              first; with ``"auto"``, a declared fit that resolves this way is rejected
+              (see `shallow_end`).
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
         min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
         device: Hardware device (`"cpu"` or `"cuda"`).
+        depth_axis: Optional column of `probe_geometry.contact_positions` that is depth:
+            ``"x"``, ``"y"`` or ``"z"``. Declared together with `shallow_end`. With the
+            declaration the fit runs along the shaft from its shallow end, so
+            ``crossover_contact``, the peaks, the profile, `orientation` and
+            ``crossover_depth_um`` are anchored there and do not depend on the table's row
+            order; the result records ``depth_anchor="shallowest"``. Without it they follow
+            `linear_order` as given (``depth_anchor="row_order"``), unchanged. The geometry
+            is never modified. ``"x"``, ``"y"`` and ``"z"`` name columns 0, 1 and 2 of
+            `contact_positions`, so ``"z"`` is the table's ``rel_z`` when it has no
+            ``x``/``y``/``z`` columns. The axis is refused when its values at the two end
+            contacts of the shaft are within 1e-6 um of each other.
+        shallow_end: Which end of `depth_axis` is shallow: ``"min"`` or ``"max"``. jnwb
+            does not infer it, because coordinate conventions differ between files. A
+            motif that places the deep layers at the declared shallow end rejects the fit
+            (``rejection_reason="declaration_contradicted"``) rather than overriding either.
+            That reason is reported only for a fit that passes every other acceptance test,
+            so a fit without support reports ``"insufficient_support"``; an
+            ``orientation`` argument that the peaks disagree with reports
+            ``"orientation_mismatch"`` first.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
@@ -234,7 +376,12 @@ def vflip(
 
     Raises:
         ValueError: If input dimensions are invalid, frequencies non-monotonic, bands overlapping
-            or outside frequency range, non-finite parameters provided, or min_support_score is non-finite.
+            or outside frequency range, non-finite parameters provided, min_support_score is
+            non-finite, `contact_spacing` disagrees with `probe_geometry.nominal_pitch`
+            (the depth would then not be in the frame :func:`label_layers` measures),
+            ``orientation="deep_to_superficial"`` comes with a depth declaration, or the
+            depth declaration is incomplete, names an unknown axis or end, comes without a
+            `probe_geometry`, or names an axis that does not change along the shaft.
     """
     # 1. Parameter validation
     if not np.isfinite(min_support_score):
@@ -243,6 +390,7 @@ def vflip(
     valid_orientations = ("auto", "superficial_to_deep", "deep_to_superficial")
     if orientation not in valid_orientations:
         raise ValueError(f"orientation must be one of {valid_orientations}, got {orientation!r}")
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip")
 
     # Validate device. `laminar.py` contains no cupy or torch call anywhere, so a
     # `device='cuda'` request can never be honoured here -- the resolver's answer used
@@ -301,9 +449,24 @@ def vflip(
                 f"probe_geometry channel count ({len(probe_geometry.channel_ids)}) "
                 f"does not match psd channels ({n_channels})"
             )
+        nominal = getattr(probe_geometry, "nominal_pitch", None)
         if effective_spacing is None:
-            effective_spacing = probe_geometry.nominal_pitch
+            effective_spacing = nominal
+        elif nominal is not None and not np.isclose(
+            float(effective_spacing), float(nominal), rtol=1e-9, atol=0.0
+        ):
+            # label_layers measures depth as rank times nominal_pitch, so a depth computed
+            # with another spacing would select different contacts through depth_range_um.
+            raise ValueError(
+                f"contact_spacing={contact_spacing} disagrees with probe_geometry.nominal_pitch="
+                f"{nominal}; label_layers measures depth with nominal_pitch, so the crossover "
+                "depth would not be in its frame. Omit contact_spacing, or build the geometry "
+                "with nominal_pitch=contact_spacing."
+            )
         order = getattr(probe_geometry, "linear_order", None)
+    order, depth_anchor = _depth_anchored_order(
+        probe_geometry, order, depth_axis, shallow_end, "vflip"
+    )
 
     if effective_spacing is not None:
         effective_spacing = float(effective_spacing)
@@ -359,6 +522,9 @@ def vflip(
             n_missing=n_missing,
             bad_channel_mask=effective_bad_input,
             index_space=index_space,
+            depth_anchor=depth_anchor,
+            depth_axis=depth_axis,
+            shallow_end=shallow_end,
         )
 
     # 3. Frequency standardization across valid contacts along the shaft
@@ -464,6 +630,7 @@ def vflip(
     peak_sep = c_deep - c_sup
 
     crossover_c: Optional[float] = None
+    crossover_depth: Optional[float] = None
     crossover_z: Optional[float] = None
 
     if orientation_matches and peak_sep >= min_peak_distance:
@@ -485,14 +652,16 @@ def vflip(
             # Select candidate maximizing transition steepness
             cross_candidates.sort(key=lambda x: x[1], reverse=True)
             crossover_c = cross_candidates[0][0]
-            if probe_geometry is not None and order is not None:
-                sorted_z = probe_geometry.contact_positions[order, 2]
+            # Depth is always shaft rank times pitch, the frame `label_layers` places
+            # contacts in. The geometry's own z is reported separately: it can run in
+            # either direction along the shaft and carries the table's origin, so it is a
+            # different quantity rather than a more precise depth.
+            if effective_spacing is not None:
+                crossover_depth = float(crossover_c * effective_spacing)
+            if probe_geometry is not None and order is not None and len(order) == n_channels:
+                sorted_z = np.asarray(probe_geometry.contact_positions, dtype=float)[order, 2]
                 if np.ptp(sorted_z) > 1e-6:
                     crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
-                elif effective_spacing is not None:
-                    crossover_z = float(crossover_c * effective_spacing)
-            elif effective_spacing is not None:
-                crossover_z = float(crossover_c * effective_spacing)
 
     # 8. Support Score (Omega) Formulation
     # Density-normalized so the score does not scale with the number of channels.
@@ -552,14 +721,21 @@ def vflip(
     elif support_score < min_support_score:
         accepted = False
         rejection_reason = "insufficient_support"
+    elif depth_anchor == "shallowest" and resolved_orientation == "deep_to_superficial":
+        # Checked last: only a motif that passes every other test can contradict the
+        # declaration. On noise the peak order is a coin toss, and reporting it as a
+        # contradiction would name the wrong reason for a fit that has no support.
+        accepted = False
+        rejection_reason = "declaration_contradicted"
 
     # Enforce failure invariants: rejected fit implies None crossover
     final_cross_c = crossover_c if accepted else None
+    final_cross_depth = crossover_depth if accepted else None
     final_cross_z = crossover_z if accepted else None
 
     return VFlipResult(
         crossover_contact=final_cross_c,
-        crossover_depth_um=final_cross_z,
+        crossover_depth_um=final_cross_depth,
         support_score=support_score,
         profile=located_profile,
         low_peak_contact=low_peak,
@@ -571,6 +747,10 @@ def vflip(
         n_missing=n_missing,
         bad_channel_mask=effective_bad_input,
         index_space=index_space,
+        crossover_z_um=final_cross_z,
+        depth_anchor=depth_anchor,
+        depth_axis=depth_axis,
+        shallow_end=shallow_end,
     )
 
 
@@ -593,6 +773,8 @@ def vflip_from_lfp(
     min_channels: int = 8,
     min_peak_distance: int = 2,
     device: str = "cpu",
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> VFlipResult:
     """Vectorized Frequency-based Laminar Identity Profile from raw LFP time series.
 
@@ -619,13 +801,17 @@ def vflip_from_lfp(
             power spectrum (`'spectrum'`). Default: `'density'`.
         band_low: Frequency range (f_min, f_max) in Hz for the low-frequency band (default: 8-30 Hz).
         band_high: Frequency range (f_min, f_max) in Hz for the high-frequency band (default: 50-150 Hz).
-        contact_spacing: Inter-contact spacing (pitch) in micrometers (um).
+        contact_spacing: Inter-contact spacing (pitch) in micrometers (um). With a
+            `probe_geometry` it defaults to `probe_geometry.nominal_pitch` and must equal it.
         probe_geometry: Optional :class:`jnwb.ProbeGeometry` object validating probe linearity and
             contact ordering along the shaft.
-        orientation: Expected shaft orientation relative to channel indexing:
+        orientation: Expected shaft orientation relative to the fitted contact order, as in
+            :func:`vflip` (contact 0 is the declared shallow contact under a depth
+            declaration):
             - ``"auto"``: Automatically evaluates peak ordering and resolves orientation.
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
+              Raises ValueError with a depth declaration, before the PSD is computed.
         min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
@@ -635,14 +821,18 @@ def vflip_from_lfp(
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
         min_peak_distance: Minimum channel distance required between low and high power peaks (default: 2).
         device: Hardware device (`"cpu"` or `"cuda"`).
+        depth_axis, shallow_end: Optional depth declaration, passed to :func:`vflip`, which
+            anchors the fit at the shallow end of the declared geometry column.
 
     Returns:
         :class:`VFlipResult` containing the estimated crossover contact, depth, support score,
         and diagnostic flags.
 
     Raises:
-        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, or parameters
-            violate geometry, frequency, or numerical invariants.
+        ValueError: If `lfp` is not 2D, `fs` is non-positive or non-finite, `contact_spacing`
+            disagrees with `probe_geometry.nominal_pitch`, the depth declaration is invalid
+            (as in :func:`vflip`), or parameters violate geometry, frequency, or numerical
+            invariants.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -659,6 +849,7 @@ def vflip_from_lfp(
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive and finite (Hz), got {fs}")
 
+    _refuse_a_deep_first_declaration(orientation, depth_axis, shallow_end, "vflip_from_lfp")
     lfp_arr = np.asarray(lfp, dtype=np.float64)
     if lfp_arr.ndim != 2:
         raise ValueError(f"lfp must be a 2D array of shape (n_channels, n_times), got ndim={lfp_arr.ndim}")
@@ -723,6 +914,8 @@ def vflip_from_lfp(
         min_channels=min_channels,
         min_peak_distance=min_peak_distance,
         device=device,
+        depth_axis=depth_axis,
+        shallow_end=shallow_end,
     )
 
 
@@ -734,6 +927,8 @@ def label_layers(
     bad_channel_mask: Optional[np.ndarray] = None,
     depth_range_um: Optional[Tuple[float, float]] = None,
     contact_range: Optional[Tuple[float, float]] = None,
+    depth_axis: Optional[str] = None,
+    shallow_end: Optional[str] = None,
 ) -> Dict[Any, str]:
     """Assign cortical layer labels (superficial, input, deep) to probe contacts.
 
@@ -768,9 +963,17 @@ def label_layers(
         bad_channel_mask: Optional boolean array matching `probe_geometry.channel_ids`. Contacts
             flagged True receive ``"na"``. If omitted, defaults to `vflip_result.bad_channel_mask`.
         depth_range_um: Optional (min_depth_um, max_depth_um) tuple bounding valid cortical depth
-            along the shaft. Contacts outside this range receive ``"na"``.
+            along the shaft, in the frame of `vflip_result.crossover_depth_um`: shaft rank
+            times `probe_geometry.nominal_pitch`, from the first contact. Contacts outside this
+            range receive ``"na"``.
         contact_range: Optional (min_contact, max_contact) tuple bounding valid contact indices
             along the ordered linear shaft. Contacts outside this range receive ``"na"``.
+        depth_axis, shallow_end: The depth declaration `vflip_result` was fitted with (see
+            :func:`vflip`). With it, contacts are ranked from the declared shallow end, the
+            frame the result's ``crossover_contact`` and ``crossover_depth_um`` are anchored
+            in; without it, by `probe_geometry.linear_order` as given. A declaration that
+            differs from the result's, including one on either side only, raises rather than
+            placing the crossover in the other frame.
 
     Returns:
         Dictionary mapping channel identifier (from `probe_geometry.channel_ids`) to layer label
@@ -786,8 +989,9 @@ def label_layers(
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
             is not linear, channel count does not match `vflip_result.n_channels`, range bounds
-            are invalid, or `vflip_result.index_space` is not the shaft rank this geometry
-            requires.
+            are invalid, `vflip_result.index_space` is not the shaft rank this geometry
+            requires, the depth declaration is invalid (as in :func:`vflip`), or it differs
+            from the one `vflip_result` records.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -849,6 +1053,27 @@ def label_layers(
             f"vflip_result.n_channels ({vflip_result.n_channels})"
         )
 
+    # The depth frame. The declaration is validated here, before the rejection path, so an
+    # invalid one raises whatever the fit; and it must be the one the fit was made with,
+    # because a crossover anchored at one end cannot be placed from the other.
+    anchored_order, depth_anchor = _depth_anchored_order(
+        probe_geometry, getattr(probe_geometry, "linear_order", None),
+        depth_axis, shallow_end, "label_layers",
+    )
+    fitted_with = (
+        str(getattr(vflip_result, "depth_anchor", "row_order")),
+        getattr(vflip_result, "depth_axis", None),
+        getattr(vflip_result, "shallow_end", None),
+    )
+    if fitted_with != (depth_anchor, depth_axis, shallow_end):
+        raise ValueError(
+            "label_layers: vflip_result was fitted with depth_anchor="
+            f"{fitted_with[0]!r}, depth_axis={fitted_with[1]!r}, shallow_end={fitted_with[2]!r}, "
+            f"but label_layers was given depth_axis={depth_axis!r}, shallow_end={shallow_end!r}. "
+            "Pass the same depth declaration to both, so the crossover and the contacts share "
+            "one frame."
+        )
+
     # 2. Strict rejection invariant: unaccepted fits yield all "na"
     if not vflip_result.accepted or vflip_result.crossover_contact is None:
         return {ch_id: "na" for ch_id in channel_ids}
@@ -902,8 +1127,9 @@ def label_layers(
     # Under 'deep_to_superficial': lower contact indices are deep, higher are superficial.
     is_sup_to_deep = (vflip_result.orientation == "superficial_to_deep")
 
-    # Map each channel in channel_ids to its position index along the ordered linear shaft
-    order = getattr(probe_geometry, "linear_order", None)
+    # Map each channel in channel_ids to its position index along the ordered linear shaft,
+    # from the shallow end when a depth axis was declared.
+    order = anchored_order
     if order is not None and len(order) == n_geom_channels:
         rank = np.empty(n_geom_channels, dtype=float)
         rank[order] = np.arange(n_geom_channels, dtype=float)
@@ -999,6 +1225,10 @@ class XFlipResult(DictAccessMixin):
         n_blocks: Number of detected blocks.
         boundary_drops: Optional dict mapping each interior boundary index to its
             local correlation drop (within-block neighbor correlation minus cross-boundary correlation).
+        surrogate_seed_entropy: The entropy the surrogate generator was built from: the
+            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
+            back as `rng` reproduces `p_values`. None when you supplied a `Generator`, whose
+            stream position cannot be recovered, and when no surrogates were drawn.
     """
 
     corr_matrix: np.ndarray
@@ -1013,6 +1243,7 @@ class XFlipResult(DictAccessMixin):
     n_channels: int
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
+    surrogate_seed_entropy: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1029,6 +1260,7 @@ class XFlipResult(DictAccessMixin):
             "n_channels": int(self.n_channels),
             "n_blocks": int(self.n_blocks),
             "boundary_drops": dict(self.boundary_drops) if self.boundary_drops is not None else {},
+            "surrogate_seed_entropy": self.surrogate_seed_entropy,
         }
 
 
@@ -1114,6 +1346,47 @@ def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
     return mean_within - mean_between
 
 
+def _select_count_by_min_p(obs_q: np.ndarray, surr_q: np.ndarray) -> Tuple[int, float]:
+    """The candidate count with the smallest surrogate p, and a p that accounts for choosing it.
+
+    `obs_q` is `(K,)`, the observed contrast at each candidate count; `surr_q` is `(S, K)`,
+    each surrogate's contrast at the same counts. The observation and the S surrogates are
+    treated as S + 1 exchangeable draws. At each count, a draw's p is the fraction of the
+    draws whose contrast is at least its own, within round-off (100 machine epsilons of a
+    correlation, as ``_count_at_least_as_extreme`` counts), so the observation's p is the usual
+    `(1 + #exceed) / (1 + S)`. Each draw's statistic is its smallest p over the counts, and
+    the returned p is the fraction of draws whose smallest p is at most the observation's:
+    the selection is repeated on every surrogate. With one candidate this is exactly the
+    fixed-count p.
+
+    Among counts tied at the smallest p, the one whose observed contrast lies the most
+    surrogate standard deviations above the surrogate mean is chosen, and on a further tie
+    the smallest count. The tie-break chooses the partition only; the p does not depend on it.
+
+    Returns:
+        (index into the candidates, p)
+    """
+    draws = np.vstack([obs_q[None, :], surr_q])
+    n_draws = draws.shape[0]
+    # "At least its own" counts a draw within round-off of it, by the rule every jnwb null
+    # uses, applied to each draw in turn: two draws that tie to round-off each count the
+    # other. The width is 100 eps * max(1, |contrast|). One sort per count: O(K S log S).
+    # The p that follows compares the integer counts exactly.
+    at_least = np.empty(draws.shape, dtype=np.int64)
+    for i in range(draws.shape[1]):
+        at_least[:, i] = _count_each_at_least_as_extreme(draws[:, i], atol=_TIE_RTOL)
+    smallest = at_least.min(axis=1)
+    p = float(np.count_nonzero(smallest <= smallest[0]) / n_draws)
+
+    dev = obs_q - surr_q.mean(axis=0)
+    spread = surr_q.std(axis=0)
+    # A count whose surrogates do not vary scores +-inf by the sign of its deviation, or 0.
+    z = np.where(dev > 0, np.inf, np.where(dev < 0, -np.inf, 0.0))
+    np.divide(dev, spread, out=z, where=spread > 0)
+    tied = np.flatnonzero(at_least[0] == smallest[0])
+    return int(tied[np.argmax(z[tied])]), p
+
+
 def _optimal_contiguous_partition(
     corr: np.ndarray,
     n_blocks: int,
@@ -1121,10 +1394,22 @@ def _optimal_contiguous_partition(
 ) -> Tuple[Tuple[Tuple[int, int], ...], Tuple[int, ...], float, np.ndarray]:
     """Find globally optimal contiguous partition using 1D dynamic programming.
 
-    Maximizes modularity sum: W(u, v) = S(u, v) - gamma * P(u, v),
-    where S(u, v) is sum of off-diagonal correlations in [u, v),
-    P(u, v) is number of pairs (v-u)*(v-u-1)/2,
-    and gamma is the probe-wide mean off-diagonal correlation.
+    Maximizes the sum over blocks of W(u, v) = S(u, v)**2 / P(u, v), where S(u, v) is
+    the sum of off-diagonal correlations within [u, v) and P(u, v) = (v-u)*(v-u-1)/2 is
+    their number of pairs. A single-contact block has no pairs and scores 0.
+
+    W is the squared error removed by describing a block's within-block correlations by
+    their mean rather than by 0, so the partition is the block-constant least-squares fit
+    to the within-block correlations. It scores each block against its own mean; an
+    uncorrelated block scores near 0 at any size, which leaves the cut at the edge of a
+    correlated block. Squaring discards the sign: a block of negative mean correlation
+    scores as a positive one of the same magnitude.
+
+    INTENTIONAL BREAK (0.2.7): W was S - gamma * P with gamma the probe-wide mean
+    correlation. Penalising every within-block pair by one probe-wide value favoured
+    blocks of equal size, and beside an uncorrelated background moved the cut toward the
+    middle of the probe, where the surrogate test could still accept it. Cuts can change
+    on existing data.
 
     Returns:
         (block_bounds, boundaries, modularity, labels)
@@ -1133,9 +1418,6 @@ def _optimal_contiguous_partition(
     if n_blocks == 1:
         labels = np.zeros(n, dtype=int)
         return ((0, n),), (), 0.0, labels
-
-    triu_idx = np.triu_indices(n, k=1)
-    gamma = float(np.mean(corr[triu_idx])) if len(triu_idx[0]) > 0 else 0.0
 
     prefix = np.zeros((n + 1, n + 1), dtype=float)
     prefix[1:, 1:] = np.cumsum(np.cumsum(corr, axis=0), axis=1)
@@ -1146,14 +1428,10 @@ def _optimal_contiguous_partition(
     # makes about 93000 of them at n=256 with n_blocks=4, once per surrogate. Prefix-
     # summing the diagonal answers it the way the off-diagonal term is already answered.
     #
-    # This is not bit-identical to re-summing: a difference of two running totals is a
-    # different floating-point operation from a pairwise reduction, and on a real
-    # correlation matrix -- whose diagonal `np.corrcoef` does not always make exactly
-    # 1.0 -- the two disagree by up to 4e-15. It cannot reach the answer. For a fixed
-    # (k, j) every candidate partition tiles [0, j), so the per-block diagonal terms sum
-    # to `f(j) - f(0)` whatever the cuts are: the same constant in every candidate,
-    # cancelling out of the comparison. The returned modularity is computed separately
-    # by `_compute_contrast` from the labels, and never sees `dp` at all.
+    # Subtracting the diagonal's running total removes it from S exactly in real
+    # arithmetic; in floating point a residue of order 1e-15 per block remains, which
+    # the tests that vary the diagonal show does not move a cut. The returned modularity
+    # is computed separately by `_compute_contrast` from the labels, and never sees `dp`.
     diag_cum = np.concatenate(([0.0], np.cumsum(np.diag(corr))))
 
     def interval_w(u: int, v: int) -> float:
@@ -1164,7 +1442,9 @@ def _optimal_contiguous_partition(
         diag_sub = diag_cum[v] - diag_cum[u]
         s_uv = 0.5 * (total_sub - diag_sub)
         p_uv = 0.5 * sz * (sz - 1)
-        return float(s_uv - gamma * p_uv)
+        if p_uv == 0:
+            return 0.0
+        return float(s_uv * s_uv / p_uv)
 
     dp = np.full((n_blocks + 1, n + 1), -np.inf, dtype=float)
     parent = np.full((n_blocks + 1, n + 1), -1, dtype=int)
@@ -1172,23 +1452,35 @@ def _optimal_contiguous_partition(
     for j in range(min_block_size, n + 1):
         dp[1, j] = interval_w(0, j)
 
+    # Every (split point u, end j) pair of one block count k is scored as one array, rows u
+    # and columns j. Each element goes through the same float64 operations, in the same
+    # order, as `interval_w`, so the scores are bit-identical to a scalar loop's, and
+    # `argmax` down a column returns the first maximum, as a loop keeping only strictly
+    # greater values would. Pairs leaving a last block shorter than `min_block_size`, and
+    # u whose `dp[k - 1, u]` is -inf, score -inf; a column that is -inf throughout records
+    # (-inf, -1).
+    diag_prefix = np.diagonal(prefix)
     for k in range(2, n_blocks + 1):
-        min_j = k * min_block_size
-        for j in range(min_j, n + 1):
-            best_val = -np.inf
-            best_u = -1
-            for u in range((k - 1) * min_block_size, j - min_block_size + 1):
-                if dp[k - 1, u] == -np.inf:
-                    continue
-                w = interval_w(u, j)
-                if w == -np.inf:
-                    continue
-                val = dp[k - 1, u] + w
-                if val > best_val:
-                    best_val = val
-                    best_u = u
-            dp[k, j] = best_val
-            parent[k, j] = best_u
+        j = np.arange(k * min_block_size, n + 1)
+        if j.size == 0:
+            continue
+        u = np.arange((k - 1) * min_block_size, n - min_block_size + 1)
+        sz = j[None, :] - u[:, None]
+        total_sub = (
+            diag_prefix[j][None, :] - prefix[np.ix_(u, j)] - prefix[np.ix_(j, u)].T
+            + diag_prefix[u][:, None]
+        )
+        diag_sub = diag_cum[j][None, :] - diag_cum[u][:, None]
+        s_uv = 0.5 * (total_sub - diag_sub)
+        p_uv = 0.5 * sz * (sz - 1)
+        w = np.divide(s_uv * s_uv, p_uv, out=np.zeros_like(s_uv), where=p_uv > 0)
+        vals = dp[k - 1, u][:, None] + w
+        vals[sz < min_block_size] = -np.inf
+        best = np.argmax(vals, axis=0)
+        best_val = vals[best, np.arange(j.size)]
+        found = best_val > -np.inf
+        dp[k, j] = np.where(found, best_val, -np.inf)
+        parent[k, j] = np.where(found, u[best], -1)
 
     if dp[n_blocks, n] == -np.inf:
         labels = np.zeros(n, dtype=int)
@@ -1197,7 +1489,7 @@ def _optimal_contiguous_partition(
     cuts = []
     curr_j = n
     for k in range(n_blocks, 1, -1):
-        u = parent[k, curr_j]
+        u = int(parent[k, curr_j])
         cuts.append(u)
         curr_j = u
     cuts.reverse()
@@ -1293,8 +1585,12 @@ def xflip(
         2. Optimal Contiguous Partitioning:
            When `contiguous=True`, computes the globally optimal segmentation into `n_blocks`
            contiguous intervals :math:`[b_{k-1}, b_k)` via 1D dynamic programming maximizing
-           the modularity contrast over the probe-wide baseline :math:`\\gamma = \\bar{R}`:
-           :math:`W(u, v) = \\sum_{u \\le i < j < v} (R_{ij} - \\gamma)`.
+           :math:`\\sum_b S_b^2 / P_b`, with :math:`S_b = \\sum_{u \\le i < j < v} R_{ij}` and
+           :math:`P_b` its pair count: the block-constant least-squares fit to the
+           within-block correlations. No published method defines this objective; it is
+           jnwb's own criterion, and no reference is cited for it. Before 0.2.7 the
+           objective was :math:`\\sum_{u \\le i < j < v} (R_{ij} - \\bar{R})`, which moved
+           the cut beside an uncorrelated background toward the middle of the probe.
         3. Statistical Null Testing:
            Constructs surrogates preserving each channel's empirical power spectrum and
            temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase
@@ -1302,8 +1598,14 @@ def xflip(
            (when a precomputed correlation matrix is provided).
         4. Monte Carlo P-value Resolution:
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
-           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q)}{1 + S}`.
+           :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q - \\epsilon)}{1 + S}`,
+           with :math:`\\epsilon` 100 machine epsilons, so a surrogate that reproduces
+           :math:`Q` with its correlations summed in another order counts.
            No p-value can resolve to 0.0 under finite surrogate sampling.
+           Under `n_blocks=None`, the observation and the surrogates are S + 1 draws; each
+           draw's p at each count is the fraction of draws whose contrast is at least its
+           own, its statistic is the smallest of those p over the counts, and the omnibus p
+           is the fraction of draws whose statistic is at most the observation's.
 
     Args:
         data: 2D array of raw time series `(n_channels, n_samples)` or precomputed
@@ -1312,7 +1614,20 @@ def xflip(
             or `'partial'` (default: `'pearson'`).
         contiguous: If True, partitions into contiguous contact segments along the probe
             shaft (default: True). If False, performs unrestricted clustering.
-        n_blocks: Number of blocks to partition into, or None to evaluate over 2..K (default: 2).
+        n_blocks: Number of blocks to partition into (default: 2), or None to choose among
+            the counts 2..min(4, n_channels // min_block_size). Each count is partitioned as
+            in step 2 and tested against the same surrogates; the count with the smallest p
+            is reported, and the omnibus p repeats that choice on every surrogate (step 4),
+            so it accounts for the choice. Among counts tied at the smallest p, the one whose
+            observed contrast lies the most surrogate standard deviations above the surrogate
+            mean wins, then the smallest count. When a count's partition beats every
+            surrogate, every count sits at the floor and the standardised contrast decides;
+            the omnibus p does not depend on the tie-break. The per-boundary p-values are the
+            chosen count's own and are not adjusted for the choice. With `n_surrogates=0`
+            there is no p to choose by, and count 2 is reported. Measured on 16 to 18 contacts
+            at a within-block correlation of 0.8, the true count is recovered up to a shared
+            background correlation of 0.3; at 0.5, three blocks of 6 were cut into four and
+            rejected. Costs about one fixed-count call at each candidate count.
         min_block_size: Minimum channel count required per block (default: 2).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
@@ -1326,15 +1641,18 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
-        rng: Optional NumPy Generator or integer seed for surrogate reproducibility.
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy. The entropy
+            used is returned as `surrogate_seed_entropy` for an int or None.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, and `rejection_reason`.
+        `p_values`, `accepted`, `rejection_reason` and `surrogate_seed_entropy`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
             matrix, or contains invalid configuration parameters.
+        TypeError: If `rng` is not an int, a Generator or None; a float or bool seed is
+            refused rather than truncated.
     """
     if method not in ("pearson", "spearman", "partial"):
         raise ValueError(
@@ -1359,6 +1677,7 @@ def xflip(
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
+    gen, seed_entropy = surrogate_rng(rng, "xflip")
 
     arr = np.asarray(data)
     if arr.ndim != 2:
@@ -1474,43 +1793,51 @@ def xflip(
             n_blocks=1,
         )
 
-    # Optimal partition on observed data
-    if n_blocks is not None:
+    def partition(matrix: np.ndarray, k: int):
         if contiguous:
-            b_bounds, boundaries, obs_q, labels = _optimal_contiguous_partition(corr, target_k, min_block_size)
-        else:
-            b_bounds, boundaries, obs_q, labels = _unrestricted_partition(corr, target_k)
+            return _optimal_contiguous_partition(matrix, k, min_block_size)
+        return _unrestricted_partition(matrix, k)
+
+    def local_labels(bounds, b):
+        """The two blocks either side of boundary `b`, as (start, end, labels)."""
+        left_st = 0
+        right_en = n_channels
+        for bb_st, bb_en in bounds:
+            if bb_en == b:
+                left_st = bb_st
+            elif bb_st == b:
+                right_en = bb_en
+                break
+        lbl = np.zeros(right_en - left_st, dtype=int)
+        lbl[b - left_st:] = 1
+        return left_st, right_en, lbl
+
+    # INTENTIONAL BREAK (0.2.7): under `n_blocks=None` the count is the candidate with the
+    # smallest surrogate p, and the same choice is repeated on every surrogate, so the
+    # reported p accounts for it. The count was the one with the highest contrast, and the p
+    # ignored the choice: on an AR(1) null it fell at or below 0.05 about twice as often as
+    # at a fixed count.
+    # Counts and p can change on existing data.
+    if n_blocks is not None:
+        candidates: Tuple[int, ...] = (target_k,)
     else:
-        max_k = min(4, n_channels // min_block_size)
-        best_q = -np.inf
-        best_res = None
-        target_k = 2
-        for k_cand in range(2, max_k + 1):
-            if contiguous:
-                bb, bnd, q_cand, lbl = _optimal_contiguous_partition(corr, k_cand, min_block_size)
-            else:
-                bb, bnd, q_cand, lbl = _unrestricted_partition(corr, k_cand)
-            if q_cand > best_q:
-                best_q = q_cand
-                best_res = (bb, bnd, q_cand, lbl)
-                target_k = k_cand
-        if best_res is not None:
-            b_bounds, boundaries, obs_q, labels = best_res
-        else:
-            b_bounds = ((0, n_channels),)
-            boundaries = ()
-            obs_q = 0.0
-            labels = np.zeros(n_channels, dtype=int)
+        candidates = tuple(range(2, min(4, n_channels // min_block_size) + 1))
+    observed = [partition(corr, k) for k in candidates]
+    local_obs = [
+        {b: _compute_contrast(corr[st:en, st:en], lbl)
+         for b in bnd for st, en, lbl in [local_labels(bb, b)]}
+        for bb, bnd, _, _ in observed
+    ]
 
     # Monte Carlo surrogate null testing
-    gen = np.random.default_rng(rng)
     p_values: Dict[str, float] = {}
+    chosen = 0
 
     if n_surrogates > 0:
-        count_exceed = 0
-        boundary_exceed = {b: 0 for b in boundaries}
+        surr_q_all = np.empty((n_surrogates, len(candidates)), dtype=float)
+        boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
 
-        for _ in range(n_surrogates):
+        for s_idx in range(n_surrogates):
             if eff_surrogate_method == "autocorr_preserving":
                 surr_raw = _surrogate_phase_randomize(raw_data, gen)
                 surr_corr = _compute_correlation_matrix(surr_raw, method)
@@ -1525,37 +1852,29 @@ def xflip(
                     surr_corr[triu_idx] = perm_vals
                     surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
 
-            if contiguous:
-                _, _, surr_q, _ = _optimal_contiguous_partition(surr_corr, target_k, min_block_size)
-            else:
-                _, _, surr_q, _ = _unrestricted_partition(surr_corr, target_k)
+            for i, k in enumerate(candidates):
+                surr_q_all[s_idx, i] = partition(surr_corr, k)[2]
+                bb = observed[i][0]
+                for b in observed[i][1]:
+                    st, en, lbl = local_labels(bb, b)
+                    boundary_exceed[i][b] += _count_at_least_as_extreme(
+                        [_compute_contrast(surr_corr[st:en, st:en], lbl)], local_obs[i][b],
+                        "greater", atol=_TIE_RTOL,
+                    )
 
-            if surr_q >= obs_q:
-                count_exceed += 1
-
-            for b in boundaries:
-                left_st = 0
-                right_en = n_channels
-                for bb_st, bb_en in b_bounds:
-                    if bb_en == b:
-                        left_st = bb_st
-                    elif bb_st == b:
-                        right_en = bb_en
-                        break
-
-                local_lbl = np.zeros(right_en - left_st, dtype=int)
-                local_lbl[b - left_st:] = 1
-                local_surr_q = _compute_contrast(surr_corr[left_st:right_en, left_st:right_en], local_lbl)
-                local_obs_q = _compute_contrast(corr[left_st:right_en, left_st:right_en], local_lbl)
-                if local_surr_q >= local_obs_q:
-                    boundary_exceed[b] += 1
-
-        p_omnibus = (1 + count_exceed) / (1 + n_surrogates)
-        p_values["omnibus"] = float(p_omnibus)
-        for b in boundaries:
-            p_values[f"boundary_{b}"] = float((1 + boundary_exceed[b]) / (1 + n_surrogates))
+        obs_q_all = np.array([part[2] for part in observed], dtype=float)
+        chosen, p_omnibus = _select_count_by_min_p(obs_q_all, surr_q_all)
+        p_values["omnibus"] = p_omnibus
+        for b in observed[chosen][1]:
+            p_values[f"boundary_{b}"] = float(
+                (1 + boundary_exceed[chosen][b]) / (1 + n_surrogates)
+            )
     else:
         p_values["omnibus"] = np.nan
+
+    # With no surrogates there is no p to choose by, and the smallest candidate is reported.
+    target_k = candidates[chosen]
+    b_bounds, boundaries, obs_q, labels = observed[chosen]
 
     # Evaluate boundary drops (local discontinuity across candidate cuts)
     # On the unrestricted path the partition carries no boundaries of its own, but a
@@ -1641,6 +1960,7 @@ def xflip(
         n_channels=n_channels,
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
+        surrogate_seed_entropy=seed_entropy if surrogates_run else None,
     )
 
 
@@ -1655,16 +1975,26 @@ class ZFlipResult(DictAccessMixin):
     Attributes:
         adjacent_wpli: 1D array of shape (n_channels - 1,) containing the weighted
             Phase Lag Index between adjacent contacts; NaN when not computed, and for a
-            pair with a constant contact (all-zero included).
+            pair with a constant contact (all-zero included). Here and in every
+            ``adjacent_*`` field, a contact is constant only when every sample of the whole
+            record equals every other, compared exactly; a contact of tiny but nonzero
+            amplitude is measured. A contact that is a straight line in time over the whole
+            record, to within round-off (rms residual of its least-squares line at most
+            1000 eps of its largest magnitude), is refused the same way, because the
+            segments' linear detrend leaves only round-off of it.
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
             Positive indicates contact i leads contact i+1. Non-identifiable pairs
             are reported as NaN.
         adjacent_linearity_r2: 1D array of shape (n_channels - 1,) containing the
-            coefficient of determination R^2 of the unwrapped phase-frequency linear fit.
+            coefficient of determination R^2 of the unwrapped phase-frequency linear fit;
+            NaN for a pair with a constant contact.
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
-            unwrapping unambiguous interval).
+            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``, pair wPLI
+            significant against its own phase surrogates at ``alpha``, both contacts'
+            in-band power fraction at least ``min_band_power_fraction``); False for every
+            pair when no surrogates were drawn (``n_surrogates=0``, or a constant contact).
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
@@ -1683,12 +2013,17 @@ class ZFlipResult(DictAccessMixin):
             when the test was not performed (``n_surrogates=0``, or a contact is constant).
         accepted: True only if the surrogate test was performed and significant
             (p <= alpha), coupling is sufficient (mean_wpli >= min_wpli), and the delay
-            is identifiable.
+            is identifiable, which requires every adjacent pair's wPLI >= min_wpli and every
+            contact's in-band power fraction >= min_band_power_fraction.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
         n_channels: Number of channels evaluated.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
         orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
             superficial) or ``'deep_to_superficial'`` (row 0 deep).
+        surrogate_seed_entropy: The entropy the surrogate generator was built from: the
+            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
+            back as `rng` reproduces `p_value`. None when you supplied a `Generator`, whose
+            stream position cannot be recovered, and when no surrogates were drawn.
     """
 
     adjacent_wpli: np.ndarray
@@ -1706,6 +2041,7 @@ class ZFlipResult(DictAccessMixin):
     n_channels: int
     pitch_um: Optional[float] = None
     orientation: Optional[str] = None
+    surrogate_seed_entropy: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -1725,10 +2061,31 @@ class ZFlipResult(DictAccessMixin):
             "n_channels": int(self.n_channels),
             "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
             "orientation": self.orientation,
+            "surrogate_seed_entropy": self.surrogate_seed_entropy,
         }
 
 
 _ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
+
+# A row counts as linear in time when the rms residual of its least-squares line is at most
+# this many eps of its largest magnitude. Exact ramps measured at most 1.5 (n 1e3 to 1e5,
+# slope and offset 1e-6 to 1e6). A ramp built by cumulative summation carries round-off
+# that grows with its length: at most about 30 at n=1000, 250 at n=8000 and 830 at
+# n=32000, and up to 3400 at n=1e5, where such a ramp is measured rather than refused. A
+# unit-SD signal measured 4.5e4 on an offset of 1e11 and 4.5e3 on 1e12.
+_LINEAR_ROUNDOFF_EPS = 1000.0
+
+
+def _linear_to_roundoff(rows: np.ndarray) -> np.ndarray:
+    """True for each row of ``rows`` (2D, time last) that is a straight line to round-off."""
+    t = np.arange(rows.shape[-1], dtype=float)
+    t -= t.mean()
+    centred = rows - rows.mean(axis=-1, keepdims=True)
+    slope = centred @ t / (t @ t)
+    resid = centred - slope[:, None] * t
+    rms = np.sqrt(np.mean(resid ** 2, axis=-1))
+    scale = np.max(np.abs(rows), axis=-1)
+    return rms <= _LINEAR_ROUNDOFF_EPS * np.finfo(float).eps * scale
 
 
 def zflip(
@@ -1742,6 +2099,7 @@ def zflip(
     noverlap: Optional[int] = None,
     min_linearity_r2: float = 0.70,
     min_wpli: float = 0.15,
+    min_band_power_fraction: float = 0.01,
     n_surrogates: int = 50,
     alpha: float = 0.05,
     rng: RNGLike = Default(0),
@@ -1770,6 +2128,27 @@ def zflip(
          This bounds the estimate, not the true delay: a true delay beyond the interval
          aliases to a smaller estimate that passes, so this check alone cannot detect
          wrapping.
+       - Pair wPLI at least `min_wpli`, the threshold `mean_wpli` is also held to. A weakly
+         coupled pair can still fit a linear phase, and its delay would enter the spatial fit
+         while a well-coupled mean hides it.
+       - Each contact of the pair carries at least `min_band_power_fraction` of its power
+         inside `freq_range`. wPLI alone does not show this: a contact carrying only an
+         out-of-band sinusoid reached pair wPLI 0.16 to 0.31 through leakage. Leakage into
+         the band edge can still pass this check (see `min_band_power_fraction`).
+       - Pair wPLI significant against its own phase-randomised surrogates: at least as
+         large as in all but a fraction `alpha` of them, the same draws the mean is tested
+         against (p = (1 + k) / (1 + n_surrogates), k the surrogates at least as large). A
+         contact independent of the others can pass the three checks above: with 5 bins
+         in band a random phase often fits R^2 0.7, and over about 60 segments two
+         independent signals often reach wPLI 0.15. Each pair is tested at `alpha`
+         without a multiplicity correction; every pair must pass, so the shaft is accepted
+         only when the least coupled pair passes. A pair without its null is not
+         identifiable: with `n_surrogates=0`, or a constant or linear-in-time contact
+         (which skips the surrogates), no pair is, and no delay is reported. With few
+         in-band bins a surrogate can match a wPLI of 1.0: at the default band, 256
+         samples leave 3 bins and about 10% of surrogates tie 1.0, so no pair passes; 512
+         samples (5 bins) tie in 0.4-0.8% of surrogates for a broadband wave and about 4%
+         for a sinusoid.
        and the cumulative delay along the shaft is linear in contact index
        (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
        are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
@@ -1777,7 +2156,12 @@ def zflip(
     3. **Apparent Velocity**: Reported strictly as *apparent phase-delay velocity under the
        fitted linear model* (:math:`v = \Delta z / \Delta \tau`), not unconditional physical velocity.
     4. **What the delay measures**: :math:`\Delta \tau` is the slope of the phase of the
-       segment-averaged cross-spectrum, which is a group delay; it equals the phase delay
+       cross-spectrum averaged over linearly detrended segments, which is a group delay;
+       detrending keeps a DC offset, drift or strong shared slow power from leaking into the
+       band (a shared 2 Hz component at 30 SD biased it by 12% without detrending, 1.3%
+       with). Broadband background that is independent at each contact is not removed: an
+       independent 1/f^2 background at about three times the wave's amplitude biased the
+       delay by about +7%. It equals the phase delay
        only when the delay does not vary with frequency. Unlike wPLI, that phase is NOT
        insensitive to zero-lag mixing: a zero-lag component shared by adjacent contacts
        pulls the estimate toward 0 (equal-power mixing halves it), and superposed waves
@@ -1803,20 +2187,37 @@ def zflip(
             which keeps at least 2 segments so adjacent wPLI is identifiable.
         noverlap: Segment overlap; defaults to `nperseg // 2`.
         min_linearity_r2: Minimum :math:`R^2` threshold for unwrapped phase linearity (default 0.70).
-        min_wpli: Minimum average adjacent wPLI required for acceptance (default 0.15).
+        min_wpli: Minimum wPLI required of the adjacent average for acceptance and of each
+            adjacent pair for its delay to be identifiable (default 0.15).
+        min_band_power_fraction: Minimum fraction of a contact's power that must lie inside
+            `freq_range` for the delays of its two adjacent pairs to be identifiable
+            (default 0.01). The power is summed over the linearly detrended segment spectra
+            the phase slope uses, so a DC offset or slow drift does not lower it. A contact
+            whose power lies outside the band has only window leakage there, which can fit a
+            linear phase. Measured on the default band and segment length, the default
+            refuses sinusoids at or below 9 Hz or at or above 40 Hz (fractions below 5e-3)
+            and keeps broadband white noise, whose 15-35 Hz fraction is about 0.04 (5 of 129
+            bins; a single 2000-sample record measured 0.030). It does not refuse power
+            leaking into either band edge: a sinusoid from about 9.5 Hz up to the lower edge,
+            or from the upper edge to about 38 Hz, i.e. within the main lobe of an edge bin,
+            can carry 0.01 to 0.7 of its power in the band and still pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
-            ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
-            attainable p-value is ``1 / (n_surrogates + 1)``.
+            ``0`` skips the test: ``p_value`` is NaN, no adjacent pair is identifiable,
+            ``tau_per_channel_s`` is NaN and ``accepted`` is False, because a pair's delay
+            needs its surrogate null. The smallest attainable p-value is
+            ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
-        rng: Random seed, Generator, or None for fresh entropy, for surrogate
-            evaluation (``seed`` is the old spelling and still works).
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy, for surrogate
+            evaluation (``seed`` is the old spelling and still works). The entropy used is
+            returned as `surrogate_seed_entropy` for an int or None.
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
 
     Raises:
-        TypeError: If `orientation` is not given.
+        TypeError: If `orientation` is not given, or `rng` is not an int, a Generator or
+            None.
         ValueError: If `orientation` is not one of the two orders, input is not
             a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
@@ -1830,6 +2231,7 @@ def zflip(
         phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
+    gen, seed_entropy = surrogate_rng(seed, "zflip")
     if orientation not in _ZFLIP_ORIENTATIONS:
         raise ValueError(
             f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
@@ -1862,7 +2264,8 @@ def zflip(
     if int(n_surrogates) != n_surrogates or n_surrogates < 0:
         raise ValueError(f"n_surrogates must be a non-negative integer; got {n_surrogates}.")
     n_surrogates = int(n_surrogates)
-    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli)):
+    for name, value in (("min_linearity_r2", min_linearity_r2), ("min_wpli", min_wpli),
+                        ("min_band_power_fraction", min_band_power_fraction)):
         if not (0.0 <= value <= 1.0):
             raise ValueError(f"{name} must lie in [0, 1]; got {value}.")
 
@@ -1875,9 +2278,13 @@ def zflip(
     # One segment saturates wPLI at 1.0 for any input, which would make min_wpli inert.
     _require_identifiable_segmentation(n_samples, nperseg, noverlap, "zflip", "adjacent wPLI")
 
-    # Multi-channel STFT: (n_channels, n_freqs, n_segments)
+    # Multi-channel STFT: (n_channels, n_freqs, n_segments). Each segment's linear trend is
+    # removed first: shared slow power or drift otherwise leaks into the band through the
+    # window and biases the phase slope (a shared 2 Hz component at 30 SD raised the delay
+    # by 12%, and a 1 Hz one at 100 SD by 34%).
     freqs, _, Z = signal.stft(
-        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
+        lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1,
+        detrend="linear",
     )
 
     mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
@@ -1909,16 +2316,35 @@ def zflip(
     adj_delays = np.zeros(n_channels - 1, dtype=float)
     adj_r2 = np.zeros(n_channels - 1, dtype=float)
     adj_identifiable = np.zeros(n_channels - 1, dtype=bool)
-    # A pair with a constant contact has no phase lag to weigh; its wPLI is NaN, as in
-    # jnwb.wpli, so it cannot enter mean_wpli as a zero or as rounding residue.
-    flat_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    # A pair with a constant contact has no phase lag to weigh; its wPLI, linearity and
+    # delay are NaN and it is not identifiable, as in jnwb.wpli, so rounding residue in the
+    # constant contact's spectrum enters neither mean_wpli nor the delay fit. A contact that is
+    # an exact linear ramp is flat in the same sense: the per-segment linear detrend reduces
+    # it to round-off residue, which could otherwise fit a phase and a delay.
+    constant_contacts = np.flatnonzero(is_constant(lfp, axis=1)).tolist()
+    ramp_contacts = [c for c in np.flatnonzero(_linear_to_roundoff(lfp)).tolist()
+                     if c not in constant_contacts]
+    flat_contacts = sorted(constant_contacts + ramp_contacts)
+    # A contact whose power lies outside freq_range has no in-band phase to measure: its
+    # in-band cross-spectrum is window leakage, which can fit a linear phase and a delay.
+    # The fraction is read from the detrended segment spectra the phase slope uses, so a DC
+    # offset or slow drift does not fill the denominator; a contact with no power in any
+    # segment has no fraction and fails the gate.
+    seg_power = np.mean(np.abs(Z) ** 2, axis=-1)  # (n_channels, n_freqs)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        band_fraction = seg_power[:, mask].sum(axis=1) / seg_power.sum(axis=1)
+    out_of_band_contacts = [c for c in range(n_channels) if c not in flat_contacts
+                            and not band_fraction[c] >= min_band_power_fraction]
+    phase_failed_pairs: List[int] = []
 
     for i in range(n_channels - 1):
+        if i in flat_contacts or i + 1 in flat_contacts:
+            adj_wpli[i] = adj_r2[i] = adj_delays[i] = np.nan
+            continue
         # S_{i, i+1, k} = conj(Z[i]) * Z[i+1]
         Sxy = np.conj(Z[i]) * Z[i + 1]  # (n_freqs, n_segments)
         w_f, _ = _wpli_from_cross_spectra(Sxy)
-        adj_wpli[i] = (np.nan if i in flat_contacts or i + 1 in flat_contacts
-                       else float(np.mean(w_f[mask])))
+        adj_wpli[i] = float(np.mean(w_f[mask]))
 
         # Phase slope from average cross-spectrum across segments
         Sxy_mean = np.mean(Sxy, axis=1)
@@ -1931,16 +2357,55 @@ def zflip(
         tau = -slope / (2.0 * np.pi)
         adj_delays[i] = tau
 
-        if r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous:
+        phase_ok = r2 >= min_linearity_r2 and abs(tau) < max_tau_unambiguous
+        if not phase_ok:
+            phase_failed_pairs.append(i)
+        if (phase_ok and adj_wpli[i] >= min_wpli
+                and i not in out_of_band_contacts and i + 1 not in out_of_band_contacts):
             adj_identifiable[i] = True
 
     mean_wpli_val = float(np.mean(adj_wpli))
+
+    # Monte Carlo surrogate null test. Each surrogate's pair wPLI values also form each
+    # pair's own null, so one set of draws tests the mean and every pair. The pair test runs
+    # before the depth fit: a contact independent of the others still fits a linear phase
+    # (R^2 0.7 from 5 in-band bins) and a pair wPLI near 0.15 often enough that the coupled
+    # pairs carried the mean past its test, and the depth fit took the outlier.
+    p_val = float("nan")
+    pair_p = np.full(n_channels - 1, np.nan)
+    surrogates_run = n_surrogates > 0 and not flat_contacts
+    if surrogates_run:
+        exceed_count = 0
+        pair_exceed = np.zeros(n_channels - 1, dtype=int)
+        for _ in range(n_surrogates):
+            surr_lfp = _surrogate_phase_randomize(lfp, gen)
+            _, _, Z_surr = signal.stft(
+                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False,
+                axis=-1, detrend="linear",
+            )
+            surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
+            for i in range(n_channels - 1):
+                w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
+                surr_adj_wpli[i] = float(np.mean(w_s[mask]))
+                pair_exceed[i] += _count_at_least_as_extreme(
+                    [surr_adj_wpli[i]], adj_wpli[i], "greater"
+                )
+            exceed_count += _count_at_least_as_extreme(
+                [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
+            )
+        p_val = float((1 + exceed_count) / (1 + n_surrogates))
+        pair_p = (1 + pair_exceed) / (1 + n_surrogates)
+    uncoupled_pairs = [(i, i + 1) for i in range(n_channels - 1) if pair_p[i] > alpha]
+    # No pair is identifiable without its null: a pair whose surrogates were not drawn
+    # (n_surrogates=0, or a flat contact anywhere, which skips them) has a NaN p and fails.
+    adj_identifiable &= pair_p <= alpha
 
     # Every adjacent pair must be identifiable. The cumulative delay sums all pairs, so a
     # non-identifiable pair's delay would enter the spatial fit: one incoherent contact
     # biased 12-contact estimates by ~16%, and on 3 contacts a single identifiable pair
     # was accepted with the wrong sign.
     delay_identifiable = bool(np.all(adj_identifiable))
+    depth_fit_reason: Optional[str] = None
 
     if delay_identifiable:
         # Cumulative phase delay along the array
@@ -1952,14 +2417,19 @@ def zflip(
         spatial_r2 = float(reg_spatial.rvalue ** 2) if np.isfinite(reg_spatial.rvalue) else 0.0
 
         if spatial_r2 < 0.50:
+            depth_fit_reason = (f"Cumulative delay not linear in contact index "
+                                f"(R^2 = {spatial_r2:.4f} < 0.5)")
             delay_identifiable = False
             tau_per_channel = float("nan")
             apparent_velocity = None
             directionality = "unidentifiable"
         else:
             # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
-            # order, which is the anatomical direction the caller named for row order.
-            if tau_per_channel > 0 or tau_per_channel < 0:
+            # order, which is the anatomical direction the caller named for row order. A
+            # gradient within round-off of zero, relative to the largest delay the fit can
+            # represent, has no sign: identical contacts leave phase residue near 1e-21 s.
+            zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
+            if abs(tau_per_channel) > zero_width:
                 row_order_leads = tau_per_channel > 0
                 if orientation == "superficial_to_deep":
                     directionality = ("superficial_to_deep" if row_order_leads
@@ -1968,6 +2438,7 @@ def zflip(
                     directionality = ("deep_to_superficial" if row_order_leads
                                       else "superficial_to_deep")
             else:
+                depth_fit_reason = "Delay gradient across contacts is zero to round-off"
                 delay_identifiable = False
                 tau_per_channel = float("nan")
                 directionality = "unidentifiable"
@@ -1982,24 +2453,6 @@ def zflip(
         apparent_velocity = None
         directionality = "unidentifiable"
 
-    # Monte Carlo surrogate null test
-    rng = np.random.default_rng(seed)
-    p_val = float("nan")
-    if n_surrogates > 0 and not flat_contacts:
-        exceed_count = 0
-        for _ in range(n_surrogates):
-            surr_lfp = _surrogate_phase_randomize(lfp, rng)
-            _, _, Z_surr = signal.stft(
-                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False, axis=-1
-            )
-            surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
-            for i in range(n_channels - 1):
-                w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
-                surr_adj_wpli[i] = float(np.mean(w_s[mask]))
-            if np.mean(surr_adj_wpli) >= mean_wpli_val:
-                exceed_count += 1
-        p_val = float((1 + exceed_count) / (1 + n_surrogates))
-
     # No test performed means no inferential acceptance.
     is_sig = bool(np.isfinite(p_val) and p_val <= alpha)
     has_coupling = (mean_wpli_val >= min_wpli)
@@ -2007,16 +2460,34 @@ def zflip(
 
     reasons: List[str] = []
     if flat_contacts:
-        reasons.append(f"Contact(s) {flat_contacts} constant: adjacent wPLI undefined, "
-                       "surrogate test not performed")
+        if constant_contacts:
+            reasons.append(f"Contact(s) {constant_contacts} constant: adjacent wPLI and delay "
+                           "undefined, surrogate test not performed")
+        if ramp_contacts:
+            reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
+                           "wPLI and delay undefined, surrogate test not performed")
     elif n_surrogates == 0:
-        reasons.append("Surrogate test not performed (n_surrogates=0)")
+        reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
+                       "to establish a delay, so no adjacent pair is identifiable")
     elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling and not flat_contacts:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
-    if not delay_identifiable:
+    weak_pairs = [(i, i + 1) for i in range(n_channels - 1) if adj_wpli[i] < min_wpli]
+    if weak_pairs:
+        reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
+                       "delay not identified")
+    if uncoupled_pairs:
+        reasons.append(f"Adjacent pair(s) {uncoupled_pairs} wPLI not significant against "
+                       f"its own phase surrogates (p > {alpha}): delay not identified")
+    if out_of_band_contacts:
+        reasons.append(f"Contact(s) {out_of_band_contacts} carry less than "
+                       f"{min_band_power_fraction:.4f} of their power inside freq_range "
+                       f"{freq_range}: delay not identified")
+    if phase_failed_pairs:
         reasons.append("Phase-frequency relation failed linear identifiability gate")
+    if depth_fit_reason is not None:
+        reasons.append(depth_fit_reason)
 
     rejection_reason = "; ".join(reasons) if not accepted else None
 
@@ -2040,6 +2511,7 @@ def zflip(
         n_channels=n_channels,
         pitch_um=pitch_um,
         orientation=orientation,
+        surrogate_seed_entropy=seed_entropy if surrogates_run else None,
     )
 
 

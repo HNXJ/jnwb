@@ -20,6 +20,8 @@ EXPORT_MODULES: dict[str, str] = {
     "Alignment": "ontology",
     "EpochCollection": "ontology",
     "Question": "ontology",
+    "Preflight": "ontology",
+    "preflight": "ontology",
     "Result": "ontology",
     "Interpretation": "ontology",
     "Figure": "ontology",

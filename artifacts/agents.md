@@ -12,7 +12,6 @@ with jnwb has to meet, and this page says where to start.
 | Analyse data with jnwb | [`skills/jnwb/SKILL.md`](../skills/jnwb/SKILL.md), the router. It sends each task to the domain skill that covers it |
 | Look up an operation | [`docs/api.md`](../docs/api.md) lists every public symbol; [`docs/common_mistakes.md`](../docs/common_mistakes.md) lists the failures jnwb guards against |
 | Build a skill or an agent on jnwb | The "Skill rule" section of [`CONTRIBUTING.md`](../CONTRIBUTING.md): when a skill is created, what it contains, and what checks it |
-| Adapt a role definition | [`artifacts/agents/`](agents/): portable roles, each independent of any analysis domain |
 | Change jnwb itself | [`AGENTS.md`](../AGENTS.md) for the repository's working rules, then [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
 
 An installed copy does not include `skills/`; `jnwb.SKILLS_URL` gives the address of the skills

@@ -10,7 +10,7 @@ Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
 
 jnwb is dataset-agnostic. The public surface is the contents of `jnwb.__all__`, documented in [Public API](api.md).
 
-A wheel carries the library, and the sdist adds `AGENTS.md` and `skills/`. Neither carries `examples/`, so the executable tutorials the [Quickstart](quickstart.md) and [Tutorials](tutorials/01_nwb_basics.md) tell you to run need the [source checkout](#source-checkout) below. [What an agent gets](agents.md) has the full table.
+A wheel carries the library, and the sdist adds `skills/`. Neither carries `examples/`, so the executable tutorials the [Quickstart](quickstart.md) and [Tutorials](tutorials/01_nwb_basics.md) tell you to run need the [source checkout](#source-checkout) below. [What an agent gets](agents.md) has the full table.
 
 ### Extras
 
@@ -23,7 +23,7 @@ Install an extra with `pip install "jnwb[<extra>]"`; combine them as `"jnwb[torc
 | `mcp` | Model Context Protocol server tooling |
 | `vis` | the Plotly figure engine `jnwb.vis`, with kaleido for SVG/PNG export |
 | `docs` | the MkDocs documentation builder |
-| `test` | pytest and pytest-xdist, plus the build and notebook tooling the release gate and the tutorial tests need |
+| `test` | pytest and pytest-xdist, plus the packaging and notebook tooling used to test a build and the tutorials |
 | `all` | every extra above |
 
 `jnwb.vis` is the one export that needs an extra. Without `vis` installed, `import jnwb` and

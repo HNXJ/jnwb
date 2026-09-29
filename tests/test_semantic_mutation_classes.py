@@ -319,8 +319,8 @@ CASES: tuple[SemanticMutation, ...] = (
         "H9b",
         "granger-reports-the-analytic-f-test-p",
         "jnwb/connectivity.py",
-        '        p_xy = float((1 + np.sum(null_xy >= fit_xy["gc"])) / (n_surrogates + 1))\n'
-        '        p_yx = float((1 + np.sum(null_yx >= fit_yx["gc"])) / (n_surrogates + 1))\n',
+        '        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)\n'
+        '        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)\n',
         '        p_xy = fit_xy["p_f"]\n        p_yx = fit_yx["p_f"]\n',
         (
             "tests/test_composition_randomness.py"
@@ -418,8 +418,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "H8",
         "area-joined-by-row-position-not-channel-identifier",
         "jnwb/addressing.py",
-        "        df['area'] = df['peak_channel_id'].apply("
-        "lambda x: map_peak_channel_to_area(x, electrodes_df))\n",
+        "        df['area'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[0])\n",
         "        df['area'] = [map_peak_channel_to_area(electrodes_df.index[i], electrodes_df) "
         "for i in range(len(df))]\n",
         (
@@ -741,6 +740,7 @@ def _describe(mutation: SemanticMutation, verdict: Verdict) -> list[str]:
     return problems
 
 
+@pytest.mark.requires_git_checkout
 def test_every_class_is_demonstrated_over_the_declared_subset(tmp_path_factory) -> None:
     """Each class, on its chain: selector proven pristine, mutant observed, restore in bytes.
 
@@ -847,6 +847,7 @@ def _assert_the_checkout_was_never_written() -> None:
     )
 
 
+@pytest.mark.requires_git_checkout
 def test_the_mutation_targets_are_clean_in_this_checkout() -> None:
     """A precondition, named as one: a dirty target makes the clone the wrong bytes.
 
