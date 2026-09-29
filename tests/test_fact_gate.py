@@ -69,7 +69,9 @@ def test_two_builds_in_separate_processes_are_byte_identical(tmp_path):
     digests = []
     for seed in ("1", "2"):
         out = tmp_path / f"fact_graph_{seed}.json"
-        env = {**os.environ, "PYTHONHASHSEED": seed}
+        # The builder run by path imports this checkout, whichever copy the suite is testing.
+        env = {k: v for k, v in os.environ.items() if k != "JNWB_EXPECTED_PACKAGE_ROOT"}
+        env["PYTHONHASHSEED"] = seed
         done = subprocess.run([sys.executable, str(BUILDER), "--out", str(out)], cwd=REPO_ROOT,
                               env=env, capture_output=True, text=True, timeout=300)
         assert done.returncode == 0, done.stderr
@@ -163,6 +165,17 @@ def test_a_target_behind_a_missing_extra_resolves_from_source(target, expected):
 
     record = build_fact_graph._route_targets(ExtraMissing(), {}, [["skill", target]])
     assert record[target]["resolves"] is expected
+
+
+def test_a_module_file_is_named_the_same_from_an_installed_copy(tmp_path):
+    installed = tmp_path / "site-packages" / "jnwb"
+    installed.mkdir(parents=True)
+    (installed / "__init__.py").write_text("", encoding="utf-8")
+    (installed / "inspect_mod.py").write_text("", encoding="utf-8")
+    package = type("Installed", (), {"__file__": str(installed / "__init__.py")})()
+    module = type(sys)("jnwb.inspect_mod")
+    module.__file__ = str(installed / "inspect_mod.py")
+    assert build_fact_graph._module_file(module, package, REPO_ROOT) == "jnwb/inspect_mod.py"
 
 
 def test_an_export_behind_a_missing_extra_is_recorded_from_its_source():

@@ -31,12 +31,9 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
-| B figures and state | 08-03, 08-04, 08-01 | `docs/09_decoding_and_visual_qc.md`, `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
-| C rules and proposals | 08-06, 08-08 | `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, the `AGENTS.md` tests, `artifacts/evidence/0.2.8/api_proposals/**` |
-
-Lane C drafts 08-06, then the two 08-08 proposals; the 0.2.8 question round is asked once both
-exist. 08-06 lands after Hamm approves it, and no lane's work follows it.
+| A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
+| B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
+| C execution identity | 08-10 | `jnwb/connectivity.py`, `tests/test_parallel.py` |
 
 ### 08-01 The stack and state files in compact form
 
@@ -57,57 +54,18 @@ Stop: a carried check would be lost by the compaction.
 
 Release: required-0.2.8.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `tests/test_figure_form.py`, `tests/test_generated_figures_are_maintained.py`, `tests/test_synthetic_figures_are_labelled.py`.
+Writes: `tests/test_generated_figures_are_maintained.py`, `.github/workflows/workflow.yml`.
 Source: section 6 of the figure QC report (`artifacts/evidence/0.2.8/figure_qc.md`). Each check is built by a fixture of its own case and is red on the baseline
 figure the report names.
-- QC-1 theme contrast: each `THEMES[theme]` value against that theme's page background, at least 3 for data marks and 4.5 for text. Check: fig03 and fig08 `faint` fail.
-- QC-2 rendered contrast: composite each PNG on its page background and bound the share of ink below 1.5, with a declared mesh exemption. Check: fig03 and fig08 fail; fig05's dark mesh floor is flagged for a decision.
-- QC-3 text placement: every text and annotation bbox against lines, patches and other texts in its axes, and inside the canvas, the quickstart generator included. Check: fig08 and the quickstart permutation panel fail.
-- QC-4 shared x: axes that share x have equal pixel x-extent. Check: fig05 fails.
-- QC-5 axis units: every visible axis has a label, and a physical quantity carries a parenthesised unit. Check: fig04 and fig08 fail.
-- QC-6 declared unit: a panel that plots a result declaring `unit` labels its axis with that unit. Check: the 0.2.7 fig09 label, planted, fails.
-- QC-7 displayed size: minimum font times dpi/72 times displayed width over natural width is at least 9 px at the topic-page and gallery widths. Check: the quickstart captions fail.
-- QC-8 one style source: every generator takes font family, size tiers and width from one module, checked by AST. Check: the serif quickstart and the 7.0/7.2/7.5 pt spread fail.
-- QC-9 colormaps: `cmap=` values come from a perceptual set or a declared diverging map. Check: a planted `jet` fails.
-- QC-10 computed values: every figure function calls a public `jnwb.` symbol, and no reference line sits at a bare literal unless listed as a theoretical constant. Check: fig08, fig01 `1000.0` and fig07 `0.5` fail.
-- QC-11 captions: a `jnwb.<name>` in a panel title appears in the caption and in `jnwb.__all__`, and the synthetic-caption test reads `<img>` tags. Check: the gallery's fig03 "PSTH" caption fails.
-- QC-12 fit on its grid: a fit drawn over a spectrum is evaluated on the drawn grid, with a bounded median log residual. Check: the 0.2.7 fig04 fit, planted, fails (+0.263 decades).
-- P-241: the contrast check exempts `THEMES` and parses only 6-digit hex and four names. Check: QC-1 and QC-2 replace the exemption, and a named colour such as `navy` is parsed.
-- P-276: the self-test does not pin the changed-pixel slack (1e-5). Check: raising it to 2e-4 fails a test.
 - P-307: every venv and CI leg skips all 20 figure comparisons on a Matplotlib minor mismatch. Check: a pinned Matplotlib in one CI leg, or a comparison tolerant of the minor version, so one leg compares.
-- Figure checks: the legend test compares texts only with its own axes' legend, tests scatter by centre, skips images, and misses the quickstart. Check: QC-3 covers each case with a fixture.
-- Legend check reach: a `QuadMesh`, `ax.images`, a single-point scatter, marker extent, twin axes, `fig.legend` and annotation arrows are unseen. Check: each is a fixture case.
 Accept: each check fails on the baseline figure its bullet names and passes on a clean fixture.
 Stop: a check needs a renderer CI does not have.
-
-### 08-03 Figure content defects
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-02.
-Writes: `docs/generate_figures.py`, `docs/figure_style.py`, `docs/assets/figures/*.png`, `docs/index.md`, `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`.
-Source: section 4 of the figure QC report. The three blocker rows (fig01 a, fig04 a, fig09 a)
-landed in 0.2.7. A fig07 sentence change on `docs/09` lands with this item.
-- fig01: gold and violet carry no key; the boundary is the retyped literal `1000.0`; V1 and V2 are adjacent blue-violets; V3 text is 2.45:1 on dark; panel A's right half is empty. Check: a two-entry key, `threshold=` passed and drawn from one variable, a distinguishable categorical triple, a tightened xlim.
-- fig02: the shaded band is unlabelled SEM computed by hand; no onset marker in the raster; "Δ=15ms" and "tau=25ms" lack a space. Check: "±1 SEM" from `raster_psth`'s `sem_rate_hz`, `axvline(0)` in panel A, spaced units.
-- fig03: raw points 1.32:1 on white; "Binned Rate (raw counts)" labels simulated Hz; the truth label omits tau 30 ms; the gallery caption says PSTH. Check: at least 3:1 in each theme, "Simulated noisy rate", `tau=30 ms` in the label, the caption corrected.
-- fig04: the PSD axis has no unit. Check: "(a.u.²/Hz)".
-- fig05: the colorbar narrows panel B so the time axes misalign; the COI outline does not say which side is excluded; magma's floor is 1.22:1 on dark. Check: equal colorbar slots or `constrained_layout`; the masked region hatched and named in the legend; the floor decided under QC-2.
-- fig06: a 0.04 dB Jensen gap drawn as bars from 0 on a 0-5 axis; the axis label is redundant. Check: per-unit ratios with realistic spread, or differences from ratio-of-means with the dB values printed.
-- fig07: the chance line is the literal 0.5 across AUC and F1; the mean line shares the bars' colour; the panel titles are misaligned. Check: chance scoped to AUC or F1 chance from the label prior; a contrasting mean line; one title height.
-- fig08: the annotation is crossed by the observed line; the x axis has no unit and says "fire rate"; the null and p are retyped numpy; "Monte Carlo" and "Exact" in one label; the null fill is 1.32:1. Check: `jnwb.exact_sign_flip(diffs, alternative="greater", rng=...)`, the annotation left of the line, "one-sided Monte Carlo p", "Mean paired difference (Hz)".
-- fig09: the net PSI band is unmarked while out-of-band points are drawn; no markers on seven points; `psi_freqs` recomputed. Check: the summed band shaded, markers, `psi.spectrum["psi_freqs"]`.
-- fig10: "LFP (µV / a.u.)" reads as a ratio; the raw trace is called an envelope; the two channels are indistinguishable; 40 % of each axis is empty legend band. Check: "LFP (a.u.)", "Raw (contaminated)", one channel or an offset, a compact legend.
-- Cross-figure style: sizes vary 7.0/7.2/7.5 pt, figsize 6.5 to 7.4 in, and gallery (311 px) and mobile (343 px) text is illegible and unlinked. Check: `docs/figure_style.py` sets family, size tiers and width; gallery images link to full size.
-Accept: 08-02 passes; the QC probes re-run clean (fig04 median offset near 0, no text-line hits,
-equal shared-x extents); `python scripts/docs_build.py` is strict-clean; each regenerated pair is
-eye-checked in both themes at displayed size.
-Stop: a fix would need a jnwb call whose output differs from the page's own text.
 
 ### 08-04 The quickstart figure
 
 Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-03.
-Writes: `examples/quickstart_jnwb.py`, `examples/figures/*`, `docs/assets/jnwb_quickstart*.png`, `docs/quickstart.md`.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `examples/quickstart_jnwb.py`, `examples/figures/*`, `docs/assets/jnwb_quickstart*.png`, `docs/quickstart.md`, `tests/test_figure_form.py`.
 - Quickstart QC row: the refusal texts sit over the histogram and are crossed by the observed line; 6.4 pt captions show at about 5.6 px; serif font and a palette unlike fig01-fig10; band labels print "-0.0". Check: the refusal text above the bars or in the caption, captions sized by QC-7 or moved to the page, `docs/figure_style.py` shared, `+0.0` formatting.
 - P-76: every quickstart run dirties two tracked files through SVG dates and random ids. Check: `rcParams["svg.hashsalt"]` and `metadata={"Date": None}`, and two runs byte-identical.
 Accept: 08-02 passes on the quickstart; two consecutive runs leave `git status` clean.
@@ -122,23 +80,11 @@ Writes: `CHANGELOG.md`, `changelog.d/**`, `scripts/assemble_changelog.py`, `test
 Accept: the test passes; the release gate's CHANGELOG checks still read the assembled file.
 Stop: the assembly would change a released section's text.
 
-### 08-06 `AGENTS.md` rules and routes only
-
-Release: required-0.2.8.
-AUTONOMY: none for the landing; the draft is `max`.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, `tests/test_agents_md_recipes.py`, `tests/test_agents_md_stays_a_router.py`.
-- A draft of about 1500 words (4403 at `fe14858d`): rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- 7 of the 8 safeguards sit in both `AGENTS.md` §4 and the router skill's section 4: `AGENTS.md` keeps a pointer to the router. Check: the line test of `tests/test_skills_validation.py`, run over the pair, finds no shared line.
-Accept: `tests/test_agents_md_*.py` pass; every rule of the old file maps to a rule, a route or a
-`history.md` paragraph in a table the packet returns.
-Stop: a rule would change meaning.
-
 ### 08-07 A faster release cycle
 
 Release: required-0.2.8.
 Role: jnwb-developer. Skill: none. Blocked by: 08-05.
-Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`.
+Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`, `docs/01_architecture_and_philosophy.md`.
 - RP-3: the release gate stops at its first failure after a 12 to 30 minute suite. Check: state freshness, the extracted smoke script and the release body run before the suite.
 - RP-4: the full matrix ran four times on one commit at release. Check: skip a run whose tree already passed, and measure the saving.
 - Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under load. Check: a timeout scaled to the machine, or a cheaper subprocess.
@@ -147,22 +93,21 @@ Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workfl
 - Absent-extra handling: `test_mkdocs_strict_build` fails without the `docs` extra while `test_diagrams_render` skips; found by cowork on 2026-09-29. Check: one rule for an absent extra, applied to both.
 - xflip calibration wall time: 297 s to 503 s across lanes with identical rates. Check: dev and head back to back on one machine.
 - P-36: reading computational order off loop structure was wrong on six specs. Check: one sentence in the order section of `CONTRIBUTING.md`.
+- Pooling rule: `CONTRIBUTING.md` "Core scientific invariants" item 1 allows pooling spikes and LFP with namespace tags, and `docs/01_architecture_and_philosophy.md` allows it with an explicit transformation; Hamm ruled on 2026-09-29 that they are never pooled. Check: both say never pooled, as `AGENTS.md` §5 does.
 - RP-1: `CONTRIBUTING.md`'s release steps lack one sentence: the `dev` deletion rule has no bypass; merged feature heads are still deleted. Check: the sentence is in the release steps.
 Accept: one release-gate run on a tree with a stale state file fails within a minute.
 Stop: reordering would let a later step pass on an unverified artifact.
 
-### 08-08 Proposals for the mutation and execution APIs
+### 08-10 `directed_network` is identical across worker and BLAS thread counts
 
 Release: required-0.2.8.
-AUTONOMY: none for the choice; the proposal is `max`.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.8/api_proposals/**`.
-The minimal bases of 07-21 and 07-22, which `artifacts/goal.md` §5 names as 0.2.8 work; the
-implementations follow the ruling in 0.2.11.
-- 07-21 base: a proposed operation set (validate, write, transform, convert, structural repair, verified output) with signatures and refusals. Check: Hamm rules the set.
-- 07-22 base: identity across CPU, parallel CPU and CUDA for every operation the execution API would cover, measured. Check: a table per operation, with the tolerance each function states.
-Accept: both files exist and name every signature and every measured tolerance.
-Stop: a proposal would infer condition meaning, anatomy or units.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `jnwb/connectivity.py`, `tests/test_parallel.py`.
+Source: E-1 and E-2 of `artifacts/evidence/0.2.8/api_proposals/execution_identity.md`.
+- E-1: `directed_network(method="granger")` changes by up to 1.8e-9 relative with `n_jobs` at the proposal's large size, against fact S6; `tests/test_parallel.py` uses a size at which it is bit-identical. Check: a test at a size that reproduces the gap, red before the repair.
+- E-2: the serial result depends on the BLAS thread count (one thread against 24: 1.8e-9). Check: the fits use a reduction order independent of the thread count.
+Accept: serial, `n_jobs` in 2, 4, 8 and -1, and BLAS threads 1 and default agree bit for bit at both sizes.
+Stop: bit identity would change the estimator, or the only repair is a restated tolerance (fact S6 is Hamm's).
 
 # 0.2.9
 
@@ -657,7 +602,7 @@ Stop: none beyond the standing ones.
 
 Release: deferred-0.2.9.
 AUTONOMY: none until Hamm rules the set from 08-08.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 08-08.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
 Accept: each landed operation re-reads its output and refuses an ambiguous mapping; API,
 documentation and tests land before or with any skill.

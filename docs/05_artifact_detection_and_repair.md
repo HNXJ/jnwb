@@ -29,7 +29,7 @@ graph TD
 ![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.png#only-light)
 ![Multichannel LFP Artifact Detection and Repair](assets/figures/fig10_artifact_repair.dark.png#only-dark)
 
-Panel A of that figure is one synthetic trial carrying an injected synchronous excursion, with the peak
+Panel A of that figure is the eight channels of one synthetic trial carrying an injected synchronous excursion, with the peak
 synchrony z-score the detector reports; panel B overlays `jnwb.repair_lfp_trials` on the same
 trial, so what the substitution changed and what it left alone are read off one pair of traces.
 
