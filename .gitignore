@@ -142,6 +142,10 @@ tmp/
 # commit and be stale from the moment it lands.
 artifacts/state.md
 
+# The generated ontology, written by scripts/build_ontology.py. Excluded by path as well as by
+# the *.json rule above, so an exception added to that rule cannot bring it into the index.
+artifacts/ontology.json
+
 # The derived cache: regenerated from the raw NWB files, 6.7 GB across 88 files when this rule
 # landed. It was excluded only by the blanket extension rules -- *.pkl caught 66 of those files
 # and *.json the other 22 -- so the directory itself matched nothing, and a cache file written

@@ -32,6 +32,8 @@ protected paths to skill-tree uniqueness without the list noticing.
   20. State file head: a present artifacts/state.md records the live HEAD; an absent one passes.
   21. Computational contract: execution switches select, precision requests are honoured, and
       every export has a recorded computational order.
+  22. Fact predicates: no typed fact is VIOLATED on the generated ontology; the HELD and UNHELD
+      counts are printed.
 
 Returns exit code 0 on PASS, 1 on FAIL.
 """
@@ -2942,6 +2944,34 @@ def check_computational_contract() -> List[str]:
     ]
 
 
+#: The last fact counts gate 22 computed, for its pass line; empty until it has run.
+_FACT_COUNTS: Dict[str, int] = {}
+
+
+def check_fact_predicates() -> List[str]:
+    """Gate 22 (Fact Predicates): no typed fact is VIOLATED on the generated ontology.
+
+    Runs `scripts/ontology_gate.py` in process: the ontology is built from this tree, never
+    read from a file that may be stale. Each VIOLATED fact is one violation carrying its
+    reasons. UNHELD facts pass and are counted in the pass line, each already naming the live
+    item that will hold it. A fact held by another gate or a test is resolved, not re-run, so
+    its truth is that gate's or the suite's.
+    """
+    from scripts import ontology_gate
+
+    _, results = ontology_gate.run()
+    _FACT_COUNTS.clear()
+    _FACT_COUNTS.update(ontology_gate.summary(results))
+    return [f"{fact_id}: {'; '.join(reasons)}"
+            for fact_id, status, reasons in results if status == ontology_gate.VIOLATED]
+
+
+def _fact_pass_line() -> str:
+    held, unheld = _FACT_COUNTS.get("HELD", 0), _FACT_COUNTS.get("UNHELD", 0)
+    return (f"PASS: No typed fact is VIOLATED on the generated ontology (HELD {held}, "
+            f"UNHELD {unheld}; each UNHELD fact names the live item that holds it).")
+
+
 #: Every gate, in the runner's order, as (number, run, pass_line). `pass_line` is a callable
 #: because two gates compute their message from constants. The numbers are the ones this module's
 #: docstring lists, and `tests/test_module_docstrings_match_their_code.py` holds the two together.
@@ -3018,6 +3048,8 @@ GATES: List[Tuple[int, Any, Any]] = [
      lambda: "PASS: Computational contract holds (every device, backend and n_jobs argument "
              "reaches its deciding mechanism, every precision request is honoured or refused, "
              "and every export has a recorded computational order)."),
+    (22, _one(check_fact_predicates, "FAIL: A typed fact is VIOLATED on the generated ontology:"),
+     _fact_pass_line),
 ]
 
 

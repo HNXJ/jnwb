@@ -219,9 +219,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/fact_stack.md`, `scripts/build_ontology.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `.gitignore`.
 Ruled 2026-09-29 (quiz Q1 to Q19, `artifacts/rulings/2026-09-29.md`).
 - The fact stack as six tables of typed predicate rows with their constant tables, drafted from today's facts and `AGENTS.md` §4 with no change of meaning. Check: Hamm approves the draft; a map from every old clause to a row is returned.
-- `scripts/build_ontology.py` writes the generated graph (entities from `jnwb.__all__` and signatures, docs pages, routing rows, tests and gates; relations implements, documents, routes, verifies, constrains), git-ignored like `artifacts/state.md`. Check: regenerated twice at one commit, byte-identical.
-- `scripts/ontology_gate.py` reports every fact HELD, VIOLATED or UNHELD and fails on VIOLATED; a harness gate runs it. Check: a planted violation of one HELD fact fails it; the UNHELD count is printed.
-- The lifecycle chain (Q10) is the first computed fact. Check: a routed operation with no test is VIOLATED.
 Accept: the gate runs in the harness with 0 VIOLATED; each UNHELD fact names the item that holds it.
 Stop: a fact's meaning would change in the rewrite.
 
