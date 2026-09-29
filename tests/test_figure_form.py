@@ -199,6 +199,66 @@ def test_no_legend_covers_the_data(legend_overlaps):
     assert not offenders, f"a legend is drawn over data: {offenders}"
 
 
+@pytest.fixture(scope="module")
+def drawn_figures():
+    """fig01, fig04 and fig09 as drawn in the light theme, keyed by file name."""
+    import importlib.util
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    found = {}
+    with matplotlib.rc_context():
+        spec = importlib.util.spec_from_file_location("_figure_generator_drawn", GENERATORS[0])
+        generator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generator)
+        generator._save = lambda fig, name: found.__setitem__(name, fig)
+        generator.apply_theme("light")
+        for name in ("fig01_addressing_laminar.png", "fig04_psd_spectral_tilt.png",
+                     "fig09_directed_connectivity.png"):
+            generator.FIGURES[name]()
+            generator.plt.close("all")
+    return found
+
+
+def _axes_titled(fig, needle):
+    matches = [ax for ax in fig.axes if needle in ax.get_title()]
+    assert len(matches) == 1, [ax.get_title() for ax in fig.axes]
+    return matches[0]
+
+
+def test_the_depth_class_panel_does_not_call_its_class_a_layer(drawn_figures):
+    # `classify_layer_from_depth` returns a geometric depth class; the function's name is the
+    # only place the word may appear.
+    ax = _axes_titled(drawn_figures["fig01_addressing_laminar.png"], "classify_layer_from_depth")
+    words = ax.get_title().replace("classify_layer_from_depth", "").lower()
+    assert "layer" not in words and "cortical" not in words, ax.get_title()
+
+
+def test_the_power_law_line_is_the_fit_of_the_spectrum_under_it(drawn_figures):
+    """The fit line is the least-squares power law of the drawn spectrum over the fit's own
+    bins, and the slope in its label is that fit's slope."""
+    ax = _axes_titled(drawn_figures["fig04_psd_spectral_tilt.png"], "B.")
+    lines = {line.get_label().split(":")[0]: line for line in ax.get_lines()}
+    psd_f, psd = (np.asarray(v, float) for v in lines["Welch PSD"].get_data())
+    fit_f, fit = (np.asarray(v, float) for v in lines["Power-law fit"].get_data())
+    assert np.isin(fit_f, psd_f).all(), "the fit is drawn at frequencies the spectrum is not"
+    drawn = psd[np.searchsorted(psd_f, fit_f)]
+    slope, intercept = np.polyfit(np.log10(fit_f), np.log10(drawn), 1)
+    offset = np.max(np.abs(np.log10(fit) - (intercept + slope * np.log10(fit_f))))
+    assert offset < 1e-6, f"the fit line is {offset:.3f} decades from the drawn spectrum's fit"
+    printed = float(re.search(r"slope=(-?\d+\.\d+)", lines["Power-law fit"].get_label()).group(1))
+    assert printed == pytest.approx(slope, abs=0.005), (printed, slope)
+
+
+def test_the_psi_axis_carries_no_phase_slope_unit(drawn_figures):
+    # PSI is dimensionless (the result declares unit='psi'); rad/Hz reads it as dphi/df, the
+    # step to a delay.
+    ax = _axes_titled(drawn_figures["fig09_directed_connectivity.png"], "phase_slope_index")
+    label = ax.get_ylabel()
+    assert "rad" not in label and "Hz" not in label, label
+
+
 def test_the_overlap_check_catches_a_legend_over_a_bar():
     import matplotlib
 

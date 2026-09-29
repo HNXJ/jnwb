@@ -166,8 +166,8 @@ is evidence of current entering there, not of which structure supplied it.
 ![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.dark.png#only-dark)
 
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
-falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.spectral_tilt` recovering the
-log-log slope from it, near -2.
+falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.aperiodic_fit` recovering the
+log-log slope, near -2, from the `jnwb.compute_psd` spectrum drawn under it.
 
 **Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
 -exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
