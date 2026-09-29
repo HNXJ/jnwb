@@ -473,12 +473,12 @@ def _ljung_box_pvalue(residuals: np.ndarray, nlags: int = 10) -> float:
     if n < nlags + 2 or is_constant(r):
         return float("nan")
     r = r - np.mean(r)
-    denom = np.dot(r, r)
+    denom = _sum_of_products(r, r)
     if denom <= 0:
         return float("nan")
     q = 0.0
     for k in range(1, nlags + 1):
-        rk = np.dot(r[k:], r[:-k]) / denom
+        rk = _sum_of_products(r[k:], r[:-k]) / denom
         q += (rk**2) / (n - k)
     q *= n * (n + 2)
     return float(stats.chi2.sf(q, df=nlags))
@@ -1100,7 +1100,18 @@ def _stack_var_design(
 def _ols_rss(design: np.ndarray, y: np.ndarray, ridge: float) -> Tuple[float, np.ndarray]:
     beta = _ridge_lstsq(design, y, ridge)
     resid = y - design @ beta
-    return float(np.dot(resid, resid)), resid
+    return _sum_of_products(resid, resid), resid
+
+
+def _sum_of_products(a: np.ndarray, b: np.ndarray) -> float:
+    """``sum(a * b)`` in an order fixed by the length alone.
+
+    ``np.dot`` on two vectors calls the BLAS dot product, which above about ten thousand
+    elements splits the sum across threads; its rounding then depends on the BLAS thread
+    count, and a worker process runs a different count from the parent. NumPy's pairwise
+    ``sum`` does not thread.
+    """
+    return float(np.sum(np.multiply(a, b)))
 
 
 def _granger_order_criteria(
