@@ -29,8 +29,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 1. **Epistemic language**: Granger causality, PSI and transfer entropy measure **temporal-lag asymmetry (predictive directionality)** under an observational model. Never use causal verbs ("region A drives region B causally") for observational time-series metrics.
 2. **Stationarity**: time-domain Granger requires wide-sense stationary inputs; demean and detrend before fitting.
 3. **Surrogate nulls**: significance comes from surrogates that destroy cross-signal alignment while preserving each signal's autocorrelation. `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` pair the source with the wrong trial at 7 or more trials and circularly shift each trial below that, because a few trials admit too few re-pairings for a calibrated null; `params['surrogate_scheme']` records which ran.
-4. **Coupling vs direction vs delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
-5. **No volume-conduction immunity**: measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
+4. **Coupling, direction, delay and volume conduction**: invariants 7 and 8 of the router, [`skills/jnwb/SKILL.md`](../jnwb/SKILL.md) section 4, bind every operation here.
 
 ## 4. Minimal Workflow
 ```python

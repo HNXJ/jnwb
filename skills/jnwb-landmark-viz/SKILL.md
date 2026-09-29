@@ -109,7 +109,7 @@ canvas.save_and_seal(
 ```
 
 ## 5. Verification
-- Exported SVGs contain `<text>` elements rather than converted path geometries.
+- The SVG `save_and_seal` writes through kaleido holds its text as `<text>` elements, not paths.
 - `save_and_seal` writes `.svg`, `.png` and `.html` plus `_argument.json`.
 - Open the written PNG at the width it will be shown (the canvas `layout` width) and inspect every panel: no panel tag, title, tick label, colorbar or legend overlaps another element or a neighboring panel, and no text is clipped at the figure edge. No test measures this, so the PNG is the evidence.
 - Every summary curve has a confidence interval.
