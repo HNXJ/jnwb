@@ -151,6 +151,47 @@ class TestNJobsDoesNotChangeResults:
             "and the n_jobs assertions above cannot fail -- the exact defect P-113 recorded"
         )
 
+    def test_directed_network_is_invariant_to_worker_and_blas_thread_count(self):
+        """Bit identity at a length where the BLAS dot product threads.
+
+        The test above uses 6 trials of 400 samples, so every sum in the fit runs over a
+        few thousand rows and BLAS keeps it on one thread. At 12000 samples the residual
+        sum of squares crossed that threshold: its rounding followed the BLAS thread count,
+        which differs between the parent and each worker, and ``matrix`` moved by about
+        1e-9 relative with ``n_jobs`` and with the thread count of a serial call.
+        """
+        threadpoolctl = pytest.importorskip("threadpoolctl")
+        from jnwb.connectivity import directed_network
+
+        n_times = 12000
+        # The case this test is named for exists only where the BLAS dot product gives
+        # different roundings at one thread and at the default; otherwise nothing below
+        # could fail.
+        probe = np.random.default_rng(0).standard_normal((8, n_times))
+        default_dots = [np.dot(v, v) for v in probe]
+        with threadpoolctl.threadpool_limits(limits=1):
+            single_dots = [np.dot(v, v) for v in probe]
+        if default_dots == single_dots:
+            pytest.skip(f"the BLAS dot product does not thread at {n_times} elements here")
+
+        gen = np.random.default_rng(3)
+        sig = gen.standard_normal((4, n_times))
+        sig[1, 3:] += 0.5 * sig[0, :-3]
+
+        def run(n_jobs):
+            out = directed_network(sig, method="granger", n_jobs=n_jobs)
+            return out["matrix"], out["p_matrix"]
+
+        m1, p1 = run(1)
+        with threadpoolctl.threadpool_limits(limits=1):
+            m_one, p_one = run(1)
+        np.testing.assert_array_equal(m_one, m1)
+        np.testing.assert_array_equal(p_one, p1)
+        for n_jobs in (2, 4, 8, -1):
+            m, p = run(n_jobs)
+            np.testing.assert_array_equal(m, m1, err_msg=f"n_jobs={n_jobs}")
+            np.testing.assert_array_equal(p, p1, err_msg=f"n_jobs={n_jobs}")
+
     def test_defaults_are_serial(self):
         """A library that saturates every core by default fights the caller's own pool."""
         import inspect
