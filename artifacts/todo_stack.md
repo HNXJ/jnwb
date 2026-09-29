@@ -172,14 +172,6 @@ trigger and table repair, and the verification lines are done. The figure-test s
 and the `AGENTS.md` §7 line to 08-06, so the lanes share no file. `.claude/` is git-ignored, so the
 verifier dispatch file is a local step and not a tracked write. Ruled by the integrator (85): the
 MCP tool count stays in `docs/agents.md`, because a test holds it to the live registry.
-- `artifacts/skills/` line endings levelled, with Gate 16 held per tree (`decisions.md` D3).
-- Landmark-viz checks: the layout sentence and its checks bullet become one inspect-the-PNG check, with a render-at-final-size line.
-- One skill table: the router's table and `docs/agents.md` agree, held by a test. Check: the lfp-spectral, spiking and nwb-data rows, which differ today, are reconciled.
-- Unit-quality wording: "Visual QC" becomes "unit-quality plots" in `docs/09_decoding_and_visual_qc.md`, its nav label and `docs/common_mistakes.md`, with any fig07 sentence 08-03 reports.
-- Router-reach parser: `_routed_operations` reads every backticked call in a bullet; the parser fixture in `tests/test_skill_router_reach.py` is renamed; the skill-count regex refuses "Nine shipped skills". Check: a planted count and a two-call bullet each caught.
-- `jnwb/vis/canvas.py:16`: the docstring says "300/600 DPI" where one PNG is written at `png_dpi`. Check: the docstring names `png_dpi`.
-- Docs form F8: the slop lexicon, zero in `docs/` and `skills/`, with a planted case caught.
-- 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
 Accept: each trigger phrase has one owning skill; no role file holds a loading order or packet
 list; every pointer to the review skill resolves; the F8 check passes; an independent critic finds
 none of the frictions the audit lists.

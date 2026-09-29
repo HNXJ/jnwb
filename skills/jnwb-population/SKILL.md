@@ -42,6 +42,7 @@ Population decoders (linear SVM), cross-validated representational geometry, sta
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 

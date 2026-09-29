@@ -13,7 +13,7 @@ Enforces:
    - Colorbars anchored with explicit independent coordinates: x = x1 + delta_cb.
 3. Triple-format default export:
    - Vector SVG (with pure <text> tags via kaleido)
-   - High-resolution PNG (300/600 DPI)
+   - One PNG at ``png_dpi`` dots per inch (default 300)
    - Interactive HTML (WebGL enabled, CDN plotly.js)
    - Epistemic argument object sidecar (*_argument.json)
 """
