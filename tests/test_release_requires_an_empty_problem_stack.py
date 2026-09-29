@@ -51,6 +51,9 @@ HEAD = "a" * 40
 DEFERRED = f"deferred-{NEXT_CYCLE}"
 REQUIRED = f"required-{RELEASE_CYCLE}"
 RELEASE_STEP = f"release-step-{RELEASE_CYCLE}"
+# A cycle past the next one, for a deferral that skips a cycle. Derived, like DEFERRED, so the
+# cases keep their meaning when the declared version moves.
+AFTER_NEXT = "{}.{}.{}".format(*(int(p) + (i == 2) for i, p in enumerate(NEXT_CYCLE.split("."))))
 
 _PROBLEMS = """# Problem stack
 
@@ -214,7 +217,7 @@ def test_an_item_still_required_this_cycle_fails(tmp_path):
     assert any("still required" in x and "06-99" in x for x in v)
 
 
-@pytest.mark.parametrize("release", ["deferred-0.2.8", "deferred-0.2.6"])
+@pytest.mark.parametrize("release", [f"deferred-{AFTER_NEXT}", f"deferred-{RELEASE_CYCLE}"])
 def test_an_item_deferred_to_any_cycle_but_the_next_fails(tmp_path, release):
     """Only the next cycle's stack carries deferred work; any other `deferred-*` is not deferred."""
     root = _tree(tmp_path, items=[_item("99-903", release), _item("99-904", DEFERRED)])
@@ -267,7 +270,7 @@ def test_an_item_id_of_any_digit_width_is_counted(tmp_path, ident):
         f"item {ident} was invisible to the release check"
 
 
-def _nested(depth, parent_release="Release: deferred-0.2.7.\n", child_release="required-0.2.6"):
+def _nested(depth, parent_release=f"Release: {DEFERRED}.\n", child_release="required-0.2.6"):
     return (f"### 99-900 A parent\n\n{parent_release}\n"
             f"{depth} 99-901 A nested item\n\nRelease: {child_release}.\n")
 

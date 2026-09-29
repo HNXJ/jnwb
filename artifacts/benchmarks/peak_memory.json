@@ -1,44 +1,44 @@
 {
-  "jnwb_version": "0.2.6.1",
-  "commit": "0649752428e8000c8e580093cf2c1a1ab29940da",
-  "working_tree_clean": true,
+  "jnwb_version": "0.2.7",
+  "commit": "3eb31c29359d0a8bc9b27c34a4e0fe6684dc6c1f",
+  "working_tree_clean": false,
   "python": "3.14.3",
   "platform": "Windows AMD64",
   "unit": "MiB",
   "operations": {
     "control_256mib": {
-      "peak_mib": 405.3,
+      "peak_mib": 409.1,
       "added_mib": 256.0,
       "added_is": "exact"
     },
     "complex_tfr_16x4000_40freqs": {
-      "peak_mib": 196.0,
-      "added_mib": 46.3,
+      "peak_mib": 194.8,
+      "added_mib": 45.7,
       "added_is": "exact"
     },
     "compute_multitaper_psd_64x8192": {
       "peak_mib": 174.1,
-      "added_mib": 21.1,
+      "added_mib": 21.4,
       "added_is": "exact"
     },
     "bandpass_filter_64x60000": {
-      "peak_mib": 266.5,
+      "peak_mib": 266.4,
       "added_mib": 88.2,
       "added_is": "exact"
     },
     "wpli_600000": {
-      "peak_mib": 200.2,
+      "peak_mib": 200.1,
       "added_mib": 42.4,
       "added_is": "exact"
     },
     "cluster_permutation_test_20x500_200perm": {
-      "peak_mib": 149.8,
-      "added_mib": 0.9,
+      "peak_mib": 154.0,
+      "added_mib": 4.8,
       "added_is": "exact"
     },
     "jrsa_200x40_200perm": {
-      "peak_mib": 315.8,
-      "added_mib": 166.2,
+      "peak_mib": 315.1,
+      "added_mib": 166.1,
       "added_is": "exact"
     }
   }
