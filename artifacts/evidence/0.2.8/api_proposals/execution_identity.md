@@ -10,7 +10,7 @@ development machine, `jnwb/` as at `57094a1a`.
 |---|---|
 | The execution surface | (a): per-call `device=` and `n_jobs=` arguments stay, plus one shared field shape in which every result records the device and worker count that ran; no global or scoped state |
 | E-1, E-2 (`directed_network` differs with worker count and BLAS thread count) | carried by the integrator as a separate required item |
-| E-4 (the comparison helper scored `jrsa`'s call records) | repaired in `tests/test_execution_switch.py`: `_arrays` drops a result dataclass's `execution` and `parameters` fields, as its `to_dict` branch already did. Before, two identical `jrsa` calls scored a gap of 0.51 on `execution.runtime`; after, 0.0 |
+| E-4 (the comparison helper scored `jrsa`'s call records) | repaired in `tests/test_execution_switch.py`: `_arrays` drops a result dataclass's `execution` and `parameters` fields, as its `to_dict` branch already did. Before, two identical `jrsa` calls scored a nonzero gap, all of it from `.execution.runtime`, whose size varies with the two runtimes; after, 0.0 |
 
 The measurement and the options below are kept as they were put.
 

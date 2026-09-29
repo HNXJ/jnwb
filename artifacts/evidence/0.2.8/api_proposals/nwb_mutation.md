@@ -257,7 +257,7 @@ rows, and each declared cast equals the cast of the source, as `verify_roundtrip
 | deriving a rate from timestamps | refused today on read; the rate needs an independent clock |
 | a skill | goal 5: API, documentation and tests land before any skill |
 
-## Open for Hamm
+## The questions as put
 
 | # | Question | Options, graded |
 |---|---|---|

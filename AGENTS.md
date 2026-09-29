@@ -19,6 +19,7 @@ internal by construction and lists the ones it leaves out.
 |---|---|
 | `jnwb/__init__.py` | The public API; `__all__` is the symbol list |
 | `jnwb/` | Source; `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
+| `tests/` | The suite; run it before and after a change (§6) |
 | `scripts/harness_gate.py`, `scripts/release_gate.py` | Repository gates, `GATES` being the count; the pre-tag check (§6) |
 | `artifacts/frozen_validated.json` | Independently verified functions; gate 19 fails when a body changes, and a review may skip an entry whose hash matches |
 | `skills/`, `artifacts/skills/` | Shipped and repository-only skills (§7) |
@@ -74,7 +75,7 @@ per version and only work not yet done: a finished item is deleted, never ticked
 
 - **Prepare** — establish the tree before reading it: first, run `git rev-parse HEAD` against
   your baseline; `python scripts/verify_lane.py --baseline <commit>` also runs the §8 isolation
-  check. On a difference, `git merge --ff-only <baseline>`; if that fails, stop and report both
+  check, which passes before the first write. On a difference, `git merge --ff-only <baseline>`; if that fails, stop and report both
   SHAs. **Never `git reset --hard`.** A packet names a baseline commit, never a distance. Then
   load, in order: (1) `AGENTS.md`, (2) `artifacts/direction.md`, (3) `artifacts/goal.md`,
   (4) `artifacts/fact_stack.md`, (5) `artifacts/state.md`, regenerated if `--check` fails,
@@ -155,9 +156,10 @@ operations; an overlapping host skill adds only checks it leaves open.
 **One writable agent per worktree.** Readers may share it; implementers need separate worktrees or branches.
 Before editing a tree you did not just create, confirm nothing else modifies it, or stop.
 Uncommitted changes you did not make are unowned evidence: while they exist, never `stash`,
-`reset`, `restore`, check out or reformat, and never `git add -A`. A fan-out requests isolation;
-`scripts/verify_lane.py` refuses the main checkout unless `--allow-main-tree` names the caller
-the single writer.
+`reset`, `restore`, check out or reformat, and never `git add -A`. A fan-out requests isolation,
+and a lane confirms it is not in the main checkout **before its first write**:
+`scripts/verify_lane.py` is the check, and refuses the main checkout unless `--allow-main-tree`
+names the caller the single writer.
 
 ## 9. Writing
 

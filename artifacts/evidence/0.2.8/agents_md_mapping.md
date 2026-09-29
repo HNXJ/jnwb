@@ -17,7 +17,7 @@ home that states it; **history** = a reason or incident, moved to the named hist
 | 5 | preamble | "A reader of the library should see a library" | history | preamble, Ruled 2026-09-19 |
 | 6 | preamble | Ruled 2026-09-19 (06-02) paragraph: the previous `docs/` rule and why it changed | history | preamble, Ruled 2026-09-19 |
 | 7 | preamble | Gate 14 holds `docs/` to internal-by-construction terms and lists its omissions | rule (one sentence) + history (the "decisions rather than coverage" reason) | draft preamble; history |
-| 8 | §0 | 28 map rows | map | draft §0, 14 rows. Dropped as self-describing: `tests/`, `pyproject.toml`, `CHANGELOG.md`. Moved to the §2 table: the six state and direction rows. Merged: the two scripts, the two skill trees, the two agent paths, evidence with archive, `docs/references.md` into `docs/`, the two example rows. The interpreter sentence of the CI row is §6's pointer to fact R6 |
+| 8 | §0 | 28 map rows | map | landed §0, 15 rows. Dropped as self-describing: `pyproject.toml`, `CHANGELOG.md`. The `tests/` row was dropped in the reviewed draft and restored on landing after independent verification, because it carries a rule: run the suite before and after a change. Moved to the §2 table: the six state and direction rows. Merged: the two scripts, the two skill trees, the two agent paths, evidence with archive, `docs/references.md` into `docs/`, the two example rows. The interpreter sentence of the CI row is §6's pointer to fact R6 |
 | 9 | §1 | Classify every claim | rule | draft §1 |
 | 10 | §1 | execution != verification; configured != loaded != executed != verified; memory != current state | rule | draft §1 |
 | 11 | §1 | Pointer files go stale silently; resolve entries against disk | rule | draft §1 |
@@ -86,7 +86,7 @@ home that states it; **history** = a reason or incident, moved to the named hist
 | 74 | §8 | Confirm exclusive ownership or stop | rule | draft §8 |
 | 75 | §8 | Unowned changes: no stash/reset/restore/checkout/reformat/`add -A` | rule | draft §8 |
 | 76 | §8 | "follow the single-writer recovery protocol in `artifacts/todo_stack.md`" | rule stated inline; the pointer is dropped because it resolves to nothing (observed: no such protocol in the todo stack) | draft §8; history section 8 |
-| 77 | §8 | Fan-out requests isolation; `verify_lane.py` refuses the main tree without `--allow-main-tree` | rule | draft §8 |
+| 77 | §8 | Fan-out requests isolation, and a lane confirms it is not in the main checkout before its first write; `verify_lane.py` refuses the main tree without `--allow-main-tree` | rule | landed `AGENTS.md` §8, meaning kept by the wording restored after independent verification ("confirms it is not in the main checkout **before its first write**", `verify_lane.py` named as the check), with §3 Prepare saying the isolation check passes before the first write; the reviewed draft had dropped the timing |
 | 78 | §8 | Six lanes in the main checkout; P-144 | history | section 8 |
 | 79 | §9 | Writing rules | rule | draft §9 |
 | 80 | §10 | Recipes page and its test | route | draft §10 |
@@ -133,14 +133,15 @@ first semicolon ignored):
 | history only | 23 |
 | rule + history | 3 (7, 26, 30) |
 | route + history | 1 (46) |
-| map | 1 (28 rows to 14) |
+| map | 1 (28 rows to 14 in the draft, 15 landed) |
 
 Counted on the draft as reviewed: rules kept 68, routed 18, moved to history 27. No row is
 unmapped and none changes meaning in the draft. On landing, row 56 moved from route to rule and
 changed meaning by Hamm's ruling Q-2, so the landed file keeps 69 rules and routes 17.
 
-The draft in this folder is the version reviewed; the landed `AGENTS.md` differs from it only in
-§5.
+The draft in this folder is the version reviewed; the landed `AGENTS.md` differs from it in §5
+(ruling Q-2), in the restored §0 `tests/` row (row 8), and in the isolation wording of §3 and §8
+(row 77).
 
 ## Receipts
 
