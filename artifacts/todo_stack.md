@@ -12,10 +12,6 @@ waits. Every finding is to be checked: a packet reproduces a finding against its
 repairs anything, and a finding that does not reproduce is deleted. Rulings are in
 `artifacts/rulings/`.
 
-The declared version stays 0.2.6.1 on dev until the release step in 07-29 sets it to 0.2.7, so
-until then the release gate's cycle is 0.2.6.1 and its deferral value `deferred-0.2.7`, which no
-item here carries: it holds every item open. It reads them as marked once the version is 0.2.7.
-
 ## How this stack is executed
 
 Every item is a delegation packet in the contract of `artifacts/skills/jnwb-fact-action` §5; the executing
@@ -46,22 +42,7 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 ## Execution order
 
-| Order | Items |
-|---|---|
-| 1 | 07-29, by hand before the release pull request merges |
-
-The 0.2.8 items are not scheduled in this cycle.
-
-### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
-
-Release: release-step-0.2.7.
-Role: human. Skill: none. Blocked by: none.
-Split from RP-1 of 07-27 on 2026-09-27: an action done by hand in the repository settings, before
-the release pull request merges.
-
-- RP-1: Remove the admin role's bypass of the `dev` ruleset's deletion rule (ruled 2026-09-25), so
-  merging the release pull request cannot delete `dev`; automatic deletion of merged heads stays for
-  feature branches. Check: read the ruleset's bypass actors before the merge.
+No item remains in 0.2.7; the 0.2.8 items are not scheduled in this cycle.
 
 ## Out of 0.2.7 scope
 
