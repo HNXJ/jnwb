@@ -178,8 +178,7 @@ unpushed. Do not cross a version boundary before sealing it.
    comment/docstring neutrality).
    A corpus convention, such as two spellings of one area, is the project's to normalise;
    a request to encode one in jnwb is a reason to stop.
-4. **Units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently**
-   across a jnwb function boundary. State intentional breaks at the change site.
+4. Boundary identity: fact I3 of `artifacts/fact_stack.md`.
 5. **Nulls are explicit.** Label permutation requires a named exchangeability scheme.
    Anything consuming randomness takes an `rng` (`np.random.default_rng(seed)`) and reports
    what it used. Never call `np.random.seed()`.
@@ -187,12 +186,7 @@ unpushed. Do not cross a version boundary before sealing it.
    computed on GPU records that it was.
 7. **Call the library function instead of retyping its rule.** A retyped copy drifts from
    the docstring unnoticed. If the function's shape blocks reuse, widen the shape.
-8. **Coupling magnitude, signed direction, delay estimation, and statistical inference are distinct claims.**
-   Never infer propagation direction from unsigned coupling magnitude (e.g. wPLI >= 0). Never claim
-   physical latency or conduction velocity without a verified linear unwrapped phase-frequency
-   relation and predeclared identifiability criteria; report unavailable otherwise. Never claim
-   "immunity" or "complete suppression" of volume conduction or reference contamination; describe
-   as reducing sensitivity to zero-phase-lag coupling.
+8. Distinct coupling, direction, delay and inference claims: fact S13 of `artifacts/fact_stack.md`, with S8 and S14.
 
 ## 5. Vocabulary
 

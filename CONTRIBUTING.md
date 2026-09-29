@@ -57,7 +57,7 @@ python scripts/docs_build.py
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
   `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
-- **`harness_gate.py`** — 21 repository gates: the project boundary, skill-tree uniqueness,
+- **`harness_gate.py`** — 22 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
   floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
@@ -69,8 +69,11 @@ python scripts/docs_build.py
   column and parameter kinds against the runtime object, frozen-validated functions against
   their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
   that generated file is present (Gate 20 only reads it; regenerate with
-  `python scripts/reconstruct_state.py`), and the computational contract of
-  `scripts/computational_contract_gate.py`. It fails on structure, not behaviour.
+  `python scripts/reconstruct_state.py`), the computational contract of
+  `scripts/computational_contract_gate.py`, and the typed facts of `scripts/fact_gate.py`,
+  each HELD, VIOLATED or UNHELD on the fact graph `scripts/build_fact_graph.py` generates
+  (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
+  committed). It fails on structure, not behaviour.
 
 **Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.

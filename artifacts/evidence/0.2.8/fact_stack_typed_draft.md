@@ -1,3 +1,12 @@
+# fact stack — typed draft for approval
+
+Draft of `artifacts/fact_stack.md` in the form ruled on 2026-09-29 (quiz Q1 to Q19,
+`artifacts/rulings/2026-09-29.md`). Approved by Hamm on 2026-09-29; everything from
+"# fact stack" to the clause map landed as that file, which is now the one the fact gate
+reads. The clause map is the evidence that no meaning changed, and did not land.
+
+---
+
 # fact stack
 
 Human-authorized durable facts. No pending actions (`artifacts/todo_stack.md` holds those) and no
@@ -129,3 +138,67 @@ evidence and a critic's sign-off.
 
 | Operation | Parameter | Default | Reason | Evidence |
 |---|---|---|---|---|
+
+---
+
+## Clause map (does not land)
+
+Every clause of `artifacts/fact_stack.md` at `9ec27c01` and of `AGENTS.md` §4, and the row that
+carries it. "Plan" marks a clause Q14 moved to the todo stack; "ruled" marks where a quiz answer,
+not this draft, changed the clause's form.
+
+| Source | Clause | Row |
+|---|---|---|
+| fact: ownership boundary | jnwb is dataset-agnostic | B1, B2 |
+| fact: ownership boundary | condition codes, session labels, area vocabularies, hypotheses and corpus conventions belong downstream, not in `jnwb/`, `docs/`, `skills/` or `tests/` | B2 |
+| fact: scientific choices | which comparisons, cohorts and response definitions stay in the consuming project; jnwb does not encode one study's design | B3 (ruled Q6, Q7: reduced to its residual) |
+| fact: scientific choices | jnwb supplies primitives | D1 |
+| fact: composable operations | jnwb exposes composable operations and ships no fixed scientific pipeline or study-specific workflow graph | D1 (ruled Q8: defined by delegation) |
+| fact: composable operations | downstream projects compose calls and own sequencing choices that affect interpretation | D1 ("names every sequenced choice as a parameter") |
+| fact: estimator identity | signal class, estimator, units and frame are never silently substituted across a boundary | I1 (signal class, estimator, estimand, unit, frame; ruled 2026-09-29 that I1 names the estimator), I2 |
+| fact: estimator identity | a wrapper or default that would change the estimand names the choice or fails | I2 |
+| fact: skill creation | a skill is created only when a coherent surface exists, has routing complexity, and no existing skill handles it more simply | K5 |
+| fact: skill creation | skill count is not an objective; a declining or ad-hoc-implementation skill is not created | K5 |
+| fact: skill creation | the planned set of twelve, `jnwb-landmark-viz` included, plus `jnwb-paradigm` and `jnwb-qc` | plan (Q14): 09-04's K1 bullet moves the list to the todo stack |
+| fact: skill creation | `jnwb-data-engineering` and `jnwb-compute` are gated on their APIs and are not required endpoints | plan (Q14), with the list above |
+| fact: skill creation | skills route to existing public objects | K2 |
+| fact: skill creation | no parallel manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carry it; those are extended | K4 |
+| fact: skill creation | every skill ends a task in one of four outcomes | K3 |
+| fact: NWB mutation | the core may own validate, write or create, copy or transform, convert, repair, normalize, upgrade, verify | D2 and `mutation categories` (ruled Q9: closed-world allowlist) |
+| fact: NWB mutation | it may repair a representation when the intended one is identifiable | D4 |
+| fact: NWB mutation | it detects ambiguous scientific meaning and never resolves it | D5 |
+| fact: NWB mutation | it does not infer undocumented condition meanings, guess anatomy or units, invent trial semantics, or choose among plausible mappings | D6, D7, D8, D9 (ruled Q9: never-clauses are rows of their own) |
+| fact: NWB mutation | the core may own cache identity, fingerprints, manifests, provenance, persistence, validation and invalidation, resume | D3 and `cache categories` |
+| fact: NWB mutation | it does not decide what to cache on scientific grounds | D10 |
+| fact: NWB mutation | execution controls are public only once they change no number | D11 |
+| fact: NWB mutation | in this order: numerical identity, public execution abstraction, performance evidence, skill routing; API, docs and tests precede or land with the skill | D12 and `lifecycle` (ruled Q10: one chain; ruled 2026-09-29: performance evidence is not a state, and the computational order is recorded under release condition 2) |
+| fact: Python versions | interpreters declared in `pyproject.toml`, enforced by Gate 8; Gate 8 holds classifiers, matrix and `.readthedocs.yaml` | R6 |
+| fact: Python versions | CI runs the full suite on each declared interpreter on Ubuntu and Windows | R7 |
+| fact: Python versions | plus the suite against the built wheel | R8 |
+| fact: Python versions | local-machine constraints do not override package metadata | R6 |
+| fact: publication order | validate on `main`, tag | R5 |
+| fact: publication order | GitHub Release (non-prerelease), then production PyPI | R1 |
+| fact: publication order | a tag push alone validates build artifacts and does not publish to production PyPI | R3 |
+| fact: publication order | TestPyPI first, verified in a clean environment | R4 |
+| fact: publication order | after publication, the same check runs from PyPI | R2 (ruled Q16: a CI job) |
+| `AGENTS.md` §4.1 | no empirical value that no script computed from data; hardcoded values are visual constants or marked synthetic | S1 |
+| `AGENTS.md` §4.1 | missing data fails loudly | S9 |
+| `AGENTS.md` §4.2 | take the logarithm last: average raw power, divide by baseline, `10*log10` once | S2 |
+| `AGENTS.md` §4.2 | use `aggregate_to_db` | not a fact: an instruction, kept in `AGENTS.md` as §4.7 is (ruled 2026-09-29 for §4.7) |
+| `AGENTS.md` §4.3 | `jnwb/` imports nothing from a project folder; identical with a project installed or absent | B1 |
+| `AGENTS.md` §4.3 | condition codes, session labels, area vocabularies and findings stay out of `jnwb/`, `docs/`, `skills/`, `tests/`; Gate 6's scan surface | B2 (the partial scan is why B2 names `gate:6` beside `todo:12-07`) |
+| `AGENTS.md` §4.3 | a corpus convention is the project's to normalise; a request to encode one is a reason to stop | B2 |
+| `AGENTS.md` §4.4 | units, frames, sample rates and indexing do not change silently; breaks stated at the change site | I3 |
+| `AGENTS.md` §4.5 | label permutation requires a named exchangeability scheme | S10 |
+| `AGENTS.md` §4.5 | randomness takes an `rng`; never `np.random.seed()` | S5 |
+| `AGENTS.md` §4.5 | reports what it used | S11 |
+| `AGENTS.md` §4.6 | device and worker count never change a number | S6 |
+| `AGENTS.md` §4.6 | a GPU result records that it was | S12 |
+| `AGENTS.md` §4.7 | call the library function instead of retyping its rule | S7 |
+| `AGENTS.md` §4.7 | if the function's shape blocks reuse, widen the shape | not a fact: stays a rule in `AGENTS.md` (ruled 2026-09-29) |
+| `AGENTS.md` §4.8 | magnitude, direction, delay and inference are distinct claims; no direction from unsigned magnitude | S8 and `claim classes` |
+| `AGENTS.md` §4.8 | latency or velocity only under a verified linear unwrapped relation and predeclared criteria; unavailable otherwise | S13 |
+| `AGENTS.md` §4.8 | never "immunity" or "complete suppression"; describe as reduced sensitivity to zero-phase-lag coupling | S14 and `immunity vocabulary` |
+
+The study-vocabulary and dB-lexicon constants take their values in 12-07 and 09-04 (ruled
+2026-09-29); the `identity tests` constant is accepted as drafted.

@@ -1831,3 +1831,62 @@ def test_a_skill_off_the_template_fails_the_form_check(case):
     }[case]
     with pytest.raises(AssertionError):
         _assert_form(text, template, case)
+
+
+#: A line shorter than this is a heading, a label or a fragment every skill may share.
+_SHARED_LINE_MIN = 40
+_DOCS_LINK = re.compile(r"\]\((?:\.\./)+docs/")
+
+
+def _normalised_lines(text: str) -> List[str]:
+    """Each prose line outside fenced code, without list markers, emphasis, code ticks or any
+    other punctuation, whitespace collapsed and case folded; lines linking into ``docs/`` and
+    short lines skipped. Punctuation goes because a restatement that differs from its source by
+    one comma or full stop is still the same rule stated twice."""
+    out, in_fence = [], False
+    for raw in text.splitlines():
+        if raw.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence or _DOCS_LINK.search(raw):
+            continue
+        line = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", raw)
+        line = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", line)).strip().casefold()
+        if len(line) >= _SHARED_LINE_MIN:
+            out.append(line)
+    return out
+
+
+def _lines_in_two_skills(texts: dict) -> dict:
+    owners: dict = {}
+    for skill, text in texts.items():
+        for line in set(_normalised_lines(text)):
+            owners.setdefault(line, []).append(skill)
+    return {line: sorted(skills) for line, skills in owners.items() if len(skills) > 1}
+
+
+def test_no_skill_line_is_stated_in_a_second_skill():
+    """A rule written in two skills is edited in one and then disagrees with itself; the second
+    skill links to the first instead. Links into ``docs/`` are shared on purpose and skipped."""
+    texts = {s: (SKILLS_DIR / s / "SKILL.md").read_text(encoding="utf-8") for s in CANONICAL_SKILLS}
+    assert sum(len(_normalised_lines(t)) for t in texts.values()) >= 200, "the reader stopped reading"
+    shared = _lines_in_two_skills(texts)
+    assert not shared, f"lines stated in more than one skill: {shared}"
+
+
+def test_a_line_restated_in_a_second_skill_is_found():
+    rule = "5. **No immunity**: measures based on the imaginary cross-spectrum reduce sensitivity."
+    link = "- [`docs/09_decoding_and_visual_qc.md`](../../docs/09_decoding_and_visual_qc.md)"
+    texts = {
+        "a": f"{rule}\n{link}\n```python\nx = 'a line inside a fence that is long enough'\n```\n",
+        "b": f"- No immunity: measures based on the IMAGINARY cross-spectrum   reduce sensitivity.\n"
+             f"{link}\n```python\nx = 'a line inside a fence that is long enough'\n```\n",
+    }
+    shared = _lines_in_two_skills(texts)
+    assert list(shared.values()) == [["a", "b"]], shared
+
+
+def test_a_restatement_differing_only_in_punctuation_is_found():
+    a = "7. **Delay**: unsigned coupling does not determine direction; direction needs a sign."
+    b = "4. **Delay**: Unsigned coupling does not determine direction. Direction needs a sign."
+    assert list(_lines_in_two_skills({"a": a, "b": b}).values()) == [["a", "b"]]

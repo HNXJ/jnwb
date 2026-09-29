@@ -32,8 +32,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A state and apparatus | 08-01, 08-05, 08-06, 08-07, 08-08 | `artifacts/` stack, rulings and evidence files, `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, release scripts, CI workflow |
-| B figures | 08-02, 08-03, 08-04 | `docs/generate_figures.py`, figure assets, figure tests, the quickstart, the topic pages that show a figure except `docs/09` |
-| C skills and roles | 07-30, 07-18, 07-13 | `skills/`, `artifacts/skills/`, `artifacts/agents/`, `docs/agents.md`, `docs/09`, `docs/common_mistakes.md`, `mkdocs.yml`, `jnwb/vis/canvas.py`, the docs-form gate |
+| B figures | 08-02, 08-03, 08-04 | `docs/generate_figures.py`, figure assets, figure tests, the quickstart, the topic pages that show a figure |
 
 ### 08-01 The stack and state files in compact form
 
@@ -68,8 +67,7 @@ Release: required-0.2.8.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-02.
 Writes: `docs/generate_figures.py`, `docs/figure_style.py`, `docs/assets/figures/*.png`, `docs/index.md`, `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`.
 Source: section 4 of the figure QC report. The three blocker rows (fig01 a, fig04 a, fig09 a)
-landed in 0.2.7. `docs/09` belongs to
-07-30; a fig07 sentence change on that page is reported there.
+landed in 0.2.7. A fig07 sentence change on `docs/09` lands with this item.
 Accept: 08-02 passes; the QC probes re-run clean (fig04 median offset near 0, no text-line hits,
 equal shared-x extents); `python scripts/docs_build.py` is strict-clean; each regenerated pair is
 eye-checked in both themes at displayed size.
@@ -102,6 +100,7 @@ Role: jnwb-developer. Skill: none. Blocked by: 08-01.
 Writes: `AGENTS.md`, `CONTRIBUTING.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, `tests/test_agents_md_recipes.py`, `tests/test_agents_md_stays_a_router.py`.
 - A draft of about 1500 words (4403 at `fe14858d`): rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
 - The P-36 sentence reported by 08-01, and RP-1's release-step sentence (the `dev` deletion rule has no bypass; merged feature heads are still deleted).
+- 7 of the 8 safeguards sit in both `AGENTS.md` §4 and the router skill's section 4: `AGENTS.md` keeps a pointer to the router. Check: the line test of `tests/test_skills_validation.py`, run over the pair, finds no shared line.
 Accept: `tests/test_agents_md_*.py` pass; every rule of the old file maps to a rule, a route or a
 `history.md` paragraph in a table the packet returns.
 Stop: a rule would change meaning.
@@ -133,70 +132,6 @@ implementations follow the ruling in 0.2.11.
 - 07-22 base: identity across CPU, parallel CPU and CUDA for every operation the execution API would cover, measured. Check: a table per operation, with the tolerance each function states.
 Accept: both files exist and name every signature and every measured tolerance.
 Stop: a proposal would infer condition meaning, anatomy or units.
-
-### 07-30 Skills and roles carry the review checks
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `artifacts/skills/**`, `artifacts/agents/*.md`, `skills/*/SKILL.md`, `skills/*/agents/*.yaml`, `docs/agents.md`, `docs/documentation_form.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `jnwb/vis/canvas.py`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`, `tests/test_skills_validation.py`, `tests/test_skill_router_reach.py`.
-Asked by Hamm on 2026-09-28. Evidence: `artifacts/evidence/0.2.8/skills_audit.md`; rulings
-`artifacts/rulings/2026-09-28.md`. Its first review lane passed: the `skills/` line endings, the
-trigger and table repair, and the verification lines are done. The figure-test step moved to 08-02
-and the `AGENTS.md` §7 line to 08-06, so the lanes share no file. `.claude/` is git-ignored, so the
-verifier dispatch file is a local step and not a tracked write. Ruled by the integrator (85): the
-MCP tool count stays in `docs/agents.md`, because a test holds it to the live registry.
-- `artifacts/skills/` line endings levelled, with Gate 16 held per tree (`decisions.md` D3).
-- Landmark-viz checks: the layout sentence and its checks bullet become one inspect-the-PNG check, with a render-at-final-size line.
-- One skill table: the router's table and `docs/agents.md` agree, held by a test. Check: the lfp-spectral, spiking and nwb-data rows, which differ today, are reconciled.
-- Unit-quality wording: "Visual QC" becomes "unit-quality plots" in `docs/09_decoding_and_visual_qc.md`, its nav label and `docs/common_mistakes.md`, with any fig07 sentence 08-03 reports.
-- Router-reach parser: `_routed_operations` reads every backticked call in a bullet; the parser fixture in `tests/test_skill_router_reach.py` is renamed; the skill-count regex refuses "Nine shipped skills". Check: a planted count and a two-call bullet each caught.
-- `jnwb/vis/canvas.py:16`: the docstring says "300/600 DPI" where one PNG is written at `png_dpi`. Check: the docstring names `png_dpi`.
-- Docs form F8: the slop lexicon, zero in `docs/` and `skills/`, with a planted case caught.
-- 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
-Accept: each trigger phrase has one owning skill; no role file holds a loading order or packet
-list; every pointer to the review skill resolves; the F8 check passes; an independent critic finds
-none of the frictions the audit lists.
-Stop: a skill edit would restate mathematics `artifacts/direction.md` keeps out of skills, or put
-personal voice or process vocabulary in `skills/` or `docs/`.
-
-### 07-18 Skill examples run in the suite
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-30.
-Writes: `skills/*/SKILL.md`, `tests/test_skill_examples_execute.py`.
-Seven of nine example blocks executed at `dcb75f12`; six skills build inputs from a random
-generator.
-Accept: every example block executes in the suite and declares its input class (real NWB,
-deterministic array, stochastic synthetic, calibration fixture); the test checks the declaration;
-a routing example uses one of the first two.
-Stop: an example needs data the repository does not carry.
-
-### 07-13 Skills say each thing once
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-18.
-Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
-Three normalised lines of 40 or more characters are shared by two skills at `dcb75f12`, and 7 of
-the 8 safeguards sit in both `AGENTS.md` §4 and the router. The test lands before 07-10 and 07-11,
-so the new skills are born under it.
-Accept: a test fails when a normalised invariant line appears in two skills, `docs/` links
-excluded; a restated `docs/` definition becomes the link; the summed length of the skills does not
-grow.
-Stop: removing a restatement leaves a routing row without a dimension its operation requires.
-
-### 08-09 The fact stack as typed tables, with the ontology gate
-
-Release: required-0.2.8.
-AUTONOMY: none for the landing of `artifacts/fact_stack.md`; the draft is `max`.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/fact_stack.md`, `scripts/build_ontology.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `.gitignore`.
-Ruled 2026-09-29 (quiz Q1 to Q19, `artifacts/rulings/2026-09-29.md`).
-- The fact stack as six tables of typed predicate rows with their constant tables, drafted from today's facts and `AGENTS.md` §4 with no change of meaning. Check: Hamm approves the draft; a map from every old clause to a row is returned.
-- `scripts/build_ontology.py` writes the generated graph (entities from `jnwb.__all__` and signatures, docs pages, routing rows, tests and gates; relations implements, documents, routes, verifies, constrains), git-ignored like `artifacts/state.md`. Check: regenerated twice at one commit, byte-identical.
-- `scripts/ontology_gate.py` reports every fact HELD, VIOLATED or UNHELD and fails on VIOLATED; a harness gate runs it. Check: a planted violation of one HELD fact fails it; the UNHELD count is printed.
-- The lifecycle chain (Q10) is the first computed fact. Check: a routed operation with no test is VIOLATED.
-Accept: the gate runs in the harness with 0 VIOLATED; each UNHELD fact names the item that holds it.
-Stop: a fact's meaning would change in the rewrite.
 
 # 0.2.9
 
@@ -335,13 +270,37 @@ Waits: both copies must pass today, so nothing passes falsely.
 ### 09-04 Science and Skills facts held
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: 08-09.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
 - S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
 - S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
-- K1 partition with k = 3 exclusive operations per shipped domain skill; the planned-skill list moves here as plan. Check: a two-operation planted skill is VIOLATED.
+- K1 partition with k = 3 exclusive operations per shipped domain skill. Check: a two-operation planted skill is VIOLATED.
+- Planned skills, moved from the fact stack as plan (Q14): the planned set is twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` are gated on their public APIs and neither is a required endpoint: if the router can route a capability cleanly, no skill is manufactured for it. Check: each planned skill is created only when K1 and K5 hold for it.
 Accept: the Science and Skills tables report no UNHELD fact.
 Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+
+### 09-05 Method papers on the references page
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `docs/references.md`, `jnwb/connectivity.py`, `jnwb/spectral.py`, `jnwb/laminar.py`, `tests/test_references_resolve.py`, `artifacts/evidence/0.2.9/references/bastos_survey.md`.
+Ruled 2026-09-29: method papers only. The survey is `artifacts/evidence/0.2.9/references/bastos_survey.md`; its DOIs were resolved on Crossref that day.
+- Rows for Bastos and Schoffelen 2016, Bastos et al. 2018 (PNAS), Bastos et al. 2020 (PNAS), Bastos et al. 2021 (eLife), Vezoli et al. 2021, Friston et al. 2014 and Barnett and Seth 2011, each naming the result jnwb implements or the pitfall it states. Check: `tests/test_references_resolve.py` passes with every listed function citing its row's DOI.
+- A docstring cites a paper only where the function implements or follows its method; a paper that only motivates a choice is cited from a docs page. Check: each new citation names the section or equation it follows.
+- The survey's inferred rows are read in full text before any procedure is cited from them. Check: the row's evidence column reads observed. Waits: citations only; no number changes.
+Accept: every row resolves, names its functions, and each function's docstring carries the DOI.
+Stop: a paper's procedure differs from what the function computes; the row then says how, as the Mendoza-Halliday row does.
+
+### 09-06 The interpretational pitfalls, stated once
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 09-05.
+Writes: `docs/common_mistakes.md`, `docs/08_directed_connectivity_and_information.md`.
+Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`.
+- Common reference, volume conduction, SNR asymmetry, common input, sample-size bias, phase slope as direction, bivariate against conditional Granger, filtering before Granger and non-stationarity: one statement each, linked to its reference row and to the function that guards it or the gap that leaves it open. Check: each statement links a `docs/references.md` row. Waits: documentation only.
+- `granger_spectral` is parametric; published values from nonparametric Granger are not directly comparable. Check: the statement sits on the directed-connectivity page. Waits: documentation only.
+Accept: the docs form gate passes and no pitfall is stated on two pages.
+Stop: a statement would claim a safeguard jnwb does not implement.
 
 # 0.2.10
 
@@ -529,12 +488,37 @@ Stop: none beyond the standing ones.
 ### 10-10 Identity and scientific-choice facts held
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: 08-09.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `jnwb/_declarations.py`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`.
 - I1 declared signature types for every numeric public operation, and type-checked composition edges. Check: a spikes-to-LFP-only edge, planted, is VIOLATED.
 - B3 lexicon and exceptions table. Check: a planted defaulted `window=` with no cited reason is VIOLATED.
 Accept: the Identity table and B3 report no UNHELD fact.
 Stop: a declaration would change a public signature without a ruling.
+
+### 10-11 One synthetic test per interpretational pitfall
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-06, 09-06.
+Writes: `tests/test_connectivity_pitfalls.py`.
+Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
+- Common reference: a shared reference inflates coherence and Granger; `bipolar_reference` removes the inflation. Check: both directions asserted.
+- Volume conduction: zero-lag mixing keeps `imaginary_coherency` and `wpli` near zero while coherence is high. Check: the bound is stated.
+- SNR asymmetry: added noise on one channel yields a Granger direction with no true lag. Check: the test records today's behaviour and names the gap 11-04 closes.
+- Common input: a common driver with unequal delays makes bivariate Granger spurious and conditional `granger` removes it. Check: both asserted.
+- Sample-size bias: the `pairwise_phase_consistency` and debiased wPLI null means stay near zero for every segment count. Check: several counts.
+Waits: tests only; each records present behaviour.
+Accept: every pitfall statement of 09-06 is held by a test or names its gap.
+Stop: a test would need a threshold no reference fixes.
+
+### 10-12 Skills point to their sources
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: per skill. Blocked by: 09-05.
+Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
+- Each connectivity and spectral safeguard names its `docs/references.md` row instead of restating the method. Check: the line test finds no restated definition. Waits: pointers only.
+- A request to compare with published nonparametric Granger values meets the estimator difference, as a decline or a qualification. Check: a decline-behaviour case. Waits: skill text only.
+Accept: routing rows still match signatures; the summed skill length does not grow.
+Stop: a pointer would drop a safeguard's dimension that a routing row needs.
 
 # 0.2.11
 
@@ -638,12 +622,27 @@ Waits: public API; Hamm rules the surface.
 ### 11-03 Design facts held
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: 08-09.
-Writes: `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`.
 - D1 delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED.
 - D2 and D3 category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED.
 Accept: the Design table reports no UNHELD fact.
 Stop: a category outside the ruled allowlists would be needed.
+
+### 11-04 Proposals for the pitfall estimators
+
+Release: deferred-0.2.9.
+AUTONOMY: none for the shape; the proposal is `max`.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-11.
+Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
+Ruled 2026-09-29: all four in scope, each shape ruled before code.
+- Nonparametric Granger by spectral factorization (Wilson), for comparison with the published values. Check: the proposal names the reference, the signature and a synthetic identity against the parametric path at the true order.
+- A time-reversed Granger control for SNR asymmetry. Check: the proposal states the decision rule and its reference.
+- Partial coherence conditioned on a third signal. Check: signature and reference.
+- A bias floor for coherence and Granger from randomly paired epochs (Vezoli et al. 2021). Check: signature, the pairing scheme and its `rng`.
+Accept: Hamm rules each shape; the implementation becomes its own item with API, docs and tests before any skill row.
+Stop: public API; Hamm rules the shape.
+Waits: public API; Hamm rules the shape.
 
 # 0.2.12
 
@@ -762,12 +761,23 @@ Waits: neither directory ships.
 ### 12-07 Release and study-vocabulary facts held; no fact UNHELD
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: 08-09.
-Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/ontology_gate.py`, `tests/test_ontology_gate.py`, `tests/test_harness_gate_study_tokens.py`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`.
 - R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function.
 - B2: Gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit repaired or shown generic. Check: a planted study token in `tests/` fails.
-Accept: `scripts/ontology_gate.py` prints UNHELD 0 and VIOLATED 0.
+Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
 Stop: a workflow change would alter the ruled publication order.
+
+### 12-08 Every routed method cites a published source
+
+Release: deferred-0.2.9.
+AUTONOMY: none for the fact row; the graph edges are `max`.
+Role: jnwb-developer. Skill: none. Blocked by: 09-05.
+Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- The fact graph gains reference nodes and DOI-to-function edges read from `docs/references.md`. Check: a planted row with no function is reported.
+- A proposed Science fact, every routed method cites a published source, held by `tests/test_references_resolve.py`. Check: Hamm approves the row; it reads HELD.
+Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
+Stop: the fact stack is Hamm's; the row lands only on approval.
 
 ## Out of scope for 0.2.8 to 0.2.12
 

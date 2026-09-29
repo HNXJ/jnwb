@@ -112,7 +112,7 @@ nav:
       - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
       - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
       - Directed Connectivity: 08_directed_connectivity_and_information.md
-      - Decoding & Visual QC: 09_decoding_and_visual_qc.md
+      - Decoding & Unit-Quality Plots: 09_decoding_and_visual_qc.md
       - Plotly Figures: vis.md
 
   - Troubleshooting:

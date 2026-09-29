@@ -80,28 +80,23 @@ Inside an unpacked sdist the skill files are present but the pages they link to 
 resolves only in a checkout.
 The pointer above is the route that works from anywhere.
 
-| Skill | Covers |
+The entry point is the router skill, `jnwb`. Its routing table, copied here, sends each task to
+the skill that covers it:
+
+| Task | Skill |
 |---|---|
-| `jnwb` | Router, scientific safeguards, entry point |
-| `jnwb-nwb-data` | NWB inspection, paths, metadata, electrodes, addressing, unit QC |
-| `jnwb-spiking` | Raster/PSTH, latency, causal smoothing, response significance |
-| `jnwb-lfp-spectral` | Filtering, TFR, band power, artifact repair |
-| `jnwb-statistics` | Bootstrap, permutation, multiple comparisons, RNG |
-| `jnwb-population` | Decoding, trajectories, jRSA, population geometry |
-| `jnwb-connectivity` | Granger, PSI, transfer entropy |
-| `jnwb-figures` | Matplotlib figures, unit-quality plots, figure export |
-| `jnwb-landmark-viz` | Plotly figures through `jnwb.vis` (the optional `vis` extra) |
+| NWB files: inspection, events, paths, metadata, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| Spike trains: binning, raster, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
+| LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
+| Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
+| Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
+| Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
+| Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
+| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
+| Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
-The router skill carries the safeguards worth reading even if you never install a skill:
-
-- spikes and LFP are distinct observables and are not pooled;
-- association, directionality and causality are three different claims;
-- raw power is averaged before any logarithm;
-- wavelet coefficients inside the cone of influence are masked;
-- smoothing is causal so that no future leaks into an onset;
-- a `Generator` is passed explicitly and the global RNG is never mutated;
-- measures built on the imaginary cross-spectrum reduce sensitivity to zero-lag coupling
-  without conferring immunity to volume conduction.
+The scientific safeguards, worth reading even if you never install a skill, are section 4 of
+the [router skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb/SKILL.md).
 
 ## Without any of that
 

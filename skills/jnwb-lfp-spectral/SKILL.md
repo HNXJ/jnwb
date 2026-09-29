@@ -64,6 +64,7 @@ Continuous or trial-aligned LFP spectra, complex time-frequency representations 
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 
