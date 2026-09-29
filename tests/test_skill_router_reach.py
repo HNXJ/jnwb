@@ -50,6 +50,38 @@ def test_a_skill_named_only_outside_the_routing_section_is_unreached() -> None:
     assert "`jnwb-x`" in section and "`jnwb-demo`" not in section
 
 
+def _routed_operations(text: str) -> list[str]:
+    """The `jnwb.` operation each routing bullet opens with, in order."""
+    return re.findall(r"^- `(jnwb\.[\w.]+)", text, re.M)
+
+
+def test_each_operation_has_one_routing_row() -> None:
+    """`raster_psth` had a row in both `jnwb-spiking` and `jnwb-figures`, saying different things."""
+    owners: dict[str, list[str]] = {}
+    for skill in _skill_dirs():
+        for op in _routed_operations((SKILLS / skill / "SKILL.md").read_text(encoding="utf-8")):
+            owners.setdefault(op, []).append(skill)
+    assert owners, "no routing row was found; this test checks nothing"
+    shared = {op: skills for op, skills in owners.items() if len(skills) > 1}
+    assert not shared, f"operations routed by more than one row: {shared}"
+
+
+def test_a_row_repeated_in_two_skills_is_found() -> None:
+    row = "- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Binned arrays.\n"
+    assert _routed_operations(row + "- plain bullet\n") == ["jnwb.raster_psth"]
+
+
+def test_the_docs_skill_table_is_the_skill_directories_and_states_no_count() -> None:
+    """`docs/agents.md` wrote the skill count in prose, a second copy of the directory listing."""
+    page = (SKILLS.parent / "docs" / "agents.md").read_text(encoding="utf-8")
+    table = page.partition("| Skill | Covers |")[2].partition("\n\n")[0]
+    listed = re.findall(r"^\| `([\w-]+)` \|", table, re.M)
+    assert sorted(listed) == _skill_dirs(), f"the table lists {listed}"
+    words = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+"
+    counted = re.findall(rf"\b(?:{words})\b(?= (?:domain )?skills\b)", page, re.I)
+    assert not counted, f"docs/agents.md states a skill count: {counted}"
+
+
 @pytest.mark.parametrize("skill", _skill_dirs())
 def test_openai_yaml_description_equals_the_skill_description(skill: str) -> None:
     md = _frontmatter(SKILLS / skill / "SKILL.md")["description"]
