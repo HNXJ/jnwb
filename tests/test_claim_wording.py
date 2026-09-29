@@ -48,7 +48,7 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
     ("docs/07_statistical_inference_and_nulls.md", "false discoveries caused by", METHOD),
     ("docs/09_decoding_and_visual_qc.md", "in only one group always causes", METHOD),
     ("docs/agents.md", "asymmetry a cause", CAVEAT),
-    ("docs/agents.md", "Raster/PSTH, latency, causal", ONSET),
+    ("docs/agents.md", "PSTH, onset latency, response", ONSET),
     ("docs/common_mistakes.md", "distorting latency estimates", ONSET),
     ("docs/common_mistakes.md", "a time delay $\\Delta t$ and a constant phase offset", CAVEAT),
     ("docs/common_mistakes.md", "Group Delay in Onset Latency", ONSET),

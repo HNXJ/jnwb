@@ -13,7 +13,7 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Task | Skill |
 |---|---|
 | NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
-| Spike trains: binning, PSTH, causal smoothing, onset latency, response significance, spike-field locking | `jnwb-spiking` |
+| Spike trains: binning, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
 | LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
