@@ -13,6 +13,7 @@
 # AGENTS.md is the repository's own working rules and stays out, as does everything under
 # artifacts/, including the skill about working on this repository.
 graft skills
+exclude AGENTS.md
 
 prune tests
 prune scripts
