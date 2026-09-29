@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-09-29
+
 ### Added
 
 - `jnwb.vflip`, `jnwb.vflip_from_lfp` and `jnwb.label_layers` take keyword-only

@@ -100,10 +100,7 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
 SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
-SOURCE_UNRELEASED_RECORDS = {
-    ("jnwb/laminar.py", "INTENTIONAL BREAK (0.2.7)"): "0.2.7",
-    ("jnwb/laminar.py", "Before 0.2.7 the"): "0.2.7",
-}
+SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {}
 
 # A version after a comparison operator is a dependency requirement, not a jnwb release.
 _REQUIREMENT = re.compile(r"(?:[<>=!~]=?)\s*$")
