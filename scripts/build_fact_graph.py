@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the repository ontology: a generated graph of what the tree holds and how it connects.
+"""Build the fact graph: a generated graph of what the tree holds and how it connects.
 
 Entities come from the tree itself:
 
@@ -9,8 +9,8 @@ Entities come from the tree itself:
   page    every hand-written ``docs/**/*.md`` page (the generated ``docs/api.md`` is left out,
           as harness gate 5 leaves it out)
   skill   every ``skills/*/SKILL.md``
-  route_target  every name a skill routes to, with the export it starts from and whether the
-          whole dotted path resolves on the package (``StatisticalAnalysis.fdr_correct``)
+  route_target  every name a skill routes to, with the export its path starts from and whether
+          the whole dotted path resolves on the package (``StatisticalAnalysis.fdr_correct``)
   test    every ``tests/test_*.py`` file and the test functions it defines
   gate    every entry of ``scripts/harness_gate.py`` ``GATES``, by number
   fact    every typed row of the fact source, with the holders its ``Held by`` cell names
@@ -19,8 +19,12 @@ Relations, each a sorted list of ``[source, target]`` pairs:
 
   implements  module file -> export it defines
   documents   page -> export it names as a whole word (the rule of harness gate 5)
-  routes      skill -> ``jnwb.`` target of a routing bullet (a line opening ``- `jnwb.``); every
-              backticked ``jnwb.`` name on that line is a target
+  routes      skill -> target it routes. Two forms are read: a routing bullet (a line opening
+              ``- `jnwb.``) routes every backticked ``jnwb.`` call in its head, before the
+              "`: " that ends it, and a call after that colon is a mention; and a table whose
+              header cell names a backticked ``jnwb.`` path routes the leading backticked name
+              of each cell in that column, under that path (a parenthesised name is a member of
+              the module before it, not a route). A route written in any other form is not seen.
   verifies    test file -> export it reaches: ``from jnwb... import NAME``, or ``NAME`` read as
               an attribute of an imported ``jnwb`` module
   constrains  holder -> fact it holds
@@ -29,10 +33,14 @@ The facts are the only owned part; everything else is regenerated. The output is
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
 stripped from signatures, so two builds at one commit are byte-identical.
 
+The fact source must hold exactly the six fact tables ruled on 2026-09-29, each once, with no
+repeated fact ID; a table whose header looks like a fact table but is not exactly one is
+refused, because a skipped table would drop its facts without a word.
+
 Usage::
 
-    python scripts/build_ontology.py            # write artifacts/ontology.json
-    python scripts/build_ontology.py --out PATH
+    python scripts/build_fact_graph.py            # write artifacts/fact_graph.json
+    python scripts/build_fact_graph.py --out PATH
 """
 from __future__ import annotations
 
@@ -56,21 +64,25 @@ from scripts.computational_contract_gate import (  # noqa: E402
     _dataclass_field,
 )
 
-ONTOLOGY_PATH = REPO_ROOT / "artifacts" / "ontology.json"
-#: Where the typed facts are read from, in order: the first file holding a typed table wins.
-#: The fact stack is owned by a person; until its typed form lands, the draft beside the
-#: evidence of the cycle that wrote it is read instead, and the report names which was read.
-FACT_SOURCES = (
-    REPO_ROOT / "artifacts" / "fact_stack.md",
-    REPO_ROOT / "artifacts" / "evidence" / "0.2.8" / "fact_stack_typed_draft.md",
-)
+FACT_GRAPH_PATH = REPO_ROOT / "artifacts" / "fact_graph.json"
+FACT_STACK = REPO_ROOT / "artifacts" / "fact_stack.md"
+#: Read while the fact stack holds no typed table, and named in every report that reads it.
+FACT_DRAFT = REPO_ROOT / "artifacts" / "evidence" / "0.2.8" / "fact_stack_typed_draft.md"
 FACT_HEADER = ("ID", "Domain", "Predicate", "Held by", "Ruled")
+FACT_TABLES = ("Boundary", "Design", "Identity", "Science", "Skills", "Release")
 CONSTANT_HEADER = ("Constant", "Values", "Ruled")
 
 _ADDRESS = re.compile(r" at 0x[0-9A-Fa-f]+")
 _BACKTICKED = re.compile(r"`([^`]+)`")
-_ROUTING_LINE = re.compile(r"^- `jnwb\.", re.M)
+_ROUTING_LINE = re.compile(r"^- `jnwb\.")
+_ROW_HEAD_END = re.compile(r"`:\s")
 _JNWB_NAME = re.compile(r"^jnwb\.([A-Za-z_][\w.]*)")
+_IDENTIFIER = re.compile(r"^[A-Za-z_]\w*$")
+_PARENTHESISED = re.compile(r"\([^)]*\)")
+
+
+class FactSourceError(ValueError):
+    """The fact source is malformed; nothing built from it could be trusted."""
 
 
 # ------------------------------------------------------------------------ owned tables
@@ -80,9 +92,9 @@ def _cells(line: str) -> List[str]:
     return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
 
-def _tables(text: str, header: Sequence[str]) -> List[Tuple[str, List[List[str]]]]:
-    """Every markdown table whose header row is ``header``, as (section heading, rows)."""
-    found: List[Tuple[str, List[List[str]]]] = []
+def _all_tables(text: str) -> List[Tuple[str, List[str], List[List[str]]]]:
+    """Every markdown table of ``text`` as (section heading, header cells, body rows)."""
+    found = []
     heading = ""
     lines = text.splitlines()
     i = 0
@@ -90,29 +102,49 @@ def _tables(text: str, header: Sequence[str]) -> List[Tuple[str, List[List[str]]
         line = lines[i]
         if line.startswith("## "):
             heading = line[3:].strip()
-        if line.lstrip().startswith("|") and tuple(_cells(line)) == tuple(header):
+        if line.lstrip().startswith("|"):
+            header = _cells(line)
             rows: List[List[str]] = []
             i += 2  # the header and its separator
             while i < len(lines) and lines[i].lstrip().startswith("|"):
                 rows.append(_cells(lines[i]))
                 i += 1
-            found.append((heading, rows))
+            found.append((heading, header, rows))
             continue
         i += 1
     return found
 
 
+def _fact_like(header: Sequence[str]) -> bool:
+    return bool(header) and (header[0].strip("`") == "ID" or "Held by" in header
+                             or "Predicate" in header)
+
+
 def read_facts(text: str) -> List[Dict[str, Any]]:
-    """The typed fact rows of ``text``: one dict per row, with its table and its holders."""
-    facts = []
-    for table, rows in _tables(text, FACT_HEADER):
+    """The typed fact rows of ``text``: one dict per row, with its table and its holders.
+
+    Raises ``FactSourceError`` on a fact-like header that is not the fact header, a row of the
+    wrong width, or a fact ID used twice.
+    """
+    facts: List[Dict[str, Any]] = []
+    seen: Dict[str, str] = {}
+    for table, header, rows in _all_tables(text):
+        if tuple(header) != FACT_HEADER:
+            if _fact_like(header):
+                raise FactSourceError(f"section {table!r}: the table header {header} looks "
+                                      f"like a fact table and is not {list(FACT_HEADER)}")
+            continue
         for row in rows:
             if len(row) != len(FACT_HEADER):
-                raise ValueError(f"{table}: a fact row has {len(row)} cells, not "
-                                 f"{len(FACT_HEADER)}: {row}")
+                raise FactSourceError(f"{table}: a fact row has {len(row)} cells, not "
+                                      f"{len(FACT_HEADER)}: {row}")
             fact_id, domain, predicate, held_by, ruled = row
+            fact_id = fact_id.strip("`")
+            if fact_id in seen:
+                raise FactSourceError(f"fact {fact_id} appears in {seen[fact_id]} and {table}")
+            seen[fact_id] = table
             facts.append({
-                "id": fact_id.strip("`"),
+                "id": fact_id,
                 "table": table,
                 "domain": domain,
                 "predicate": predicate,
@@ -123,22 +155,43 @@ def read_facts(text: str) -> List[Dict[str, Any]]:
     return facts
 
 
+def require_tables(text: str) -> None:
+    """The fact tables of ``text`` are exactly ``FACT_TABLES``, each once."""
+    names = [table for table, header, _ in _all_tables(text) if tuple(header) == FACT_HEADER]
+    if sorted(names) != sorted(FACT_TABLES):
+        raise FactSourceError(f"the fact tables are {names}, not exactly {list(FACT_TABLES)}")
+
+
+def load_facts(path: Path) -> List[Dict[str, Any]]:
+    """The facts of ``path``, refused unless it holds the six tables and parses cleanly."""
+    text = path.read_text(encoding="utf-8")
+    facts = read_facts(text)
+    require_tables(text)
+    return facts
+
+
 def read_constants(text: str) -> Dict[str, List[str]]:
     """The constant rows of ``text``: name -> its backticked values, in the order written."""
     constants: Dict[str, List[str]] = {}
-    for _, rows in _tables(text, CONSTANT_HEADER):
+    for _, header, rows in _all_tables(text):
+        if tuple(header) != CONSTANT_HEADER:
+            continue
         for row in rows:
-            name, values = row[0].strip("`"), row[1]
-            constants[name] = _BACKTICKED.findall(values)
+            constants[row[0].strip("`")] = _BACKTICKED.findall(row[1])
     return constants
 
 
-def fact_source(sources: Sequence[Path] = FACT_SOURCES) -> Path:
-    """The first source holding a typed fact table."""
-    for path in sources:
-        if path.is_file() and read_facts(path.read_text(encoding="utf-8")):
-            return path
-    raise FileNotFoundError(f"no typed fact table in any of {[str(p) for p in sources]}")
+def fact_source(primary: Path = FACT_STACK, draft: Path = FACT_DRAFT) -> Path:
+    """``primary`` when it holds a fact table, else ``draft``.
+
+    A primary whose fact-like tables do not parse is refused, never passed over: read_facts
+    raises on it before the draft is considered.
+    """
+    if primary.is_file() and read_facts(primary.read_text(encoding="utf-8")):
+        return primary
+    if draft.is_file():
+        return draft
+    raise FactSourceError(f"no fact table in {primary}, and no draft at {draft}")
 
 
 # ------------------------------------------------------------------------ generated graph
@@ -217,15 +270,29 @@ def _documents(pages: Sequence[Path], names: Sequence[str], root: Path) -> List[
 
 
 def routing_targets(text: str) -> List[str]:
-    """Every backticked ``jnwb.`` name on a routing line, without the ``jnwb.`` prefix."""
+    """Every name ``text`` routes, without the ``jnwb.`` prefix, in the two forms read."""
     targets = []
     for line in text.splitlines():
         if not _ROUTING_LINE.match(line):
             continue
-        for span in _BACKTICKED.findall(line):
+        end = _ROW_HEAD_END.search(line)
+        head = line[: end.start() + 1] if end else line
+        for span in _BACKTICKED.findall(head):
             match = _JNWB_NAME.match(span)
             if match:
                 targets.append(match.group(1).rstrip("."))
+    for _, header, rows in _all_tables(text):
+        for column, cell in enumerate(header):
+            prefix = next((m.group(1) for m in map(_JNWB_NAME.match, _BACKTICKED.findall(cell))
+                           if m), None)
+            if prefix is None:
+                continue
+            for row in rows:
+                if column >= len(row):
+                    continue
+                for span in _BACKTICKED.findall(_PARENTHESISED.sub("", row[column])):
+                    if _IDENTIFIER.match(span):
+                        targets.append(f"{prefix}.{span}")
     return targets
 
 
@@ -237,6 +304,21 @@ def _routes(root: Path) -> Tuple[List[str], List[List[str]]]:
         edges.extend([skill, target]
                      for target in sorted(set(routing_targets(path.read_text(encoding="utf-8")))))
     return skills, edges
+
+
+def _route_targets(package: Any, exports: Dict[str, Any], routes: Sequence[Sequence[str]]):
+    targets = {}
+    for target in sorted({t for _, t in routes}):
+        head = target.split(".")[0]
+        obj: Any = package
+        try:
+            for part in target.split("."):
+                obj = getattr(obj, part)
+            resolves = True
+        except AttributeError:
+            resolves = False
+        targets[target] = {"export": head if head in exports else None, "resolves": resolves}
+    return targets
 
 
 def _is_jnwb(module: Optional[str]) -> bool:
@@ -323,28 +405,17 @@ def _head(root: Path) -> Optional[str]:
 
 def build(package: Any = None, root: Path = REPO_ROOT,
           facts_path: Optional[Path] = None) -> Dict[str, Any]:
-    """The ontology of the tree at ``root`` as a JSON-ready dict."""
+    """The fact graph of the tree at ``root`` as a JSON-ready dict."""
     if package is None:
         import jnwb as package
 
     source = facts_path or fact_source()
-    facts = read_facts(source.read_text(encoding="utf-8"))
+    facts = load_facts(source)
 
     exports, implements = _exports(package, root, EXECUTION_PARAMETERS)
     names = sorted(exports)
     pages = _pages(root)
     skills, routes = _routes(root)
-    targets = {}
-    for target in sorted({t for _, t in routes}):
-        head = target.split(".")[0]
-        obj: Any = package
-        try:
-            for part in target.split("."):
-                obj = getattr(obj, part)
-            resolves = True
-        except AttributeError:
-            resolves = False
-        targets[target] = {"export": head if head in exports else None, "resolves": resolves}
     tests, verifies = _tests(root, names)
     constrains = sorted([holder, fact["id"]] for fact in facts for holder in fact["holders"])
 
@@ -355,7 +426,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "export": exports,
             "page": [_rel(p, root) for p in pages],
             "skill": skills,
-            "route_target": targets,
+            "route_target": _route_targets(package, exports, routes),
             "test": tests,
             "gate": _gates(),
             "fact": {f["id"]: {"table": f["table"], "holders": f["holders"]} for f in facts},
@@ -370,8 +441,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     }
 
 
-def dumps(ontology: Dict[str, Any]) -> str:
-    return json.dumps(ontology, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+def dumps(graph: Dict[str, Any]) -> str:
+    return json.dumps(graph, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def _checkout_jnwb():
@@ -386,7 +457,7 @@ def _checkout_jnwb():
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--out", type=Path, default=ONTOLOGY_PATH)
+    parser.add_argument("--out", type=Path, default=FACT_GRAPH_PATH)
     args = parser.parse_args(argv)
     text = dumps(build(_checkout_jnwb()))
     args.out.parent.mkdir(parents=True, exist_ok=True)

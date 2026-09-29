@@ -70,10 +70,10 @@ python scripts/docs_build.py
   their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
   that generated file is present (Gate 20 only reads it; regenerate with
   `python scripts/reconstruct_state.py`), the computational contract of
-  `scripts/computational_contract_gate.py`, and the typed facts of `scripts/ontology_gate.py`,
-  each HELD, VIOLATED or UNHELD on the graph `scripts/build_ontology.py` generates (VIOLATED
-  fails; `artifacts/ontology.json` is that graph written out, and is never committed). It fails
-  on structure, not behaviour.
+  `scripts/computational_contract_gate.py`, and the typed facts of `scripts/fact_gate.py`,
+  each HELD, VIOLATED or UNHELD on the fact graph `scripts/build_fact_graph.py` generates
+  (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
+  committed). It fails on structure, not behaviour.
 
 **Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.

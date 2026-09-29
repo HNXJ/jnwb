@@ -3,7 +3,7 @@
 Draft of `artifacts/fact_stack.md` in the form ruled on 2026-09-29 (quiz Q1 to Q19,
 `artifacts/rulings/2026-09-29.md`). Everything from "# fact stack" below lands as that file once
 Hamm approves it; the clause map at the end is the evidence that no meaning changed and does not
-land. Until it lands, `scripts/ontology_gate.py` reads the typed rows from this draft and says so.
+land. Until it lands, `scripts/fact_gate.py` reads the typed rows from this draft and says so.
 
 ---
 
@@ -28,10 +28,10 @@ One atomic claim per row. `Held by` names what establishes the claim, as backtic
 |---|---|
 | `gate:N` | harness gate N of `scripts/harness_gate.py` |
 | `test:tests/<file>.py` or `test:tests/<file>.py::<name>` | a test module, or one test in it (`Class::name` inside a class) |
-| `computed:<name>` | a predicate `scripts/ontology_gate.py` evaluates on the generated ontology |
+| `computed:<name>` | a predicate `scripts/fact_gate.py` evaluates on the generated fact graph |
 | `todo:<item>` | the live todo item that will hold the claim |
 
-`scripts/ontology_gate.py` reports each row:
+`scripts/fact_gate.py` reports each row:
 
 | Status | When |
 |---|---|
@@ -85,7 +85,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S2 | decibel outputs | raw power is averaged, divided by baseline, and `10*log10` is taken once, last | `todo:09-04` | `AGENTS.md` §4.2; Q13 2026-09-29 |
 | S5 | randomness consumers | anything consuming randomness takes an `rng` parameter, and nothing calls `np.random.seed()` | `todo:09-04` | `AGENTS.md` §4.5; Q13 2026-09-29 |
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
-| S7 | docs generators, examples, skills | a library rule is called, never retyped | `todo:09-04` | `AGENTS.md` §4.7; Q13 2026-09-29 |
+| S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `todo:09-04` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | text naming an estimand | the text uses no vocabulary of a higher class of `claim classes` than the estimand declares | `todo:09-04` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 | S9 | data inputs | missing data fails loudly | `todo:09-04` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
 | S10 | label permutation | a permutation null names its exchangeability scheme | `todo:09-04` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
@@ -99,7 +99,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | ID | Domain | Predicate | Held by | Ruled |
 |---|---|---|---|---|
 | K1 | shipped domain skills | they partition the routed operations, each owning at least `k` exclusively, the router outside the partition | `todo:09-04` | 2026-09-22; Q14 2026-09-29 |
-| K2 | routing rows | every routing target is an existing public object | `computed:lifecycle` | 2026-09-22; Q15 2026-09-29 |
+| K2 | routing rows | every routing target starts at an export of `jnwb.__all__` and resolves on the package; the targets read are the calls in a routing bullet's head and the names in a skill table's `jnwb.` column | `computed:routes` | 2026-09-22; Q15 2026-09-29 |
 | K3 | every skill | a task ends in one of four outcomes: compose and execute, request missing information, report non-identifiability or failure, decline unsupported inference | `test:tests/test_skill_decline_behaviour.py::test_every_skill_outcome_is_tested_or_excused` | 2026-09-22 |
 | K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `todo:09-04` | 2026-09-22 |
 | K5 | new skills | a skill is created only for a coherent public capability surface with enough routing complexity, that no existing skill handles more simply; skill count is not an objective, and a skill whose principal behaviour would be declining, or ad-hoc implementation, is not created | `todo:09-04` | 2026-09-22 |
@@ -113,7 +113,9 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | R3 | tag push | a tag push alone validates the build artifacts and publishes nothing to production PyPI | `test:tests/test_workflow_release_policy.py::TestWorkflowReleasePolicy::test_tag_push_alone_cannot_reach_production_pypi` | 2026-09-22 (R-3) |
 | R4 | before production publication | the candidate is published to TestPyPI and verified from there in a clean environment | `test:tests/test_workflow_release_policy.py::TestTestPyPIBeforePyPI` | 2026-09-22 (R-3) |
 | R5 | release order | a release is validated on `main` before it is tagged | `todo:12-07` | 2026-09-22 (R-3) |
-| R6 | supported interpreters | they are the set `pyproject.toml` declares; CI runs the full suite on each on Ubuntu and Windows, and the suite against the built wheel; the classifiers, the CI matrix and `.readthedocs.yaml` agree with that set; a local-machine constraint does not override it | `gate:8` | 2026-09-22 (06-92) |
+| R6 | supported interpreters | they are the set `pyproject.toml` declares, and the classifiers, the CI matrix and `.readthedocs.yaml` agree with that set; a local-machine constraint does not override it | `gate:8` | 2026-09-22 (06-92) |
+| R7 | CI test matrix | the full suite runs on every declared interpreter on both Ubuntu and Windows | `todo:12-07` | 2026-09-22 (06-92) |
+| R8 | CI build job | the suite runs against the built wheel, installed outside the checkout | `test:tests/test_the_suite_can_qualify_an_installed_copy.py::test_ci_runs_the_suite_against_the_installed_wheel` | 2026-09-22 (06-92) |
 
 ## Constants
 
@@ -122,7 +124,7 @@ The values the predicates read. A gate reads them from here and holds no copy.
 | Constant | Values | Ruled |
 |---|---|---|
 | `lifecycle` | `implemented`, `identity-verified`, `documented`, `tested`, `routed` | Q10 2026-09-29 |
-| `identity tests` | `device=tests/test_execution_switch.py`, `backend=tests/test_execution_switch.py`, `n_jobs=tests/test_parallel.py` | drafted with Q10; for approval |
+| `identity tests` | `device=tests/test_execution_switch.py`, `backend=tests/test_execution_switch.py`, `n_jobs=tests/test_parallel.py` | 2026-09-29 |
 | `mutation categories` | `validate`, `write or create`, `copy or transform`, `convert to NWB`, `structural repair`, `normalize declared units or layouts`, `upgrade representation`, `verify written output` | 2026-09-22; Q9 2026-09-29 |
 | `cache categories` | `cache identity`, `input and parameter fingerprints`, `checkpoint manifests`, `dependency and version provenance`, `safe artifact persistence`, `cache validation and invalidation`, `resume` | 2026-09-22; Q9 2026-09-29 |
 | `claim classes` | `magnitude`, `lag asymmetry`, `delay`, `inference` | Q12 2026-09-29 |
@@ -169,8 +171,10 @@ not this draft, changed the clause's form.
 | fact: NWB mutation | the core may own cache identity, fingerprints, manifests, provenance, persistence, validation and invalidation, resume | D3 and `cache categories` |
 | fact: NWB mutation | it does not decide what to cache on scientific grounds | D10 |
 | fact: NWB mutation | execution controls are public only once they change no number | D11 |
-| fact: NWB mutation | in this order: numerical identity, public execution abstraction, performance evidence, skill routing; API, docs and tests precede or land with the skill | D12 and `lifecycle` (ruled Q10: one chain; see the open note on performance evidence) |
-| fact: Python versions | interpreters declared in `pyproject.toml`, enforced by Gate 8; CI on each on Ubuntu and Windows plus the built wheel; Gate 8 holds classifiers, matrix and `.readthedocs.yaml` | R6 |
+| fact: NWB mutation | in this order: numerical identity, public execution abstraction, performance evidence, skill routing; API, docs and tests precede or land with the skill | D12 and `lifecycle` (ruled Q10: one chain; ruled 2026-09-29: performance evidence is not a state, and the computational order is recorded under release condition 2) |
+| fact: Python versions | interpreters declared in `pyproject.toml`, enforced by Gate 8; Gate 8 holds classifiers, matrix and `.readthedocs.yaml` | R6 |
+| fact: Python versions | CI runs the full suite on each declared interpreter on Ubuntu and Windows | R7 |
+| fact: Python versions | plus the suite against the built wheel | R8 |
 | fact: Python versions | local-machine constraints do not override package metadata | R6 |
 | fact: publication order | validate on `main`, tag | R5 |
 | fact: publication order | GitHub Release (non-prerelease), then production PyPI | R1 |
@@ -179,7 +183,8 @@ not this draft, changed the clause's form.
 | fact: publication order | after publication, the same check runs from PyPI | R2 (ruled Q16: a CI job) |
 | `AGENTS.md` §4.1 | no empirical value that no script computed from data; hardcoded values are visual constants or marked synthetic | S1 |
 | `AGENTS.md` §4.1 | missing data fails loudly | S9 |
-| `AGENTS.md` §4.2 | take the logarithm last; use `aggregate_to_db` | S2 |
+| `AGENTS.md` §4.2 | take the logarithm last: average raw power, divide by baseline, `10*log10` once | S2 |
+| `AGENTS.md` §4.2 | use `aggregate_to_db` | not a fact: an instruction, kept in `AGENTS.md` as §4.7 is (ruled 2026-09-29 for §4.7) |
 | `AGENTS.md` §4.3 | `jnwb/` imports nothing from a project folder; identical with a project installed or absent | B1 |
 | `AGENTS.md` §4.3 | condition codes, session labels, area vocabularies and findings stay out of `jnwb/`, `docs/`, `skills/`, `tests/`; Gate 6's scan surface | B2 (the partial scan is why B2 names `gate:6` beside `todo:12-07`) |
 | `AGENTS.md` §4.3 | a corpus convention is the project's to normalise; a request to encode one is a reason to stop | B2 |
@@ -189,16 +194,11 @@ not this draft, changed the clause's form.
 | `AGENTS.md` §4.5 | reports what it used | S11 |
 | `AGENTS.md` §4.6 | device and worker count never change a number | S6 |
 | `AGENTS.md` §4.6 | a GPU result records that it was | S12 |
-| `AGENTS.md` §4.7 | call the library function instead of retyping its rule; widen the shape if it blocks reuse | S7 |
+| `AGENTS.md` §4.7 | call the library function instead of retyping its rule | S7 |
+| `AGENTS.md` §4.7 | if the function's shape blocks reuse, widen the shape | not a fact: stays a rule in `AGENTS.md` (ruled 2026-09-29) |
 | `AGENTS.md` §4.8 | magnitude, direction, delay and inference are distinct claims; no direction from unsigned magnitude | S8 and `claim classes` |
 | `AGENTS.md` §4.8 | latency or velocity only under a verified linear unwrapped relation and predeclared criteria; unavailable otherwise | S13 |
 | `AGENTS.md` §4.8 | never "immunity" or "complete suppression"; describe as reduced sensitivity to zero-phase-lag coupling | S14 and `immunity vocabulary` |
 
-### Open for Hamm
-
-| Point | Why it needs a ruling |
-|---|---|
-| Q10's chain drops "performance evidence", which the 2026-09-22 order named between the execution abstraction and skill routing | D12 carries the ruled chain; whether performance evidence is a sixth state is Hamm's |
-| `identity tests` is a constant this draft adds: the modules whose reference counts as the `identity-verified` state | the chain names the state, not what establishes it |
-| §4.7's "if the function's shape blocks reuse, widen the shape" is an instruction, not a claim | kept in S7's source column only; it stays a rule in `AGENTS.md` if Hamm wants it kept |
-| The forbidden study vocabulary and the dB-averaging lexicon are ruled constants (Q17) with no values here | Gate 6's list moves with B2 (12-07); the dB lexicon lands with S2 (09-04) |
+The study-vocabulary and dB-lexicon constants take their values in 12-07 and 09-04 (ruled
+2026-09-29); the `identity tests` constant is accepted as drafted.

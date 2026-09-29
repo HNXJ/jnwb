@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Ontology gate: every typed fact is HELD, VIOLATED or UNHELD on the generated ontology.
+"""Fact gate: every typed fact is HELD, VIOLATED or UNHELD on the generated fact graph.
 
-The facts are read from the fact source ``scripts/build_ontology.py`` names, and the constants
+The facts are read from the fact source ``scripts/build_fact_graph.py`` names, and the constants
 they use from the same file. Each fact's ``Held by`` cell names its holders:
 
   ``gate:N``          resolves when harness gate N exists
   ``test:PATH``       resolves when that test module exists; ``test:PATH::NAME`` when that test
                       function (``Class::name`` inside a class, or a whole ``Class``) exists
-  ``computed:NAME``   a predicate below, evaluated on the ontology
+  ``computed:NAME``   a predicate below, evaluated on the fact graph
   ``todo:ITEM``       the fact is UNHELD, and ITEM must be a live todo item
 
 A fact is VIOLATED when a computed predicate is false, a holder does not resolve, a ``todo:``
@@ -26,6 +26,11 @@ Computed predicates:
               names it; ``tested`` a test module reaches it; ``routed`` a skill routes to it.
               Reaching is an import from ``jnwb`` or an attribute of the imported package, so a
               test that reaches an operation only through a string or ``getattr`` does not count.
+              A dotted target counts as documented, tested and identity-verified when its export
+              does.
+  routes      every routing target starts at an export of ``jnwb.__all__`` and its whole dotted
+              path resolves on the package. Only the two routing forms the graph builder reads
+              are seen.
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -40,12 +45,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts import build_ontology  # noqa: E402
+from scripts import build_fact_graph  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
 _ITEM_HEADING = re.compile(r"^### (\d{2}-\d{2,3})\b", re.M)
 
 HELD, VIOLATED, UNHELD = "HELD", "VIOLATED", "UNHELD"
+
+Graph = Dict[str, Any]
+Constants = Dict[str, List[str]]
 
 
 def live_items(todo_text: str) -> List[str]:
@@ -55,19 +63,14 @@ def live_items(todo_text: str) -> List[str]:
 # ------------------------------------------------------------------------ computed predicates
 
 
-def _states(ontology: Dict[str, Any],
-            constants: Dict[str, List[str]]) -> Dict[str, Dict[str, Optional[bool]]]:
+def _states(graph: Graph, constants: Constants) -> Dict[str, Dict[str, Optional[bool]]]:
     """Each name's value for every state of the ``lifecycle`` constant; None where a state
-    does not apply (``identity-verified`` without an execution switch).
-
-    A dotted routing target (``Class.method``) is implemented when its export exists and the
-    whole path resolves; it is documented, tested and identity-verified as its export is.
-    """
+    does not apply (``identity-verified`` without an execution switch)."""
     order = constants["lifecycle"]
     identity = dict(value.split("=", 1) for value in constants["identity tests"])
-    exports = ontology["entities"]["export"]
-    targets = ontology["entities"]["route_target"]
-    rel = ontology["relations"]
+    exports = graph["entities"]["export"]
+    targets = graph["entities"]["route_target"]
+    rel = graph["relations"]
     documented = {name for _, name in rel["documents"]}
     reached: Dict[str, set] = {}
     for test, name in rel["verifies"]:
@@ -103,11 +106,11 @@ def _states(ontology: Dict[str, Any],
             for name in sorted(set(exports) | routed)}
 
 
-def lifecycle(ontology: Dict[str, Any], constants: Dict[str, List[str]]) -> List[str]:
+def lifecycle(graph: Graph, constants: Constants) -> List[str]:
     """Each name holding a lifecycle state while an earlier applicable state fails."""
     order = constants["lifecycle"]
     found = []
-    for name, state in _states(ontology, constants).items():
+    for name, state in _states(graph, constants).items():
         for i, later in enumerate(order):
             missing = [s for s in order[:i] if state[s] is False]
             if state[later] and missing:
@@ -116,17 +119,29 @@ def lifecycle(ontology: Dict[str, Any], constants: Dict[str, List[str]]) -> List
     return found
 
 
-COMPUTED: Dict[str, Callable[[Dict[str, Any], Dict[str, List[str]]], List[str]]] = {
+def routes(graph: Graph, constants: Constants) -> List[str]:
+    """Each routing target that does not start at an export or does not resolve."""
+    found = []
+    for target, record in sorted(graph["entities"]["route_target"].items()):
+        if record["export"] is None:
+            found.append(f"{target} does not start at an export of jnwb.__all__")
+        elif not record["resolves"]:
+            found.append(f"{target} does not resolve on the package")
+    return found
+
+
+COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
+    "routes": routes,
 }
 
 
 # ------------------------------------------------------------------------ evaluation
 
 
-def _resolves(holder: str, ontology: Dict[str, Any]) -> bool:
+def _resolves(holder: str, graph: Graph) -> bool:
     kind, _, target = holder.partition(":")
-    entities = ontology["entities"]
+    entities = graph["entities"]
     if kind == "gate":
         return target in entities["gate"]
     if kind == "test":
@@ -138,8 +153,8 @@ def _resolves(holder: str, ontology: Dict[str, Any]) -> bool:
     return False
 
 
-def evaluate(facts: Sequence[Dict[str, Any]], constants: Dict[str, List[str]],
-             ontology: Dict[str, Any], items: Sequence[str]) -> List[Tuple[str, str, List[str]]]:
+def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph,
+             items: Sequence[str]) -> List[Tuple[str, str, List[str]]]:
     """Each fact as (id, status, reasons). Each computed predicate runs once."""
     cache: Dict[str, List[str]] = {}
     results = []
@@ -161,9 +176,9 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Dict[str, List[str]],
                     reasons.append(f"computed:{target} is no predicate this gate evaluates")
                     continue
                 if target not in cache:
-                    cache[target] = COMPUTED[target](ontology, constants)
+                    cache[target] = COMPUTED[target](graph, constants)
                 reasons.extend(f"computed:{target}: {v}" for v in cache[target])
-            elif not _resolves(holder, ontology):
+            elif not _resolves(holder, graph):
                 reasons.append(f"{holder} does not resolve")
         if reasons:
             results.append((fact["id"], VIOLATED, reasons))
@@ -175,14 +190,14 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Dict[str, List[str]],
 
 
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
-        todo_path: Path = TODO_PATH, ontology: Optional[Dict[str, Any]] = None):
-    """Build the ontology (unless given) and evaluate every fact of the fact source."""
-    source = facts_path or build_ontology.fact_source()
-    text = source.read_text(encoding="utf-8")
-    if ontology is None:
-        ontology = build_ontology.build(package, root, source)
-    results = evaluate(build_ontology.read_facts(text), build_ontology.read_constants(text),
-                       ontology, live_items(todo_path.read_text(encoding="utf-8")))
+        todo_path: Path = TODO_PATH, graph: Optional[Graph] = None):
+    """Build the fact graph (unless given) and evaluate every fact of the fact source."""
+    source = facts_path or build_fact_graph.fact_source()
+    facts = build_fact_graph.load_facts(source)
+    constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
+    if graph is None:
+        graph = build_fact_graph.build(package, root, source)
+    results = evaluate(facts, constants, graph, live_items(todo_path.read_text(encoding="utf-8")))
     return source, results
 
 
@@ -195,8 +210,8 @@ def main() -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:
         reconfigure(errors="backslashreplace")
-    source, results = run(build_ontology._checkout_jnwb())
-    print(f"=== Ontology gate (facts from {source.relative_to(REPO_ROOT).as_posix()}) ===")
+    source, results = run(build_fact_graph._checkout_jnwb())
+    print(f"=== Fact gate (facts from {source.relative_to(REPO_ROOT).as_posix()}) ===")
     for fact_id, status, reasons in results:
         print(f"{status}: {fact_id}" + (f" ({'; '.join(reasons)})" if status == UNHELD else ""))
         if status == VIOLATED:
