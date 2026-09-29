@@ -351,7 +351,7 @@ artifacts/
 
 Every contributor adheres to these scientific invariants:
 
-1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool features across modalities without explicit namespace tags.
+1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and LFP.
 2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
 3. **Causal & Directional Verbs**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Metrics like Granger causality or phase slope index measure temporal predictive asymmetry, not physical perturbation causality.
 4. **Logarithmic Estimand Clarity**: Explicitly distinguish arithmetic mean of raw power ($\mathbb{E}[P]$, physical power conservation) from mean of logarithmic/decibel power ($\mathbb{E}[\log P]$, geometric mean / log-normal central tendency). Do not conflate the two estimands or treat raw-power averaging as an unconditional universal requirement without declaring the estimand.
