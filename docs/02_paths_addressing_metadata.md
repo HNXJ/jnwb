@@ -174,8 +174,9 @@ Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules 
 
 On a synthetic electrodes table, panel A of that figure is `jnwb.map_peak_channel_to_area`
 partitioning 24 contacts of one probe
-across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts, with the
-boundary it cuts at drawn. Both are spatial assignments and neither carries a causal direction.
+across V1, V2 and V3; panel B is `jnwb.classify_layer_from_depth` on the same contacts at
+`threshold=1000` µm, classes keyed, threshold drawn. Both are spatial
+assignments and neither carries a causal direction.
 
 ---
 

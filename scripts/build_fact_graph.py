@@ -229,22 +229,38 @@ def _signature(obj: Any) -> Optional[str]:
         return None
 
 
+def _package_rel(path: Path, package: Any) -> str:
+    """``path`` relative to the directory holding the package, so ``jnwb/<module>.py`` whether
+    the package is the source tree or an installed copy in site-packages."""
+    return path.resolve().relative_to(Path(package.__file__).resolve().parent.parent).as_posix()
+
+
 def _module_file(obj: Any, package: Any, root: Path) -> str:
     """The source file that defines ``obj``; the package's own ``__init__`` when unknown."""
     target = obj if isinstance(obj, types.ModuleType) else sys.modules.get(
         getattr(obj, "__module__", "") or "")
     location = getattr(target, "__file__", None) or package.__file__
     try:
-        return _rel(Path(location), root)
+        return _package_rel(Path(location), package)
     except ValueError:
-        return _rel(Path(package.__file__), root)
+        return _package_rel(Path(package.__file__), package)
 
 
 def _exports(package: Any, root: Path, switches: Sequence[str]):
     exports: Dict[str, Dict[str, Any]] = {}
     implements: List[List[str]] = []
     for name in sorted(package.__all__):
-        obj = getattr(package, name)
+        try:
+            obj = getattr(package, name)
+        except ImportError:
+            # A subpackage behind an optional extra: recorded from its source, so the graph is
+            # the same whichever extras the building interpreter has.
+            source = Path(package.__file__).parent / name / "__init__.py"
+            if not source.is_file():
+                raise
+            exports[name] = {"kind": "module", "signature": None, "switches": []}
+            implements.append([_package_rel(source, package), name])
+            continue
         signature = _signature(obj)
         params: List[str] = []
         if signature is not None:
@@ -315,6 +331,39 @@ def _routes(root: Path) -> Tuple[List[str], List[List[str]]]:
     return skills, edges
 
 
+def resolves_in_source(package_dir: Path, target: str) -> bool:
+    """Whether ``target`` names a module under ``package_dir``, or a top-level name one defines.
+
+    Used when importing the target fails because an optional extra is not installed: the
+    module then exists on disk but cannot be imported, and the graph must not depend on which
+    extras the building interpreter has.
+    """
+    parts = target.split(".")
+    base = package_dir
+    for index, part in enumerate(parts):
+        if (base / part).is_dir() and (base / part / "__init__.py").is_file():
+            base = base / part
+            continue
+        if (base / f"{part}.py").is_file():
+            rest = parts[index + 1:]
+            return not rest or (len(rest) == 1 and rest[0] in _top_level_names(base / f"{part}.py"))
+        return index > 0 and index == len(parts) - 1 and part in _top_level_names(base / "__init__.py")
+    return True
+
+
+def _top_level_names(path: Path) -> set:
+    names = set()
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            for t in (node.targets if isinstance(node, ast.Assign) else [node.target]):
+                names.update(n.id for n in ast.walk(t) if isinstance(n, ast.Name))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update((a.asname or a.name).split(".")[0] for a in node.names)
+    return names
+
+
 def _route_targets(package: Any, exports: Dict[str, Any], routes: Sequence[Sequence[str]]):
     targets = {}
     for target in sorted({t for _, t in routes}):
@@ -326,6 +375,8 @@ def _route_targets(package: Any, exports: Dict[str, Any], routes: Sequence[Seque
             resolves = True
         except AttributeError:
             resolves = False
+        except ImportError:
+            resolves = resolves_in_source(Path(package.__file__).parent, target)
         targets[target] = {"export": head if head in exports else None, "resolves": resolves}
     return targets
 
@@ -455,12 +506,16 @@ def dumps(graph: Dict[str, Any]) -> str:
 
 
 def _checkout_jnwb():
-    """This tree's jnwb; a copy in site-packages would be described silently."""
+    """This tree's jnwb, or the copy under ``JNWB_EXPECTED_PACKAGE_ROOT`` when a run names an
+    installed copy deliberately; any other copy would be described silently."""
+    import os
+
     import jnwb
 
     location = Path(jnwb.__file__).resolve()
-    if REPO_ROOT.resolve() not in location.parents:
-        raise RuntimeError(f"imported jnwb from {location}, not from this tree ({REPO_ROOT})")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or REPO_ROOT).resolve()
+    if expected not in location.parents:
+        raise RuntimeError(f"imported jnwb from {location}, not from {expected}")
     return jnwb
 
 

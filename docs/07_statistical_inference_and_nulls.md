@@ -207,8 +207,9 @@ assert plan["n_permutations"] == 1000
 ![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.png#only-light)
 ![Exchangeable Permutation Null Distribution](assets/figures/fig08_permutation_null.dark.png#only-dark)
 
-That figure is a within-pair sign-flip null over 2000 draws on synthetic paired differences, with the observed mean difference,
-the 95th percentile and the $(1 + \Sigma)/(N + 1)$ p-value drawn on it. The exchangeability the
+That figure is a sign-flip null on synthetic pairs: 2000 draws of `jnwb.permute_labels` grouped
+by pair, marking the observed mean difference and the null's 95th percentile. Its p-value is
+`jnwb.exact_sign_flip`'s one-sided Monte Carlo $(1 + \Sigma)/(N + 1)$. The exchangeability the
 flips assume is what the plan above pins: a different grouping is a different null.
 
 ---
