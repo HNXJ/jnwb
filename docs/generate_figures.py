@@ -115,7 +115,7 @@ def fig01_addressing():
         area = mapped_areas[i]
         ax1.annotate(f"Channels {i}-{i + 7}: {area}", xy=(0.12, i + 3.5), va="center",
                      fontsize=style.SMALL, color=C_DARK)
-    ax1.set_ylabel("Electrode contact index")
+    ax1.set_ylabel("Channel index")
     ax1.set_title("A. Area per contact\n(jnwb.map_peak_channel_to_area)", pad=8)
     ax1.invert_yaxis()
 
@@ -229,6 +229,8 @@ def fig03_onset():
 
 #: The rhythm fig04 adds to its aperiodic background.
 FIG04_RHYTHM_HZ = 10.0
+#: The highest frequency fig04 draws its spectrum to.
+FIG04_SHOWN_HZ = 119.0
 
 
 def fig04_spectral_tilt():
@@ -266,9 +268,10 @@ def fig04_spectral_tilt():
     f_fit = freqs[mask]
     fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 
-    ax2.loglog(freqs[:119], psd[:119], color=C_GRAY, lw=1.0, label="Welch PSD")
+    shown = freqs <= FIG04_SHOWN_HZ
+    ax2.loglog(freqs[shown], psd[shown], color=C_GRAY, lw=1.0, label="Welch PSD")
     ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8,
-               label=f"Power-law fit: slope={-fit.exponent:.2f}\n(R² = {fit.r_squared:.2f})")
+               label=f"Power-law fit: slope = {-fit.exponent:.2f}\n(R² = {fit.r_squared:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power spectral density (a.u.²/Hz)")
     ax2.set_title("B. Aperiodic fit (jnwb.aperiodic_fit)", pad=8)
@@ -329,6 +332,9 @@ def fig05_complex_tfr():
     ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=3)
 
     fig.tight_layout()
+    # tight_layout spaces the colorbar column like a panel; close it up to the TFR it keys.
+    tfr_box = ax2.get_position()
+    cax.set_position([tfr_box.x1 + 0.012, tfr_box.y0, 0.018, tfr_box.height])
     _save(fig, "fig05_complex_tfr_coi.png")
     plt.close(fig)
 
@@ -532,9 +538,13 @@ def fig09_directed_connectivity():
     psi_freqs = psi.spectrum["psi_freqs"]
     psi_spec = psi.spectrum["psi_per_freq"]
     mask = (psi_freqs >= 5.0) & (psi_freqs <= 50.0)
-
-    ax2.axvspan(*PSI_BAND, color=C_GOLD, alpha=0.2, lw=0,
-                label=f"Summed band ({PSI_BAND[0]:.0f}-{PSI_BAND[1]:.0f} Hz)")
+    # The net value sums the slope terms between adjacent spectral bins inside the band, so the
+    # shading spans the first to the last of those bins, not the band's nominal edges.
+    f_lo, f_hi = psi.per_band["band"]["band_hz"]
+    freqs = psi.spectrum["freqs"]
+    summed = freqs[(freqs >= f_lo) & (freqs <= f_hi)]
+    ax2.axvspan(summed[0], summed[-1], color=C_GOLD, alpha=0.2, lw=0,
+                label=f"Summed bins ({summed[0]:.1f}–{summed[-1]:.1f} Hz)")
     ax2.plot(psi_freqs[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, marker="o", ms=3.5,
              label=f"Net PSI = {psi.x_to_y:+.3f} (positive: X leads Y)")
     ax2.axhline(0, color=C_GRAY, ls="--", lw=0.8)
@@ -573,14 +583,17 @@ def fig10_artifact_repair():
     y_lim = (y_lo - 2.0, y_hi + 0.08 * (y_hi - y_lo))
     y_ticks = np.arange(0.0, y_hi, 10.0)
 
-    # Panel A: one channel of the contaminated trial
-    ax1.plot(t, raw, color=C_RED, lw=1.0, label="Raw (contaminated), channel 0")
+    # Panel A: every channel of the contaminated trial, stacked, so the artifact reads as
+    # synchronous across channels, which is what the detector scores
+    spacing = 1.2 * (y_hi - y_lo)
+    for ch in range(n_ch):
+        ax1.plot(t, seg[HIT_TRIAL, ch] + ch * spacing, color=C_RED, lw=0.8,
+                 label="Raw (contaminated), one trace per channel" if ch == 0 else None)
     ax1.set_xlabel("Time (ms)")
-    ax1.set_ylabel("LFP (a.u.)")
+    ax1.set_ylabel("Channel index")
+    ax1.set_yticks(np.arange(n_ch) * spacing, [str(ch) for ch in range(n_ch)])
     ax1.set_title(f"A. Injected synchronous artifact\n(trial {HIT_TRIAL}, "
                   f"peak z = {diag['synchrony_z_max']:.0f})", pad=8)
-    ax1.set_ylim(*y_lim)
-    ax1.set_yticks(y_ticks)
     ax1.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     # Panel B: the same channel before and after repair

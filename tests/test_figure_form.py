@@ -479,13 +479,10 @@ def _declared_unit_failures(fig, results) -> list[str]:
     declared = [r for r in results if isinstance(getattr(r, "unit", None), str)]
     hits = []
     for index, ax in enumerate(fig.axes):
-        # Lines drawn in data coordinates only: a reference line's ydata is in axes fractions.
-        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines()
-                 if line.get_transform() == ax.transData]
+        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines()]
         drawn = [y for y in drawn if y.size > 1 and np.ptp(y) > 0]
         bars = np.asarray([p.get_height() for p in ax.patches if isinstance(p, Rectangle)], float)
-        # Whole-number heights are counts, as in a histogram, not an estimate a result declares.
-        if bars.size and not np.all(bars == np.round(bars)):
+        if bars.size:
             drawn.append(bars)
         for r in declared:
             if any(np.isin(y, arr).all() for y in drawn for arr in _values(r) if arr.size):
@@ -798,8 +795,6 @@ AWAITING: dict[tuple[str, str], str] = {
     ("displayed size", "quickstart.md:jnwb_quickstart.png"): "5.8 pt text in an 11 in figure",
     ("style source", "quickstart_jnwb.py"): "a serif family and sizes typed per call",
     ("captions", "quickstart.md:jnwb_quickstart.png"): "the caption names no function",
-    ("captions", "09_decoding_and_visual_qc.md:fig07_population_decoding.png"):
-        "the caption does not name nested_cv_linear_svm",
 }
 
 
@@ -808,14 +803,26 @@ def _cases(check: str, names=NAMES):
             if (check, n) in AWAITING else pytest.param(n, id=n) for n in names]
 
 
+def _links_to_page_showing(href: str | None, stem: str) -> bool:
+    """A thumbnail counts at page width only when it links to the built page (`<page>/`) that
+    shows the same figure at page width in the reader's theme. A link to the PNG itself opens
+    it on the browser's own background, where one of the two variants is unreadable."""
+    if not href or not re.fullmatch(r"[\w-]+/", href):
+        return False
+    page = DOCS / f"{href[:-1]}.md"
+    return page.is_file() and bool(
+        re.search(rf"^!\[[^\]]*\]\({re.escape(stem)}\.png#only-light\)$",
+                  page.read_text(encoding="utf-8"), re.M))
+
+
 def _embeds():
     """Each light-scheme figure on a page: (page, figure file name, displayed width, caption)."""
     out = []
     for page in sorted(DOCS.rglob("*.md")):
         text = page.read_text(encoding="utf-8")
         captions = dict(figure_captions(text))
-        for match in re.finditer(r'(<a href="[^"]+">\s*)?<img src="(assets/[^"]+?)\.png#only-light"', text):
-            linked = bool(match.group(1))
+        for match in re.finditer(r'(?:<a href="([^"]+)">\s*)?<img src="(assets/[^"]+?)\.png#only-light"', text):
+            linked = _links_to_page_showing(match.group(1), match.group(2))
             in_table = text.rfind("<table", 0, match.start()) > text.rfind("</table>", 0, match.start())
             width = PAGE_WIDTH_PX if linked or not in_table else GALLERY_WIDTH_PX
             out.append((page.name, Path(match.group(2)).name + ".png", width,
@@ -869,7 +876,6 @@ def test_every_figure_on_a_page_has_both_variants():
         for page in sorted(DOCS.rglob("*.md"))
         for m in re.findall(r"[(\"](assets/(?:figures/[^)\s\"#]+|jnwb_quickstart[^)\s\"#]*)\.png)[)\"]",
                             page.read_text(encoding="utf-8"))
-        if not re.search(rf'<a href="{re.escape(m)}">', page.read_text(encoding="utf-8"))
     ]
     assert not bare, f"a figure shown the same under both schemes: {bare}"
 
@@ -1329,8 +1335,43 @@ def test_the_power_law_line_is_the_fit_of_the_spectrum_under_it(drawn):
     slope, intercept = np.polyfit(np.log10(fit_f), np.log10(at), 1)
     offset = np.max(np.abs(np.log10(fit) - (intercept + slope * np.log10(fit_f))))
     assert offset < 1e-6, f"the fit line is {offset:.3f} decades from the drawn spectrum's fit"
-    printed = float(re.search(r"slope=(-?\d+\.\d+)", lines["Power-law fit"].get_label()).group(1))
+    printed = float(re.search(r"slope\s*=\s*(-?\d+\.\d+)", lines["Power-law fit"].get_label()).group(1))
     assert printed == pytest.approx(slope, abs=0.005), (printed, slope)
+
+
+def _shaded_sum(ax, line):
+    """The drawn span labelled as summed, and the sum of the line's points inside it."""
+    spans = [p for p in ax.patches if p.get_label().startswith("Summed")]
+    assert len(spans) == 1, [p.get_label() for p in ax.patches]
+    xs = spans[0].get_path().transformed(spans[0].get_patch_transform()).vertices[:, 0]
+    x, y = (np.asarray(v, float) for v in line.get_data())
+    inside = (x >= xs.min()) & (x <= xs.max())
+    return float(y[inside].sum())
+
+
+def test_the_psi_shading_covers_exactly_the_bins_the_net_value_sums(drawn):
+    entry = drawn["fig09_directed_connectivity.png"]
+    ax = _axes_titled(entry.fig, "phase_slope_index")
+    psi = next(out for name, out in entry.calls["fig09_directed_connectivity"]
+               if name == "phase_slope_index")
+    line = next(ln for ln in ax.get_lines() if ln.get_label().startswith("Net PSI"))
+    assert _shaded_sum(ax, line) == pytest.approx(psi.x_to_y, abs=1e-9), (
+        "the points under the shading do not sum to the net PSI the function returned")
+
+
+def test_the_psi_shading_check_catches_the_nominal_band_edges(drawn):
+    entry = drawn["fig09_directed_connectivity.png"]
+    ax = _axes_titled(entry.fig, "phase_slope_index")
+    line = next(ln for ln in ax.get_lines() if ln.get_label().startswith("Net PSI"))
+    psi = next(out for name, out in entry.calls["fig09_directed_connectivity"]
+               if name == "phase_slope_index")
+    fig, wide = plt.subplots()
+    wide.plot(*line.get_data())
+    wide.axvspan(*psi.per_band["band"]["band_hz"], label="Summed band")
+    try:
+        assert _shaded_sum(wide, wide.get_lines()[0]) != pytest.approx(psi.x_to_y, abs=1e-3)
+    finally:
+        plt.close(fig)
 
 
 def test_the_psi_axis_carries_no_phase_slope_unit(drawn):
