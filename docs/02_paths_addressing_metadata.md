@@ -146,8 +146,10 @@ contact in seconds, fitted to the phase gradient across depth, and `NaN` with
 `delay_identifiable=False` when any adjacent pair or the fit across depth fails its
 identifiability gate (phase-frequency $R^2$ at least `min_linearity_r2`, at least 3
 frequency bins, a delay inside the unambiguous interval, pair wPLI at least `min_wpli`,
-each contact carrying at least `min_band_power_fraction` of its detrended power inside
-`freq_range`, depth-fit $R^2 \ge 0.5$). The in-band fraction does not catch power leaking
+pair wPLI significant against its own phase-randomised surrogates at `alpha`, each contact
+carrying at least `min_band_power_fraction` of its detrended power inside `freq_range`,
+depth-fit $R^2 \ge 0.5$). With `n_surrogates=0` no pair has its null, so no delay is
+reported. The in-band fraction does not catch power leaking
 into either band edge: with the default band and segment length, a sinusoid from about
 9.5 Hz up to the lower edge, and from the upper edge to about 38 Hz, i.e. within the main
 lobe of an edge bin, can carry 0.01 to 0.7 of its power in the band, pass it and still give

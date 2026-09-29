@@ -319,6 +319,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`zflip` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
   bit generator, list or RandomState now raises `TypeError` (a float already did). An int, a
   Generator and None draw the same streams as before.
+- **`zflip` reports no delay without surrogates (behaviour change).** A pair's delay is
+  identifiable only against its own surrogate null, so with `n_surrogates=0`, or with a
+  constant or linear-in-time contact, which skips the surrogates, every entry of
+  `adjacent_identifiable` is False, `adjacent_delays_s` and `tau_per_channel_s` are NaN,
+  `delay_identifiable` is False and `directionality` is `"unidentifiable"`. `rejection_reason`
+  says surrogates are needed to establish a delay. Before, `n_surrogates=0` still reported a
+  delay while `accepted` was False; pass `n_surrogates` to obtain one.
 - **`jrsa` accepts only an int, a Generator or None as `rng` (breaking).** A bool, SeedSequence,
   bit generator, list or RandomState now raises `TypeError`, under every spelling of the
   argument. An int, a Generator and None draw the same streams as before.
@@ -491,7 +498,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `zflip` refuses a contact that is a straight line in time to within round-off as it
   refuses a constant one, and `rejection_reason` names it. The per-segment detrend reduced
   such a ramp to round-off residue, which passed the gates and was accepted with a delay five
-  to six times the true one.
+  to six times the true one. A ramp built by cumulative summation leaves round-off that grows
+  with its length; from about 32000 samples it can exceed the width and is measured rather
+  than refused.
+- `zflip` requires each adjacent pair's wPLI to be significant against its own
+  phase-randomised surrogate null at `alpha` for that pair's delay to be identifiable. The
+  pair nulls come from the surrogates the mean is already tested against, so no further
+  random draws are made and `p_value` is unchanged. A contact carrying a signal independent
+  of the others, such as a contact outside cortex or on a broken channel, can fit a linear
+  phase (R^2 0.7 from 5 in-band bins) and reach pair wPLI 0.15, while the coupled pairs carry
+  the mean past its test; on a 5-contact wave with one end contact replaced by independent
+  noise, 7 in 100 recordings were accepted with a delay 3.2 to 5.3 times the true one, now 1
+  in 100. Each pair is tested at `alpha` without a multiplicity correction. A record of 256
+  samples is no longer accepted at the default band: its 3 in-band bins let about 10% of
+  independent-phase surrogates tie a pair wPLI of 1.0, so no pair passes.
 - `zflip` treats a delay gradient within round-off of zero as no gradient: identical contacts
   gave phase residue near 1e-21 s per contact, `delay_identifiable=True` and a direction.
 - `zflip`'s `rejection_reason` says the phase-frequency gate failed only when a pair failed

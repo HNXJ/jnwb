@@ -1991,9 +1991,10 @@ class ZFlipResult(DictAccessMixin):
             NaN for a pair with a constant contact.
         adjacent_identifiable: 1D boolean array of shape (n_channels - 1,) indicating
             which adjacent pairs satisfy all identifiability criteria (linearity, frequency support,
-            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``, both contacts'
-            in-band power fraction at least ``min_band_power_fraction``); False for a pair
-            with a constant contact.
+            unwrapping unambiguous interval, pair wPLI at least ``min_wpli``, pair wPLI
+            significant against its own phase surrogates at ``alpha``, both contacts'
+            in-band power fraction at least ``min_band_power_fraction``); False for every
+            pair when no surrogates were drawn (``n_surrogates=0``, or a constant contact).
         mean_wpli: Average wPLI across adjacent contacts; NaN when not computed or when
             any contact is constant.
         apparent_velocity_m_s: Apparent phase-delay velocity along the shaft in m/s
@@ -2068,8 +2069,10 @@ _ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
 
 # A row counts as linear in time when the rms residual of its least-squares line is at most
 # this many eps of its largest magnitude. Exact ramps measured at most 1.5 (n 1e3 to 1e5,
-# slope and offset 1e-6 to 1e6); a unit-SD signal on a drift or offset of 1e10 measured
-# 2.3e5. 1000 leaves about 690x above the first and 230x below the second.
+# slope and offset 1e-6 to 1e6). A ramp built by cumulative summation carries round-off
+# that grows with its length: at most about 30 at n=1000, 250 at n=8000 and 830 at
+# n=32000, and up to 3400 at n=1e5, where such a ramp is measured rather than refused. A
+# unit-SD signal measured 4.5e4 on an offset of 1e11 and 4.5e3 on 1e12.
 _LINEAR_ROUNDOFF_EPS = 1000.0
 
 
@@ -2132,6 +2135,20 @@ def zflip(
          inside `freq_range`. wPLI alone does not show this: a contact carrying only an
          out-of-band sinusoid reached pair wPLI 0.16 to 0.31 through leakage. Leakage into
          the band edge can still pass this check (see `min_band_power_fraction`).
+       - Pair wPLI significant against its own phase-randomised surrogates: at least as
+         large as in all but a fraction `alpha` of them, the same draws the mean is tested
+         against (p = (1 + k) / (1 + n_surrogates), k the surrogates at least as large). A
+         contact independent of the others can pass the three checks above: with 5 bins
+         in band a random phase often fits R^2 0.7, and over about 60 segments two
+         independent signals often reach wPLI 0.15. Each pair is tested at `alpha`
+         without a multiplicity correction; every pair must pass, so the shaft is accepted
+         only when the least coupled pair passes. A pair without its null is not
+         identifiable: with `n_surrogates=0`, or a constant or linear-in-time contact
+         (which skips the surrogates), no pair is, and no delay is reported. With few
+         in-band bins a surrogate can match a wPLI of 1.0: at the default band, 256
+         samples leave 3 bins and about 10% of surrogates tie 1.0, so no pair passes; 512
+         samples (5 bins) tie in 0.4-0.8% of surrogates for a broadband wave and about 4%
+         for a sinusoid.
        and the cumulative delay along the shaft is linear in contact index
        (:math:`R^2 \ge 0.5`). If any pair or the spatial fit fails, delay and velocity
        are returned as `NaN` / `None`, and `delay_identifiable = False`. The thresholds
@@ -2185,8 +2202,10 @@ def zflip(
             or from the upper edge to about 38 Hz, i.e. within the main lobe of an edge bin,
             can carry 0.01 to 0.7 of its power in the band and still pass and yield a delay.
         n_surrogates: Number of per-channel Fourier phase-randomised surrogates (default 50).
-            ``0`` skips the test: ``p_value`` is NaN and ``accepted`` is False. The smallest
-            attainable p-value is ``1 / (n_surrogates + 1)``.
+            ``0`` skips the test: ``p_value`` is NaN, no adjacent pair is identifiable,
+            ``tau_per_channel_s`` is NaN and ``accepted`` is False, because a pair's delay
+            needs its surrogate null. The smallest attainable p-value is
+            ``1 / (n_surrogates + 1)``.
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy, for surrogate
@@ -2347,6 +2366,40 @@ def zflip(
 
     mean_wpli_val = float(np.mean(adj_wpli))
 
+    # Monte Carlo surrogate null test. Each surrogate's pair wPLI values also form each
+    # pair's own null, so one set of draws tests the mean and every pair. The pair test runs
+    # before the depth fit: a contact independent of the others still fits a linear phase
+    # (R^2 0.7 from 5 in-band bins) and a pair wPLI near 0.15 often enough that the coupled
+    # pairs carried the mean past its test, and the depth fit took the outlier.
+    p_val = float("nan")
+    pair_p = np.full(n_channels - 1, np.nan)
+    surrogates_run = n_surrogates > 0 and not flat_contacts
+    if surrogates_run:
+        exceed_count = 0
+        pair_exceed = np.zeros(n_channels - 1, dtype=int)
+        for _ in range(n_surrogates):
+            surr_lfp = _surrogate_phase_randomize(lfp, gen)
+            _, _, Z_surr = signal.stft(
+                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False,
+                axis=-1, detrend="linear",
+            )
+            surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
+            for i in range(n_channels - 1):
+                w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
+                surr_adj_wpli[i] = float(np.mean(w_s[mask]))
+                pair_exceed[i] += _count_at_least_as_extreme(
+                    [surr_adj_wpli[i]], adj_wpli[i], "greater"
+                )
+            exceed_count += _count_at_least_as_extreme(
+                [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
+            )
+        p_val = float((1 + exceed_count) / (1 + n_surrogates))
+        pair_p = (1 + pair_exceed) / (1 + n_surrogates)
+    uncoupled_pairs = [(i, i + 1) for i in range(n_channels - 1) if pair_p[i] > alpha]
+    # No pair is identifiable without its null: a pair whose surrogates were not drawn
+    # (n_surrogates=0, or a flat contact anywhere, which skips them) has a NaN p and fails.
+    adj_identifiable &= pair_p <= alpha
+
     # Every adjacent pair must be identifiable. The cumulative delay sums all pairs, so a
     # non-identifiable pair's delay would enter the spatial fit: one incoherent contact
     # biased 12-contact estimates by ~16%, and on 3 contacts a single identifiable pair
@@ -2400,26 +2453,6 @@ def zflip(
         apparent_velocity = None
         directionality = "unidentifiable"
 
-    # Monte Carlo surrogate null test
-    p_val = float("nan")
-    surrogates_run = n_surrogates > 0 and not flat_contacts
-    if surrogates_run:
-        exceed_count = 0
-        for _ in range(n_surrogates):
-            surr_lfp = _surrogate_phase_randomize(lfp, gen)
-            _, _, Z_surr = signal.stft(
-                surr_lfp, fs=fs, nperseg=nperseg, noverlap=noverlap, boundary=None, padded=False,
-                axis=-1, detrend="linear",
-            )
-            surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
-            for i in range(n_channels - 1):
-                w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
-                surr_adj_wpli[i] = float(np.mean(w_s[mask]))
-            exceed_count += _count_at_least_as_extreme(
-                [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
-            )
-        p_val = float((1 + exceed_count) / (1 + n_surrogates))
-
     # No test performed means no inferential acceptance.
     is_sig = bool(np.isfinite(p_val) and p_val <= alpha)
     has_coupling = (mean_wpli_val >= min_wpli)
@@ -2434,7 +2467,8 @@ def zflip(
             reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
                            "wPLI and delay undefined, surrogate test not performed")
     elif n_surrogates == 0:
-        reasons.append("Surrogate test not performed (n_surrogates=0)")
+        reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
+                       "to establish a delay, so no adjacent pair is identifiable")
     elif not is_sig:
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling and not flat_contacts:
@@ -2443,6 +2477,9 @@ def zflip(
     if weak_pairs:
         reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
                        "delay not identified")
+    if uncoupled_pairs:
+        reasons.append(f"Adjacent pair(s) {uncoupled_pairs} wPLI not significant against "
+                       f"its own phase surrogates (p > {alpha}): delay not identified")
     if out_of_band_contacts:
         reasons.append(f"Contact(s) {out_of_band_contacts} carry less than "
                        f"{min_band_power_fraction:.4f} of their power inside freq_range "
