@@ -48,11 +48,8 @@ or globs, never a bare directory), `Reproduce`, `Do`, `Discriminator` (fails bef
 
 | Order | Items |
 |---|---|
-| 0 | 07-23: the deferral attack, then the apparatus work |
-| 1 | 07-03: the lanes in flight and the bullets ruled 2026-09-27, then the rest |
-| 2 | 07-01, P-345 first |
-| 3 | 07-02 |
-| 4 | 07-29, by hand before the release pull request merges |
+| 1 | 07-01 |
+| 2 | 07-29, by hand before the release pull request merges |
 
 The 0.2.8 items are not scheduled in this cycle.
 
@@ -69,28 +66,6 @@ narrows the write set to its paths. P-345 leads.
 
 - IB-99: `zflip` accepts a wrong velocity when one end contact carries a signal independent of the others (a contact outside cortex, in CSF or on a broken channel): with 5 bins in band a random phase often reaches R² 0.7, two independent signals over about 61 segments often reach wPLI 0.15, the coupled pairs carry the omnibus surrogate test, and the depth fit takes the outlier at the end, so about 7 in 100 such recordings are accepted with a delay 3.2 to 5.3 times the true one (14 in 100 before the pair gate). Float32 or int16 ramps and dense piecewise-linear contacts are instances. Required for 0.2.7 (R1, classified 2026-09-28): an accepted delay can be wrong (invariant 8). Ruled by Hamm: each adjacent pair's wPLI must beat its own phase-randomised surrogate null at `alpha` before the pair is identifiable. Check: the independent-end-contact construction, seeds 10000 to 10099 with bandpassed, white and 1/f² noise, is accepted at a rate within the surrogate test's level, an interior independent contact is measured too, the clean-wave delay is unchanged, and the CHANGELOG says so.
 
-### 07-02 Release-process observations from 0.2.6
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/*.yml`, `CONTRIBUTING.md`.
-Observed while releasing 0.2.6. RP-5 meets the blocker predicate by the independent
-classification of 2026-09-27, and RP-7's minimal check is Hamm's ruling of that date; the rest
-is in 07-27 under 0.2.8, and RP-1's ruled bypass removal is the release step 07-29.
-
-
-### 07-03 Post-release inspection findings
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: per finding. Blocked by: none.
-Writes: `jnwb/**/*.py`, `scripts/*.py`, `tests/**/*.py`, `docs/**/*.md`, `skills/*/SKILL.md`, `examples/**/*.py`, `README.md`, `CHANGELOG.md`.
-Two independent read-only inspections at `e66e70a9`, one of library code, cost and coverage and
-one of documentation, skills and the release apparatus. Each bullet carries its receipt in short;
-the probes are in the inspection reports. Every bullet here is required for 0.2.7: a lane in
-flight, ruled on 2026-09-27, or meeting the blocker predicate by that date's independent
-classification. The deferred bullets are in 07-28 under 0.2.8.
-
-
 ### 07-29 Remove the admin bypass of the `dev` deletion rule before the release merge
 
 Release: release-step-0.2.7.
@@ -101,14 +76,6 @@ the release pull request merges.
 - RP-1: Remove the admin role's bypass of the `dev` ruleset's deletion rule (ruled 2026-09-25), so
   merging the release pull request cannot delete `dev`; automatic deletion of merged heads stays for
   feature branches. Check: read the ruleset's bypass actors before the merge.
-
-### 07-23 Bound the cycle and simplify the apparatus
-
-Release: required-0.2.7.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Ruled 2026-09-27.
-
-- Classify every remaining item as `required-0.2.7` or `deferred-0.2.8` against the blocker predicate of `AGENTS.md` §11: an independent critic classifies, a second pass attacks each deferral; the deferred items move under a `# 0.2.8` heading with their reason. Check: no item unclassified; the ruled items and the lanes in flight stay in 0.2.7.
 
 ## Out of 0.2.7 scope
 
@@ -201,7 +168,7 @@ takes one finding and narrows the write set to its paths.
 - P-221: `ContainerTypeContradictionWarning` is raised through public reads and not exported, so filtering it by name needs a submodule import. Deferred: emitted and documented, and it changes no value; exporting it is a decision.
   deferred-0.2.8: exporting is a decision; changes no value.
 - P-227: The `phase_slope_index` jackknife leaves out one segment rather than one epoch, so its z is conservative under the null: 400 null draws give sd 0.669 and P(|z|>2) = 0.005 at the default overlap; the divergence is documented at the function. Deferred: conservative under independence, so it cannot make evidence falsely pass there; under zero-lag mixing it is liberal (0.0655, 2 SE 0.011, 2000 seeds), which IB-97 states now that it carries the lead p; the repair is an epoch-level jackknife.
-  deferred-0.2.8: conservative jackknife, cannot falsely pass.
+  deferred-0.2.8: the lead p's rate under zero-lag mixing (0.06 to 0.08 at a nominal 0.05) is stated in the docstring, the skill and page 08, and conservative under independence.
 - P-228: The name `vflip` collides with the published vFLIP of Mendoza-Halliday 2024, a different procedure; the `jnwb/laminar.py` module docstring states the difference. Deferred: a rename changes public API, which is Hamm's to rule.
   deferred-0.2.8: rename is a public API ruling.
 - P-229: The vflip calibration receipt hashes `inspect.getsource` of the estimator, docstrings included, so a documentation-only edit invalidates it. Deferred: it fails closed; the repair hashes code without docstrings.
@@ -309,7 +276,7 @@ takes one finding and narrows the write set to its paths.
 - P-305: `tests/test_semantic_mutation_classes.py` fails on any uncommitted byte change to its target modules, so a full-suite mutation oracle must deselect it, and the CUDA agreement tests kill device mutants only on a GPU machine. Waits: 06-34 accounted for both; a recipe note for the next pass.
   deferred-0.2.8: accounted by 06-34.
 - P-307: No CI leg or fresh environment compares the documentation figures: every venv and CI leg has Matplotlib 3.11.2 against figures written by 3.10.8, so all 20 comparisons skip there. Waits: a skip is reported, and the figures pass where they were generated.
-  deferred-0.2.8: skips are reported; figures unchanged since v0.2.6.
+  deferred-0.2.8: skips are reported, and the figure comparisons pass with no skips on the development machine, with all committed hashes matching the 0.2.7 eye-check record.
 - P-309: The distribution tests read only `<repo>/dist`, no variable points them at an external build, and `forbidden_entries` rejects no `examples` or `data` component, so keeping `examples/data` out of the wheel rests on a configuration check. Waits: 06-37's byte comparison held at `f657fce7`.
   deferred-0.2.8: 06-37 byte comparison held.
 - P-311: Gate 14's identifier check does not read `README.md`, and its vocabulary check does not follow `--8<--` includes, although its docstring says an included page is scanned like any other. Waits: both surfaces are clean at `3f533574`; the closure pass re-runs both probes at the release HEAD.
@@ -439,7 +406,7 @@ every deferral condition of `AGENTS.md` section 11 and carries its reason.
   deferred-0.2.8: no current figure uses them under a legend, and each was checked by eye.
 - Nav check edges: the wheel-step check matches substrings of the step's whole `run` body, so a commented flag passes; `exclude_docs` is compared literally, where mkdocs applies gitignore patterns, so a globbed exclusion reads as an orphan and an excluded page on the nav goes unseen; an external nav URL ending in `.md` reads as a dead entry. Check: comment lines dropped, exclusions matched as mkdocs matches them, URLs skipped.
   deferred-0.2.8: the live `mkdocs.yml` has none of these shapes, two of them fail loudly, and the import-provenance test still fails a wheel leg that falls back to the checkout.
-- Stack editor edges: no test chains a delete, another edit and a delete, so a regression that stops the chain resetting would silently revert the edit between; `replace` and `sub` do not refuse removing a fence line, which re-fences the lines after it; a heading is capped at six `#` where the release gate takes any number; a non-breaking-space indent is not read as indentation; `delete_many` then `delete` resolves one after the other; the check-then-replace race and the missing fsync remain. Check: the chain test, a fence check on the replaced span, one heading rule shared with the gate.
+- Stack editor edges: on Windows under a loaded `-n 12` run, `os.replace` of the temporary file raised `PermissionError` (WinError 5) once in `test_bullets_inside_a_code_fence_are_not_matched[lf]`, which passes alone, so the edit fails loudly and leaves the stack unchanged, and a retry on that error is the repair; no test chains a delete, another edit and a delete, so a regression that stops the chain resetting would silently revert the edit between; `replace` and `sub` do not refuse removing a fence line, which re-fences the lines after it; a heading is capped at six `#` where the release gate takes any number; a non-breaking-space indent is not read as indentation; `delete_many` then `delete` resolves one after the other; the check-then-replace race and the missing fsync remain. Check: the chain test, a fence check on the replaced span, one heading rule shared with the gate.
   deferred-0.2.8: the command line makes one call per edit and cannot reach the chain paths, and the live stacks hold no fence, no over-long heading and no such indent.
 - PSI segment count and conditional networks: `phase_slope_index`'s default `nperseg = n_times // 4` leaves a single trial 7 Welch segments, so its lead test has almost no power (0.005 jackknife power at a lag-1 coupling of 0.5, n = 2000); `directed_network` has no conditional mode, so a common driver or an indirect path is an edge. Check: a default with at least about 20 segments, and a conditional network mode, each ruled by Hamm first.
   deferred-0.2.8: the p stays valid at the default, a warning fires and `ok_for_interpretation` is False; the network page states the pairwise limit once IB-98 lands.
