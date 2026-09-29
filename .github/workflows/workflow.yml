@@ -43,8 +43,9 @@ jobs:
     # Not on a published release: that run uploads the tag push run's files, and publish-pypi's
     # first step requires that run's TestPyPI upload and verification, which needed these legs
     # and the build to pass on the same commit. Re-running them repeated the matrix on a tree
-    # already qualified (0.2.7: 76 runner-minutes and 26 minutes before PyPI could start). The same
-    # condition is on build; scripts/release_gate.py still requires both of a push run.
+    # already qualified (0.2.7: 86 runner-minutes and 26 minutes before PyPI could start). The same
+    # condition is on test-floors and build; scripts/release_gate.py still requires all three of
+    # a push run.
     if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -100,10 +101,11 @@ jobs:
     # to the lowest release that installs alongside the others, on the floor interpreter, and
     # runs the suite there. A floor that resolves higher than declared fails the job, as does
     # any test. A failure here means a declared floor no longer holds, and
-    # scripts/release_gate.py requires this job to succeed like every other unconditional job.
+    # scripts/release_gate.py requires this job to succeed like every other job it requires.
     # The interpreter is the declared floor's first patch release: `requires-python >=3.12`
     # admits 3.12.0, and "3.12" would install the newest 3.12 patch, which no user is held to.
     name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:

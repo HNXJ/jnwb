@@ -75,7 +75,7 @@ class TestWorkflowReleasePolicy:
         jobs = _load_workflow()["jobs"]
         skipped = {jid for jid, job in jobs.items()
                    if " ".join(str(job.get("if", "")).split()) == SKIPPED_ON_RELEASE}
-        assert skipped == {"test", "build"}, skipped
+        assert skipped == {"test", "test-floors", "build"}, skipped
         # Skipped on a release event is still required of the push run the gate qualifies.
         required = required_ci_jobs(root=REPO_ROOT)
         assert jobs["build"]["name"] in required and jobs["test-floors"]["name"] in required

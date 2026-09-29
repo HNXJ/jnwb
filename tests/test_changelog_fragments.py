@@ -172,6 +172,15 @@ def test_the_same_two_changes_written_under_unreleased_conflict(tmp_path):
     assert "CONFLICT" in merged.stdout + merged.stderr
 
 
+def test_the_committed_fragments_assemble():
+    """A malformed fragment fails here, on the commit that adds it, not at release."""
+    fragments = read_fragments(ROOT / "changelog.d")
+    for _, _, path in fragments:
+        assert path.parent == ROOT / "changelog.d"
+    if fragments:
+        assemble(CHANGELOG_TEXT, "999.0.0", "2099-01-01", fragments)
+
+
 def test_a_released_version_is_refused():
     with pytest.raises(FragmentError, match="already has a section"):
         assemble(CHANGELOG_TEXT, "0.2.7", "2026-09-29", [("added", "- x\n", Path("x"))])

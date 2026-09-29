@@ -430,7 +430,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    `scripts/smoke_installed.py` against it from outside the checkout. It does **not** upload
    to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published`; the test matrix and the build do not run again on that
+   job runs on `release: published`; the test matrix, the floors leg and the build do not run again on that
    event, since the push run already passed them on the same commit. Its first step waits for
    the tag push run and fails
    unless that run's `publish-testpypi` and `verify-testpypi` jobs, one of each name, both

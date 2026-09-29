@@ -48,11 +48,16 @@ def recorded_head(text: str) -> str | None:
     return match.group(1) if match else None
 
 
+#: Seconds any one command may take. The harness takes about 12 s alone and passed 120 s inside
+#: a parallel suite on a loaded machine; a cap is a hang guard, so it is set far above either.
+COMMAND_TIMEOUT_S = 900
+
+
 def run(*cmd: str) -> str:
     """Run a command in the repository and return its stripped stdout, or an error marker."""
     try:
         proc = subprocess.run(
-            cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=120
+            cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_S
         )
     except (OSError, subprocess.TimeoutExpired) as exc:  # pragma: no cover - environment
         return f"UNRESOLVED ({type(exc).__name__})"
@@ -94,11 +99,14 @@ def build() -> str:
     pkg = package_facts()
     gate_output = run(sys.executable, "scripts/harness_gate.py")
     gate_pass = len(re.findall(r"^PASS:", gate_output, re.MULTILINE))
-    gate_verdict = (
-        "ALL HARNESS GATES PASSED"
-        if "ALL HARNESS GATES PASSED" in gate_output
-        else "FAILED -- run the gate and read its output"
-    )
+    # A harness that could not be run (a timeout, a missing interpreter) says nothing about the
+    # gates, so it is recorded as unresolved, never as a failure of them.
+    if gate_output.startswith("UNRESOLVED"):
+        gate_verdict = gate_output
+    elif "ALL HARNESS GATES PASSED" in gate_output:
+        gate_verdict = "ALL HARNESS GATES PASSED"
+    else:
+        gate_verdict = "FAILED -- run the gate and read its output"
 
     skills = sorted(p.parent.name for p in (REPO_ROOT / "skills").glob("*/SKILL.md"))
     roles = sorted(p.stem for p in (REPO_ROOT / "artifacts" / "agents").glob("*.md"))
