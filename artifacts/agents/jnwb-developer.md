@@ -61,11 +61,11 @@ The role set stays orthogonal. This role does not replace any of it.
   inside the checkout under test.
 
 ## Delegation Protocol
-Expects the standard packet, with the item's own fields supplying `TODO ITEM`, `DOMAIN SKILL`,
-`OBSERVED BASELINE` (the reproduction command), `ALLOWED SCOPE`, `ACCEPTANCE` and
-`STOP CONDITIONS`.
+Expects the packet `artifacts/skills/jnwb-fact-action` §5 defines, filled from the item's own
+fields except the baseline commit, which the dispatcher supplies; `OBSERVED BASELINE` is the
+reproduction command.
 
-Returns the standard contract, plus one additional line:
+Returns that contract, plus one additional line:
 
 ```text
 ITEM DISPOSITION: repaired | unsupported | blocked | deferred

@@ -23,5 +23,5 @@ The `actor` role is responsible for executing the smallest justified, reversible
 - **Orthogonal to Domain**: Guided by the domain skill passed in the delegation packet.
 
 ## Delegation Protocol
-Expects a packet specifying `GOAL`, `TODO ITEM`, `ALLOWED SCOPE`, `ACCEPTANCE`, and `DOMAIN SKILL`.
-Returns `SMALLEST ACTION` detailing changes made and the raw execution receipt.
+Expects the packet `artifacts/skills/jnwb-fact-action` §5 defines, and returns its contract.
+Adds one requirement: `SMALLEST ACTION` names the changes made and carries the raw execution receipt.
