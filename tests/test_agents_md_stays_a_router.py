@@ -29,8 +29,9 @@ SCRIPT = REPO_ROOT / "scripts" / "measure_agents_md_duplication.py"
 #: from here the ratchet only defends the gain.
 BASELINE_DUPLICATED = 0
 #: Set to the measurement, not above it: 06-64 found a unit of unclaimed slack here, and slack
-#: in a ratchet is a gain someone can give back without the test noticing.
-BASELINE_ECHOED = 3
+#: in a ratchet is a gain someone can give back without the test noticing. Lowered from 3 to 2
+#: when the rules-and-routes rewrite landed (08-06, `artifacts/evidence/0.2.8/agents_md_mapping.md`).
+BASELINE_ECHOED = 2
 
 #: The thresholds the baselines are counts *of*. Without pinning these, the counts above are
 #: satisfiable by turning a knob: 06-64 demonstrated eight (HIGH, MED) pairs that report fewer

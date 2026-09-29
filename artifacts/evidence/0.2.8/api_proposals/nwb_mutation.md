@@ -3,6 +3,18 @@
 The minimal base of 07-21: an operation set with signatures and refusals, for Hamm to rule
 before any code. Written 2026-09-29 against `57094a1a`. Nothing here is implemented.
 
+## Ruled 2026-09-29
+
+| # | Ruling |
+|---|---|
+| Q-M1 | (a): the core five are `validate_nwb`, `write_nwb`, `transform_nwb`, `repair_nwb` and `verify_nwb`; `convert_to_nwb`, `normalize_nwb` and `upgrade_nwb` come after them |
+| Q-M2 | (a): vendor recording formats are out of scope; `convert_to_nwb` takes in-memory arrays with a declared spec, and its documentation points to NeuroConv |
+| Q-M3 | (a): NWB Inspector is an optional extra behind `checks="inspector"` |
+| Q-M4 | (a): the names are `<verb>_nwb` |
+| Q-M5 | (a): `compress_fp32` is kept as it is and tagged `copy or transform` |
+
+The proposal below is kept as it was put; the questions at its end are answered here.
+
 ## Where it starts
 
 | Observed at `57094a1a` | Source |

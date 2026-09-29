@@ -65,7 +65,7 @@ home that states it; **history** = a reason or incident, moved to the named hist
 | 53 | §4.8 | Coupling, direction, delay, inference distinct | route | facts S13, S8, S14 (ruling 2026-09-29) |
 | 54 | §5 | Association / directionality / causality; Granger and PSI are lag asymmetry | route | router section 4 item 2; `CONTRIBUTING.md` Core scientific invariants 3 |
 | 55 | §5 | Prevalence vs magnitude, decodability, mechanism | route | `CONTRIBUTING.md` Core scientific invariants 2 |
-| 56 | §5 | Spikes and LFP distinct; do not pool without namespacing | route | `CONTRIBUTING.md` Core scientific invariants 1 (same meaning); router section 4 item 1 is stronger, see Q-2 |
+| 56 | §5 | Spikes and LFP distinct; do not pool without namespacing | rule, meaning changed by ruling Q-2 (2026-09-29) | landed `AGENTS.md` §5: never pooled, namespaced or not, with a route to router section 4 item 1; the route to `CONTRIBUTING.md` Core scientific invariants 1 is removed; history section 5 |
 | 57 | §5 | wPLI, imaginary coherency, PSI reduce zero-lag sensitivity, no immunity | route | router section 4 item 8; fact S14 |
 | 58 | §5 | Phase slope delay only under a verified linear relation; apparent velocity | route | connectivity skill safeguard 4; fact S13 |
 | 59 | §6 | Tools table | rule | draft §6 ("Asserts" column merged into "A pass means") |
@@ -135,9 +135,12 @@ first semicolon ignored):
 | route + history | 1 (46) |
 | map | 1 (28 rows to 14) |
 
-Rules kept: 68. Routed: 18. Moved to history: 27. No row is unmapped and none changes meaning;
-row 56 carries a pre-existing disagreement between two homes that the draft neither creates nor
-resolves (Q-2).
+Counted on the draft as reviewed: rules kept 68, routed 18, moved to history 27. No row is
+unmapped and none changes meaning in the draft. On landing, row 56 moved from route to rule and
+changed meaning by Hamm's ruling Q-2, so the landed file keeps 69 rules and routes 17.
+
+The draft in this folder is the version reviewed; the landed `AGENTS.md` differs from it only in
+§5.
 
 ## Receipts
 
@@ -152,7 +155,16 @@ Measured on a throwaway repository holding `git archive` of `57094a1a` with the 
 | Landing | the 16 test files that read `AGENTS.md`, `-n 8`, in the copy | 614 passed, 4 skipped |
 | Landing | `python scripts/harness_gate.py` in the copy | 22 of 22 gates executed, all PASS |
 
-## Open for Hamm
+## Ruled 2026-09-29
+
+| # | Ruling |
+|---|---|
+| Q-1 | (a): the draft lands at about 2250 words |
+| Q-2 | the router's rule binds: spikes and LFP are never pooled; `AGENTS.md` §5 says so and no longer routes to the `CONTRIBUTING.md` item that permits namespaced pooling. That item is lane A's to change |
+| Q-3 | approved: `AGENTS.md` lands and `history_additions.md` is appended to `artifacts/rulings/history.md`, in one commit |
+| Q-4 | (a), integrator: the check is the Jaccard ratchet of `scripts/measure_agents_md_duplication.py` and `tests/test_agents_md_stays_a_router.py` |
+
+## The questions as put
 
 | # | Question | Options, graded |
 |---|---|---|

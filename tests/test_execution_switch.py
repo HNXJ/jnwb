@@ -168,7 +168,7 @@ def _runtime_messages(fn):
 def _arrays(obj, prefix=""):
     """Numeric leaves of a result, keyed by path. Device records are not numbers."""
     if is_dataclass(obj):
-        obj = {f.name: getattr(obj, f.name) for f in fields(obj)}
+        obj = {f.name: getattr(obj, f.name) for f in fields(obj) if f.name not in ("execution", "parameters")}
     elif hasattr(obj, "execution") and hasattr(obj, "to_dict"):
         obj = {k: v for k, v in obj.to_dict().items() if k not in ("execution", "parameters")}
     out = {}
