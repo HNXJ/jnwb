@@ -561,6 +561,8 @@ def fig09_directed_connectivity():
 #: fig10's detection threshold and contaminated trial.
 Z_THRESH = 5.0
 HIT_TRIAL = 5
+#: Length of fig10's amplitude scale bar.
+SCALE_AU = 30.0
 
 
 def fig10_artifact_repair():
@@ -584,20 +586,29 @@ def fig10_artifact_repair():
     y_ticks = np.arange(0.0, y_hi, 10.0)
 
     # Panel A: every channel of the contaminated trial, stacked, so the artifact reads as
-    # synchronous across channels, which is what the detector scores
+    # synchronous across channels, which is what the detector scores. Channel 0 is on top, as
+    # in the addressing figure; each trace keeps its polarity (positive up).
     spacing = 1.2 * (y_hi - y_lo)
+    offsets = -np.arange(n_ch) * spacing
     for ch in range(n_ch):
-        ax1.plot(t, seg[HIT_TRIAL, ch] + ch * spacing, color=C_RED, lw=0.8,
+        ax1.plot(t, seg[HIT_TRIAL, ch] + offsets[ch], color=C_RED, lw=0.8,
                  label="Raw (contaminated), one trace per channel" if ch == 0 else None)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("Channel index")
-    ax1.set_yticks(np.arange(n_ch) * spacing, [str(ch) for ch in range(n_ch)])
+    ax1.set_yticks(offsets, [str(ch) for ch in range(n_ch)])
+    # Amplitude scale: one bar of SCALE_AU rising from the last channel's baseline
+    x_bar = t[-1] + 25
+    ax1.plot([x_bar, x_bar], [offsets[-1], offsets[-1] + SCALE_AU], color=C_DARK, lw=1.5)
+    ax1.annotate(f"{SCALE_AU:.0f} a.u.", xy=(x_bar, offsets[-1] + SCALE_AU / 2), xytext=(4, 0),
+                 textcoords="offset points", va="center", fontsize=style.SMALL, color=C_DARK)
+    ax1.set_xlim(-10, t[-1] + 110)
+    ax1.set_xticks(np.arange(0, t[-1] + 1, 100))
     ax1.set_title(f"A. Injected synchronous artifact\n(trial {HIT_TRIAL}, "
                   f"peak z = {diag['synchrony_z_max']:.0f})", pad=8)
     ax1.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     # Panel B: the same channel before and after repair
-    ax2.plot(t, raw, color=C_GRAY, lw=1.2, label="Raw (contaminated)")
+    ax2.plot(t, raw, color=C_GRAY, lw=1.2, label="Raw (contaminated), channel 0")
     ax2.plot(t, repaired[HIT_TRIAL, 0], color=C_VIOLET, lw=1.2, label="Repaired (median substitution)")
     # The shaded samples are the detector's output: every sample the repair changed on any channel.
     replaced = np.any(repaired[HIT_TRIAL] != seg[HIT_TRIAL], axis=0)

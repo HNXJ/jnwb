@@ -815,18 +815,26 @@ def _links_to_page_showing(href: str | None, stem: str) -> bool:
                   page.read_text(encoding="utf-8"), re.M))
 
 
+def _img_widths(text: str) -> list[tuple[str, int]]:
+    """Each light-scheme `<img>` on a page and the width it is judged at: a thumbnail in a
+    table at the gallery width, unless it links to the page that shows it at page width."""
+    out = []
+    for match in re.finditer(r'(?:<a href="([^"]+)">\s*)?<img src="(assets/[^"]+?)\.png#only-light"', text):
+        linked = _links_to_page_showing(match.group(1), match.group(2))
+        in_table = text.rfind("<table", 0, match.start()) > text.rfind("</table>", 0, match.start())
+        out.append((match.group(2), PAGE_WIDTH_PX if linked or not in_table else GALLERY_WIDTH_PX))
+    return out
+
+
 def _embeds():
     """Each light-scheme figure on a page: (page, figure file name, displayed width, caption)."""
     out = []
     for page in sorted(DOCS.rglob("*.md")):
         text = page.read_text(encoding="utf-8")
         captions = dict(figure_captions(text))
-        for match in re.finditer(r'(?:<a href="([^"]+)">\s*)?<img src="(assets/[^"]+?)\.png#only-light"', text):
-            linked = _links_to_page_showing(match.group(1), match.group(2))
-            in_table = text.rfind("<table", 0, match.start()) > text.rfind("</table>", 0, match.start())
-            width = PAGE_WIDTH_PX if linked or not in_table else GALLERY_WIDTH_PX
-            out.append((page.name, Path(match.group(2)).name + ".png", width,
-                        captions.get(f"{match.group(2)}.png#only-light", "")))
+        for stem, width in _img_widths(text):
+            out.append((page.name, Path(stem).name + ".png", width,
+                        captions.get(f"{stem}.png#only-light", "")))
         for match in re.finditer(r"^!\[[^\]]*\]\((assets/[^)\s]+?)\.png#only-light\)", text, re.M):
             out.append((page.name, Path(match.group(1)).name + ".png", PAGE_WIDTH_PX,
                         captions.get(f"{match.group(1)}.png#only-light", "")))
@@ -1372,6 +1380,18 @@ def test_the_psi_shading_check_catches_the_nominal_band_edges(drawn):
         assert _shaded_sum(wide, wide.get_lines()[0]) != pytest.approx(psi.x_to_y, abs=1e-3)
     finally:
         plt.close(fig)
+
+
+@pytest.mark.parametrize("href", [
+    "assets/figures/fig05_complex_tfr_coi.png",
+    "07_statistical_inference_and_nulls/",
+    "no_such_page/",
+], ids=["the raw PNG", "a page without the figure", "a missing page"])
+def test_a_thumbnail_is_judged_at_gallery_width_unless_it_links_to_its_page(href):
+    stem = "assets/figures/fig05_complex_tfr_coi"
+    cell = f'<table><tr><td><a href="{{}}"><img src="{stem}.png#only-light"></a></td></tr></table>'
+    assert _img_widths(cell.format("04_spectral_analysis_and_tfr/")) == [(stem, PAGE_WIDTH_PX)]
+    assert _img_widths(cell.format(href)) == [(stem, GALLERY_WIDTH_PX)]
 
 
 def test_the_psi_axis_carries_no_phase_slope_unit(drawn):
