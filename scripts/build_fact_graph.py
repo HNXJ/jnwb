@@ -229,15 +229,21 @@ def _signature(obj: Any) -> Optional[str]:
         return None
 
 
+def _package_rel(path: Path, package: Any) -> str:
+    """``path`` relative to the directory holding the package, so ``jnwb/<module>.py`` whether
+    the package is the source tree or an installed copy in site-packages."""
+    return path.resolve().relative_to(Path(package.__file__).resolve().parent.parent).as_posix()
+
+
 def _module_file(obj: Any, package: Any, root: Path) -> str:
     """The source file that defines ``obj``; the package's own ``__init__`` when unknown."""
     target = obj if isinstance(obj, types.ModuleType) else sys.modules.get(
         getattr(obj, "__module__", "") or "")
     location = getattr(target, "__file__", None) or package.__file__
     try:
-        return _rel(Path(location), root)
+        return _package_rel(Path(location), package)
     except ValueError:
-        return _rel(Path(package.__file__), root)
+        return _package_rel(Path(package.__file__), package)
 
 
 def _exports(package: Any, root: Path, switches: Sequence[str]):
@@ -253,7 +259,7 @@ def _exports(package: Any, root: Path, switches: Sequence[str]):
             if not source.is_file():
                 raise
             exports[name] = {"kind": "module", "signature": None, "switches": []}
-            implements.append([_rel(source, root), name])
+            implements.append([_package_rel(source, package), name])
             continue
         signature = _signature(obj)
         params: List[str] = []
@@ -500,12 +506,16 @@ def dumps(graph: Dict[str, Any]) -> str:
 
 
 def _checkout_jnwb():
-    """This tree's jnwb; a copy in site-packages would be described silently."""
+    """This tree's jnwb, or the copy under ``JNWB_EXPECTED_PACKAGE_ROOT`` when a run names an
+    installed copy deliberately; any other copy would be described silently."""
+    import os
+
     import jnwb
 
     location = Path(jnwb.__file__).resolve()
-    if REPO_ROOT.resolve() not in location.parents:
-        raise RuntimeError(f"imported jnwb from {location}, not from this tree ({REPO_ROOT})")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or REPO_ROOT).resolve()
+    if expected not in location.parents:
+        raise RuntimeError(f"imported jnwb from {location}, not from {expected}")
     return jnwb
 
 
