@@ -23,6 +23,7 @@ Matplotlib publication figures, unit-quality plots (`jnwb.visual_qc`), equal ras
 
 ## 4. Minimal Workflow
 ```python
+# Input: deterministic array.
 import jnwb
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,7 +36,7 @@ jnwb.apply_tight_auto_axis(ax, x_span=(-200.0, 800.0))
 ```
 
 ## 5. Verification
-- Exported SVGs contain `<text>` elements rather than converted path geometries.
+- An SVG saved after `setup_vector_graphics` holds its text as `<text>` elements, not paths.
 - `save_figure_suite` writes valid files for every requested format.
 - Each figure is rendered at its final size and inspected: no clipped or overlapping text, and every axis and colorbar names its unit.
 

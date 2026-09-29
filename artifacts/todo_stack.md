@@ -32,8 +32,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A state and apparatus | 08-01, 08-05, 08-06, 08-07, 08-08 | `artifacts/` stack, rulings and evidence files, `AGENTS.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, release scripts, CI workflow |
-| B figures | 08-02, 08-03, 08-04 | `docs/generate_figures.py`, figure assets, figure tests, the quickstart, the topic pages that show a figure except `docs/09` |
-| C skills and roles | 07-30, 07-18, 07-13 | `skills/`, `artifacts/skills/`, `artifacts/agents/`, `docs/agents.md`, `docs/09`, `docs/common_mistakes.md`, `mkdocs.yml`, `jnwb/vis/canvas.py`, the docs-form gate |
+| B figures | 08-02, 08-03, 08-04 | `docs/generate_figures.py`, figure assets, figure tests, the quickstart, the topic pages that show a figure |
 
 ### 08-01 The stack and state files in compact form
 
@@ -84,8 +83,7 @@ Release: required-0.2.8.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 08-02.
 Writes: `docs/generate_figures.py`, `docs/figure_style.py`, `docs/assets/figures/*.png`, `docs/index.md`, `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`.
 Source: section 4 of the figure QC report. The three blocker rows (fig01 a, fig04 a, fig09 a)
-landed in 0.2.7. `docs/09` belongs to
-07-30; a fig07 sentence change on that page is reported there.
+landed in 0.2.7. A fig07 sentence change on `docs/09` lands with this item.
 - fig01: gold and violet carry no key; the boundary is the retyped literal `1000.0`; V1 and V2 are adjacent blue-violets; V3 text is 2.45:1 on dark; panel A's right half is empty. Check: a two-entry key, `threshold=` passed and drawn from one variable, a distinguishable categorical triple, a tightened xlim.
 - fig02: the shaded band is unlabelled SEM computed by hand; no onset marker in the raster; "Δ=15ms" and "tau=25ms" lack a space. Check: "±1 SEM" from `raster_psth`'s `sem_rate_hz`, `axvline(0)` in panel A, spaced units.
 - fig03: raw points 1.32:1 on white; "Binned Rate (raw counts)" labels simulated Hz; the truth label omits tau 30 ms; the gallery caption says PSTH. Check: at least 3:1 in each theme, "Simulated noisy rate", `tau=30 ms` in the label, the caption corrected.
@@ -129,6 +127,7 @@ Role: jnwb-developer. Skill: none. Blocked by: 08-01.
 Writes: `AGENTS.md`, `CONTRIBUTING.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, `tests/test_agents_md_recipes.py`, `tests/test_agents_md_stays_a_router.py`.
 - A draft of about 1500 words (4403 at `fe14858d`): rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
 - The P-36 sentence reported by 08-01, and RP-1's release-step sentence (the `dev` deletion rule has no bypass; merged feature heads are still deleted).
+- 7 of the 8 safeguards sit in both `AGENTS.md` §4 and the router skill's section 4: `AGENTS.md` keeps a pointer to the router. Check: the line test of `tests/test_skills_validation.py`, run over the pair, finds no shared line.
 Accept: `tests/test_agents_md_*.py` pass; every rule of the old file maps to a rule, a route or a
 `history.md` paragraph in a table the packet returns.
 Stop: a rule would change meaning.
@@ -160,56 +159,6 @@ implementations follow the ruling in 0.2.11.
 - 07-22 base: identity across CPU, parallel CPU and CUDA for every operation the execution API would cover, measured. Check: a table per operation, with the tolerance each function states.
 Accept: both files exist and name every signature and every measured tolerance.
 Stop: a proposal would infer condition meaning, anatomy or units.
-
-### 07-30 Skills and roles carry the review checks
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `artifacts/skills/**`, `artifacts/agents/*.md`, `skills/*/SKILL.md`, `skills/*/agents/*.yaml`, `docs/agents.md`, `docs/documentation_form.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `jnwb/vis/canvas.py`, `scripts/docs_form_gate.py`, `tests/test_docs_form_gate.py`, `tests/test_skills_validation.py`, `tests/test_skill_router_reach.py`.
-Asked by Hamm on 2026-09-28. Evidence: `artifacts/evidence/0.2.8/skills_audit.md`; rulings
-`artifacts/rulings/2026-09-28.md`. Its first review lane passed: the `skills/` line endings, the
-trigger and table repair, and the verification lines are done. The figure-test step moved to 08-02
-and the `AGENTS.md` §7 line to 08-06, so the lanes share no file. `.claude/` is git-ignored, so the
-verifier dispatch file is a local step and not a tracked write. Ruled by the integrator (85): the
-MCP tool count stays in `docs/agents.md`, because a test holds it to the live registry.
-- `artifacts/skills/` line endings levelled, with Gate 16 held per tree (`decisions.md` D3).
-- Landmark-viz checks: the layout sentence and its checks bullet become one inspect-the-PNG check, with a render-at-final-size line.
-- One skill table: the router's table and `docs/agents.md` agree, held by a test. Check: the lfp-spectral, spiking and nwb-data rows, which differ today, are reconciled.
-- Unit-quality wording: "Visual QC" becomes "unit-quality plots" in `docs/09_decoding_and_visual_qc.md`, its nav label and `docs/common_mistakes.md`, with any fig07 sentence 08-03 reports.
-- Router-reach parser: `_routed_operations` reads every backticked call in a bullet; the parser fixture in `tests/test_skill_router_reach.py` is renamed; the skill-count regex refuses "Nine shipped skills". Check: a planted count and a two-call bullet each caught.
-- `jnwb/vis/canvas.py:16`: the docstring says "300/600 DPI" where one PNG is written at `png_dpi`. Check: the docstring names `png_dpi`.
-- Docs form F8: the slop lexicon, zero in `docs/` and `skills/`, with a planted case caught.
-- 07-10 and 07-11 accept on the `docs/agents.md` row; public text names checks, never roles.
-Accept: each trigger phrase has one owning skill; no role file holds a loading order or packet
-list; every pointer to the review skill resolves; the F8 check passes; an independent critic finds
-none of the frictions the audit lists.
-Stop: a skill edit would restate mathematics `artifacts/direction.md` keeps out of skills, or put
-personal voice or process vocabulary in `skills/` or `docs/`.
-
-### 07-18 Skill examples run in the suite
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-30.
-Writes: `skills/*/SKILL.md`, `tests/test_skill_examples_execute.py`.
-Seven of nine example blocks executed at `dcb75f12`; six skills build inputs from a random
-generator.
-Accept: every example block executes in the suite and declares its input class (real NWB,
-deterministic array, stochastic synthetic, calibration fixture); the test checks the declaration;
-a routing example uses one of the first two.
-Stop: an example needs data the repository does not carry.
-
-### 07-13 Skills say each thing once
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-18.
-Writes: `skills/*/SKILL.md`, `tests/test_skills_validation.py`.
-Three normalised lines of 40 or more characters are shared by two skills at `dcb75f12`, and 7 of
-the 8 safeguards sit in both `AGENTS.md` §4 and the router. The test lands before 07-10 and 07-11,
-so the new skills are born under it.
-Accept: a test fails when a normalised invariant line appears in two skills, `docs/` links
-excluded; a restated `docs/` definition becomes the link; the summed length of the skills does not
-grow.
-Stop: removing a restatement leaves a routing row without a dimension its operation requires.
 
 ### 08-09 The fact stack as typed tables, with the ontology gate
 

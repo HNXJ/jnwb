@@ -28,6 +28,7 @@ Spike rasters, PSTHs, causal firing-rate smoothing, onset latencies, or unit res
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 

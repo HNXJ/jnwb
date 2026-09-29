@@ -94,8 +94,10 @@ hosts, and `prepare_signal_reference` describes one dataset without loading it a
 
 ## 4. Minimal Workflow
 ```python
+# Input: calibration fixture.
 import jnwb
 
+# session.nwb here is a small synthetic file of known contents; pass your own path.
 info = jnwb.inspect("session.nwb")
 table = "test_synth_task"  # from info["interval_tables"]
 onsets = jnwb.event_onsets("session.nwb", table=table, codes=["test-synth-1"])

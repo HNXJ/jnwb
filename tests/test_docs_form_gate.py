@@ -32,6 +32,13 @@ CONTRACT = """# Documentation form
 | A rendered color | `color`, `colors` | `colour`, `colours` |
 | Scaling to a common range | `normalize`, `normalized` | `normalise`, `normalised` |
 
+## Slop lexicon
+
+| Kind | Terms |
+|---|---|
+| Inflated verbs | `delve`, `unlock` |
+| Filler phrases | `it is worth noting` |
+
 ## Length
 
 Prose after the table.
@@ -56,6 +63,8 @@ The trace color is normalized before plotting.
     table.
 
 `alpha` returns a float, and `beta` returns an array; a third is not named here.
+
+The file is unlocked after `delve` returns, and delve-rs is a crate name.
 
 ```python
 #### a comment, not a heading
@@ -190,6 +199,17 @@ SEEDS = {
         _append(PAGE_A, "\n`alpha` returns a float, `beta` returns an array, and `gamma` "
                         "returns a table.\n"),
         "a.md:"),
+    "slop term in page prose": ("slop lexicon",
+                                _append(PAGE_A, "\nWe Delve into the traces.\n"), "'delve'"),
+    "slop phrase in a skill": (
+        "slop lexicon",
+        lambda root: _write(root / "skills/demo/SKILL.md",
+                            "# Demo\n\nIt is worth noting that the rate is in Hz.\n"),
+        "skills/demo/SKILL.md: 'it is worth noting'"),
+    "slop lexicon missing": ("slop lexicon",
+                             _replace("docs/documentation_form.md", "## Slop lexicon",
+                                      "## Removed"),
+                             "no slop lexicon parsed"),
 }
 
 
@@ -217,7 +237,7 @@ def test_a_check_that_raises_is_reported_and_the_others_still_run(tree):
 
 def test_the_command_line_exit_code_follows_the_checks(tree, capsys):
     assert gate.main(tree) == 0
-    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 5 of 5" in capsys.readouterr().out
+    assert "ALL DOCUMENTATION FORM CHECKS PASSED. 6 of 6" in capsys.readouterr().out
     SEEDS["three parallel facts in a paragraph"][1](tree)
     assert gate.main(tree) == 1
     out = capsys.readouterr().out
@@ -244,6 +264,8 @@ def test_the_live_tree():
     assert count(r"(\d+) targets") >= 25
     assert count(r"(\d+) figures shown as light/dark pairs") >= 10
     assert count(r"(\d+) paragraphs") >= 200
+    assert count(r"none of (\d+) terms") >= 40
+    assert count(r"terms in (\d+) pages") >= 18
 
 
 def test_the_gate_reads_the_corpus_and_vocabulary_the_suite_reads():

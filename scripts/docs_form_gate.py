@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation form gate: the rules of ``docs/documentation_form.md`` a machine can settle.
 
-Five checks, each run against a repository root (the live tree from the command line, a seeded
+Six checks, each run against a repository root (the live tree from the command line, a seeded
 fixture tree from the suite):
 
   1. Vocabulary (F5). No superseded surface form from the contract's vocabulary table survives
@@ -22,6 +22,8 @@ fixture tree from the suite):
   5. Parallel facts in prose (F2, partly). A paragraph in which three or more distinct inline
      code subjects each open a clause with the same kind of predicate ("`a` returns ...,
      `b` returns ..., `c` returns ...") states comparable facts that belong in a table.
+  6. Slop lexicon (F8). No term of the contract's slop lexicon appears, as a whole word in any
+     case, in the prose of the documentation corpus, the skills included.
 
 **What check 5 does not see.** It is a detector for one shape, tuned to report nothing on the
 live tree, and F2 stays a review item beyond it:
@@ -360,6 +362,42 @@ def check_parallel_facts(root: Path) -> Result:
         f"parallel facts, {count} paragraphs in {len(pages)} pages.")
 
 
+# --------------------------------------------------------------------------- 6. slop lexicon
+
+
+SLOP_HEADING = re.compile(r"^## Slop lexicon\s*$", re.M)
+
+
+def parse_slop_lexicon(contract_text: str) -> List[str]:
+    """Every backticked term in the table rows of the contract's slop lexicon section."""
+    match = SLOP_HEADING.search(contract_text)
+    if match is None:
+        return []
+    section = contract_text[match.end():].split("\n## ", 1)[0]
+    terms: List[str] = []
+    for line in section.splitlines():
+        line = line.strip()
+        if line.startswith("|") and "|---" not in line:
+            terms.extend(_form._BACKTICKED.findall(line))
+    return list(dict.fromkeys(terms))
+
+
+def check_slop(root: Path) -> Result:
+    terms = parse_slop_lexicon((root / CONTRACT).read_text(encoding="utf-8"))
+    if not terms:
+        return [f"no slop lexicon parsed from {CONTRACT.as_posix()}; F8 has nothing to check "
+                "against"], ""
+    pages = corpus(root)
+    patterns = [(term, re.compile(rf"(?<![\w-]){re.escape(term)}(?![\w-])", re.I))
+                for term in terms]
+    violations = sorted({f"{name}: {term!r} is in the slop lexicon (F8)"
+                         for name, text in pages
+                         for prose in (_form._prose(text),)
+                         for term, pattern in patterns if pattern.search(prose)})
+    return violations, (
+        f"PASS: slop lexicon (F8): none of {len(terms)} terms in {len(pages)} pages.")
+
+
 # ---------------------------------------------------------------------------------- runner
 
 
@@ -369,6 +407,7 @@ CHECKS: Sequence[Tuple[str, Callable[[Path], Result]]] = (
     ("navigation", check_navigation),
     ("figure theme independence", check_figures),
     ("parallel facts", check_parallel_facts),
+    ("slop lexicon", check_slop),
 )
 
 

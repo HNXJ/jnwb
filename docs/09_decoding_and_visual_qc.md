@@ -1,4 +1,4 @@
-# 09. Population Decoding, Visual QC & Publication Graphics
+# 09. Population Decoding, Unit-Quality Plots & Publication Graphics
 
 ## 1. Population Decoding & Nested Cross-Validation (`jnwb.decoding`)
 
@@ -104,7 +104,7 @@ ladder_res = jnwb.build_representation_ladder(raster, modality="SPK")
 
 ---
 
-## 2. Automated Electrophysiology Visual QC (`jnwb.visual_qc`)
+## 2. Unit-Quality Plots (`jnwb.visual_qc`)
 
 `jnwb.visual_qc` draws multi-panel figures for inspecting spike sorting, waveform stability, and noise distributions.
 
