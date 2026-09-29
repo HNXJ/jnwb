@@ -31,12 +31,9 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
+| A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
 | B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
-| C rules and proposals | 08-06, 08-08 | `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, the `AGENTS.md` tests, `artifacts/evidence/0.2.8/api_proposals/**` |
-
-Lane C drafts 08-06, then the two 08-08 proposals; the 0.2.8 question round is asked once both
-exist. 08-06 lands after Hamm approves it, and no lane's work follows it.
+| C execution identity | 08-10 | `jnwb/connectivity.py`, `tests/test_parallel.py` |
 
 ### 08-01 The stack and state files in compact form
 
@@ -83,23 +80,11 @@ Writes: `CHANGELOG.md`, `changelog.d/**`, `scripts/assemble_changelog.py`, `test
 Accept: the test passes; the release gate's CHANGELOG checks still read the assembled file.
 Stop: the assembly would change a released section's text.
 
-### 08-06 `AGENTS.md` rules and routes only
-
-Release: required-0.2.8.
-AUTONOMY: none for the landing; the draft is `max`.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `AGENTS.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, `tests/test_agents_md_recipes.py`, `tests/test_agents_md_stays_a_router.py`.
-- A draft of about 1500 words (4403 at `fe14858d`): rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- 7 of the 8 safeguards sit in both `AGENTS.md` §4 and the router skill's section 4: `AGENTS.md` keeps a pointer to the router. Check: the line test of `tests/test_skills_validation.py`, run over the pair, finds no shared line.
-Accept: `tests/test_agents_md_*.py` pass; every rule of the old file maps to a rule, a route or a
-`history.md` paragraph in a table the packet returns.
-Stop: a rule would change meaning.
-
 ### 08-07 A faster release cycle
 
 Release: required-0.2.8.
 Role: jnwb-developer. Skill: none. Blocked by: 08-05.
-Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`.
+Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`, `docs/01_architecture_and_philosophy.md`.
 - RP-3: the release gate stops at its first failure after a 12 to 30 minute suite. Check: state freshness, the extracted smoke script and the release body run before the suite.
 - RP-4: the full matrix ran four times on one commit at release. Check: skip a run whose tree already passed, and measure the saving.
 - Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under load. Check: a timeout scaled to the machine, or a cheaper subprocess.
@@ -108,22 +93,21 @@ Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workfl
 - Absent-extra handling: `test_mkdocs_strict_build` fails without the `docs` extra while `test_diagrams_render` skips; found by cowork on 2026-09-29. Check: one rule for an absent extra, applied to both.
 - xflip calibration wall time: 297 s to 503 s across lanes with identical rates. Check: dev and head back to back on one machine.
 - P-36: reading computational order off loop structure was wrong on six specs. Check: one sentence in the order section of `CONTRIBUTING.md`.
+- Pooling rule: `CONTRIBUTING.md` "Core scientific invariants" item 1 allows pooling spikes and LFP with namespace tags, and `docs/01_architecture_and_philosophy.md` allows it with an explicit transformation; Hamm ruled on 2026-09-29 that they are never pooled. Check: both say never pooled, as `AGENTS.md` §5 does.
 - RP-1: `CONTRIBUTING.md`'s release steps lack one sentence: the `dev` deletion rule has no bypass; merged feature heads are still deleted. Check: the sentence is in the release steps.
 Accept: one release-gate run on a tree with a stale state file fails within a minute.
 Stop: reordering would let a later step pass on an unverified artifact.
 
-### 08-08 Proposals for the mutation and execution APIs
+### 08-10 `directed_network` is identical across worker and BLAS thread counts
 
 Release: required-0.2.8.
-AUTONOMY: none for the choice; the proposal is `max`.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.8/api_proposals/**`.
-The minimal bases of 07-21 and 07-22, which `artifacts/goal.md` §5 names as 0.2.8 work; the
-implementations follow the ruling in 0.2.11.
-- 07-21 base: a proposed operation set (validate, write, transform, convert, structural repair, verified output) with signatures and refusals. Check: Hamm rules the set.
-- 07-22 base: identity across CPU, parallel CPU and CUDA for every operation the execution API would cover, measured. Check: a table per operation, with the tolerance each function states.
-Accept: both files exist and name every signature and every measured tolerance.
-Stop: a proposal would infer condition meaning, anatomy or units.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `jnwb/connectivity.py`, `tests/test_parallel.py`.
+Source: E-1 and E-2 of `artifacts/evidence/0.2.8/api_proposals/execution_identity.md`.
+- E-1: `directed_network(method="granger")` changes by up to 1.8e-9 relative with `n_jobs` at the proposal's large size, against fact S6; `tests/test_parallel.py` uses a size at which it is bit-identical. Check: a test at a size that reproduces the gap, red before the repair.
+- E-2: the serial result depends on the BLAS thread count (one thread against 24: 1.8e-9). Check: the fits use a reduction order independent of the thread count.
+Accept: serial, `n_jobs` in 2, 4, 8 and -1, and BLAS threads 1 and default agree bit for bit at both sizes.
+Stop: bit identity would change the estimator, or the only repair is a restated tolerance (fact S6 is Hamm's).
 
 # 0.2.9
 
@@ -618,7 +602,7 @@ Stop: none beyond the standing ones.
 
 Release: deferred-0.2.9.
 AUTONOMY: none until Hamm rules the set from 08-08.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 08-08.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
 Accept: each landed operation re-reads its output and refuses an ambiguous mapping; API,
 documentation and tests land before or with any skill.
