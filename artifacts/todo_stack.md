@@ -33,7 +33,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
 | B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
-| C execution identity | 08-10 | `jnwb/connectivity.py`, `tests/test_parallel.py` |
 
 ### 08-01 The stack and state files in compact form
 
@@ -97,17 +96,6 @@ Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workfl
 - RP-1: `CONTRIBUTING.md`'s release steps lack one sentence: the `dev` deletion rule has no bypass; merged feature heads are still deleted. Check: the sentence is in the release steps.
 Accept: one release-gate run on a tree with a stale state file fails within a minute.
 Stop: reordering would let a later step pass on an unverified artifact.
-
-### 08-10 `directed_network` is identical across worker and BLAS thread counts
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `tests/test_parallel.py`.
-Source: E-1 and E-2 of `artifacts/evidence/0.2.8/api_proposals/execution_identity.md`.
-- E-1: `directed_network(method="granger")` changes by up to 1.8e-9 relative with `n_jobs` at the proposal's large size, against fact S6; `tests/test_parallel.py` uses a size at which it is bit-identical. Check: a test at a size that reproduces the gap, red before the repair.
-- E-2: the serial result depends on the BLAS thread count (one thread against 24: 1.8e-9). Check: the fits use a reduction order independent of the thread count.
-Accept: serial, `n_jobs` in 2, 4, 8 and -1, and BLAS threads 1 and default agree bit for bit at both sizes.
-Stop: bit identity would change the estimator, or the only repair is a restated tolerance (fact S6 is Hamm's).
 
 # 0.2.9
 
