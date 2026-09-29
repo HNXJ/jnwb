@@ -38,8 +38,18 @@ Panels occupy disjoint paper-domain rectangles. The canvas methods `add_panel_ta
 ## 4. Minimal Workflow
 
 ```python
+# Input: deterministic array.
 import numpy as np
 import jnwb.vis as jviz
+
+# 0. Stand-in profiles for 32 contacts; replace them with the ones computed from your recording
+channel_depths_mm = np.linspace(0.0, 3.1, 32)
+gamma_profile = np.linspace(0.2, 0.8, 32)
+alphabeta_profile = gamma_profile[::-1]
+gamma_ci = np.column_stack([gamma_profile - 0.05, gamma_profile + 0.05])
+alphabeta_ci = np.column_stack([alphabeta_profile - 0.05, alphabeta_profile + 0.05])
+rel_power_matrix = np.outer(np.linspace(1.0, 0.5, 150), gamma_profile)  # fractions in [0, 1]
+crossover_depth = channel_depths_mm[np.argmin(np.abs(gamma_profile - alphabeta_profile))]
 
 # 1. Initialize canvas (2-column Nature width: 183 mm)
 canvas = jviz.PlotlyPublicationCanvas(

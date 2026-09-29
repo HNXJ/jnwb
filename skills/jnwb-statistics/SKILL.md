@@ -30,6 +30,7 @@ Comparing neural responses across conditions, label permutations, Benjamini-Hoch
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 

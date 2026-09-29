@@ -51,13 +51,15 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 
 ## 5. Minimal Workflow
 ```python
+# Input: deterministic array.
 import jnwb
 import numpy as np
 
-rng = np.random.default_rng(42)
-data = rng.normal(size=(500,))
+fs = 1000.0
+t_s = np.arange(500) / fs
+data = np.sin(2 * np.pi * 10.0 * t_s)  # a 10 Hz sine, 0.5 s at 1 kHz
 freqs = np.array([10.0, 20.0, 40.0])
-tfr = jnwb.complex_tfr(data, fs=1000.0, freqs=freqs)
+tfr = jnwb.complex_tfr(data, fs=fs, freqs=freqs)
 ```
 
 ## 6. Verification

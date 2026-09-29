@@ -23,6 +23,7 @@ Matplotlib publication figures, unit-quality plots (`jnwb.visual_qc`), equal ras
 
 ## 4. Minimal Workflow
 ```python
+# Input: deterministic array.
 import jnwb
 import matplotlib.pyplot as plt
 import numpy as np

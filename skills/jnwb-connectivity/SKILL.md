@@ -34,6 +34,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 
