@@ -18,10 +18,17 @@ Rendering depends on the Matplotlib release. Figures written by 3.10.0 and regen
 running minor release is not the one that wrote a figure (recorded in its PNG metadata), the
 comparison is skipped with both versions named rather than failed on a difference the stack
 made.
+
+A skip on every environment is no comparison at all, and the newest Matplotlib is not the one
+that wrote the figures. So one CI leg pins the release the committed figures record and sets
+``JNWB_REQUIRE_FIGURE_COMPARISON=1``, under which a version mismatch fails instead of skipping;
+the last test here holds that leg to the version the PNGs record.
 """
 from __future__ import annotations
 
 import ast
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +47,11 @@ CHANNEL_STEP = 2.0 / 255.0
 # Rendering noise within one minor release measured exactly zero changed pixels on all ten
 # figures, so the slack only has to absorb nothing; one changed digit moves about 1e-4.
 CHANGED_FRACTION = 1e-5
+
+#: Set to "1" where the comparison must run: a Matplotlib minor release other than the one that
+#: wrote a figure then fails the test instead of skipping it.
+REQUIRE_ENV = "JNWB_REQUIRE_FIGURE_COMPARISON"
+WORKFLOW = REPO_ROOT / ".github" / "workflows" / "workflow.yml"
 
 
 def _registry():
@@ -96,7 +108,10 @@ def test_the_committed_figure_is_what_the_generator_draws(name, regenerated):
     )
     minor = ".".join(matplotlib.__version__.split(".")[:2])
     if not wrote.startswith(f"Matplotlib version{minor}."):
-        pytest.skip(f"{name} was written by {wrote!r}; running Matplotlib {matplotlib.__version__}")
+        reason = f"{name} was written by {wrote!r}; running Matplotlib {matplotlib.__version__}"
+        if os.environ.get(REQUIRE_ENV) == "1":
+            pytest.fail(f"{reason}, and {REQUIRE_ENV}=1 requires the comparison")
+        pytest.skip(reason)
     fraction = _changed_fraction(mpimg.imread(committed), mpimg.imread(regenerated / name))
     assert fraction < CHANGED_FRACTION, (
         f"{name}: {fraction:.4%} of pixels differ from `python docs/generate_figures.py "
@@ -124,3 +139,32 @@ def test_the_tolerance_catches_a_one_word_edit(tmp_path):
     assert _changed_fraction(a, b) == 0.0
     assert _changed_fraction(a, c) >= CHANGED_FRACTION
     assert _changed_fraction(d, e) >= CHANGED_FRACTION, "one changed digit passed as unchanged"
+
+
+def test_one_ci_leg_compares_the_figures_at_the_version_that_wrote_them():
+    """Every leg installed the newest Matplotlib, a minor release after the one that wrote the
+    figures, so every leg skipped all of them and nothing compared a figure anywhere."""
+    import yaml
+
+    recorded = {_software(p) for p in FIGURE_DIR.glob("*.png")}
+    versions = {m.group(1) for s in recorded if (m := re.match(r"Matplotlib version(\S+?),", s))}
+    assert len(versions) == 1, f"the committed figures record several writers: {sorted(recorded)}"
+    (written_by,) = versions
+
+    job = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["test"]
+    compared = [c for c in job["strategy"]["matrix"].get("include", [])
+                if c.get("figures") == "compared"]
+    assert len(compared) == 1, f"expected one leg with figures: compared, found {compared}"
+    steps = job["steps"]
+    pins = [s for s in steps if "matrix.figures == 'compared'" in str(s.get("if", ""))]
+    assert len(pins) == 1, "the compared leg has no step of its own that pins Matplotlib"
+    pinned = re.findall(r"matplotlib==(\S+?)[\"'\s]", pins[0]["run"] + " ")
+    assert pinned == [written_by], (
+        f"the compared leg pins {pinned}, the committed figures were written by {written_by}")
+    names = [s.get("name") for s in steps]
+    install = names.index("Install dependencies")
+    suite = names.index("Run pytest")
+    assert install < steps.index(pins[0]) < suite, "the pin must follow the install and precede the suite"
+    env = str((steps[suite].get("env") or {}).get(REQUIRE_ENV, ""))
+    assert "matrix.figures == 'compared'" in env and "'1'" in env, (
+        f"the suite step does not set {REQUIRE_ENV}=1 on the compared leg: {env!r}")

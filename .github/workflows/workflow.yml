@@ -53,6 +53,13 @@ jobs:
       matrix:
         os: [ ubuntu-latest, windows-latest ]
         python-version: [ "3.12", "3.13", "3.14" ]
+        # The one leg that compares the documentation figures: it pins the Matplotlib release
+        # that wrote them, which the newest release every other leg installs is not, so without
+        # it every leg skips every comparison. Windows and 3.14, as the figures were rendered.
+        include:
+          - os: windows-latest
+            python-version: "3.14"
+            figures: compared
 
     steps:
       - uses: actions/checkout@v4
@@ -72,9 +79,18 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ".[test,docs,vis]"
 
+      - name: Pin Matplotlib to the release that wrote the committed figures
+        # tests/test_generated_figures_are_maintained.py holds this pin to the version the PNGs
+        # record; regenerating the figures with another release fails that test until it moves.
+        if: matrix.figures == 'compared'
+        run: |
+          python -m pip install "matplotlib==3.10.8"
+
       - name: Run pytest
         # -n auto: one worker per core. The browser-backed export tests share an xdist group,
         # which `--dist=loadgroup` in pyproject.toml runs on one worker.
+        env:
+          JNWB_REQUIRE_FIGURE_COMPARISON: ${{ matrix.figures == 'compared' && '1' || '0' }}
         run: |
           pytest -v -n auto tests/
 
