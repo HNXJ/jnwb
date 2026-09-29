@@ -128,7 +128,6 @@ AUTONOMY: none for the landing; the draft is `max`.
 Role: jnwb-developer. Skill: none. Blocked by: 08-01.
 Writes: `AGENTS.md`, `CONTRIBUTING.md`, `artifacts/rulings/history.md`, `artifacts/cooperation.md`, `tests/test_agents_md_recipes.py`, `tests/test_agents_md_stays_a_router.py`.
 - A draft of about 1500 words (4403 at `fe14858d`): rules and routes only, reasons and incidents moved to `artifacts/rulings/history.md`. Check: Hamm approves the draft before it lands.
-- The §7 line 07-30 asks for: `artifacts/skills/jnwb-review` exists, and a host skill adds only checks the jnwb skill leaves open.
 - The P-36 sentence reported by 08-01, and RP-1's release-step sentence (the `dev` deletion rule has no bypass; merged feature heads are still deleted).
 Accept: `tests/test_agents_md_*.py` pass; every rule of the old file maps to a rule, a route or a
 `history.md` paragraph in a table the packet returns.
