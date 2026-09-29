@@ -222,6 +222,10 @@ def fig03_onset():
     plt.close(fig)
 
 
+#: The rhythm fig04 adds to its aperiodic background.
+FIG04_RHYTHM_HZ = 10.0
+
+
 def fig04_spectral_tilt():
     """Figure 4: Power Spectral Density and aperiodic spectral tilt."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
@@ -236,21 +240,23 @@ def fig04_spectral_tilt():
     pink = np.cumsum(white)
     pink -= pink.mean()
     pink /= pink.std()
-    lfp = pink + 0.8 * np.sin(2 * np.pi * 10.0 * t)
+    lfp = pink + 0.8 * np.sin(2 * np.pi * FIG04_RHYTHM_HZ * t)
 
     # Panel A: Time trace
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. Raw LFP Time Series\n(random-walk background + 10 Hz rhythm)", pad=8)
+    ax1.set_title(f"A. Raw LFP Time Series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)", pad=8)
 
     # Panel B: PSD + power-law fit to that same PSD. spectral_tilt fits its own Welch
     # spectrum, on a different grid, so its line cannot be drawn over this one.
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
     freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit takes positive frequencies only; drop DC
-    fit = jnwb.aperiodic_fit(freqs, psd, freq_range=(2.0, 90.0))
+    # aperiodic_fit removes no peaks, so the range starts above the rhythm's.
+    fit_range = (15.0, 90.0)
+    fit = jnwb.aperiodic_fit(freqs, psd, freq_range=fit_range)
 
-    mask = (freqs >= 2.0) & (freqs <= 90.0)
+    mask = (freqs >= fit_range[0]) & (freqs <= fit_range[1])
     f_fit = freqs[mask]
     fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 

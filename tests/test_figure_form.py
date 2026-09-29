@@ -212,6 +212,7 @@ def drawn_figures():
         spec = importlib.util.spec_from_file_location("_figure_generator_drawn", GENERATORS[0])
         generator = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generator)
+        found["generator"] = generator
         generator._save = lambda fig, name: found.__setitem__(name, fig)
         generator.apply_theme("light")
         for name in ("fig01_addressing_laminar.png", "fig04_psd_spectral_tilt.png",
@@ -237,12 +238,15 @@ def test_the_depth_class_panel_does_not_call_its_class_a_layer(drawn_figures):
 
 def test_the_power_law_line_is_the_fit_of_the_spectrum_under_it(drawn_figures):
     """The fit line is the least-squares power law of the drawn spectrum over the fit's own
-    bins, and the slope in its label is that fit's slope."""
+    bins, those bins start above the synthetic rhythm (the fit removes no peaks), and the slope
+    in its label is that fit's slope."""
     ax = _axes_titled(drawn_figures["fig04_psd_spectral_tilt.png"], "B.")
     lines = {line.get_label().split(":")[0]: line for line in ax.get_lines()}
     psd_f, psd = (np.asarray(v, float) for v in lines["Welch PSD"].get_data())
     fit_f, fit = (np.asarray(v, float) for v in lines["Power-law fit"].get_data())
     assert np.isin(fit_f, psd_f).all(), "the fit is drawn at frequencies the spectrum is not"
+    rhythm = drawn_figures["generator"].FIG04_RHYTHM_HZ
+    assert fit_f.min() > rhythm, f"the fit starts at {fit_f.min()} Hz, across the {rhythm} Hz peak"
     drawn = psd[np.searchsorted(psd_f, fit_f)]
     slope, intercept = np.polyfit(np.log10(fit_f), np.log10(drawn), 1)
     offset = np.max(np.abs(np.log10(fit) - (intercept + slope * np.log10(fit_f))))
