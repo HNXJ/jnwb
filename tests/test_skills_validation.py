@@ -1839,8 +1839,10 @@ _DOCS_LINK = re.compile(r"\]\((?:\.\./)+docs/")
 
 
 def _normalised_lines(text: str) -> List[str]:
-    """Each prose line outside fenced code, without list markers, emphasis or code ticks,
-    whitespace collapsed and case folded; lines linking into ``docs/`` and short lines skipped."""
+    """Each prose line outside fenced code, without list markers, emphasis, code ticks or any
+    other punctuation, whitespace collapsed and case folded; lines linking into ``docs/`` and
+    short lines skipped. Punctuation goes because a restatement that differs from its source by
+    one comma or full stop is still the same rule stated twice."""
     out, in_fence = [], False
     for raw in text.splitlines():
         if raw.lstrip().startswith("```"):
@@ -1849,7 +1851,7 @@ def _normalised_lines(text: str) -> List[str]:
         if in_fence or _DOCS_LINK.search(raw):
             continue
         line = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", raw)
-        line = re.sub(r"\s+", " ", line.replace("**", "").replace("`", "")).strip().casefold()
+        line = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", line)).strip().casefold()
         if len(line) >= _SHARED_LINE_MIN:
             out.append(line)
     return out
@@ -1882,3 +1884,9 @@ def test_a_line_restated_in_a_second_skill_is_found():
     }
     shared = _lines_in_two_skills(texts)
     assert list(shared.values()) == [["a", "b"]], shared
+
+
+def test_a_restatement_differing_only_in_punctuation_is_found():
+    a = "7. **Delay**: unsigned coupling does not determine direction; direction needs a sign."
+    b = "4. **Delay**: Unsigned coupling does not determine direction. Direction needs a sign."
+    assert list(_lines_in_two_skills({"a": a, "b": b}).values()) == [["a", "b"]]

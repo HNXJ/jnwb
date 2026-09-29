@@ -59,7 +59,6 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
     ("docs/tutorials/03_spiking.md", "fit onset latencies", ONSET),
     ("docs/tutorials/09_open_data.md", "excludes any LFP latency", CAVEAT),
     ("skills/jnwb/SKILL.md", "PSTH, onset latency, response", ONSET),
-    ("skills/jnwb/SKILL.md", "Latency delay ($d\\phi/df", CAVEAT),
     ("skills/jnwb-connectivity/SKILL.md", "Latency delay ($d\\phi/df", CAVEAT),
     ("skills/jnwb-population/SKILL.md", "in only one group always causes", METHOD),
     ("skills/jnwb-spiking/SKILL.md", "physiological latency estimation", ONSET),

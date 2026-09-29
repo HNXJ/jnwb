@@ -85,8 +85,8 @@ the skill that covers it:
 
 | Task | Skill |
 |---|---|
-| NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
-| Spike trains: binning, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
+| NWB files: inspection, events, paths, metadata, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| Spike trains: binning, raster, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
 | LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
@@ -95,16 +95,8 @@ the skill that covers it:
 | Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
-The router skill carries the safeguards worth reading even if you never install a skill:
-
-- spikes and LFP are distinct observables and are not pooled;
-- association, directionality and causality are three different claims;
-- raw power is averaged before any logarithm;
-- wavelet coefficients inside the cone of influence are masked;
-- smoothing is causal so that no future leaks into an onset;
-- a `Generator` is passed explicitly and the global RNG is never mutated;
-- measures built on the imaginary cross-spectrum reduce sensitivity to zero-lag coupling
-  without conferring immunity to volume conduction.
+The scientific safeguards, worth reading even if you never install a skill, are section 4 of
+the [router skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb/SKILL.md).
 
 ## Without any of that
 

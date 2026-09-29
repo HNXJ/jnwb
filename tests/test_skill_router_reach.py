@@ -61,7 +61,8 @@ def _routed_operations(text: str) -> list[str]:
 
     A routing bullet opens with one or more backticked calls and ends its head at the colon
     after the last of them. Every call in the head is routed by that bullet; a call named in
-    the description after the colon is a mention, not a route.
+    the description after the colon is a mention, not a route. A bullet with no "`: " after a
+    closing tick (the "→" rows, for one) has no such boundary and is read whole.
     """
     found: list[str] = []
     for line in text.splitlines():
@@ -119,11 +120,11 @@ def _table_rows(text: str, header: str) -> list[str]:
 
 
 _COUNT_WORDS = r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+"
-_SKILL_COUNT = re.compile(rf"\b(?:{_COUNT_WORDS})\b(?= (?:[\w-]+ )?skills\b)", re.I)
+_SKILL_COUNT = re.compile(rf"\b(?:{_COUNT_WORDS})\b(?= (?:[\w-]+ ){{0,2}}skills\b)", re.I)
 
 
 def _stated_skill_counts(text: str) -> list[str]:
-    """Every number written in front of "skills", with at most one word between them."""
+    """Every number written in front of "skills", with at most two words between them."""
     return _SKILL_COUNT.findall(text)
 
 
@@ -144,7 +145,8 @@ def test_the_docs_page_names_every_skill_and_states_no_count() -> None:
     assert not counted, f"docs/agents.md states a skill count: {counted}"
 
 
-@pytest.mark.parametrize("text", ["Nine shipped skills", "nine domain skills", "9 skills"])
+@pytest.mark.parametrize("text", ["Nine shipped skills", "nine domain skills", "9 skills",
+                                  "nine shipped domain skills"])
 def test_a_planted_skill_count_is_caught(text: str) -> None:
     assert _stated_skill_counts(f"The repository has {text} in it.")
 

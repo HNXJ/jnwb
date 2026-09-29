@@ -68,7 +68,7 @@ jviz.laminar.plot_spectrolaminar_map(
     rel_power=rel_power_matrix,      # [150 freqs x 32 channels], fractions in [0, 1]
     freqs=np.arange(1, 151),
     depths=channel_depths_mm,
-    crossover_depth=crossover_depth,  # computed from this recording, in mm
+    crossover_depth=crossover_depth,  # in mm, computed in step 0 from the plotted profiles
     cmap="Magma",
     depth_unit="mm",                  # required: 'mm', 'um' or 'relative'; never inferred
 )
@@ -80,7 +80,7 @@ jviz.laminar.plot_opposing_gradients(
     gamma_power=gamma_profile,
     alphabeta_power=alphabeta_profile,
     depths=channel_depths_mm,
-    crossover_depth=crossover_depth,  # computed from this recording, in mm
+    crossover_depth=crossover_depth,  # in mm, computed in step 0 from the plotted profiles
     ci_gamma=gamma_ci,              # [32 x 2]
     ci_alphabeta=alphabeta_ci,      # [32 x 2]
     depth_unit="mm",
@@ -98,7 +98,7 @@ canvas.save_and_seal(
         "RESULT": "<the computed result, traced to the source artifact>",
         "LICENSED CLAIM": "<what the result supports>",
         "BARRED CLAIM": "<what it does not support>",
-        "SOURCE ARTIFACTS": ["spectrolaminar_arrays.h5"]
+        "SOURCE ARTIFACTS": ["<the files the plotted arrays were computed from>"]
     }
 )
 # Automatically writes:

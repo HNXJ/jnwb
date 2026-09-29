@@ -30,7 +30,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 2. **Stationarity**: time-domain Granger requires wide-sense stationary inputs; demean and detrend before fitting.
 3. **Surrogate nulls**: significance comes from surrogates that destroy cross-signal alignment while preserving each signal's autocorrelation. `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` pair the source with the wrong trial at 7 or more trials and circularly shift each trial below that, because a few trials admit too few re-pairings for a calibrated null; `params['surrogate_scheme']` records which ran.
 4. **Coupling vs direction vs delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
-5. **Volume conduction**: invariant 8 of the router, [`skills/jnwb/SKILL.md`](../jnwb/SKILL.md) section 4, binds every operation here.
+5. **Volume conduction**: the safeguard **No volume-conduction immunity** in section 4 of the router, [`skills/jnwb/SKILL.md`](../jnwb/SKILL.md), binds every operation here.
 
 ## 4. Minimal Workflow
 ```python
