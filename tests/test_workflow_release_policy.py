@@ -54,10 +54,48 @@ class TestWorkflowReleasePolicy:
         normalized_legacy = " ".join(_LEGACY_DUAL_TRIGGER_IF.split())
         assert condition != normalized_legacy
 
-    def test_publish_pypi_still_needs_build(self):
+    def test_testpypi_needs_build_and_pypi_needs_the_push_run(self):
+        """The release run does not rebuild; PyPI receives the push run's checked files.
+
+        publish-pypi carries no `needs:` because build is skipped on a release event, and a job
+        that needs a skipped job is skipped too. What orders it is its first step, which reads
+        the tag push run's TestPyPI jobs (tested below).
+        """
         jobs = _load_workflow()["jobs"]
-        assert jobs["publish-pypi"]["needs"] == "build"
         assert jobs["publish-testpypi"]["needs"] == "build"
+        assert "needs" not in jobs["publish-pypi"]
+
+    def test_a_release_run_skips_exactly_the_jobs_the_push_run_qualified(self):
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import SKIPPED_ON_RELEASE, required_ci_jobs
+
+        jobs = _load_workflow()["jobs"]
+        skipped = {jid for jid, job in jobs.items()
+                   if " ".join(str(job.get("if", "")).split()) == SKIPPED_ON_RELEASE}
+        assert skipped == {"test", "build"}, skipped
+        # Skipped on a release event is still required of the push run the gate qualifies.
+        required = required_ci_jobs(root=REPO_ROOT)
+        assert jobs["build"]["name"] in required and jobs["test-floors"]["name"] in required
+        assert any(name.startswith("Test (Python ") for name in required), required
+
+    def test_the_release_skip_does_not_make_a_job_optional(self):
+        """Any other condition still drops a job from the required set."""
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import required_ci_jobs
+
+        workflow = (
+            "jobs:\n"
+            "  a:\n    name: A\n    if: github.event_name != 'release'\n    runs-on: x\n"
+            "  b:\n    name: B\n    if: github.event_name == 'push'\n    runs-on: x\n"
+            "  c:\n    name: C\n    runs-on: x\n"
+        )
+        assert sorted(required_ci_jobs(workflow)) == ["A", "C"]
 
     def test_tag_push_still_triggers_validation_pipeline(self):
         workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")

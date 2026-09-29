@@ -40,6 +40,12 @@ concurrency:
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    # Not on a published release: that run uploads the tag push run's files, and publish-pypi's
+    # first step requires that run's TestPyPI upload and verification, which needed these legs
+    # and the build to pass on the same commit. Re-running them repeated the matrix on a tree
+    # already qualified (0.2.7: 76 runner-minutes and 26 minutes before PyPI could start). The same
+    # condition is on build; scripts/release_gate.py still requires both of a push run.
+    if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -147,6 +153,7 @@ jobs:
   build:
     name: Build & Validate Distribution
     needs: [test, test-floors]
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -366,8 +373,8 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: build
-    # Production PyPI is published only when a GitHub Release is published for the tag, and
+    # No `needs: build`: build does not run on a release event, and the files uploaded are the
+    # tag push run's, which its first step checks. Production PyPI is published only when a GitHub Release is published for the tag, and
     # only after the tag's push run published it to TestPyPI and verified it from there. The
     # two are separate runs, so `needs:` cannot order them; the first step reads the push
     # run's two jobs instead. What is uploaded is that push run's distribution artifact, the

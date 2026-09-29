@@ -238,6 +238,10 @@ def test_tutorial_uses_public_jnwb_not_support_readers(path: Path):
 
 
 def test_mkdocs_strict_build():
+    # An absent extra skips, naming the extra, as tests/test_diagrams_render.py does; the release
+    # gate's tooling check requires every extra the suite uses, so no such skip reaches a release.
+    pytest.importorskip("mkdocs", reason="docs extra not installed")
+    pytest.importorskip("material", reason="mkdocs-material not installed")
     res = subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "docs_build.py")],
         cwd=REPO_ROOT,
