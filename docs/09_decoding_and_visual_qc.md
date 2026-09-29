@@ -62,7 +62,7 @@ estimator. Applying them means fitting your own estimator over the trial ids the
 ![Nested Cross-Validated Population Decoding](assets/figures/fig07_population_decoding.dark.png#only-dark)
 
 Panel A of that figure is the per-fold accuracy drawn against `majority_baseline_accuracy`,
-which is the comparison the paragraph above asks for. Panel B is the out-of-fold AUC and F1 against chance. Both
+which is the comparison the paragraph above asks for. Panel B is `jnwb.nested_cv_linear_svm`'s out-of-fold AUC against its chance of 0.5, and its F1. Both
 are row-wise folds on synthetic data, so the number is the upper bound described above, not a
 grouped result.
 
