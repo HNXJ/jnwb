@@ -86,7 +86,7 @@ def _save(fig, name):
 
 
 def fig01_addressing():
-    """Figure 1: Channel addressing & laminar depth classification."""
+    """Figure 1: Channel addressing & geometric depth classification."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.2), dpi=180)
 
     n_ch = 24
@@ -118,7 +118,7 @@ def fig01_addressing():
     ax1.set_title("A. Multi-Area Probe Partitioning\n(jnwb.map_peak_channel_to_area)", pad=8)
     ax1.invert_yaxis()
 
-    # Panel B: Laminar depth classification
+    # Panel B: Geometric depth classification
     z_coords = elec_df["z"].values
     l_colors = [C_GOLD if l == "Superficial" else C_VIOLET for l in layers]
     ax2.barh(range(n_ch), z_coords, color=l_colors, edgecolor="none", height=0.7)
@@ -130,7 +130,7 @@ def fig01_addressing():
     ax2.set_yticks(range(0, n_ch, 4))
     ax2.set_xlabel("Depth z (µm)")
     ax2.set_ylabel("Channel Index")
-    ax2.set_title("B. Cortical Layer from Depth\n(jnwb.classify_layer_from_depth)", pad=8)
+    ax2.set_title("B. Geometric Depth Class\n(jnwb.classify_layer_from_depth)", pad=8)
     ax2.invert_yaxis()
 
     fig.tight_layout()
@@ -222,6 +222,10 @@ def fig03_onset():
     plt.close(fig)
 
 
+#: The rhythm fig04 adds to its aperiodic background.
+FIG04_RHYTHM_HZ = 10.0
+
+
 def fig04_spectral_tilt():
     """Figure 4: Power Spectral Density and aperiodic spectral tilt."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.2, 3.0), dpi=180)
@@ -236,27 +240,31 @@ def fig04_spectral_tilt():
     pink = np.cumsum(white)
     pink -= pink.mean()
     pink /= pink.std()
-    lfp = pink + 0.8 * np.sin(2 * np.pi * 10.0 * t)
+    lfp = pink + 0.8 * np.sin(2 * np.pi * FIG04_RHYTHM_HZ * t)
 
     # Panel A: Time trace
     ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. Raw LFP Time Series\n(random-walk background + 10 Hz rhythm)", pad=8)
+    ax1.set_title(f"A. Raw LFP Time Series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)", pad=8)
 
-    # Panel B: PSD + Tilt fit
+    # Panel B: PSD + power-law fit to that same PSD. spectral_tilt fits its own Welch
+    # spectrum, on a different grid, so its line cannot be drawn over this one.
     freqs, psd = jnwb.compute_psd(lfp, fs=fs)
-    tilt = jnwb.spectral_tilt(lfp, sampling_rate=fs, freq_range=(2.0, 90.0))
+    freqs, psd = freqs[1:], psd[1:]  # aperiodic_fit takes positive frequencies only; drop DC
+    # aperiodic_fit removes no peaks, so the range starts above the rhythm's.
+    fit_range = (15.0, 90.0)
+    fit = jnwb.aperiodic_fit(freqs, psd, freq_range=fit_range)
 
-    mask = (freqs >= 2.0) & (freqs <= 90.0)
+    mask = (freqs >= fit_range[0]) & (freqs <= fit_range[1])
     f_fit = freqs[mask]
-    fitted_psd = tilt["offset"] * (f_fit ** tilt["slope"])
+    fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 
-    ax2.loglog(freqs[1:120], psd[1:120], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={tilt['slope']:.2f}\n(R²={tilt['fit_quality']:.2f})")
+    ax2.loglog(freqs[:119], psd[:119], color=C_GRAY, lw=1.0, label="Welch PSD")
+    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8, label=f"Power-law fit: slope={-fit.exponent:.2f}\n(R²={fit.r_squared:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power Spectral Density")
-    ax2.set_title("B. Aperiodic Tilt (jnwb.spectral_tilt)", pad=8)
+    ax2.set_title("B. Aperiodic Fit (jnwb.aperiodic_fit)", pad=8)
     ax2.legend(frameon=False, loc="lower left", fontsize=7.2)
 
     fig.tight_layout()
@@ -478,7 +486,7 @@ def fig09_directed_connectivity():
     ax2.plot(freq_centers[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, label=f"Net PSI = {psi.x_to_y:+.3f}\n(Positive = X leads Y)")
     ax2.axhline(0, color=C_GRAY, ls="--", lw=0.8)
     ax2.set_xlabel("Frequency (Hz)")
-    ax2.set_ylabel("Phase Slope (rad/Hz)")
+    ax2.set_ylabel("PSI per Frequency Bin (dimensionless)")
     ax2.set_title("B. Phase Slope Index Spectrum\n(jnwb.phase_slope_index)", pad=8)
     ax2.legend(frameon=False, loc="upper right", fontsize=7.5)
 
