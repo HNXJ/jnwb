@@ -115,6 +115,7 @@ while 0.2.8 is released; the version heading carries the schedule (`decisions.md
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
+| W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
 
@@ -271,6 +272,20 @@ Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`.
 - `granger_spectral` is parametric; published values from nonparametric Granger are not directly comparable. Check: the statement sits on the directed-connectivity page. Waits: documentation only.
 Accept: the docs form gate passes and no pitfall is stated on two pages.
 Stop: a statement would claim a safeguard jnwb does not implement.
+
+### 09-07 Checks for the defect classes review keeps finding
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md`.
+Source: `artifacts/defect_classes.md`; each bullet is a class seen twice, or one whose check is cheap.
+- ruling-cited-not-recorded: a "Ruled <date>" citation in `artifacts/` names a ruling its dated file lacks. Check: a gate reads every such citation and finds its row in `artifacts/rulings/<date>.md`, red on the 08-06 commit `8482c7bc`. Waits: process evidence only; no shipped behaviour.
+- rewrite-drops-obligation: a rule-file rewrite loses an obligation its mapping calls kept. Check: for a mapping table with old and new columns, every obligation word (`before`, `after`, `never`, `must`, `only`) in an old rule appears in its new home, red on `8482c7bc` for D1 and D2. Waits: rule-file rewrites are rare and reviewed.
+- second-home-contradiction: a ruled rule keeps its old form in another file. Check: each ruling row may name a forbidden phrase, and the gate greps the repository for it, red on the pooling phrase before 08-07. Waits: every instance so far was found by review.
+- Awareness in state: `artifacts/state.md` records the live worktrees and branches with their HEADs, the newest `CI/CD` run on `dev` with its conclusion, and the open defect classes. Check: the section is generated, and a stale worktree or a red run is named. Waits: the integrator reads these by hand today.
+- The ledger is counted, not typed: `artifacts/defect_classes.md` `Seen` equals its instances. Check: the gate recounts. Waits: hand-kept today.
+Accept: each check is red on the instance its bullet names and green on the live tree; the harness counts the new gate.
+Stop: a check needs judgement a script cannot make; it stays a review rule instead.
 
 # 0.2.10
 
