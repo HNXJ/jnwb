@@ -422,6 +422,7 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - P-255: `causal_exp_smooth(tau_ms=0)` returns NaN with a warning. Check: a refusal. Waits: loud NaN.
 - P-256 permutation half: `build_permutation_plan(labels, None)` raises a bare `TypeError`. Check: it names `groups`. Waits: message quality.
 - P-231: the Rayleigh comment quotes the second-order formula. Check: aligned. Waits: code correct.
+- Deprecations to complete: the `autocorrelogram` refractory verdict values (`jnwb/analyzers.py`) are removed, and trajectory `explained_variance` carries the per-component values (`jnwb/trajectory.py`), as their 0.2.7 warnings say. Check: both land with a CHANGELOG entry. Waits: ruled to land one release after the warning, as the spectral one in 10-03.
 - P-315: `_whole_bin_count` prints "Use , or ..." for a reversed window, and its tolerance near 3e7 bins was not rechecked. Check: the message and a test. Waits: loud on unrealistic input.
 - P-320: the whole-bin refusal prints refused and suggested windows alike at large times. Check: enough digits. Waits: error path only.
 - P-319: the refractory-key test accepts any number of warnings. Check: exactly one. Waits: one in 60 of 60.
