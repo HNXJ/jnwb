@@ -32,7 +32,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
-| B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
 | D analyses a simulator needs | 08-11 | `compute_psd` in `jnwb/spectral.py`, `jnwb/spiking.py`, `tests/test_spectral.py`, `tests/test_spiking.py`, the routing rows of `skills/jnwb-lfp-spectral` and `skills/jnwb-spiking`, `tests/test_skills_validation.py` |
 
 ### 08-11 Analyses a simulator hands to jnwb
@@ -49,21 +48,6 @@ Drafted and built by the jaxfne session in its own clone; integrated after an in
 Accept: each check passes; the routing rows match `inspect.signature`; the suite and harness pass; no default changes a shipped value.
 Stop: a definition would need a choice not ruled here; a refusal would change a shipped value.
 
-### 08-01 The stack and state files in compact form
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/roadmap_proposal.md`, `artifacts/evidence/0.2.8/plan/carry_map.md`.
-Do: carry the live residue of
-`artifacts/planned_post_0.2.6.md` (the benchmark design) to `artifacts/evidence/0.2.8/stack/` and
-delete that file; add `artifacts/rulings/standing.md`, one table of the rulings that still bind (`decisions.md`
-D6, integrator 70); a `carry_map.md` row resolves when it names the commit that finished its work
-(Hamm 2026-09-29); delete `artifacts/evidence/0.2.8/roadmap_proposal.md`, as `restructure_plan.md`
-(d) says.
-Accept: `python scripts/release_gate.py`'s stack readers and gates 15 and 17 pass on the landed
-stack; every row of `carry_map.md` resolves to a live bullet or a stated drop.
-Stop: a carried check would be lost by the compaction.
-
 ### 08-02 Mechanical figure checks, written to fail on today's figures
 
 Release: required-0.2.8.
@@ -74,16 +58,6 @@ figure the report names.
 - P-307: every venv and CI leg skips all 20 figure comparisons on a Matplotlib minor mismatch. Check: a pinned Matplotlib in one CI leg, or a comparison tolerant of the minor version, so one leg compares.
 Accept: each check fails on the baseline figure its bullet names and passes on a clean fixture.
 Stop: a check needs a renderer CI does not have.
-
-### 08-04 The quickstart figure
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `examples/quickstart_jnwb.py`, `examples/figures/*`, `docs/assets/jnwb_quickstart*.png`, `docs/quickstart.md`, `tests/test_figure_form.py`.
-- Quickstart QC row: the refusal texts sit over the histogram and are crossed by the observed line; 6.4 pt captions show at about 5.6 px; serif font and a palette unlike fig01-fig10; band labels print "-0.0". Check: the refusal text above the bars or in the caption, captions sized by QC-7 or moved to the page, `docs/figure_style.py` shared, `+0.0` formatting.
-- P-76: every quickstart run dirties two tracked files through SVG dates and random ids. Check: `rcParams["svg.hashsalt"]` and `metadata={"Date": None}`, and two runs byte-identical.
-Accept: 08-02 passes on the quickstart; two consecutive runs leave `git status` clean.
-Stop: none beyond the standing ones.
 
 ### 08-05 CHANGELOG fragments
 
