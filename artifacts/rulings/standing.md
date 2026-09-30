@@ -1,6 +1,6 @@
 # Standing rulings
 
-The rulings of the dated files in this folder that still bind, one row each, as of `47235371`.
+The rulings of the dated files in this folder that still bind, one row each, as of `7cb72f4b`.
 The dated files stay as written and carry each ruling's reasons and the work it created; this
 table carries only the rule, when it was ruled and what holds it now. Later rows of a dated file
 replace earlier ones on the same subject, and only the standing form is here.
@@ -16,7 +16,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Problem stack | Empty for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_problem_stack.py` |
 | Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/cooperation.md` |
 | Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/cooperation.md` |
-| The agents' chat | `F:/cowork/jnwb-bus/jchat/jchat.py`, bound to 127.0.0.1, is the one chat center; a client that cannot reach it uses the room files | 2026-09-29 | `artifacts/cooperation.md` |
+| The agents' chat | `F:/cowork/jnwb-bus/jchat/jchat.py`, bound to 127.0.0.1, is the one chat center; a client that cannot reach it uses the room files | 2026-09-29 | the ruling (`2026-09-29.md`, "The agents' chat hub") |
 | Corpus access | Read the raw NWB on `D:` read-only; write only to `E:` or the scratchpad; no corpus identifier in `jnwb/`, `docs/`, `skills/` or `tests/` | 2026-09-22 | the ruling; gate 6 for the identifiers (`scripts/harness_gate.py`) |
 | Branches | Only `main`, `dev` and `gh-pages` stay on the remote; merged work is deleted | 2026-09-23 | the ruling |
 | The todo stack's order | The integrator re-sequences lanes, waves and blockers for throughput; no item's meaning, Accept or Stop changes | 2026-09-29 | the ruling |
@@ -30,20 +30,24 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Process tests | The audited prune and merge list stands; it runs after the gates split, each pruned case shown held by a stronger test first | 2026-09-29 | 12-05 |
 | Sweep site fingerprint | The stated gap is kept; keying on the handler body is not built | 2026-09-29 | the ruling |
 | `AGENTS.md` | A router of rules and routes at about 2250 words; reasons go to `artifacts/rulings/history.md` | 2026-09-29 | `AGENTS.md`, `scripts/measure_agents_md_duplication.py` |
+| Echo ratchet | The count of `AGENTS.md` claims echoed elsewhere stays at its measured value, lowered on every rewrite and never raised | 2026-09-29 | `tests/test_agents_md_stays_a_router.py` (`BASELINE_ECHOED`) |
 | `AGENTS.md` §4.7 | Stays a rule; fact S7 keeps only its checkable half | 2026-09-29 | `AGENTS.md` §4 |
 | `AGENTS.md` §7 skills | Points to the one skill table in `docs/agents.md` and names the repository-only skills | 2026-09-26 | `AGENTS.md` §7 |
 | Host skills | A jnwb skill governs jnwb operations; an overlapping host skill adds only checks it leaves open | 2026-09-28 | `AGENTS.md` §7 |
 | Review checks | Live in the repository-only skill `artifacts/skills/jnwb-review`; the verifier dispatch file is a local copy under the git-ignored `.claude/agents/` | 2026-09-28, 2026-09-29 | `artifacts/skills/jnwb-review/SKILL.md` |
 | Process skill | `jnwb-fact-action` does not ship; it lives at `artifacts/skills/jnwb-fact-action/SKILL.md`, and gate 2 accepts a skill there only when no shipped skill has its name | 2026-09-25 | gate 2 (`scripts/harness_gate.py`) |
 | Archive contents | `AGENTS.md` and `jnwb-fact-action` are forbidden components of a built archive | 2026-09-25 | `scripts/release_gate.py` |
-| Role definitions | The files in `artifacts/agents/` are public, linked from `artifacts/agents.md`, and stay out of the wheel | 2026-09-22 | `AGENTS.md` §0 lists them; `artifacts/agents.md` does not link them at `47235371` |
+| Role definitions | The files in `artifacts/agents/` stay out of the wheel; `artifacts/agents.md` names only public capabilities and does not link them, which replaces the 2026-09-22 link (`3d7ac490`) | 2026-09-22, 2026-09-25 | gate 14 (`scripts/harness_gate.py`) |
 | Gate 14 reach | `artifacts/agents.md` is scanned like `README.md` | 2026-09-25 | gate 14 (`scripts/harness_gate.py`) |
 | Spikes and LFP | Never pooled, namespaced or not | 2026-09-29 | `AGENTS.md` §5; 08-07 for `CONTRIBUTING.md` and the docs |
+| Log last | Fact S2 governs every decibel output: average raw power, divide by baseline, take `10*log10` once; a mean-of-dB estimand is a separately named function; `CONTRIBUTING.md` invariant 4 is rewritten to match | 2026-09-29 | fact S2 (`artifacts/fact_stack.md`); the ruling names 08-07 for the rewrite, which carries no bullet for it at `7cb72f4b` |
 | Fact stack form | Typed predicate rows (ID, Domain, Predicate, Held by, Ruled), one atomic claim each, in six tables | 2026-09-29 | `artifacts/fact_stack.md` |
 | Fact graph | Generated as `artifacts/fact_graph.json` by `scripts/build_fact_graph.py`, never committed; `scripts/fact_gate.py` reports each fact HELD, VIOLATED or UNHELD, and VIOLATED fails | 2026-09-29 | `scripts/fact_gate.py`, `tests/test_fact_gate.py` |
 | Fact constants and holders | The lexicons, categories, claim classes, forbidden vocabularies and k are owned in the fact stack; an item that lands a fact's holder replaces its `todo:` cell in the same merge, with a verifier's sign-off | 2026-09-29 | `artifacts/fact_stack.md` |
 | Capability order | Implemented, identity-verified where an execution switch exists, documented, tested, routed; a state holds only with every earlier one; performance evidence is not a state | 2026-09-29 | `artifacts/fact_stack.md` |
 | Fact schedule | 0.2.8 the tables and gate; 0.2.9 Science and Skills; 0.2.10 Identity and B3; 0.2.11 Design; 0.2.12 Release and B2, with no fact UNHELD by the end of 0.2.12 | 2026-09-29 | 09-04, 10-10, 11-03, 12-07 |
+| Identity tests | The fact stack owns the list of test modules whose reference establishes the identity-verified state | 2026-09-29 | `artifacts/fact_stack.md` (`identity tests`) |
+| Invariant checks | Figures call a public operation and draw no bare-literal reference line; the dB-averaging lexicon; randomness implies an `rng` parameter and no global seed; the computational-contract gate; a retype scan over docs generators, examples and skills, backed by review (S1, S2, S5, S6, S7) | 2026-09-29 | 09-04 |
 | Study vocabulary | Gate 6 widens to all of `jnwb/`, `docs/`, `skills/` and `tests/` | 2026-09-29 | 12-07 |
 | Scientific choices | A parameter that sets a scientific choice is keyword-only and required, or defaulted with a cited reason | 2026-09-29 | 10-10 |
 | No pipeline | A public callable delegates to at most one public analysis operation, or names every sequenced choice as a parameter | 2026-09-29 | 11-03 |
@@ -58,13 +62,17 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Downstream paper agent | Lives downstream, pinned to a release; jnwb gains only what every NWB consumer can use | 2026-09-25 | 07-05 |
 | Omission's laminar curation | Arrives as a pull request of composable public parts with cited parameter defaults and no project vocabulary, reviewed against the library rules | 2026-09-24 | 07-05 (P-335) |
 | Benchmark | Stays as declared and unrun; a paper agent's comparison is reported downstream | 2026-09-25 | `artifacts/evidence/0.2.8/stack/benchmark_design.md` |
+| Method references | The Bastos survey lands in phases R1 to R6: method papers on the references page, the pitfalls stated once, one synthetic test per pitfall, skills pointing to their sources, estimator proposals each ruled before code, and reference edges in the fact graph | 2026-09-29 | 09-05, 09-06, 10-11, 10-12, 11-04, 12-08 |
 | Documentation precedence | "No fact present before is absent after" wins; F7 applies to new facts only | 2026-09-29 | 09-02 |
+| Representative API | The `README.md` "Representative API" table may omit modules while `docs/api.md` lists every export | 2026-09-22 | gate 9 (`scripts/harness_gate.py`) for `docs/api.md` |
+| README links | `README.md` does not link `artifacts/todo_stack.md` | 2026-09-23 | gate 14 (`scripts/harness_gate.py`), `tests/test_harness_adversarial_gates.py` |
 | One glossary | Each pair of terms (operation and workflow, session and recording, contact and channel, electrode and electrodes table) is defined once | 2026-09-22 | `docs/glossary.md` |
 | Documentation form page | `docs/documentation_form.md` stays under `docs/`, out of the build and the navigation | 2026-09-26 | `mkdocs.yml` |
 | Prose style gate | Only the slop lexicon is gated; em dashes and bold are not | 2026-09-28 | `scripts/docs_form_gate.py` |
 | Claim wording | A suite test keyed by enclosing fragment and reason, beside gate 14 | 2026-09-27 | `tests/test_claim_wording.py` |
 | API page cells | Signatures render as code spans | 2026-09-27 | `scripts/generate_api_md.py` |
 | Figure legends | A legend that covers data fails release condition 1 | 2026-09-27 | `tests/test_figure_form.py` |
+| fig04 fit | fig04 draws `jnwb.aperiodic_fit` over 15-90 Hz of the `compute_psd` spectrum it plots | 2026-09-29 | `docs/generate_figures.py` |
 | Computational order | Upper bounds justified by the algorithm and its published reference; timed exponents are a separate benchmark with at least three input scales | 2026-09-22 | `CONTRIBUTING.md` |
 | Test taxonomy | One: the probe classes of the "Testing rule" in `CONTRIBUTING.md` | 2026-09-22 | `CONTRIBUTING.md` |
 | Additive API changes | Each gets a `CHANGELOG.md` Added entry and needs no deprecation path | 2026-09-22 | the ruling; 08-05 for the fragment form |
@@ -77,11 +85,12 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Unparseable todo headings | An item-depth heading with no id and no release field is reported by the readiness step; `##` structure is exempt | 2026-09-28 | `scripts/release_gate.py` |
 | Peak memory | The release gate measures peak RSS without writing; the committed record is refreshed before the closure pass | 2026-09-27, 2026-09-28 | `scripts/measure_peak_memory.py`, `scripts/release_gate.py` |
 | Publication order | The tag push publishes to TestPyPI, a verify job checks it with the build job's smoke script, and PyPI requires that job | 2026-09-22, 2026-09-25, 2026-09-28 | `.github/workflows/workflow.yml`, `tests/test_workflow_release_policy.py` |
+| CI on a passed commit | The tag-push matrix is skipped when a dev-push run of the same SHA passed; main and pull-request runs still run; the release event skips the matrix and build, and publish uses the artifacts the tag run verified | 2026-09-29 | 08-07 (RP-4) |
 | After PyPI | A CI job installs the release from PyPI, matches the wheel's sha256 to the tag run's artifact, runs `pip check` and the installed smoke test | 2026-09-29 | 12-07 |
 | `dev` deletion rule | No admin bypass; automatic deletion of merged heads stays | 2026-09-25 | 08-07 (RP-1) |
 | Dependency floors | The lowest versions at which the suite passes, held by a CI leg installed at the floors with no `continue-on-error` | 2026-09-27 | `.github/workflows/workflow.yml`, `tests/test_dependency_floors_are_installable.py` |
 | Suite parallelism | xdist is required, with `--dist=loadgroup`; browser-backed tests share one `xdist_group`, and Plotly export tests one session browser per worker | 2026-09-26, 2026-09-27, 2026-09-28 | `pyproject.toml`, `CONTRIBUTING.md` |
-| State file | `scripts/reconstruct_state.py` removes the old file before it runs the gates | 2026-09-25 | `tests/test_state_reconstruction.py` |
+| State file | `scripts/reconstruct_state.py` removes the old file before it runs the gates | 2026-09-25 | `scripts/reconstruct_state.py:215` |
 | NWB reads | `nwb_read_io` accepts only `mode='r'`; manual labels are written through `pynwb` directly, and jnwb only reads them | 2026-09-23, 2026-09-24 | `jnwb/nwb_io.py` |
 | Waived requirements | `jnwb_waived_requirements` records what was waived on this read, not what was requested | 2026-09-22 | `jnwb/nwb_io.py`, `docs/errors.md` |
 | `starting_time` | `inspect` reports each series' `starting_time`; `acquisition_channel` warns when it is non-zero | 2026-09-23 | `jnwb/nwb_inspect.py` |
@@ -121,8 +130,8 @@ live item that will; a ruling held by nothing else says "the ruling".
 | `cluster_permutation_test` | Cluster sums by one stable sort, bitwise identical to the mask sums | 2026-09-27 | `jnwb/statistics.py` |
 | `raster_psth` | A window that is not a whole multiple of `bin_ms` raises, naming the nearest valid windows; offsets are clipped to the outer bin edges | 2026-09-23, 2026-09-26 | `jnwb/viz.py`, `jnwb/_bins.py`, `tests/test_analyzers_coverage.py` |
 | Response significance | The conditional binomial test of response against baseline counts, gated by `alpha` beside the z gate; `pvalue` is reported when the z-score is undefined | 2026-09-26, 2026-09-27 | `jnwb/spiking.py`, `tests/test_spiking.py` |
-| Unit quality | `quality_metrics` sorts spike times; its ISI rule is the single-unit check; `autocorrelogram`'s refractory verdict is NaN behind a `FutureWarning` | 2026-09-23, 2026-09-28 | `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`; 10-03 for the removal |
-| Trajectories | `explained_variance_ratio` and `explained_variance_per_component` carry the new values; `explained_variance` switches to the per-component meaning; one private helper holds the variance rule | 2026-09-26, 2026-09-27 | `jnwb/trajectory.py`; 10-03 for the switch |
+| Unit quality | `quality_metrics` sorts spike times; its ISI rule is the single-unit check; `autocorrelogram`'s refractory verdict is NaN behind a `FutureWarning` | 2026-09-23, 2026-09-28 | `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`; 10-08 for the removal |
+| Trajectories | `explained_variance_ratio` and `explained_variance_per_component` carry the new values; `explained_variance` switches to the per-component meaning; one private helper holds the variance rule | 2026-09-26, 2026-09-27 | `jnwb/trajectory.py`; 10-08 for the switch |
 | Addressing | A channel id missing from the first identifier column returns the not-found result | 2026-09-27 | `jnwb/addressing.py` |
 | Preflight | `jnwb.preflight(question)` returns one of the four outcomes with the reason and missing inputs as data; a minimal core (`signals`, `signal_units`, `contrast`, `inference_unit`) is required, else `request`; decline is caller-declared; a blank or `None` unit means not stated, a non-string raises | 2026-09-25, 2026-09-26 | `jnwb/ontology.py` |
 | `zflip` orientation | A required `orientation=` of `'superficial_to_deep'` or `'deep_to_superficial'` | 2026-09-24 | `jnwb/laminar.py` |
