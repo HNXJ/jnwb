@@ -121,6 +121,32 @@ class TestComputePsd:
         with pytest.raises(ValueError, match="out of range"):
             compute_psd(np.ones((8, 400)), 1000.0, axis=5)
 
+    def test_the_default_segment_is_unchanged_by_the_nperseg_argument(self):
+        """`nperseg=None` keeps the segment of min(n_times, int(fs)) bit for bit."""
+        from scipy import signal as sp_signal
+        rng = np.random.default_rng(7)
+        for shape, fs, axis in (((3000, 4), 1000.0, 0), ((4, 700), 1000.0, -1), ((2500,), 400.0, 0)):
+            x = rng.standard_normal(shape)
+            freqs, psd = compute_psd(x, fs, axis=axis)
+            ref_f, ref_p = sp_signal.welch(x, fs=fs, nperseg=min(x.shape[axis], int(fs)), axis=axis)
+            np.testing.assert_array_equal(freqs, ref_f)
+            np.testing.assert_array_equal(psd, ref_p)
+            np.testing.assert_array_equal(compute_psd(x, fs, axis=axis, nperseg=None)[1], psd)
+
+    def test_nperseg_is_the_welch_segment_length(self):
+        from scipy import signal as sp_signal
+        x = np.random.default_rng(8).standard_normal((4000, 3))
+        freqs, psd = compute_psd(x, 10000.0, nperseg=256)
+        ref_f, ref_p = sp_signal.welch(x, fs=10000.0, nperseg=256, axis=0)
+        np.testing.assert_array_equal(freqs, ref_f)
+        np.testing.assert_array_equal(psd, ref_p)
+        assert freqs[1] - freqs[0] == pytest.approx(10000.0 / 256)
+
+    @pytest.mark.parametrize("bad", [1, 0, -4, 4001, 2.5, True, "256"])
+    def test_an_nperseg_outside_two_to_the_trace_length_raises(self, bad):
+        with pytest.raises(ValueError, match="nperseg"):
+            compute_psd(np.ones(4000), 1000.0, nperseg=bad)
+
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("to_db", "harmonic_analysis", "cross_area_coherence", "spectral_tilt",
