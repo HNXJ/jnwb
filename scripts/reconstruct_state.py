@@ -91,22 +91,38 @@ def package_facts() -> dict[str, str]:
     }
 
 
+HARNESS_COMMAND = (sys.executable, "scripts/harness_gate.py")
+
+
+def harness_verdict() -> tuple[str, str]:
+    """``(stdout, verdict)`` of one harness run.
+
+    Only a harness that could not be run -- a timeout, or an interpreter that would not start --
+    is unresolved, because it says nothing about the gates. A harness that ran is passed only
+    when it exited 0 and printed its pass line; any other exit, including a crash that printed
+    nothing, is a failure.
+    """
+    try:
+        proc = subprocess.run(
+            HARNESS_COMMAND, cwd=REPO_ROOT, capture_output=True, text=True,
+            timeout=COMMAND_TIMEOUT_S,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return "", f"UNRESOLVED ({type(exc).__name__})"
+    out = (proc.stdout or "").strip()
+    if proc.returncode == 0 and "ALL HARNESS GATES PASSED" in out:
+        return out, "ALL HARNESS GATES PASSED"
+    return out, f"FAILED (exit {proc.returncode}) -- run the gate and read its output"
+
+
 def count_lines(text: str) -> int:
     return len([line for line in text.splitlines() if line.strip()])
 
 
 def build() -> str:
     pkg = package_facts()
-    gate_output = run(sys.executable, "scripts/harness_gate.py")
+    gate_output, gate_verdict = harness_verdict()
     gate_pass = len(re.findall(r"^PASS:", gate_output, re.MULTILINE))
-    # A harness that could not be run (a timeout, a missing interpreter) says nothing about the
-    # gates, so it is recorded as unresolved, never as a failure of them.
-    if gate_output.startswith("UNRESOLVED"):
-        gate_verdict = gate_output
-    elif "ALL HARNESS GATES PASSED" in gate_output:
-        gate_verdict = "ALL HARNESS GATES PASSED"
-    else:
-        gate_verdict = "FAILED -- run the gate and read its output"
 
     skills = sorted(p.parent.name for p in (REPO_ROOT / "skills").glob("*/SKILL.md"))
     roles = sorted(p.stem for p in (REPO_ROOT / "artifacts" / "agents").glob("*.md"))

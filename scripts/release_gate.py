@@ -1550,7 +1550,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
-      4. the committed peak-memory record names the version HEAD declares.
+      4. the committed peak-memory record names the version HEAD declares;
+      5. ``changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1642,7 +1643,36 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     stale_record = peak_memory_record_violation(root)
     if stale_record:
         violations.append(stale_record)
+
+    # 5. every changelog fragment has been assembled into CHANGELOG.md
+    leftover = unassembled_fragments(root)
+    if leftover is None:
+        violations.append("git cannot list changelog.d/ at HEAD, so whether every changelog "
+                          "fragment reached CHANGELOG.md is unknown")
+    elif leftover:
+        violations.append(
+            f"{len(leftover)} file(s) in changelog.d/ at HEAD are not assembled into "
+            f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
+            + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
     return violations
+
+
+def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
+    """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
+
+    Anything else there is a change the assembled section does not carry. The exempt names are
+    the assembler's own, imported rather than retyped.
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+    from scripts.assemble_changelog import NOT_FRAGMENTS
+
+    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "changelog.d"],
+                            cwd=root, capture_output=True, text=True)
+    if listed.returncode != 0:
+        return None
+    return sorted(name for name in listed.stdout.splitlines()
+                  if pathlib.PurePosixPath(name).name not in NOT_FRAGMENTS)
 
 
 def check_state_is_current(root: pathlib.Path = REPO_ROOT) -> List[str]:

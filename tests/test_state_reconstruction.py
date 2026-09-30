@@ -92,6 +92,24 @@ def test_a_harness_that_times_out_is_unresolved_not_failed(monkeypatch: pytest.M
     assert "FAILED" not in row, row
 
 
+def test_a_harness_that_crashes_is_failed_not_unresolved(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A harness that ran and died without printing a verdict failed; it was not unmeasurable.
+
+    The stand-in exits 3 with nothing on stdout, the shape `run` marks as unresolved elsewhere.
+    """
+    import scripts.reconstruct_state as reconstruct_state
+
+    crash = tmp_path / "crashing_harness.py"
+    crash.write_text("import sys\nsys.stderr.write('Traceback: boom\\n')\nsys.exit(3)\n",
+                     encoding="utf-8")
+    monkeypatch.setattr(reconstruct_state, "HARNESS_COMMAND", (sys.executable, str(crash)))
+    out, verdict = reconstruct_state.harness_verdict()
+    assert out == "" and verdict.startswith("FAILED (exit 3)"), verdict
+    assert "UNRESOLVED" not in verdict, verdict
+
+
 def test_an_unresolved_row_says_why(generated: str):
     """A row that could not be measured says so, with its cause; it never reports a wrong value.
 
