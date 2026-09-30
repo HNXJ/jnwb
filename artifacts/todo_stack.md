@@ -33,7 +33,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
 | B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
-| C execution identity | 08-10 | `jnwb/connectivity.py`, `tests/test_parallel.py` |
 
 ### 08-01 The stack and state files in compact form
 
@@ -98,17 +97,6 @@ Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workfl
 Accept: one release-gate run on a tree with a stale state file fails within a minute.
 Stop: reordering would let a later step pass on an unverified artifact.
 
-### 08-10 `directed_network` is identical across worker and BLAS thread counts
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `tests/test_parallel.py`.
-Source: E-1 and E-2 of `artifacts/evidence/0.2.8/api_proposals/execution_identity.md`.
-- E-1: `directed_network(method="granger")` changes by up to 1.8e-9 relative with `n_jobs` at the proposal's large size, against fact S6; `tests/test_parallel.py` uses a size at which it is bit-identical. Check: a test at a size that reproduces the gap, red before the repair.
-- E-2: the serial result depends on the BLAS thread count (one thread against 24: 1.8e-9). Check: the fits use a reduction order independent of the thread count.
-Accept: serial, `n_jobs` in 2, 4, 8 and -1, and BLAS threads 1 and default agree bit for bit at both sizes.
-Stop: bit identity would change the estimator, or the only repair is a restated tolerance (fact S6 is Hamm's).
-
 # 0.2.9
 
 Theme: the skill set is complete and routes every export, and the documentation menu follows how a
@@ -127,6 +115,7 @@ while 0.2.8 is released; the version heading carries the schedule (`decisions.md
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
+| W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
 
@@ -284,6 +273,20 @@ Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`.
 Accept: the docs form gate passes and no pitfall is stated on two pages.
 Stop: a statement would claim a safeguard jnwb does not implement.
 
+### 09-07 Checks for the defect classes review keeps finding
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md`.
+Source: `artifacts/defect_classes.md`; each bullet is a class seen twice, or one whose check is cheap.
+- ruling-cited-not-recorded: a "Ruled <date>" citation in `artifacts/` names a ruling its dated file lacks. Check: a gate reads every such citation and finds its row in `artifacts/rulings/<date>.md`, red on the 08-06 commit `8482c7bc`. Waits: process evidence only; no shipped behaviour.
+- rewrite-drops-obligation: a rule-file rewrite loses an obligation its mapping calls kept. Check: for a mapping table with old and new columns, every obligation word (`before`, `after`, `never`, `must`, `only`) in an old rule appears in its new home, red on `8482c7bc` for D1 and D2. Waits: rule-file rewrites are rare and reviewed.
+- second-home-contradiction: a ruled rule keeps its old form in another file. Check: each ruling row may name a forbidden phrase, and the gate greps the repository for it, red on the pooling phrase before 08-07. Waits: every instance so far was found by review.
+- Awareness in state: `artifacts/state.md` records the live worktrees and branches with their HEADs, the newest `CI/CD` run on `dev` with its conclusion, and the open defect classes. Check: the section is generated, and a stale worktree or a red run is named. Waits: the integrator reads these by hand today.
+- The ledger is counted, not typed: `artifacts/defect_classes.md` `Seen` equals its instances. Check: the gate recounts. Waits: hand-kept today.
+Accept: each check is red on the instance its bullet names and green on the live tree; the harness counts the new gate.
+Stop: a check needs judgement a script cannot make; it stays a review rule instead.
+
 # 0.2.10
 
 Theme: oversized modules become small packages behind the same public API, and the scientific
@@ -434,6 +437,7 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - P-255: `causal_exp_smooth(tau_ms=0)` returns NaN with a warning. Check: a refusal. Waits: loud NaN.
 - P-256 permutation half: `build_permutation_plan(labels, None)` raises a bare `TypeError`. Check: it names `groups`. Waits: message quality.
 - P-231: the Rayleigh comment quotes the second-order formula. Check: aligned. Waits: code correct.
+- Deprecations to complete: the `autocorrelogram` refractory verdict values (`jnwb/analyzers.py`) are removed, and trajectory `explained_variance` carries the per-component values (`jnwb/trajectory.py`), as their 0.2.7 warnings say. Check: both land with a CHANGELOG entry. Waits: ruled to land one release after the warning, as the spectral one in 10-03.
 - P-315: `_whole_bin_count` prints "Use , or ..." for a reversed window, and its tolerance near 3e7 bins was not rechecked. Check: the message and a test. Waits: loud on unrealistic input.
 - P-320: the whole-bin refusal prints refused and suggested windows alike at large times. Check: enough digits. Waits: error path only.
 - P-319: the refractory-key test accepts any number of warnings. Check: exactly one. Waits: one in 60 of 60.

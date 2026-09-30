@@ -74,7 +74,25 @@ choices by the decision grades of `AGENTS.md` §12; a stop report lists the opti
 No task runs on a schedule. "On request" means Hamm asks, or an agent asks on the bus or in
 chat; the agent asked runs it in its next turn.
 
-## Conflicts
+## Routing and learning
+
+The integrator routes each packet to an agent tier by what decides its claims, and the tier
+follows the evidence of what review keeps finding.
+
+| The packet's claims are decided by | Actor | Review |
+|---|---|---|
+| a gate or test alone: stack, rulings and pointer edits, docs a test reads | `jnwb-actor-fast` | the gate; no verifier |
+| a bounded code repair with a test | `jnwb-actor` | `jnwb-verifier` |
+| scientific meaning, a public API, a rule-file rewrite, or a release step | `jnwb-actor` | `jnwb-verifier` and `jnwb-critic-sonnet`, independently |
+
+- **A review names the class of each finding**, from `artifacts/defect_classes.md` or `new`; the
+  integrator adds the instance there in the merge that resolves it.
+- **A class seen twice gets a mechanical check or a rule**, as a todo item, and until it lands,
+  packets of that class route one tier up.
+- **An escalation is a result.** `ESCALATE` from a fast actor re-routes the packet; the class of
+  what it could not decide is recorded like a finding.
+- **A tier is lowered only by evidence**: a class whose check has landed and caught a real instance
+  no longer needs the tier that used to catch it.
 
 The authority order is that of `AGENTS.md` §1: the receipt on disk, then live repository state,
 then machine-readable state files, then prose and messages. An agent that finds a conflict on a
