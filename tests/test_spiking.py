@@ -497,3 +497,174 @@ class TestResponseMetricsDoNotManufactureResponses:
         m = compute_response_metrics(np.sort(np.concatenate([base, drive])), self.ONSETS)
         sig = classify_response_significance(m)
         assert m["response_zscore"] > 3.0 and sig["is_significant"] and sig["confidence"] == "high"
+
+
+class TestFleissKappa:
+    # Fleiss (1971), doi:10.1037/h0031619: 30 patients, 6 raters each, categories
+    # Depression, Personality disorder, Schizophrenia, Neurosis, Other; the paper reports
+    # kappa = .430. Ratings as transcribed in the R packages irr (`diagnoses`) and lagree
+    # (`diagnosis`, data-raw/make-data-for-examples.R).
+    FLEISS_1971 = (
+        "NNNNNN PPPOOO PSSSSO OOOOOO PPPNNN DDSSSS SSSSOO DDSSSN DDNNNN OOOOOO "
+        "DNNNNN DPNNNN PPPSSS DNNNNN PPNNNO SSSSSO DDDNOO DDDDDP PPNNNN DSSOOO "
+        "OOOOOO PNNNNN PPNOOO DDNNNN DNNNNO PPPPPN DDDDOO PPNNNN DSSSSS OOOOOO"
+    ).split()
+
+    def _table(self):
+        return np.array([[row.count(c) for c in "DPSNO"] for row in self.FLEISS_1971])
+
+    def test_reproduces_the_worked_example_of_fleiss_1971(self):
+        from jnwb.spiking import fleiss_kappa
+        table = self._table()
+        assert table.shape == (30, 5) and set(table.sum(axis=1)) == {6}
+        assert round(fleiss_kappa(table), 3) == 0.430
+
+    def test_matches_an_independent_implementation(self):
+        from jnwb.spiking import fleiss_kappa
+        inter_rater = pytest.importorskip("statsmodels.stats.inter_rater")
+        rng = np.random.default_rng(11)
+        for table in (self._table(), rng.multinomial(9, [0.5, 0.3, 0.2], size=40)):
+            assert fleiss_kappa(table) == pytest.approx(inter_rater.fleiss_kappa(table, method="fleiss"), abs=1e-12)
+
+    def test_items_are_bins_and_raters_are_units(self):
+        from jnwb.spiking import fleiss_kappa
+        rng = np.random.default_rng(12)
+        drive = rng.random(200) < 0.3                       # a shared state every unit mostly follows
+        active = np.where(rng.random((8, 200)) < 0.9, drive, ~drive)
+        k = active.sum(axis=0)
+        kappa = fleiss_kappa(np.column_stack([active.shape[0] - k, k]))
+        assert 0.5 < kappa < 0.8                            # 0.9 fidelity: (1 - 2*0.1)^2 = 0.64 expected
+        indep = rng.random((8, 200)) < 0.3
+        k = indep.sum(axis=0)
+        assert abs(fleiss_kappa(np.column_stack([8 - k, k]))) < 0.05
+
+    @pytest.mark.parametrize("bad", [
+        np.array([[6, 0], [6, 0]]),                         # constant: kappa is 0/0
+        np.array([[3, 3], [2, 3]]),                         # unequal rater counts
+        np.array([[1, 0], [0, 1]]),                         # one rater per item
+        np.array([[2.5, 3.5], [3, 3]]),                     # fractional
+        np.array([[-1, 7], [3, 3]]),                        # negative
+        np.array([6, 0]),                                   # not 2-D
+    ])
+    def test_refuses_an_undefined_or_malformed_table(self, bad):
+        from jnwb.spiking import fleiss_kappa
+        with pytest.raises(ValueError, match="fleiss_kappa"):
+            fleiss_kappa(bad)
+
+
+class TestSpikeCountCorrelation:
+    def test_equals_the_mean_pairwise_pearson_r_of_binned_counts(self):
+        from jnwb.spiking import spike_count_correlation
+        rng = np.random.default_rng(21)
+        common = np.sort(rng.uniform(0, 10, 300))
+        units = [np.sort(np.concatenate([common[rng.random(300) < 0.5], rng.uniform(0, 10, 100)]))
+                 for _ in range(4)]
+        res = spike_count_correlation(units, (0.0, 10.0), bin_ms=50.0)
+        edges = np.arange(0, 10.0 + 1e-9, 0.05)
+        counts = np.array([np.histogram(u, edges)[0] for u in units])
+        ref = [stats.pearsonr(counts[i], counts[j])[0] for i in range(4) for j in range(i + 1, 4)]
+        assert res["mean_r"] == pytest.approx(np.mean(ref), abs=1e-12)
+        assert res["n_pairs"] == 6 and res["n_excluded"] == 0 and res["n_bins"] == 200
+        assert res["mean_r"] > 0.2
+
+    def test_a_silent_unit_is_excluded_and_counted_not_scored_zero(self):
+        from jnwb.spiking import spike_count_correlation
+        rng = np.random.default_rng(22)
+        a = np.sort(rng.uniform(0, 5, 200))
+        units = [a, a + 1e-4, np.array([])]
+        res = spike_count_correlation(units, (0.0, 5.0), bin_ms=100.0)
+        assert res["n_excluded"] == 1 and list(res["excluded_units"]) == [2]
+        assert res["n_pairs"] == 1 and res["mean_r"] > 0.9
+        assert np.all(np.isnan(res["r"][2]))
+
+    def test_the_bin_width_is_required(self):
+        from jnwb.spiking import spike_count_correlation
+        with pytest.raises(TypeError):
+            spike_count_correlation([np.array([0.1])], (0.0, 1.0))
+        with pytest.raises(ValueError, match="bin_ms"):
+            spike_count_correlation([np.array([0.1])], (0.0, 1.0), bin_ms=0.0)
+        with pytest.raises(ValueError, match="per-unit"):
+            spike_count_correlation(np.array([0.1, 0.2]), (0.0, 1.0), bin_ms=10.0)
+
+
+class TestFanoFactor:
+    ONSETS = np.arange(200) * 2.0
+
+    def test_poisson_units_give_one_and_regular_units_give_zero(self):
+        from jnwb.spiking import fano_factor
+        rng = np.random.default_rng(31)
+        poisson = [np.concatenate([o + rng.uniform(0, 0.5, rng.poisson(8)) for o in self.ONSETS])
+                   for _ in range(10)]
+        res = fano_factor(poisson, self.ONSETS, (0.0, 0.5), summary="mean")
+        assert res["fano"] == pytest.approx(1.0, abs=0.1)
+        assert res["counts"].shape == (10, 200)
+        regular = [np.concatenate([o + np.linspace(0.01, 0.49, 5) for o in self.ONSETS])]
+        assert fano_factor(regular, self.ONSETS, (0.0, 0.5), summary="median")["fano"] == 0.0
+
+    def test_is_per_unit_across_trials_not_of_the_population_sum(self):
+        from jnwb.spiking import fano_factor
+        # Two anti-correlated units: each alternates 0 and 4 spikes, the sum is always 4.
+        a = np.concatenate([o + np.linspace(0.1, 0.4, 4) for o in self.ONSETS[0::2]])
+        b = np.concatenate([o + np.linspace(0.1, 0.4, 4) for o in self.ONSETS[1::2]])
+        res = fano_factor([a, b], self.ONSETS, (0.0, 0.5), summary="mean")
+        var = np.var(np.tile([4.0, 0.0], 100), ddof=1)
+        np.testing.assert_allclose(res["per_unit"], [var / 2.0, var / 2.0])
+        assert res["fano"] == pytest.approx(var / 2.0)          # the population sum would give 0
+
+    def test_a_zero_mean_unit_is_excluded_and_counted(self):
+        from jnwb.spiking import fano_factor
+        a = np.concatenate([o + np.array([0.1, 0.2]) for o in self.ONSETS[:10]])
+        res = fano_factor([a, np.array([])], self.ONSETS[:10], (0.0, 0.5), summary="mean")
+        assert res["n_excluded"] == 1 and np.isnan(res["per_unit"][1]) and res["fano"] == 0.0
+        assert np.isnan(fano_factor([np.array([])], self.ONSETS[:3], (0.0, 0.5), summary="mean")["fano"])
+
+    def test_the_window_is_right_open(self):
+        from jnwb.spiking import fano_factor
+        res = fano_factor([np.array([0.0, 0.5, 2.0, 2.5])], [0.0, 2.0], (0.0, 0.5), summary="mean")
+        np.testing.assert_array_equal(res["counts"], [[1, 1]])
+
+    @pytest.mark.parametrize("kw", [dict(summary="max"), dict(onsets_s=[1.0]), dict(window_s=(0.5, 0.5))])
+    def test_refusals(self, kw):
+        from jnwb.spiking import fano_factor
+        args = dict(spike_times=[np.array([0.1])], onsets_s=[0.0, 1.0], window_s=(0.0, 0.5), summary="mean")
+        args.update(kw)
+        with pytest.raises(ValueError, match="fano_factor"):
+            fano_factor(**args)
+        with pytest.raises(TypeError):
+            fano_factor([np.array([0.1])], [0.0, 1.0], (0.0, 0.5))
+
+
+class TestNetworkBurstIndex:
+    def _raster(self, rng):
+        """Four units, 0.5 Hz background each, plus two 100 ms network bursts of 20 spikes per unit."""
+        units = []
+        for _ in range(4):
+            bg = rng.uniform(0, 10, 5)
+            burst = np.concatenate([rng.uniform(2.0, 2.1, 20), rng.uniform(6.0, 6.1, 20)])
+            units.append(np.sort(np.concatenate([bg, burst])))
+        return units
+
+    def test_finds_the_planted_bursts_and_their_spike_fraction(self):
+        from jnwb.spiking import network_burst_index
+        units = self._raster(np.random.default_rng(41))
+        res = network_burst_index(units, (0.0, 10.0), bin_ms=50.0, threshold_hz=200.0, min_duration_ms=100.0)
+        assert res["n_bursts"] == 2 and res["n_spikes"] == 180
+        np.testing.assert_allclose(res["bursts_s"][:, 0], [2.0, 6.0])
+        assert res["bursts_s"][0, 1] - res["bursts_s"][0, 0] >= 0.1
+        assert res["n_spikes_in_bursts"] >= 160
+        assert res["burst_index"] == res["n_spikes_in_bursts"] / 180
+
+    def test_the_minimum_duration_drops_short_runs(self):
+        from jnwb.spiking import network_burst_index
+        units = self._raster(np.random.default_rng(42))
+        res = network_burst_index(units, (0.0, 10.0), bin_ms=50.0, threshold_hz=200.0, min_duration_ms=500.0)
+        assert res["n_bursts"] == 0 and res["burst_index"] == 0.0 and res["bursts_s"].shape == (0, 2)
+
+    def test_no_spikes_is_nan_and_the_definition_is_required(self):
+        from jnwb.spiking import network_burst_index
+        res = network_burst_index([np.array([])], (0.0, 1.0), bin_ms=10.0, threshold_hz=5.0, min_duration_ms=0.0)
+        assert np.isnan(res["burst_index"])
+        with pytest.raises(TypeError):
+            network_burst_index([np.array([0.1])], (0.0, 1.0), bin_ms=10.0, threshold_hz=5.0)
+        with pytest.raises(ValueError, match="threshold_hz"):
+            network_burst_index([np.array([0.1])], (0.0, 1.0), bin_ms=10.0, threshold_hz=0.0, min_duration_ms=0.0)

@@ -602,3 +602,282 @@ def gaussian_smooth_rate(
         )
     return out
 
+
+def _unit_trains(spike_times, name: str) -> List[np.ndarray]:
+    """One 1-D float array of spike times (s) per unit; a bare 1-D array is refused as ambiguous."""
+    if isinstance(spike_times, np.ndarray) and spike_times.dtype != object:
+        raise ValueError(
+            f"{name}: spike_times must be a sequence of per-unit 1-D arrays of spike times in "
+            "seconds, got a single array; wrap one unit as [times]."
+        )
+    trains = [np.asarray(u, dtype=float).ravel() for u in spike_times]
+    for i, u in enumerate(trains):
+        if not np.all(np.isfinite(u)):
+            raise ValueError(f"{name}: unit {i} has a non-finite spike time.")
+    return trains
+
+
+def _unit_counts(trains: List[np.ndarray], window_s, bin_ms: float) -> np.ndarray:
+    """``(n_units, n_bins)`` counts in right-open bins, through `bin_spikes`'s whole-bin contract."""
+    from .connectivity import bin_spikes
+    if not np.isfinite(bin_ms) or bin_ms <= 0:
+        raise ValueError(f"bin_ms must be positive and finite, got {bin_ms}.")
+    if not trains:
+        return np.zeros((0, 0))
+    return np.vstack([bin_spikes([u], window_s=window_s, bin_size_ms=bin_ms) for u in trains])
+
+
+def fleiss_kappa(counts: np.ndarray) -> float:
+    r"""Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).
+
+    ``counts[i, j]`` is how many raters put item ``i`` in category ``j``; every row sums to the
+    same number of raters ``m >= 2``. With :math:`p_j` the share of all ratings in category
+    ``j``, :math:`P_i = (\sum_j n_{ij}^2 - m) / (m(m-1))`, :math:`\bar P` their mean and
+    :math:`P_e = \sum_j p_j^2`, kappa is :math:`(\bar P - P_e) / (1 - P_e)`.
+
+    For binary spike states the items are time bins and the raters are units. From a boolean
+    ``active`` array of shape ``(n_units, n_bins)``::
+
+        k = active.sum(axis=0)
+        counts = np.column_stack([active.shape[0] - k, k])
+
+    Args:
+        counts: ``(n_items, n_categories)`` array of non-negative integer rater counts.
+
+    Returns:
+        Kappa as a float: 1 for perfect agreement, 0 at chance, negative below chance.
+
+    Raises:
+        ValueError: If `counts` is not 2-D with at least one item and two categories, holds a
+            negative, fractional or non-finite count, has rows with different sums or fewer than
+            two raters per item, or is constant -- every rating in one category, where
+            :math:`P_e = 1` and kappa is 0/0. A constant table is refused, never returned as 0.
+
+    References:
+        Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters.
+        Psychological Bulletin 76(5), 378-382. doi:10.1037/h0031619
+    """
+    arr = np.asarray(counts, dtype=float)
+    if arr.ndim != 2 or arr.shape[0] < 1 or arr.shape[1] < 2:
+        raise ValueError(
+            f"fleiss_kappa: counts must be 2-D (n_items, n_categories) with at least one item "
+            f"and two categories, got shape {arr.shape}."
+        )
+    if not np.all(np.isfinite(arr)) or np.any(arr < 0) or np.any(arr != np.round(arr)):
+        raise ValueError("fleiss_kappa: counts must be non-negative integers.")
+    m = arr.sum(axis=1)
+    if np.any(m != m[0]):
+        raise ValueError(
+            f"fleiss_kappa: every item needs the same number of raters; row sums run from "
+            f"{m.min():g} to {m.max():g}."
+        )
+    m = m[0]
+    if m < 2:
+        raise ValueError(f"fleiss_kappa: agreement needs at least two raters per item, got {m:g}.")
+    p_j = arr.sum(axis=0) / (arr.shape[0] * m)
+    p_e = float(np.sum(p_j ** 2))
+    if p_e >= 1.0:
+        raise ValueError(
+            "fleiss_kappa: every rating falls in one category, so chance agreement is 1 and "
+            "kappa is 0/0 (undefined)."
+        )
+    p_i = (np.sum(arr ** 2, axis=1) - m) / (m * (m - 1))
+    return float((p_i.mean() - p_e) / (1.0 - p_e))
+
+
+def spike_count_correlation(
+    spike_times,
+    window_s: Tuple[float, float],
+    *,
+    bin_ms: float,
+) -> Dict[str, Any]:
+    """Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).
+
+    Each unit's spikes are counted in right-open bins of `bin_ms` over `window_s` (the
+    `bin_spikes` contract), and the Pearson r of every pair of units' count series is averaged.
+    The bin width sets the timescale the correlation measures, so it has no default.
+
+    A unit whose counts do not vary has no defined r with any partner. It is excluded and
+    reported, never scored as r = 0, which would pull the mean toward zero.
+
+    Args:
+        spike_times: Sequence of per-unit 1-D arrays of spike times in seconds.
+        window_s: ``(start, end)`` in seconds; the span must be whole bins.
+        bin_ms: Bin width in milliseconds; required.
+
+    Returns:
+        Dict with ``mean_r`` (NaN with fewer than two usable units), ``r`` (the
+        ``(n_units, n_units)`` correlation matrix, NaN in excluded units' rows and columns and
+        on the diagonal), ``n_pairs``, ``n_units``, ``n_bins``, ``excluded_units`` (indices of
+        zero-variance units) and ``n_excluded``.
+
+    Raises:
+        ValueError: If `spike_times` is a bare array, a spike time is non-finite, `bin_ms` is not
+            positive and finite, or the window is not whole bins.
+
+    References:
+        Cohen, M. R., and Kohn, A. (2011). Measuring and interpreting neuronal correlations.
+        Nature Neuroscience 14(7), 811-819. doi:10.1038/nn.2842
+    """
+    trains = _unit_trains(spike_times, "spike_count_correlation")
+    counts = _unit_counts(trains, window_s, bin_ms)
+    n_units = len(trains)
+    n_bins = counts.shape[1] if n_units else 0
+    excluded = [i for i in range(n_units) if np.all(counts[i] == counts[i, 0])] if n_bins else list(range(n_units))
+    keep = [i for i in range(n_units) if i not in excluded]
+    r = np.full((n_units, n_units), np.nan)
+    if len(keep) >= 2:
+        sub = np.corrcoef(counts[keep])
+        r[np.ix_(keep, keep)] = sub
+    np.fill_diagonal(r, np.nan)
+    iu = np.triu_indices(len(keep), k=1)
+    pair_r = r[np.ix_(keep, keep)][iu] if len(keep) >= 2 else np.array([])
+    return {
+        "mean_r": float(pair_r.mean()) if pair_r.size else float("nan"),
+        "r": r,
+        "n_pairs": int(pair_r.size),
+        "n_units": n_units,
+        "n_bins": int(n_bins),
+        "excluded_units": np.asarray(excluded, dtype=int),
+        "n_excluded": len(excluded),
+    }
+
+
+def fano_factor(
+    spike_times,
+    onsets_s,
+    window_s: Tuple[float, float],
+    *,
+    summary: str,
+) -> Dict[str, Any]:
+    """Fano factor per unit across trials, summarised over units (Churchland et al. 2010).
+
+    For each unit, the spike count in the fixed window ``[onset + window_s[0], onset +
+    window_s[1])`` is taken on every trial, and its across-trial variance (ddof=1, the unbiased
+    estimate, so a Poisson unit has expectation 1) is divided by its mean. `summary` chooses
+    the mean or the median over units and has no default.
+
+    A unit with a zero mean count has no defined Fano factor. It is excluded and reported, never
+    returned as 0 or 1.
+
+    Args:
+        spike_times: Sequence of per-unit 1-D arrays of spike times in seconds.
+        onsets_s: 1-D array of trial onsets in seconds; at least two trials.
+        window_s: ``(start, end)`` in seconds relative to each onset, start before end.
+        summary: ``'mean'`` or ``'median'`` over the usable units; required.
+
+    Returns:
+        Dict with ``fano`` (the summary; NaN when no unit is usable), ``per_unit`` (NaN for
+        excluded units), ``counts`` (``(n_units, n_trials)``), ``n_units``, ``n_trials``,
+        ``excluded_units`` and ``n_excluded``.
+
+    Raises:
+        ValueError: If `spike_times` is a bare array, a time is non-finite, there are fewer than
+            two onsets, the window's start is not before its end, or `summary` is not
+            ``'mean'`` or ``'median'``.
+
+    References:
+        Churchland, M. M., et al. (2010). Stimulus onset quenches neural variability: a
+        widespread cortical phenomenon. Nature Neuroscience 13(3), 369-378.
+        doi:10.1038/nn.2501
+    """
+    if summary not in ("mean", "median"):
+        raise ValueError(f"fano_factor: summary must be 'mean' or 'median', got {summary!r}.")
+    trains = _unit_trains(spike_times, "fano_factor")
+    onsets = np.asarray(onsets_s, dtype=float).ravel()
+    if onsets.size < 2 or not np.all(np.isfinite(onsets)):
+        raise ValueError(
+            f"fano_factor: needs at least two finite trial onsets for a variance, got {onsets.size}."
+        )
+    w0, w1 = (float(v) for v in window_s)
+    if not (np.isfinite(w0) and np.isfinite(w1) and w0 < w1):
+        raise ValueError(f"fano_factor: window_s start must be before its end, got {window_s}.")
+    counts = np.zeros((len(trains), onsets.size))
+    for i, u in enumerate(trains):
+        u = np.sort(u)
+        counts[i] = np.searchsorted(u, onsets + w1, side="left") - np.searchsorted(u, onsets + w0, side="left")
+    mean = counts.mean(axis=1) if trains else np.zeros(0)
+    excluded = np.flatnonzero(mean == 0)
+    per_unit = np.full(len(trains), np.nan)
+    ok = mean > 0
+    per_unit[ok] = counts[ok].var(axis=1, ddof=1) / mean[ok]
+    usable = per_unit[ok]
+    agg = np.mean if summary == "mean" else np.median
+    return {
+        "fano": float(agg(usable)) if usable.size else float("nan"),
+        "per_unit": per_unit,
+        "counts": counts,
+        "n_units": len(trains),
+        "n_trials": int(onsets.size),
+        "excluded_units": excluded,
+        "n_excluded": int(excluded.size),
+    }
+
+
+def network_burst_index(
+    spike_times,
+    window_s: Tuple[float, float],
+    *,
+    bin_ms: float,
+    threshold_hz: float,
+    min_duration_ms: float,
+) -> Dict[str, Any]:
+    """Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).
+
+    All units' spikes are pooled and counted in right-open bins of `bin_ms` over `window_s`;
+    the population rate of a bin is its count over the bin width (Hz, summed over units). A
+    network burst is a maximal run of consecutive bins at or above `threshold_hz` lasting at
+    least `min_duration_ms`. The index is the number of spikes in burst bins over all spikes in
+    the window. Bin width, threshold and minimum duration each set what counts as a burst, so
+    none has a default.
+
+    Args:
+        spike_times: Sequence of per-unit 1-D arrays of spike times in seconds.
+        window_s: ``(start, end)`` in seconds; the span must be whole bins.
+        bin_ms: Bin width in milliseconds; required.
+        threshold_hz: Population-rate threshold in Hz, summed over units; required, positive.
+        min_duration_ms: Shortest run that counts as a burst, in milliseconds; required,
+            non-negative.
+
+    Returns:
+        Dict with ``burst_index`` (NaN when the window holds no spike), ``n_bursts``,
+        ``bursts_s`` (``(n_bursts, 2)`` start and end times in seconds, right-open),
+        ``n_spikes`` and ``n_spikes_in_bursts``.
+
+    Raises:
+        ValueError: If `spike_times` is a bare array, a time is non-finite, `bin_ms` or
+            `threshold_hz` is not positive and finite, `min_duration_ms` is negative or
+            non-finite, or the window is not whole bins.
+
+    References:
+        Wagenaar, D. A., Pine, J., and Potter, S. M. (2006). An extremely rich repertoire of
+        bursting patterns during the development of cortical cultures. BMC Neuroscience 7, 11.
+        doi:10.1186/1471-2202-7-11
+    """
+    if not np.isfinite(threshold_hz) or threshold_hz <= 0:
+        raise ValueError(f"network_burst_index: threshold_hz must be positive and finite, got {threshold_hz}.")
+    if not np.isfinite(min_duration_ms) or min_duration_ms < 0:
+        raise ValueError(
+            f"network_burst_index: min_duration_ms must be non-negative and finite, got {min_duration_ms}."
+        )
+    trains = _unit_trains(spike_times, "network_burst_index")
+    pooled = np.concatenate(trains) if trains else np.zeros(0)
+    counts = _unit_counts([pooled], window_s, bin_ms)[0]
+    rate = counts / (bin_ms / 1000.0)
+    above = np.concatenate([[False], rate >= threshold_hz, [False]])
+    edges = np.flatnonzero(np.diff(above.astype(int)))
+    starts, stops = edges[0::2], edges[1::2]
+    keep = (stops - starts) * bin_ms >= min_duration_ms
+    starts, stops = starts[keep], stops[keep]
+    in_burst = int(sum(counts[a:b].sum() for a, b in zip(starts, stops)))
+    total = int(counts.sum())
+    t0 = float(window_s[0])
+    step = bin_ms / 1000.0
+    return {
+        "burst_index": in_burst / total if total else float("nan"),
+        "n_bursts": int(starts.size),
+        "bursts_s": np.column_stack([t0 + starts * step, t0 + stops * step]).reshape(-1, 2),
+        "n_spikes": total,
+        "n_spikes_in_bursts": in_burst,
+    }
+
