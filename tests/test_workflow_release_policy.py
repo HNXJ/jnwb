@@ -75,7 +75,7 @@ class TestWorkflowReleasePolicy:
         jobs = _load_workflow()["jobs"]
         skipped = {jid for jid, job in jobs.items()
                    if " ".join(str(job.get("if", "")).split()) == SKIPPED_ON_RELEASE}
-        assert skipped == {"test", "test-floors", "build"}, skipped
+        assert skipped == {"qualified", "test", "test-floors", "build"}, skipped
         # Skipped on a release event is still required of the push run the gate qualifies.
         required = required_ci_jobs(root=REPO_ROOT)
         assert jobs["build"]["name"] in required and jobs["test-floors"]["name"] in required
@@ -116,6 +116,74 @@ class TestWorkflowReleasePolicy:
         """The tag's push run already uploaded those files; a second upload is refused."""
         text = " ".join(str(_load_workflow()["jobs"]["publish-testpypi"]["if"]).split())
         assert "release" not in text.replace("refs/tags/v", ""), text
+
+
+class TestATagPushReusesTheDevRunOfItsCommit:
+    """A `v*` tag push skips the test and floors legs' steps when a dev push run of this workflow
+    at the same commit concluded success; the build always runs, so what is published is built
+    and checked in the tag's own run.
+
+    What would pass while that is broken: a lookup that accepts a failed or unfinished run, a run
+    of another commit or branch, or runs on main, pull requests or dev pushes; a failed lookup
+    read as a match; a leg step that runs regardless or skips unconditionally; or a build that
+    skips too, leaving TestPyPI files no job in the run built.
+    """
+
+    LEGS = ("test", "test-floors")
+
+    @staticmethod
+    def _find_step():
+        job = _load_workflow()["jobs"]["qualified"]
+        steps = [s for s in job["steps"] if s.get("id") == "find"]
+        assert len(steps) == 1, job["steps"]
+        return job, steps[0]
+
+    def test_only_a_tag_push_looks_for_a_passed_dev_run(self):
+        job, step = self._find_step()
+        assert job["outputs"] == {"run_id": "${{ steps.find.outputs.run_id }}"}, job["outputs"]
+        env = {k: " ".join(str(v).split()) for k, v in step["env"].items()}
+        assert env["SHA"] == "${{ github.sha }}", env
+        assert env["EVENT_REF"] == "${{ github.event_name }}:${{ github.ref }}", env
+        run = step["run"]
+        block = re.search(r'^\s*case "\$EVENT_REF" in\n(.*?)^\s*esac\b', run, re.M | re.S)
+        assert block, run
+        arms = re.findall(r"^\s*([^\s(][^\n]*?)\)[ \t]*\n", block.group(1), re.M)
+        assert arms == ["push:refs/tags/v*"], arms
+        before = run[:block.start()]
+        assert 'run_id=""' in before and "gh api" not in before, before
+
+    def test_the_run_it_accepts_is_a_successful_dev_push_of_this_commit(self):
+        run = self._find_step()[1]["run"]
+        assert "actions/runs?event=push&branch=dev&head_sha=$SHA&status=success" in run, run
+        for clause in ('.head_sha == env.SHA', '.head_branch == "dev"',
+                       '.path == ".github/workflows/workflow.yml"', '.conclusion == "success"'):
+            assert clause in run, clause
+
+    def test_a_failed_lookup_runs_the_tests(self):
+        run = self._find_step()[1]["run"]
+        assert "set -e" not in run.replace("set -euo", ""), "a failed lookup must not end the job"
+        assert re.search(r'if ! run_id=\$\(gh api .*?\); then\n(?:[^\n]*\n)*?\s*run_id=""\n\s*fi',
+                         run, re.S), run
+        assert 'echo "run_id=$run_id" >> "$GITHUB_OUTPUT"' in run, run
+
+    def test_each_leg_skips_its_steps_exactly_when_a_run_matched(self):
+        jobs = _load_workflow()["jobs"]
+        for jid in self.LEGS:
+            job = jobs[jid]
+            assert job["needs"] == "qualified", (jid, job.get("needs"))
+            assert job["env"]["QUALIFIED_BY"] == "${{ needs.qualified.outputs.run_id }}", jid
+            report, *work = job["steps"]
+            assert report["if"] == "env.QUALIFIED_BY != ''" and "$QUALIFIED_BY" in report["run"]
+            for step in work:
+                condition = " ".join(str(step.get("if", "")).split())
+                assert re.fullmatch(r"(?:.+ && )?env\.QUALIFIED_BY == ''", condition), (
+                    jid, step.get("name") or step.get("uses"), condition)
+
+    def test_the_build_runs_in_full_on_every_push(self):
+        build = _load_workflow()["jobs"]["build"]
+        assert "QUALIFIED_BY" not in str(build) and "qualified" not in str(build.get("if")), build
+        assert all("if" not in step for step in build["steps"]), [
+            s.get("name") for s in build["steps"] if "if" in s]
 
 
 class TestTestPyPIBeforePyPI:
@@ -560,13 +628,15 @@ class TestPublishCapablePipelineHygiene:
         assert permissions == {"contents": "read"}, permissions
 
     def test_only_the_publish_jobs_raise_that_floor(self):
+        """The one other job that raises it reads Actions runs, and nothing more."""
         jobs = _load_workflow()["jobs"]
         raised = {
             name: job["permissions"]
             for name, job in jobs.items()
             if isinstance(job, dict) and "permissions" in job
         }
-        assert set(raised) == {"publish-testpypi", "publish-pypi"}, raised
+        assert set(raised) == {"publish-testpypi", "publish-pypi", "qualified"}, raised
+        assert raised.pop("qualified") == {"actions": "read", "contents": "read"}
         for name, permissions in raised.items():
             assert permissions.get("id-token") == "write", (name, permissions)
 

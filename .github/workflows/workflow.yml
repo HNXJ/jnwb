@@ -38,6 +38,44 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
 
 jobs:
+  qualified:
+    # A release tag is pushed onto a commit dev has already tested. On a `v*` tag push, when a
+    # dev push run of this workflow at the same commit concluded success, `run_id` names that
+    # run and the test and floors legs skip their steps, saying which run tested the commit.
+    # The build still runs, so the files TestPyPI and then PyPI receive are built and checked in
+    # this run. Every other event, no such run, and a failed query leave `run_id` empty, and
+    # every leg runs in full.
+    name: Find a passed dev run of this commit
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read  # To read this commit's dev push runs
+      contents: read
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Look up a successful dev push run at this commit
+        id: find
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          EVENT_REF: ${{ github.event_name }}:${{ github.ref }}
+        run: |
+          set -uo pipefail
+          run_id=""
+          case "$EVENT_REF" in
+            push:refs/tags/v*)
+              if ! run_id=$(gh api "repos/$REPO/actions/runs?event=push&branch=dev&head_sha=$SHA&status=success&per_page=100" \
+                  --jq '[.workflow_runs[] | select(.head_sha == env.SHA and .head_branch == "dev" and .path == ".github/workflows/workflow.yml" and .conclusion == "success")][0].id // empty'); then
+                echo "::warning::the Actions API could not be read; this run tests the commit"
+                run_id=""
+              fi ;;
+          esac
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Passed dev push run of $SHA: ${run_id:-none, so this run tests the commit}"
+
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
     # Not on a published release: that run uploads the tag push run's files, and publish-pypi's
@@ -45,10 +83,15 @@ jobs:
     # and the build to pass on the same commit. Re-running them repeated the matrix on a tree
     # already qualified (0.2.7: 86 runner-minutes and 26 minutes before PyPI could start). The same
     # condition is on test-floors and build; scripts/release_gate.py still requires all three of
-    # a push run.
+    # a push run. On a tag push that `qualified` matched to a passed dev run, every step after
+    # the first is skipped; the job stays, because build needs it and a skipped job would skip
+    # the build and every publish job after it.
+    needs: qualified
     if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      QUALIFIED_BY: ${{ needs.qualified.outputs.run_id }}
     strategy:
       fail-fast: false
       matrix:
@@ -63,9 +106,16 @@ jobs:
             figures: compared
 
     steps:
+      - name: Report the dev push run that tested this commit
+        if: env.QUALIFIED_BY != ''
+        shell: bash
+        run: echo "Tested in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$QUALIFIED_BY"
+
       - uses: actions/checkout@v4
+        if: env.QUALIFIED_BY == ''
 
       - name: Set up Python ${{ matrix.python-version }}
+        if: env.QUALIFIED_BY == ''
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -73,6 +123,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
+        if: env.QUALIFIED_BY == ''
         # `vis` so jnwb.vis is exercised on every leg. No leg runs the suite without Plotly: the
         # build job's smoke step checks the wheel without the extra, and
         # tests/test_optional_vis_extra.py blocks Plotly in a subprocess.
@@ -83,11 +134,12 @@ jobs:
       - name: Pin Matplotlib to the release that wrote the committed figures
         # tests/test_generated_figures_are_maintained.py holds this pin to the version the PNGs
         # record; regenerating the figures with another release fails that test until it moves.
-        if: matrix.figures == 'compared'
+        if: matrix.figures == 'compared' && env.QUALIFIED_BY == ''
         run: |
           python -m pip install "matplotlib==3.11.2"
 
       - name: Run pytest
+        if: env.QUALIFIED_BY == ''
         # -n auto: one worker per core. The browser-backed export tests share an xdist group,
         # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         env:
@@ -104,22 +156,33 @@ jobs:
     # scripts/release_gate.py requires this job to succeed like every other job it requires.
     # The interpreter is the declared floor's first patch release: `requires-python >=3.12`
     # admits 3.12.0, and "3.12" would install the newest 3.12 patch, which no user is held to.
+    # On a tag push the steps skip as the matrix legs' do, for the reason given there.
     name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
+    needs: qualified
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       FLOOR_PYTHON: "3.12.0"
+      QUALIFIED_BY: ${{ needs.qualified.outputs.run_id }}
 
     steps:
+      - name: Report the dev push run that tested this commit
+        if: env.QUALIFIED_BY != ''
+        shell: bash
+        run: echo "Tested in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$QUALIFIED_BY"
+
       - uses: actions/checkout@v4
+        if: env.QUALIFIED_BY == ''
 
       - name: Set up Python ${{ env.FLOOR_PYTHON }}
+        if: env.QUALIFIED_BY == ''
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.FLOOR_PYTHON }}
 
       - name: Resolve the declared floors
+        if: env.QUALIFIED_BY == ''
         # The floors are read with scripts/release_gate.py's parser rather than a second one.
         # Only the core dependencies are pinned; the test tooling resolves around them.
         run: |
@@ -160,11 +223,13 @@ jobs:
           PY
 
       - name: Install dependencies at the floors
+        if: env.QUALIFIED_BY == ''
         run: |
           python -m pip install ".[test,docs,vis]" -c /tmp/floors.txt
           python -m pip list
 
       - name: Run pytest
+        if: env.QUALIFIED_BY == ''
         run: |
           pytest -v -n auto tests/
 

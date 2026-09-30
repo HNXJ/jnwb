@@ -354,7 +354,7 @@ Every contributor adheres to these scientific invariants:
 1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and LFP.
 2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
 3. **Causal & Directional Verbs**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Metrics like Granger causality or phase slope index measure temporal predictive asymmetry, not physical perturbation causality.
-4. **Logarithmic Estimand Clarity**: Explicitly distinguish arithmetic mean of raw power ($\mathbb{E}[P]$, physical power conservation) from mean of logarithmic/decibel power ($\mathbb{E}[\log P]$, geometric mean / log-normal central tendency). Do not conflate the two estimands or treat raw-power averaging as an unconditional universal requirement without declaring the estimand.
+4. **Logarithm Last**: Every decibel output aggregates on the power-ratio scale and takes `10*log10` once, last (fact S2 of `artifacts/fact_stack.md`; `aggregate_to_db` enforces it). Averaging decibels is never an option of a decibel output. A mean-of-decibels quantity, if one is ever needed, is a separately named function.
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
@@ -423,7 +423,9 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    all went through a PR merge; this step said "fast-forward" through all of them.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build), then the
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run
+   of the same commit passed, the test matrix and the floors leg skip their steps and name that
+   run, and the build still runs in full. Then the
    `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
    downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs that file into a fresh
    environment with every dependency from PyPI, runs `pip check`, and runs
