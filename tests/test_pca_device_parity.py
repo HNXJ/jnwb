@@ -46,6 +46,12 @@ def _pivot_signs(components: np.ndarray) -> np.ndarray:
     return np.sign(components[np.arange(components.shape[0]), pivot])
 
 
+#: The seeds `TestGpuPcaPinsItsSignsOnEitherDevice` pins the convention over, and the same
+#: set its vacuity guard searches. One name so the two cannot drift apart: a guard that
+#: checks a seed the pin does not exercise proves nothing about the pin.
+SIGN_SEEDS = tuple(range(6))
+
+
 class TestThePinItself:
     """`pin_component_signs` is pure numpy, so this half runs on any machine."""
 
@@ -145,15 +151,30 @@ class TestGpuPcaPinsItsSignsOnEitherDevice:
         assert np.all(_pivot_signs(components) > 0)
 
     def test_the_fixture_is_not_vacuous(self):
-        """Guard against a fixture whose raw LAPACK signs already happen to be positive,
-        which would let the test pass with no pin at all. Seed 0 gives [+, +, -]."""
-        matrix = self._matrix()
-        scaled = (matrix - matrix.mean(0, keepdims=True)) / matrix.std(0, keepdims=True)
-        _, _, vt = np.linalg.svd(scaled, full_matrices=False)
+        """Guard against a seed set whose raw LAPACK signs are already all positive, which
+        would let the pin pass without ever being exercised.
 
-        assert np.any(_pivot_signs(vt[:3, :]) < 0)
+        Searched over `SIGN_SEEDS` rather than asserted on seed 0 alone. Which seed carries
+        a negative pivot is a LAPACK property, not a property of the convention under test,
+        and it moves with the platform: this guard used to record [+, +, -] for seed 0, and
+        on arm64 macOS seed 0 gives [+, +, +] while seeds 1 to 4 carry a negative instead.
+        Naming one seed was a proxy for the invariant -- that *some* seed the pin runs on
+        starts negative -- and on arm64 the proxy failed while the invariant held.
+        """
+        started_negative = []
+        for seed in SIGN_SEEDS:
+            matrix = self._matrix(seed)
+            scaled = (matrix - matrix.mean(0, keepdims=True)) / matrix.std(0, keepdims=True)
+            _, _, vt = np.linalg.svd(scaled, full_matrices=False)
+            if np.any(_pivot_signs(vt[:3, :]) < 0):
+                started_negative.append(seed)
 
-    @pytest.mark.parametrize("seed", range(6))
+        assert started_negative, (
+            f"no seed in {list(SIGN_SEEDS)} produces a negative raw pivot sign on this "
+            "LAPACK, so the sign pin is never exercised and the assertions below are vacuous"
+        )
+
+    @pytest.mark.parametrize("seed", SIGN_SEEDS)
     def test_the_convention_holds_whatever_lapack_picked(self, seed):
         _, components, _ = gpu_pca(self._matrix(seed), n_components=3, device="cpu")
 
