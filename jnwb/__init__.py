@@ -227,6 +227,10 @@ from .spiking import (
     phase_locking_index,
     pairwise_phase_consistency,
     gaussian_smooth_rate,
+    fleiss_kappa,
+    spike_count_correlation,
+    fano_factor,
+    network_burst_index,
 )
 
 # Export main classes and functions
@@ -423,6 +427,10 @@ __all__ = [
     'phase_locking_index',
     'pairwise_phase_consistency',
     'gaussian_smooth_rate',
+    'fleiss_kappa',
+    'spike_count_correlation',
+    'fano_factor',
+    'network_burst_index',
 
     # Plotting utilities (matplotlib legacy and pure Plotly engine)
     'setup_vector_graphics',
