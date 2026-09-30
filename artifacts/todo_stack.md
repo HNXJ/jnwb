@@ -33,6 +33,21 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
 | B figures and state | 08-04, 08-01 | `tests/test_figure_form.py`, the quickstart and its assets, `artifacts/planned_post_0.2.6.md`, `artifacts/rulings/standing.md`, `artifacts/evidence/0.2.8/stack/**`, `artifacts/evidence/0.2.8/plan/carry_map.md` |
+| D analyses a simulator needs | 08-11 | `compute_psd` in `jnwb/spectral.py`, `jnwb/spiking.py`, `tests/test_spectral.py`, `tests/test_spiking.py`, the routing rows of `skills/jnwb-lfp-spectral` and `skills/jnwb-spiking`, `tests/test_skills_validation.py` |
+
+### 08-11 Analyses a simulator hands to jnwb
+
+Release: required-0.2.8.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral, jnwb-spiking. Blocked by: none.
+Writes: `jnwb/spectral.py`, `jnwb/spiking.py`, `tests/test_spectral.py`, `tests/test_spiking.py`, `skills/jnwb-lfp-spectral/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `tests/test_skills_validation.py`.
+Drafted and built by the jaxfne session in its own clone; integrated after an independent verifier and a second critic. Ruled by Hamm on 2026-09-29.
+- `compute_psd` has no segment length. Check: `nperseg=None` is bit-identical to today on the existing tests; `nperseg=k` equals `scipy.signal.welch(nperseg=k)` exactly; `nperseg` below 2 or above the signal length is refused.
+- No agreement measure for binary spike states. Check: `fleiss_kappa` per Fleiss 1971 (doi:10.1037/h0031619) reproduces the paper's worked table; items are bins, raters are units; a constant table is refused, never 0.
+- No spike-count correlation. Check: the mean pairwise Pearson r of binned counts (Cohen and Kohn 2011, doi:10.1038/nn.2842), the bin width required with no default; zero-variance units excluded and counted in the result, never returned as 0.
+- No Fano factor. Check: per unit, variance over mean of the count in a fixed window across trials, then summarised over units (Churchland et al. 2010, doi:10.1038/nn.2501); a zero-mean unit is excluded and counted.
+- No burst index. Check: network bursts detected from a population-rate threshold and a minimum duration, the index being the fraction of spikes inside bursts (Wagenaar et al. 2006, doi:10.1186/1471-2202-7-11); threshold and duration required, with no default.
+Accept: each check passes; the routing rows match `inspect.signature`; the suite and harness pass; no default changes a shipped value.
+Stop: a definition would need a choice not ruled here; a refusal would change a shipped value.
 
 ### 08-01 The stack and state files in compact form
 
