@@ -719,6 +719,14 @@ _RETURN_CONTENT_PROBES = {
     "repair_lfp_trials": _probe_repair_lfp_trials,
     "repair_band_artifacts": _probe_repair_band_artifacts,
     "build_time_resolved_matrix": _probe_build_time_resolved_matrix,
+    "fleiss_kappa": lambda: jnwb.fleiss_kappa(np.array([[4, 2], [1, 5], [6, 0]])),
+    "spike_count_correlation": lambda: jnwb.spike_count_correlation(
+        [np.array([0.01, 0.02, 0.5]), np.array([0.015, 0.6])], (0.0, 1.0), bin_ms=100.0),
+    "fano_factor": lambda: jnwb.fano_factor(
+        [np.array([0.1, 1.1, 1.2])], np.array([0.0, 1.0]), (0.0, 0.5), summary="mean"),
+    "network_burst_index": lambda: jnwb.network_burst_index(
+        [np.array([0.1, 0.11, 0.12, 0.8])], (0.0, 1.0), bin_ms=50.0, threshold_hz=40.0,
+        min_duration_ms=50.0),
 }
 
 
