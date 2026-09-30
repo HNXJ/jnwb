@@ -18,6 +18,7 @@ is drawn here in both themes and inspected as drawn:
 | axis labels | every numeric axis has a label; a physical quantity names a unit in parentheses |
 | declared unit | an axis plotting a result that declares `unit` names that unit |
 | displayed size | the smallest text renders at 9 px or more at the width the page displays it |
+| signed zero | no drawn number reads as a negative zero |
 | style source | fonts, font sizes and figure width come from `docs/figure_style.py` |
 | colormaps | every `cmap=` is perceptually uniform or a declared diverging map |
 | computed values | every figure calls a public `jnwb` function; no reference line sits at a bare literal |
@@ -474,12 +475,20 @@ def _values(result) -> list[np.ndarray]:
     return [np.asarray(scalars)] + arrays
 
 
+def _y_in_data(line, ax) -> bool:
+    """Whether a line's y values are data values. `axvline` draws y from 0 to 1 in axes
+    fractions, which match any result that happens to carry a 0 and a 1."""
+    transform = line.get_transform()
+    split = getattr(transform, "contains_branch_separately", None) or transform.contains_branch_seperately
+    return bool(split(ax.transData)[1])
+
+
 def _declared_unit_failures(fig, results) -> list[str]:
     """An axes whose line or bars are drawn from a result declaring `unit` names that unit."""
     declared = [r for r in results if isinstance(getattr(r, "unit", None), str)]
     hits = []
     for index, ax in enumerate(fig.axes):
-        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines()]
+        drawn = [np.asarray(line.get_ydata(), float) for line in ax.get_lines() if _y_in_data(line, ax)]
         drawn = [y for y in drawn if y.size > 1 and np.ptp(y) > 0]
         bars = np.asarray([p.get_height() for p in ax.patches if isinstance(p, Rectangle)], float)
         if bars.size:
@@ -778,24 +787,10 @@ def _registry():
 
 NAMES = [n for key in _registry() for n in (key, key.replace(".png", ".dark.png"))] + [
     "jnwb_quickstart.png", "jnwb_quickstart.dark.png"]
-QUICKSTART_NAMES = {"jnwb_quickstart.png", "jnwb_quickstart.dark.png"}
 
 #: Figures that still fail a check, by check and figure, with what is wrong. A listed figure that
 #: starts to pass fails the suite, so the entry is removed with the repair.
-QUICKSTART_REASONS = {
-    "theme contrast": "FAINT is too faint in both themes",
-    "legends": "the decoding legend covers a bar",
-    "text placement": "the refusal texts sit over the histogram and its observed line",
-    "declared unit": "the Granger axis does not name its unit",
-}
-AWAITING: dict[tuple[str, str], str] = {
-    ("theme contrast", "quickstart_jnwb.py"): QUICKSTART_REASONS["theme contrast"],
-    **{(check, n): why for check, why in QUICKSTART_REASONS.items() if check != "theme contrast"
-       for n in sorted(QUICKSTART_NAMES)},
-    ("displayed size", "quickstart.md:jnwb_quickstart.png"): "5.8 pt text in an 11 in figure",
-    ("style source", "quickstart_jnwb.py"): "a serif family and sizes typed per call",
-    ("captions", "quickstart.md:jnwb_quickstart.png"): "the caption names no function",
-}
+AWAITING: dict[tuple[str, str], str] = {}
 
 
 def _cases(check: str, names=NAMES):
@@ -1165,6 +1160,27 @@ def test_the_smallest_text_is_legible_where_the_page_shows_it(drawn, name, width
         f"renders at {px:.1f} px")
 
 
+#: A number that rounds to zero and prints its minus sign: "-0.0", "−0", "-0.00".
+NEGATIVE_ZERO = re.compile(r"(?<![\w.])[-−]0(?:\.0+)?(?![\w.])")
+
+
+def _negative_zeros(fig) -> list[str]:
+    _renderer(fig)
+    return [t.get_text() for t in _drawn_texts(fig) if NEGATIVE_ZERO.search(t.get_text())]
+
+
+@pytest.mark.parametrize("name", _cases("signed zero"))
+def test_no_number_reads_as_a_negative_zero(drawn, name):
+    hits = _negative_zeros(drawn[name].fig)
+    assert not hits, f"{name}: {hits}"
+
+
+def test_the_signed_zero_check_catches_its_cases():
+    assert [s for s in ("-0.0", "−0", "x = -0.00", "(-0)") if NEGATIVE_ZERO.search(s)] == [
+        "-0.0", "−0", "x = -0.00", "(-0)"]
+    assert not [s for s in ("+0.0", "-0.5", "-10.0", "0.0", "t-0", "-0.05", "−0.01") if NEGATIVE_ZERO.search(s)]
+
+
 def test_the_label_and_size_checks_catch_their_cases():
     assert _names_a_unit("Time (ms)") and _names_a_unit("PSD (a.u.²/Hz)")
     assert _names_a_unit("PSI per frequency bin (dimensionless)")
@@ -1196,6 +1212,26 @@ def test_the_declared_unit_check_catches_a_phase_slope_label(drawn):
     finally:
         ax.set_ylabel(kept)
     assert planted and "'psi'" in planted[0], planted
+
+
+def test_the_declared_unit_check_reads_data_values_not_axes_fractions():
+    """An `axvline` spans y 0 to 1 in axes fractions; a result holding a 0 and a 1 is not drawn
+    by it. The same values drawn as data are."""
+    @dataclass
+    class Result:
+        low: float = 0.0
+        high: float = 1.0
+        unit: str = "log variance ratio"
+
+    fig, (vertical, data) = _figure(ncols=2)
+    vertical.plot([0, 1], [5, 7])
+    vertical.axvline(0.5)
+    vertical.set_ylabel("rate (Hz)")
+    data.plot([0, 1], [0.0, 1.0])
+    data.set_ylabel("influence")
+    hits = _declared_unit_failures(fig, [Result()])
+    plt.close(fig)
+    assert hits == ["axes 1: 'influence' does not name the unit 'log variance ratio'"], hits
 
 
 # ---------------------------------------------------------------------------------------------
