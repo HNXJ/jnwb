@@ -372,6 +372,10 @@ contradicts a written claim it appears in section 6.
 | `gaussian_smooth_rate[n_samples]` | n_samples | 100000, 500000, 2000000, 8000000 | 9.38, 46.7, 183.2, 782.3 | +1.01 | 1.000 | 83x | O(n) | T(n) | derived | agree |
 | `gaussian_smooth_rate[sigma_ms]` | sigma_ms | 2, 10, 50, 200, 800 | 4.04, 13.2, 43.3, 180.2, 665.7 | +0.85 | 0.994 | 165x | O(n) | T(n), independent of sigma | derived | ORDER |
 | `pairwise_phase_consistency[n_samples]` | n_samples | 200000, 1000000, 5000000, 20000000 | 7.17, 31.0, 172.4, 646.9 | +0.99 | 0.999 | 90x | O(n) | T(n) | derived | agree |
+| `fleiss_kappa[n_items]` | n_items | 10000, 100000, 1000000, 4000000 | 0.5625, 8.878, 102.9, 401 | +1.10 | 0.998 | 713x | O(n) | T(N*C) | derived | agree |
+| `spike_count_correlation[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 3.27, 31.2, 426, 1654 | +1.05 | 0.999 | 506x | O(n) | T(U*(S + B) + U^2*B) | derived | agree |
+| `network_burst_index[n_bins]` | n_bins | 10000, 100000, 1000000, 4000000 | 0.8922, 5.1, 63.4, 248.6 | +0.95 | 0.994 | 279x | O(n) | T(U*S + B) | derived | agree |
+| `fano_factor[n_trials]` | n_trials | 1000, 10000, 100000, 1000000 | 1.094, 11.77, 133.4, 1635 | +1.06 | 1.000 | 1494x | O(n) | T(U*(S log S + T log S)), S = 5T here | derived | agree |
 | `phase_locking_index[n_lfp_samples]` | n_lfp_samples | 100000, 1000000, 5000000, 20000000 | 5.99, 48.7, 188.4, 660.5 | +0.88 | 1.000 | 110x | O(n) | T(1) in m with a uniform grid; T(log m) per spike by binary search | derived | ORDER |
 | `phase_locking_index[n_spikes]` | n_spikes | 50000, 200000, 1000000, 5000000 | 11.7, 28.1, 89.0, 492.1 | +0.80 | 0.985 | 42x | O(n) | T(S) | derived | ORDER |
 

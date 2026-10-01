@@ -104,6 +104,22 @@ class TestDetectBandOutliers:
         assert flagged.shape == (N_TIMES, N_TRIALS)
 
 
+class TestSpikingPopulationMeasures:
+    """The shapes are dict fields, so the declared shape is checked on the named field."""
+
+    def test_spike_count_correlation_declares_and_returns_units_by_units(self):
+        assert ("n_units", "n_units") in declared_shapes(jnwb.spike_count_correlation)
+        units = [np.array([0.01, 0.02, 0.5]), np.array([0.015, 0.6]), np.array([0.3])]
+        out = jnwb.spike_count_correlation(units, (0.0, 1.0), bin_ms=100.0)
+        assert out["r"].shape == (3, 3)
+
+    def test_fano_factor_declares_and_returns_units_by_trials(self):
+        assert ("n_units", "n_trials") in declared_shapes(jnwb.fano_factor)
+        units = [np.array([0.1, 1.1, 1.2]), np.array([2.2])]
+        out = jnwb.fano_factor(units, np.array([0.0, 1.0, 2.0]), (0.0, 0.5), summary="mean")
+        assert out["counts"].shape == (2, 3)
+
+
 class TestTheUncoveredTwoAreNamed:
     """A gap that is stated cannot be mistaken later for a dimension that was checked."""
 
@@ -127,7 +143,7 @@ class TestTheListOfDeclaringFunctionsIsComplete:
     def test_every_function_declaring_a_return_shape_is_accounted_for(self):
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
-                   *NEEDS_A_SESSION}
+                   "spike_count_correlation", "fano_factor", *NEEDS_A_SESSION}
         declaring = {
             name for name in jnwb.__all__
             if callable(getattr(jnwb, name, None))

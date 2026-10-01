@@ -93,6 +93,34 @@ def _npz(n_file: int, n_slice: int, at_end: bool, tmp: Path) -> Callable[[], obj
     return lambda: jnwb.stream_npz_array(path, "a", slice_tuple=sl)
 
 
+def _fleiss(n: int) -> Callable[[], object]:
+    import jnwb
+
+    table = np.random.default_rng(0).multinomial(6, [0.4, 0.2, 0.2, 0.1, 0.1], size=n)
+    return lambda: jnwb.fleiss_kappa(table)
+
+
+def _spiking(n_bins: int, which: str) -> Callable[[], object]:
+    import jnwb
+
+    rng = np.random.default_rng(0)
+    end = n_bins / 1000.0
+    units = [np.sort(rng.uniform(0.0, end, 2000)) for _ in range(8)]
+    if which == "correlation":
+        return lambda: jnwb.spike_count_correlation(units, (0.0, end), bin_ms=1.0)
+    return lambda: jnwb.network_burst_index(units, (0.0, end), bin_ms=1.0, threshold_hz=5000.0,
+                                            min_duration_ms=3.0)
+
+
+def _fano(n_trials: int) -> Callable[[], object]:
+    import jnwb
+
+    rng = np.random.default_rng(0)
+    onsets = np.arange(n_trials, dtype=float)
+    units = [np.sort(rng.uniform(0.0, float(n_trials), 5 * n_trials)) for _ in range(8)]
+    return lambda: jnwb.fano_factor(units, onsets, (0.0, 0.5), summary="mean")
+
+
 SPECS: Dict[str, Spec] = {
     "phase_slope_index[n_samples]": Spec(
         "n_samples", (60_000, 200_000, 700_000, 2_000_000, 4_000_000),
@@ -114,6 +142,26 @@ SPECS: Dict[str, Spec] = {
         "n_elements_sliced", (1_000, 10_000, 100_000, 1_000_000, 4_000_000),
         "float64, 1-D, ZIP_STORED (np.savez), 4e6 elements in the file, the first k elements",
         lambda k, tmp: _npz(4_000_000, k, False, tmp),
+    ),
+    "fleiss_kappa[n_items]": Spec(
+        "n_items", (10_000, 100_000, 1_000_000, 4_000_000),
+        "5 categories, 6 raters per item, multinomial counts",
+        lambda n, _tmp: _fleiss(n),
+    ),
+    "spike_count_correlation[n_bins]": Spec(
+        "n_bins", (10_000, 100_000, 1_000_000, 4_000_000),
+        "8 units, 2000 uniform spikes each, bin_ms=1, window (0, n_bins ms)",
+        lambda n, _tmp: _spiking(n, "correlation"),
+    ),
+    "network_burst_index[n_bins]": Spec(
+        "n_bins", (10_000, 100_000, 1_000_000, 4_000_000),
+        "8 units, 2000 uniform spikes each, bin_ms=1, threshold_hz=5000, min_duration_ms=3",
+        lambda n, _tmp: _spiking(n, "burst"),
+    ),
+    "fano_factor[n_trials]": Spec(
+        "n_trials", (1_000, 10_000, 100_000, 1_000_000),
+        "8 units, 5 uniform spikes per unit per 1 s trial, window (0, 0.5) s, summary='mean'",
+        lambda n, _tmp: _fano(n),
     ),
 }
 
