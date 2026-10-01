@@ -797,3 +797,49 @@ def test_an_atlas_layer_label_is_one_location_and_two_areas_still_split():
     assert map_peak_channel_to_area(1281, elec) == "VISpm4"
     probe = pd.DataFrame({"location": ["V1/V2"] * 4, "group_name": ["A"] * 4})
     assert [map_peak_channel_to_area(i, probe) for i in range(4)] == ["V1", "V1", "V2", "V2"]
+
+
+def test_a_sublayer_alternation_is_one_location():
+    """`VISp6a/b` is sublayers 6a and 6b of one area, not the areas `VISp6a` and `b`.
+
+    The proxy to avoid: merging every one-letter field. A one-letter field after a label that
+    does not end in a digit and a letter still starts a new area, as does a longer field.
+    """
+    assert parse_probe_areas("VISp6a/b") == ("VISp6a/b",)
+    assert parse_probe_areas("VISp6a/b, VISp5") == ("VISp6a/b", "VISp5")
+    assert parse_probe_areas("V1/a") == ("V1", "a")
+    assert parse_probe_areas("V6a/V6") == ("V6a", "V6")
+    assert parse_probe_areas("V6a/B") == ("V6a", "B")
+    elec = pd.DataFrame({"location": ["VISp6a/b"] * 2, "group_name": ["A"] * 2})
+    assert [map_peak_channel_to_area(i, elec) for i in range(2)] == ["VISp6a/b"] * 2
+
+
+class TestEnrichingWithoutAPeakChannelWarns:
+    """A units table without `peak_channel_id` cannot be joined to the electrodes it is given.
+
+    It used to fill every row with None and 'Unknown' in silence. The proxy to avoid: a warning
+    on every call, so a table with the column, and a call with no electrodes table, stay quiet.
+    """
+
+    ELECTRODES = pd.DataFrame({"location": ["V1", "V1"], "z": [100.0, 2000.0]})
+
+    def test_the_fill_warns_and_names_the_columns(self):
+        units = pd.DataFrame({"quality": [1, 0]})
+        with pytest.warns(UserWarning, match=r"no 'peak_channel_id' column.*"
+                                             r"\['area', 'depth_class', 'group_name'\]"):
+            out = enrich_units_dataframe(units, self.ELECTRODES, depth_unit="um")
+        assert out["area"].isna().all() and (out["depth_class"] == "Unknown").all()
+
+    @pytest.mark.parametrize("case", ["with peak channel", "no electrodes"])
+    def test_a_resolvable_or_electrode_free_call_does_not_warn(self, case):
+        import warnings
+
+        units = pd.DataFrame({"quality": [1, 0], "peak_channel_id": [0, 1]})
+        electrodes = self.ELECTRODES
+        if case == "no electrodes":
+            units, electrodes = units.drop(columns="peak_channel_id"), None
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            out = enrich_units_dataframe(units, electrodes, depth_unit="um")
+        if case == "with peak channel":
+            assert out["depth_class"].tolist() == ["Superficial", "Deep"]

@@ -1066,3 +1066,51 @@ class TestInfiniteMeasuresAndTies:
             classify_unit_quality(frame, {"quality": torch.tensor(1.0)})
         with pytest.raises(TypeError, match="audit_units: snr_threshold must be a finite"):
             audit_units(frame, snr_threshold=torch.tensor(1.0))
+
+
+def test_a_quality_filter_on_a_file_with_no_quality_column_warns_and_excludes(tmp_path):
+    """No `quality` column is the limiting case of no usable quality, and is handled the same.
+
+    It used to raise `KeyError` inside the read, which the per-file handler logged as a failed
+    read, so a one-file call raised that every path failed to read. The proxy to avoid: the
+    call returning at all. The warning must name the absent column and every unit be excluded,
+    while the unfiltered read still returns them.
+    """
+    path = _write_minimal_nwb(tmp_path / "ses-01_noq.nwb")
+    with pytest.warns(RuntimeWarning, match="has no 'quality' column.*all are excluded"):
+        units = get_all_units_metadata(path, filter_quality=True, on_read_error="raise")
+    assert len(units) == 0
+    assert len(get_all_units_metadata(path)) == 2
+
+
+class TestTheDefaultCensusWarnsOfAnAbsentColumn:
+    """A default census on a frame without `area` or `depth_class` says it is not split by them.
+
+    The proxy to avoid: a warning on any frame. A frame with every default column must not
+    warn, and the `layer` case keeps its own message rather than a second one.
+    """
+
+    @pytest.mark.parametrize("col", ["area", "depth_class"])
+    def test_an_absent_default_column_warns(self, col):
+        units = _synthetic_units().drop(columns=[col, "layer"])
+        with pytest.warns(UserWarning, match=rf"no \['{col}'\] column.*not split by it"):
+            census = unit_census_report(units)
+        assert col not in census.columns
+
+    def test_a_frame_with_every_default_column_does_not_warn(self):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            unit_census_report(_synthetic_units())
+
+    def test_the_layer_case_warns_once(self):
+        import warnings
+
+        units = _synthetic_units().drop(columns="depth_class")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            unit_census_report(units)
+        messages = [str(w.message) for w in caught if w.category is UserWarning]
+        assert len(messages) == 1 and "'layer' column is not read" in messages[0]
+
