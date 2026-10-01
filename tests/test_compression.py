@@ -1446,19 +1446,45 @@ class TestALinkedIrregularTimestampsArrayIsRefused:
             assert f[self.A].dtype == np.float32 and f[self.B].dtype == np.float32
             np.testing.assert_array_equal(f[self.A][:], f[self.B][:])
 
-    def test_a_top_level_soft_link_to_the_target_is_refused(self, tmp_path):
-        """The copy writes a top-level soft link as an independent copy, so it would not follow."""
-        src = tmp_path / "root.nwb"
-        _selectable_file(src)
+    ROOT_LINKS = {
+        "literal": "/acquisition/a/timestamps",
+        "relative": "acquisition/a/timestamps",
+        "dot": "/acquisition/./a/timestamps",
+        "chain": "/acquisition/b/timestamps",          # a soft link to the soft link b
+        "group-alias": "/acquisition/g/timestamps",    # g is a soft link to the group a
+        "to-group": "/acquisition/a",
+    }
+
+    @pytest.mark.parametrize("route", list(ROOT_LINKS))
+    def test_a_top_level_soft_link_to_the_target_is_refused(self, tmp_path, route):
+        """The copy writes a top-level soft link as an independent copy, so it would not follow.
+
+        Decided on the object the link opens: every route to the array is refused, not only
+        the literal path.
+        """
+        src = self._src(tmp_path / "root.nwb", "soft")
         with h5py.File(src, "a") as f:
-            ts = np.sort(np.random.default_rng(6).uniform(1000.0, 1001.0, 400))
-            f.create_dataset(self.A, data=ts)
-            f["rootalias"] = h5py.SoftLink("/" + self.A)
+            f["acquisition/g"] = h5py.SoftLink("/acquisition/a")
+            f["rootalias"] = h5py.SoftLink(self.ROOT_LINKS[route])
+            assert f["rootalias"] == f[self.A] or isinstance(f["rootalias"], h5py.Group)
         out = tmp_path / "out"
         out.mkdir()
         with pytest.raises(ValueError, match="irregular timestamps array that another link"):
             jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[self.A])
         assert list(out.iterdir()) == []
+
+    def test_a_cast_through_a_group_alias_is_reported_once(self, tmp_path):
+        """The receipt compares objects, so a cast made through an alias path is cast only."""
+        src = self._src(tmp_path / "irr.nwb", "soft")
+        with h5py.File(src, "a") as f:
+            f["acquisition/g"] = h5py.SoftLink("/acquisition/a")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False,
+                                   select=["acquisition/g/timestamps"])
+        assert stats["timestamps_kept_linked"] == []
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            names = [self.A, self.B, "acquisition/g/timestamps"]
+            assert {f[n].dtype for n in names} == {np.dtype(np.float32)}
+            np.testing.assert_array_equal(f[self.A][:], f["acquisition/g/timestamps"][:])
 
     def test_an_unlinked_irregular_array_is_still_cast(self, tmp_path):
         src = self._src(tmp_path / "irr.nwb", "hard")

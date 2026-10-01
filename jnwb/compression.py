@@ -193,7 +193,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
         hard_linked = h5py.h5o.get_info(obj.id).rc > 1
         via_soft_alias = isinstance(src.get(rel, getlink=True), h5py.SoftLink)
         if fate == "linked" and (hard_linked or via_soft_alias
-                                 or _reached_by_a_top_level_soft_link(src, ts)):
+                                 or _reached_by_a_top_level_soft_link(src, obj)):
             link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
                 f"select= names {rel}{link}, an irregular timestamps array that another link "
@@ -273,19 +273,25 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
     return paths
 
 
-def _reached_by_a_top_level_soft_link(f: h5py.File, path: str) -> bool:
-    """Does a soft link that is itself a top-level key open ``path`` or a group above it?
+def _reached_by_a_top_level_soft_link(f: h5py.File, obj) -> bool:
+    """Does a soft link that is itself a top-level key open ``obj``, or a group holding it?
 
     :func:`_structural_copy` copies each top-level key on its own and follows a soft link
-    there, so such a link arrives in the output as an independent copy of its target.
+    there, so such a link arrives in the output as an independent copy of what it opens.
+    Decided on the objects the links resolve to, so a chain of soft links, a relative path or
+    a path through another alias is caught like the literal path.
     """
-    target = "/" + path.lstrip("/")
     for key in f:
-        link = f.get(key, getlink=True)
-        if isinstance(link, h5py.SoftLink):
-            via = "/" + link.path.lstrip("/")
-            if target == via or target.startswith(via.rstrip("/") + "/"):
-                return True
+        if not isinstance(f.get(key, getlink=True), h5py.SoftLink):
+            continue
+        opened = f.get(key)
+        if opened is None:
+            continue
+        if opened == obj:
+            return True
+        if isinstance(opened, h5py.Group) and opened.visititems(
+                lambda _name, member: True if member == obj else None):
+            return True
     return False
 
 
@@ -617,7 +623,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
         stats["timestamps_redundant_dropped"] = []
         stats["timestamps_inconsistent_kept"] = []
         soft_targets = _soft_link_targets(src)
-        cast_set = {"/" + p.lstrip("/") for p in cast_paths}
+        cast_objects = {src[p] for p in cast_paths}
         for ts_path in _find_timestamp_paths(src):
             full = "/" + ts_path
             data = src[ts_path][:]
@@ -633,7 +639,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
             # different things and neither should be silently discarded.
             fate, value = _timestamps_fate(src, ts_path, data, soft_targets)
             if fate == "linked":
-                if "/" + ts_path.lstrip("/") not in cast_set:   # cast through its soft link
+                if src[ts_path] not in cast_objects:   # cast through a soft link or an alias
                     stats["timestamps_kept_linked"].append(ts_path)
                 continue
             if fate == "irregular":
@@ -830,7 +836,9 @@ def compress_fp32(
             opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. A hard or soft link
             is cast under its own name: the output holds a new float32 dataset there, the link
             no longer opens its target, and the target keeps its source dtype unless it is
-            named too. The cast is IRREVERSIBLE. Required: omitting it or passing ``None``
+            named too. A soft link that is itself a top-level key arrives in the output as an
+            independent copy of what it opens, so a dataset cast at another name, or a group
+            holding one, keeps its source dtype under that link. The cast is IRREVERSIBLE. Required: omitting it or passing ``None``
             raises ``TypeError`` before anything is written.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
@@ -860,9 +868,9 @@ def compress_fp32(
             conversion replaces with ``starting_time`` and ``rate``; a regular ``timestamps``
             array that another link also opens, which is kept at its source dtype; an irregular
             one that a cast would leave reading differently under another name, which is one
-            named through a soft-link alias, with a second hard link, or under a top-level soft
-            link (naming all its names at once is refused as well, since a cast would end the
-            link); or a scalar dataset. A hard or soft link to either of the first two is refused
+            named through a soft-link alias, with a second hard link, or opened by a top-level
+            soft link directly or through a group (naming all its names at once is refused as
+            well, since a cast would end the link); or a scalar dataset. A hard or soft link to either of the first two is refused
             like its target. Also raised when a regular ``timestamps`` array sits beside a
             ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
             comes before anything is written.
