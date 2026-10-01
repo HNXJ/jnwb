@@ -213,7 +213,12 @@ def test_a_ci_leg_runs_the_suite_at_the_floors_on_the_floor_interpreter() -> Non
     workflow = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8"))
     job = workflow["jobs"]["test-floors"]
-    assert "if" not in job, "a conditional job is not required by the release gate"
+    from scripts.release_gate import required_ci_jobs
+
+    # What matters is that the release gate requires the leg of the commit it qualifies; a
+    # condition that skips it only on a published release keeps it required.
+    assert job["name"] in required_ci_jobs(root=ROOT), (
+        "the floors leg is not among the jobs the release gate requires")
     with open(ROOT / "pyproject.toml", "rb") as fh:
         declared = tomllib.load(fh)["project"]["requires-python"]
     # The floor's own patch release: `>=3.12` admits 3.12.0, and a bare `3.12` makes

@@ -50,6 +50,11 @@ import pytest
 
 matplotlib.use("Agg")  # headless, as in the other test modules that draw
 
+# The documented calls span every public module, and `jnwb.vis` needs the `vis` extra. Without it
+# the call list below cannot be built, so the module skips and names the extra instead of erroring
+# at collection.
+pytest.importorskip("plotly", reason="the vis extra is not installed")
+
 import jnwb
 
 ROOT = Path(__file__).resolve().parents[1]

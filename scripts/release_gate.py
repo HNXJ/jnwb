@@ -1,16 +1,16 @@
 """Deterministic Release Gate for jnwb.
 
-Pipeline, in the order the steps run:
-  0a. Release readiness: the working tree is clean, the problem stack is empty, no todo item
-      is still required this cycle, and the blocker-focused closure receipt reports zero for
-      this commit
+Pipeline, in the order the steps run. The labels are names, not positions: the suite keeps
+the label 1 and runs last, because it is the one step that takes tens of minutes, and every
+cheaper check that can refuse the release runs before it.
+  0a. Release readiness: artifacts/state.md is absent or records HEAD, the working tree is
+      clean, the problem stack is empty, no todo item is still required this cycle, and the
+      blocker-focused closure receipt reports zero for this commit
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
   0e. CI concluded success, per required leg, for the exact commit being qualified
-  1. Full test suite execution (pytest tests/), in parallel, with its wall time, and the
-     peak memory of a fixed set of representative operations, recorded
   2. Harness pre-flight gates
   2a. Recorded mutation gaps still hold at HEAD
   2b. API docs generator drift check, on this interpreter and on the Python floor
@@ -18,8 +18,10 @@ Pipeline, in the order the steps run:
   4. Manifest & forbidden-content inspection (no _unused, no omission, no artifacts)
   5. Distribution metadata & README validation (twine check)
   6. Isolated environment wheel installation & pip check
-  7. Installed-package smoke verification without omission
+  7. Installed-package smoke verification without omission (``INSTALLED_SMOKE``)
   8. Every numbered tutorial runs against the installed wheel
+  1. Full test suite execution (pytest tests/), in parallel, with its wall time, and the
+     peak memory of a fixed set of representative operations, recorded
 
 Exits 0 on complete verified success; non-zero otherwise.
 """
@@ -46,10 +48,11 @@ log = logging.getLogger("release_gate")
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-#: Extras whose tooling must be present for release qualification to mean anything. ``docs`` is
-#: included because tests/ contains a strict MkDocs build assertion: without it the suite does
-#: not fail, it reports a *different* result, which is worse.
-REQUIRED_EXTRAS = ("test", "docs")
+#: Extras whose tooling must be present for release qualification to mean anything: every extra
+#: the suite uses. A test whose extra is absent skips, naming the extra, so without this check
+#: the suite would not fail, it would report a *different* result, which is worse. ``vis`` is
+#: here because the suite imports ``jnwb.vis``, and every CI leg installs it.
+REQUIRED_EXTRAS = ("test", "docs", "vis")
 
 
 _VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -645,6 +648,13 @@ class CIOutcome(NamedTuple):
 
 _MATRIX_REF = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_.\-]+)\s*\}\}")
 
+#: The ``if:`` carried by the jobs a published GitHub Release does not re-run. The release run
+#: publishes the tag push run's files, and its first step requires that run's TestPyPI upload
+#: and verification to have succeeded, which through ``needs:`` required its test legs and build
+#: to succeed on the same commit. Re-running them in the release run repeated the whole matrix
+#: on a tree already qualified.
+SKIPPED_ON_RELEASE = "github.event_name != 'release'"
+
 
 def required_ci_jobs(workflow: Optional[str] = None,
                      root: Optional[pathlib.Path] = None) -> List[str]:
@@ -652,7 +662,8 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
     Derived from the workflow file, for the reason recorded at :data:`CI_WORKFLOW_PATH`.
 
-    A job carrying an ``if:`` is excluded: the two publish jobs are conditional by design and
+    A job carrying an ``if:`` other than :data:`SKIPPED_ON_RELEASE` is excluded: the publish
+    jobs are conditional by design and
     report ``skipped`` on an ordinary push, so requiring them would make the check fail for
     every commit and therefore be switched off. A job *without* an ``if:`` is unconditional,
     and ``skipped`` on such a job means an upstream ``needs:`` never produced it -- which is
@@ -671,7 +682,11 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
     names: List[str] = []
     for job_id, job in jobs.items():
-        if not isinstance(job, dict) or "if" in job:
+        if not isinstance(job, dict):
+            continue
+        # The one condition that keeps a job required: skipped only on a release event, which
+        # this gate never qualifies. It runs on every push, so a push run must carry it.
+        if "if" in job and " ".join(str(job["if"]).split()) != SKIPPED_ON_RELEASE:
             continue
         template = str(job.get("name") or job_id)
         matrix = ((job.get("strategy") or {}).get("matrix")) or {}
@@ -1535,7 +1550,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
-      4. the committed peak-memory record names the version HEAD declares.
+      4. the committed peak-memory record names the version HEAD declares;
+      5. ``changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1627,225 +1643,56 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     stale_record = peak_memory_record_violation(root)
     if stale_record:
         violations.append(stale_record)
+
+    # 5. every changelog fragment has been assembled into CHANGELOG.md
+    leftover = unassembled_fragments(root)
+    if leftover is None:
+        violations.append("git cannot list changelog.d/ at HEAD, so whether every changelog "
+                          "fragment reached CHANGELOG.md is unknown")
+    elif leftover:
+        violations.append(
+            f"{len(leftover)} file(s) in changelog.d/ at HEAD are not assembled into "
+            f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
+            + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
     return violations
 
 
-def main() -> None:
-    log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
-    try:
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
-                              text=True, check=True).stdout.strip()
-    except (subprocess.CalledProcessError, OSError):
-        head = None
-    stack_violations = check_release_readiness(head=head)
-    if stack_violations:
-        for violation in stack_violations:
-            log.error(violation)
-        log.error(
-            "A release requires: a working tree with no uncommitted change; an empty problem "
-            "stack; zero todo items still required for this cycle; and a blocker-focused closure "
-            "receipt reporting zero new blockers, recorded at HEAD or at an ancestor that differs "
-            "from HEAD only in the receipt and %s, with no item it held open relabelled since "
-            "or deleted without the receipt recording it as finished. Work deferred to %s, and "
-            "%s items, stay in the todo stack.",
-            TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
-        sys.exit(1)
-    releases = [r for _, _, r in _parse_todo_stack(_text_at(REPO_ROOT, "HEAD", TODO_PATH))[0]]
-    log.info(
-        "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
-        "deferred to %s and %d are %s, completing after the tag.",
-        releases.count(DEFERRED_VALUE), NEXT_CYCLE, releases.count(RELEASE_STEP_VALUE),
-        RELEASE_STEP_VALUE)
+def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
+    """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
 
-    log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
-    missing = verify_declared_environment()
-    if missing:
-        log.error(
-            "This interpreter (%s, Python %s) is missing required tooling: %s",
-            sys.executable, ".".join(str(v) for v in sys.version_info[:3]), ", ".join(missing))
-        log.error("Release qualification would measure an unprovisioned environment. Provision it:")
-        log.error('    "%s" -m pip install ".[%s]"', sys.executable, ",".join(REQUIRED_EXTRAS))
-        sys.exit(1)
-    log.info(
-        "PASS: required release/test tooling from [%s] is importable on Python %s "
-        "(presence check; pip check in STEP 6 verifies dependency consistency).",
-        ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
+    Anything else there is a change the assembled section does not carry. The exempt names are
+    the assembler's own, imported rather than retyped.
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+    from scripts.assemble_changelog import NOT_FRAGMENTS
 
-    log.info("=== STEP 0b: Checking the declared version against the package index ===")
-    version = jnwb_source_version()
-    collisions = check_version_is_not_already_published(version, published_versions())
-    if collisions:
-        for problem in collisions:
-            log.error("%s", problem)
-        sys.exit(1)
-    log.info(
-        "PASS: %s is not a version the index already serves.", version)
+    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "changelog.d"],
+                            cwd=root, capture_output=True, text=True)
+    if listed.returncode != 0:
+        return None
+    return sorted(name for name in listed.stdout.splitlines()
+                  if pathlib.PurePosixPath(name).name not in NOT_FRAGMENTS)
 
-    log.info("=== STEP 0c: Checking every declared dependency floor is installable ===")
-    tag = interpreter_floor_tag()
-    floor_problems: List[str] = []
-    floors = declared_dependency_floors()
-    if not floors:
-        log.error("pyproject.toml declares no dependency floors; this check is vacuous")
-        sys.exit(1)
-    for extra, name, floor in floors:
-        floor_problems.extend(check_floor_is_installable(
-            name, floor, package_releases(name), tag, extra))
-    if floor_problems:
-        for problem in floor_problems:
-            log.error("%s", problem)
-        sys.exit(1)
-    log.info("PASS: all %d declared floors install on %s.", len(floors), tag)
 
-    log.info("=== STEP 0d: Checking the release body against package metadata ===")
-    metadata = release_metadata()
-    body_outcome = check_live_release_body(metadata)
-    if body_outcome.violations:
-        for problem in body_outcome.violations:
-            log.error("release body: %s", problem)
-        log.error(
-            "The release body is a published, version-bearing surface. Correct it with "
-            "`gh release edit v%s --notes-file <file>` and re-run.", metadata.version)
-        sys.exit(1)
-    if body_outcome.status == BODY_SKIPPED:
-        # Logged as SKIP, never as PASS. An unreachable release means the body's claims are
-        # unverified; reporting that as success is the failure mode this step was added for.
-        log.warning("SKIP: the release body was NOT checked -- %s", body_outcome.detail)
-        log.warning(
-            "      Its version, Python support and install command remain unverified. This "
-            "is not a pass.")
-    else:
-        log.info(
-            "PASS: the release body for %s agrees with package metadata (%s).",
-            metadata.version, body_outcome.detail)
+def check_state_is_current(root: pathlib.Path = REPO_ROOT) -> List[str]:
+    """Harness gate 20's rule, run first: a present ``artifacts/state.md`` records HEAD.
 
-    log.info("=== STEP 0e: Resolving the CI conclusion for the commit being qualified ===")
-    skip_ci = os.environ.get(SKIP_CI_ENV) == "1"
-    if head is None:
-        ci = CIOutcome(CI_UNRESOLVED, "HEAD could not be resolved with `git rev-parse`", [], [])
-    else:
-        ci = check_ci_conclusion(head)
-    if ci.legs:
-        log.info("CI legs for %s:", ci.detail)
-        for row in format_leg_table(ci.legs):
-            log.info("%s", row)
-    if ci.status == CI_VERIFIED:
-        log.info("PASS: every required CI leg ran and concluded success for %s (%s).",
-                 (head or "?")[:12], ci.detail)
-    else:
-        logger = log.warning if skip_ci else log.error
-        headline = ("CI is NOT green for this commit" if ci.status == CI_FAILED
-                    else "the CI conclusion for this commit could NOT be resolved")
-        logger("%s: %s", headline, ci.detail)
-        for problem in ci.violations:
-            logger("  %s", problem)
-        if skip_ci:
-            log.warning(
-                "SKIPPED: %s=1 is set, so a commit whose CI is %s is being allowed through. "
-                "This is not a pass -- it is a decision to tag without CI evidence.",
-                SKIP_CI_ENV, ci.status)
-        else:
-            log.error(
-                "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
-                "aggregate 'no failure' is not that: a job with `needs:` reports `skipped` "
-                "when its dependency failed, so a red suite can leave the build job showing "
-                "no red at all. Push this commit, let CI finish green, then re-run. To tag "
-                "without CI evidence anyway, set %s=1 -- deliberately, and knowing it is "
-                "recorded here as unverified.", SKIP_CI_ENV)
-            sys.exit(1)
+    The same function the harness runs, not a copy. The harness runs only after the suite, so a
+    stale state file used to fail the release twelve to thirty minutes in; it costs a third of a
+    second to find here. Imported late because the harness imports this module.
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+    from scripts.harness_gate import check_state_file_head
 
-    log.info("=== STEP 1: Running full test suite ===")
-    # Parallel, because the serial run took over twenty minutes; the ten slowest tests and the
-    # wall time are printed so a cost that grows is seen at the release that grew it.
-    started = time.monotonic()
-    run_cmd([sys.executable, "-m", "pytest", "-q", "-n", "auto", "--durations=10",
-             "-p", "no:cacheprovider", "tests/"])
-    log.info("Suite wall time: %.0f s", time.monotonic() - started)
-    # Peak memory is the other cost measured before a release, logged here with no threshold.
-    # Nothing is written into the tree: the committed artifacts/benchmarks/peak_memory.json is
-    # refreshed before the closure pass, so the receipt covers it.
-    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
+    return check_state_file_head(root)
 
-    log.info("=== STEP 2: Running harness pre-flight verification gate ===")
-    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])
 
-    log.info("=== STEP 2a: Recorded mutation gaps still hold at HEAD ===")
-    gaps_hold, gaps_report = check_known_gaps_hold()
-    log.info(gaps_report)
-    if not gaps_hold:
-        log.error("A recorded mutation gap no longer matches the measurement; update KNOWN_GAPS.")
-        sys.exit(1)
-
-    for cmd in _api_md_check_commands():
-        label = "current interpreter" if cmd[0] == sys.executable else "Python 3.12 floor"
-        log.info(f"=== STEP 2b: API docs generator drift check ({label}) ===")
-        run_cmd(cmd)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        staging_dir = pathlib.Path(tmpdir)
-        dist_dir = staging_dir / "dist"
-        dist_dir.mkdir()
-
-        log.info(f"=== STEP 3: Building sdist and wheel in staging directory: {dist_dir} ===")
-        run_cmd([sys.executable, "-m", "build", "--outdir", str(dist_dir), str(REPO_ROOT)])
-
-        wheels = list(dist_dir.glob("*.whl"))
-        sdists = list(dist_dir.glob("*.tar.gz"))
-        if not wheels or not sdists:
-            log.error("Build failed to produce wheel or sdist!")
-            sys.exit(1)
-
-        whl = wheels[0]
-        sdist = sdists[0]
-        log.info(f"Produced wheel: {whl.name} ({whl.stat().st_size:,} bytes)")
-        log.info(f"Produced sdist: {sdist.name} ({sdist.stat().st_size:,} bytes)")
-
-        log.info("=== STEP 4: Inspecting archive manifests ===")
-
-        with zipfile.ZipFile(whl, "r") as z:
-            whl_problems = forbidden_entries(z.namelist())
-        if whl_problems:
-            for problem in whl_problems:
-                log.error("wheel: %s", problem)
-            sys.exit(1)
-        log.info("PASS: Wheel archive contains zero forbidden entries.")
-
-        with tarfile.open(sdist, "r:gz") as t:
-            sdist_problems = forbidden_entries(t.getnames())
-        if sdist_problems:
-            for problem in sdist_problems:
-                log.error("sdist: %s", problem)
-            sys.exit(1)
-        log.info("PASS: Sdist archive contains zero forbidden entries.")
-
-        log.info("=== STEP 5: Validating metadata with twine ===")
-        run_cmd([sys.executable, "-m", "twine", "check", str(whl), str(sdist)])
-
-        log.info("=== STEP 6: Creating isolated venv for wheel installation ===")
-        venv_dir = staging_dir / "isolated_venv"
-        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-
-        if sys.platform == "win32":
-            venv_python = str(venv_dir / "Scripts" / "python.exe")
-        else:
-            venv_python = str(venv_dir / "bin" / "python")
-
-        log.info(f"Installing wheel {whl} into isolated environment...")
-        # `python -m pip`, not the pip executable: on Windows pip refuses to replace its
-        # own running .exe and exits 1, which failed this gate before it tested anything.
-        subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
-        subprocess.run([venv_python, "-m", "pip", "install", str(whl)], check=True)
-
-        log.info("Checking package dependencies with pip check...")
-        check_res = subprocess.run([venv_python, "-m", "pip", "check"], capture_output=True, text=True)
-        if check_res.returncode != 0:
-            log.error(f"pip check failed: {check_res.stderr}\n{check_res.stdout}")
-            sys.exit(check_res.returncode)
-        log.info("PASS: pip check verified zero broken requirements.")
-
-        log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
-        smoke_script = staging_dir / "smoke_test.py"
-        smoke_script.write_text(f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + """
+#: STEP 7: run by the isolated venv's interpreter from outside the checkout, after the
+#: build, with ``EXPECTED_VERSION`` prepended. Kept out of ``main`` so the step reads as one
+#: call and the script can be read, and changed, on its own.
+INSTALLED_SMOKE = """
 import sys
 import pathlib
 import numpy as np
@@ -2035,7 +1882,215 @@ assert np.isclose(rho_rdm, 1.0)
 jnwb.setup_vector_graphics()
 
 print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
-""", encoding="utf-8")
+"""
+
+
+def main() -> None:
+    log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
+    try:
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True,
+                              text=True, check=True).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        head = None
+    stack_violations = check_state_is_current() + check_release_readiness(head=head)
+    if stack_violations:
+        for violation in stack_violations:
+            log.error(violation)
+        log.error(
+            "A release requires: a state file that is absent or records HEAD; a working tree "
+            "with no uncommitted change; an empty problem "
+            "stack; zero todo items still required for this cycle; and a blocker-focused closure "
+            "receipt reporting zero new blockers, recorded at HEAD or at an ancestor that differs "
+            "from HEAD only in the receipt and %s, with no item it held open relabelled since "
+            "or deleted without the receipt recording it as finished. Work deferred to %s, and "
+            "%s items, stay in the todo stack.",
+            TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
+        sys.exit(1)
+    releases = [r for _, _, r in _parse_todo_stack(_text_at(REPO_ROOT, "HEAD", TODO_PATH))[0]]
+    log.info(
+        "PASS: the problem stack is empty and no required item remains; %d todo item(s) are "
+        "deferred to %s and %d are %s, completing after the tag.",
+        releases.count(DEFERRED_VALUE), NEXT_CYCLE, releases.count(RELEASE_STEP_VALUE),
+        RELEASE_STEP_VALUE)
+
+    log.info("=== STEP 0: Checking required release/test tooling in the active environment ===")
+    missing = verify_declared_environment()
+    if missing:
+        log.error(
+            "This interpreter (%s, Python %s) is missing required tooling: %s",
+            sys.executable, ".".join(str(v) for v in sys.version_info[:3]), ", ".join(missing))
+        log.error("Release qualification would measure an unprovisioned environment. Provision it:")
+        log.error('    "%s" -m pip install ".[%s]"', sys.executable, ",".join(REQUIRED_EXTRAS))
+        sys.exit(1)
+    log.info(
+        "PASS: required release/test tooling from [%s] is importable on Python %s "
+        "(presence check; pip check in STEP 6 verifies dependency consistency).",
+        ",".join(REQUIRED_EXTRAS), ".".join(str(v) for v in sys.version_info[:3]))
+
+    log.info("=== STEP 0b: Checking the declared version against the package index ===")
+    version = jnwb_source_version()
+    collisions = check_version_is_not_already_published(version, published_versions())
+    if collisions:
+        for problem in collisions:
+            log.error("%s", problem)
+        sys.exit(1)
+    log.info(
+        "PASS: %s is not a version the index already serves.", version)
+
+    log.info("=== STEP 0c: Checking every declared dependency floor is installable ===")
+    tag = interpreter_floor_tag()
+    floor_problems: List[str] = []
+    floors = declared_dependency_floors()
+    if not floors:
+        log.error("pyproject.toml declares no dependency floors; this check is vacuous")
+        sys.exit(1)
+    for extra, name, floor in floors:
+        floor_problems.extend(check_floor_is_installable(
+            name, floor, package_releases(name), tag, extra))
+    if floor_problems:
+        for problem in floor_problems:
+            log.error("%s", problem)
+        sys.exit(1)
+    log.info("PASS: all %d declared floors install on %s.", len(floors), tag)
+
+    log.info("=== STEP 0d: Checking the release body against package metadata ===")
+    metadata = release_metadata()
+    body_outcome = check_live_release_body(metadata)
+    if body_outcome.violations:
+        for problem in body_outcome.violations:
+            log.error("release body: %s", problem)
+        log.error(
+            "The release body is a published, version-bearing surface. Correct it with "
+            "`gh release edit v%s --notes-file <file>` and re-run.", metadata.version)
+        sys.exit(1)
+    if body_outcome.status == BODY_SKIPPED:
+        # Logged as SKIP, never as PASS. An unreachable release means the body's claims are
+        # unverified; reporting that as success is the failure mode this step was added for.
+        log.warning("SKIP: the release body was NOT checked -- %s", body_outcome.detail)
+        log.warning(
+            "      Its version, Python support and install command remain unverified. This "
+            "is not a pass.")
+    else:
+        log.info(
+            "PASS: the release body for %s agrees with package metadata (%s).",
+            metadata.version, body_outcome.detail)
+
+    log.info("=== STEP 0e: Resolving the CI conclusion for the commit being qualified ===")
+    skip_ci = os.environ.get(SKIP_CI_ENV) == "1"
+    if head is None:
+        ci = CIOutcome(CI_UNRESOLVED, "HEAD could not be resolved with `git rev-parse`", [], [])
+    else:
+        ci = check_ci_conclusion(head)
+    if ci.legs:
+        log.info("CI legs for %s:", ci.detail)
+        for row in format_leg_table(ci.legs):
+            log.info("%s", row)
+    if ci.status == CI_VERIFIED:
+        log.info("PASS: every required CI leg ran and concluded success for %s (%s).",
+                 (head or "?")[:12], ci.detail)
+    else:
+        logger = log.warning if skip_ci else log.error
+        headline = ("CI is NOT green for this commit" if ci.status == CI_FAILED
+                    else "the CI conclusion for this commit could NOT be resolved")
+        logger("%s: %s", headline, ci.detail)
+        for problem in ci.violations:
+            logger("  %s", problem)
+        if skip_ci:
+            log.warning(
+                "SKIPPED: %s=1 is set, so a commit whose CI is %s is being allowed through. "
+                "This is not a pass -- it is a decision to tag without CI evidence.",
+                SKIP_CI_ENV, ci.status)
+        else:
+            log.error(
+                "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
+                "aggregate 'no failure' is not that: a job with `needs:` reports `skipped` "
+                "when its dependency failed, so a red suite can leave the build job showing "
+                "no red at all. Push this commit, let CI finish green, then re-run. To tag "
+                "without CI evidence anyway, set %s=1 -- deliberately, and knowing it is "
+                "recorded here as unverified.", SKIP_CI_ENV)
+            sys.exit(1)
+
+    log.info("=== STEP 2: Running harness pre-flight verification gate ===")
+    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "harness_gate.py")])
+
+    log.info("=== STEP 2a: Recorded mutation gaps still hold at HEAD ===")
+    gaps_hold, gaps_report = check_known_gaps_hold()
+    log.info(gaps_report)
+    if not gaps_hold:
+        log.error("A recorded mutation gap no longer matches the measurement; update KNOWN_GAPS.")
+        sys.exit(1)
+
+    for cmd in _api_md_check_commands():
+        label = "current interpreter" if cmd[0] == sys.executable else "Python 3.12 floor"
+        log.info(f"=== STEP 2b: API docs generator drift check ({label}) ===")
+        run_cmd(cmd)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        staging_dir = pathlib.Path(tmpdir)
+        dist_dir = staging_dir / "dist"
+        dist_dir.mkdir()
+
+        log.info(f"=== STEP 3: Building sdist and wheel in staging directory: {dist_dir} ===")
+        run_cmd([sys.executable, "-m", "build", "--outdir", str(dist_dir), str(REPO_ROOT)])
+
+        wheels = list(dist_dir.glob("*.whl"))
+        sdists = list(dist_dir.glob("*.tar.gz"))
+        if not wheels or not sdists:
+            log.error("Build failed to produce wheel or sdist!")
+            sys.exit(1)
+
+        whl = wheels[0]
+        sdist = sdists[0]
+        log.info(f"Produced wheel: {whl.name} ({whl.stat().st_size:,} bytes)")
+        log.info(f"Produced sdist: {sdist.name} ({sdist.stat().st_size:,} bytes)")
+
+        log.info("=== STEP 4: Inspecting archive manifests ===")
+
+        with zipfile.ZipFile(whl, "r") as z:
+            whl_problems = forbidden_entries(z.namelist())
+        if whl_problems:
+            for problem in whl_problems:
+                log.error("wheel: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Wheel archive contains zero forbidden entries.")
+
+        with tarfile.open(sdist, "r:gz") as t:
+            sdist_problems = forbidden_entries(t.getnames())
+        if sdist_problems:
+            for problem in sdist_problems:
+                log.error("sdist: %s", problem)
+            sys.exit(1)
+        log.info("PASS: Sdist archive contains zero forbidden entries.")
+
+        log.info("=== STEP 5: Validating metadata with twine ===")
+        run_cmd([sys.executable, "-m", "twine", "check", str(whl), str(sdist)])
+
+        log.info("=== STEP 6: Creating isolated venv for wheel installation ===")
+        venv_dir = staging_dir / "isolated_venv"
+        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
+
+        if sys.platform == "win32":
+            venv_python = str(venv_dir / "Scripts" / "python.exe")
+        else:
+            venv_python = str(venv_dir / "bin" / "python")
+
+        log.info(f"Installing wheel {whl} into isolated environment...")
+        # `python -m pip`, not the pip executable: on Windows pip refuses to replace its
+        # own running .exe and exits 1, which failed this gate before it tested anything.
+        subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
+        subprocess.run([venv_python, "-m", "pip", "install", str(whl)], check=True)
+
+        log.info("Checking package dependencies with pip check...")
+        check_res = subprocess.run([venv_python, "-m", "pip", "check"], capture_output=True, text=True)
+        if check_res.returncode != 0:
+            log.error(f"pip check failed: {check_res.stderr}\n{check_res.stdout}")
+            sys.exit(check_res.returncode)
+        log.info("PASS: pip check verified zero broken requirements.")
+
+        log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
+        smoke_script = staging_dir / "smoke_test.py"
+        smoke_script.write_text(
+            f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + INSTALLED_SMOKE, encoding="utf-8")
 
         res = subprocess.run([venv_python, str(smoke_script)], cwd=str(staging_dir), capture_output=True, text=True)
         if res.returncode != 0:
@@ -2061,6 +2116,22 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
                 sys.exit(res.returncode)
             log.info("PASS: %s executed against the installed wheel.", tutorial.name)
         log.info("PASS: all %d tutorials ran against the installed artifact.", len(tutorials))
+
+    # Last, because it is the most expensive step: everything before it takes minutes, so a
+    # defect any of them finds is reported before, not after, a twelve to thirty minute run.
+    # Nothing before it reads what the suite produces, and every step must pass for the
+    # verdict below, so the order changes when a failure is seen, not what passes.
+    log.info("=== STEP 1: Running full test suite ===")
+    # Parallel, because the serial run took over twenty minutes; the ten slowest tests and the
+    # wall time are printed so a cost that grows is seen at the release that grew it.
+    started = time.monotonic()
+    run_cmd([sys.executable, "-m", "pytest", "-q", "-n", "auto", "--durations=10",
+             "-p", "no:cacheprovider", "tests/"])
+    log.info("Suite wall time: %.0f s", time.monotonic() - started)
+    # Peak memory is the other cost measured before a release, logged here with no threshold.
+    # Nothing is written into the tree: the committed artifacts/benchmarks/peak_memory.json is
+    # refreshed before the closure pass, so the receipt covers it.
+    run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 
     log.info("=============================================================")
     log.info("=== RELEASE GATE VERIFIED: DISTRIBUTABLE PACKAGE READY ===")

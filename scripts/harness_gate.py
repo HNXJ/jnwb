@@ -403,6 +403,9 @@ PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14")  # every claimed version must be t
 #: Directories that hold tracked source. Anything else at the root is a mistake.
 SOURCE_ROOT_DIRS = {
     "jnwb", "tests", "examples", "docs", "skills", "scripts", "artifacts", ".github",
+    # One file per unreleased change, assembled into CHANGELOG.md at release by
+    # scripts/assemble_changelog.py.
+    "changelog.d",
 }
 
 #: Build output, caches and environments. Tolerated on disk, but each must be gitignored --

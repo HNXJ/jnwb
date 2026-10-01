@@ -20,12 +20,15 @@ in 6 % to 11 % of their pixels, most by more than a quarter of the full scale, b
 moves. When the running minor release is not the one that wrote a figure (recorded in its PNG
 metadata), the comparison is skipped with both versions named rather than failed on a difference
 the stack made. An environment that must compare sets `JNWB_REQUIRE_FIGURE_COMPARISON=1`, and
-there the skip is a failure: a run that compared nothing cannot pass as one that compared.
+there the skip is a failure: a run that compared nothing cannot pass as one that compared. One CI
+leg pins the release the committed figures record and sets it; the last test here holds that leg
+to the version the PNGs record.
 """
 from __future__ import annotations
 
 import ast
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -45,7 +48,11 @@ CHANNEL_STEP = 2.0 / 255.0
 # figures, so the slack only has to absorb nothing; one changed digit of the smallest text in a
 # documentation figure moves 1.3e-4.
 CHANGED_FRACTION = 1e-5
+#: Set to "1" where the comparison must run: a Matplotlib minor release other than the one that
+#: wrote a figure then fails the test instead of skipping it. Any other value leaves it off, so
+#: a CI leg can pass "0" explicitly.
 REQUIRE_COMPARISON = "JNWB_REQUIRE_FIGURE_COMPARISON"
+WORKFLOW = REPO_ROOT / ".github" / "workflows" / "workflow.yml"
 
 
 def _registry():
@@ -103,7 +110,7 @@ def test_the_committed_figure_is_what_the_generator_draws(name, regenerated):
     minor = ".".join(matplotlib.__version__.split(".")[:2])
     if not wrote.startswith(f"Matplotlib version{minor}."):
         why = f"{name} was written by {wrote!r}; running Matplotlib {matplotlib.__version__}"
-        if os.environ.get(REQUIRE_COMPARISON):
+        if os.environ.get(REQUIRE_COMPARISON) == "1":
             pytest.fail(f"{REQUIRE_COMPARISON} is set and no comparison is possible: {why}")
         pytest.skip(why)
     fraction = _changed_fraction(mpimg.imread(committed), mpimg.imread(regenerated / name))
@@ -140,6 +147,40 @@ def test_a_required_comparison_fails_instead_of_skipping(monkeypatch):
     monkeypatch.setattr(matplotlib, "__version__", "0.0.0")
     with pytest.raises(pytest.fail.Exception, match=REQUIRE_COMPARISON):
         test_the_committed_figure_is_what_the_generator_draws(committed.name, None)
-    monkeypatch.delenv(REQUIRE_COMPARISON)
-    with pytest.raises(pytest.skip.Exception):
-        test_the_committed_figure_is_what_the_generator_draws(committed.name, None)
+    # "0" is how every other CI leg passes the variable, and it leaves the comparison off.
+    for off in ("0", None):
+        if off is None:
+            monkeypatch.delenv(REQUIRE_COMPARISON)
+        else:
+            monkeypatch.setenv(REQUIRE_COMPARISON, off)
+        with pytest.raises(pytest.skip.Exception):
+            test_the_committed_figure_is_what_the_generator_draws(committed.name, None)
+
+
+def test_one_ci_leg_compares_the_figures_at_the_version_that_wrote_them():
+    """Every leg installed the newest Matplotlib, a minor release after the one that wrote the
+    figures, so every leg skipped all of them and nothing compared a figure anywhere."""
+    import yaml
+
+    recorded = {_software(p) for p in FIGURE_DIR.glob("*.png")}
+    versions = {m.group(1) for s in recorded if (m := re.match(r"Matplotlib version(\S+?),", s))}
+    assert len(versions) == 1, f"the committed figures record several writers: {sorted(recorded)}"
+    (written_by,) = versions
+
+    job = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["test"]
+    compared = [c for c in job["strategy"]["matrix"].get("include", [])
+                if c.get("figures") == "compared"]
+    assert len(compared) == 1, f"expected one leg with figures: compared, found {compared}"
+    steps = job["steps"]
+    pins = [s for s in steps if "matrix.figures == 'compared'" in str(s.get("if", ""))]
+    assert len(pins) == 1, "the compared leg has no step of its own that pins Matplotlib"
+    pinned = re.findall(r"matplotlib==(\S+?)[\"'\s]", pins[0]["run"] + " ")
+    assert pinned == [written_by], (
+        f"the compared leg pins {pinned}, the committed figures were written by {written_by}")
+    names = [s.get("name") for s in steps]
+    install = names.index("Install dependencies")
+    suite = names.index("Run pytest")
+    assert install < steps.index(pins[0]) < suite, "the pin must follow the install and precede the suite"
+    env = str((steps[suite].get("env") or {}).get(REQUIRE_COMPARISON, ""))
+    assert "matrix.figures == 'compared'" in env and "'1'" in env, (
+        f"the suite step does not set {REQUIRE_COMPARISON}=1 on the compared leg: {env!r}")

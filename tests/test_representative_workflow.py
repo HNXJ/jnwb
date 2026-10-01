@@ -210,9 +210,12 @@ class TestNoOmissionDependency:
             "assert len(plan['draw_manifest']) == 10\n"
             "print('WORKFLOW_OK')\n"
         )
+        # A hang guard, not a speed claim: the claim is that the workflow completes. Unloaded it
+        # takes seconds; under a parallel suite on a busy machine it passed 60 s, so the guard is
+        # ten minutes rather than a figure that measures the machine's load.
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=600,
         )
         assert result.returncode == 0 and "WORKFLOW_OK" in result.stdout, (
             "The representative jnwb-only workflow failed with omission/ blocked from sys.path "
