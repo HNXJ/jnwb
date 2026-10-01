@@ -149,13 +149,16 @@ class TestComputePsd:
 
     def test_default_nperseg_with_low_sampling_rate_is_valid(self):
         """When fs < 2, default segment is floored at 2 samples, so Welch never runs with 0 or 1 samples."""
-        x = np.ones(50)
+        rng = np.random.default_rng(42)
+        x = rng.standard_normal(50)
         freqs, psd = compute_psd(x, fs=1.0)
         assert len(freqs) == 2
         assert freqs[1] == 0.5
+        assert np.all(psd > 0.0)
         freqs, psd = compute_psd(x, fs=0.5)
         assert len(freqs) == 2
         assert freqs[1] == 0.25
+        assert np.all(psd > 0.0)
 
     def test_listed_in_jnwb_all(self):
         import jnwb
