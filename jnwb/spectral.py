@@ -523,10 +523,10 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Opti
             "from a measured absence of power."
         )
     if nperseg is None:
-        nperseg = min(n_times, int(fs))
-    elif isinstance(nperseg, (bool, np.bool_)) or not isinstance(nperseg, (int, np.integer)):
+        nperseg = min(n_times, max(2, int(fs)))
+    if isinstance(nperseg, (bool, np.bool_)) or not isinstance(nperseg, (int, np.integer)):
         raise ValueError(f"compute_psd: nperseg must be an integer, got {nperseg!r}.")
-    elif not 2 <= nperseg <= n_times:
+    if not 2 <= nperseg <= n_times:
         raise ValueError(
             f"compute_psd: nperseg must be from 2 to the {n_times} samples along axis {axis}, "
             f"got {nperseg}. scipy would shorten a longer segment to the trace without saying so."

@@ -147,6 +147,16 @@ class TestComputePsd:
         with pytest.raises(ValueError, match="nperseg"):
             compute_psd(np.ones(4000), 1000.0, nperseg=bad)
 
+    def test_default_nperseg_with_low_sampling_rate_is_valid(self):
+        """When fs < 2, default segment is floored at 2 samples, so Welch never runs with 0 or 1 samples."""
+        x = np.ones(50)
+        freqs, psd = compute_psd(x, fs=1.0)
+        assert len(freqs) == 2
+        assert freqs[1] == 0.5
+        freqs, psd = compute_psd(x, fs=0.5)
+        assert len(freqs) == 2
+        assert freqs[1] == 0.25
+
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("to_db", "harmonic_analysis", "cross_area_coherence", "spectral_tilt",
