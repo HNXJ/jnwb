@@ -188,10 +188,12 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
         # A cast rewrites the array under one name only. Through a second hard link the old
         # values stay, and a soft-link alias named here is cast as a new dataset while its
         # target keeps the old ones; either way the two names then disagree by the float32
-        # rounding of each sample. Casting a soft link's target keeps both names equal.
+        # rounding of each sample. Casting a soft link's target keeps both names equal, except
+        # through a top-level soft link, which the structural copy writes as an independent copy.
         hard_linked = h5py.h5o.get_info(obj.id).rc > 1
         via_soft_alias = isinstance(src.get(rel, getlink=True), h5py.SoftLink)
-        if fate == "linked" and (hard_linked or via_soft_alias):
+        if fate == "linked" and (hard_linked or via_soft_alias
+                                 or _reached_by_a_top_level_soft_link(src, ts)):
             link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
                 f"select= names {rel}{link}, an irregular timestamps array that another link "
@@ -269,6 +271,22 @@ def _find_timestamp_paths(f: h5py.File) -> list[str]:
             paths.append(name)
     f.visititems_links(w)
     return paths
+
+
+def _reached_by_a_top_level_soft_link(f: h5py.File, path: str) -> bool:
+    """Does a soft link that is itself a top-level key open ``path`` or a group above it?
+
+    :func:`_structural_copy` copies each top-level key on its own and follows a soft link
+    there, so such a link arrives in the output as an independent copy of its target.
+    """
+    target = "/" + path.lstrip("/")
+    for key in f:
+        link = f.get(key, getlink=True)
+        if isinstance(link, h5py.SoftLink):
+            via = "/" + link.path.lstrip("/")
+            if target == via or target.startswith(via.rstrip("/") + "/"):
+                return True
+    return False
 
 
 def _soft_link_targets(f: h5py.File) -> set:
@@ -599,6 +617,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
         stats["timestamps_redundant_dropped"] = []
         stats["timestamps_inconsistent_kept"] = []
         soft_targets = _soft_link_targets(src)
+        cast_set = {"/" + p.lstrip("/") for p in cast_paths}
         for ts_path in _find_timestamp_paths(src):
             full = "/" + ts_path
             data = src[ts_path][:]
@@ -614,7 +633,8 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
             # different things and neither should be silently discarded.
             fate, value = _timestamps_fate(src, ts_path, data, soft_targets)
             if fate == "linked":
-                stats["timestamps_kept_linked"].append(ts_path)
+                if "/" + ts_path.lstrip("/") not in cast_set:   # cast through its soft link
+                    stats["timestamps_kept_linked"].append(ts_path)
                 continue
             if fate == "irregular":
                 stats["timestamps_kept_irregular"].append(ts_path)
@@ -826,7 +846,8 @@ def compress_fp32(
         overall ``ok`` flag. ``ok`` is True in every returned dict: a failed check raises.
         A regular ``timestamps`` array that another link also opens (pynwb writes shared
         timestamps as a soft link) is kept as it is and listed in ``timestamps_kept_linked``,
-        so the link still resolves.
+        so the link still resolves. An irregular one is kept and listed the same way, unless
+        ``select`` casts it as the target of a soft link; it is then in ``cast_paths`` only.
 
     Raises:
         FileNotFoundError: ``src`` does not exist.
@@ -836,9 +857,12 @@ def compress_fp32(
             is not in ``src``.
         ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
             always rewritten at their source dtype; a regular ``timestamps`` array, which the
-            conversion replaces with ``starting_time`` and ``rate``; a ``timestamps`` array
-            that another link also opens, regular or not, which is kept at its source dtype;
-            or a scalar dataset. A hard or soft link to either of the first two is refused
+            conversion replaces with ``starting_time`` and ``rate``; a regular ``timestamps``
+            array that another link also opens, which is kept at its source dtype; an irregular
+            one that a cast would leave reading differently under another name, which is one
+            named through a soft-link alias, with a second hard link, or under a top-level soft
+            link (naming all its names at once is refused as well, since a cast would end the
+            link); or a scalar dataset. A hard or soft link to either of the first two is refused
             like its target. Also raised when a regular ``timestamps`` array sits beside a
             ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
             comes before anything is written.

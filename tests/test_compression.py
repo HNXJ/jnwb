@@ -1440,10 +1440,25 @@ class TestALinkedIrregularTimestampsArrayIsRefused:
         src = self._src(tmp_path / "irr.nwb", "soft")
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[self.A])
         assert stats["cast_paths"] == ["/" + self.A]
+        assert stats["timestamps_kept_linked"] == []      # cast, so not also reported as kept
         with h5py.File(tmp_path / "ok.nwb", "r") as f:
             assert isinstance(f.get(self.B, getlink=True), h5py.SoftLink)
             assert f[self.A].dtype == np.float32 and f[self.B].dtype == np.float32
             np.testing.assert_array_equal(f[self.A][:], f[self.B][:])
+
+    def test_a_top_level_soft_link_to_the_target_is_refused(self, tmp_path):
+        """The copy writes a top-level soft link as an independent copy, so it would not follow."""
+        src = tmp_path / "root.nwb"
+        _selectable_file(src)
+        with h5py.File(src, "a") as f:
+            ts = np.sort(np.random.default_rng(6).uniform(1000.0, 1001.0, 400))
+            f.create_dataset(self.A, data=ts)
+            f["rootalias"] = h5py.SoftLink("/" + self.A)
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="irregular timestamps array that another link"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[self.A])
+        assert list(out.iterdir()) == []
 
     def test_an_unlinked_irregular_array_is_still_cast(self, tmp_path):
         src = self._src(tmp_path / "irr.nwb", "hard")
