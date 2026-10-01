@@ -27,64 +27,7 @@ Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Acc
 needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferred cycle end with
 `Waits:` and the reason it cannot make release evidence falsely pass.
 
-## Lanes
 
-| Lane | Items, in order | Owns |
-|---|---|---|
-| A release apparatus | 08-05, 08-07, 08-02 | `CHANGELOG.md`, `changelog.d/**`, `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, the CI workflow, `CONTRIBUTING.md`, `docs/01_architecture_and_philosophy.md`, the release and workflow tests, `tests/test_generated_figures_are_maintained.py` |
-| D analyses a simulator needs | 08-11 | `compute_psd` in `jnwb/spectral.py`, `jnwb/spiking.py`, `tests/test_spectral.py`, `tests/test_spiking.py`, the routing rows of `skills/jnwb-lfp-spectral` and `skills/jnwb-spiking`, `tests/test_skills_validation.py` |
-
-### 08-11 Analyses a simulator hands to jnwb
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral, jnwb-spiking. Blocked by: none.
-Writes: `jnwb/spectral.py`, `jnwb/spiking.py`, `tests/test_spectral.py`, `tests/test_spiking.py`, `skills/jnwb-lfp-spectral/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `tests/test_skills_validation.py`.
-Drafted and built by the jaxfne session in its own clone; integrated after an independent verifier and a second critic. Ruled by Hamm on 2026-09-29.
-- `compute_psd` has no segment length. Check: `nperseg=None` is bit-identical to today on the existing tests; `nperseg=k` equals `scipy.signal.welch(nperseg=k)` exactly; `nperseg` below 2 or above the signal length is refused.
-- No agreement measure for binary spike states. Check: `fleiss_kappa` per Fleiss 1971 (doi:10.1037/h0031619) reproduces the paper's worked table; items are bins, raters are units; a constant table is refused, never 0.
-- No spike-count correlation. Check: the mean pairwise Pearson r of binned counts (Cohen and Kohn 2011, doi:10.1038/nn.2842), the bin width required with no default; zero-variance units excluded and counted in the result, never returned as 0.
-- No Fano factor. Check: per unit, variance over mean of the count in a fixed window across trials, then summarised over units (Churchland et al. 2010, doi:10.1038/nn.2501); a zero-mean unit is excluded and counted.
-- No burst index. Check: network bursts detected from a population-rate threshold and a minimum duration, the index being the fraction of spikes inside bursts (Wagenaar et al. 2006, doi:10.1186/1471-2202-7-11); threshold and duration required, with no default.
-Accept: each check passes; the routing rows match `inspect.signature`; the suite and harness pass; no default changes a shipped value.
-Stop: a definition would need a choice not ruled here; a refusal would change a shipped value.
-
-### 08-02 Mechanical figure checks, written to fail on today's figures
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `tests/test_generated_figures_are_maintained.py`, `.github/workflows/workflow.yml`.
-Source: section 6 of the figure QC report (`artifacts/evidence/0.2.8/figure_qc.md`). Each check is built by a fixture of its own case and is red on the baseline
-figure the report names.
-- P-307: every venv and CI leg skips all 20 figure comparisons on a Matplotlib minor mismatch. Check: a pinned Matplotlib in one CI leg, or a comparison tolerant of the minor version, so one leg compares.
-Accept: each check fails on the baseline figure its bullet names and passes on a clean fixture.
-Stop: a check needs a renderer CI does not have.
-
-### 08-05 CHANGELOG fragments
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `CHANGELOG.md`, `changelog.d/**`, `scripts/assemble_changelog.py`, `tests/test_changelog_fragments.py`.
-- CHANGELOG fragments: one file per change under `changelog.d/`, assembled into `CHANGELOG.md` at release by a script with a test. Check: two parallel fragments merge without conflict, and the assembled text equals the hand-written form for one past release.
-Accept: the test passes; the release gate's CHANGELOG checks still read the assembled file.
-Stop: the assembly would change a released section's text.
-
-### 08-07 A faster release cycle
-
-Release: required-0.2.8.
-Role: jnwb-developer. Skill: none. Blocked by: 08-05.
-Writes: `scripts/release_gate.py`, `scripts/calibrate_xflip.py`, `.github/workflows/workflow.yml`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_workflow_release_policy.py`, `tests/test_representative_workflow.py`, `tests/test_state_reconstruction.py`, `CONTRIBUTING.md`, `tests/test_docs_nwb_workflow.py`, `docs/01_architecture_and_philosophy.md`.
-- RP-3: the release gate stops at its first failure after a 12 to 30 minute suite. Check: state freshness, the extracted smoke script and the release body run before the suite.
-- RP-4: the full matrix ran four times on one commit at release. Check: skip a run whose tree already passed, and measure the saving.
-- Load-sensitive workflow test: `test_full_workflow_runs_with_omission_blocked` timed out at 60 s under load. Check: a timeout scaled to the machine, or a cheaper subprocess.
-- Load-sensitive state generation: `test_generation_is_deterministic_apart_from_its_timestamp` recorded the harness gate FAILED once under load. Check: the cause named and removed.
-- Install line: `CONTRIBUTING.md` line 21 installs `.[test,docs]`, but `tests/test_docs_call_shapes.py` fails at collection without plotly (the `vis` extra); found by cowork on 2026-09-29. Check: the documented install runs the suite to collection.
-- Absent-extra handling: `test_mkdocs_strict_build` fails without the `docs` extra while `test_diagrams_render` skips; found by cowork on 2026-09-29. Check: one rule for an absent extra, applied to both.
-- xflip calibration wall time: 297 s to 503 s across lanes with identical rates. Check: dev and head back to back on one machine.
-- P-36: reading computational order off loop structure was wrong on six specs. Check: one sentence in the order section of `CONTRIBUTING.md`.
-- Pooling rule: `CONTRIBUTING.md` "Core scientific invariants" item 1 allows pooling spikes and LFP with namespace tags, and `docs/01_architecture_and_philosophy.md` allows it with an explicit transformation; Hamm ruled on 2026-09-29 that they are never pooled. Check: both say never pooled, as `AGENTS.md` §5 does.
-- RP-1: `CONTRIBUTING.md`'s release steps lack one sentence: the `dev` deletion rule has no bypass; merged feature heads are still deleted. Check: the sentence is in the release steps.
-Accept: one release-gate run on a tree with a stale state file fails within a minute.
-Stop: reordering would let a later step pass on an unverified artifact.
 
 # 0.2.9
 
