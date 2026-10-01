@@ -152,6 +152,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
     guarded = [src[g] for g in sorted(_GUARDED_PATHS) if g in src]
     timestamp_paths = _find_timestamp_paths(src)
     soft_targets = _soft_link_targets(src)
+    _refuse_a_rateless_starting_time(src, timestamp_paths, soft_targets)
     for path in paths:
         rel = path[1:]
         obj = src[path]
@@ -183,6 +184,16 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 "opens; the conversion keeps it at its source dtype instead of replacing it "
                 "with starting_time and rate, so the link stays valid, and it cannot be cast "
                 "to float32. Remove it from select=."
+            )
+        # A cast rewrites the array under one name only; through a second hard link the old
+        # values stay, and the two names then disagree by the float32 rounding of each sample.
+        if fate == "linked":
+            link = f", a link to {ts}" if ts != rel else ""
+            raise ValueError(
+                f"select= names {rel}{link}, an irregular timestamps array that another link "
+                "also opens; the conversion keeps it at its source dtype, so every name that "
+                "opens it reads the same sample times, and it cannot be cast to float32. "
+                "Remove it from select=."
             )
         if fate in ("collapsed", "redundant"):
             link = f", a link to {ts}" if ts != rel else ""
@@ -236,11 +247,22 @@ def _is_regular(ts: np.ndarray, tol: float = 1e-6) -> tuple[bool, float]:
 
 
 def _find_timestamp_paths(f: h5py.File) -> list[str]:
+    """Every hard-link name ending in ``timestamps`` that opens a 1-D floating dataset.
+
+    Walks links rather than objects: ``visititems`` visits an object once, under the first
+    name it reaches, so a ``timestamps`` array with an earlier hard-link name was never found,
+    and was neither collapsed, kept as linked nor refused by ``select=``. Each name is returned;
+    the fate of each is decided on the object it opens. Soft links are left out, because the
+    array they open is found under its own hard-link name.
+    """
     paths = []
-    def w(name, obj):
-        if isinstance(obj, h5py.Dataset) and Path(name).name == "timestamps" and obj.ndim == 1 and obj.dtype.kind == "f":
+    def w(name, link):
+        if not isinstance(link, h5py.HardLink) or posixpath.basename(name) != "timestamps":
+            return
+        obj = f[name]
+        if isinstance(obj, h5py.Dataset) and obj.ndim == 1 and obj.dtype.kind == "f":
             paths.append(name)
-    f.visititems(w)
+    f.visititems_links(w)
     return paths
 
 
@@ -300,11 +322,31 @@ def _timestamps_fate(src: h5py.File, ts_path: str, data, soft_targets: set) -> t
     values = np.asarray(data[:])
     existing = group["starting_time"]
     existing_rate = existing.attrs.get("rate")
+    if existing_rate is None:
+        raise ValueError(
+            f"{existing.name} has no 'rate' attribute, so compress_fp32 cannot tell whether the "
+            f"regular timestamps array /{ts_path.lstrip('/')} beside it repeats it or "
+            "contradicts it; the file is refused before anything is written."
+        )
     reconstructed = existing[()] + np.arange(len(values)) / existing_rate
     err = float(np.max(np.abs(reconstructed - values))) if len(values) else 0.0
     if existing_rate is not None and err < 1e-6:
         return "redundant", err
     return "inconsistent", err
+
+
+def _refuse_a_rateless_starting_time(src: h5py.File, timestamp_paths: list,
+                                     soft_targets: set) -> None:
+    """Raise before anything is written when step 3 would meet a ``starting_time`` with no rate.
+
+    :func:`_timestamps_fate` raises for a regular, unlinked ``timestamps`` array beside such a
+    ``starting_time``; deciding that here, from the source, keeps the refusal ahead of the
+    temporary file. Only groups whose ``starting_time`` lacks ``rate`` are read.
+    """
+    for ts in timestamp_paths:
+        group = src[posixpath.dirname("/" + ts) or "/"]
+        if "starting_time" in group and group["starting_time"].attrs.get("rate") is None:
+            _timestamps_fate(src, ts, src[ts], soft_targets)
 
 
 def _chunk_shape(shape, max_rows: int) -> tuple:
@@ -760,9 +802,11 @@ def compress_fp32(
         select: dataset paths to cast to float32, such as
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
             nothing. Each path is checked, cast and reported under the name of the dataset it
-            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. The cast is
-            IRREVERSIBLE. Required: omitting it or passing ``None`` raises ``TypeError``
-            before anything is written.
+            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. A hard or soft link
+            is cast under its own name: the output holds a new float32 dataset there, the link
+            no longer opens its target, and the target keeps its source dtype unless it is
+            named too. The cast is IRREVERSIBLE. Required: omitting it or passing ``None``
+            raises ``TypeError`` before anything is written.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
             to regenerate it from) -- see point 7 in the module docstring. Warns loudly.
@@ -787,9 +831,12 @@ def compress_fp32(
             is not in ``src``.
         ValueError: ``select`` names ``spike_train`` or ``convolved_spike_train``, which are
             always rewritten at their source dtype; a regular ``timestamps`` array, which the
-            conversion replaces with ``starting_time`` and ``rate``; or a scalar dataset. A
-            hard or soft link to either of the first two is refused like its target. Every
-            ``select`` refusal comes before anything is written.
+            conversion replaces with ``starting_time`` and ``rate``; a ``timestamps`` array
+            that another link also opens, regular or not, which is kept at its source dtype;
+            or a scalar dataset. A hard or soft link to either of the first two is refused
+            like its target. Also raised when a regular ``timestamps`` array sits beside a
+            ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
+            comes before anything is written.
         TypeError: ``select`` is omitted, ``None`` or a single string, or names a group or a
             dataset whose dtype is not floating, an integer or boolean one included.
         RuntimeError: ``verify`` is True and a verification check failed. ``dst`` has been
