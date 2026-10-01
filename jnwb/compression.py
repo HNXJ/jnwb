@@ -185,9 +185,13 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 "with starting_time and rate, so the link stays valid, and it cannot be cast "
                 "to float32. Remove it from select=."
             )
-        # A cast rewrites the array under one name only; through a second hard link the old
-        # values stay, and the two names then disagree by the float32 rounding of each sample.
-        if fate == "linked":
+        # A cast rewrites the array under one name only. Through a second hard link the old
+        # values stay, and a soft-link alias named here is cast as a new dataset while its
+        # target keeps the old ones; either way the two names then disagree by the float32
+        # rounding of each sample. Casting a soft link's target keeps both names equal.
+        hard_linked = h5py.h5o.get_info(obj.id).rc > 1
+        via_soft_alias = isinstance(src.get(rel, getlink=True), h5py.SoftLink)
+        if fate == "linked" and (hard_linked or via_soft_alias):
             link = f", a link to {ts}" if ts != rel else ""
             raise ValueError(
                 f"select= names {rel}{link}, an irregular timestamps array that another link "
@@ -247,13 +251,14 @@ def _is_regular(ts: np.ndarray, tol: float = 1e-6) -> tuple[bool, float]:
 
 
 def _find_timestamp_paths(f: h5py.File) -> list[str]:
-    """Every hard-link name ending in ``timestamps`` that opens a 1-D floating dataset.
+    """Every hard link ending in ``timestamps`` to a 1-D floating dataset.
 
     Walks links rather than objects: ``visititems`` visits an object once, under the first
     name it reaches, so a ``timestamps`` array with an earlier hard-link name was never found,
     and was neither collapsed, kept as linked nor refused by ``select=``. Each name is returned;
     the fate of each is decided on the object it opens. Soft links are left out, because the
-    array they open is found under its own hard-link name.
+    array they open is found under its own hard-link name. A group with two hard-link names
+    is still walked once, so a ``timestamps`` array inside it is found under one of them.
     """
     paths = []
     def w(name, link):
@@ -330,7 +335,7 @@ def _timestamps_fate(src: h5py.File, ts_path: str, data, soft_targets: set) -> t
         )
     reconstructed = existing[()] + np.arange(len(values)) / existing_rate
     err = float(np.max(np.abs(reconstructed - values))) if len(values) else 0.0
-    if existing_rate is not None and err < 1e-6:
+    if err < 1e-6:
         return "redundant", err
     return "inconsistent", err
 

@@ -1425,15 +1425,25 @@ class TestALinkedIrregularTimestampsArrayIsRefused:
                              data=np.sort(np.random.default_rng(5).uniform(0.0, 1.0, 400)))
         return path
 
-    @pytest.mark.parametrize("name", [A, B], ids=["first", "second"])
-    @pytest.mark.parametrize("link", ["hard", "soft"])
-    def test_select_naming_either_name_is_refused(self, tmp_path, link, name):
+    @pytest.mark.parametrize("link, name", [("hard", A), ("hard", B), ("soft", B)],
+                             ids=["hard-first", "hard-second", "soft-alias"])
+    def test_a_selection_that_would_split_the_names_is_refused(self, tmp_path, link, name):
         src = self._src(tmp_path / "irr.nwb", link)
         out = tmp_path / "out"
         out.mkdir()
         with pytest.raises(ValueError, match="irregular timestamps array that another link"):
             jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[name])
         assert list(out.iterdir()) == []
+
+    def test_casting_a_soft_links_target_keeps_both_names_equal(self, tmp_path):
+        """The soft link reads through to the cast target, so no name is left behind."""
+        src = self._src(tmp_path / "irr.nwb", "soft")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[self.A])
+        assert stats["cast_paths"] == ["/" + self.A]
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert isinstance(f.get(self.B, getlink=True), h5py.SoftLink)
+            assert f[self.A].dtype == np.float32 and f[self.B].dtype == np.float32
+            np.testing.assert_array_equal(f[self.A][:], f[self.B][:])
 
     def test_an_unlinked_irregular_array_is_still_cast(self, tmp_path):
         src = self._src(tmp_path / "irr.nwb", "hard")

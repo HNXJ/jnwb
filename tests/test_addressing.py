@@ -808,6 +808,8 @@ def test_a_sublayer_alternation_is_one_location():
     assert parse_probe_areas("VISp6a/b") == ("VISp6a/b",)
     assert parse_probe_areas("VISp6a/b, VISp5") == ("VISp6a/b", "VISp5")
     assert parse_probe_areas("V1/a") == ("V1", "a")
+    assert parse_probe_areas("VISa/b") == ("VISa", "b")   # a letter not after a digit
+    assert parse_probe_areas("V6A/b") == ("V6A", "b")     # a digit, then an uppercase letter
     assert parse_probe_areas("V6a/V6") == ("V6a", "V6")
     assert parse_probe_areas("V6a/B") == ("V6a", "B")
     elec = pd.DataFrame({"location": ["VISp6a/b"] * 2, "group_name": ["A"] * 2})
@@ -818,7 +820,8 @@ class TestEnrichingWithoutAPeakChannelWarns:
     """A units table without `peak_channel_id` cannot be joined to the electrodes it is given.
 
     It used to fill every row with None and 'Unknown' in silence. The proxy to avoid: a warning
-    on every call, so a table with the column, and a call with no electrodes table, stay quiet.
+    on every call, so a table with the column, and a call with no or an empty electrodes table,
+    stay quiet.
     """
 
     ELECTRODES = pd.DataFrame({"location": ["V1", "V1"], "z": [100.0, 2000.0]})
@@ -830,7 +833,7 @@ class TestEnrichingWithoutAPeakChannelWarns:
             out = enrich_units_dataframe(units, self.ELECTRODES, depth_unit="um")
         assert out["area"].isna().all() and (out["depth_class"] == "Unknown").all()
 
-    @pytest.mark.parametrize("case", ["with peak channel", "no electrodes"])
+    @pytest.mark.parametrize("case", ["with peak channel", "no electrodes", "empty electrodes"])
     def test_a_resolvable_or_electrode_free_call_does_not_warn(self, case):
         import warnings
 
@@ -838,6 +841,8 @@ class TestEnrichingWithoutAPeakChannelWarns:
         electrodes = self.ELECTRODES
         if case == "no electrodes":
             units, electrodes = units.drop(columns="peak_channel_id"), None
+        if case == "empty electrodes":
+            units, electrodes = units.drop(columns="peak_channel_id"), self.ELECTRODES.iloc[0:0]
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             out = enrich_units_dataframe(units, electrodes, depth_unit="um")
