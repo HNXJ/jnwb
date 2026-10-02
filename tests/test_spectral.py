@@ -196,6 +196,10 @@ class TestHarmonicAnalysis:
         with pytest.raises(ValueError, match="empty"):
             harmonic_analysis(np.array([]), sampling_rate=1000.0)
 
+    def test_a_one_sample_trace_is_rejected(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            harmonic_analysis(np.array([5.0]), fs=1000.0, freq_range=(0.0, 10.0))
+
     def test_constant_trace_has_no_fundamental(self):
         result = harmonic_analysis(np.full(4000, 3.0), sampling_rate=1000.0)
         assert np.isnan(result["fundamental_freq"])
@@ -303,6 +307,13 @@ class TestBandPower:
         """INTENTIONAL BREAK (0.2.4): returned 0.0, a measured absence of power."""
         with pytest.raises(ValueError, match="empty"):
             band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8), normalize=False)
+
+    def test_a_one_sample_trace_or_baseline_is_rejected(self):
+        with pytest.raises(ValueError, match="lfp_trace has 1 sample.*at least 2"):
+            band_power(np.array([5.0]), fs=1000.0, freq_range=(0.0, 10.0), normalize=False)
+        trace = np.random.default_rng(0).standard_normal(2000)
+        with pytest.raises(ValueError, match="baseline has 1 sample"):
+            band_power(trace, fs=1000.0, freq_range=(4, 8), baseline=np.array([5.0]))
 
     def test_tone_in_band_has_higher_power_than_out_of_band(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0, amplitude=5.0)

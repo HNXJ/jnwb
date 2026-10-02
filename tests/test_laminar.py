@@ -458,6 +458,19 @@ class TestVFlipFromLFP:
         with pytest.raises(ValueError, match="fs must be strictly positive"):
             vflip_from_lfp(np.ones((10, 1000)), fs=np.nan)
 
+    @pytest.mark.parametrize("fs", [0.5, 1.0])
+    def test_a_default_segment_too_short_for_vflip_names_the_default(self, fs):
+        """At fs below 2 Hz the default segment is 0 or 1 samples."""
+        lfp = np.random.default_rng(0).standard_normal((16, 100))
+        with pytest.raises(ValueError, match="default"):
+            vflip_from_lfp(lfp, fs=fs)
+
+    @pytest.mark.parametrize("bad", [0, 1, 5, 101])
+    def test_an_nperseg_outside_the_usable_range_raises(self, bad):
+        lfp = np.random.default_rng(0).standard_normal((16, 100))
+        with pytest.raises(ValueError, match="nperseg must be from 6 to the 100"):
+            vflip_from_lfp(lfp, fs=1000.0, nperseg=bad)
+
 
 class TestLabelLayers:
     """Test layer assignment and strict failure invariants for label_layers."""

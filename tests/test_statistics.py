@@ -340,6 +340,12 @@ class TestCrossModalComparison:
         assert result["lag_ms"] == 0.0
         assert result["correlation"]["parametric"]["statistic"] == pytest.approx(1.0, abs=1e-6)
 
+    @pytest.mark.parametrize("bad", [0, 0.0, -10.0, float("nan"), float("inf")])
+    def test_a_bin_ms_that_is_not_a_positive_width_raises(self, bad):
+        base = np.random.default_rng(3).standard_normal(100)
+        with pytest.raises(ValueError, match="bin_ms must be a positive, finite"):
+            cross_modal_comparison(base, base, bin_ms=bad, n_permutations=10, rng=0)
+
 
 class TestClopperPearson:
     def test_known_values(self):

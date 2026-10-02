@@ -380,7 +380,9 @@ def synth_laminar_motif(
     Args:
         n_channels: Number of contacts along the shaft (default 24).
         n_samples: Number of time samples (default 5000).
-        fs: Sampling rate in Hz (default 1000.0).
+        fs: Sampling rate in Hz (default 1000.0). Each peak's pass band is capped at
+            ``fs/2 - 5`` Hz; an ``fs`` that leaves either band empty raises ``ValueError``
+            (130 Hz or less under the default ``gamma_freq``).
         c_crossover: True continuous crossover contact coordinate (default 12.0).
         orientation: Probe orientation ('superficial_to_deep' or 'deep_to_superficial').
         pitch_um: Contact spacing in micrometers (default 50.0 um).
@@ -402,6 +404,18 @@ def synth_laminar_motif(
     if orientation not in ("superficial_to_deep", "deep_to_superficial"):
         raise ValueError(f"Unknown orientation '{orientation}'")
 
+    g_low = max(2.0, gamma_freq - 15.0)
+    g_high = min(fs / 2.0 - 5.0, gamma_freq + 15.0)
+    b_low = max(2.0, beta_freq - 5.0)
+    b_high = min(fs / 2.0 - 5.0, beta_freq + 5.0)
+    for label, low, high in (("gamma", g_low, g_high), ("beta", b_low, b_high)):
+        if not low < high:
+            raise ValueError(
+                f"synth_laminar_motif: fs={fs} Hz leaves the {label} peak no pass band: it "
+                f"starts at {low} Hz and is capped at fs/2 - 5 = {fs / 2.0 - 5.0} Hz. "
+                f"Raise fs above {2.0 * (low + 5.0)} Hz or lower {label}_freq."
+            )
+
     gen = resolve_rng(rng, func_name="synth_laminar_motif")
     t = np.arange(n_samples, dtype=float) / float(fs)
 
@@ -409,11 +423,6 @@ def synth_laminar_motif(
     lfp = synth_ar_noise(n_samples, n_channels=n_channels, tau_s=0.03, fs=fs, sigma_innov=1.0, rng=gen)
 
     # 2. Spatially graded laminar oscillations
-    g_low = max(2.0, gamma_freq - 15.0)
-    g_high = min(fs / 2.0 - 5.0, gamma_freq + 15.0)
-    b_low = max(2.0, beta_freq - 5.0)
-    b_high = min(fs / 2.0 - 5.0, beta_freq + 5.0)
-
     sos_gamma = signal.butter(4, [g_low, g_high], btype="bandpass", fs=fs, output="sos")
     sos_beta = signal.butter(4, [b_low, b_high], btype="bandpass", fs=fs, output="sos")
 
