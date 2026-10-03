@@ -6,6 +6,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-10-03
+
+### Added
+
+- `jnwb.compute_psd` takes keyword-only `nperseg=`, the Welch segment length, from 2 to the
+  length along `axis`; a longer segment raises `ValueError` where SciPy would shorten it without
+  saying so. The default stays `min(n_times, int(fs))`, now floored at 2 samples: below 2 Hz it
+  was 0 or 1.
+- `jnwb.fleiss_kappa(counts)`: Fleiss' kappa over an `(n_items, n_categories)` table of rater
+  counts (Fleiss 1971). A table with every rating in one category is refused, never returned as 0.
+- `jnwb.spike_count_correlation(spike_times, window_s, *, bin_ms)`: mean pairwise Pearson r of
+  spike counts across the time bins of one window (Cohen and Kohn 2011). A rate change two units
+  share raises it, so it is not the trial-based noise correlation. Units whose counts do not vary are excluded and
+  listed in `excluded_units`, never scored as r = 0. `bin_ms` has no default.
+- `jnwb.fano_factor(spike_times, onsets_s, window_s, *, summary)`: across-trial variance
+  (ddof=1) over mean of each unit's window count, summarised by `summary='mean'` or `'median'`
+  (Churchland et al. 2010). Units with a zero mean count are excluded and listed.
+- `jnwb.network_burst_index(spike_times, window_s, *, bin_ms, threshold_hz, min_duration_ms)`:
+  the fraction of spikes inside network bursts found from the pooled population rate (Wagenaar
+  et al. 2006). None of the three burst parameters has a default.
+
+### Changed
+
+- Changelog entries are one fragment per change under `changelog.d/`, assembled into
+  `CHANGELOG.md` at release by `scripts/assemble_changelog.py`.
+- `scripts/release_gate.py` checks `artifacts/state.md` first and runs the test suite last, after
+  the build, the installed-package smoke test and the tutorials; `vis` is now an extra the release
+  environment must have.
+- A `v*` tag push whose commit already passed a `dev` push run skips the test matrix and the
+  floors leg, naming that run; the build, the TestPyPI upload and its verification still run.
+
+### Fixed
+
+- `jnwb.vflip_from_lfp` accepts `nperseg` from 6, the shortest segment that gives the 4
+  frequency bins `vflip` needs, to `n_times`, and says so when the value came from the
+  default. At `fs` below 1 Hz the default was 0 and the error named an argument the caller
+  had not passed; a segment of 1 to 5 samples was refused later by a message about `freqs`.
+- `jnwb.fit_exponential_onset` called without `t0_bounds_ms` on a trace that ends at or
+  before 0 ms names the default lower bound of 0 ms in its error and how to override it.
+  The docstring now states that default. Fitted values are unchanged.
+- `jnwb.band_power` and `jnwb.harmonic_analysis` raise `ValueError` for a 1-sample trace or
+  baseline. They returned a power of 0.0, which reads as a measured absence of power;
+  `compute_psd` already refused this input.
+- `jnwb.testing.synth_laminar_motif` raises `ValueError` naming `fs` when `fs` leaves the
+  gamma or beta peak no pass band (130 Hz or less under the default `gamma_freq`), in place
+  of an error from the SciPy filter design.
+- `jnwb.cross_modal_comparison` raises `ValueError` for a `bin_ms` that is not positive and
+  finite. `bin_ms=0` raised `ZeroDivisionError`.
+- `jnwb.directed_network` gives the same Granger results whatever the BLAS thread count and
+  `n_jobs`. Its residual sums used a threaded BLAS dot product above about ten thousand samples,
+  so results moved by up to 1.8e-9 relative between serial and parallel calls. Against the
+  previous serial result the largest change is 1.3e-11 absolute.
+
 ## [0.2.7] - 2026-09-29
 
 ### Added
