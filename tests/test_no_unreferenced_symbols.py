@@ -30,12 +30,10 @@ SUFFIXES = (".py", ".md", ".txt", ".yml", ".yaml")
 # name -> why it stays. Adding a line here is a claim that something wants the symbol;
 # make it one a reader can check.
 ALLOWED = {
-    "compare_old_new_criteria": (
-        "Downstream: jnwb_ext/unit_inclusion.py imports it and "
-        "classify_units_omission_inclusion_v1.py calls it. Promoted out of that repo "
-        "2026-08-23, which is what its docstring means by 'downstream unit inclusion "
-        "curation pipelines'."
-    ),
+    # compare_old_new_criteria was exempted here as reachable only downstream:
+    # jnwb_ext/unit_inclusion.py imports it and classify_units_omission_inclusion_v1.py calls
+    # it, promoted out of that repo 2026-08-23. tests/test_metadata.py now calls it to pin its
+    # refusals, so the exemption is spent; the downstream callers are still real.
     "old_new_summary_table": (
         "Downstream: same importer and pipeline as compare_old_new_criteria, called "
         "with group_cols=('area', 'quality_tier')."

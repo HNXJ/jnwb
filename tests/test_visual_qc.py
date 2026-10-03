@@ -43,11 +43,23 @@ def test_plot_unit_waveforms_paginates_and_plots_mean_std():
         plt.close(fig)
 
 
-def test_plot_unit_waveforms_handles_missing_unit_gracefully():
-    figs = plot_unit_waveforms([0, 1], {0: np.zeros((5, 10))}, max_units_per_page=12)
-    assert len(figs) == 1
-    assert len(figs[0].axes) == 2
-    plt.close(figs[0])
+def test_plot_unit_waveforms_draws_channels_unaveraged_and_refuses_a_missing_unit():
+    import pytest
+
+    template = np.zeros((4, 30))
+    template[0, 10] = -100.0
+    (peak_fig,) = plot_unit_waveforms([7], {7: template}, channels="peak")
+    (line,) = peak_fig.axes[0].get_lines()
+    assert line.get_ydata().min() == -100.0
+    (all_fig,) = plot_unit_waveforms([7], {7: np.stack([template] * 3)}, channels="all")
+    assert len(all_fig.axes[0].get_lines()) == 4
+    assert min(ln.get_ydata().min() for ln in all_fig.axes[0].get_lines()) == -100.0
+    plt.close("all")
+
+    with pytest.raises(KeyError, match=r"\[8\]"):
+        plot_unit_waveforms([7, 8], {7: template}, channels="peak")
+    with pytest.raises(ValueError, match="3-D"):
+        plot_unit_waveforms([7], {7: np.stack([template] * 3)})
 
 
 def test_plot_unit_quality_distribution_returns_populated_figure():

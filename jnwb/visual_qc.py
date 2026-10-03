@@ -15,7 +15,7 @@ Date: 2026-06-25
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -36,26 +36,54 @@ def plot_unit_waveforms(
     unit_ids: List[Union[int, str]],
     waveforms_dict: Dict,
     max_units_per_page: int = 12,
-    figsize: tuple = (16, 10)
+    figsize: tuple = (16, 10),
+    *,
+    channels: Optional[Literal["peak", "all"]] = None,
 ) -> List[plt.Figure]:
     """
     Plot waveforms for multiple units (multi-unit grid).
 
     Args:
         unit_ids: List of unit IDs to plot
-        waveforms_dict: Dict mapping unit_id → (n_spikes, n_samples) array
+        waveforms_dict: Dict mapping unit_id to an array whose shape ``channels`` names:
+            with ``channels=None``, a 1-D trace or ``(n_spikes, n_samples)`` single-channel
+            spikes, drawn as their mean and ±1 SD; with ``channels="peak"`` or ``"all"``, a
+            ``(n_channels, n_samples)`` template or ``(n_spikes, n_channels, n_samples)``
+            spikes, averaged over spikes first.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
+        channels: ``"peak"`` draws the channel with the largest absolute deflection;
+            ``"all"`` draws every channel. Channels are never averaged together, because a
+            channel mean shrinks the peak by the channel count. A 3-D array needs one of the
+            two.
 
     Returns:
         List of matplotlib figures
 
+    Raises:
+        KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
+        ValueError: an array's dimensionality does not match ``channels``.
+
     Example:
         >>> waveforms = {unit_id: waveform_array for unit_id in unit_ids}
         >>> figs = plot_unit_waveforms(unit_ids, waveforms)
-        >>> for fig in figs:
+        >>> for i, fig in enumerate(figs):
         ...     fig.savefig(f'unit_waveforms_{i}.png')
     """
+    if channels not in (None, "peak", "all"):
+        raise ValueError(f"plot_unit_waveforms: channels={channels!r}; use None, 'peak' or 'all'")
+    missing = [u for u in unit_ids if u not in waveforms_dict]
+    if missing:
+        raise KeyError(f"plot_unit_waveforms: no waveform for unit(s) {missing}")
+    for unit_id in unit_ids:
+        ndim = np.ndim(waveforms_dict[unit_id])
+        allowed = (1, 2) if channels is None else (2, 3)
+        if ndim not in allowed:
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has a {ndim}-D waveform; "
+                f"channels={channels!r} takes {' or '.join(f'{d}-D' for d in allowed)}"
+            )
+
     figures = []
     n_units = len(unit_ids)
 
@@ -72,8 +100,17 @@ def plot_unit_waveforms(
         for idx, unit_id in enumerate(page_units):
             ax = plt.subplot(rows, cols, idx + 1)
 
-            if unit_id in waveforms_dict:
-                waveform = waveforms_dict[unit_id]
+            waveform = np.asarray(waveforms_dict[unit_id])
+            if channels is not None:
+                template = waveform.mean(axis=0) if waveform.ndim == 3 else waveform
+                if channels == "peak":
+                    peak = int(np.argmax(np.max(np.abs(template), axis=1)))
+                    ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
+                            label=f'Channel {peak}')
+                else:
+                    for ch, trace in enumerate(template):
+                        ax.plot(trace, linewidth=1, label=f'Channel {ch}')
+            else:
                 if waveform.ndim == 2:
                     # Multiple spikes: plot mean and std
                     mean_wf = np.mean(waveform, axis=0)

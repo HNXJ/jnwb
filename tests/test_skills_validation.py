@@ -1674,7 +1674,7 @@ class TestRowsAgainstTheLiveCall:
             pd.Series([0.99, 0.99, 0.98, 0.99, 0.99]),
             pd.Series([1.0, 1.0, 1.0, 1.0, 1.0]),
         )
-        assert tier.tolist() == ["mua", "stable", "unstable", "unstable", "unstable"]
+        assert tier.tolist() == ["mua", "stable", "unstable", "unknown", "unknown"]
 
         with pytest.raises(KeyError):
             jnwb.unit_census_report(pd.DataFrame(
