@@ -31,11 +31,14 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 # 0.2.9
 
-Theme: the skill set is complete and routes every export, and the documentation menu follows how a
-reader arrives.
+Theme: unit quality control is a public capability, first (Hamm, 2026-10-03); then the skill set
+is complete and routes every export, and the documentation menu follows how a reader arrives.
 
 Acceptance: `AGENTS.md` §11; every export, module, docs page, example and notebook is routed or
-excluded with a checked reason; the nav matches the arrival table of `restructure_plan.md` (c).
+excluded with a checked reason; the nav matches the arrival table of `restructure_plan.md` (c); every
+criterion the downstream curation pipeline applies is a public operation, a caller choice or a
+checked exclusion (13-02); a fitted screen reports held-out agreement per session and declines when
+the labels cannot support it; one skill routes the whole surface with all four outcomes.
 
 Every item here carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
 while 0.2.8 is released; the version heading carries the schedule (`decisions.md` D2).
@@ -44,12 +47,114 @@ while 0.2.8 is released; the version heading carries the schedule (`decisions.md
 
 | Lane | Items, in order | Owns |
 |---|---|---|
+| Q unit quality | 13-01, 13-02, 13-03, 13-04, 13-05, 13-06 | `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
-Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
+Lane Q runs first, opening with its ruling round 13-01; a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Question round at the opening: 13-01, and the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
+
+Context, recorded 2026-10-01 from a working discussion. A downstream pipeline screens sorted
+units in two stages: algorithmic screens (a peak-channel derivative-sharpness check across
+channels, rejection of flat or mirrored waveforms, rejection of units whose peak-channel waveform
+rises more than it falls, presence ratio, SNR, sorter quality), then human curation down the
+probe, which removes about half of the units the algorithmic stage keeps. Sorter quality flags
+proved unreliable. The pipeline redefines peak-to-trough duration; the result correlates with the
+sorter's value without equalling it. Three datasets carry a final human good-unit index, and a
+transfer from about 10% of human-screened units to the rest has already been tried downstream.
+The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
+synthetic fixtures only. A collaborator is developing the label-learning skill separately and
+brings it here when ready.
+
+### 13-01 Ruling round: the shape of unit quality control
+
+Release: deferred-0.2.9.
+AUTONOMY: none.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `artifacts/rulings/<date>.md`, `artifacts/todo_stack.md`.
+- Skill: extend 07-11's `jnwb-qc` (the default under fact K5), or a separate unit-quality skill. Check: Hamm rules; 13-05 names the skill.
+- Supervised screen: whether an operation that fits a screen to caller-supplied labels and features, cross-validated by held-out session, is generic enough for the core (Extension rule), or stays a downstream skill that composes public operations. Check: Hamm rules; 13-04 is kept or deleted.
+- Waveform measures: which enter and by which published definition, with the redefined peak-to-trough duration named against the sorter's. Check: a ruled list 13-03 implements.
+Accept: each bullet has a ruling in `artifacts/rulings/`.
+Stop: every bullet is a scientific or API decision.
+
+### 13-02 Inventory: unit-quality criteria against what jnwb computes
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
+Read-only on `jnwb/`. Rows: `classify_unit_quality`, `assign_quality_tier`, `audit_units`,
+`get_snr_analysis`, `unit_census_report`, `plot_unit_waveforms`, `plot_unit_quality_distribution`,
+`compare_session_quality`, the unexported `compare_old_new_criteria`, and each criterion of the
+downstream pipeline read from its code with the owner's permission.
+- Each criterion classed present, missing-generic or study-specific, with the parameter that makes it a caller choice. Check: a reviewer who did not write the table re-derives three rows.
+- `classify_unit_quality` defaults (`quality`, `snr`, `firing_rate`) and `assign_quality_tier`'s quality-code convention: generic or corpus convention. Check: the row cites the convention's source or files a problem row.
+Accept: every criterion has a row and a class; problems found go to `artifacts/problem_stack.md`.
+Stop: reading the downstream code needs access its owner has not given.
+
+### 13-03 Waveform and spike-train quality measures
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: 13-01, 13-02.
+Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, `tests/test_unit_quality.py`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/references.md`, `changelog.d/unit-quality-measures.added.md`.
+From a mean waveform `(n_channels, n_samples)` with `fs` and channel geometry: peak channel,
+peak-to-trough duration, polarity (positive against negative peak on the peak channel), spatial
+derivative sharpness across channels, and flatness. From spike times: presence ratio over
+caller-given blocks, refractory-violation rate with the refractory period required, and ISI CV.
+- Each measure states its unit, input class and published source (DOI resolved, not recalled). Check: gate 5 and `tests/test_references_resolve.py` pass.
+- Synthetic units with a known answer for every measure: a flat waveform, an inverted one, a positive-dominant one, a unit absent from half the blocks, a unit with planted violations. Check: each recovers its planted value, and a mutant of each measure is killed.
+- Undefined input (one channel for a spatial measure, no spikes, zero-length block) returns NaN or raises with the reason, never 0. Check: one test per case.
+Accept: the suite and harness pass; the measures sit in `__all__` with docs, and the packet reports the `docs/api.md` rows for the integrator.
+Stop: a measure has more than one defensible published definition and 13-01 did not rule it.
+
+### 13-04 A screen fitted to caller-supplied curation labels
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 13-01, 13-03.
+Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `changelog.d/unit-quality-screen.added.md`.
+Exists only if 13-01 rules the supervised screen into the core; otherwise this item is deleted
+and the collaborator's downstream skill composes 13-03's measures. Features are 13-03's measures
+plus caller columns; labels are the caller's human index; `groups` is the session; `rng` is
+required.
+- Held-out agreement per session (balanced accuracy and Cohen's kappa against the labels), never pooled across sessions alone. Check: a synthetic corpus whose sessions differ in label rate shows the pooled and per-session values differ.
+- Declines when one label class is present, when fewer than two sessions exist, or when a feature is constant across units. Check: one test per refusal.
+- The result names what it estimates: agreement with this curator's labels, not unit isolation. Check: the docstring and skill row say so; a test reads the result's `estimand` field.
+Accept: the suite and harness pass; the downstream evaluation on the curated datasets is recorded downstream, with only its summary numbers in `artifacts/evidence/0.2.9/`.
+Stop: the collaborator's skill reaches a different design; both go to Hamm.
+
+### 13-05 One skill routes unit quality
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-01, 13-03, 07-11.
+Writes: the ruled skill's `SKILL.md` and `agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
+Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public.
+- All four outcomes: execute a screen; request missing waveforms, `fs` or geometry; report a fit the labels cannot support; decline "this unit is a single neuron" from quality metrics alone. Check: one decline test per outcome.
+- Sorter quality labels are an input, never ground truth. Check: a safeguard stated once and linked from `docs/common_mistakes.md`.
+Accept: the template in `CONTRIBUTING.md` (Skill rule); gate 2 passes; router and `docs/agents.md` rows.
+Stop: the capability gate of the fact stack is not met.
+
+### 13-06 A worked unit-quality example
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-05.
+Writes: `examples/unit_quality.ipynb`, `tests/test_notebooks.py`, `docs/09_decoding_and_visual_qc.md`, `mkdocs.yml`.
+On synthetic units only: compute the measures, draw `plot_unit_waveforms` down the probe, apply
+the screen, and show the per-session agreement table.
+- The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
+Accept: the notebook executes and the docs link resolves.
+Stop: the example would need empirical data.
+
+## Out of scope for 0.2.8 to 0.2.12
+
+Each needs its own authorization.
+
+- Raw-data-to-NWB conversion.
+- An authorization or permission subsystem.
+- Benchmark execution; the design is kept, unrun, in `artifacts/evidence/0.2.8/stack/`.
+- A capability-by-capability matrix over the whole public surface (P-268).
+- Dataset-specific package code, and new estimators that only improve a demonstration.
+- The 36 unverified review findings, except where an item reaches one.
 
 ### 07-10 `jnwb-paradigm`: experiment structure, timing and condition semantics
 
@@ -738,127 +843,3 @@ Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fac
 - A proposed Science fact, every routed method cites a published source, held by `tests/test_references_resolve.py`. Check: Hamm approves the row; it reads HELD.
 Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
 Stop: the fact stack is Hamm's; the row lands only on approval.
-
-# 0.2.13
-
-Theme: unit quality control is a public capability. The waveform and spike-train criteria a
-human curator applies become named operations, and a screen fitted to caller-supplied curation
-labels reports its agreement with those labels.
-
-Acceptance: `AGENTS.md` §11; every criterion the downstream curation pipeline applies is a public
-operation, a caller choice or a checked exclusion (13-02); a fitted screen reports held-out
-agreement per session and declines when the labels cannot support it; one skill routes the
-whole surface with all four outcomes.
-
-Every item here carries `deferred-0.2.9` until the cycle before it is tagged (`decisions.md` D2).
-Scheduling this section is itself a ruling (13-01): its placement after 0.2.12 is a proposal.
-
-Context, recorded 2026-10-01 from a working discussion. A downstream pipeline screens sorted
-units in two stages: algorithmic screens (a peak-channel derivative-sharpness check across
-channels, rejection of flat or mirrored waveforms, rejection of units whose peak-channel waveform
-rises more than it falls, presence ratio, SNR, sorter quality), then human curation down the
-probe, which removes about half of the units the algorithmic stage keeps. Sorter quality flags
-proved unreliable. The pipeline redefines peak-to-trough duration; the result correlates with the
-sorter's value without equalling it. Three datasets carry a final human good-unit index, and a
-transfer from about 10% of human-screened units to the rest has already been tried downstream.
-The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
-synthetic fixtures only. A collaborator is developing the label-learning skill separately and
-brings it here when ready.
-
-## Lanes
-
-| Lane | Items, in order | Owns |
-|---|---|---|
-| Q unit quality | 13-01, 13-02, 13-03, 13-04, 13-05, 13-06 | `artifacts/evidence/0.2.13/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-
-One lane: every item writes the same module and skill. Question round at the opening: 13-01.
-
-### 13-01 Ruling round: the shape of unit quality control
-
-Release: deferred-0.2.9.
-AUTONOMY: none.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/rulings/<date>.md`, `artifacts/todo_stack.md`.
-- Skill: extend 07-11's `jnwb-qc` (the default under fact K5), or a separate unit-quality skill. Check: Hamm rules; 13-05 names the skill.
-- Supervised screen: whether an operation that fits a screen to caller-supplied labels and features, cross-validated by held-out session, is generic enough for the core (Extension rule), or stays a downstream skill that composes public operations. Check: Hamm rules; 13-04 is kept or deleted.
-- Waveform measures: which enter and by which published definition, with the redefined peak-to-trough duration named against the sorter's. Check: a ruled list 13-03 implements.
-- Scheduling: this section after 0.2.12, or merged into an earlier cycle. Check: Hamm rules; the section moves or stays.
-Accept: each bullet has a ruling in `artifacts/rulings/`.
-Stop: every bullet is a scientific or API decision.
-
-### 13-02 Inventory: unit-quality criteria against what jnwb computes
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.13/unit_qc_inventory.md`.
-Read-only on `jnwb/`. Rows: `classify_unit_quality`, `assign_quality_tier`, `audit_units`,
-`get_snr_analysis`, `unit_census_report`, `plot_unit_waveforms`, `plot_unit_quality_distribution`,
-`compare_session_quality`, the unexported `compare_old_new_criteria`, and each criterion of the
-downstream pipeline read from its code with the owner's permission.
-- Each criterion classed present, missing-generic or study-specific, with the parameter that makes it a caller choice. Check: a reviewer who did not write the table re-derives three rows.
-- `classify_unit_quality` defaults (`quality`, `snr`, `firing_rate`) and `assign_quality_tier`'s quality-code convention: generic or corpus convention. Check: the row cites the convention's source or files a problem row.
-Accept: every criterion has a row and a class; problems found go to `artifacts/problem_stack.md`.
-Stop: reading the downstream code needs access its owner has not given.
-
-### 13-03 Waveform and spike-train quality measures
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: 13-01, 13-02.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, `tests/test_unit_quality.py`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/references.md`, `changelog.d/unit-quality-measures.added.md`.
-From a mean waveform `(n_channels, n_samples)` with `fs` and channel geometry: peak channel,
-peak-to-trough duration, polarity (positive against negative peak on the peak channel), spatial
-derivative sharpness across channels, and flatness. From spike times: presence ratio over
-caller-given blocks, refractory-violation rate with the refractory period required, and ISI CV.
-- Each measure states its unit, input class and published source (DOI resolved, not recalled). Check: gate 5 and `tests/test_references_resolve.py` pass.
-- Synthetic units with a known answer for every measure: a flat waveform, an inverted one, a positive-dominant one, a unit absent from half the blocks, a unit with planted violations. Check: each recovers its planted value, and a mutant of each measure is killed.
-- Undefined input (one channel for a spatial measure, no spikes, zero-length block) returns NaN or raises with the reason, never 0. Check: one test per case.
-Accept: the suite and harness pass; the measures sit in `__all__` with docs, and the packet reports the `docs/api.md` rows for the integrator.
-Stop: a measure has more than one defensible published definition and 13-01 did not rule it.
-
-### 13-04 A screen fitted to caller-supplied curation labels
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 13-01, 13-03.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `changelog.d/unit-quality-screen.added.md`.
-Exists only if 13-01 rules the supervised screen into the core; otherwise this item is deleted
-and the collaborator's downstream skill composes 13-03's measures. Features are 13-03's measures
-plus caller columns; labels are the caller's human index; `groups` is the session; `rng` is
-required.
-- Held-out agreement per session (balanced accuracy and Cohen's kappa against the labels), never pooled across sessions alone. Check: a synthetic corpus whose sessions differ in label rate shows the pooled and per-session values differ.
-- Declines when one label class is present, when fewer than two sessions exist, or when a feature is constant across units. Check: one test per refusal.
-- The result names what it estimates: agreement with this curator's labels, not unit isolation. Check: the docstring and skill row say so; a test reads the result's `estimand` field.
-Accept: the suite and harness pass; the downstream evaluation on the curated datasets is recorded downstream, with only its summary numbers in `artifacts/evidence/0.2.13/`.
-Stop: the collaborator's skill reaches a different design; both go to Hamm.
-
-### 13-05 One skill routes unit quality
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-01, 13-03, 07-11.
-Writes: the ruled skill's `SKILL.md` and `agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
-Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public.
-- All four outcomes: execute a screen; request missing waveforms, `fs` or geometry; report a fit the labels cannot support; decline "this unit is a single neuron" from quality metrics alone. Check: one decline test per outcome.
-- Sorter quality labels are an input, never ground truth. Check: a safeguard stated once and linked from `docs/common_mistakes.md`.
-Accept: the template in `CONTRIBUTING.md` (Skill rule); gate 2 passes; router and `docs/agents.md` rows.
-Stop: the capability gate of the fact stack is not met.
-
-### 13-06 A worked unit-quality example
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-05.
-Writes: `examples/unit_quality.ipynb`, `tests/test_notebooks.py`, `docs/09_decoding_and_visual_qc.md`, `mkdocs.yml`.
-On synthetic units only: compute the measures, draw `plot_unit_waveforms` down the probe, apply
-the screen, and show the per-session agreement table.
-- The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
-Accept: the notebook executes and the docs link resolves.
-Stop: the example would need empirical data.
-
-## Out of scope for 0.2.8 to 0.2.12
-
-Each needs its own authorization.
-
-- Raw-data-to-NWB conversion.
-- An authorization or permission subsystem.
-- Benchmark execution; the design is kept, unrun, in `artifacts/evidence/0.2.8/stack/`.
-- A capability-by-capability matrix over the whole public surface (P-268).
-- Dataset-specific package code, and new estimators that only improve a demonstration.
-- The 36 unverified review findings, except where an item reaches one.
