@@ -606,9 +606,11 @@ def gaussian_smooth_rate(
 def _unit_trains(spike_times, name: str) -> List[np.ndarray]:
     """One 1-D float array of spike times (s) per unit; a bare train, as an array or a list
     of numbers, is refused as ambiguous."""
-    single = (
-        isinstance(spike_times, np.ndarray) and spike_times.dtype != object
-    ) or any(np.ndim(u) == 0 for u in spike_times)
+    if isinstance(spike_times, np.ndarray) and spike_times.dtype != object:
+        single = True
+    else:
+        spike_times = list(spike_times)  # read a generator once, for the check and the trains
+        single = any(np.ndim(u) == 0 for u in spike_times)
     if single:
         # A list of numbers would otherwise make every spike its own one-spike unit.
         raise ValueError(

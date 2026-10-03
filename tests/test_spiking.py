@@ -593,6 +593,9 @@ class TestSpikeCountCorrelation:
             spike_count_correlation(train, (0.0, 2.0), bin_ms=500.0)
         with pytest.raises(ValueError, match="per-unit"):
             fano_factor(train, [0.0, 1.0], (0.0, 1.0), summary="mean")
+        units = [np.array([0.1, 0.9]), np.array([0.2, 1.3, 1.7])]
+        res = spike_count_correlation((u for u in units), (0.0, 2.0), bin_ms=500.0)
+        assert res["n_units"] == 2
 
 
 class TestFanoFactor:
