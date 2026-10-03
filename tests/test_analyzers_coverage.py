@@ -505,6 +505,54 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"must be one 1-D train; got shape \(2, 250\)"):
             UnitAnalyzer.quality_metrics(st.reshape(2, 250), 300.0, 5.0)
 
+    def test_zero_or_one_spike_gives_nan_and_no_verdict(self):
+        """With no interval there is no violation rate: it read 0.0 and a good single unit."""
+        for st in (np.array([]), np.array([1.0])):
+            with self.subTest(n_spikes=len(st)):
+                res = UnitAnalyzer.quality_metrics(st, 400.0, 0.0)
+                self.assertTrue(np.isnan(res['refr_violations_pct']))
+                self.assertTrue(np.isnan(res['fano_factor']))
+                self.assertIsNone(res['is_good_single_unit'])
+
+    def test_an_undefined_fano_factor_gives_no_verdict(self):
+        """A span under two whole 1-s windows has no count variance: a NaN Fano factor read
+        as passing, and one window read Fano 0."""
+        for span in (0.5, 1.5):
+            with self.subTest(span_s=span):
+                st = np.arange(0.0, span, 0.005)          # 5 ms intervals, no violation
+                res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+                self.assertEqual(res['refr_violations_pct'], 0.0)
+                self.assertTrue(np.isnan(res['fano_factor']))
+                self.assertIsNone(res['is_good_single_unit'])
+
+    def test_each_cut_off_is_an_argument(self):
+        regular = np.arange(0.0, 10.0, 0.003)             # 3 ms intervals, Fano near 0
+        self.assertTrue(UnitAnalyzer.quality_metrics(regular, 300.0, 5.0)['is_good_single_unit'])
+        res = UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, refractory_ms=4.0)
+        self.assertEqual(res['refr_violations_pct'], 100.0)
+        self.assertFalse(res['is_good_single_unit'])
+
+        steps = np.where(np.arange(3000) % 10 == 0, 0.001, 0.003)   # 10 % at 1 ms
+        violating = np.concatenate([[0.0], np.cumsum(steps)])
+        self.assertAlmostEqual(
+            UnitAnalyzer.quality_metrics(violating, 300.0, 5.0)['refr_violations_pct'], 10.0)
+        self.assertFalse(UnitAnalyzer.quality_metrics(violating, 300.0, 5.0)['is_good_single_unit'])
+        self.assertTrue(UnitAnalyzer.quality_metrics(
+            violating, 300.0, 5.0, max_violation_pct=20.0)['is_good_single_unit'])
+
+        counts = [1, 9] * 5 + [1]                          # planted per 1-s window
+        bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
+        res = UnitAnalyzer.quality_metrics(bursty, 300.0, 5.0)
+        self.assertGreater(res['fano_factor'], 2.0)
+        self.assertFalse(res['is_good_single_unit'])
+        self.assertTrue(UnitAnalyzer.quality_metrics(
+            bursty, 300.0, 5.0, max_fano=10.0)['is_good_single_unit'])
+
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            with self.subTest(cut_off=name):
+                with self.assertRaisesRegex(ValueError, name):
+                    UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: 0.0})
+
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
 
