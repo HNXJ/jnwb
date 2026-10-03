@@ -12,14 +12,14 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 
 | Task | Skill |
 |---|---|
-| NWB files: inspection, events, paths, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
-| Spike trains: binning, PSTH, onset latency, response significance, spike-field locking | `jnwb-spiking` |
-| LFP filtering, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
+| NWB files: inspection, events, paths, metadata, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| Spike trains: binning, raster, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
+| LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
-| Matplotlib figures: visual QC, raster/PSTH plots, vector export | `jnwb-figures` |
+| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 Before routing, check the plan:
@@ -46,18 +46,20 @@ Operations whose signature takes `device` accept `device='cuda'` and `device='me
 4. **Boundaries and leakage**: mask wavelet coefficients in the cone of influence (`coi_mask`). Use causal exponential smoothing (`causal_exp_smooth`) to prevent future leakage.
 5. **RNG**: pass an explicit `numpy.random.Generator` (`rng = np.random.default_rng(seed)`). Never call `np.random.seed()`.
 6. **Dataset-agnostic**: experiment-specific condition codes and folder layouts belong in user analysis scripts, never in `jnwb`.
-7. **Coupling vs direction vs delay**: unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction; direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
+7. **Coupling vs direction vs delay**: stated in the safeguard of that name in section 3 of [`skills/jnwb-connectivity/SKILL.md`](../jnwb-connectivity/SKILL.md); it binds every coupling, direction and delay estimate, whichever skill routes the call.
 8. **No volume-conduction immunity**: measures based on the imaginary cross-spectrum (wPLI, imaginary coherency) reduce sensitivity specifically to zero-phase-lag coupling; they do not establish immunity to common sources with non-zero lag, source mixing, filtering delays, or reference-induced phase structure.
 
 ## 5. Minimal Workflow
 ```python
+# Input: deterministic array.
 import jnwb
 import numpy as np
 
-rng = np.random.default_rng(42)
-data = rng.normal(size=(500,))
+fs = 1000.0
+t_s = np.arange(500) / fs
+data = np.sin(2 * np.pi * 10.0 * t_s)  # a 10 Hz sine, 0.5 s at 1 kHz
 freqs = np.array([10.0, 20.0, 40.0])
-tfr = jnwb.complex_tfr(data, fs=1000.0, freqs=freqs)
+tfr = jnwb.complex_tfr(data, fs=fs, freqs=freqs)
 ```
 
 ## 6. Verification
@@ -70,3 +72,5 @@ python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
 ## 7. Documentation
 - [`docs/api.md`](../../docs/api.md) — every public symbol.
 - [`docs/common_mistakes.md`](../../docs/common_mistakes.md) — the failure modes jnwb guards against.
+- [`docs/errors.md`](../../docs/errors.md) — every refusal and what to pass instead.
+- [`docs/tutorials/00_your_own_file.md`](../../docs/tutorials/00_your_own_file.md) — discovering a file's layout instead of assuming one.

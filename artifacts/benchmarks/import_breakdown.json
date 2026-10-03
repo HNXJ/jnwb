@@ -1,229 +1,229 @@
 {
   "python": "3.14.3",
   "platform": "Windows-11-10.0.26200-SP0",
-  "version": "0.2.7",
-  "symbols": 162,
+  "version": "0.2.8",
+  "symbols": 166,
   "torch_loaded": false,
   "cold": {
-    "ms": 7949.651200000517,
+    "ms": 8344.204299995909,
     "modules": 1355,
-    "version": "0.2.7",
-    "symbols": 162,
+    "version": "0.2.8",
+    "symbols": 166,
     "torch_loaded": false,
-    "peak_mb": 102.8712854385376
+    "peak_mb": 104.51513004302979
   },
-  "warm_median_ms": 1811.6684500000702,
-  "warm_mean_ms": 1813.5254100001475,
-  "warm_stdev_ms": 6.907193718348558,
-  "warm_min_ms": 1804.2071999989275,
-  "warm_max_ms": 1828.084900000249,
-  "warm_peak_mb": 86.3050012588501,
+  "warm_median_ms": 1884.3597499944735,
+  "warm_mean_ms": 1939.976539995405,
+  "warm_stdev_ms": 139.64634726509075,
+  "warm_min_ms": 1836.0146000050008,
+  "warm_max_ms": 2310.8780999900773,
+  "warm_peak_mb": 87.94533634185791,
   "modules": 1355,
   "runs": 10,
   "breakdown": {
-    "jnwb_total_ms": 1818.865,
+    "jnwb_total_ms": 1906.696,
     "top_jnwb_modules": [
       {
         "name": "jnwb",
-        "self_ms": 1.129,
-        "cum_ms": 1818.865
+        "self_ms": 1.201,
+        "cum_ms": 1906.696
       },
       {
         "name": "jnwb.rsa",
-        "self_ms": 1.989,
-        "cum_ms": 815.701
+        "self_ms": 2.07,
+        "cum_ms": 847.823
       },
       {
         "name": "jnwb.jrsa",
-        "self_ms": 3.148,
-        "cum_ms": 536.489
+        "self_ms": 3.045,
+        "cum_ms": 574.742
       },
       {
         "name": "jnwb.permutation",
-        "self_ms": 0.661,
-        "cum_ms": 413.084
+        "self_ms": 0.652,
+        "cum_ms": 446.809
       },
       {
         "name": "jnwb.nwb_io",
-        "self_ms": 0.744,
-        "cum_ms": 235.371
+        "self_ms": 0.767,
+        "cum_ms": 237.513
       },
       {
         "name": "jnwb.laminar",
-        "self_ms": 5.168,
-        "cum_ms": 112.152
+        "self_ms": 5.095,
+        "cum_ms": 111.862
       },
       {
         "name": "jnwb.compression",
-        "self_ms": 0.758,
-        "cum_ms": 68.839
+        "self_ms": 0.801,
+        "cum_ms": 83.948
       },
       {
         "name": "jnwb._rng",
-        "self_ms": 0.639,
-        "cum_ms": 18.194
-      },
-      {
-        "name": "jnwb.spectral",
-        "self_ms": 4.213,
-        "cum_ms": 4.831
+        "self_ms": 0.622,
+        "cum_ms": 19.876
       },
       {
         "name": "jnwb.connectivity",
         "self_ms": 2.021,
-        "cum_ms": 2.595
+        "cum_ms": 2.556
+      },
+      {
+        "name": "jnwb.spectral",
+        "self_ms": 1.668,
+        "cum_ms": 2.287
       },
       {
         "name": "jnwb.trajectory",
-        "self_ms": 0.779,
-        "cum_ms": 1.952
+        "self_ms": 0.699,
+        "cum_ms": 1.92
       },
       {
         "name": "jnwb.addressing",
-        "self_ms": 1.862,
-        "cum_ms": 1.862
+        "self_ms": 1.692,
+        "cum_ms": 1.692
       },
       {
         "name": "jnwb.nwb_events",
-        "self_ms": 1.669,
-        "cum_ms": 1.669
+        "self_ms": 1.607,
+        "cum_ms": 1.607
       },
       {
         "name": "jnwb.tfr_accumulator",
-        "self_ms": 0.783,
-        "cum_ms": 1.345
+        "self_ms": 0.825,
+        "cum_ms": 1.406
       },
       {
         "name": "jnwb.tfr",
-        "self_ms": 1.327,
-        "cum_ms": 1.327
+        "self_ms": 1.307,
+        "cum_ms": 1.307
       },
       {
         "name": "jnwb.paths",
-        "self_ms": 0.93,
-        "cum_ms": 0.93
+        "self_ms": 0.92,
+        "cum_ms": 0.92
       },
       {
         "name": "jnwb.nwb_inspect",
-        "self_ms": 0.915,
-        "cum_ms": 0.915
+        "self_ms": 0.892,
+        "cum_ms": 0.892
       },
       {
         "name": "jnwb._lazy_exports",
-        "self_ms": 0.8,
-        "cum_ms": 0.8
-      },
-      {
-        "name": "jnwb.continuous",
-        "self_ms": 0.785,
-        "cum_ms": 0.785
+        "self_ms": 0.862,
+        "cum_ms": 0.862
       },
       {
         "name": "jnwb.spiking",
-        "self_ms": 0.733,
-        "cum_ms": 0.733
+        "self_ms": 0.748,
+        "cum_ms": 0.748
+      },
+      {
+        "name": "jnwb.continuous",
+        "self_ms": 0.737,
+        "cum_ms": 0.737
       }
     ],
     "top_third_party": [
       {
         "name": "pandas",
-        "self_ms": 1.325,
-        "cum_ms": 411.568
+        "self_ms": 1.311,
+        "cum_ms": 445.323
       },
       {
         "name": "scipy.stats._stats_py",
-        "self_ms": 50.177,
-        "cum_ms": 359.922
+        "self_ms": 43.679,
+        "cum_ms": 374.484
       },
       {
         "name": "scipy.spatial.distance",
-        "self_ms": 0.027,
-        "cum_ms": 313.37
+        "self_ms": 0.025,
+        "cum_ms": 325.219
       },
       {
         "name": "scipy.spatial",
-        "self_ms": 0.788,
-        "cum_ms": 313.344
+        "self_ms": 0.972,
+        "cum_ms": 325.194
       },
       {
         "name": "scipy.spatial._kdtree",
-        "self_ms": 1.478,
-        "cum_ms": 276.952
+        "self_ms": 1.518,
+        "cum_ms": 284.786
       },
       {
         "name": "pynwb",
-        "self_ms": 11.793,
-        "cum_ms": 234.627
+        "self_ms": 13.223,
+        "cum_ms": 236.746
       },
       {
         "name": "pandas.core.api",
-        "self_ms": 0.784,
-        "cum_ms": 190.884
+        "self_ms": 0.798,
+        "cum_ms": 203.553
       },
       {
         "name": "scipy.spatial._ckdtree",
-        "self_ms": 0.904,
-        "cum_ms": 168.431
+        "self_ms": 1.195,
+        "cum_ms": 176.589
       },
       {
         "name": "scipy.sparse",
-        "self_ms": 1.174,
-        "cum_ms": 167.527
+        "self_ms": 1.236,
+        "cum_ms": 175.395
       },
       {
         "name": "scipy.stats.distributions",
-        "self_ms": 0.864,
-        "cum_ms": 158.192
+        "self_ms": 0.87,
+        "cum_ms": 159.187
       },
       {
         "name": "scipy.sparse._csr",
-        "self_ms": 0.75,
-        "cum_ms": 146.41
+        "self_ms": 0.813,
+        "cum_ms": 152.015
       },
       {
         "name": "scipy.sparse._compressed",
-        "self_ms": 0.987,
-        "cum_ms": 145.067
+        "self_ms": 1.021,
+        "cum_ms": 150.4
       },
       {
         "name": "scipy._lib._util",
-        "self_ms": 1.04,
-        "cum_ms": 142.592
+        "self_ms": 1.069,
+        "cum_ms": 147.89
       },
       {
         "name": "scipy._lib._array_api",
-        "self_ms": 1.318,
-        "cum_ms": 141.552
+        "self_ms": 1.378,
+        "cum_ms": 146.821
       },
       {
         "name": "scipy.optimize",
-        "self_ms": 1.04,
-        "cum_ms": 126.617
+        "self_ms": 1.087,
+        "cum_ms": 143.417
       },
       {
         "name": "scipy._external.array_api_compat.numpy",
-        "self_ms": 1.647,
-        "cum_ms": 121.595
+        "self_ms": 1.573,
+        "cum_ms": 125.259
       },
       {
         "name": "scipy.spatial.distance",
-        "self_ms": 3.195,
-        "cum_ms": 107.044
+        "self_ms": 3.152,
+        "cum_ms": 106.68
       },
       {
         "name": "pandas.core.groupby",
-        "self_ms": 0.577,
-        "cum_ms": 100.515
+        "self_ms": 0.675,
+        "cum_ms": 105.834
       },
       {
         "name": "pandas.core.groupby.generic",
-        "self_ms": 1.88,
-        "cum_ms": 99.938
+        "self_ms": 1.972,
+        "cum_ms": 105.16
       },
       {
         "name": "numpy",
-        "self_ms": 2.187,
-        "cum_ms": 99.356
+        "self_ms": 2.034,
+        "cum_ms": 102.219
       }
     ],
     "heavy_third_party_roots": [

@@ -15,7 +15,7 @@ Continuous or trial-aligned LFP spectra, complex time-frequency representations 
 - `jnwb.complex_tfr(data, fs, freqs, n_cycles)`: Complex Morlet wavelet transform returning `ComplexTFR` with `z`, `freqs`, `times`, and `coi_mask`.
 - `jnwb.morlet_wavelet(f0, fs, n_cycles=5.0, normalization="amplitude", cutoff_sigma=4.0)`: The complex Morlet kernel underneath the TFR. `n_cycles` trades frequency resolution against time resolution at every frequency.
 - `jnwb.TFRAccumulator(shape)`: Streaming mean and variance of a multi-trial TFR without holding every trial in memory.
-- `jnwb.compute_psd(lfp_data, fs, axis=0)` → `(freqs, psd)`: Welch PSD of a plain LFP array, with time along `axis`. `axis=0` reads `(n_times, n_channels)` and returns frequency-by-channels. For the channels-by-frequency input `vflip` expects, pass a `(n_channels, n_times)` array with `axis=-1`. A channels-by-time array left at `axis=0` is segmented across channels and returns a spectrum of a few bins without raising.
+- `jnwb.compute_psd(lfp_data, fs, axis=0, *, nperseg=None)` → `(freqs, psd)`: Welch PSD of a plain LFP array, with time along `axis`. The segment is `min(n_times, int(fs))` samples (1 Hz resolution) unless `nperseg` names it; a `nperseg` below 2, above the trace length or not an integer raises `ValueError`, because scipy would shorten a long segment without saying so. `axis=0` reads `(n_times, n_channels)` and returns frequency-by-channels. For the channels-by-frequency input `vflip` expects, pass a `(n_channels, n_times)` array with `axis=-1`. A channels-by-time array left at `axis=0` is segmented across channels and returns a spectrum of a few bins without raising.
 - `jnwb.compute_multitaper_psd(data, fs, nw=3.0, k_tapers=None, axis=-1)`: DPSS multitaper PSD. `nw` is the bandwidth-time product, so it sets the frequency resolution the estimate can support.
 - `jnwb.aperiodic_fit(freqs, psd, freq_range, mode="fixed")`: Separates the aperiodic 1/f component from the spectrum; `mode="knee"` fits a knee. Returns `AperiodicFitResult` for a 1-D `psd` and a nested list of them, one per leading index, for a batch. When the optimiser fails it returns `accepted=False` with `exponent` and `offset` `None`. A fit that converges is accepted however poorly it describes the spectrum, so read `r_squared` as well. `exponent` is positive for a 1/f decay.
 - `jnwb.spectral_tilt(lfp_trace, fs, freq_range=(1.0, 100.0))`: Aperiodic $1/f$ slope. Its `slope` key is the signed log-log slope, **negative** for a 1/f decay, so `aperiodic_fit`'s `exponent` is `-slope`. Read `slope`: the key `exponent` returns the same slope with a `DeprecationWarning` and is removed in the next release.
@@ -64,6 +64,7 @@ Continuous or trial-aligned LFP spectra, complex time-frequency representations 
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 

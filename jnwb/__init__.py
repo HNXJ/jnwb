@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.7'
-__release_date__ = '2026-09-29'
+__version__ = '0.2.8'
+__release_date__ = '2026-10-03'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -227,6 +227,10 @@ from .spiking import (
     phase_locking_index,
     pairwise_phase_consistency,
     gaussian_smooth_rate,
+    fleiss_kappa,
+    spike_count_correlation,
+    fano_factor,
+    network_burst_index,
 )
 
 # Export main classes and functions
@@ -423,6 +427,10 @@ __all__ = [
     'phase_locking_index',
     'pairwise_phase_consistency',
     'gaussian_smooth_rate',
+    'fleiss_kappa',
+    'spike_count_correlation',
+    'fano_factor',
+    'network_burst_index',
 
     # Plotting utilities (matplotlib legacy and pure Plotly engine)
     'setup_vector_graphics',

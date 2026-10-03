@@ -18,11 +18,12 @@ git clone git@github.com:HNXJ/jnwb.git
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
-pip install -e ".[test,docs]"
+pip install -e ".[test,docs,vis]"
 ```
 
-Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the accelerated
-paths, `all` for everything. The GPU paths fall back to CPU with a warning when their
+These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
+Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
+accelerated paths, `all` for everything. The GPU paths fall back to CPU with a warning when their
 dependency is absent, so you can work on most of the library without them.
 
 Verify the install:
@@ -33,7 +34,9 @@ python -m pytest tests/ -q
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
 CI exercises every version `pyproject.toml` declares, so a version the package claims is a
-version CI runs. A small number of tests skip when optional extras are not installed.
+version CI runs. A test that needs an optional extra skips when the extra is absent and names
+it; `release_gate.py` refuses to run without every extra the suite uses, so no such skip
+reaches a release.
 
 ## Branches
 
@@ -57,7 +60,7 @@ python scripts/docs_build.py
 - **The suite** — every test, on the interpreter you ran. Run it on 3.12 as well if your
   change touches anything version-sensitive. It needs pytest-xdist, from the `test` extra:
   `pyproject.toml` passes `--dist=loadgroup`, so `-p no:xdist` is a usage error.
-- **`harness_gate.py`** — 21 repository gates: the project boundary, skill-tree uniqueness,
+- **`harness_gate.py`** — 22 repository gates: the project boundary, skill-tree uniqueness,
   machine-local paths in tests, the root allowlist, public symbols documented, forbidden study
   tokens on the Gate 6 scan surface, package/`pyproject.toml` version agreement, the Python
   floor and its agreement across classifiers, the CI matrix, `.readthedocs.yaml`, `README.md`
@@ -69,8 +72,11 @@ python scripts/docs_build.py
   column and parameter kinds against the runtime object, frozen-validated functions against
   their verified bodies, the HEAD recorded in `artifacts/state.md` against the live one when
   that generated file is present (Gate 20 only reads it; regenerate with
-  `python scripts/reconstruct_state.py`), and the computational contract of
-  `scripts/computational_contract_gate.py`. It fails on structure, not behaviour.
+  `python scripts/reconstruct_state.py`), the computational contract of
+  `scripts/computational_contract_gate.py`, and the typed facts of `scripts/fact_gate.py`,
+  each HELD, VIOLATED or UNHELD on the fact graph `scripts/build_fact_graph.py` generates
+  (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
+  committed). It fails on structure, not behaviour.
 
 **Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.
@@ -89,18 +95,20 @@ A fourth check exists and is **not** part of this sequence:
 python scripts/release_gate.py
 ```
 
-- **`release_gate.py`** — first refuses the release while the working tree has an uncommitted
+- **`release_gate.py`** — first refuses the release while `artifacts/state.md` is present and
+  records another HEAD, the working tree has an uncommitted
   change, the problem stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
   `artifacts/benchmarks/peak_memory.json` names a version other than the one the tree declares.
-  It then runs the suite
-  in parallel and prints its wall time and ten slowest tests, prints the peak memory of a
-  fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet, nothing
-  written: each operation's peak resident size above its resident size before it, exact on
-  Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
-  its peak cannot be reset; the script's docstring tables each platform), then builds the wheel, installs it in a clean venv, and smoke-tests the installed
-  package. It catches packaging mistakes (a module missing from the wheel, a
-  broken extra) that the suite cannot see. It also resolves the **CI conclusion for the exact
+  It then runs every check that takes minutes, and the suite last, so a failure costs minutes
+  rather than a full run: the harness gate, builds the wheel, installs it in a clean venv,
+  smoke-tests the installed package and runs the tutorials against it. It catches packaging
+  mistakes (a module missing from the wheel, a broken extra) that the suite cannot see. Last it
+  runs the suite in parallel and prints its wall time and ten slowest tests, and prints the peak
+  memory of a fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet,
+  nothing written: each operation's peak resident size above its resident size before it, exact
+  on Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
+  its peak cannot be reset; the script's docstring tables each platform). It also resolves the **CI conclusion for the exact
   commit you are qualifying** and refuses to pass when CI is not green — per matrix leg, not
   in aggregate, because a job with `needs:` reports `skipped` rather than `failure` when its
   dependency fails. Run it before tagging, not before pushing: it needs network access to
@@ -123,8 +131,11 @@ Stage exact paths. `git add .` sweeps in build output and scratch files.
   fix — see [Testing rule](#testing-rule) below for the probe classes expected.
 - **Docs and skills in lockstep.** Changing a public symbol means updating `docs/` and
   `skills/` in the same commit.
-- **A `CHANGELOG.md` entry** for anything a user would notice. Breaking changes say what
-  breaks and how to keep the old behaviour.
+- **A changelog fragment** for anything a user would notice: one file,
+  `changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
+  `<category>` one of `breaking`, `added`, `changed`, `deprecated`, `removed`, `fixed`,
+  `security` or `documentation`. Two changes then touch two files and merge without conflict.
+  Breaking changes say what breaks and how to keep the old behaviour.
 - **A citation** for a published method, in the docstring and in `docs/references.md`,
   with a DOI you resolved rather than one you recalled.
 
@@ -162,6 +173,7 @@ All code in `jnwb` must satisfy the following implementation standards:
 8. **Explicit Boundary / Failure States**: When a fit hits parameter bounds or optimization fails, return explicit status flags (e.g. `bound_status: "lower" | "upper" | None`) rather than masking errors as valid interior solutions.
 9. **Cost-Justified Vectorization & Streaming**: Vectorize NumPy/SciPy operations where profiling shows a bottleneck; use streaming accumulators (`TFRAccumulator`) for memory-intensive multi-trial arrays.
 10. **Behavior-Preservation Optimization**: Never refactor or optimize code without existing behavioral tests passing before and after.
+11. **Computational Order From a Measurement or a Reference**: Record an operation's order from its runtime measured across input sizes or from its published reference, never from the shape of its loops: a reading of the loops was wrong on six operations, in both directions.
 
 ## Public API rule
 
@@ -339,10 +351,10 @@ artifacts/
 
 Every contributor adheres to these scientific invariants:
 
-1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool features across modalities without explicit namespace tags.
+1. **Signal Class Independence**: SUA/SPK, MUA, and LFP represent physically distinct observables. Never pool spikes and LFP.
 2. **Estimand Disambiguation**: Clearly distinguish between prevalence, magnitude, decodable information, and biophysical mechanism.
 3. **Causal & Directional Verbs**: $\text{Association} \ne \text{Directionality} \ne \text{Causality}$. Metrics like Granger causality or phase slope index measure temporal predictive asymmetry, not physical perturbation causality.
-4. **Logarithmic Estimand Clarity**: Explicitly distinguish arithmetic mean of raw power ($\mathbb{E}[P]$, physical power conservation) from mean of logarithmic/decibel power ($\mathbb{E}[\log P]$, geometric mean / log-normal central tendency). Do not conflate the two estimands or treat raw-power averaging as an unconditional universal requirement without declaring the estimand.
+4. **Logarithm Last**: Every decibel output aggregates on the power-ratio scale and takes `10*log10` once, last (fact S2 of `artifacts/fact_stack.md`; `aggregate_to_db` enforces it). Averaging decibels is never an option of a decibel output. A mean-of-decibels quantity, if one is ever needed, is a separately named function.
 5. **Unit of Inference**: Always declare whether statistical degrees of freedom reside at the unit, channel, trial, or session level.
 6. **Valid Nulls**: A valid null is an empirical finding. Never alter test windows or parameters to artificially force statistical significance.
 7. **No Synthetic Science**: Never present synthetic or dummy data as real electrophysiological observations.
@@ -394,7 +406,9 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `release_gate.py` green as well — tagging is the point at which it stops being optional.
 
 1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
-   entry; run `python scripts/measure_peak_memory.py --write` and commit
+   entry with `python scripts/assemble_changelog.py --version X.Y.Z --date YYYY-MM-DD`, which
+   inserts the section below `[Unreleased]` and deletes the fragments it used (`--dry-run`
+   prints the section only); run `python scripts/measure_peak_memory.py --write` and commit
    `artifacts/benchmarks/peak_memory.json` in the same commit as the version. All of this lands
    before the closure pass, whose receipt then covers the record; `release_gate.py` refuses a
    record that names another version.
@@ -407,14 +421,20 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
    `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
    all went through a PR merge; this step said "fast-forward" through all of them.
-4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build), then the
+   The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
+   delete-merged-branch setting still deletes a merged feature branch's head.
+4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run
+   of the same commit passed, the test matrix and the floors leg skip their steps and name that
+   run, and the build still runs in full. Then the
    `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
    downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs that file into a fresh
    environment with every dependency from PyPI, runs `pip check`, and runs
    `scripts/smoke_installed.py` against it from outside the checkout. It does **not** upload
    to PyPI.
 5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published`. Its first step waits for the tag push run and fails
+   job runs on `release: published`; the test matrix, the floors leg and the build do not run again on that
+   event, since the push run already passed them on the same commit. Its first step waits for
+   the tag push run and fails
    unless that run's `publish-testpypi` and `verify-testpypi` jobs, one of each name, both
    concluded `success`. It then downloads that push run's distribution artifact, not the
    release run's rebuild, requires each file's sha256 to equal the one TestPyPI records for

@@ -116,6 +116,14 @@ class TestFitExponentialOnset:
         with pytest.raises(ValueError):
             fit_exponential_onset(t, rate, t0_bounds=(50.0, 50.0))
 
+    def test_a_window_ending_before_the_default_lower_bound_names_the_default(self):
+        t = np.linspace(-200.0, -10.0, 50)
+        rate = np.random.default_rng(0).normal(10.0, 1.0, size=50)
+        with pytest.raises(ValueError, match="default lower bound of 0 ms"):
+            fit_exponential_onset(t, rate)
+        fit = fit_exponential_onset(t, rate, t0_bounds_ms=(None, None))
+        assert -200.0 <= fit["t0"] <= -10.0
+
     def test_returns_expected_keys(self):
         t_ms, rate = self._synthetic_psth(45.0, 15.0, 50.0, 3.0, n_trials=80, seed=2)
         fit = fit_exponential_onset(t_ms, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0))

@@ -116,7 +116,9 @@ def fit_exponential_onset(
     with different values is an error rather than a silent precedence rule.
 
     t0_bounds_ms: (lo, hi) in ms; None on either side defaults to the trace's own
-    [min(t), max(t)]. Enforces causality BY CONSTRUCTION -- t0 cannot leave [lo, hi]
+    [min(t), max(t)]. Left unset, the bounds are (0.0, None): t0 from 0 ms to the end of
+    the trace, so a trace that ends at or before 0 ms needs explicit bounds. Enforces
+    causality BY CONSTRUCTION -- t0 cannot leave [lo, hi]
     regardless of what the data would otherwise support (see module docstring).
     baseline_window_ms: (lo, hi) in ms; if None, uses the first 10% of
     samples as the baseline-rate initial guess (fit still frees baseline as a parameter).
@@ -125,6 +127,7 @@ def fit_exponential_onset(
 
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
     """
+    t0_bounds_unset = t0_bounds_ms is None and t0_bounds is None
     t0_bounds_ms = resolve_unit_alias(
         t0_bounds_ms, t0_bounds, canonical_name="t0_bounds_ms",
         alias_name="t0_bounds", func_name="fit_exponential_onset",
@@ -162,6 +165,12 @@ def fit_exponential_onset(
     t0_lo = t0_bounds_ms[0] if t0_bounds_ms[0] is not None else float(t_ms.min())
     t0_hi = t0_bounds_ms[1] if t0_bounds_ms[1] is not None else float(t_ms.max())
     if t0_hi <= t0_lo:
+        if t0_bounds_unset:
+            raise ValueError(
+                f"t0 bounds are empty: [{t0_lo}, {t0_hi}]. t0_bounds_ms was not given, so the "
+                f"default lower bound of 0 ms applies and the trace ends at {t0_hi} ms. Pass "
+                "t0_bounds_ms, with (None, None) for the trace's own range."
+            )
         raise ValueError(f"t0 bounds are empty: [{t0_lo}, {t0_hi}]")
     tau_lo, tau_hi = tau_bounds_ms
 

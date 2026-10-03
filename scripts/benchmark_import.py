@@ -101,6 +101,8 @@ def _run(cache_dir: str, probe: str = PROBE) -> dict:
     existing = os.environ.get("PYTHONPATH", "")
     pythonpath = repo if not existing else f"{repo}{os.pathsep}{existing}"
     env = dict(os.environ, PYTHONPYCACHEPREFIX=cache_dir, PYTHONPATH=pythonpath)
+    # Without a bytecode cache the warm run repeats the cold one.
+    env.pop("PYTHONDONTWRITEBYTECODE", None)
     out = subprocess.run(
         [sys.executable, "-c", probe],
         capture_output=True,

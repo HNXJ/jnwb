@@ -53,7 +53,7 @@ rather than synthesizing a value. Citations and links are in
 
 ### A. Signal Class Independence
 * **Physical Classes**: Spikes (SUA/MUA), Multi-unit activity envelopes (MUAe), Local Field Potentials (LFP), and behavioral covariates are distinct observables.
-* **No Modality Pooling**: Signals of distinct modalities are never pooled without an explicit transformation and declared units.
+* **No Modality Pooling**: Signals of distinct modalities are never pooled; spikes and LFP are never pooled.
 
 ### B. Estimand Disambiguation
 Each estimator computes one estimand:

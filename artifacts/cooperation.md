@@ -65,13 +65,34 @@ choices by the decision grades of `AGENTS.md` §12; a stop report lists the opti
 | T4 | Execute one todo item as a packet | either role, by claim | manual | commits and a bundle (worker) or commits on `dev` (integrator) |
 | T5 | CI watch; diagnose a red run | integrator | after each push | a repair, or a row in the problem stack |
 | T6 | Memory curation: promote a recurring lesson to a rule, archive a stale one, delete a wrong one | integrator, own memory only | on request | a short note on the bus of what was promoted |
-| T6′ | Friction scan: repeated friction in the bus and chat logs becomes rule-edit proposals for `AGENTS.md` or this file | worker | on request | proposals on the bus; the integrator or Hamm applies them |
 | T7 | Release checklist (`CONTRIBUTING.md`) | integrator | Hamm | the release |
+| T8 | `jnwb-status`: release, CI and PyPI state, before a tag (the release-gate steps a clean clone can run) and after publication (PyPI sha256 against the tag run's artifact, a fresh-environment smoke run, the Read the Docs version and the Zenodo DOI); triage of any problem row under `AGENTS.md` §11; diagnosis of a red CI run from its logs | worker, cloud clone at a named SHA | on request | a project doc headed by the SHA it read, and a three-line summary relayed to chat; each proposed problem row names the §11 clause it meets, or why it cannot make release evidence falsely pass |
+| T9 | `jnwb-deep-review`: T2 over `last_reviewed..<SHA>`, or one module or item on request: probes of identity, sign, scale and null calibration on synthetic data with stated ground truth, docstring and docs claims against the code, routing rows against signatures, mutant spot checks, and every docs figure rendered in both themes at displayed size | worker, cloud clone at a named SHA | on request, after a merge | a project doc in the return fields of `artifacts/skills/jnwb-fact-action` §5, with a reproducer per finding; a finding at confidence 60 or above becomes a proposed problem row; it never certifies a lane before its merge |
+| T10 | `jnwb-organize-clean`: T1, plus remote hygiene (stale branches and tags, unrouted exports, orphan docs, tests and scripts, pointer files naming missing paths, size budgets against the newest `artifacts/evidence/*/plan/restructure_plan.md`, deletion candidates with a reason) and a fresh clone followed through `CONTRIBUTING.md` to a passing suite | worker, cloud clone at a named SHA | on request | proposals only; the integrator executes them. Worktrees, local branches and `.git` state are the integrator's |
+| T11 | `jnwb-context-sync`: project docs and the worker's own memory refreshed from the repository, driven by the diff since the last sync, with a friction scan: repeated friction in the bus and chat logs becomes rule-edit proposals for `AGENTS.md` or this file | worker | on request | the refreshed docs, and the rule-edit proposals on the bus; the integrator or Hamm applies them |
 
 No task runs on a schedule. "On request" means Hamm asks, or an agent asks on the bus or in
 chat; the agent asked runs it in its next turn.
 
-## Conflicts
+## Routing and learning
+
+The integrator routes each packet to an agent tier by what decides its claims, and the tier
+follows the evidence of what review keeps finding.
+
+| The packet's claims are decided by | Actor | Review |
+|---|---|---|
+| a gate or test alone: stack, rulings and pointer edits, docs a test reads | `jnwb-actor-fast` | the gate; no verifier |
+| a bounded code repair with a test | `jnwb-actor` | `jnwb-verifier` |
+| scientific meaning, a public API, a rule-file rewrite, or a release step | `jnwb-actor` | `jnwb-verifier` and `jnwb-critic-sonnet`, independently |
+
+- **A review names the class of each finding**, from `artifacts/defect_classes.md` or `new`; the
+  integrator adds the instance there in the merge that resolves it.
+- **A class seen twice gets a mechanical check or a rule**, as a todo item, and until it lands,
+  packets of that class route one tier up.
+- **An escalation is a result.** `ESCALATE` from a fast actor re-routes the packet; the class of
+  what it could not decide is recorded like a finding.
+- **A tier is lowered only by evidence**: a class whose check has landed and caught a real instance
+  no longer needs the tier that used to catch it.
 
 The authority order is that of `AGENTS.md` §1: the receipt on disk, then live repository state,
 then machine-readable state files, then prose and messages. An agent that finds a conflict on a

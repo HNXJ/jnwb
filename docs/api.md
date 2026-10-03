@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 162 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 166 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -231,7 +231,7 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.band_power | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float`<br>*Mean power spectral density over a frequency band.* |
 | jnwb.bipolar_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | `(data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]`<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |
-| jnwb.compute_psd | function | `(lfp_data: numpy.ndarray, fs: float, axis: int = 0)`<br>*Welch power spectral density of a plain LFP array.* |
+| jnwb.compute_psd | function | `(lfp_data: numpy.ndarray, fs: float, axis: int = 0, *, nperseg: int | None = None)`<br>*Welch power spectral density of a plain LFP array.* |
 | jnwb.cross_area_coherence | function | `(lfp_area1: numpy.ndarray, lfp_area2: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_bands: Dict[str, Tuple[float, float]] | str | None = None, device: str = 'cpu', rng: int | numpy.random._generator.Generator | None = 42, n_surrogates: int = 50, n_jobs: int = 1, nperseg: int | None = None, noverlap: int | None = None) -> Dict`<br>*Compute frequency-resolved coherence between two LFP signals.* |
 | jnwb.current_source_density_1d | function | `(lfp_matrix: numpy.ndarray, pitch_um: float, conductivity_s_per_m: float, axis: int = 0) -> numpy.ndarray`<br>*Compute physical 1D Current Source Density (CSD) along a laminar electrode array.* |
 | jnwb.harmonic_analysis | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), harmonic_orders: int = 3, device: str = 'cpu') -> Dict`<br>*Decompose LFP trace into fundamental and harmonic components.* |
@@ -249,9 +249,13 @@ All 162 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.classify_response_significance | function | `(metrics: Dict[str, float], zscore_threshold: float = 1.96, min_spike_count: int = 5, *, alpha: float = 0.05) -> Dict[str, bool | float]`<br>*Classify a unit's response against its baseline from `compute_response_metrics` output.* |
 | jnwb.compute_response_metrics | function | `(spike_times: numpy.ndarray, epoch_onsets: numpy.ndarray, baseline_window_s: Tuple[float, float] | None = None, response_window_s: Tuple[float, float] | None = None, z_score: bool = True, *, baseline_window: Tuple[float, float] | None = None, response_window: Tuple[float, float] | None = None) -> Dict[str, typing.Any]`<br>*Compute firing rate and spike count metrics for stimulus responses.* |
+| jnwb.fano_factor | function | `(spike_times, onsets_s, window_s: Tuple[float, float], *, summary: str) -> Dict[str, typing.Any]`<br>*Fano factor per unit across trials, summarised over units (Churchland et al. 2010).* |
+| jnwb.fleiss_kappa | function | `(counts: numpy.ndarray) -> float`<br>*Fleiss' kappa: chance-corrected agreement of many raters on nominal categories (Fleiss 1971).* |
 | jnwb.gaussian_smooth_rate | function | `(rate: numpy.ndarray, bin_ms: float, sigma_ms: float = 20.0, axis: int = -1) -> numpy.ndarray`<br>*Apply symmetrical, acausal Gaussian smoothing to a binned firing rate trace.* |
+| jnwb.network_burst_index | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float, threshold_hz: float, min_duration_ms: float) -> Dict[str, typing.Any]`<br>*Fraction of spikes inside network bursts found from the population rate (Wagenaar et al. 2006).* |
 | jnwb.pairwise_phase_consistency | function | `(phases: numpy.ndarray, axis: int = -1) -> float | numpy.ndarray`<br>*Compute the Pairwise Phase Consistency (PPC) across angular samples (Vinck et al., 2010).* |
 | jnwb.phase_locking_index | function | `(unit_spike_times: numpy.ndarray, lfp_phase: numpy.ndarray, lfp_timestamps: numpy.ndarray, n_bins: int = 18) -> Dict[str, float | numpy.ndarray]`<br>*Compute circular phase distribution and Rayleigh non-uniformity test of spikes relative to LFP phase.* |
+| jnwb.spike_count_correlation | function | `(spike_times, window_s: Tuple[float, float], *, bin_ms: float) -> Dict[str, typing.Any]`<br>*Mean pairwise Pearson correlation of binned spike counts (Cohen and Kohn 2011).* |
 
 ## Module: jnwb.statistics
 

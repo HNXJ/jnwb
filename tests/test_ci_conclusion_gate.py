@@ -301,9 +301,10 @@ def test_this_repository_requires_every_matrix_leg_and_the_build_job():
     workflow = yaml.safe_load((REPO_ROOT / CI_WORKFLOW_PATH).read_text(encoding="utf-8"))
     matrix = workflow["jobs"]["test"]["strategy"]["matrix"]
     expected = len(matrix["os"]) * len(matrix["python-version"])
-    assert len(required) == expected + 2, required
+    assert len(required) == expected + 3, required
     assert "Build & Validate Distribution" in required
     assert workflow["jobs"]["test-floors"]["name"] in required
+    assert workflow["jobs"]["qualified"]["name"] in required
 
     # Derived, not asserted against a literal: every supported interpreter in pyproject.toml
     # must appear in a required leg, so adding 3.15 to the classifiers without adding the CI

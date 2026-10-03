@@ -187,6 +187,8 @@ class VFlipResult(DictAccessMixin):
 # and which end of that axis is shallow.
 _DEPTH_AXES = ("x", "y", "z")
 _SHALLOW_ENDS = ("min", "max")
+#: Fewest frequency bins :func:`vflip` accepts, as its own check on ``freqs`` states.
+_MIN_FREQ_BINS = 4
 
 
 def _refuse_a_deep_first_declaration(
@@ -793,7 +795,9 @@ def vflip_from_lfp(
             Must contain at least two dimensions and finite numeric data.
         fs: Sampling rate of the LFP time series in Hertz (Hz). Must be strictly positive and finite.
         nperseg: Length of each segment for Welch's PSD estimator (default: `min(n_times, int(fs))`,
-            yielding a nominal ~1 Hz frequency resolution).
+            yielding a nominal ~1 Hz frequency resolution). From 6, the shortest segment
+            that gives the 4 frequency bins :func:`vflip` needs, to `n_times`; a default
+            below 6 raises `ValueError` like an explicit one.
         noverlap: Number of points to overlap between segments (default: `nperseg // 2`).
         window: Window specification for periodogram calculation (default: `'hann'`).
         detrend: Specifies how to detrend each segment (default: `'constant'`).
@@ -860,8 +864,17 @@ def vflip_from_lfp(
 
     # 2. Welch segment parameters
     eff_nperseg = int(min(n_times, int(fs))) if nperseg is None else int(nperseg)
-    if eff_nperseg <= 0 or eff_nperseg > n_times:
-        raise ValueError(f"nperseg must be in range [1, {n_times}], got {eff_nperseg}")
+    # A segment of n samples gives n // 2 + 1 one-sided bins.
+    min_nperseg = 2 * (_MIN_FREQ_BINS - 1)
+    if not min_nperseg <= eff_nperseg <= n_times:
+        source = (
+            f" from the default min(n_times, int(fs)) at fs={fs} Hz; pass nperseg"
+            if nperseg is None else ""
+        )
+        raise ValueError(
+            f"vflip_from_lfp: nperseg must be from {min_nperseg} to the {n_times} time samples "
+            f"(vflip needs {_MIN_FREQ_BINS} frequency bins), got {eff_nperseg}{source}"
+        )
 
     eff_noverlap = (eff_nperseg // 2) if noverlap is None else int(noverlap)
     if eff_noverlap < 0 or eff_noverlap >= eff_nperseg:

@@ -1519,7 +1519,8 @@ def cross_modal_comparison(
         spike_data: spike count array (time x trials, or fewer dims).
         lag_range_ms: (min_ms, max_ms) lag window to search; only used when ``bin_ms`` is given.
         bin_ms: bin width in ms of the (already frequency/trial-reduced) 1D series. ``None``
-            skips the lag sweep and preserves the original zero-lag-only behavior.
+            skips the lag sweep and preserves the original zero-lag-only behavior. A value
+            that is not positive and finite raises ``ValueError``.
         n_permutations: circular shifts in the null of ``lag_corrected_pvalue``.
         rng: randomness of that null: an ``int`` seed, a ``Generator``, from which one child
             seed is drawn and used, or ``None`` (default) for fresh OS entropy. The result's
@@ -1612,6 +1613,11 @@ def cross_modal_comparison(
     # asymmetric request was silently replaced by a different window: (-500, 100) searched
     # +-100 ms, (100, 500) searched +-100 ms (a window not even inside the request), and
     # (0, 500) searched nothing at all because min(0, 500) is 0.
+    if not (np.isfinite(bin_ms) and bin_ms > 0):
+        raise ValueError(
+            "cross_modal_comparison: bin_ms must be a positive, finite bin width in ms, "
+            f"got {bin_ms!r}."
+        )
     lo_ms, hi_ms = float(lag_range_ms[0]), float(lag_range_ms[1])
     if hi_ms < lo_ms:
         lo_ms, hi_ms = hi_ms, lo_ms

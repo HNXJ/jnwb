@@ -195,6 +195,14 @@ class TestSynthLaminarMotif:
         np.testing.assert_array_equal(receipt.lfp[3], 0.0)
         np.testing.assert_array_equal(receipt.lfp[11], 0.0)
 
+    @pytest.mark.parametrize("fs, band", [(100.0, "gamma"), (130.0, "gamma"), (30.0, "beta")])
+    def test_an_fs_that_leaves_a_peak_no_pass_band_raises(self, fs, band):
+        """Each band is capped at fs/2 - 5 Hz; at or below its lower edge it is empty."""
+        # gamma_freq=12 keeps the gamma band open at 30 Hz, so the beta band is the one refused.
+        with pytest.raises(ValueError, match=f"synth_laminar_motif: fs=.*{band}"):
+            synth_laminar_motif(fs=fs, gamma_freq=75.0 if band == "gamma" else 12.0, rng=0)
+        assert synth_laminar_motif(n_samples=500, fs=131.0, rng=0).lfp.shape == (24, 500)
+
 
 class TestCanonicalTutorialNWB:
     def test_build_and_read_nwb(self, tmp_path):

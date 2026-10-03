@@ -27,9 +27,9 @@ time_bins_ms, rate_hz, sem_hz = jnwb.raster_psth(
 ![Spike Raster and PSTH](assets/figures/fig02_raster_psth.png#only-light)
 ![Spike Raster and PSTH](assets/figures/fig02_raster_psth.dark.png#only-dark)
 
-Panel A of that figure is a synthetic raster over 30 trials and panel B is `jnwb.bin_spikes` on the same
-spikes. Both panels share one time axis, so what the binning discards is read off the pair; the
-bins are right-open, which is why a spike on a bin edge falls in the later bin.
+Panel A of that figure is a synthetic raster over 30 trials; panel B is `jnwb.raster_psth` on the
+same spikes, mean rate ±1 SEM. Both share one time axis, so what the binning discards is read off
+the pair; bins are right-open, so a spike on a bin edge falls in the later bin.
 
 ### Response Metrics & Significance Classification
 

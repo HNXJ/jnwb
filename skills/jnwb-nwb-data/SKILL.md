@@ -42,8 +42,9 @@ areas/layers, auditing unit quality, or compressing arrays.
   epochs from continuous signals aligned to event onsets.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 
-MCP tools (`inspect_nwb`, `get_event_codes_and_timings`) wrap these functions for agent hosts;
-Python workflows call the functions directly.
+MCP tools `inspect_nwb` and `get_event_codes_and_timings` wrap `inspect` and `events` for agent
+hosts, and `prepare_signal_reference` describes one dataset without loading it and names the
+`acquisition_channel` call that reads it; Python workflows call the functions directly.
 
 | Topic | Contract |
 |---|---|
@@ -93,8 +94,10 @@ Python workflows call the functions directly.
 
 ## 4. Minimal Workflow
 ```python
+# Input: calibration fixture.
 import jnwb
 
+# session.nwb here is a small synthetic file of known contents; pass your own path.
 info = jnwb.inspect("session.nwb")
 table = "test_synth_task"  # from info["interval_tables"]
 onsets = jnwb.event_onsets("session.nwb", table=table, codes=["test-synth-1"])

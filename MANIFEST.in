@@ -11,7 +11,7 @@
 # `jnwb.SKILLS_URL` instead.
 #
 # AGENTS.md is the repository's own working rules and stays out, as does everything under
-# artifacts/, including the skill about working on this repository.
+# artifacts/, including the skills about working on this repository.
 graft skills
 exclude AGENTS.md
 

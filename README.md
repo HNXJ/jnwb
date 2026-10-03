@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://pypi.org/project/jnwb/"><img src="https://img.shields.io/pypi/v/jnwb?color=brightgreen" alt="PyPI"></a>
-  <a href="https://jnwb.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/jnwb/badge/?version=latest" alt="Docs"></a>
-  <a href="https://github.com/HNXJ/jnwb/actions/workflows/workflow.yml"><img src="https://github.com/HNXJ/jnwb/actions/workflows/workflow.yml/badge.svg" alt="CI/CD"></a>
+  <a href="https://jnwb.readthedocs.io/en/latest/"><img src="https://img.shields.io/readthedocs/jnwb" alt="Docs"></a>
+  <a href="https://github.com/HNXJ/jnwb/actions/workflows/workflow.yml"><img src="https://github.com/HNXJ/jnwb/actions/workflows/workflow.yml/badge.svg?branch=main" alt="CI/CD"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
   <a href="https://doi.org/10.5281/zenodo.22949846"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.22949846.svg" alt="DOI"></a>
 </p>
@@ -46,7 +46,7 @@ pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.7`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.8`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs]" for development

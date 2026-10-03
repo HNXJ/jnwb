@@ -60,6 +60,15 @@ treatment in these two books, checked on Open Library:
 | Przyborowski, J., & Wilenski, H. (1940). Homogeneity of results in testing samples from Poisson series: with an application to testing clover seed for dodder. *Biometrika* 31(3/4), 313-323. [doi:10.2307/2332612](https://doi.org/10.2307/2332612) | The conditional test of two Poisson counts: given their total $N$, the first is Binomial($N$, $d_r/(d_r+d_b)$) under equal rates, with $d_r$, $d_b$ the exposures. jnwb sums counts and window durations over trials and takes the two-sided p from `scipy.stats.binomtest` | `classify_response_significance` |
 | Clopper, C. J., & Pearson, E. S. (1934). The use of confidence or fiducial limits illustrated in the case of the binomial. *Biometrika* 26(4), 404-413. [doi:10.1093/biomet/26.4.404](https://doi.org/10.1093/biomet/26.4.404) | The exact binomial confidence interval, computed from Beta quantiles | `clopper_pearson` |
 
+## Spiking population measures
+
+| Reference | Result implemented | Functions |
+|---|---|---|
+| Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619) | Kappa for many raters, $(\bar P - P_e) / (1 - P_e)$ over a table of rater counts per item and category; the paper's 30-patient, six-rater table gives .430 | `fleiss_kappa` |
+| Cohen, M. R., & Kohn, A. (2011). Measuring and interpreting neuronal correlations. *Nature Neuroscience* 14(7), 811-819. [doi:10.1038/nn.2842](https://doi.org/10.1038/nn.2842) | The spike-count correlation, the Pearson r of two units' spike counts, whose value depends on the counting window. The paper's $r_{sc}$ is taken across trials; `spike_count_correlation` takes it across time bins of one window, so shared rate changes (signal correlation) raise it too | `spike_count_correlation` |
+| Churchland, M. M., et al. (2010). Stimulus onset quenches neural variability: a widespread cortical phenomenon. *Nature Neuroscience* 13(3), 369-378. [doi:10.1038/nn.2501](https://doi.org/10.1038/nn.2501) | The Fano factor per unit, the across-trial variance over the mean of the count in a fixed window, summarised over units | `fano_factor` |
+| Wagenaar, D. A., Pine, J., & Potter, S. M. (2006). An extremely rich repertoire of bursting patterns during the development of cortical cultures. *BMC Neuroscience* 7, 11. [doi:10.1186/1471-2202-7-11](https://doi.org/10.1186/1471-2202-7-11) | Network bursts as periods of elevated population activity; jnwb detects them as runs of population rate at or above a threshold for at least a minimum duration and reports the fraction of spikes inside them | `network_burst_index` |
+
 ## Representational analysis
 
 | Reference | Result implemented | Functions |

@@ -30,6 +30,7 @@ Comparing neural responses across conditions, label permutations, Benjamini-Hoch
 
 ## 4. Minimal Workflow
 ```python
+# Input: stochastic synthetic.
 import jnwb
 import numpy as np
 
@@ -45,6 +46,7 @@ q_vals = jnwb.StatisticalAnalysis.fdr_correct([p_raw, 0.03, 0.005])
 ## 5. Verification
 - `StatisticalAnalysis.fdr_correct` matches `scipy.stats.false_discovery_control`.
 - `permute_labels` preserves within-group label marginals.
+- A reported p names its test, sidedness, n and correction, and a reported effect carries its interval.
 
 ## 6. Documentation
 - [`docs/07_statistical_inference_and_nulls.md`](../../docs/07_statistical_inference_and_nulls.md)

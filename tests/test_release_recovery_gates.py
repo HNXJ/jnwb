@@ -149,3 +149,85 @@ class TestReleaseGateCoverage:
         specs = re.findall(r'pip install "\.\[([A-Za-z0-9_,-]+)\]"', install_run)
         assert len(specs) == 1, install_run
         assert {"test", "docs", "vis"} <= set(specs[0].split(",")), specs[0]
+
+    def test_the_documented_install_and_the_release_gate_require_the_ci_extras(self):
+        """A contributor following the setup instructions can collect the suite.
+
+        The instructions installed `[test,docs]`, and the suite's collection imports `jnwb.vis`,
+        which raises without Plotly. The extras CI installs for the suite are the ones the
+        documented install and the release gate's tooling check must both name.
+        """
+        import yaml
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import REQUIRED_EXTRAS
+
+        wf = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "workflow.yml")
+                            .read_text(encoding="utf-8"))
+        step = next(s for s in wf["jobs"]["test"]["steps"] if s.get("name") == "Install dependencies")
+        ci = set(re.findall(r'pip install "\.\[([A-Za-z0-9_,-]+)\]"', step["run"])[0].split(","))
+
+        contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        documented = re.findall(r'pip install -e "\.\[([A-Za-z0-9_,-]+)\]"', contributing)
+        assert documented, "CONTRIBUTING.md no longer shows the development install"
+        for spec in documented:
+            assert ci <= set(spec.split(",")), (spec, sorted(ci))
+        assert ci <= set(REQUIRED_EXTRAS), (REQUIRED_EXTRAS, sorted(ci))
+
+
+class TestReleaseGateOrder:
+    """The gate stopped at its first failure only after a twelve to thirty minute suite."""
+
+    @staticmethod
+    def _main_source() -> str:
+        import ast
+
+        source = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        main = next(n for n in ast.parse(source).body
+                    if isinstance(n, ast.FunctionDef) and n.name == "main")
+        return ast.get_source_segment(source, main) or ""
+
+    def test_the_state_file_is_checked_before_anything_else(self):
+        main = self._main_source()
+        assert "check_state_is_current()" in main
+        first_check = min(main.index(name) for name in (
+            "check_release_readiness(", "verify_declared_environment(", "published_versions(",
+            "check_live_release_body(", "check_ci_conclusion("))
+        assert main.index("check_state_is_current()") < first_check
+
+    def test_the_suite_runs_after_the_smoke_script_and_the_tutorials(self):
+        main = self._main_source()
+        suite = main.index('"pytest"')
+        for cheaper in ("harness_gate.py", '"build"', "INSTALLED_SMOKE", "=== STEP 8"):
+            assert main.index(cheaper) < suite, f"{cheaper} runs after the suite"
+
+    @staticmethod
+    def _repository(root: Path) -> str:
+        import os
+
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE")}
+        git = ["git", "-C", str(root), "-c", "user.name=jnwb-test",
+               "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"]
+        subprocess.run(git + ["init", "-q"], check=True, capture_output=True, env=env)
+        subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "base"],
+                       check=True, capture_output=True, env=env)
+        return subprocess.run(git + ["rev-parse", "HEAD"], check=True, capture_output=True,
+                              text=True, env=env).stdout.strip()
+
+    @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+    def test_a_stale_state_file_is_refused(self, tmp_path):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import check_state_is_current
+
+        head = self._repository(tmp_path)
+        assert check_state_is_current(tmp_path) == [], "an absent state file passes"
+        state = tmp_path / "artifacts" / "state.md"
+        state.parent.mkdir()
+        state.write_bytes(f"# State\n\n| HEAD | `{head}` |\n".encode("utf-8"))
+        assert check_state_is_current(tmp_path) == []
+        state.write_bytes(f"# State\n\n| HEAD | `{'0' * 40}` |\n".encode("utf-8"))
+        violations = check_state_is_current(tmp_path)
+        assert len(violations) == 1 and "generated at " + "0" * 40 in violations[0], violations

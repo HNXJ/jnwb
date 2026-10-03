@@ -113,6 +113,21 @@ def _require_finite_nonempty_trace(x: np.ndarray, func_name: str, name: str = "l
     return arr
 
 
+def _require_two_samples(arr: np.ndarray, func_name: str, name: str = "lfp_trace") -> np.ndarray:
+    """Return ``arr``, rejecting a trace of fewer than 2 samples along its last axis.
+
+    Welch removes the mean of a 1-sample segment and returns a 0.0 PSD, which is
+    indistinguishable from a measured absence of power.
+    """
+    n_times = arr.shape[-1] if arr.ndim else 1
+    if n_times < 2:
+        raise ValueError(
+            f"{func_name}: {name} has {n_times} sample(s) along its last axis; a spectrum "
+            "needs at least 2."
+        )
+    return arr
+
+
 def _flat_as_zero(x: np.ndarray) -> np.ndarray:
     """A constant trace replaced by the zeros its mean-detrended spectrum is.
 
@@ -473,7 +488,7 @@ def aggregate_to_db(
         return to_db(aggregated)
 
 
-def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
+def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Optional[int] = None):
     """Welch power spectral density of a plain LFP array.
 
     Thin ``scipy.signal.welch`` wrapper on caller-supplied traces.
@@ -484,16 +499,21 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
         fs: sampling rate in Hz (must be positive and finite).
         axis: axis along which time is sampled (default 0, matching the documented
             ``(n_times, n_channels)`` layout). Pass ``axis=-1`` for channel-major data.
+        nperseg: Welch segment length in samples, from 2 to the length along ``axis``.
+            ``None`` keeps ``min(n_times, int(fs))``, one second or the whole trace, and
+            at least 2 samples. The
+            frequency resolution is ``fs / nperseg``.
 
     Returns:
         (freqs, psd) tuple.
 
     Raises:
         ValueError: If ``lfp_data`` is empty or non-finite, ``fs`` is not positive and
-            finite, or ``axis`` is out of range for ``lfp_data``.
+            finite, ``axis`` is out of range for ``lfp_data``, or ``nperseg`` is not an
+            integer from 2 to the length along ``axis``.
 
     Notes:
-        ``nperseg`` is derived from the length along ``axis``. It used to be derived from
+        The default ``nperseg`` is derived from the length along ``axis``. It used to be derived from
         ``len(lfp_data)``, the length along axis 0 whatever ``axis`` meant, so a
         channel-major ``(8, 4000)`` array was segmented into 8 samples and returned a
         5-bin spectrum while ``compute_multitaper_psd(..., axis=-1)`` returned 2001 bins
@@ -518,7 +538,16 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0):
             "2. A 1-sample trace used to return a 0.0 PSD, which is indistinguishable "
             "from a measured absence of power."
         )
-    freqs, psd = signal.welch(arr, fs=fs, nperseg=min(n_times, int(fs)), axis=axis)
+    if nperseg is None:
+        nperseg = min(n_times, max(2, int(fs)))
+    if isinstance(nperseg, (bool, np.bool_)) or not isinstance(nperseg, (int, np.integer)):
+        raise ValueError(f"compute_psd: nperseg must be an integer, got {nperseg!r}.")
+    if not 2 <= nperseg <= n_times:
+        raise ValueError(
+            f"compute_psd: nperseg must be from 2 to the {n_times} samples along axis {axis}, "
+            f"got {nperseg}. scipy would shorten a longer segment to the trace without saying so."
+        )
+    freqs, psd = signal.welch(arr, fs=fs, nperseg=int(nperseg), axis=axis)
     return freqs, psd
 
 
@@ -567,8 +596,8 @@ def harmonic_analysis(
         no bin in ``freq_range`` has positive power (a constant trace).
 
     Raises:
-        ValueError: If ``lfp_trace`` is empty or non-finite, ``freq_range`` contains no bin
-            of the Welch grid, or ``device`` is not a recognised device name.
+        ValueError: If ``lfp_trace`` is empty, non-finite or a single sample, ``freq_range``
+            contains no bin of the Welch grid, or ``device`` is not a recognised device name.
 
     Example:
         >>> analysis = harmonic_analysis(lfp_data, fs=1000.0)
@@ -580,7 +609,8 @@ def harmonic_analysis(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "harmonic_analysis")
-    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "harmonic_analysis"))
+    lfp_trace = _flat_as_zero(_require_two_samples(
+        _require_finite_nonempty_trace(lfp_trace, "harmonic_analysis"), "harmonic_analysis"))
     result = {
         'fundamental_freq': float('nan'),
         'harmonics': {},
@@ -1565,9 +1595,9 @@ def band_power(
         has band power 0.0; a constant baseline has no power and raises.
 
     Raises:
-        ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty or
-            non-finite, ``freq_range`` contains no Welch bin, the baseline has no power in
-            ``freq_range``, or ``device`` is not a recognised device name.
+        ValueError: If ``lfp_trace`` (or, with ``normalize=True``, ``baseline``) is empty,
+            non-finite or a single sample, ``freq_range`` contains no Welch bin, the
+            baseline has no power in ``freq_range``, or ``device`` is not a recognised device name.
 
     Example:
         >>> theta_power = band_power(lfp_data, fs=1000.0, freq_range=(4, 8), normalize=False)
@@ -1580,13 +1610,16 @@ def band_power(
         -- the spectrum as the average of windowed periodograms over overlapping segments.
     """
     fs = _resolve_fs(fs, sampling_rate, "band_power")
-    lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "band_power"))
+    lfp_trace = _flat_as_zero(_require_two_samples(
+        _require_finite_nonempty_trace(lfp_trace, "band_power"), "band_power"))
     if normalize:
         if baseline is None or np.size(baseline) == 0:
             raise ValueError(
                 "band_power(normalize=True) requires a non-empty baseline trace for dB normalization"
             )
-        baseline = _flat_as_zero(_require_finite_nonempty_trace(baseline, "band_power", name="baseline"))
+        baseline = _flat_as_zero(_require_two_samples(
+            _require_finite_nonempty_trace(baseline, "band_power", name="baseline"),
+            "band_power", name="baseline"))
     resolve_device(device, context="band_power", stacklevel=3, supports=(CPU,))
 
     def _welch(trace):

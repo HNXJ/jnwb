@@ -51,6 +51,7 @@ The execution loop formalizes $W = P(RG)^N S$:
 - Execute targeted regression and adversarial tests.
 - Re-derive key numerical quantities from data rather than summaries.
 - Ensure independent verification: inspect the exact diff and assert that all invariants hold.
+- Apply the checks `artifacts/skills/jnwb-review` lists for each changed artifact.
 
 ### S — Seal & Reconcile
 - Reconcile the todo stack: delete completed items from `artifacts/todo_stack.md`.

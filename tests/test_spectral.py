@@ -121,6 +121,45 @@ class TestComputePsd:
         with pytest.raises(ValueError, match="out of range"):
             compute_psd(np.ones((8, 400)), 1000.0, axis=5)
 
+    def test_the_default_segment_is_unchanged_by_the_nperseg_argument(self):
+        """`nperseg=None` keeps the segment of min(n_times, int(fs)) bit for bit."""
+        from scipy import signal as sp_signal
+        rng = np.random.default_rng(7)
+        for shape, fs, axis in (((3000, 4), 1000.0, 0), ((4, 700), 1000.0, -1), ((2500,), 400.0, 0)):
+            x = rng.standard_normal(shape)
+            freqs, psd = compute_psd(x, fs, axis=axis)
+            ref_f, ref_p = sp_signal.welch(x, fs=fs, nperseg=min(x.shape[axis], int(fs)), axis=axis)
+            np.testing.assert_array_equal(freqs, ref_f)
+            np.testing.assert_array_equal(psd, ref_p)
+            np.testing.assert_array_equal(compute_psd(x, fs, axis=axis, nperseg=None)[1], psd)
+
+    def test_nperseg_is_the_welch_segment_length(self):
+        from scipy import signal as sp_signal
+        x = np.random.default_rng(8).standard_normal((4000, 3))
+        freqs, psd = compute_psd(x, 10000.0, nperseg=256)
+        ref_f, ref_p = sp_signal.welch(x, fs=10000.0, nperseg=256, axis=0)
+        np.testing.assert_array_equal(freqs, ref_f)
+        np.testing.assert_array_equal(psd, ref_p)
+        assert freqs[1] - freqs[0] == pytest.approx(10000.0 / 256)
+
+    @pytest.mark.parametrize("bad", [1, 0, -4, 4001, 2.5, True, "256"])
+    def test_an_nperseg_outside_two_to_the_trace_length_raises(self, bad):
+        with pytest.raises(ValueError, match="nperseg"):
+            compute_psd(np.ones(4000), 1000.0, nperseg=bad)
+
+    def test_default_nperseg_with_low_sampling_rate_is_valid(self):
+        """When fs < 2, default segment is floored at 2 samples, so Welch never runs with 0 or 1 samples."""
+        rng = np.random.default_rng(42)
+        x = rng.standard_normal(50)
+        freqs, psd = compute_psd(x, fs=1.0)
+        assert len(freqs) == 2
+        assert freqs[1] == 0.5
+        assert np.all(psd > 0.0)
+        freqs, psd = compute_psd(x, fs=0.5)
+        assert len(freqs) == 2
+        assert freqs[1] == 0.25
+        assert np.all(psd > 0.0)
+
     def test_listed_in_jnwb_all(self):
         import jnwb
         for name in ("to_db", "harmonic_analysis", "cross_area_coherence", "spectral_tilt",
@@ -156,6 +195,10 @@ class TestHarmonicAnalysis:
         """INTENTIONAL BREAK (0.2.4): returned fundamental_freq 0.0, a valid-looking frequency."""
         with pytest.raises(ValueError, match="empty"):
             harmonic_analysis(np.array([]), sampling_rate=1000.0)
+
+    def test_a_one_sample_trace_is_rejected(self):
+        with pytest.raises(ValueError, match="at least 2"):
+            harmonic_analysis(np.array([5.0]), fs=1000.0, freq_range=(0.0, 10.0))
 
     def test_constant_trace_has_no_fundamental(self):
         result = harmonic_analysis(np.full(4000, 3.0), sampling_rate=1000.0)
@@ -264,6 +307,13 @@ class TestBandPower:
         """INTENTIONAL BREAK (0.2.4): returned 0.0, a measured absence of power."""
         with pytest.raises(ValueError, match="empty"):
             band_power(np.array([]), sampling_rate=1000.0, freq_range=(4, 8), normalize=False)
+
+    def test_a_one_sample_trace_or_baseline_is_rejected(self):
+        with pytest.raises(ValueError, match="lfp_trace has 1 sample.*at least 2"):
+            band_power(np.array([5.0]), fs=1000.0, freq_range=(0.0, 10.0), normalize=False)
+        trace = np.random.default_rng(0).standard_normal(2000)
+        with pytest.raises(ValueError, match="baseline has 1 sample"):
+            band_power(trace, fs=1000.0, freq_range=(4, 8), baseline=np.array([5.0]))
 
     def test_tone_in_band_has_higher_power_than_out_of_band(self):
         trace, _ = _sine(10.0, sampling_rate=1000.0, duration_s=4.0, amplitude=5.0)
