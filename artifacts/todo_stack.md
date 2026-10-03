@@ -41,6 +41,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
+| R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
 | W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
@@ -318,6 +319,17 @@ Source: the 0.2.8 closure review of 08-11 (2026-10-03).
 - A trial-based noise correlation (Cohen and Kohn's $r_{sc}$, counts per trial in a window) beside the time-bin form, if jaxfne or a study needs it. Check: Hamm rules whether it is a mode or a function. Waits: the docstring, references row and skill now say the time-bin form includes signal correlation.
 Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
 Stop: the window convention changes a released function's counts.
+
+### 09-09 PyPI publication from the tag push
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`.
+Ruled 2026-10-03 (`artifacts/rulings/2026-10-03.md`), moved from 12-03 so the 0.2.9 release needs no browser.
+- `publish-pypi` needs `verify-testpypi` in the `v*` tag-push run, uploads that run's artifact after the TestPyPI hash check, and the trigger on a published GitHub Release is removed; the run then creates the GitHub Release with the version's `CHANGELOG.md` section as notes. Check: `tests/test_workflow_release_policy.py` refuses a `publish-pypi` that runs without `verify-testpypi`, on any event but a `v*` tag push, or from another run's artifact.
+- `CONTRIBUTING.md` "Releasing" steps 4 to 6 describe the new order. Check: the release-policy test reads them.
+Accept: the policy test passes and fails on the 0.2.8 workflow; one CI run on `dev` is green; the 0.2.9 tag push publishes without a manual Release.
+Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
 # 0.2.10
 
@@ -755,7 +767,6 @@ Stop: the shared parser reads an item STEP 0a did not, or the reverse, on the li
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: 12-02.
 Writes: `.github/workflows/workflow.yml`, `scripts/smoke_installed.py`, `scripts/measure_peak_memory.py`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_import_provenance.py`, `tests/test_distribution_manifest_inspection.py`, `tests/test_dependency_floors_are_installable.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_test_imports_survive_the_wheel_leg.py`.
-- PyPI publication from the tag push (ruled 2026-10-03): `publish-pypi` needs `verify-testpypi` in the `v*` tag-push run, uploads that run's artifact after the TestPyPI hash check, and the trigger on a published GitHub Release is removed; the run then creates the GitHub Release with the version's `CHANGELOG.md` section as notes. `CONTRIBUTING.md` "Releasing" steps 4 to 6 say so. Check: `tests/test_workflow_release_policy.py` refuses a `publish-pypi` that runs without `verify-testpypi`, on any event but a `v*` tag push, or from another run's artifact. Waits: until it lands, a maintainer publishes the Release by hand, as for 0.2.8.
 - RP-7: a threshold on peak memory beside wall time in the suite step. Check: set from the recorded measurements. Waits: needs the 0.2.7 measurements first.
 - CI guard hardening: exit-masking forms in the pytest steps, `set +e` in Resolve, a re-upgrade after the constrained install, only `env.FLOOR_PYTHON` checked, two copies of the browser retry. Check: each refused by a test. Waits: each needs a deliberate workflow edit.
 - Peak-memory reset evidence: a clear_refs write counts as a reset unobserved; the unwritable case is undocumented; the `ru_maxrss` fallback is unlabelled. Check: a re-read, a row, a label. Waits: every row is labelled correctly.
