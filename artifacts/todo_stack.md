@@ -148,9 +148,14 @@ Stop: a repair changes a value a released analysis reported, beyond refusing und
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
 Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`, `changelog.d/quality-metrics-undefined.fixed.md`.
-- P-366: a train of 0 or 1 spikes returns `refr_violations_pct=0.0` and `is_good_single_unit=True`; the 2 ms, 5 % and Fano-factor-2 cut-offs are hard-coded with no source. Check: undefined input gives NaN and no verdict, and the cut-offs are arguments with a cited source or no default. Classified required for 0.2.9 by an independent verifier: an exported single-unit verdict on undefined input, against 13-05's decline outcome.
-Accept: the test fails on `196ceb11`; the suite and harness pass.
-Stop: the verdict's removal breaks a documented call; it goes to Hamm.
+AUTONOMY: none.
+Undefined input landed in `2987ac31` (merged `0316da95`, verified independently): 0 or 1 spike, or under two whole 1-s windows, gives NaN and `is_good_single_unit=None`; the cut-offs are keyword arguments `refractory_ms=2.0`, `max_violation_pct=5.0`, `max_fano=2.0`.
+- P-366 remainder: the three defaults cite no source, and the Check asked for a cited source or no default. Removing them breaks every three-argument call (`tests/test_jnwb_core.py:178,186`). Check: Hamm rules cite, remove, or keep as a stated convention.
+- The Fano factor uses `np.var` with ddof=0, half the unbiased variance at two windows, so the verdict is lenient there. Check: ddof=1, or the bias stated, with a test at two windows.
+- Mutants survive at a span of exactly 2.0 s, an infinite cut-off, and the `<` boundary. Check: a test kills each.
+- The verdict's type is now `bool` or `None`; the fragment sits under `fixed`. Check: it moves to `changed` if the type change is user-visible.
+Accept: the ruling applied and each check passing.
+Stop: none beyond the ruling.
 
 ## Out of scope for 0.2.8 to 0.2.12
 
