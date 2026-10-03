@@ -8,8 +8,8 @@ interpreter process; see the script docstring for what cold and warm mean.
 
 | Estimand | Time | Peak traced memory | Modules imported |
 |---|---|---|---|
-| Cold (empty bytecode cache, 1 process) | 5833 ms | 93.3 MB | 1355 |
-| Warm (cache reused, median of 10) | 5823 ms (mean 5830, stdev 48, range 5731-5926) | 93.3 MB | 1355 |
+| Cold (empty bytecode cache, 1 process) | 8344 ms | 104.5 MB | 1355 |
+| Warm (cache reused, median of 10) | 1884 ms (mean 1940, stdev 140, range 1836-2311) | 87.9 MB | 1355 |
 
 Peak memory is what tracemalloc sees, which excludes allocations made by C extensions.
 It is measured in separate processes from the timings, one per cache state: tracing the
