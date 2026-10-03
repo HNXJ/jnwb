@@ -500,7 +500,8 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Opti
         axis: axis along which time is sampled (default 0, matching the documented
             ``(n_times, n_channels)`` layout). Pass ``axis=-1`` for channel-major data.
         nperseg: Welch segment length in samples, from 2 to the length along ``axis``.
-            ``None`` keeps ``min(n_times, int(fs))``, one second or the whole trace. The
+            ``None`` keeps ``min(n_times, int(fs))``, one second or the whole trace, and
+            at least 2 samples. The
             frequency resolution is ``fs / nperseg``.
 
     Returns:

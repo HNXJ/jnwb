@@ -586,6 +586,14 @@ class TestSpikeCountCorrelation:
         with pytest.raises(ValueError, match="per-unit"):
             spike_count_correlation(np.array([0.1, 0.2]), (0.0, 1.0), bin_ms=10.0)
 
+    def test_a_bare_list_of_spike_times_is_refused_not_split_into_units(self):
+        from jnwb.spiking import fano_factor, spike_count_correlation
+        train = [0.1, 0.5, 0.9, 1.3, 1.7]
+        with pytest.raises(ValueError, match="per-unit"):
+            spike_count_correlation(train, (0.0, 2.0), bin_ms=500.0)
+        with pytest.raises(ValueError, match="per-unit"):
+            fano_factor(train, [0.0, 1.0], (0.0, 1.0), summary="mean")
+
 
 class TestFanoFactor:
     ONSETS = np.arange(200) * 2.0
@@ -659,6 +667,17 @@ class TestNetworkBurstIndex:
         units = self._raster(np.random.default_rng(42))
         res = network_burst_index(units, (0.0, 10.0), bin_ms=50.0, threshold_hz=200.0, min_duration_ms=500.0)
         assert res["n_bursts"] == 0 and res["burst_index"] == 0.0 and res["bursts_s"].shape == (0, 2)
+
+    def test_a_rate_or_run_exactly_at_its_bound_counts(self):
+        from jnwb.spiking import network_burst_index
+        # 7 spikes in 70 ms is 100 Hz, 99.99999999999999 in floating point.
+        res = network_burst_index([np.linspace(0.001, 0.007, 7)], (0.0, 0.14), bin_ms=70.0,
+                                  threshold_hz=100.0, min_duration_ms=0.0)
+        assert res["n_bursts"] == 1 and res["burst_index"] == 1.0
+        # Three 0.7 ms bins last 2.1 ms, 2.0999999999999996 in floating point.
+        res = network_burst_index([np.array([0.0001, 0.0008, 0.0015])], (0.0, 0.0028), bin_ms=0.7,
+                                  threshold_hz=1000.0, min_duration_ms=2.1)
+        assert res["n_bursts"] == 1 and res["n_spikes_in_bursts"] == 3
 
     def test_no_spikes_is_nan_and_the_definition_is_required(self):
         from jnwb.spiking import network_burst_index

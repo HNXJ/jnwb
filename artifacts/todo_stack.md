@@ -219,6 +219,18 @@ Source: `artifacts/defect_classes.md`; each bullet is a class seen twice, or one
 Accept: each check is red on the instance its bullet names and green on the live tree; the harness counts the new gate.
 Stop: a check needs judgement a script cannot make; it stays a review rule instead.
 
+### 09-08 Edges of the 0.2.8 population spiking measures
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md`.
+Source: the 0.2.8 closure review of 08-11 (2026-10-03).
+- `fano_factor` selects `[onset + w0, onset + w1)` by absolute sum, so `onset=0.1, window_s=(0, 0.2)` counts a spike at 0.3 s (0.1 + 0.2 = 0.30000000000000004). `bin_spikes` subtracts the onset instead and excludes it; `onset_locked_counts` sums like `fano_factor`. Check: one convention, ruled, used by both through the shared helper (`AGENTS.md` §4.7), with this case as a test. Waits: the count moves only for a spike within 1 ulp of a window edge, and `fano_factor` agrees with `onset_locked_counts`, so no release check depends on it.
+- `spike_count_correlation` with exactly 2 bins returns `mean_r` from correlations that are all ±1. Check: a minimum of 3 bins, or a stated warning, by ruling. Waits: `n_bins` is returned and Pearson r of 2 points is ±1 by definition, not a wrong value.
+- A trial-based noise correlation (Cohen and Kohn's $r_{sc}$, counts per trial in a window) beside the time-bin form, if jaxfne or a study needs it. Check: Hamm rules whether it is a mode or a function. Waits: the docstring, references row and skill now say the time-bin form includes signal correlation.
+Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
+Stop: the window convention changes a released function's counts.
+
 # 0.2.10
 
 Theme: oversized modules become small packages behind the same public API, and the scientific

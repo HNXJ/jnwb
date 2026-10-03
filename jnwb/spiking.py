@@ -604,11 +604,16 @@ def gaussian_smooth_rate(
 
 
 def _unit_trains(spike_times, name: str) -> List[np.ndarray]:
-    """One 1-D float array of spike times (s) per unit; a bare 1-D array is refused as ambiguous."""
-    if isinstance(spike_times, np.ndarray) and spike_times.dtype != object:
+    """One 1-D float array of spike times (s) per unit; a bare train, as an array or a list
+    of numbers, is refused as ambiguous."""
+    single = (
+        isinstance(spike_times, np.ndarray) and spike_times.dtype != object
+    ) or any(np.ndim(u) == 0 for u in spike_times)
+    if single:
+        # A list of numbers would otherwise make every spike its own one-spike unit.
         raise ValueError(
             f"{name}: spike_times must be a sequence of per-unit 1-D arrays of spike times in "
-            "seconds, got a single array; wrap one unit as [times]."
+            "seconds, got a single train; wrap one unit as [times]."
         )
     trains = [np.asarray(u, dtype=float).ravel() for u in spike_times]
     for i, u in enumerate(trains):
@@ -696,6 +701,11 @@ def spike_count_correlation(
     Each unit's spikes are counted in right-open bins of `bin_ms` over `window_s` (the
     `bin_spikes` contract), and the Pearson r of every pair of units' count series is averaged.
     The bin width sets the timescale the correlation measures, so it has no default.
+
+    The samples are time bins within one window, not repeated trials, so a rate change shared
+    by two units (signal correlation) raises r as much as shared trial-to-trial variability.
+    This is not the trial-based noise correlation :math:`r_{sc}` of Cohen and Kohn (2011);
+    for that, correlate per-trial counts, or subtract the trial-averaged rate from each bin first.
 
     A unit whose counts do not vary has no defined r with any partner. It is excluded and
     reported, never scored as r = 0, which would pull the mean toward zero.
@@ -787,7 +797,8 @@ def fano_factor(
     onsets = np.asarray(onsets_s, dtype=float).ravel()
     if onsets.size < 2 or not np.all(np.isfinite(onsets)):
         raise ValueError(
-            f"fano_factor: needs at least two finite trial onsets for a variance, got {onsets.size}."
+            f"fano_factor: needs at least two trial onsets, all finite, for a variance; got "
+            f"{onsets.size}, {int(np.sum(~np.isfinite(onsets)))} non-finite."
         )
     w0, w1 = (float(v) for v in window_s)
     if not (np.isfinite(w0) and np.isfinite(w1) and w0 < w1):
@@ -863,11 +874,13 @@ def network_burst_index(
     trains = _unit_trains(spike_times, "network_burst_index")
     pooled = np.concatenate(trains) if trains else np.zeros(0)
     counts = _unit_counts([pooled], window_s, bin_ms)[0]
-    rate = counts / (bin_ms / 1000.0)
-    above = np.concatenate([[False], rate >= threshold_hz, [False]])
+    # Compared in counts and bins, with a relative tolerance: 7 spikes in a 70 ms bin is
+    # 99.99999999999999 Hz in floating point, and "at or above 100 Hz" must include it.
+    tol = 1.0 - 1e-9
+    above = np.concatenate([[False], counts >= threshold_hz * bin_ms / 1000.0 * tol, [False]])
     edges = np.flatnonzero(np.diff(above.astype(int)))
     starts, stops = edges[0::2], edges[1::2]
-    keep = (stops - starts) * bin_ms >= min_duration_ms
+    keep = (stops - starts) >= min_duration_ms / bin_ms * tol
     starts, stops = starts[keep], stops[keep]
     in_burst = int(sum(counts[a:b].sum() for a, b in zip(starts, stops)))
     total = int(counts.sum())
