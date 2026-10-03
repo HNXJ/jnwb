@@ -1,21 +1,15 @@
-# 0.2.9
+# 0.2.8
 
-Opened 2026-10-03, after 0.2.8 was published. Items are deleted when done, never ticked; git,
+Opened 2026-09-29, after 0.2.7 was published. Items are deleted when done, never ticked; git,
 `CHANGELOG.md` and the receipts hold history. The previous cycle's record is
-`artifacts/archive/0.2.8/todo_stack_0.2.8.md`, with its closure receipt beside it; its 0.2.8
-section held no open item at the release, and every later section moves here unchanged.
+`artifacts/archive/0.2.7/todo_stack_0.2.7.md`, with its closure receipt beside it;
+`artifacts/evidence/0.2.8/plan/carry_map.md` says where every open item and bullet of it went.
 
-Theme: unit quality control is a public capability, first (Hamm, 2026-10-03); then the skill set
-is complete and routes every export, and the documentation menu follows how a reader arrives.
+Theme: the state files are compact, every documentation figure is correct, and the skills meet the
+review checks with no friction.
 
-Acceptance: `AGENTS.md` §11; every export, module, docs page, example and notebook is routed or
-excluded with a checked reason; the nav matches the arrival table of `restructure_plan.md` (c); every
-criterion the downstream curation pipeline applies is a public operation, a caller choice or a
-checked exclusion (13-02); a fitted screen reports held-out agreement per session and declines when
-the labels cannot support it; one skill routes the whole surface with all four outcomes.
-
-Every item here carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.8; the version heading carries the schedule (`decisions.md` D2).
+Acceptance: `AGENTS.md` §11; every figure passes the checks of 08-02 in both themes; the skills
+audit's acceptance list (`artifacts/evidence/0.2.8/skills_audit.md`) holds.
 
 ## How this stack is executed
 
@@ -32,6 +26,22 @@ while the declared version is 0.2.8; the version heading carries the schedule (`
 Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Accept`, `Stop` as
 needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferred cycle end with
 `Waits:` and the reason it cannot make release evidence falsely pass.
+
+
+
+# 0.2.9
+
+Theme: unit quality control is a public capability, first (Hamm, 2026-10-03); then the skill set
+is complete and routes every export, and the documentation menu follows how a reader arrives.
+
+Acceptance: `AGENTS.md` §11; every export, module, docs page, example and notebook is routed or
+excluded with a checked reason; the nav matches the arrival table of `restructure_plan.md` (c); every
+criterion the downstream curation pipeline applies is a public operation, a caller choice or a
+checked exclusion (13-02); a fitted screen reports held-out agreement per session and declines when
+the labels cannot support it; one skill routes the whole surface with all four outcomes.
+
+Every item here carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
+while 0.2.8 is released; the version heading carries the schedule (`decisions.md` D2).
 
 ## Lanes
 
