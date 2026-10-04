@@ -8,12 +8,16 @@ peak_channel_id, ...) exposed by any file.
 
 import datetime
 import logging
+import operator
 import warnings
 from pathlib import Path
 from typing import Collection, Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
-from jnwb.addressing import _STABLE_QUALITY_LABELS, _quality_is_stable, _stable_label_set
+from jnwb.addressing import (
+    _STABLE_QUALITY_LABELS, _finite_cutoff, _passes_cutoff, _quality_is_stable,
+    _refuse_repeated_columns, _stable_label_set,
+)
 from jnwb.nwb_io import nwb_read_io
 
 log = logging.getLogger(__name__)
@@ -251,6 +255,13 @@ def classify_unit_quality(
         Such a unit is 'Unknown' unless a measured ``quality`` or ``snr`` failure makes it
         'Poor', and its ``is_valid`` is False.
 
+    Raises:
+        ValueError: ``thresholds`` is empty, which would pass every unit as 'Good' with no
+            criterion; a threshold is NaN or infinite, which passes or fails every unit alike;
+            or a threshold's column occurs more than once in ``units_df``.
+        TypeError: a threshold is ``None``, a boolean, or not a real number. Any real number
+            is accepted, including a ``Fraction``, a ``Decimal`` and a 0-d array.
+
     Example:
         >>> classified = classify_unit_quality(units_df)
         >>> good_units = classified[classified['is_valid']]
@@ -261,6 +272,15 @@ def classify_unit_quality(
             'snr': 1.0,
             'firing_rate': 0.1
         }
+    if len(thresholds) == 0:  # a dict or a Series; `not` is ambiguous for a Series
+        raise ValueError(
+            "classify_unit_quality: thresholds is empty, so every unit would pass as 'Good' "
+            "with no criterion; pass at least one {'metric': cut-off}, or None for the defaults."
+        )
+    # Compared at the caller's exact value; the flag text shows it as given.
+    cut_offs = {col: _finite_cutoff(thresh, f"thresholds[{col!r}]", "classify_unit_quality")
+                for col, thresh in thresholds.items()}
+    _refuse_repeated_columns(units_df, list(cut_offs), "classify_unit_quality")
 
     units_df = units_df.copy()
     flags = [[] for _ in range(len(units_df))]
@@ -276,8 +296,7 @@ def classify_unit_quality(
             continue
         values = pd.to_numeric(units_df[col], errors='coerce').to_numpy(dtype=float)
         is_undefined = np.isnan(values)
-        with np.errstate(invalid='ignore'):
-            fails = ~is_undefined & (values < thresh)
+        fails = ~is_undefined & _passes_cutoff(values, cut_offs[col], operator.lt)
         for i in np.flatnonzero(is_undefined):
             flags[i].append(f'{col} undefined')
         for i in np.flatnonzero(fails):
@@ -382,10 +401,16 @@ def get_snr_analysis(
     Returns:
         Dict with SNR statistics and pass rates
 
+    Raises:
+        ValueError: ``snr``, or with ``detail=True`` ``session_id``, occurs more than once in
+            ``units_df``.
+
     Example:
         >>> snr_stats = get_snr_analysis(units_df, snr_threshold=1.0)
         >>> print(f"Units with SNR>=1.0: {snr_stats['pass_rate']:.1%}")
     """
+    _refuse_repeated_columns(units_df, ("snr", "session_id") if detail else ("snr",),
+                             "get_snr_analysis")
     if 'snr' not in units_df.columns:
         log.warning("No SNR column found")
         return {}
@@ -524,19 +549,29 @@ def audit_units(
             (``' good'`` does not count), as this count has always read it, and the default
             is ``("good",)``, narrower than enrich's
             ``("good", "sua", "single", "stable", "clean")``. A bare string raises
-            ``TypeError``.
+            ``TypeError`` and an empty collection ``ValueError``.
 
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
         snr_stats, firing_rate_stats (each a sub-dict of mean/median/std/... or
         ``{}`` when the source column is absent). A standard deviation of one value is
-        NaN, not 0.0.
+        NaN, not 0.0, and a text-only quality column gives NaN for its mean, median, std, min
+        and max. The dict can therefore hold the float NaN, which ``json.dumps`` writes as
+        the bare token ``NaN``: valid Python and JavaScript, but not strict JSON. Serialize
+        with ``json.dumps(..., allow_nan=False)`` to catch it, or map NaN to ``None`` first.
 
     Raises:
         TypeError: a ``spike_times`` entry is neither ``None`` nor a sequence (a NaN, for
-            instance); the message names the unit.
+            instance), the message naming the unit; or a cut-off is ``None`` or not a number.
+        ValueError: ``quality_threshold`` or ``snr_threshold`` is NaN or infinite, which
+            would count every unit or none, or a column this function reads occurs more than
+            once (``spike_times``, ``quality``, ``snr`` or ``firing_rate``).
     """
     labels = _stable_label_set(stable_labels, "audit_units")
+    _refuse_repeated_columns(units_df, ["spike_times", "quality", "snr", "firing_rate"],
+                             "audit_units")
+    quality_threshold = _finite_cutoff(quality_threshold, "quality_threshold", "audit_units")
+    snr_threshold = _finite_cutoff(snr_threshold, "snr_threshold", "audit_units")
     result = {
         'total_units': len(units_df),
         'units_with_spike_times': 0,
@@ -547,7 +582,9 @@ def audit_units(
 
     # Check spike times
     if 'spike_times' in units_df.columns:
-        unit_ids = (units_df['unit_id'] if 'unit_id' in units_df.columns
+        # unit_id only names a unit in the message below; a repeated unit_id column, which
+        # 0.2.8 never read, names it by its index label instead of being refused.
+        unit_ids = (units_df['unit_id'] if (units_df.columns == 'unit_id').sum() == 1
                     else pd.Series(units_df.index, index=units_df.index))
         n_with = 0
         for unit, st in zip(unit_ids, units_df['spike_times']):
@@ -573,7 +610,8 @@ def audit_units(
                 'std': float(quality_values.std()),
                 'min': float(quality_values.min()),
                 'max': float(quality_values.max()),
-                'good_count': int((quality_values >= quality_threshold).sum()),
+                'good_count': int(_passes_cutoff(quality_values, quality_threshold,
+                                                 operator.ge).sum()),
             }
         else:
             # The released matching: lower-cased, not stripped, so ' good' is not 'good'.
@@ -595,8 +633,10 @@ def audit_units(
                 'mean': float(snr_values.mean()),
                 'median': float(snr_values.median()),
                 'std': float(snr_values.std()),
-                'good_count': int((snr_values >= snr_threshold).sum()),
-                'good_rate': float((snr_values >= snr_threshold).mean())
+                'good_count': int(_passes_cutoff(snr_values, snr_threshold,
+                                                 operator.ge).sum()),
+                'good_rate': float(_passes_cutoff(snr_values, snr_threshold,
+                                                  operator.ge).mean())
             }
 
     # Firing rate statistics
@@ -678,28 +718,43 @@ def assign_quality_tier(
     - every other unit -> 'unknown': a missing quality, a value that is not a number in a
       numeric column, any other non-candidate code (-1, 0.5) and any other label ('noise',
       'unsorted'). Not being a single unit does not make a unit multi-unit activity.
-    - a boolean quality (``False`` is not the code 0, ``True`` not the code 1), or a date,
-      datetime or timedelta, is no quality code -> 'unknown'.
+    - a boolean quality (``False`` is not the code 0, ``True`` not the code 1), a date,
+      datetime or timedelta, or an infinite value, is no quality code -> 'unknown'.
 
     Args:
         quality: per-unit quality Series: codes (0 = MUA, 1 = single-unit candidate) or labels.
         trial_presence_fraction: per-unit fraction of trials the unit was present for.
         snr: per-unit signal-to-noise ratio. Each of the two is a Series or an array of
             ``len(quality)`` values. A Series is aligned to ``quality`` by unit label, in any
-            order; a label missing from it, an extra label or a repeated label raises
-            ``ValueError``. An array is read by position; a scalar raises ``ValueError``.
+            order, and may carry labels ``quality`` lacks, which are ignored, as when it was
+            computed on the full units table and ``quality`` is a filtered subset; a label of
+            ``quality`` missing from it, or a repeated label, raises ``ValueError``. Extra
+            labels also raise ``ValueError`` when ``quality`` has the index ``0..n-1``,
+            which pandas gives a filter followed by ``reset_index``, ``head()``
+            and ``iloc[:k]`` alike; those labels may be positions rather than unit labels, so
+            aligning could pair the wrong units. Pass presence and SNR selected the same way
+            as ``quality``. An array
+            is read by position; a scalar raises ``ValueError``, and so does a numpy masked
+            array with a masked entry, whose mask would otherwise be dropped and the masked
+            value read: fill it (``values.filled(np.nan)`` reads as missing) or unmask it.
         presence_threshold: minimum presence fraction (exclusive) for 'stable'.
         snr_threshold: minimum SNR (exclusive) for 'stable'. Both defaults, 0.98 and 0.5,
             are a convention with no cited source: pass the cut-offs your study justifies
             and state them wherever the tier is reported.
         stable_threshold, stable_labels: the candidate rule above; their defaults, 1.0 and
             ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
-            source. A bare-string ``stable_labels`` raises ``TypeError``.
+            source. A bare-string ``stable_labels`` raises ``TypeError`` and an empty one
+            ``ValueError``. Each of the three cut-offs raises ``ValueError`` when NaN or
+            infinite and ``TypeError`` when ``None``, a boolean or not a real number.
 
     Returns:
         Series of {'mua', 'stable', 'unstable', 'unknown'}, same index as ``quality``.
     """
     labels = _stable_label_set(stable_labels, "assign_quality_tier")
+    stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold", "assign_quality_tier")
+    presence_threshold = _finite_cutoff(presence_threshold, "presence_threshold",
+                                        "assign_quality_tier")
+    snr_threshold = _finite_cutoff(snr_threshold, "snr_threshold", "assign_quality_tier")
     # A boolean, date or duration is no quality code: False is not the code 0. Iterating a
     # bool, boolean, datetime64 or timedelta64 Series yields these types, so one check covers
     # each dtype and an object column alike.
@@ -715,19 +770,36 @@ def assign_quality_tier(
         if isinstance(values, pd.Series):
             if not values.index.equals(quality.index):
                 missing = quality.index.difference(values.index)
-                extra = values.index.difference(quality.index)
                 duplicated = values.index[values.index.duplicated()].unique()
-                if (len(missing) or len(extra) or len(duplicated)
-                        or not quality.index.is_unique):
+                if len(missing) or len(duplicated) or not quality.index.is_unique:
                     raise ValueError(
                         f"assign_quality_tier: {name} is not on the units of quality: "
-                        f"missing {list(missing[:5])}, extra {list(extra[:5])}, duplicated "
-                        f"{list(duplicated[:5])}"
+                        f"missing {list(missing[:5])}, duplicated {list(duplicated[:5])}"
                         + ("" if quality.index.is_unique else "; quality's index repeats")
-                        + ". Pass Series on the same unit labels, or arrays read by position."
+                        + ". Pass Series covering the unit labels of quality, or arrays read "
+                        "by position."
                     )
-                values = values.reindex(quality.index)  # same labels, another order
+                extra = values.index.difference(quality.index)
+                if len(extra) and _is_default_range_index(quality.index):
+                    # Positions 0..n-1 may not be unit labels, so aligning a full-table
+                    # Series to them can pair the wrong units.
+                    raise ValueError(
+                        f"assign_quality_tier: {name} has labels quality lacks "
+                        f"({list(extra[:5])}) and quality has the index 0..n-1, "
+                        "which pandas gives a filter followed by reset_index, head() and "
+                        "iloc[:k] alike; those labels may be positions rather than unit "
+                        "labels, so aligning could pair the wrong units. Pass presence and SNR "
+                        "selected the same way as quality."
+                    )
+                # Same labels in another order, or a superset: labels quality lacks drop out.
+                values = values.reindex(quality.index)
             values = values.to_numpy()
+        if np.ma.isMaskedArray(values) and np.ma.getmaskarray(values).any():
+            raise ValueError(
+                f"assign_quality_tier: {name} is a masked array with masked entries, whose "
+                "mask np.asarray would drop; pass values.filled(np.nan) to read them as "
+                "missing, or an unmasked array."
+            )
         values = np.asarray(values)
         if values.shape != (len(quality),):
             raise ValueError(
@@ -738,8 +810,8 @@ def assign_quality_tier(
 
     presence = _aligned(trial_presence_fraction, "trial_presence_fraction")
     snr_num = _aligned(snr, "snr")
-    with np.errstate(invalid="ignore"):
-        passes = (presence > presence_threshold) & (snr_num > snr_threshold)
+    passes = (_passes_cutoff(presence, presence_threshold, operator.gt)
+              & _passes_cutoff(snr_num, snr_threshold, operator.gt))
     tier = pd.Series("unknown", index=quality.index, dtype=object)
     tier[known & ~is_candidate & declared_mua] = "mua"
     tier[is_candidate & ~passes] = "unstable"
@@ -761,9 +833,12 @@ def compare_old_new_criteria(
     curation pipelines. Not exported in top-level jnwb namespace.
 
     ``transition`` is ``gained``, ``lost``, ``unchanged_included`` or
-    ``unchanged_excluded``; a unit with no old row, or an old class that is missing, counts as
-    not screened (``old_screened`` False) and as previously excluded. A new class that is
-    missing (NaN, ``None``, ``pd.NA``) has no transition: it reads ``unknown``. A key that
+    ``unchanged_excluded``; a unit with no old row counts as not screened (``old_screened``
+    False) and as previously excluded. A class that is missing (NaN, ``None``, ``pd.NA``) on
+    either side has no transition: it reads ``unknown``, and an old row whose class is missing
+    has ``old_screened`` False. A class value is ``True``, ``False``, or the number 1 or 0;
+    anything else, such as the strings ``"False"`` or ``"no"`` (which ``bool`` reads as true)
+    or the number 2, raises ``ValueError`` naming the column and the value. A key that
     occurs twice in either frame raises ``ValueError``, because the merge would duplicate the
     unit with conflicting transitions.
 
@@ -790,15 +865,28 @@ def compare_old_new_criteria(
                 f"compare_old_new_criteria: {name} has more than one row for key {cols} "
                 f"{keys}; each unit must occur once on each side."
             )
+    # The two working columns get names no column of new_df has, so they never collide with
+    # or overwrite a caller's column.
+    taken = set(new_df.columns) | {new_s, new_u}
+    old_class_col, indicator = "_old_class", "_old_row"
+    while old_class_col in taken:
+        old_class_col += "_"
+    taken.add(old_class_col)
+    while indicator in taken:
+        indicator += "_"
     old_small = old_df[[old_s, old_u, class_col_old]].rename(
-        columns={old_s: new_s, old_u: new_u, class_col_old: "_old_class"}
+        columns={old_s: new_s, old_u: new_u, class_col_old: old_class_col}
     )
-    merged = new_df.merge(old_small, on=[new_s, new_u], how="left")
-    merged["old_screened"] = merged["_old_class"].notna()
-    old_class = merged["_old_class"].astype("boolean").fillna(False).astype(bool).tolist()
-    new_defined = merged[class_col_new].notna().tolist()
-    new_class = [bool(v) if d else False
-                 for v, d in zip(merged[class_col_new], new_defined)]
+    merged = new_df.merge(old_small, on=[new_s, new_u], how="left", indicator=indicator)
+    has_old_row = (merged[indicator] == "both").tolist()
+    merged["old_screened"] = merged[old_class_col].notna()
+    new_class = [_boolean_class(v, class_col_new, "new_df") for v in merged[class_col_new]]
+    old_class = [_boolean_class(v, class_col_old, "old_df") for v in merged[old_class_col]]
+    new_defined = [v is not None for v in new_class]
+    # An old row whose class is missing is undefined, not "not screened".
+    old_defined = [c is not None or not row for c, row in zip(old_class, has_old_row)]
+    new_class = [bool(v) for v in new_class]
+    old_class = [bool(v) for v in old_class]
 
     def _transition(row_new: bool, row_old: bool, screened: bool) -> str:
         if not screened:
@@ -812,11 +900,33 @@ def compare_old_new_criteria(
         return "unchanged_excluded"
 
     merged["transition"] = [
-        _transition(n, o, bool(s)) if d else "unknown"
-        for n, o, s, d in zip(new_class, old_class, merged["old_screened"], new_defined)
+        _transition(n, o, bool(s)) if d and od else "unknown"
+        for n, o, s, d, od in zip(new_class, old_class, merged["old_screened"], new_defined,
+                                  old_defined)
     ]
-    merged = merged.drop(columns=["_old_class"])
+    merged = merged.drop(columns=[old_class_col, indicator])
     return merged
+
+
+def _is_default_range_index(index: pd.Index) -> bool:
+    """The index pandas gives a frame with no labels of its own: ``RangeIndex(0, n, 1)``."""
+    return isinstance(index, pd.RangeIndex) and index.start == 0 and index.step == 1
+
+
+def _boolean_class(value, column: str, frame: str):
+    """One inclusion class as True, False or None (missing). Only a boolean or the number 1 or
+    0 is a class: ``bool("False")`` is True, so a string or another number is refused."""
+    if value is None or value is pd.NA or (isinstance(value, (float, np.floating))
+                                           and np.isnan(value)):
+        return None
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, (int, float, np.integer, np.floating)) and value in (0, 1):
+        return bool(value)
+    raise ValueError(
+        f"compare_old_new_criteria: {frame} column {column!r} holds {value!r}, which is not a "
+        "boolean class; use True, False, 1 or 0, and NaN or None for a missing class."
+    )
 
 
 def old_new_summary_table(

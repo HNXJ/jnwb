@@ -496,7 +496,7 @@ class TestUndefinedQualityInput:
         tier = assign_quality_tier(units["quality"], by_unit,
                                    pd.Series([5.0] * 3, index=units.index))
         assert tier.tolist() == ["stable", "unstable", "mua"]
-        with pytest.raises(ValueError, match=r"missing \[12\], extra \[13\]"):
+        with pytest.raises(ValueError, match=r"missing \[12\]"):
             assign_quality_tier(q, presence.rename({12: 13}), snr)
         with pytest.raises(ValueError, match=r"duplicated \[10\]"):
             assign_quality_tier(q, pd.concat([presence, presence.loc[[10]]]), snr)
@@ -622,7 +622,307 @@ class TestUndefinedQualityInput:
         for name in ("new_key", "old_key"):
             assert signature.parameters[name].default is inspect.Parameter.empty, name
 
+    def test_compare_old_new_criteria_refuses_a_non_boolean_class_by_name(self):
+        from jnwb.metadata import compare_old_new_criteria
+
+        keys = dict(new_key=("s", "u"), old_key=("s", "u"))
+        old = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "old": [True, False]})
+        for bad in ("False", "no", 2):
+            new = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "new": [True, bad]})
+            with pytest.raises(ValueError, match=r"new_df column 'new' holds"):
+                compare_old_new_criteria(new, old, "new", "old", **keys)
+        new = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "new": [True, False]})
+        with pytest.raises(ValueError, match=r"old_df column 'old' holds 'yes'"):
+            compare_old_new_criteria(new, old.assign(old=["yes", "no"]), "new", "old", **keys)
+        # 1 and 0 are the boolean classes, as released.
+        out = compare_old_new_criteria(new.assign(new=[1, 0]), old.assign(old=[0, 0]),
+                                       "new", "old", **keys)
+        assert out["transition"].tolist() == ["gained", "unchanged_excluded"]
+
+    def test_compare_old_new_criteria_reads_a_missing_old_class_as_unknown(self):
+        from jnwb.metadata import compare_old_new_criteria
+
+        keys = dict(new_key=("s", "u"), old_key=("s", "u"))
+        new = pd.DataFrame({"s": ["x"] * 4, "u": [0, 1, 2, 3], "new": [True, False, True, True]})
+        old = pd.DataFrame({"s": ["x"] * 3, "u": [0, 1, 2],
+                            "old": [float("nan"), None, False]})
+        out = compare_old_new_criteria(new, old, "new", "old", **keys)
+        # A missing old class is undefined; a unit with no old row is still not screened.
+        assert out["transition"].tolist() == ["unknown", "unknown", "gained", "gained"]
+        assert out["old_screened"].tolist() == [False, False, True, False]
+
     def test_get_snr_analysis_example_states_the_inclusive_test(self):
         doc = get_snr_analysis.__doc__
         assert "SNR>=1.0" in doc
         assert "SNR>1.0" not in doc
+
+
+class TestDegenerateCutOffs:
+    """A cut-off or class that passes or fails every unit alike is refused by name."""
+
+    def test_classify_unit_quality_refuses_degenerate_thresholds_by_name(self):
+        frame = pd.DataFrame({"quality": [0.0, 1.0], "snr": [0.1, 2.0],
+                              "firing_rate": [1.0, 1.0]})
+        with pytest.raises(ValueError, match="classify_unit_quality: thresholds is empty"):
+            classify_unit_quality(frame, {})
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValueError, match=r"thresholds\['quality'\] is"):
+                classify_unit_quality(frame, {"quality": bad})
+        with pytest.raises(TypeError, match=r"thresholds\['snr'\] must be a finite number"):
+            classify_unit_quality(frame, {"snr": None})
+        repeated = pd.concat([frame, frame[["quality"]]], axis=1)
+        with pytest.raises(ValueError, match=r"column\(s\) \['quality'\] occur more than once"):
+            classify_unit_quality(repeated)
+        # A finite cut-off keeps its released flag text.
+        flags = classify_unit_quality(frame, {"quality": 1})["issue_flags"].tolist()
+        assert flags == [["quality<1"], []]
+
+    def test_audit_units_refuses_a_non_finite_cut_off(self):
+        frame = pd.DataFrame({"quality": [0.0, 1.0], "snr": [0.1, 2.0]})
+        for name in ("quality_threshold", "snr_threshold"):
+            for bad in (float("nan"), float("inf")):
+                with pytest.raises(ValueError, match=f"audit_units: {name} is"):
+                    audit_units(frame, **{name: bad})
+
+    def test_stability_rule_refuses_a_degenerate_threshold_or_empty_labels(self):
+        from jnwb.addressing import enrich_units_dataframe
+
+        q = pd.Series([0.0, 1.0])
+        calls = {
+            "enrich_units_dataframe": lambda **kw: enrich_units_dataframe(
+                pd.DataFrame({"quality": q}), None, **kw),
+            "assign_quality_tier": lambda **kw: assign_quality_tier(
+                q, pd.Series([1.0] * 2), pd.Series([5.0] * 2), **kw),
+            "audit_units": lambda **kw: audit_units(pd.DataFrame({"quality": ["good"]}), **kw),
+        }
+        for caller, call in calls.items():
+            with pytest.raises(ValueError, match=f"{caller}: stable_labels is empty"):
+                call(stable_labels=())
+            if caller == "audit_units":
+                continue
+            for bad in (float("nan"), float("inf"), float("-inf")):
+                with pytest.raises(ValueError, match=f"{caller}: stable_threshold is"):
+                    call(stable_threshold=bad)
+            with pytest.raises(TypeError, match=f"{caller}: stable_threshold must be"):
+                call(stable_threshold=None)
+        for name in ("presence_threshold", "snr_threshold"):
+            with pytest.raises(ValueError, match=f"assign_quality_tier: {name} is"):
+                calls["assign_quality_tier"](**{name: float("nan")})
+
+    def test_an_infinite_quality_is_undefined(self):
+        from jnwb.addressing import enrich_units_dataframe
+
+        inf = float("inf")
+        q = pd.Series([inf, -inf, 1.0, 0.0])
+        tier = assign_quality_tier(q, pd.Series([1.0] * 4), pd.Series([5.0] * 4))
+        assert tier.tolist() == ["unknown", "unknown", "stable", "mua"]
+        stable = enrich_units_dataframe(pd.DataFrame({"quality": q}), None)["is_stable"]
+        assert stable.isna().tolist() == [True, True, False, False]
+        assert stable.iloc[2:].tolist() == [True, False]
+        text = enrich_units_dataframe(pd.DataFrame({"quality": ["inf", "1"]}), None)
+        assert text["is_stable"].isna().tolist() == [True, False]
+
+    def test_assign_quality_tier_aligns_a_superset_index_by_label(self):
+        q = pd.Series([1, 1, 0], index=["a", "b", "c"])
+        # Computed on the full table; quality is a filtered subset. Extra labels, none missing.
+        presence = pd.Series([0.1, 0.99, 0.5, 0.99], index=["z", "a", "b", "c"])
+        snr = pd.Series([5.0, 5.0, 5.0, 0.0], index=["a", "b", "c", "y"])
+        tier = assign_quality_tier(q, presence, snr)
+        assert tier.tolist() == ["stable", "unstable", "mua"]
+        assert tier.index.tolist() == ["a", "b", "c"]
+
+    def test_assign_quality_tier_refuses_a_masked_entry(self):
+        import numpy as np
+
+        q = pd.Series([1, 1, 0])
+        masked = np.ma.masked_array([0.99, 0.99, 0.99], mask=[True, False, False])
+        with pytest.raises(ValueError, match="trial_presence_fraction is a masked array"):
+            assign_quality_tier(q, masked, np.array([5.0] * 3))
+        with pytest.raises(ValueError, match="snr is a masked array"):
+            assign_quality_tier(q, np.array([0.99] * 3),
+                                np.ma.masked_array([5.0] * 3, mask=[False, True, False]))
+        unmasked = np.ma.masked_array([0.99, 0.5, 0.99], mask=False)
+        assert assign_quality_tier(q, unmasked, np.array([5.0] * 3)).tolist() == [
+            "stable", "unstable", "mua"]
+        filled = masked.filled(np.nan)
+        assert assign_quality_tier(q, filled, np.array([5.0] * 3)).tolist() == [
+            "unstable", "stable", "mua"]
+
+    def test_a_cut_off_is_any_real_number_but_not_a_boolean(self):
+        import decimal
+        import fractions
+
+        import numpy as np
+
+        frame = pd.DataFrame({"quality": [0.0, 1.0, 2.0]})
+        # 0.2.8 answered each of these; a 0-d array is what np.median or a JAX op returns.
+        for cut_off in (np.array(1.0), np.array(1), fractions.Fraction(1, 1),
+                        decimal.Decimal("1"), np.float32(1.0)):
+            out = classify_unit_quality(frame, {"quality": cut_off})
+            assert out["quality_class"].tolist() == ["Poor", "Good", "Good"], repr(cut_off)
+            tier = assign_quality_tier(frame["quality"], pd.Series([1.0] * 3),
+                                       pd.Series([5.0] * 3), stable_threshold=cut_off)
+            assert tier.tolist() == ["mua", "stable", "stable"], repr(cut_off)
+        for flag in (True, np.True_, np.array(True)):
+            with pytest.raises(TypeError, match=r"thresholds\['quality'\] must be a finite"):
+                classify_unit_quality(frame, {"quality": flag})
+            with pytest.raises(TypeError, match="stable_threshold must be a finite"):
+                assign_quality_tier(frame["quality"], pd.Series([1.0] * 3),
+                                    pd.Series([5.0] * 3), stable_threshold=flag)
+        with pytest.raises(ValueError, match=r"thresholds\['quality'\] is"):
+            classify_unit_quality(frame, {"quality": np.array(np.inf)})
+
+    def test_classify_unit_quality_takes_thresholds_as_a_series(self):
+        frame = pd.DataFrame({"quality": [0.0, 2.0], "snr": [2.0, 2.0]})
+        out = classify_unit_quality(frame, pd.Series({"quality": 1.0, "snr": 1.0}))
+        assert out["quality_class"].tolist() == ["Poor", "Good"]
+        with pytest.raises(ValueError, match="thresholds is empty"):
+            classify_unit_quality(frame, pd.Series(dtype=float))
+
+    def test_a_repeated_column_is_refused_by_name_where_it_is_read(self):
+        from jnwb.addressing import enrich_units_dataframe
+
+        frame = pd.DataFrame({"quality": [1.0, 2.0], "snr": [2.0, 0.5],
+                              "firing_rate": [1.0, 1.0], "session_id": ["s", "s"]})
+        for col in ("quality", "snr", "firing_rate"):
+            repeated = pd.concat([frame, frame[[col]]], axis=1)
+            with pytest.raises(ValueError, match=rf"audit_units: column\(s\) \['{col}'\]"):
+                audit_units(repeated)
+            with pytest.raises(ValueError,
+                               match=rf"enrich_units_dataframe: column\(s\) \['{col}'\]"):
+                enrich_units_dataframe(repeated, None)
+        repeated_snr = pd.concat([frame, frame[["snr"]]], axis=1)
+        with pytest.raises(ValueError, match=r"get_snr_analysis: column\(s\) \['snr'\]"):
+            get_snr_analysis(repeated_snr)
+        # A repeated column none of them reads is left alone.
+        extra = frame[["session_id"]].rename(columns={"session_id": "x"})
+        other = pd.concat([frame, extra, extra], axis=1)
+        assert audit_units(other)["total_units"] == 2
+
+    def test_a_repeated_column_is_refused_only_on_the_path_that_reads_it(self):
+        import numpy as np
+
+        from jnwb.addressing import enrich_units_dataframe
+
+        frame = pd.DataFrame({"unit_id": [5, 6, 7], "quality": [1.0, 0.0, 1.0],
+                              "spike_times": [np.array([0.1]), np.array([]), np.array([0.2])],
+                              "session_id": ["s", "s", "t"], "snr": [2.0, 0.5, 3.0]})
+
+        def twice(col):
+            return pd.concat([frame, frame[[col]]], axis=1)
+
+        # spike_times is read whenever present; unit_id only names a unit, so a repeated
+        # unit_id is not read and the count stays the released one.
+        with pytest.raises(ValueError, match=r"audit_units: column\(s\) \['spike_times'\]"):
+            audit_units(twice("spike_times"))
+        assert audit_units(twice("unit_id"))["units_with_spike_times"] == 2
+        # session_id is read only with detail=True.
+        assert get_snr_analysis(twice("session_id"))["n_units_with_snr"] == 3
+        with pytest.raises(ValueError, match=r"get_snr_analysis: column\(s\) \['session_id'\]"):
+            get_snr_analysis(twice("session_id"), detail=True)
+        # enrich reads unit_id always, cluster_id only to rename it to a missing unit_id,
+        # peak_channel_id only with electrodes, and never area, depth_class or group_name.
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['unit_id'\]"):
+            enrich_units_dataframe(twice("unit_id"), None)
+        clusters = frame.drop(columns="unit_id").assign(cluster_id=[5, 6, 7])
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['cluster_id'\]"):
+            enrich_units_dataframe(pd.concat([clusters, clusters[["cluster_id"]]], axis=1),
+                                   None)
+        both = frame.assign(cluster_id=[5, 6, 7])
+        enrich_units_dataframe(pd.concat([both, both[["cluster_id"]]], axis=1), None)
+        channels = frame.assign(peak_channel_id=[0, 1, 0])
+        electrodes = pd.DataFrame({"location": ["V1", "V1"]})
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['peak_channel_id'\]"):
+            enrich_units_dataframe(pd.concat([channels, channels[["peak_channel_id"]]],
+                                             axis=1), electrodes)
+        enrich_units_dataframe(pd.concat([channels, channels[["peak_channel_id"]]], axis=1),
+                               None)
+        for col in ("area", "depth_class", "group_name"):
+            labelled = frame.assign(**{col: ["a", "b", "c"]})
+            out = enrich_units_dataframe(pd.concat([labelled, labelled[[col]]], axis=1), None)
+            assert len(out) == 3, col
+
+    def test_a_cut_off_is_compared_at_its_exact_value(self):
+        import decimal
+        import fractions
+
+        # float(1/3) is below the Fraction 1/3, and 0.1 above the Decimal 0.1: 0.2.8 compared
+        # the caller's own number, and so does this.
+        third = pd.DataFrame({"quality": [1 / 3, 0.2, 0.5]})
+        out = classify_unit_quality(third, {"quality": fractions.Fraction(1, 3)})
+        assert out["quality_class"].tolist() == ["Poor", "Poor", "Good"]
+        tier = assign_quality_tier(pd.Series([1, 1]), pd.Series([0.99, 0.99]),
+                                   pd.Series([0.1, 0.05]), snr_threshold=decimal.Decimal("0.1"))
+        assert tier.tolist() == ["stable", "unstable"]
+        # A Decimal does not order against NaN, so a missing value is never compared with it.
+        nan = float("nan")
+        with_nan = classify_unit_quality(pd.DataFrame({"quality": [nan, 1.0]}),
+                                         {"quality": decimal.Decimal("0.5")})
+        assert with_nan["quality_class"].tolist() == ["Unknown", "Good"]
+        tier = assign_quality_tier(pd.Series([1, 1]), pd.Series([0.99, 0.99]),
+                                   pd.Series([nan, 1.0]), snr_threshold=decimal.Decimal("0.1"))
+        assert tier.tolist() == ["unstable", "stable"]
+        audit = audit_units(pd.DataFrame({"quality": [1 / 3, 0.5], "snr": [0.1, 0.05]}),
+                            quality_threshold=fractions.Fraction(1, 3),
+                            snr_threshold=decimal.Decimal("0.1"))
+        assert audit["quality_distribution"]["good_count"] == 1
+        assert audit["snr_stats"]["good_count"] == 1
+        from jnwb.addressing import enrich_units_dataframe
+        stable = enrich_units_dataframe(pd.DataFrame({"quality": [1 / 3, float("nan")]}), None,
+                                        stable_threshold=fractions.Fraction(1, 3))
+        assert stable["is_stable"].iloc[0] == False  # noqa: E712 -- nullable boolean
+        assert pd.isna(stable["is_stable"].iloc[1])
+
+    def test_assign_quality_tier_refuses_a_superset_on_reset_positions(self):
+        # The R6 case: presence is computed on the full table, quality is filtered and
+        # reset_index'd, so labels 0..2 are positions and would pair units 3..5 with 0..2.
+        full = pd.DataFrame({"quality": [1] * 6, "presence": [0.99] * 3 + [0.1] * 3,
+                             "snr": [5.0] * 6, "keep": [False] * 3 + [True] * 3})
+        kept = full[full["keep"]].reset_index(drop=True)
+        with pytest.raises(ValueError, match="index 0..n-1"):
+            assign_quality_tier(kept["quality"], full["presence"], full["snr"])
+        # head() and iloc[:k] give the same index, and the message names them and the remedy.
+        for selected in (full.head(3), full.iloc[:3]):
+            with pytest.raises(ValueError, match=r"head\(\) and iloc\[:k\].*Pass presence and "
+                                                 r"SNR selected the same way as quality"):
+                assign_quality_tier(selected["quality"], full["presence"], full["snr"])
+        # Filtered the same way, or filtered without reset_index, it aligns correctly.
+        assert assign_quality_tier(kept["quality"], kept["presence"],
+                                   kept["snr"]).tolist() == ["unstable"] * 3
+        labelled = full[full["keep"]]
+        assert assign_quality_tier(labelled["quality"], full["presence"],
+                                   full["snr"]).tolist() == ["unstable"] * 3
+        # A slice keeps a RangeIndex that starts at 3: unit labels, not reset positions.
+        sliced = full.iloc[3:]
+        assert isinstance(sliced.index, pd.RangeIndex)
+        assert assign_quality_tier(sliced["quality"], full["presence"],
+                                   full["snr"]).tolist() == ["unstable"] * 3
+
+    def test_compare_old_new_criteria_keeps_a_caller_column_named_like_its_own(self):
+        from jnwb.metadata import compare_old_new_criteria
+
+        keys = dict(new_key=("s", "u"), old_key=("s", "u"))
+        new = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "new": [True, False],
+                            "_old_row": ["keep-a", "keep-b"], "_old_class": [7, 8]})
+        old = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "old": [False, False]})
+        out = compare_old_new_criteria(new, old, "new", "old", **keys)
+        assert out["transition"].tolist() == ["gained", "unchanged_excluded"]
+        assert out["_old_row"].tolist() == ["keep-a", "keep-b"]
+        assert out["_old_class"].tolist() == [7, 8]
+        assert list(out.columns) == list(new.columns) + ["old_screened", "transition"]
+
+    def test_audit_units_states_that_its_nan_is_not_strict_json(self):
+        import json
+
+        import numpy as np
+
+        audit = audit_units(pd.DataFrame({"quality": [1.0], "snr": [2.0]}))
+        assert np.isnan(audit["quality_distribution"]["std"])
+        with pytest.raises(ValueError):
+            json.dumps(audit, allow_nan=False)
+        doc = " ".join(audit_units.__doc__.split())
+        assert "not strict JSON" in doc
+        assert "allow_nan=False" in doc
