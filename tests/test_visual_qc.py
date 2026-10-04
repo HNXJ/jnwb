@@ -259,3 +259,70 @@ def test_compare_session_quality_bars_match_session_count():
     # Bar count in the SNR panel must match the number of sessions
     assert len(fig.axes[0].patches) == 3
     plt.close(fig)
+
+
+def _comparison(snr_mean, good_rate):
+    return pd.DataFrame(
+        {
+            "session_id": [f"s{i}" for i in range(len(snr_mean))],
+            "snr_mean": snr_mean,
+            "total_units": [10] * len(snr_mean),
+            "snr_good_rate": good_rate,
+        }
+    )
+
+
+def _guide(ax, label_part):
+    (line,) = [ln for ln in ax.get_lines() if label_part in ln.get_label()]
+    return line
+
+
+def test_guide_lines_and_colour_cutoffs_come_from_arguments():
+    from matplotlib.colors import to_rgba
+
+    fig = plot_unit_quality_distribution(_units_df(), snr_threshold=2.5, quality_threshold=0.7)
+    snr_ax, quality_ax, area_ax = fig.axes[1], fig.axes[3], fig.axes[4]
+    assert _guide(snr_ax, "Threshold").get_xdata()[0] == 2.5
+    assert "2.5" in _guide(snr_ax, "Threshold").get_label()
+    assert _guide(quality_ax, "threshold").get_xdata()[0] == 0.7
+    assert "0.7" in _guide(quality_ax, "threshold").get_label()
+    assert _guide(area_ax, "threshold").get_ydata()[0] == 0.7
+    plt.close(fig)
+
+    # 1.5 passes the default 1.0 but not a cut-off of 2.0; 0.3 fails 0.5 but passes 0.2.
+    fig = compare_session_quality(
+        _comparison([1.5, 0.3], [0.6, 0.3]),
+        snr_good=2.0, snr_fair=0.2, rate_good=70, rate_fair=20,
+    )
+    snr_ax, rate_ax = fig.axes[0], fig.axes[2]
+    assert [p.get_facecolor()[:3] for p in snr_ax.patches] == [to_rgba("orange")[:3]] * 2
+    assert [p.get_facecolor()[:3] for p in rate_ax.patches] == [to_rgba("orange")[:3]] * 2
+    assert _guide(snr_ax, "2.0").get_ydata()[0] == 2.0
+    assert _guide(rate_ax, "70").get_ydata()[0] == 70
+    plt.close(fig)
+
+
+def test_an_undefined_session_is_drawn_as_unknown_and_the_rate_axis_names_its_threshold():
+    from matplotlib.colors import to_rgba
+
+    fig = compare_session_quality(_comparison([2.0, np.nan], [np.nan, 0.6]), rate_threshold=3.0)
+    snr_ax, rate_ax = fig.axes[0], fig.axes[2]
+    red = to_rgba("red")[:3]
+    assert snr_ax.patches[1].get_facecolor()[:3] != red
+    assert rate_ax.patches[0].get_facecolor()[:3] != red
+    assert [t.get_position()[0] for t in snr_ax.texts if t.get_text() == "unknown"] == [1]
+    assert [t.get_position()[0] for t in rate_ax.texts if t.get_text() == "unknown"] == [0]
+    assert rate_ax.get_ylabel() == "% Units with SNR > 3.0"
+    plt.close(fig)
+
+
+def test_duration_and_voltage_units_are_arguments():
+    fig = plot_unit_quality_distribution(_units_df(), duration_unit="ms")
+    assert fig.axes[2].get_xlabel() == "Waveform Duration (ms)"
+    plt.close(fig)
+    fig = plot_noise_vs_signal(_units_df(), duration_unit="ms")
+    assert fig.axes[1].get_xlabel() == "Waveform Duration (ms)"
+    plt.close(fig)
+    (fig,) = plot_unit_waveforms([0], {0: np.sin(np.linspace(0, 6, 40))}, voltage_unit="mV")
+    assert fig.axes[0].get_ylabel() == "Voltage (mV)"
+    plt.close(fig)
