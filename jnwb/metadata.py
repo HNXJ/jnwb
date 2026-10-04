@@ -79,8 +79,8 @@ def get_all_units_metadata(
 
     Args:
         nwb_paths: Single NWB path or list of paths
-        filter_quality: If True, filter to units with quality >= quality_threshold, or,
-            when a file's quality holds text labels, to units whose label is in
+        filter_quality: If True, filter to units with a finite quality >= quality_threshold,
+            or, when a file's quality holds text labels, to units whose label is in
             ``stable_labels``.
         quality_threshold: numeric quality cut-off. The default 1.0 is a convention with no
             cited source: pass the cut-off your sorter's codes follow.
@@ -141,7 +141,9 @@ def get_all_units_metadata(
                 if filter_quality:
                     q_num = pd.to_numeric(units_df['quality'], errors='coerce')
                     if q_num.notna().any():
-                        units_df = units_df[q_num >= quality_threshold]
+                        # An infinite quality is no quality code, so it does not pass.
+                        finite = np.isfinite(q_num.astype(float))
+                        units_df = units_df[(q_num >= quality_threshold) & finite]
                     elif 'is_stable' in units_df.columns:
                         units_df = units_df[units_df['is_stable']]
                     else:
@@ -249,18 +251,21 @@ def classify_unit_quality(
         - is_valid: bool (every threshold column present, defined and passed)
         - issue_flags: list of failed or undefined criteria
 
-        A metric that cannot be compared is not a pass. A value that is missing or not a
-        number (NaN, ``None``, a label such as ``'mua'``) is flagged ``'<metric> undefined'``,
+        A metric that cannot be compared is not a pass. A value that is missing, infinite or
+        not a number (NaN, ``inf``, ``None``, a label such as ``'mua'``) is flagged
+        ``'<metric> undefined'``,
         and a threshold whose column the frame lacks flags every unit ``'<metric> absent'``.
         Such a unit is 'Unknown' unless a measured ``quality`` or ``snr`` failure makes it
         'Poor', and its ``is_valid`` is False.
 
     Raises:
         ValueError: ``thresholds`` is empty, which would pass every unit as 'Good' with no
-            criterion; a threshold is NaN or infinite, which passes or fails every unit alike;
-            or a threshold's column occurs more than once in ``units_df``.
-        TypeError: a threshold is ``None``, a boolean, or not a real number. Any real number
-            is accepted, including a ``Fraction``, a ``Decimal`` and a 0-d array.
+            criterion; a threshold is NaN, infinite or too large for a float, which passes or
+            fails every unit alike; or a threshold's column occurs more than once in
+            ``units_df``.
+        TypeError: a threshold is ``None``, a boolean, or not a real number (a torch tensor,
+            for instance). Any other real number is accepted, including a ``Fraction``, a
+            ``Decimal`` and a 0-d numpy or JAX array.
 
     Example:
         >>> classified = classify_unit_quality(units_df)
@@ -295,7 +300,7 @@ def classify_unit_quality(
             undefined[:] = True
             continue
         values = pd.to_numeric(units_df[col], errors='coerce').to_numpy(dtype=float)
-        is_undefined = np.isnan(values)
+        is_undefined = ~np.isfinite(values)  # an infinite measure is undefined, as NaN is
         fails = ~is_undefined & _passes_cutoff(values, cut_offs[col], operator.lt)
         for i in np.flatnonzero(is_undefined):
             flags[i].append(f'{col} undefined')
@@ -399,7 +404,8 @@ def get_snr_analysis(
         detail: If True, return per-session breakdown
 
     Returns:
-        Dict with SNR statistics and pass rates
+        Dict with SNR statistics and pass rates over the units whose SNR is a finite number;
+        a missing, non-numeric or infinite SNR is undefined and left out of every entry.
 
     Raises:
         ValueError: ``snr``, or with ``detail=True`` ``session_id``, occurs more than once in
@@ -415,7 +421,7 @@ def get_snr_analysis(
         log.warning("No SNR column found")
         return {}
 
-    snr_vals = pd.to_numeric(units_df['snr'], errors='coerce').dropna()
+    snr_vals = _finite_measure(units_df['snr'])
 
     result = {
         'n_units_with_snr': len(snr_vals),
@@ -431,10 +437,7 @@ def get_snr_analysis(
     if detail and 'session_id' in units_df.columns:
         result['by_session'] = {}
         for session in units_df['session_id'].unique():
-            sess_snr = pd.to_numeric(
-                units_df[units_df['session_id'] == session]['snr'],
-                errors='coerce'
-            ).dropna()
+            sess_snr = _finite_measure(units_df[units_df['session_id'] == session]['snr'])
             result['by_session'][session] = {
                 'n': len(sess_snr),
                 'mean': sess_snr.mean(),
@@ -554,7 +557,10 @@ def audit_units(
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
         snr_stats, firing_rate_stats (each a sub-dict of mean/median/std/... or
-        ``{}`` when the source column is absent). A standard deviation of one value is
+        ``{}`` when the source column is absent). A missing, non-numeric or infinite
+        quality, SNR or firing rate is undefined and left out of every statistic and count;
+        a quality column whose numbers are all infinite reports NaN statistics and a
+        ``good_count`` of 0. A standard deviation of one value is
         NaN, not 0.0, and a text-only quality column gives NaN for its mean, median, std, min
         and max. The dict can therefore hold the float NaN, which ``json.dumps`` writes as
         the bare token ``NaN``: valid Python and JavaScript, but not strict JSON. Serialize
@@ -584,7 +590,8 @@ def audit_units(
     if 'spike_times' in units_df.columns:
         # unit_id only names a unit in the message below; a repeated unit_id column, which
         # 0.2.8 never read, names it by its index label instead of being refused.
-        unit_ids = (units_df['unit_id'] if (units_df.columns == 'unit_id').sum() == 1
+        by_unit_id = (units_df.columns == 'unit_id').sum() == 1
+        unit_ids = (units_df['unit_id'] if by_unit_id
                     else pd.Series(units_df.index, index=units_df.index))
         n_with = 0
         for unit, st in zip(unit_ids, units_df['spike_times']):
@@ -593,8 +600,10 @@ def audit_units(
             try:
                 n_spikes = len(st)
             except TypeError:
+                named = (f"unit {unit!r}" if by_unit_id
+                         else f"the unit at index label {unit!r} (no single unit_id column)")
                 raise TypeError(
-                    f"audit_units: unit {unit!r} has spike_times {st!r}, which is not a "
+                    f"audit_units: {named} has spike_times {st!r}, which is not a "
                     "sequence of spike times; use an empty array for a unit with no spikes."
                 ) from None
             n_with += n_spikes > 0
@@ -602,8 +611,9 @@ def audit_units(
 
     # Quality distribution
     if 'quality' in units_df.columns:
-        quality_values = pd.to_numeric(units_df['quality'], errors='coerce').dropna()
-        if len(quality_values) > 0:
+        is_numeric = pd.to_numeric(units_df['quality'], errors='coerce').notna().any()
+        quality_values = _finite_measure(units_df['quality'])
+        if is_numeric:
             result['quality_distribution'] = {
                 'mean': float(quality_values.mean()),
                 'median': float(quality_values.median()),
@@ -627,7 +637,7 @@ def audit_units(
 
     # SNR statistics
     if 'snr' in units_df.columns:
-        snr_values = pd.to_numeric(units_df['snr'], errors='coerce').dropna()
+        snr_values = _finite_measure(units_df['snr'])
         if len(snr_values) > 0:
             result['snr_stats'] = {
                 'mean': float(snr_values.mean()),
@@ -641,7 +651,7 @@ def audit_units(
 
     # Firing rate statistics
     if 'firing_rate' in units_df.columns:
-        fr_values = pd.to_numeric(units_df['firing_rate'], errors='coerce').dropna()
+        fr_values = _finite_measure(units_df['firing_rate'])
         if len(fr_values) > 0:
             result['firing_rate_stats'] = {
                 'mean': float(fr_values.mean()),
@@ -712,7 +722,7 @@ def assign_quality_tier(
 
     - candidate & presence>presence_threshold & snr>snr_threshold -> 'stable'.
     - candidate & (presence<=presence_threshold or snr<=snr_threshold or either missing)
-      -> 'unstable'.
+      -> 'unstable'. A presence or SNR that is not a number or is infinite counts as missing.
     - not a candidate and declared multi-unit -- the code 0, or the label 'mua' after
       stripping and lower-casing -> 'mua'.
     - every other unit -> 'unknown': a missing quality, a value that is not a number in a
@@ -806,7 +816,9 @@ def assign_quality_tier(
                 f"assign_quality_tier: {name} has shape {values.shape}, quality has "
                 f"{len(quality)} units."
             )
-        return pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+        out = pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+        # An infinite presence or SNR is undefined, as NaN is; np.where never writes in place.
+        return np.where(np.isinf(out), np.nan, out)
 
     presence = _aligned(trial_presence_fraction, "trial_presence_fraction")
     snr_num = _aligned(snr, "snr")
@@ -840,7 +852,8 @@ def compare_old_new_criteria(
     anything else, such as the strings ``"False"`` or ``"no"`` (which ``bool`` reads as true)
     or the number 2, raises ``ValueError`` naming the column and the value. A key that
     occurs twice in either frame raises ``ValueError``, because the merge would duplicate the
-    unit with conflicting transitions.
+    unit with conflicting transitions, and so does a ``new_df`` column named ``old_screened``
+    or ``transition``, which the output would overwrite.
 
     INTENTIONAL BREAK. ``class_col_new`` and ``class_col_old`` are required and precede
     the key arguments. When this function was promoted into the package they had study-
@@ -865,6 +878,13 @@ def compare_old_new_criteria(
                 f"compare_old_new_criteria: {name} has more than one row for key {cols} "
                 f"{keys}; each unit must occur once on each side."
             )
+    taken_outputs = [col for col in ("old_screened", "transition") if col in new_df.columns]
+    if taken_outputs:
+        raise ValueError(
+            f"compare_old_new_criteria: new_df already has column(s) {taken_outputs}, which "
+            "this function writes; rename or drop them first, for instance when comparing a "
+            "frame this function returned."
+        )
     # The two working columns get names no column of new_df has, so they never collide with
     # or overwrite a caller's column.
     taken = set(new_df.columns) | {new_s, new_u}
@@ -906,6 +926,13 @@ def compare_old_new_criteria(
     ]
     merged = merged.drop(columns=[old_class_col, indicator])
     return merged
+
+
+def _finite_measure(column: pd.Series) -> pd.Series:
+    """The numeric values of a measure column, without the missing, non-numeric and infinite
+    ones: an infinite SNR, firing rate or quality is undefined, as a NaN is."""
+    values = pd.to_numeric(column, errors='coerce').dropna()
+    return values[np.isfinite(values.to_numpy(dtype=float))]
 
 
 def _is_default_range_index(index: pd.Index) -> bool:
