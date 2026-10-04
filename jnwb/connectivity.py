@@ -429,9 +429,11 @@ def select_optimal_lag(
 
 #: What `_adf_pvalue` reads as "the test could not run on this series" and turns into NaN:
 #: a singular or non-converging least-squares fit, and the `ValueError` statsmodels raises
-#: for a series too short or too flat for the regression. Anything else propagates.
+#: for a series too short or too flat for the regression, and the `FloatingPointError` the fit
+#: raises (underflow or overflow) under a caller's ``np.errstate(all="raise")`` on a tiny, huge
+#: or exponential series. Anything else propagates.
 #: `LinAlgError` subclasses `ValueError`; it is named so the reader need not know that.
-_ADF_NUMERICAL_FAILURES = (np.linalg.LinAlgError, ValueError)
+_ADF_NUMERICAL_FAILURES = (np.linalg.LinAlgError, ValueError, FloatingPointError)
 
 
 def _adf_pvalue(series: np.ndarray) -> float:
