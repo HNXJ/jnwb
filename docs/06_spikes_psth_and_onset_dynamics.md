@@ -207,6 +207,6 @@ Each function measures one sorted unit and keeps or rejects none. Sources are in
 | `isi_cv(spike_times)` | spikes (s) | interval SD over mean |
 | `refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)` | spikes (s) | contaminating fraction, violations, reason |
 
-`trough_to_peak_ms` is negative when the maximum precedes the minimum, as in an inverted
-waveform. The flatness and sharpness thresholds have no default and no published value.
+`trough_to_peak_ms` runs from the larger extremum to the opposite one after it, so it is never
+negative. The flatness and sharpness thresholds have no default and no published value.
 Undefined input is NaN or a `ValueError` naming the reason, never 0.

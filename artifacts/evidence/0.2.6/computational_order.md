@@ -445,17 +445,18 @@ jnwb imported from the checkout. Held fixed: 16 channels (`waveform_features`); 
 waveform (`waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`); 20000 uniform
 spikes over 1000 s (`presence_ratio`); uniform spikes at 20 Hz, `refractory_ms=1.5`,
 `censored_ms=0` (`isi_cv`, `refractory_contamination`). `C` channels, `n` samples, `N` spike
-waveforms, `S` spikes, `B` blocks.
+waveforms, `S` spikes, `B` blocks. The rows of `waveform_features`, `presence_ratio`, `isi_cv`
+and `refractory_contamination` were measured again the same day after their rules changed.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `waveform_features[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.0362, 0.1618, 2.912, 41.2 | +1.04 | 0.984 | 1138x | O(n) | T(C*n) | derived | agree |
+| `waveform_features[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.0359, 0.1625, 2.497, 36.09 | +1.02 | 0.985 | 1005x | O(n) | T(C*n) | derived | agree |
 | `waveform_snr[n_spikes]` | n_spikes | 1000, 10000, 100000, 400000 | 0.2301, 6.247, 62.48, 263.4 | +1.16 | 0.992 | 1145x | O(n) | T(N*n) | derived | agree |
 | `waveform_flatness[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 0.0283, 0.1479, 1.638, 25.15 | +0.99 | 0.989 | 889x | O(n) | T(C*n) | derived | agree |
 | `spatial_derivative_sharpness[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 0.0964, 0.2439, 1.839, 26.84 | +0.82 | 0.958 | 278x | O(n) | T(C*n) | derived | agree |
-| `presence_ratio[n_blocks]` | n_blocks | 100, 1000, 10000, 50000 | 0.2365, 0.3319, 1.02, 3.342 | +0.42 | 0.922 | 14x | sub-linear | T(S log S + B log S) | derived | agree |
-| `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.4128, 3.384, 55.2, 406.6 | +1.15 | 0.992 | 985x | O(n) | T(S log S) | derived | agree |
-| `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.5999, 7.045, 89.43, 382 | +1.08 | 1.000 | 637x | O(n) | T(S log S) | derived | agree |
+| `presence_ratio[n_blocks]` | n_blocks | 100, 1000, 10000, 50000 | 0.2466, 0.3073, 0.99, 3.31 | +0.42 | 0.900 | 13x | sub-linear | T(S log S + B log S) | derived | agree |
+| `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1475, 2.039, 25.87, 113.6 | +1.11 | 1.000 | 770x | O(n) | T(S log S) | derived | agree |
+| `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1363, 1.391, 21.58, 90.44 | +1.10 | 0.999 | 664x | O(n) | T(S log S) | derived | agree |
 
 ## 4. Gaps
 

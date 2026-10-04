@@ -52,13 +52,17 @@ def synth_unit_waveform(n_channels=8, n_samples=60, fs=30000.0, *, peak_channel=
         hi, lo, t_hi, t_lo = trough_amplitude, peak_amplitude, trough_sample, peak_sample
     else:
         hi, lo, t_hi, t_lo = peak_amplitude, trough_amplitude, peak_sample, trough_sample
+    # The duration runs from the larger extremum (the trough on a tie) to the other one, which
+    # the parameters must put after it.
+    t_dom, t_opp = (t_hi, t_lo) if hi > lo else (t_lo, t_hi)
+    assert t_opp > t_dom
     return _UnitReceipt(
         waveform=waveform,
         fs=fs,
         channel_positions=pitch * np.arange(n_channels, dtype=float),
         peak_channel=peak_channel,
         amplitude=hi + lo,
-        trough_to_peak_ms=(t_hi - t_lo) * 1000.0 / fs,
+        trough_to_peak_ms=(t_opp - t_dom) * 1000.0 / fs,
         peak_trough_ratio=hi / lo,
         polarity=float(np.sign(hi - lo)) if hi != lo else float("nan"),
         sharpness=(1.0 - spatial_decay) / pitch,
@@ -103,16 +107,34 @@ def test_a_negative_unit_recovers_every_waveform_feature():
     _features_match(receipt)
 
 
-def test_an_inverted_unit_reads_positive_with_the_peak_before_the_trough():
+def test_an_inverted_unit_reads_positive_and_its_duration_is_not_signed():
     receipt = synth_unit_waveform(invert=True)
-    assert receipt.polarity == 1.0 and receipt.trough_to_peak_ms < 0
+    assert receipt.polarity == 1.0 and receipt.trough_to_peak_ms == pytest.approx(0.4)
     _features_match(receipt)
 
 
 def test_a_positive_dominant_unit_rises_more_than_it_falls():
-    receipt = synth_unit_waveform(trough_amplitude=60.0, peak_amplitude=150.0)
+    receipt = synth_unit_waveform(trough_amplitude=60.0, peak_amplitude=150.0,
+                                  peak_sample=20, trough_sample=32)
     assert receipt.peak_trough_ratio == 2.5 and receipt.trough_to_peak_ms > 0
     _features_match(receipt)
+
+
+@pytest.mark.parametrize("points, expected_ms", [
+    # A small positive bump before the dominant trough: the duration runs from the trough to
+    # the maximum after it (sample 20 to 32), not from the earlier global maximum.
+    ({5: 30.0, 20: -100.0, 32: 20.0}, 0.4),
+    # A dominant peak: from it to the minimum after it (sample 20 to 30), not to the earlier
+    # global minimum.
+    ({5: -60.0, 20: 150.0, 30: -30.0}, 1.0 / 3.0),
+])
+def test_the_duration_runs_from_the_dominant_extremum_to_the_opposite_one_after_it(
+        points, expected_ms):
+    w = np.zeros((1, 60))
+    for sample, value in points.items():
+        w[0, sample] = value
+    got = jnwb.waveform_features(w, 30000.0)["trough_to_peak_ms"]
+    assert got == pytest.approx(expected_ms, rel=1e-12)
 
 
 def test_the_peak_channel_is_the_largest_amplitude_not_the_deepest_trough():
@@ -180,11 +202,13 @@ def test_presence_is_the_fires_in_window_rule_block_by_block():
             assert jnwb.presence_ratio(spikes, [[start, stop]]) == float(expected)
 
 
-def test_isi_cv_recovers_the_planted_value_and_is_the_quality_metrics_rule():
-    # Alternating intervals a, b: mean (a + b) / 2, SD |a - b| / 2, CV |a - b| / (a + b).
+def test_isi_cv_recovers_the_planted_value_with_the_unbiased_variance():
+    # Alternating intervals a, b: mean (a + b) / 2 and sum of squared deviations
+    # n (a - b)^2 / 4, so with ddof=1 the CV is |a - b| / (a + b) * sqrt(n / (n - 1)).
     spikes = np.concatenate([[0.0], np.cumsum(np.tile([0.01, 0.03], 20))])  # 40 intervals
-    assert jnwb.isi_cv(spikes) == pytest.approx(0.5, rel=1e-9)
-    assert jnwb.isi_cv(spikes) == jnwb.UnitAnalyzer.quality_metrics(spikes, 1.0, 1.0)["cv_isi"]
+    assert jnwb.isi_cv(spikes) == pytest.approx(0.5 * np.sqrt(40 / 39), rel=1e-9)
+    # Three spikes, intervals 1 and 3: SD sqrt(2) with ddof=1, mean 2.
+    assert jnwb.isi_cv(np.array([0.0, 1.0, 4.0])) == pytest.approx(np.sqrt(2) / 2, rel=1e-12)
 
 
 def _dead_time_train(rng, rate_hz, dead_s, duration_s):
@@ -212,19 +236,38 @@ def test_refractory_contamination_recovers_a_planted_fraction():
     assert clean["n_violations"] == 0 and clean["contamination"] == 0.0
 
 
-def test_refractory_contamination_follows_the_equation_with_censoring():
-    # 10000 spikes 100 ms apart plus one 0.8 ms after the first: one violation.
-    spikes = np.concatenate([np.arange(10000) * 0.1, [0.0008]])
-    n, t_c, t_r_full = spikes.size, 0.0005, 0.001
-    total = 1000.0 - 2 * n * t_c                                   # T = T' - 2 N t_c
-    expected = 0.5 * (1 - np.sqrt(1 - 2 * 1 * total / (n ** 2 * (t_r_full - t_c))))
-    got = jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=1.0,
-                                        censored_ms=0.5)
-    assert got["n_violations"] == 1
-    assert got["contamination"] == pytest.approx(expected, rel=1e-12)
-    # A pair closer than the censored period is not a violation.
-    assert jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=1.0,
-                                         censored_ms=0.9)["n_violations"] == 0
+def test_refractory_contamination_reproduces_the_worked_example_of_the_source():
+    # Hill et al. 2011: N/T = 10 Hz, tau_R = 3 ms, tau_C = 1 ms, T = 1000 s and r = 20
+    # violations give f = 0.05. Here 10000 spikes 100 ms apart, 20 of them moved to 2 ms after
+    # the spike before them.
+    spikes = np.arange(10000) * 0.1
+    spikes[1:41:2] = spikes[0:40:2] + 0.002
+    got = jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=3.0,
+                                        censored_ms=1.0)
+    assert got["n_spikes"] == 10000 and got["n_violations"] == 20 and got["reason"] is None
+    # r = 2 (tau_R - tau_C) N^2 (1 - f) f / T solved for its smaller root.
+    assert got["contamination"] == pytest.approx((1 - np.sqrt(0.8)) / 2, rel=1e-12)
+    assert round(got["contamination"], 2) == 0.05
+
+
+def test_refractory_violations_are_consecutive_intervals():
+    # A burst of three spikes 0.5 ms apart holds two short intervals, not three short pairs.
+    spikes = np.array([1.0, 1.0005, 1.001, 5.0, 9.0])
+    got = jnwb.refractory_contamination(spikes, duration_s=10.0, refractory_ms=2.0,
+                                        censored_ms=0.0)
+    assert got["n_violations"] == 2
+
+
+def test_spike_times_on_a_sample_grid_compare_exactly_with_the_refractory_period():
+    # Pairs 1 s apart at 30 kHz, the second spike 30 samples (1 ms) or 60 samples (2 ms)
+    # after the first. With a 2 ms refractory period the 1 ms intervals are all violations
+    # and the 2 ms intervals, equal to the period rather than shorter, are none.
+    fs, first = 30000.0, np.arange(1, 801) * 30000 + 7
+    for gap, expected in ((30, 800), (59, 800), (60, 0)):
+        spikes = np.sort(np.concatenate([first, first + gap])) / fs
+        got = jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=2.0,
+                                            censored_ms=1.0)
+        assert got["n_violations"] == expected, gap
 
 
 # --- undefined input -----------------------------------------------------------------------
@@ -235,9 +278,9 @@ def test_one_channel_has_no_spatial_derivative():
         jnwb.spatial_derivative_sharpness(receipt.waveform, [0.0], threshold=0.01)
 
 
-def test_no_spikes_is_nan_for_the_spike_train_measures():
+def test_no_spikes_is_absent_from_every_block_and_has_no_isi_cv():
     blocks = np.array([[0.0, 1.0], [1.0, 2.0]])
-    assert np.isnan(jnwb.presence_ratio(np.zeros(0), blocks))
+    assert jnwb.presence_ratio(np.zeros(0), blocks) == 0.0
     assert np.isnan(jnwb.isi_cv(np.zeros(0)))
     assert np.isnan(jnwb.isi_cv(np.array([0.1, 0.2])))
 
@@ -251,8 +294,8 @@ def test_refractory_contamination_undefined_input_is_nan_with_a_reason():
     assert np.isnan(empty["contamination"]) and "no spikes" in empty["reason"]
     zero = run([0.0], duration=0.0)
     assert np.isnan(zero["contamination"]) and "not positive" in zero["reason"]
-    outside = run([0.0, 0.0005, 10.0, 20.0])          # 2 n_v T / (N^2 t_r) = 12500
-    assert np.isnan(outside["contamination"]) and "no real solution" in outside["reason"]
+    outside = run([0.0, 0.0005, 10.0, 20.0])          # 2 r T / ((tau_R - tau_C) N^2) = 12500
+    assert np.isnan(outside["contamination"]) and "no real root" in outside["reason"]
     with pytest.raises(TypeError):
         jnwb.refractory_contamination(np.zeros(3), duration_s=1.0)
     with pytest.raises(ValueError, match="larger than censored_ms"):

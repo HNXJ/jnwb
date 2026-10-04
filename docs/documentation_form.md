@@ -145,7 +145,7 @@ sentence the rule asks for:
 |---|---|---|
 | `common_mistakes` | 2447 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1759 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
-| `06_spikes_psth_and_onset_dynamics` | 1375 | the same shape again: PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
+| `06_spikes_psth_and_onset_dynamics` | 1378 | the same shape again: PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
 | `04_spectral_analysis_and_tfr` | 1988 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |

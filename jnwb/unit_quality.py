@@ -4,9 +4,10 @@ jnwb.unit_quality -- waveform and spike-train quality measures of one sorted uni
 Each function takes one unit: a mean waveform ``(n_channels, n_samples)`` with its sampling
 rate and, for the spatial measure, the channel positions; the unit's individual waveforms on
 one channel; or its spike times in seconds. None of them decides whether a unit is kept. A
-measure with a published definition cites it; the two threshold checks,
-`waveform_flatness` and `spatial_derivative_sharpness`, have no published source and take
-their threshold from the caller.
+measure with a published definition cites it. ``is_flat`` of `waveform_flatness` and
+``is_sharp`` of `spatial_derivative_sharpness` are verdicts against a threshold the caller
+gives; neither check has a published source. Duplicate spike times are the caller's to
+remove: a duplicate is an interval of 0.
 
 Undefined input is NaN, ``None`` for a verdict, or a ``ValueError`` naming the reason; it is
 never read as 0.
@@ -17,6 +18,12 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import numpy as np
+
+
+#: Two durations closer than this compare as equal: below one sample at any rate under
+#: 1 GHz, and above the rounding error of an interval between spike times stored as
+#: sample index over rate.
+_BOUNDARY_TOLERANCE_S = 1e-9
 
 
 def _mean_waveform(waveform, func_name: str) -> np.ndarray:
@@ -68,15 +75,17 @@ def waveform_features(waveform, fs: float) -> Dict[str, Any]:
     amplitude is the difference between its maximum (the peak) and its minimum (the trough)
     (Siegle et al. 2021, Methods; Jia et al. 2019).
 
-    * ``trough_to_peak_ms`` is the time of the peak minus the time of the trough on the peak
-      channel, in ms, at the resolution of one sample ``1000 / fs`` (Siegle et al. 2021,
-      "waveform duration"). The peak is the channel's maximum wherever it falls, so the value
-      is negative when the maximum precedes the minimum, as in an inverted waveform.
+    * ``trough_to_peak_ms`` is the waveform duration of Siegle et al. (2021), in ms, at the
+      resolution of one sample ``1000 / fs``, computed as the code behind that paper computes
+      it (``calculate_waveform_duration`` of ``ecephys_spike_sorting``): from the dominant extremum (the maximum when it exceeds ``|min|``, else the minimum)
+      to the first occurrence of the opposite extremum at or after it. It is never negative.
     * ``peak_trough_ratio`` is the peak amplitude over the trough amplitude, ``max / |min|``,
       unitless (Jia et al. 2019, "PT ratio"). Above 1 the waveform rises more than it falls.
-      It is NaN unless the peak is above zero and the trough below it.
-    * ``polarity`` is ``+1.0`` when the positive peak is larger in magnitude than the negative
-      one, ``-1.0`` when the negative one is, and NaN when they are equal.
+      It assumes a baseline of zero (an offset changes it), and is NaN unless the peak is
+      above zero and the trough below it.
+    * ``polarity`` is ``sign(max - |min|)``, the side of 1 on which the peak-trough ratio
+      falls where that ratio is defined, and NaN on a tie. It has no published source of its
+      own.
 
     Args:
         waveform: Mean waveform ``(n_channels, n_samples)``; rows are channels.
@@ -105,7 +114,13 @@ def waveform_features(waveform, fs: float) -> Dict[str, Any]:
     peak, amplitudes = _peak_channel(w, name)
     trace = w[peak]
     hi, lo = float(trace.max()), float(trace.min())
-    duration_ms = (int(np.argmax(trace)) - int(np.argmin(trace))) * 1000.0 / fs
+    if hi > -lo:  # dominant peak: to the first minimum of the trace from it on
+        start = int(np.argmax(trace))
+        stop = start + int(np.argmin(trace[start:]))
+    else:         # dominant trough: to the first maximum of the trace from it on
+        start = int(np.argmin(trace))
+        stop = start + int(np.argmax(trace[start:]))
+    duration_ms = (stop - start) * 1000.0 / fs
     ratio = hi / -lo if (hi > 0 and lo < 0) else float("nan")
     if hi > -lo:
         polarity = 1.0
@@ -129,8 +144,10 @@ def waveform_snr(spike_waveforms) -> float:
     channel (`waveform_features`), ``(n_spikes, n_samples)``. The mean waveform is
     subtracted from every spike; the SNR is the mean waveform's amplitude (maximum minus
     minimum) over twice the standard deviation of those residuals, taken over every sample
-    of every residual (``ddof=0``). Unitless. Which spikes, and how many, are the caller's
-    choice; the source used 1,000.
+    of every residual with ``ddof=0`` as the code behind the source computes it. Unitless.
+    Residuals from a mean of ``n`` spikes have variance ``(n - 1) / n`` times the noise
+    variance, so the SNR is biased high by about ``sqrt(n / (n - 1))``, which matters only at
+    small ``n``. Which spikes, and how many, are the caller's choice; the source used 1,000.
 
     Args:
         spike_waveforms: ``(n_spikes, n_samples)`` array of individual waveforms.
@@ -272,8 +289,8 @@ def presence_ratio(spike_times, blocks) -> float:
         blocks: ``(n_blocks, 2)`` start and stop of each block in seconds.
 
     Returns:
-        The presence ratio. NaN for an empty spike train, which carries no unit to measure; a
-        unit whose spikes all fall outside the blocks has ratio 0.
+        The presence ratio: 0 for an empty spike train or one whose spikes all fall outside
+        the blocks, since no block holds a spike.
 
     Raises:
         ValueError: If there is no block, a block is not a finite ``(start, stop)`` pair with
@@ -300,8 +317,6 @@ def presence_ratio(spike_times, blocks) -> float:
     st = np.sort(np.asarray(spike_times, dtype=float).ravel())
     if not np.all(np.isfinite(st)):
         raise ValueError("presence_ratio: spike_times holds a NaN or an infinity.")
-    if st.size == 0:
-        return float("nan")
     # The half-open count of `fires_in_window`, one binary search per block edge rather than
     # one call per block, which re-validates the whole train each time: O((S + B) log S).
     counts = np.searchsorted(st, b[:, 1], side="left") - np.searchsorted(st, b[:, 0], side="left")
@@ -312,9 +327,10 @@ def isi_cv(spike_times) -> float:
     """Coefficient of variation of the inter-spike intervals (Shinomoto et al. 2009, eq. 1).
 
     Input class: one unit's spike times in seconds, any order. The CV is the standard
-    deviation of the intervals (``ddof=0``) over their mean, unitless, computed by the rule of
-    `UnitAnalyzer.quality_metrics`. It is 0 for a perfectly regular train and near 1 for a
-    Poisson train.
+    deviation of the intervals over their mean, unitless. The standard deviation is the
+    unbiased one (``ddof=1``), the variance rule of `jnwb.fano_factor`; the ``cv_isi`` of
+    `UnitAnalyzer.quality_metrics` uses ``ddof=0`` and reads lower by ``sqrt((n - 1) / n)``
+    for ``n`` intervals. It is 0 for a perfectly regular train and near 1 for a Poisson train.
 
     Args:
         spike_times: 1-D spike times in seconds.
@@ -331,9 +347,18 @@ def isi_cv(spike_times) -> float:
         differentiation of cerebral cortex. PLoS Computational Biology 5(7), e1000433.
         doi:10.1371/journal.pcbi.1000433
     """
-    from .analyzers import UnitAnalyzer
-
-    return float(UnitAnalyzer.quality_metrics(spike_times, float("nan"), float("nan"))["cv_isi"])
+    st = np.asarray(spike_times, dtype=float)
+    if st.ndim != 1:
+        raise ValueError(f"isi_cv: spike_times must be one 1-D train; got shape {st.shape}.")
+    if not np.all(np.isfinite(st)):
+        raise ValueError("isi_cv: spike_times holds a NaN or an infinity.")
+    if st.size < 3:
+        return float("nan")
+    isi = np.diff(np.sort(st))
+    mean = float(isi.mean())
+    if mean == 0:
+        return float("nan")
+    return float(isi.std(ddof=1) / mean)
 
 
 def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: float,
@@ -342,33 +367,33 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
 
     Input class: one unit's spike times in seconds, any order, from a recording of
     `duration_s` seconds. The estimate assumes stationary firing and contaminating spikes that
-    fire independently of the unit's own and violate only the unit's refractory period. The
-    formula is read from the restatement of Llobet et al. (2022), which states that its
-    eq. (1) "is equivalent to the result obtained by Hill et al. (2011)":
+    fire independently of the unit's own and violate only the unit's refractory period. With
+    ``N`` spikes, refractory period ``tau_R`` (`refractory_ms`), censored period ``tau_C``
+    (`censored_ms`), recording duration ``T`` (`duration_s`) and ``r`` violations, the source
+    writes the expected count as
 
-        n_v = 2 n_t n_c t_r / T                          (Llobet et al. 2022, eq. 1)
-        C' = (1/2) (1 - sqrt(1 - 2 n_v T / (N^2 t_r)))   (Llobet et al. 2022, eq. 4)
+        r = 2 (tau_R - tau_C) N^2 (1 - f) f / T          (Hill et al. 2011)
 
-    with ``N = n_t + n_c`` spikes, ``n_c`` of them contaminating, and ``C' = n_c / N``, the
-    smaller root. Both durations exclude the censored interval ``t_c`` around each detected
-    spike: ``t_r = t'_r - t_c`` and ``T = T' - 2 N t_c``, where ``t'_r`` is `refractory_ms`,
-    ``t_c`` is `censored_ms` and ``T'`` is `duration_s`. A violation is a pair of spikes
-    separated by at least ``t_c`` and less than ``t'_r``; every such pair is counted, not
-    only consecutive spikes. The result is unitless, between 0 and 1/2.
+    and ``f`` is its smaller root, ``(1 - sqrt(1 - 2 r T / ((tau_R - tau_C) N^2))) / 2``. A
+    violation is an inter-spike interval between consecutive spikes shorter than ``tau_R``;
+    an interval within 1 ns of ``tau_R`` counts as equal to it, so spike times on a sample grid
+    compare exactly. The derivation is restated by Llobet et al. (2022). The result is
+    unitless, between 0 and 1/2.
 
     Args:
-        spike_times: 1-D spike times in seconds.
-        duration_s: Recording duration ``T'`` in seconds; required.
-        refractory_ms: Refractory period ``t'_r`` in ms; required, larger than `censored_ms`.
-        censored_ms: Censored period ``t_c`` in ms around each spike within which the
-            detector cannot report a second spike; required, 0 or more.
+        spike_times: 1-D spike times in seconds. Duplicate spike times are the caller's to
+            remove; each is an interval of 0 and counts as a violation.
+        duration_s: Recording duration ``T`` in seconds; required.
+        refractory_ms: Refractory period ``tau_R`` in ms; required, larger than `censored_ms`.
+        censored_ms: Censored period ``tau_C`` in ms after each detected spike, within which
+            the detector cannot report a second one; required, 0 or more.
 
     Returns:
-        Dict with ``contamination`` (``C'``), ``n_violations``, ``n_spikes`` and ``reason``.
-        ``contamination`` is NaN, and ``reason`` names why, for an empty train, for a
-        censored duration ``T`` that is not positive (a zero duration among them), and when
-        ``2 n_v T / (N^2 t_r)`` exceeds 1, so that the formula has no real solution;
-        ``reason`` is ``None`` otherwise.
+        Dict with ``contamination`` (``f``), ``n_violations`` (``r``), ``n_spikes`` (``N``)
+        and ``reason``. ``contamination`` is NaN, and ``reason`` names why, for an empty
+        train, a duration of 0, and when ``2 r T / ((tau_R - tau_C) N^2)`` exceeds 1, so that
+        the equation has no real root; ``reason`` is ``None`` otherwise. A NaN drops out of a
+        ``nanmean`` over units and fails a ``c < threshold`` check.
 
     Raises:
         ValueError: If `spike_times` is not 1-D or holds a NaN or an infinity, its span
@@ -381,7 +406,7 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
         doi:10.1523/JNEUROSCI.0971-11.2011
 
         Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging
-        of multiple spike-sorting analyses with Lussac. bioRxiv preprint.
+        of multiple spike-sorting analyses with Lussac. bioRxiv preprint, version 1.
         doi:10.1101/2022.02.08.479192
     """
     name = "refractory_contamination"
@@ -390,11 +415,11 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
         v = float(value)  # a value that is not a number raises here, naming its type
         if not (np.isfinite(v) and v >= 0):
             raise ValueError(f"{name}: {label} must be a finite number, 0 or more; got {value!r}.")
-    t_full, t_c = float(refractory_ms) / 1000.0, float(censored_ms) / 1000.0
-    if not t_full > t_c:
+    tau_r, tau_c = float(refractory_ms) / 1000.0, float(censored_ms) / 1000.0
+    if not tau_r > tau_c:
         raise ValueError(
             f"{name}: refractory_ms ({refractory_ms!r}) must be larger than censored_ms "
-            f"({censored_ms!r}); the uncensored refractory time t_r would not be positive."
+            f"({censored_ms!r}); the window tau_R - tau_C would not be positive."
         )
     st = np.asarray(spike_times, dtype=float)
     if st.ndim != 1:
@@ -403,7 +428,8 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
         raise ValueError(f"{name}: spike_times holds a NaN or an infinity.")
     st = np.sort(st)
     n = int(st.size)
-    if n and st[-1] - st[0] > float(duration_s):
+    total = float(duration_s)
+    if n and st[-1] - st[0] > total:
         raise ValueError(
             f"{name}: the spikes span {st[-1] - st[0]!r} s, longer than duration_s="
             f"{duration_s!r}."
@@ -412,20 +438,15 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
     if n == 0:
         result["reason"] = "no spikes: the train carries no unit to measure"
         return result
-    lo = np.maximum(np.searchsorted(st, st + t_c, side="left"), np.arange(n) + 1)
-    hi = np.searchsorted(st, st + t_full, side="left")
-    n_v = int(np.maximum(hi - lo, 0).sum())
+    n_v = int(np.sum(np.diff(st) < tau_r - _BOUNDARY_TOLERANCE_S))
     result["n_violations"] = n_v
-    t_r = t_full - t_c
-    total = float(duration_s) - 2.0 * n * t_c
-    if total <= 0:
-        result["reason"] = (f"the censored duration T = duration_s - 2 N t_c = {total!r} s is "
-                            "not positive")
+    if total == 0:
+        result["reason"] = "the duration T is not positive"
         return result
-    discriminant = 1.0 - 2.0 * n_v * total / (n * n * t_r)
+    discriminant = 1.0 - 2.0 * n_v * total / ((tau_r - tau_c) * n * n)
     if discriminant < 0:
-        result["reason"] = (f"2 n_v T / (N^2 t_r) = {1.0 - discriminant!r} exceeds 1: too many "
-                            "violations for the model, which has no real solution")
+        result["reason"] = (f"2 r T / ((tau_R - tau_C) N^2) = {1.0 - discriminant!r} exceeds 1: "
+                            "too many violations for the model, whose equation has no real root")
         return result
     result["contamination"] = 0.5 * (1.0 - float(np.sqrt(discriminant)))
     return result
