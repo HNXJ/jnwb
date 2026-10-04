@@ -37,7 +37,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-07, 13-08, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-07, 13-08, 13-09, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -150,12 +150,24 @@ Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
 Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`, `changelog.d/quality-metrics-undefined.fixed.md`.
 AUTONOMY: none.
 Undefined input landed in `2987ac31` (merged `0316da95`, verified independently): 0 or 1 spike, or under two whole 1-s windows, gives NaN and `is_good_single_unit=None`; the cut-offs are keyword arguments `refractory_ms=2.0`, `max_violation_pct=5.0`, `max_fano=2.0`.
-- P-366 remainder: the three defaults cite no source, and the Check asked for a cited source or no default. Removing them breaks every three-argument call (`tests/test_jnwb_core.py:178,186`). Check: Hamm rules cite, remove, or keep as a stated convention.
+- P-366 remainder: the three defaults cite no source; ruled 2026-10-04 kept as stated conventions. Check: the docstring says each is a convention with no cited source.
 - The Fano factor uses `np.var` with ddof=0, half the unbiased variance at two windows, so the verdict is lenient there. Check: ddof=1, or the bias stated, with a test at two windows.
 - Mutants survive at a span of exactly 2.0 s, an infinite cut-off, and the `<` boundary. Check: a test kills each.
 - The verdict's type is now `bool` or `None`; the fragment sits under `fixed`. Check: it moves to `changed` if the type change is user-visible.
 Accept: the ruling applied and each check passing.
 Stop: none beyond the ruling.
+
+### 13-09 The quality functions refuse degenerate cut-offs and classes
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-07.
+Writes: `jnwb/metadata.py`, `tests/test_metadata.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
+Source: the 13-07 critic and verifier, 2026-10-04.
+- `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
+- `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
+- `audit_units` writes a one-unit spread as NaN, which `json.dumps` emits as invalid strict JSON. Check: the documented output is valid JSON, or the docstring says NaN.
+Accept: a test per check that fails before the repair.
+Stop: a refusal that changes a value a released analysis reported goes to Hamm.
 
 ## Out of scope for 0.2.8 to 0.2.12
 
