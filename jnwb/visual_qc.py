@@ -14,6 +14,7 @@ Date: 2026-06-25
 """
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 import numpy as np
@@ -32,6 +33,18 @@ MADELANE_TEAL = "#00FFCC"
 MADELANE_ORANGE = "#FF5E00"
 
 
+def _drawn_template(waveform: np.ndarray) -> np.ndarray:
+    """The array a waveform panel draws: 3-D spikes averaged over spikes, NaN samples ignored
+    (a sample NaN in every spike stays NaN); 1-D and 2-D input as given."""
+    if waveform.ndim != 3:
+        return waveform
+    if waveform.shape[0] == 0:  # no spikes: nothing to average, refused by the caller
+        return np.full(waveform.shape[1:], np.nan)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns stay NaN
+        return np.nanmean(waveform, axis=0)
+
+
 def plot_unit_waveforms(
     unit_ids: List[Union[int, str]],
     waveforms_dict: Dict,
@@ -48,14 +61,15 @@ def plot_unit_waveforms(
         waveforms_dict: Dict mapping unit_id to an array whose shape ``channels`` names:
             with ``channels=None``, a 1-D trace; with ``channels="peak"`` or ``"all"``, a
             ``(n_channels, n_samples)`` template or ``(n_spikes, n_channels, n_samples)``
-            spikes, averaged over spikes first. Single-channel spikes are
-            ``(n_spikes, 1, n_samples)``.
+            spikes, averaged over spikes first with NaN samples ignored. Single-channel
+            spikes are ``(n_spikes, 1, n_samples)``.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
         channels: ``"peak"`` draws the channel with the largest absolute deflection
-            (NaN samples ignored), with ±1 SD across spikes when the input is 3-D;
-            ``"all"`` draws every channel. Channels are never averaged together, because a
-            channel mean shrinks the peak by the channel count.
+            (NaN samples and all-NaN channels ignored), with ±1 SD across spikes when the
+            input is 3-D; ``"all"`` draws every channel and refuses a channel with no finite
+            sample. Channels are never averaged together, because a channel mean shrinks the
+            peak by the channel count.
 
     INTENTIONAL BREAK. A 2-D array with ``channels=None`` used to be read as
     ``(n_spikes, n_samples)`` and drawn as a mean over its rows, so a
@@ -69,8 +83,9 @@ def plot_unit_waveforms(
 
     Raises:
         KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
-        ValueError: an array's dimensionality does not match ``channels``, or a unit's
-            waveform is empty or entirely NaN; the message names the unit.
+        ValueError: an array's dimensionality does not match ``channels``, a unit's drawn
+            template (after averaging over spikes) is empty or entirely NaN, or
+            ``channels="all"`` meets an all-NaN channel; the message names the unit.
 
     Example:
         >>> waveforms = {unit_id: waveform_array for unit_id in unit_ids}
@@ -99,11 +114,21 @@ def plot_unit_waveforms(
                 f"plot_unit_waveforms: unit {unit_id!r} has a {waveform.ndim}-D waveform; "
                 f"channels={channels!r} takes {' or '.join(f'{d}-D' for d in allowed)}"
             )
-        if waveform.size == 0 or np.isnan(waveform).all():
+        template = _drawn_template(waveform)
+        if template.size == 0 or np.isnan(template).all():
             raise ValueError(
-                f"plot_unit_waveforms: unit {unit_id!r} has an empty or all-NaN waveform; "
-                "there is no trace to draw."
+                f"plot_unit_waveforms: unit {unit_id!r} has an empty or all-NaN waveform"
+                + (" after averaging over spikes" if waveform.ndim == 3 else "")
+                + "; there is no trace to draw."
             )
+        if channels == "all":
+            dead = [ch for ch, trace in enumerate(template) if np.isnan(trace).all()]
+            if dead:
+                raise ValueError(
+                    f"plot_unit_waveforms: unit {unit_id!r} has no finite sample on "
+                    f"channel(s) {dead}; channels='all' draws every channel, so drop them or "
+                    "pass channels='peak'."
+                )
 
     figures = []
     n_units = len(unit_ids)
@@ -123,21 +148,19 @@ def plot_unit_waveforms(
 
             waveform = np.asarray(waveforms_dict[unit_id], dtype=float)
             if channels is not None:
-                template = waveform.mean(axis=0) if waveform.ndim == 3 else waveform
+                template = _drawn_template(waveform)
                 if channels == "peak":
-                    # A channel that is all NaN has no deflection; it never wins.
+                    # A channel that is all NaN has no deflection and never wins; the check
+                    # above guarantees one channel has a finite sample.
                     deflection = np.array([np.nanmax(np.abs(tr)) if np.isfinite(tr).any()
-                                           else -np.inf for tr in template])
-                    if not np.isfinite(deflection).any():
-                        raise ValueError(
-                            f"plot_unit_waveforms: unit {unit_id!r} has no channel with a "
-                            "finite sample; there is no peak channel."
-                        )
+                                           else np.nan for tr in template])
                     peak = int(np.nanargmax(deflection))
                     ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
                             label=f'Channel {peak}')
                     if waveform.ndim == 3:
-                        spread = waveform[:, peak, :].std(axis=0)
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", RuntimeWarning)
+                            spread = np.nanstd(waveform[:, peak, :], axis=0)
                         ax.fill_between(range(template.shape[1]),
                                         template[peak] - spread, template[peak] + spread,
                                         alpha=0.3, color=MADELANE_GOLD, label='±1 STD')

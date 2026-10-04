@@ -218,7 +218,8 @@ elec_audit = jnwb.audit_electrodes(electrodes_df, units_df)
 inventory = jnwb.electrode_inventory(nwb_files)
 
 # Quality tier ('mua' | 'stable' | 'unstable' | 'unknown') from per-unit Series, not scalars.
-# `quality` follows the `is_stable` rule of `enrich_units_dataframe`; missing is 'unknown'.
+# Candidates follow `is_stable` of `enrich_units_dataframe`; 'mua' only for code 0 or label
+# 'mua'; anything else is 'unknown'.
 tier = jnwb.assign_quality_tier(
     quality=classified_units["quality"],
     trial_presence_fraction=classified_units["trial_presence_fraction"],

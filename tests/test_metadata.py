@@ -437,27 +437,50 @@ class TestUndefinedQualityInput:
         from jnwb.addressing import enrich_units_dataframe
 
         nan = float("nan")
-        expected = {0: "mua", 1: "stable", 2: "stable", 0.5: "mua", "good": "stable",
-                    "sua": "stable", nan: "unknown"}
+        # A candidate under enrich's is_stable is a stable/unstable tier; an unknown is_stable
+        # is an unknown tier; a non-candidate is 'mua' only when declared so (0 or 'mua').
+        expected = {0: "mua", 1: "stable", 2: "stable", 0.5: "unknown", -1: "unknown",
+                    "good": "stable", "sua": "stable", "mua": "mua", " MUA ": "mua",
+                    "noise": "unknown", "unsorted": "unknown", nan: "unknown"}
         for quality, tier_expected in expected.items():
             q = pd.Series([quality, None], dtype=object)
             tier = assign_quality_tier(q, pd.Series([1.0, 1.0]), pd.Series([5.0, 5.0]))
             assert tier.iloc[0] == tier_expected, quality
             enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None)
             stable = enriched["is_stable"].iloc[0] if "is_stable" in enriched else pd.NA
-            as_tier = ("unknown" if pd.isna(stable) else "stable" if stable else "mua")
-            assert as_tier == tier_expected, quality
+            if pd.isna(stable):
+                assert tier_expected == "unknown", quality
+            else:
+                assert bool(stable) == (tier_expected == "stable"), quality
         # The same arguments move both functions the same way.
         q = pd.Series([1.0, 2.0, 3.0])
         tier = assign_quality_tier(q, pd.Series([1.0] * 3), pd.Series([5.0] * 3),
                                    stable_threshold=2.0)
         enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None,
                                           stable_threshold=2.0)["is_stable"]
-        assert tier.tolist() == ["mua", "stable", "stable"]
+        assert tier.tolist() == ["unknown", "stable", "stable"]
         assert enriched.tolist() == [False, True, True]
-        labelled = assign_quality_tier(pd.Series(["Accepted ", "good"]), pd.Series([1.0] * 2),
-                                       pd.Series([5.0] * 2), stable_labels=("accepted",))
-        assert labelled.tolist() == ["stable", "mua"]
+        labelled = assign_quality_tier(pd.Series(["Accepted ", "good", "mua"]),
+                                       pd.Series([1.0] * 3), pd.Series([5.0] * 3),
+                                       stable_labels=("accepted",))
+        assert labelled.tolist() == ["stable", "unknown", "mua"]
+
+    def test_assign_quality_tier_aligns_presence_and_snr_or_refuses(self):
+        import numpy as np
+
+        q = pd.Series([1, 1, 0], index=[10, 11, 12])
+        tier = assign_quality_tier(q, np.array([0.99, 0.5, 0.99]), np.array([5.0, 5.0, 5.0]))
+        assert tier.tolist() == ["stable", "unstable", "mua"]
+        assert tier.index.tolist() == [10, 11, 12]
+        on_index = assign_quality_tier(q, pd.Series([0.99, 0.5, 0.99], index=q.index),
+                                       pd.Series([5.0] * 3, index=q.index))
+        assert on_index.tolist() == ["stable", "unstable", "mua"]
+        with pytest.raises(ValueError, match="trial_presence_fraction is indexed"):
+            assign_quality_tier(q, pd.Series([0.99] * 3), pd.Series([5.0] * 3, index=q.index))
+        with pytest.raises(ValueError, match="snr is indexed"):
+            assign_quality_tier(q, np.array([0.99] * 3), pd.Series([5.0] * 3, index=[1, 2, 3]))
+        with pytest.raises(ValueError, match="quality has 3 units"):
+            assign_quality_tier(q, np.array([0.99] * 2), np.array([5.0] * 3))
 
     def test_quality_cut_offs_are_arguments(self, tmp_path):
         import pynwb
@@ -480,11 +503,14 @@ class TestUndefinedQualityInput:
         kept = get_all_units_metadata(path, filter_quality=True, stable_labels=("accepted",))
         assert kept["quality"].tolist() == ["accepted"]
 
-        # audit_units counts text labels by the same rule and labels.
+        # audit_units counts text labels by the shared rule; its default keeps the released
+        # count of 'good' alone, and the caller widens it.
         labels = pd.DataFrame({"quality": ["good", " SUA", "accepted", "mua"]})
-        assert audit_units(labels)["quality_distribution"]["good_count"] == 2
+        assert audit_units(labels)["quality_distribution"]["good_count"] == 1
         assert audit_units(labels, stable_labels=("accepted",))[
             "quality_distribution"]["good_count"] == 1
+        assert audit_units(labels, stable_labels=("good", "sua", "single", "stable", "clean"))[
+            "quality_distribution"]["good_count"] == 2
 
         numeric = pd.DataFrame({"quality": [1.0, 2.0]})
         path = tmp_path / "ses-02_q.nwb"

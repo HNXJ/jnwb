@@ -497,7 +497,7 @@ def audit_units(
     *,
     quality_threshold: float = 1.0,
     snr_threshold: float = 1.0,
-    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
+    stable_labels: Collection[str] = ("good",),
 ) -> Dict:
     """
     Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate
@@ -513,9 +513,11 @@ def audit_units(
             ``snr >= snr_threshold``. Both defaults, 1.0, are a convention with no cited
             source: pass the cut-offs your study justifies.
         stable_labels: when no quality is numeric, a text label counts toward
-            ``good_count`` when, stripped and lower-cased, it is one of these; the rule and
-            default of :func:`jnwb.enrich_units_dataframe`. A bare string raises
-            ``TypeError``.
+            ``good_count`` when, stripped and lower-cased, it is one of these, by the rule of
+            :func:`jnwb.enrich_units_dataframe`. The default is ``("good",)``, the one label
+            this count has always read, and narrower than enrich's
+            ``("good", "sua", "single", "stable", "clean")``; pass that tuple to count as
+            ``is_stable`` does. A bare string raises ``TypeError``.
 
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
@@ -651,7 +653,7 @@ def assign_quality_tier(
     stable_threshold: float = 1.0,
     stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.Series:
-    """Tier units into 'mua' / 'stable' / 'unstable' from quality, trial presence, and SNR.
+    """Tier units 'mua' / 'stable' / 'unstable' / 'unknown' from quality, presence and SNR.
 
     Three plain Series and the thresholds in; a tier Series out. Column names are not looked up
     internally -- callers pass Series explicitly.
@@ -661,16 +663,21 @@ def assign_quality_tier(
     candidate when ``quality >= stable_threshold``; otherwise when its label, stripped and
     lower-cased, is one of ``stable_labels``.
 
-    - not a candidate (quality 0 or 0.5, a label such as 'mua') -> 'mua'.
     - candidate & presence>presence_threshold & snr>snr_threshold -> 'stable'.
     - candidate & (presence<=presence_threshold or snr<=snr_threshold or either missing)
       -> 'unstable'.
-    - a quality that is missing, or not a number in a numeric column -> 'unknown'.
+    - not a candidate and declared multi-unit -- the code 0, or the label 'mua' after
+      stripping and lower-casing -> 'mua'.
+    - every other unit -> 'unknown': a missing quality, a value that is not a number in a
+      numeric column, any other non-candidate code (-1, 0.5) and any other label ('noise',
+      'unsorted'). Not being a single unit does not make a unit multi-unit activity.
 
     Args:
         quality: per-unit quality Series: codes (0 = MUA, 1 = single-unit candidate) or labels.
         trial_presence_fraction: per-unit fraction of trials the unit was present for.
-        snr: per-unit signal-to-noise ratio.
+        snr: per-unit signal-to-noise ratio. Each of the two is a Series on the same index as
+            ``quality`` (a different index raises ``ValueError``) or an array of the same
+            length, read by position.
         presence_threshold: minimum presence fraction (exclusive) for 'stable'.
         snr_threshold: minimum SNR (exclusive) for 'stable'. Both defaults, 0.98 and 0.5,
             are a convention with no cited source: pass the cut-offs your study justifies
@@ -686,12 +693,32 @@ def assign_quality_tier(
     candidate = _quality_is_stable(quality, stable_threshold, labels)
     known = candidate.notna().to_numpy()
     is_candidate = candidate.fillna(False).to_numpy(dtype=bool)
-    presence = pd.to_numeric(trial_presence_fraction, errors="coerce")
-    snr_num = pd.to_numeric(snr, errors="coerce")
-    passes = ((presence > presence_threshold) & (snr_num > snr_threshold)).reindex(
-        quality.index, fill_value=False).to_numpy(dtype=bool)
+    declared_mua = ((pd.to_numeric(quality, errors="coerce") == 0)
+                    | (quality.astype(str).str.strip().str.lower() == "mua")).to_numpy(dtype=bool)
+
+    def _aligned(values, name):
+        if isinstance(values, pd.Series):
+            if not values.index.equals(quality.index):
+                raise ValueError(
+                    f"assign_quality_tier: {name} is indexed {list(values.index[:5])}..., "
+                    f"quality {list(quality.index[:5])}...; pass Series on one index, or "
+                    "arrays read by position."
+                )
+            values = values.to_numpy()
+        values = np.asarray(values)
+        if values.shape != (len(quality),):
+            raise ValueError(
+                f"assign_quality_tier: {name} has shape {values.shape}, quality has "
+                f"{len(quality)} units."
+            )
+        return pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+
+    presence = _aligned(trial_presence_fraction, "trial_presence_fraction")
+    snr_num = _aligned(snr, "snr")
+    with np.errstate(invalid="ignore"):
+        passes = (presence > presence_threshold) & (snr_num > snr_threshold)
     tier = pd.Series("unknown", index=quality.index, dtype=object)
-    tier[known & ~is_candidate] = "mua"
+    tier[known & ~is_candidate & declared_mua] = "mua"
     tier[is_candidate & ~passes] = "unstable"
     tier[is_candidate & passes] = "stable"
     return tier

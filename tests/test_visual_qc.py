@@ -83,12 +83,41 @@ def test_plot_unit_waveforms_draws_channels_unaveraged_and_refuses_a_missing_uni
         for empty in (np.full((4, 30), np.nan), np.zeros((0, 30))):
             with pytest.raises(ValueError, match="unit 7"):
                 plot_unit_waveforms([7], {7: empty}, channels=mode)
-    # Every sample is finite in some spike, yet the spike mean is NaN everywhere.
+    with pytest.raises(ValueError, match="unit 7"):
+        plot_unit_waveforms([7], {7: np.zeros((0, 4, 30))}, channels="peak")
+    plt.close("all")
+
+
+def test_plot_unit_waveforms_ignores_nan_samples_across_spikes_and_refuses_dead_channels():
+    import pytest
+
+    template = np.zeros((4, 30))
+    template[2, 10] = -100.0
+    template[0, 5] = 60.0
+    # One NaN sample, at the peak, in one of three spikes: the other two still give -100.
+    spikes = np.stack([template] * 3)
+    spikes[0, 2, 10] = np.nan
+    (fig,) = plot_unit_waveforms([7], {7: spikes}, channels="peak")
+    line = fig.axes[0].get_lines()[0]
+    assert line.get_label() == "Channel 2"
+    assert line.get_ydata()[10] == -100.0
+    assert np.isfinite(line.get_ydata()).all()
+    (band,) = fig.axes[0].collections
+    # The ±1 SD band covers the peak sample too; a NaN spread would leave a gap at x = 10.
+    assert 10 in np.concatenate([p.vertices[:, 0] for p in band.get_paths()])
+    # Every sample is finite in some spike, so the spike mean is finite everywhere.
     holes = np.ones((2, 4, 30))
     holes[0, :, ::2] = np.nan
     holes[1, :, 1::2] = np.nan
-    with pytest.raises(ValueError, match="unit 7"):
-        plot_unit_waveforms([7], {7: holes}, channels="peak")
+    (holes_fig,) = plot_unit_waveforms([7], {7: holes}, channels="all")
+    assert all(np.isfinite(ln.get_ydata()).all() for ln in holes_fig.axes[0].get_lines())
+    plt.close("all")
+
+    # channels='all' draws every channel, so a channel with no finite sample is refused.
+    dead = template.copy()
+    dead[1] = np.nan
+    with pytest.raises(ValueError, match=r"unit 7 has no finite sample on channel\(s\) \[1\]"):
+        plot_unit_waveforms([7], {7: dead}, channels="all")
     plt.close("all")
 
 
