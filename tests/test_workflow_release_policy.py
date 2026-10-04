@@ -92,6 +92,52 @@ class TestWorkflowReleasePolicy:
         assert out.returncode == 0, out.stderr
         assert out.stdout.split() == ["0.2.9", "1.0", "10.20.30", "0.2.9.post1"], out.stdout
 
+    @staticmethod
+    def _bash():
+        """A POSIX bash, or None. On Windows a bare `bash` can resolve to the WSL launcher in
+        System32 ahead of PATH, so Git's own bash is looked up next to `git`."""
+        import shutil
+        import sys
+
+        if sys.platform != "win32":
+            return shutil.which("bash")
+        git = shutil.which("git")
+        # git.exe sits in Git\cmd, Git\bin or Git\mingw64\bin; bash in Git\usr\bin or Git\bin.
+        for base in (Path(git).resolve().parents if git else ()):
+            for candidate in (base / "usr" / "bin" / "bash.exe", base / "bin" / "bash.exe"):
+                if candidate.is_file():
+                    return str(candidate)
+        return None
+
+    def test_the_kind_step_run_in_bash_says_final_only_for_a_final_tag(self, tmp_path):
+        """The step itself, not its regex: a `final=true` inserted before the output line, or
+        a branch that never reaches `final=true`, passes a test that only reads the pattern."""
+        import os
+        import subprocess
+
+        import pytest
+
+        bash = self._bash()
+        if bash is None:
+            pytest.skip("no bash on this machine")
+        step = next(s for s in _load_workflow()["jobs"]["verify-testpypi"]["steps"]
+                    if s.get("id") == "kind")
+        assert set(step["env"]) == {"TAG"}, step["env"]
+        script = tmp_path / "kind.sh"
+        script.write_bytes(step["run"].encode("utf-8"))
+        expected = {"v0.2.9": "true", "v1.0": "true", "v0.2.9.post1": "true",
+                    "v0.2.9rc1": "false", "v0.2.9a1": "false", "v0.2.9b1": "false",
+                    "v0.2.9.dev1": "false"}
+        for tag, final in expected.items():
+            output = tmp_path / f"output_{tag}"
+            output.write_bytes(b"")
+            env = dict(os.environ, TAG=tag, GITHUB_OUTPUT=output.as_posix())
+            result = subprocess.run([bash, script.as_posix()], env=env, capture_output=True,
+                                    text=True, timeout=60)
+            assert result.returncode == 0, (tag, result.stderr)
+            lines = output.read_text(encoding="utf-8").splitlines()
+            assert lines == [f"final={final}"], (tag, lines)
+
     def test_legacy_dual_trigger_if_is_rejected(self):
         """Regression: 0.1.6 workflow published on tag push *and* on release."""
         condition = _publish_pypi_if()
