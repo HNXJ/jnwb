@@ -4,7 +4,7 @@ Published sources for the methods jnwb implements. Each row names the result jnw
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
 a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
 2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26, the unit-quality sources on 2026-10-04) and matched the title, authors and year of its Crossref record (DataCite for
-the arXiv entry). Where jnwb
+the arXiv entry, bioRxiv's own record for Llobet et al. 2022). Where jnwb
 departs from the published result, the row and the docstring say how.
 
 ## Signal processing
@@ -79,6 +79,8 @@ thresholds are the caller's.
 | Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x) | Methods, unit quality metrics: the peak channel as the channel of maximum amplitude (peak minus trough); waveform duration as the time of the peak minus that of the trough on it; SNR as the amplitude over twice the standard deviation of the residual waveforms; presence ratio as the fraction of blocks holding a spike. The paper used 100 equal blocks; `presence_ratio` takes the caller's | `waveform_features`, `waveform_snr`, `presence_ratio` |
 | Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018) | The peak-to-trough ratio, the amplitude of the peak over that of the trough, on the channel of largest amplitude | `waveform_features` |
 | Shinomoto, S., et al. (2009). Relating neuronal firing patterns to functional differentiation of cerebral cortex. *PLoS Computational Biology* 5(7), e1000433. [doi:10.1371/journal.pcbi.1000433](https://doi.org/10.1371/journal.pcbi.1000433) | The coefficient of variation of the inter-spike intervals, their standard deviation over their mean (eq. 1) | `isi_cv` |
+| Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011) | The fraction of a unit's spikes from a contaminating source, estimated from the count of refractory-period violations; the formula is read from Llobet et al. (2022), the row below, which states its equivalence | `refractory_contamination` |
+| Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging of multiple spike-sorting analyses with Lussac. *bioRxiv* preprint. [doi:10.1101/2022.02.08.479192](https://doi.org/10.1101/2022.02.08.479192) | Eq. 1, violations $n_v = 2 n_t n_c t_r / T$ for a single contaminating source with censored durations, and eq. 4, its smaller root for the contamination $C'$; jnwb does not implement the random-contamination estimate of eq. 3 | `refractory_contamination` |
 
 ## Representational analysis
 

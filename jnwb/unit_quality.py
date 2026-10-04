@@ -284,8 +284,6 @@ def presence_ratio(spike_times, blocks) -> float:
         Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals
         functional hierarchy. Nature 592, 86-92. doi:10.1038/s41586-020-03171-x
     """
-    from .statistics import fires_in_window
-
     b = np.asarray(blocks, dtype=float)
     if b.ndim != 2 or b.shape[1] != 2 or b.shape[0] < 1:
         raise ValueError(
@@ -300,10 +298,14 @@ def presence_ratio(spike_times, blocks) -> float:
             "a spike."
         )
     st = np.sort(np.asarray(spike_times, dtype=float).ravel())
+    if not np.all(np.isfinite(st)):
+        raise ValueError("presence_ratio: spike_times holds a NaN or an infinity.")
     if st.size == 0:
         return float("nan")
-    present = [fires_in_window(st, start, (0.0, (stop - start) * 1000.0)) for start, stop in b]
-    return float(np.mean(present))
+    # The half-open count of `fires_in_window`, one binary search per block edge rather than
+    # one call per block, which re-validates the whole train each time: O((S + B) log S).
+    counts = np.searchsorted(st, b[:, 1], side="left") - np.searchsorted(st, b[:, 0], side="left")
+    return float(np.mean(counts > 0))
 
 
 def isi_cv(spike_times) -> float:
@@ -332,3 +334,98 @@ def isi_cv(spike_times) -> float:
     from .analyzers import UnitAnalyzer
 
     return float(UnitAnalyzer.quality_metrics(spike_times, float("nan"), float("nan"))["cv_isi"])
+
+
+def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: float,
+                             censored_ms: float) -> Dict[str, Any]:
+    """Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).
+
+    Input class: one unit's spike times in seconds, any order, from a recording of
+    `duration_s` seconds. The estimate assumes stationary firing and contaminating spikes that
+    fire independently of the unit's own and violate only the unit's refractory period. The
+    formula is read from the restatement of Llobet et al. (2022), which states that its
+    eq. (1) "is equivalent to the result obtained by Hill et al. (2011)":
+
+        n_v = 2 n_t n_c t_r / T                          (Llobet et al. 2022, eq. 1)
+        C' = (1/2) (1 - sqrt(1 - 2 n_v T / (N^2 t_r)))   (Llobet et al. 2022, eq. 4)
+
+    with ``N = n_t + n_c`` spikes, ``n_c`` of them contaminating, and ``C' = n_c / N``, the
+    smaller root. Both durations exclude the censored interval ``t_c`` around each detected
+    spike: ``t_r = t'_r - t_c`` and ``T = T' - 2 N t_c``, where ``t'_r`` is `refractory_ms`,
+    ``t_c`` is `censored_ms` and ``T'`` is `duration_s`. A violation is a pair of spikes
+    separated by at least ``t_c`` and less than ``t'_r``; every such pair is counted, not
+    only consecutive spikes. The result is unitless, between 0 and 1/2.
+
+    Args:
+        spike_times: 1-D spike times in seconds.
+        duration_s: Recording duration ``T'`` in seconds; required.
+        refractory_ms: Refractory period ``t'_r`` in ms; required, larger than `censored_ms`.
+        censored_ms: Censored period ``t_c`` in ms around each spike within which the
+            detector cannot report a second spike; required, 0 or more.
+
+    Returns:
+        Dict with ``contamination`` (``C'``), ``n_violations``, ``n_spikes`` and ``reason``.
+        ``contamination`` is NaN, and ``reason`` names why, for an empty train, for a
+        censored duration ``T`` that is not positive (a zero duration among them), and when
+        ``2 n_v T / (N^2 t_r)`` exceeds 1, so that the formula has no real solution;
+        ``reason`` is ``None`` otherwise.
+
+    Raises:
+        ValueError: If `spike_times` is not 1-D or holds a NaN or an infinity, its span
+            exceeds `duration_s`, `duration_s` is negative or not finite, `censored_ms` is
+            negative, or `refractory_ms` is not larger than `censored_ms`.
+
+    References:
+        Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike
+        sorting of extracellular signals. Journal of Neuroscience 31(24), 8699-8705.
+        doi:10.1523/JNEUROSCI.0971-11.2011
+
+        Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging
+        of multiple spike-sorting analyses with Lussac. bioRxiv preprint.
+        doi:10.1101/2022.02.08.479192
+    """
+    name = "refractory_contamination"
+    for label, value in (("duration_s", duration_s), ("refractory_ms", refractory_ms),
+                         ("censored_ms", censored_ms)):
+        v = float(value)  # a value that is not a number raises here, naming its type
+        if not (np.isfinite(v) and v >= 0):
+            raise ValueError(f"{name}: {label} must be a finite number, 0 or more; got {value!r}.")
+    t_full, t_c = float(refractory_ms) / 1000.0, float(censored_ms) / 1000.0
+    if not t_full > t_c:
+        raise ValueError(
+            f"{name}: refractory_ms ({refractory_ms!r}) must be larger than censored_ms "
+            f"({censored_ms!r}); the uncensored refractory time t_r would not be positive."
+        )
+    st = np.asarray(spike_times, dtype=float)
+    if st.ndim != 1:
+        raise ValueError(f"{name}: spike_times must be one 1-D train; got shape {st.shape}.")
+    if not np.all(np.isfinite(st)):
+        raise ValueError(f"{name}: spike_times holds a NaN or an infinity.")
+    st = np.sort(st)
+    n = int(st.size)
+    if n and st[-1] - st[0] > float(duration_s):
+        raise ValueError(
+            f"{name}: the spikes span {st[-1] - st[0]!r} s, longer than duration_s="
+            f"{duration_s!r}."
+        )
+    result = {"contamination": float("nan"), "n_violations": 0, "n_spikes": n, "reason": None}
+    if n == 0:
+        result["reason"] = "no spikes: the train carries no unit to measure"
+        return result
+    lo = np.maximum(np.searchsorted(st, st + t_c, side="left"), np.arange(n) + 1)
+    hi = np.searchsorted(st, st + t_full, side="left")
+    n_v = int(np.maximum(hi - lo, 0).sum())
+    result["n_violations"] = n_v
+    t_r = t_full - t_c
+    total = float(duration_s) - 2.0 * n * t_c
+    if total <= 0:
+        result["reason"] = (f"the censored duration T = duration_s - 2 N t_c = {total!r} s is "
+                            "not positive")
+        return result
+    discriminant = 1.0 - 2.0 * n_v * total / (n * n * t_r)
+    if discriminant < 0:
+        result["reason"] = (f"2 n_v T / (N^2 t_r) = {1.0 - discriminant!r} exceeds 1: too many "
+                            "violations for the model, which has no real solution")
+        return result
+    result["contamination"] = 0.5 * (1.0 - float(np.sqrt(discriminant)))
+    return result

@@ -170,11 +170,61 @@ def test_a_unit_absent_from_half_the_blocks_has_presence_one_half():
     assert jnwb.presence_ratio(np.array([30.0]), blocks) == 0.1
 
 
+def test_presence_is_the_fires_in_window_rule_block_by_block():
+    rng = np.random.default_rng(3)
+    spikes = np.sort(np.concatenate([rng.uniform(0.0, 50.0, 40), [10.0, 20.0, 30.0]]))
+    edges = np.sort(np.concatenate([rng.uniform(0.0, 60.0, 30), [10.0, 20.0, 30.0]]))
+    for start, stop in zip(edges[:-1], edges[1:]):
+        if stop > start:
+            expected = jnwb.fires_in_window(spikes, start, (0.0, (stop - start) * 1000.0))
+            assert jnwb.presence_ratio(spikes, [[start, stop]]) == float(expected)
+
+
 def test_isi_cv_recovers_the_planted_value_and_is_the_quality_metrics_rule():
     # Alternating intervals a, b: mean (a + b) / 2, SD |a - b| / 2, CV |a - b| / (a + b).
     spikes = np.concatenate([[0.0], np.cumsum(np.tile([0.01, 0.03], 20))])  # 40 intervals
     assert jnwb.isi_cv(spikes) == pytest.approx(0.5, rel=1e-9)
     assert jnwb.isi_cv(spikes) == jnwb.UnitAnalyzer.quality_metrics(spikes, 1.0, 1.0)["cv_isi"]
+
+
+def _dead_time_train(rng, rate_hz, dead_s, duration_s):
+    """A renewal train whose intervals are `dead_s` plus an exponential: no interval is
+    shorter than `dead_s`, so the train never violates a refractory period up to it."""
+    n = int(rate_hz * duration_s * 1.5) + 100
+    isi = dead_s + rng.exponential(1.0 / rate_hz - dead_s, n)
+    t = np.cumsum(isi)
+    return t[t < duration_s]
+
+
+def test_refractory_contamination_recovers_a_planted_fraction():
+    rng = np.random.default_rng(13)
+    duration = 2000.0
+    true = _dead_time_train(rng, 20.0, 0.002, duration)
+    contaminant = _dead_time_train(rng, 4.0, 0.002, duration)
+    planted = contaminant.size / (true.size + contaminant.size)
+    assert true.size > 35000 and contaminant.size > 7000
+    got = jnwb.refractory_contamination(np.concatenate([true, contaminant]), duration_s=duration,
+                                        refractory_ms=1.5, censored_ms=0.0)
+    assert got["reason"] is None and got["n_violations"] > 300
+    assert got["contamination"] == pytest.approx(planted, rel=0.1)
+    clean = jnwb.refractory_contamination(true, duration_s=duration, refractory_ms=1.5,
+                                          censored_ms=0.0)
+    assert clean["n_violations"] == 0 and clean["contamination"] == 0.0
+
+
+def test_refractory_contamination_follows_the_equation_with_censoring():
+    # 10000 spikes 100 ms apart plus one 0.8 ms after the first: one violation.
+    spikes = np.concatenate([np.arange(10000) * 0.1, [0.0008]])
+    n, t_c, t_r_full = spikes.size, 0.0005, 0.001
+    total = 1000.0 - 2 * n * t_c                                   # T = T' - 2 N t_c
+    expected = 0.5 * (1 - np.sqrt(1 - 2 * 1 * total / (n ** 2 * (t_r_full - t_c))))
+    got = jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=1.0,
+                                        censored_ms=0.5)
+    assert got["n_violations"] == 1
+    assert got["contamination"] == pytest.approx(expected, rel=1e-12)
+    # A pair closer than the censored period is not a violation.
+    assert jnwb.refractory_contamination(spikes, duration_s=1000.0, refractory_ms=1.0,
+                                         censored_ms=0.9)["n_violations"] == 0
 
 
 # --- undefined input -----------------------------------------------------------------------
@@ -190,6 +240,24 @@ def test_no_spikes_is_nan_for_the_spike_train_measures():
     assert np.isnan(jnwb.presence_ratio(np.zeros(0), blocks))
     assert np.isnan(jnwb.isi_cv(np.zeros(0)))
     assert np.isnan(jnwb.isi_cv(np.array([0.1, 0.2])))
+
+
+def test_refractory_contamination_undefined_input_is_nan_with_a_reason():
+    def run(spikes, duration=100.0):
+        return jnwb.refractory_contamination(np.asarray(spikes, dtype=float),
+                                             duration_s=duration, refractory_ms=1.0,
+                                             censored_ms=0.0)
+    empty = run([])
+    assert np.isnan(empty["contamination"]) and "no spikes" in empty["reason"]
+    zero = run([0.0], duration=0.0)
+    assert np.isnan(zero["contamination"]) and "not positive" in zero["reason"]
+    outside = run([0.0, 0.0005, 10.0, 20.0])          # 2 n_v T / (N^2 t_r) = 12500
+    assert np.isnan(outside["contamination"]) and "no real solution" in outside["reason"]
+    with pytest.raises(TypeError):
+        jnwb.refractory_contamination(np.zeros(3), duration_s=1.0)
+    with pytest.raises(ValueError, match="larger than censored_ms"):
+        jnwb.refractory_contamination(np.zeros(3), duration_s=1.0, refractory_ms=1.0,
+                                      censored_ms=1.0)
 
 
 def test_a_zero_length_block_is_refused():

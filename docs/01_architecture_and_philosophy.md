@@ -95,6 +95,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 | `io` | Slices of NPZ arrays read without loading the whole archive | `io`, `stream_npz_array` |
 | `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
 | `metadata` | Unit quality classification, census, & SNR auditing | `get_all_units_metadata`, `classify_unit_quality`, `unit_census_report`, `get_snr_analysis`, `filter_by_criteria`, `audit_units`, `audit_electrodes`, `assign_quality_tier`, `electrode_inventory` |
+| `unit_quality` | Waveform and spike-train quality measures of one sorted unit | `waveform_features`, `waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`, `presence_ratio`, `isi_cv`, `refractory_contamination` |
 | `filtering` | Zero-phase & causal Butterworth bandpass and notch SOS filters | `bandpass_filter`, `notch_filter` |
 | `ontology` | Structured query objects and event referencing | `Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage` |
 | `jrsa` | Representational Similarity Analysis (RDMs, metrics) | `jrsa`, `JRSAResult` |

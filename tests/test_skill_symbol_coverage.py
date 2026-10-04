@@ -100,6 +100,13 @@ MODULES = ["io"]
 # row would have to invent the contract. These are candidates for de-export, not for routing.
 INTERNAL = ["assert_mergeable"]
 
+# Unit-quality measures awaiting their routing rows in the unit-quality section of a skill.
+# `test_no_exclusion_is_stale` fails once a skill routes them, so the entry cannot outlive it.
+PENDING_ROUTING = [
+    "isi_cv", "presence_ratio", "refractory_contamination", "spatial_derivative_sharpness",
+    "waveform_features", "waveform_flatness", "waveform_snr",
+]
+
 EXCLUDED = {
     **{n: "error" for n in ERRORS},
     **{n: "ontology" for n in ONTOLOGY},
@@ -109,6 +116,7 @@ EXCLUDED = {
     **{n: "namespace" for n in NAMESPACES},
     **{n: "module" for n in MODULES},
     **{n: "internal" for n in INTERNAL},
+    **{n: "pending routing" for n in PENDING_ROUTING},
 }
 
 

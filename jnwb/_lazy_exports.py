@@ -61,6 +61,7 @@ EXPORT_MODULES: dict[str, str] = {
     "spatial_derivative_sharpness": "unit_quality",
     "presence_ratio": "unit_quality",
     "isi_cv": "unit_quality",
+    "refractory_contamination": "unit_quality",
     # decoding
     "majority_baseline": "decoding",
     "fold_majority_baseline": "decoding",

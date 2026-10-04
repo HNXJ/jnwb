@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 166 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 173 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -299,6 +299,18 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
 | jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+
+## Module: jnwb.unit_quality
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.isi_cv | function | `(spike_times) -> 'float'`<br>*Coefficient of variation of the inter-spike intervals (Shinomoto et al. 2009, eq. 1).* |
+| jnwb.presence_ratio | function | `(spike_times, blocks) -> 'float'`<br>*Fraction of caller-given blocks that hold at least one spike (Siegle et al. 2021).* |
+| jnwb.refractory_contamination | function | `(spike_times, *, duration_s: 'float', refractory_ms: 'float', censored_ms: 'float') -> 'Dict[str, Any]'`<br>*Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).* |
+| jnwb.spatial_derivative_sharpness | function | `(waveform, channel_positions, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*How sharply amplitude falls from the peak channel to its nearest channels.* |
+| jnwb.waveform_features | function | `(waveform, fs: 'float') -> 'Dict[str, Any]'`<br>*Peak channel, amplitude, trough-to-peak duration, peak-trough ratio and polarity.* |
+| jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |
+| jnwb.waveform_snr | function | `(spike_waveforms) -> 'float'`<br>*Signal-to-noise ratio of one unit on one channel (Siegle et al. 2021, Methods).* |
 
 ## Module: jnwb.viz
 

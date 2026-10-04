@@ -194,41 +194,19 @@ trajectory_res = jnwb.compute_population_trajectory(
 
 ## 5. Unit Quality Measures (`jnwb.unit_quality`)
 
-Each function measures one sorted unit and decides nothing about keeping it. Sources are in
+Each function measures one sorted unit and keeps or rejects none. Sources are in
 [References](references.md#unit-quality).
 
-| Function | Input | Returns, with unit |
+| Function | Input | Returns |
 |---|---|---|
-| `waveform_features(waveform, fs)` | mean waveform `(n_channels, n_samples)`, `fs` in Hz | `peak_channel` (row index), `amplitude` (the waveform's unit), `trough_to_peak_ms` (ms), `peak_trough_ratio` and `polarity` (unitless) |
-| `waveform_snr(spike_waveforms)` | individual waveforms `(n_spikes, n_samples)` on one channel | amplitude of the mean over twice the residual standard deviation |
-| `waveform_flatness(waveform, *, threshold)` | mean waveform; `threshold` in its unit | `amplitude`, `is_flat` |
-| `spatial_derivative_sharpness(waveform, channel_positions, *, threshold)` | mean waveform and one position per channel | `sharpness` (per position unit), `is_sharp` |
-| `presence_ratio(spike_times, blocks)` | spike times (s), `(n_blocks, 2)` half-open blocks (s) | fraction of blocks holding a spike |
-| `isi_cv(spike_times)` | spike times (s) | standard deviation over mean of the inter-spike intervals |
+| `waveform_features(waveform, fs)` | mean waveform `(n_channels, n_samples)`, `fs` in Hz | `peak_channel`, `amplitude`, `trough_to_peak_ms`, `peak_trough_ratio`, `polarity` |
+| `waveform_snr(spike_waveforms)` | waveforms `(n_spikes, n_samples)` on one channel | mean amplitude over twice the residual SD |
+| `waveform_flatness(waveform, *, threshold)` | mean waveform | `amplitude`, `is_flat` |
+| `spatial_derivative_sharpness(waveform, channel_positions, *, threshold)` | mean waveform, channel positions | `sharpness` per length unit, `is_sharp` |
+| `presence_ratio(spike_times, blocks)` | spikes (s), `[start, stop)` blocks (s) | fraction of blocks with a spike |
+| `isi_cv(spike_times)` | spikes (s) | interval SD over mean |
+| `refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)` | spikes (s) | contaminating fraction, violations, reason |
 
-`trough_to_peak_ms` is the time of the peak-channel maximum minus that of its minimum, so it
-is negative for an inverted waveform. `peak_trough_ratio` above 1 means the waveform rises more
-than it falls. The flatness and sharpness thresholds have no default and no published value.
-
-Undefined input never reads as 0: one channel has no spatial derivative and raises, a
-zero-length block raises, an empty train has presence and CV NaN, a single spike has SNR NaN,
-and a waveform of zero amplitude has no peak channel and raises.
-
-```python
-import numpy as np
-import jnwb
-
-# A negative unit on the middle of three channels, 20 µm apart, sampled at 30 kHz.
-waveform = np.zeros((3, 60))
-waveform[:, 20] = [-40.0, -100.0, -50.0]
-waveform[:, 32] = [16.0, 40.0, 20.0]
-features = jnwb.waveform_features(waveform, fs=30000.0)
-# peak_channel 1, amplitude 140, trough_to_peak_ms 0.4, peak_trough_ratio 0.4, polarity -1
-sharp = jnwb.spatial_derivative_sharpness(waveform, [0.0, 20.0, 40.0], threshold=0.02)
-# sharpness 0.0275 per µm, is_sharp True
-
-spikes = np.sort(np.random.default_rng(0).uniform(0.0, 50.0, 200))
-blocks = np.column_stack([np.arange(0.0, 100.0, 10.0), np.arange(10.0, 110.0, 10.0)])
-jnwb.presence_ratio(spikes, blocks)  # 0.5: no spike after 50 s
-jnwb.isi_cv(spikes)
-```
+`trough_to_peak_ms` is negative when the maximum precedes the minimum, as in an inverted
+waveform. The flatness and sharpness thresholds have no default and no published value.
+Undefined input is NaN or a `ValueError` naming the reason, never 0.

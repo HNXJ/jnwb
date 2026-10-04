@@ -375,6 +375,7 @@ __all__ = [
     'spatial_derivative_sharpness',
     'presence_ratio',
     'isi_cv',
+    'refractory_contamination',
 
     # Digital filtering
     'bandpass_filter',
