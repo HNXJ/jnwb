@@ -553,6 +553,65 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, name):
                     UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: 0.0})
 
+    def test_a_non_finite_cut_off_is_refused_by_name(self):
+        """An infinite cut-off passed every unit, or none, without a word."""
+        regular = np.arange(0.0, 10.0, 0.003)
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            for bad in (np.inf, -np.inf, np.nan):
+                with self.subTest(cut_off=name, value=bad):
+                    with self.assertRaisesRegex(ValueError, f"{name} must be finite"):
+                        UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: bad})
+
+    def test_a_span_of_exactly_two_seconds_has_a_fano_factor(self):
+        """Two whole 1-s windows are the fewest a variance needs."""
+        st = np.linspace(0.0, 2.0, 401)                   # 5 ms intervals
+        self.assertEqual(st[-1] - st[0], 2.0)
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        counts = np.array([200, 201])                      # the end spike falls in the last window
+        self.assertEqual(res['fano_factor'], np.var(counts) / np.mean(counts))
+        self.assertIs(res['is_good_single_unit'], True)
+
+    def test_two_windows_fano_uses_the_population_variance(self):
+        """ddof=0, as stated: half the unbiased variance at two windows, so a lenient verdict."""
+        st = np.concatenate([[0.0], np.linspace(1.0, 2.0, 9)])   # counts 1 and 9
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertEqual(res['refr_violations_pct'], 0.0)
+        self.assertEqual(res['fano_factor'], 16.0 / 5.0)   # ddof=1 would give 32 / 5
+        self.assertIs(res['is_good_single_unit'], False)
+        self.assertIs(UnitAnalyzer.quality_metrics(
+            st, 300.0, 5.0, max_fano=5.0)['is_good_single_unit'], True)
+
+    def test_a_value_at_its_cut_off_does_not_pass(self):
+        """Each comparison is strict: an interval equal to the refractory period is no
+        violation, and a rate or Fano factor equal to its cut-off fails the verdict."""
+        quarter = np.arange(41) * 0.25                     # 250 ms intervals, exact in binary
+        self.assertEqual(UnitAnalyzer.quality_metrics(
+            quarter, 300.0, 5.0, refractory_ms=250.0)['refr_violations_pct'], 0.0)
+
+        steps = np.where(np.arange(3000) % 10 == 0, 0.001, 0.003)
+        violating = np.concatenate([[0.0], np.cumsum(steps)])
+        counts = [1, 9] * 5 + [1]
+        bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
+        for train, key, cut_off in ((violating, 'refr_violations_pct', 'max_violation_pct'),
+                                    (bursty, 'fano_factor', 'max_fano')):
+            with self.subTest(cut_off=cut_off):
+                value = UnitAnalyzer.quality_metrics(train, 300.0, 5.0)[key]
+                at = UnitAnalyzer.quality_metrics(train, 300.0, 5.0, **{cut_off: value})
+                above = UnitAnalyzer.quality_metrics(
+                    train, 300.0, 5.0, **{cut_off: np.nextafter(value, np.inf)})
+                self.assertIs(at['is_good_single_unit'], False)
+                self.assertIs(above['is_good_single_unit'], True)
+
+    def test_docstring_states_each_default_and_the_variance_bias(self):
+        import inspect
+        doc = inspect.getdoc(UnitAnalyzer.quality_metrics)
+        self.assertIn("Each default is a convention with no cited source", doc)
+        params = inspect.signature(UnitAnalyzer.quality_metrics).parameters
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            with self.subTest(cut_off=name):
+                self.assertIn(f"``{name}={params[name].default!r}``", doc)
+        self.assertIn("``ddof=0``", doc)
+
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
 

@@ -557,10 +557,13 @@ class UnitAnalyzer:
         Unit quality metrics: ISI, refractory period, Fano factor.
 
         The Fano factor is the variance over the mean of the spike counts in whole 1-s
-        windows from the first spike.
+        windows from the first spike. The variance is the population variance
+        (``np.var``, ``ddof=0``), which is ``(n - 1) / n`` times the unbiased (``ddof=1``)
+        variance over ``n`` windows: at two windows it is half, so the Fano factor reads
+        low and the verdict is lenient on short trains.
 
-        The defaults of ``refractory_ms``, ``max_violation_pct`` and ``max_fano`` are
-        conventions with no cited source; set them for the recording at hand.
+        Each default is a convention with no cited source: ``refractory_ms=2.0``,
+        ``max_violation_pct=5.0`` and ``max_fano=2.0``. Set them for the recording at hand.
 
         Args:
             spike_times: Spike times in seconds, in any order; they are sorted first.
@@ -579,7 +582,7 @@ class UnitAnalyzer:
             Dict with quality scores. ``refr_violations_pct`` is NaN with fewer than two
             spikes (no interval). ``fano_factor`` is NaN with fewer than two whole 1-s
             windows or no spike in them. ``is_good_single_unit`` is ``None`` when either is
-            NaN, else ``True`` when both are below their cut-offs.
+            NaN, else a ``bool``: ``True`` when both are strictly below their cut-offs.
 
         Raises:
             ValueError: If ``spike_times`` is not 1-D or holds a NaN or an infinity. A NaN
