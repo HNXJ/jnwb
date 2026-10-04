@@ -310,9 +310,9 @@ def _live_default_matches(live, written: str) -> bool:
         return str(live) == written
 
 
-#: The corpus held 120 inline routing calls when this was set. A floor far below the count
+#: The corpus held 143 inline routing calls when this was set. A floor far below the count
 #: only trips on mass deletion; this one fails once more than three rows disappear.
-_ROUTING_ROWS_FLOOR = 117
+_ROUTING_ROWS_FLOOR = 140
 
 
 def test_skill_routing_signatures_match_runtime():
@@ -327,12 +327,14 @@ def test_skill_routing_signatures_match_runtime():
     without a baseline.
     """
     checked = 0
+    skipped = 0
     for skill_name in CANONICAL_SKILLS:
         content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
         for func_name, args_str in _routing_calls(content):
             if func_name.startswith("vis.") and importlib.util.find_spec("plotly") is None:
                 # `jnwb.vis` raises ImportError without the optional extra; its rows are
                 # read when the extra is installed, as the CI job that installs it does.
+                skipped += 1
                 continue
             target = jnwb
             for attr in func_name.split("."):
@@ -389,7 +391,7 @@ def test_skill_routing_signatures_match_runtime():
                 f"gets a TypeError, or supplies them in the wrong order"
             )
 
-    assert checked >= _ROUTING_ROWS_FLOOR, (
+    assert checked + skipped >= _ROUTING_ROWS_FLOOR, (
         f"only {checked} routing rows were matched against a floor of {_ROUTING_ROWS_FLOOR}; "
         f"rows that are not matched are not checked, which is how 7 tuple-bearing rows and "
         f"4 StatisticalAnalysis rows went unread. Removing rows on purpose lowers the floor "

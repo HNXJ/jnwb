@@ -82,7 +82,7 @@ RETURNED_BY = {
 NAMESPACES = ["StatisticalAnalysis"]
 
 # The analyzer classes. Their methods compute on their own, so they are not facades over
-# routed functions; Hamm declined routing rows for them (2026-09-29, D8 (f)). The methods
+# routed functions; routing rows for them were declined (2026-09-29, D8 (e)). The methods
 # left without a row are listed per class below and held to the live class by
 # `test_excluded_analyzer_methods_are_the_unrouted_ones`.
 ANALYZERS = ["PopulationAnalyzer", "TFRAnalyzer", "UnitAnalyzer"]
