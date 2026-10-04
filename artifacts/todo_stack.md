@@ -37,7 +37,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-08, 13-09, 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-09, 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -65,8 +65,8 @@ Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
 Read-only on `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
-landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their problems are 13-08,
-13-09 and 10-09; 13-07 landed at `6c0b4542`. What remains needs the downstream code.
+landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their problems are 13-09
+and 10-09; 13-07 landed at `6c0b4542`, 13-08 at `d99cfc20`. What remains needs the downstream code.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
@@ -127,20 +127,6 @@ the screen, and show the per-session agreement table.
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 13-08 `UnitAnalyzer.quality_metrics` declines undefined input
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/analyzers.py`, `tests/test_analyzers_coverage.py`, `changelog.d/quality-metrics-undefined.fixed.md`.
-AUTONOMY: none.
-Undefined input landed in `2987ac31` (merged `0316da95`, verified independently): 0 or 1 spike, or under two whole 1-s windows, gives NaN and `is_good_single_unit=None`; the cut-offs are keyword arguments `refractory_ms=2.0`, `max_violation_pct=5.0`, `max_fano=2.0`.
-- P-366 remainder: the three defaults cite no source; ruled 2026-10-04 kept as stated conventions. Check: the docstring says each is a convention with no cited source.
-- The Fano factor uses `np.var` with ddof=0, half the unbiased variance at two windows, so the verdict is lenient there. Check: ddof=1, or the bias stated, with a test at two windows.
-- Mutants survive at a span of exactly 2.0 s, an infinite cut-off, and the `<` boundary. Check: a test kills each.
-- The verdict's type is now `bool` or `None`; the fragment sits under `fixed`. Check: it moves to `changed` if the type change is user-visible.
-Accept: the ruling applied and each check passing.
-Stop: none beyond the ruling.
 
 ### 13-10 Infinite measures and masked spikes are not read as valid
 
