@@ -42,6 +42,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
+| S style | 09-10 | `jnwb/spectral.py` (the two dB call sites), `jnwb/connectivity.py` (`_adf_pvalue` and `_series_diagnostics`), `jnwb/vis/theme.py`, `docs/generate_figures.py`, their tests |
 | W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
@@ -358,6 +359,18 @@ Source: the 0.2.8 closure review of 08-11 (2026-10-03).
 - A trial-based noise correlation (Cohen and Kohn's $r_{sc}$, counts per trial in a window) beside the time-bin form, if jaxfne or a study needs it. Check: Hamm rules whether it is a mode or a function. Waits: the docstring, references row and skill now say the time-bin form includes signal correlation.
 Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
 Stop: the window convention changes a released function's counts.
+
+### 09-10 Code and figure conventions the style audit found
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `jnwb/spectral.py`, `jnwb/connectivity.py`, `jnwb/vis/theme.py`, `docs/generate_figures.py`, `docs/assets/**`, `tests/test_spectral.py`, `tests/test_connectivity.py`.
+Source: a read-only audit against the code, visual and workspace style skills, 2026-10-04 (run `oc/20261004-084520`); the first two bullets re-read at `25d289b5`.
+- `jnwb/spectral.py:1557` and `:1656` retype `10*log10` instead of calling `to_db` (`:306`), against invariant 4.7. Check: both call `to_db`, and a test pins the output unchanged.
+- `jnwb/connectivity.py:463` turns every exception of the stationarity test into NaN, including a missing `statsmodels`. Check: an import failure raises; NaN stays for a numerical failure only.
+- `jnwb/vis/theme.py:80-102` paints opaque white Plotly backgrounds while the docs figures are transparent with light and dark variants; `docs/generate_figures.py:47-48,215-216` tells the fitted from the true onset by red against green only. Check: Plotly output matches both themes or is documented light-only; the onset lines differ by line style as well as colour, rendered in both themes.
+Accept: a test per code check; the figures re-rendered and inspected.
+Stop: a change alters a computed value.
 
 ### 09-09 PyPI publication from the tag push
 
