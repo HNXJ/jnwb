@@ -542,6 +542,9 @@ jobs:
       contents: write  # To create the Release for this tag
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The token can write; nothing after checkout needs it in .git/config.
+          persist-credentials: false
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5

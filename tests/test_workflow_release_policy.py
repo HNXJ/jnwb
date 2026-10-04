@@ -120,8 +120,9 @@ class TestWorkflowReleasePolicy:
         assert jobs["build"]["name"] in required and jobs["test-floors"]["name"] in required
         assert any(name.startswith("Test (Python ") for name in required), required
 
-    def test_the_release_skip_does_not_make_a_job_optional(self):
-        """Any other condition still drops a job from the required set."""
+    def test_any_condition_makes_a_job_optional_and_none_keeps_it_required(self):
+        """No condition is special-cased: the release-event skip no longer exists, so a job
+        carrying it is conditional like any other."""
         import sys
 
         if str(REPO_ROOT) not in sys.path:
@@ -134,7 +135,7 @@ class TestWorkflowReleasePolicy:
             "  b:\n    name: B\n    if: github.event_name == 'push'\n    runs-on: x\n"
             "  c:\n    name: C\n    runs-on: x\n"
         )
-        assert sorted(required_ci_jobs(workflow)) == ["A", "C"]
+        assert sorted(required_ci_jobs(workflow)) == ["C"]
 
     def test_tag_push_still_triggers_validation_pipeline(self):
         workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -705,6 +706,20 @@ class TestTheTagPushCreatesTheRelease:
                            '--notes-file "$RUNNER_TEMP/release_body.md"'), command
         assert steps[create[0]]["env"]["GH_TOKEN"] == "${{ github.token }}"
         assert any("actions/checkout" in str(s.get("uses", "")) for s in steps[:write[0]])
+
+    def test_no_job_that_can_write_leaves_its_token_in_the_checkout(self):
+        """`actions/checkout` stores the job's token in `.git/config` unless told not to; in a
+        job with `contents: write` any later step could push with it."""
+        jobs = _load_workflow()["jobs"]
+        writers = [jid for jid, job in jobs.items()
+                   if "write" in (job.get("permissions") or {}).get("contents", "")]
+        assert writers == ["github-release"], writers
+        for jid in writers:
+            checkouts = [s for s in jobs[jid]["steps"]
+                         if "actions/checkout" in str(s.get("uses", ""))]
+            assert checkouts, jid
+            for step in checkouts:
+                assert (step.get("with") or {}).get("persist-credentials") is False, (jid, step)
 
     def test_the_notes_are_checked_before_anything_reaches_pypi(self):
         """A body the check refuses stops the run while PyPI is still untouched."""

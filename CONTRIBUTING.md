@@ -437,7 +437,8 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    notes with `scripts/release_body.py` (a fenced `pip install jnwb==X.Y.Z`, the supported
    Python range and the version's `CHANGELOG.md` section), fails if
    `check_release_body_claims` reports a violation, and otherwise runs `gh release create`.
-   No release step needs a browser, and no other event publishes to PyPI.
+   Creating the Release needs no browser; approving the `pypi` environment's deployment
+   remains a reviewer step. No other event publishes to PyPI.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
