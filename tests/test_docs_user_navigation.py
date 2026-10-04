@@ -90,16 +90,85 @@ def _excluded_from_the_site():
     return excluded_from_the_site(MKDOCS)
 
 
+def declared_off_the_nav(mkdocs: Path = MKDOCS) -> set[str]:
+    """The `not_in_nav` entries of `mkdocs`: published pages kept off the nav on purpose."""
+    config = yaml.safe_load(mkdocs.read_text(encoding="utf-8")) or {}
+    return {line.strip() for line in (config.get("not_in_nav") or "").splitlines()
+            if line.strip() and not line.strip().startswith("#")}
+
+
+#: A moved page keeps its URL as this redirect, written for `use_directory_urls`.
+REDIRECT = re.compile(r'<meta http-equiv="refresh" content="0; url=\.\./([\w-]+)/">')
+#: A redirect holds a title and a sentence; more is content hidden off the nav.
+REDIRECT_MAX_WORDS = 40
+
+
+def redirect_target(page: Path) -> "str | None":
+    """The page a moved page sends its reader to, or None when `page` is not a redirect.
+
+    A redirect refreshes to the new URL and links the new page, so a reader whose browser
+    ignores the refresh still reaches it, and holds nothing else.
+    """
+    text = page.read_text(encoding="utf-8")
+    found = REDIRECT.search(text)
+    if not found or len(text.split()) > REDIRECT_MAX_WORDS:
+        return None
+    target = f"{found.group(1)}.md"
+    return target if f"]({target})" in text else None
+
+
 def orphaned_pages(docs: Path = DOCS, mkdocs: Path = MKDOCS) -> set[str]:
-    """Pages under `docs` that the build publishes and no live nav entry reaches."""
+    """Pages under `docs` that the build publishes and no live nav entry reaches.
+
+    A page declared off the nav is not an orphan only while it redirects to a page on the nav.
+    """
     present = {p.relative_to(docs).as_posix() for p in docs.rglob("*.md")}
-    return present - set(nav_targets(mkdocs)) - excluded_from_the_site(mkdocs)
+    on_nav = set(nav_targets(mkdocs))
+    moved = {rel for rel in declared_off_the_nav(mkdocs) & present
+             if redirect_target(docs / rel) in on_nav}
+    return present - on_nav - excluded_from_the_site(mkdocs) - moved
 
 
 def test_no_page_is_orphaned():
     """Every published page is on the nav. A page the build excludes is not published."""
     orphans = orphaned_pages(DOCS, MKDOCS)
     assert orphans == set(), f"pages exist but are on no nav entry: {sorted(orphans)}"
+
+
+def test_every_page_declared_off_the_nav_redirects_to_one_on_it():
+    declared = declared_off_the_nav(MKDOCS)
+    assert "01_architecture_and_philosophy.md" in declared, "the not_in_nav list was not read"
+    on_nav = set(nav_targets(MKDOCS))
+    for rel in declared:
+        assert (DOCS / rel).is_file(), f"not_in_nav names missing docs/{rel}"
+        assert rel not in on_nav, f"docs/{rel} is declared off the nav and listed on it"
+        assert redirect_target(DOCS / rel) in on_nav, (
+            f"docs/{rel} is off the nav and is not a redirect to a page on it"
+        )
+
+
+def test_only_a_redirect_to_a_nav_page_is_exempt_from_the_orphan_check(tmp_path):
+    """Each way a declared page can fail to be a redirect leaves it an orphan."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "new.md").write_text("# New\n", encoding="utf-8")
+    meta = '<meta http-equiv="refresh" content="0; url=../{}/">\n'
+    pages = {
+        "moved.md": "# Old\n\n" + meta.format("new") + "\nMoved to [New](new.md).\n",
+        "no_refresh.md": "# Old\n\nMoved to [New](new.md).\n",
+        "no_link.md": "# Old\n\n" + meta.format("new"),
+        "off_nav_target.md": "# Old\n\n" + meta.format("gone") + "\nMoved to [Gone](gone.md).\n",
+        "content.md": "# Old\n\n" + meta.format("new") + "\nMoved to [New](new.md).\n"
+                      + "word " * REDIRECT_MAX_WORDS,
+    }
+    for name, text in pages.items():
+        (docs / name).write_text(text, encoding="utf-8")
+    (docs / "gone.md").write_text("# Gone\n", encoding="utf-8")
+    mkdocs = tmp_path / "mkdocs.yml"
+    mkdocs.write_text("site_name: x\nnav:\n  - Home:\n      - New: new.md\n"
+                      "not_in_nav: |\n" + "".join(f"  {n}\n" for n in [*pages, "gone.md"]),
+                      encoding="utf-8")
+    assert orphaned_pages(docs, mkdocs) == set(pages) - {"moved.md"} | {"gone.md"}
 
 
 def test_no_excluded_page_is_on_the_nav():

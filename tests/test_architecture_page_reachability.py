@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -27,15 +28,17 @@ MKDOCS = REPO_ROOT / "mkdocs.yml"
 PAGE = "architecture.md"
 
 RESEARCHER = re.compile(r"\bresearcher", re.I)
-AGENT = re.compile(r"\bagents?\b|\bAI\b|\bskills?\b", re.I)
+AGENT = re.compile(r"\bagents?\b|\bAI\b|\bskills?\b|\bassistants?\b|\bLLMs?\b", re.I)
 OPERATIONS = re.compile(r"\boperations?\b", re.I)
 
 NODE = re.compile(r"([A-Za-z_][\w]*)\s*(?:\[([^\]]*)\]|\(([^)]*)\)|\{([^}]*)\})?")
-EDGE = re.compile(r"(-{2,}>|-\.+->|={2,}>)\s*(?:\|[^|]*\|)?")
+EDGE = re.compile(r"(-{2,}>|-\.+->|={2,}>)\s*(?:\|([^|]*)\|)?")
+#: Mermaid lines that group or orient nodes and draw no edge.
+LAYOUT = re.compile(r"^(?:subgraph\b.*|end|direction\s+\w+)$")
 
 #: Phrases that make an agent a precondition of using jnwb.
 AGENT_REQUIRED = re.compile(
-    r"(?:requires?|needs?|depends? on) an? (?:AI )?agent|agent[- ](?:first|only)"
+    r"(?:requires?|needs?|depends? on) an? (?:AI |LLM )?agent|agent[- ](?:first|only)"
     r"|only (?:through|via|with) an? (?:AI|agent)"
     r"|must (?:use|go through|be driven by) an? (?:AI )?agent",
     re.I,
@@ -64,15 +67,20 @@ def _mermaid_blocks(text):
 
 
 def _graph(block):
-    """Labels by node id and edges as (source, target) ids, from `graph` lines of a block."""
+    """Labels by node id and edges as (source, target) ids, from `graph` lines of a block.
+
+    An edge whose label names an agent becomes a node of its own between its ends, so a path
+    along that edge passes through an agent as it would through an agent node.
+    """
     labels, edges = {}, []
     for line in block.splitlines()[1:]:
         line = line.strip()
-        if not line or line.startswith("%%"):
+        if not line or line.startswith("%%") or LAYOUT.match(line):
             continue
         parts = EDGE.split(line)
+        edge_labels = parts[2::3]
         ids = []
-        for chunk in parts[::2]:
+        for chunk in parts[::3]:
             m = NODE.fullmatch(chunk.strip())
             # Fail closed: a line the reader cannot parse would otherwise drop its edges, and a
             # dropped researcher-to-agent edge reads exactly like an absent one.
@@ -82,7 +90,13 @@ def _graph(block):
             if label is not None or node_id not in labels:
                 labels[node_id] = label if label is not None else node_id
             ids.append(node_id)
-        edges.extend(zip(ids, ids[1:]))
+        for (a, b), label in zip(zip(ids, ids[1:]), edge_labels):
+            if label and AGENT.search(label):
+                via = f"{a}->{b}"
+                labels[via] = label
+                edges.extend([(a, via), (via, b)])
+            else:
+                edges.append((a, b))
     return labels, edges
 
 
@@ -182,4 +196,36 @@ def test_the_diagram_reader_sees_edges_and_labels():
     with pytest.raises(AssertionError, match="cannot parse"):
         _graph("graph LR\n    R[Researcher] --> A[agent] & B[skills]\n")
     assert AGENT_REQUIRED.search("Using jnwb needs an AI agent.")
+    assert AGENT_REQUIRED.search("Using jnwb requires an LLM agent.")
     assert SKILL_AUTHORITY.search("The skill is authoritative over the estimator.")
+
+
+@pytest.mark.parametrize("block", [
+    "graph LR\n    R[Researcher] -->|asks an AI agent| O[jnwb operations]\n",
+    "graph LR\n    R[Researcher] --> A[Assistant] --> O[jnwb operations]\n",
+    "graph LR\n    R[Researcher] --> L[LLM] --> O[jnwb operations]\n",
+], ids=["agent in an edge label", "Assistant", "LLM"])
+def test_the_reader_sees_an_agent_however_it_is_named(block):
+    labels, edges = _graph(block)
+    assert _paths(labels, edges, "R", AGENT, avoid=None)
+    assert not _paths(labels, edges, "R", OPERATIONS, avoid=AGENT)
+
+
+def test_the_reader_accepts_a_subgraph():
+    labels, edges = _graph(
+        "graph LR\n    subgraph core [jnwb core]\n    direction TB\n"
+        "    O[jnwb operations]\n    end\n    R[Researcher] --> O\n"
+    )
+    assert edges == [("R", "O")] and labels["O"] == "jnwb operations"
+
+
+def test_the_dependency_diagram_names_every_runtime_dependency():
+    """P-278: the diagram omitted six of the ten libraries jnwb imports at install."""
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = {re.split(r"[<>=!~\[; ]", dep, maxsplit=1)[0].lower()
+                for dep in project["project"]["dependencies"]}
+    assert {"numpy", "pynwb", "joblib"} <= declared, declared
+    drawn = [label for block in _mermaid_blocks((DOCS / PAGE).read_text(encoding="utf-8"))
+             for label in _graph(block)[0].values() if label and "NumPy" in label]
+    assert len(drawn) == 1, drawn
+    assert {name.strip().lower() for name in drawn[0].split(",")} == declared

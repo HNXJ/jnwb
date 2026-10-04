@@ -86,5 +86,5 @@ assert record.provenance.version_claim_matches_execution
 ## 6. Documentation
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)
 - [`docs/09_decoding_and_visual_qc.md`](../../docs/09_decoding_and_visual_qc.md)
-- [`docs/01_architecture_and_philosophy.md`](../../docs/01_architecture_and_philosophy.md)
+- [`docs/architecture.md`](../../docs/architecture.md)
 - [`docs/api.md`](../../docs/api.md)
