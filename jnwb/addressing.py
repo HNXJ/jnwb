@@ -8,7 +8,9 @@ carries no area vocabulary and does not normalize spelling or aliases.
 """
 
 from dataclasses import dataclass
+import decimal
 import logging
+import numbers
 from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
@@ -33,6 +35,10 @@ _MISSING_TEXT = frozenset(s.lower() for s in _PANDAS_NA_STRINGS) | {"nat"}
 # with no cited source, which the caller replaces through `stable_labels`.
 _STABLE_QUALITY_LABELS = ("good", "sua", "single", "stable", "clean")
 
+# The units-table columns `enrich_units_dataframe` reads by name.
+_ENRICH_READS = ("cluster_id", "unit_id", "peak_channel_id", "area", "depth_class",
+                 "group_name", "quality", "firing_rate", "waveform_duration", "snr")
+
 
 def _stable_label_set(stable_labels, caller: str) -> frozenset:
     """``stable_labels`` as compared: stripped and lower-cased. A bare string is refused,
@@ -52,18 +58,36 @@ def _stable_label_set(stable_labels, caller: str) -> frozenset:
 
 
 def _finite_cutoff(value, name: str, caller: str) -> float:
-    """A cut-off as compared: a finite real number. ``None`` or a non-number raises
-    ``TypeError``; NaN or an infinity raises ``ValueError``, because every comparison with it
-    passes or fails every unit alike."""
-    if value is None or isinstance(value, (bool, np.bool_)) or not isinstance(
-            value, (int, float, np.integer, np.floating)):
+    """A cut-off as compared: a finite real number, returned as ``float``. Any real number is
+    accepted -- a Python or numpy number, a ``Fraction``, a ``Decimal``, or a 0-d numpy or
+    JAX array of integer or float dtype. ``None``, a boolean, a complex number and anything
+    else raise ``TypeError``; NaN or an infinity raises ``ValueError``, because every
+    comparison with it passes or fails every unit alike."""
+    if getattr(value, "ndim", None) == 0 and hasattr(value, "dtype"):
+        real = np.dtype(value.dtype).kind in "iuf"  # a 0-d array or numpy scalar, not bool
+    else:
+        real = (isinstance(value, (numbers.Real, decimal.Decimal))
+                and not isinstance(value, bool))
+    if not real:
         raise TypeError(f"{caller}: {name} must be a finite number, not {value!r}.")
-    if not np.isfinite(value):
+    as_float = float(value)
+    if not np.isfinite(as_float):
         raise ValueError(
             f"{caller}: {name} is {value!r}; a non-finite cut-off passes or fails every unit "
             "alike. Pass a finite number."
         )
-    return float(value)
+    return as_float
+
+
+def _refuse_repeated_columns(frame: pd.DataFrame, columns, caller: str) -> None:
+    """A column read by name that occurs twice would be a DataFrame, not one value per unit;
+    refuse it by name instead of failing inside pandas or numpy."""
+    repeated = [col for col in dict.fromkeys(columns) if (frame.columns == col).sum() > 1]
+    if repeated:
+        raise ValueError(
+            f"{caller}: column(s) {repeated} occur more than once in the units table; keep "
+            "one column per metric."
+        )
 
 
 def _quality_is_stable(quality: pd.Series, stable_threshold: float,
@@ -510,7 +534,9 @@ def enrich_units_dataframe(
         stable_threshold: numeric quality at or above which a unit is stable.
         stable_labels: text quality labels read as stable, a collection; a bare string
             raises ``TypeError`` and an empty one ``ValueError``, as does a
-            ``stable_threshold`` that is NaN or infinite (``None`` raises ``TypeError``).
+            ``stable_threshold`` that is NaN or infinite (``None`` or a boolean raises
+            ``TypeError``), and a column this function reads (``quality``, ``unit_id``,
+            ``snr``, ...) that occurs more than once in ``units_df``.
             Both defaults, 1.0 and
             ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
             source: pass the rule your sorter's codes follow.
@@ -522,6 +548,7 @@ def enrich_units_dataframe(
     labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
     stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold",
                                       "enrich_units_dataframe")
+    _refuse_repeated_columns(units_df, _ENRICH_READS, "enrich_units_dataframe")
     df = units_df.copy()
 
     # 1. Standardize unit_id column
