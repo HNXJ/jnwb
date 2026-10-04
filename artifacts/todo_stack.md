@@ -40,7 +40,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-11, 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
 | D docs | 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
@@ -120,24 +119,6 @@ route them through `jnwb-qc`. The screen and its per-session agreement table mov
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 07-12 Every export routed or excluded with a checked reason
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `skills/*/SKILL.md`, `tests/test_skill_symbol_coverage.py`, `tests/test_skills_validation.py`.
-Measured at `ac08e973`: 26 of 162 exports and 8 of 48 modules named by no skill
-(`artifacts/evidence/0.2.7/package_inventory.md`); `jnwb.__all__` holds 166 names at `4474cbcc`. D8 was ruled 2026-09-29: (e) and (f) not
-approved, so the analyzer classes and the unrouted exports get checked exclusions, not new rows.
-- IB-61: the coverage test excludes `PopulationAnalyzer`, `TFRAnalyzer` and `UnitAnalyzer` as facades, but they compute on their own, and the router's GPU table names two methods with no row. Check: routing rows, or de-export by ruling (`artifacts/evidence/0.2.8/plan/decisions.md` D8), then a reason the test verifies.
-- IB-63: `jnwb-landmark-viz` routes by module, so no signature check covers its rows. Check: per-function rows checked against `inspect.signature` when plotly is installed.
-- P-267: no skill routes `jnwb.ontology`, and the exclusion comment points to a workflow no skill has. Check: rows in 07-11's skill, or a checked exclusion.
-- P-279: the tuple check counts elements only, so a swapped return order survives it. Check: element names or types compared.
-- Exports and modules outside the routing: the inventory's 26 exports and 43 modules with names outside `__all__`. Check: each group is a checked exclusion with its reason, since D8 (f) was not approved and no new routing rows are added (`artifacts/rulings/2026-09-29.md`).
-- Docs pages, examples and notebooks: the 0.2.9 acceptance names them routed or excluded, and no item checks them. Check: the routed-or-excluded check also reads every page under `docs/`, every script under `examples/` and every notebook, each routed by a skill or excluded with a reason it verifies.
-Accept: the excluded set is smaller than at `dcb75f12` and each remaining reason is checked.
-Stop: a row would restate a definition that belongs in `docs/`.
-Waits: routing completeness; a stale row raises loudly and no value is wrong.
 
 ### 09-02 Documentation statements
 
@@ -244,7 +225,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-05, 13-06, 13-11, 07-12, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-05, 13-06, 13-11, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -438,6 +419,7 @@ Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`,
 - Vis label edges: a full label in `plot_csd`'s `colorbar_title` doubles the unit; a whitespace title; the depth hover has no unit. Check: a title naming a unit refused, the hover names `depth_unit`. Waits: visibly contradictory, never silent.
 - Vis range edges: the hierarchy hover's "%" removal is unpinned; `plot_spectrolaminar_map` draws infinities as gaps; an empty `rel_power` fails in numpy. Check: a killing assertion, infinities refused, a named error. Waits: shipped hover correct.
 - P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call, a serial run exits after a failed close, the swallowed-error mutant killed, later calls fail fast. Waits: loud, and release runs use xdist, where the hang does not occur.
+- P-367: no test pins the `raster_psth` SEM value; a ddof=0 mutant and a mutant that drops the division by the square root of the trial count both pass all 423 tests in the 11 files that call it (found 2026-10-04 at `94334cb4`). Check: a hand-computed SEM kills both. Waits: display helper, value unchanged.
 - P-332 display part: `plot_sorted_heatmap(category_labels)` is ignored. Check: used or refused. Waits: display.
 - P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: killing tests. Waits: behaves correctly.
 Accept: each check passes.
@@ -517,7 +499,7 @@ Stop: the window convention changes a released function's counts.
 ### 07-08 The router composes the minimal skill set a task needs
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb. Blocked by: 07-12.
+Role: jnwb-developer. Skill: jnwb. Blocked by: none.
 Writes: `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`.
 Router section 2 maps each task phrase to one skill, so a multi-skill task reaches the first match.
 Accept: a table of tasks and required skill sets passes, with plotting supplied arrays reaching
