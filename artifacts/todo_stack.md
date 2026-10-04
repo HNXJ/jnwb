@@ -39,7 +39,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-12, 13-11, 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-11, 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
 | D docs | 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -83,17 +83,6 @@ landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their re
 - The 13-03 duration docstring names the downstream pipeline's redefined duration against the published trough-to-peak duration (ruling 13-01, row D8). Check: the docstring sentence cites the downstream code read for D8.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
-
-### 13-12 One ISI-CV rule, and the duration tie pinned
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `jnwb/unit_quality.py`, `tests/test_analyzers_coverage.py`, `tests/test_unit_quality.py`, `changelog.d/unit-quality-cv-isi.changed.md`.
-Source: Hamm's ruling of 2026-10-04 (`artifacts/rulings/2026-10-04.md`) and the 13-03 verifier, at `caeb4be3`.
-- `UnitAnalyzer.quality_metrics` computes `cv_isi` with ddof=0 while `jnwb.isi_cv` uses ddof=1, two rules for one estimator (invariant 4.7). Check: `quality_metrics` calls `isi_cv`'s rule, a test pins the shared value, and the changed 0.2.8 value is announced under changed.
-- No test pins the tie branch of `trough_to_peak_ms` (Allen's rule takes the trough branch when the peak and trough magnitudes are equal); the mutant `>` to `>=` survives. Check: a symmetric-waveform test kills it.
-Accept: the suite and harness pass.
-Stop: none.
 
 ### 13-11 Unit-quality display edges
 
@@ -255,7 +244,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-12, 13-05, 13-06, 13-11, 07-12, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-05, 13-06, 13-11, 07-12, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
