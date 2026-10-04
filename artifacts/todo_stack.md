@@ -161,11 +161,12 @@ Stop: none beyond the ruling.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-07.
-Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
+Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
 Source: the 13-07 critic and verifier, 2026-10-04.
 - `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
 - `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
 - `stable_threshold` of NaN, +inf or `None` makes every defined quality non-stable, -inf or a negative value makes every one stable, and `stable_labels=()` disables the label path, all silently (`_quality_is_stable` in `jnwb/addressing.py`). Check: a non-finite or `None` threshold and an empty label set are refused by name.
+- `assign_quality_tier` reads a numpy masked array of presence or SNR through `np.asarray`, dropping the mask, so a masked unit reads as present; `plot_unit_waveforms` averages 3-D spikes with `nanmean`, so where spikes drop out per sample the template's amplitude shifts and can move the peak channel. Check: a masked array is refused or its mask honoured; the per-sample spike count is stated or a sample missing in some spikes is refused.
 - `audit_units` writes a one-unit spread as NaN, which `json.dumps` emits as invalid strict JSON. Check: the documented output is valid JSON, or the docstring says NaN.
 Accept: a test per check that fails before the repair.
 Stop: a refusal that changes a value a released analysis reported goes to Hamm.
