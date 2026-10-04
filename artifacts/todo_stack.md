@@ -39,7 +39,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-11, 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | D docs | 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
@@ -82,19 +82,6 @@ landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their re
 - The 13-03 duration docstring names the downstream pipeline's redefined duration against the published trough-to-peak duration (ruling 13-01, row D8). Check: the docstring sentence cites the downstream code read for D8.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
-
-### 13-11 Unit-quality display edges
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `jnwb/visual_qc.py`, `tests/test_visual_qc.py`.
-Moved from 10-09 on 2026-10-04 (`artifacts/rulings/2026-10-04.md`). P-365 mislabels the plot 13-06
-draws, `plot_unit_waveforms`, so this item lands before 13-06.
-- P-361 display part: `plot_unit_quality_distribution` and `compare_session_quality` draw guide lines and colour cut-offs at 1.0, 0.5, 50 and 25 with no cited source. Check: each from an argument. Waits: display only; no computed value changes.
-- P-364 display part: `compare_session_quality` colours a session with NaN `snr_mean` red, as failing, and labels its axis "% Units with SNR > 1.0" whatever threshold produced the rate. Check: NaN drawn as unknown; the label from the threshold. Waits: display and wording only.
-- P-365 label part: `plot_unit_quality_distribution` labels `waveform_duration` in μs and `plot_unit_waveforms` every trace in μV, while the repository's fixtures pass ms-scale and μs-scale values. Check: the unit is an argument (fact I3). Waits: display only; the channel averaging was repaired in `6c0b4542`.
-Accept: each check passes.
-Stop: none beyond the standing ones.
 
 ### 13-05 One skill routes unit quality
 
@@ -209,7 +196,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-05, 13-06, 13-11, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-05, 13-06, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
