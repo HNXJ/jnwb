@@ -137,6 +137,16 @@ def test_the_duration_runs_from_the_dominant_extremum_to_the_opposite_one_after_
     assert got == pytest.approx(expected_ms, rel=1e-12)
 
 
+def test_a_tie_between_peak_and_trough_takes_the_trough_branch():
+    # |max| == |min|: Allen's rule runs from the trough (sample 20) to the maximum after it
+    # (sample 26), 0.2 ms; the peak branch would run from sample 10 to 20, 1/3 ms.
+    w = np.zeros((1, 60))
+    w[0, 10], w[0, 20], w[0, 26] = 100.0, -100.0, 50.0
+    got = jnwb.waveform_features(w, 30000.0)
+    assert np.isnan(got["polarity"])
+    assert got["trough_to_peak_ms"] == pytest.approx(0.2, rel=1e-12)
+
+
 def test_the_peak_channel_is_the_largest_amplitude_not_the_deepest_trough():
     w = np.zeros((2, 20))
     w[0, 5] = -50.0                      # deepest trough, amplitude 50

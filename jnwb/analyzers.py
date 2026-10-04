@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
 from .spiking import _count_fano
+from .unit_quality import isi_cv
 from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
@@ -565,6 +566,10 @@ class UnitAnalyzer:
         the first spike ``t0`` with the last one closed, so a spike at the train's end counts,
         where the trial windows of :func:`jnwb.fano_factor` are right-open.
 
+        ``cv_isi`` is :func:`jnwb.isi_cv`, with the unbiased (``ddof=1``) standard deviation
+        of the intervals. Up to 0.2.8 it used ``ddof=0`` and read lower by
+        ``sqrt((n - 1) / n)`` for ``n`` intervals.
+
         Each default is a convention with no cited source: ``refractory_ms=2.0``,
         ``max_violation_pct=5.0`` and ``max_fano=2.0``. Set them for the recording at hand.
 
@@ -636,8 +641,7 @@ class UnitAnalyzer:
             fano_factor = np.nan
 
         mean_isi = float(np.mean(isis_ms)) if len(isis_ms) > 0 else np.nan
-        cv_isi   = float(np.std(isis_ms) / mean_isi) \
-                   if (mean_isi > 0 and len(isis_ms) > 1) else np.nan
+        cv_isi   = isi_cv(spike_times)
 
         if np.isnan(refr_violation_pct) or np.isnan(fano_factor):
             verdict = None

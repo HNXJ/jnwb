@@ -329,8 +329,7 @@ def isi_cv(spike_times) -> float:
     Input class: one unit's spike times in seconds, any order. The CV is the standard
     deviation of the intervals over their mean, unitless. The standard deviation is the
     unbiased one (``ddof=1``), the variance rule of `jnwb.fano_factor`; the ``cv_isi`` of
-    `UnitAnalyzer.quality_metrics` uses ``ddof=0`` and reads lower by ``sqrt((n - 1) / n)``
-    for ``n`` intervals. It is 0 for a perfectly regular train and near 1 for a Poisson train.
+    `UnitAnalyzer.quality_metrics` is this function. It is 0 for a perfectly regular train and near 1 for a Poisson train.
 
     Args:
         spike_times: 1-D spike times in seconds.

@@ -562,6 +562,15 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, f"{name} must be finite"):
                         UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: bad})
 
+    def test_cv_isi_is_the_rule_of_isi_cv(self):
+        """One estimator, one rule: intervals 1 and 3 s give sd sqrt(2) (ddof=1) over mean 2;
+        0.2.8's ddof=0 read 0.5, lower by sqrt((n - 1) / n) for n intervals."""
+        import jnwb
+        st = np.array([0.0, 1.0, 4.0])
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertAlmostEqual(res['cv_isi'], np.sqrt(2.0) / 2.0, places=12)
+        self.assertEqual(res['cv_isi'], jnwb.isi_cv(st))
+
     def test_a_span_of_exactly_two_seconds_has_a_fano_factor(self):
         """Two whole 1-s windows are the fewest a variance needs."""
         st = np.linspace(0.0, 2.0, 401)                   # 5 ms intervals
