@@ -85,6 +85,23 @@ def test_each_operation_has_one_routing_row() -> None:
     assert not shared, f"operations routed by more than one row: {shared}"
 
 
+#: The rows `jnwb-paradigm` took from `jnwb-nwb-data`: experiment structure, timing and
+#: conditions. `detect_trial_cycles` and `assign_subblock_quartiles` shared one row and moved as one.
+PARADIGM_ROUTES = (
+    "jnwb.assign_subblock_quartiles", "jnwb.detect_trial_cycles", "jnwb.epoch_continuous",
+    "jnwb.EpochCollection", "jnwb.events", "jnwb.EventTable", "jnwb.resolve_interval_table",
+)
+
+
+def test_the_paradigm_rows_live_in_one_skill() -> None:
+    """Each row `jnwb-paradigm` took is routed there once, and has left `jnwb-nwb-data`."""
+    taken = _routed_operations((SKILLS / "jnwb-paradigm" / "SKILL.md").read_text(encoding="utf-8"))
+    assert sorted(taken) == sorted(PARADIGM_ROUTES), f"jnwb-paradigm routes {sorted(taken)}"
+    left = set(_routed_operations((SKILLS / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")))
+    assert left, "no row of jnwb-nwb-data was read; the second check would pass on nothing"
+    assert not left & set(PARADIGM_ROUTES), f"still routed by jnwb-nwb-data: {left & set(PARADIGM_ROUTES)}"
+
+
 def test_the_row_parser_reads_every_call_a_bullet_routes() -> None:
     rows = (
         "- `jnwb.raster_psth(st, onsets, win_ms, bin_ms)`: Binned arrays.\n"

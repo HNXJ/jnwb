@@ -1,0 +1,5 @@
+interface:
+  display_name: jnwb-paradigm
+  description: Experiment structure from NWB interval tables -- event rows and onsets, epochs aligned to events, recording cycles, and condition meaning taken from documented metadata.
+policy:
+  allow_implicit_invocation: true
