@@ -365,11 +365,10 @@ Stop: the window convention changes a released function's counts.
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `.github/workflows/workflow.yml`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`.
-Ruled 2026-10-03 (`artifacts/rulings/2026-10-03.md`), moved from 12-03 so the 0.2.9 release needs no browser.
-- `publish-pypi` needs `verify-testpypi` in the `v*` tag-push run, uploads that run's artifact after the TestPyPI hash check, and the trigger on a published GitHub Release is removed; the run then creates the GitHub Release with the version's `CHANGELOG.md` section as notes. Check: `tests/test_workflow_release_policy.py` refuses a `publish-pypi` that runs without `verify-testpypi`, on any event but a `v*` tag push, or from another run's artifact.
-- The body the run writes states `pip install jnwb==<version>` and the Python range, and the run applies `check_release_body_claims` to it before creating the Release. The 0.2.8 body, written by hand from GitHub's generated notes, stated neither, and `tests/test_release_body_gate.py`'s live test failed against it. Check: a test that the run's body passes the check and that a generated-notes body is refused.
-- `CONTRIBUTING.md` "Releasing" steps 4 to 6 describe the new order. Check: the release-policy test reads them.
-Accept: the policy test passes and fails on the 0.2.8 workflow; one CI run on `dev` is green; the 0.2.9 tag push publishes without a manual Release.
+The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed in `01606de1` (merged `ae7c6930`, verified independently, rulings 2026-10-03 and 2026-10-04). What remains only a real run can show.
+- Check: one CI run on `dev` at the merge is green.
+- Check: the 0.2.9 tag push pauses `publish-pypi` for the `pypi` approval inside the run, PyPI trusted publishing accepts the push-event job, `publish-pypi` downloads that run's distribution, and `github-release` creates the Release whose body passes `tests/test_release_body_gate.py`'s live test.
+Accept: both checks observed.
 Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
 # 0.2.10
