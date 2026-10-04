@@ -36,7 +36,7 @@ areas/layers, classifying unit quality, or compressing arrays.
   `pynwb.NWBHDF5IO`.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 
-Choosing an interval table, event rows (`jnwb.events`), epochs around events, recording structure and what a
+Choosing an interval table, event rows, epochs around events, recording structure and what a
 condition code means are routed by `jnwb-paradigm`.
 
 MCP tools `inspect_nwb` and `get_event_codes_and_timings` wrap `inspect` and `events` for agent

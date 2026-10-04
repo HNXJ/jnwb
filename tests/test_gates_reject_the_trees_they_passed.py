@@ -474,6 +474,44 @@ class TestGate13ChecksBehaviourNotPresence:
         violations = check_nwb_onboarding_alignment(root)
         assert violations == ["NWB_ONBOARDING: no skill has a routing row for jnwb.events"], violations
 
+    @pytest.mark.parametrize("head", ["- `jnwb.inspect`: see", "- `jnwb.inspect` → see"])
+    def test_a_call_in_the_description_does_not_stand_in_for_the_head(self, tmp_path, head):
+        """The row names `jnwb.inspect` and calls it only after the colon or the arrow."""
+        root = self._tree(tmp_path)
+        skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
+        text = skill.read_text(encoding="utf-8")
+        row = "- `jnwb.inspect(path_or_nwb)` →"
+        assert text.count(row) == 1
+        skill.write_text(text.replace(row, f"{head} `jnwb.inspect(path_or_nwb)` →"), encoding="utf-8")
+        violations = check_nwb_onboarding_alignment(root)
+        assert violations == [
+            "NWB_ONBOARDING: skills/jnwb-nwb-data has a routing row for jnwb.inspect but the row "
+            "never routes a call to it"
+        ], violations
+
+    @pytest.mark.parametrize("row, rejected", [
+        ("- `jnwb.inspect(path_or_nwb)`: a structured dict; see `jnwb.events(x)` →", False),
+        ('- `jnwb.inspect(path_or_nwb, sep=": ")`: a structured dict →', False),
+        ('- `jnwb.inspect(path_or_nwb, fmt="%H:%M")` →', False),
+        ("- `jnwb.inspect(path_or_nwb: str)`: a dict →", False),
+        ("- `jnwb.inspect(path_or_nwb, opts={'a': 1})` →", False),
+        # No colon and no arrow: the head ends at the first whitespace after the first span.
+        ("- `jnwb.inspect` -- see `jnwb.inspect(path_or_nwb)` for", True),
+        ("- `jnwb.inspect` returns a dict; call `jnwb.inspect(path_or_nwb)` for", True),
+    ])
+    def test_the_row_head_is_read_whatever_the_separator(self, tmp_path, row, rejected):
+        root = self._tree(tmp_path)
+        skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
+        text = skill.read_text(encoding="utf-8")
+        line = "- `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,"
+        assert text.count(line) == 1
+        skill.write_text(text.replace(line, row), encoding="utf-8")
+        expected = [
+            "NWB_ONBOARDING: skills/jnwb-nwb-data has a routing row for jnwb.inspect but the row "
+            "never routes a call to it"
+        ] if rejected else []
+        assert check_nwb_onboarding_alignment(root) == expected
+
 
 # ---------------------------------------------------------------------------- Gate 4
 class TestGate4AllowlistCarriesNoDeadEntries:

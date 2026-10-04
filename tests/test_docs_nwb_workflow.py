@@ -200,15 +200,27 @@ def test_tutorial_docs_include_executable_sources():
 
 
 def test_skill_routes_to_public_nwb_api():
-    text = SKILL.read_text(encoding="utf-8")
-    for symbol in (
-        "jnwb.inspect",
-        "jnwb.events",
-        "jnwb.event_onsets",
-        "jnwb.unit_spike_times",
-        "jnwb.acquisition_channel",
+    from tests.test_skill_router_reach import _routed_operations
+
+    # Each symbol is read from the routing row of the skill that owns it. A mention in
+    # `jnwb-nwb-data` stood in for the `jnwb.events` row, which `jnwb-paradigm` holds.
+    owners: dict[str, list[tuple[str, str]]] = {}
+    for path in sorted(SKILL.parents[1].glob("*/SKILL.md")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            for op in set(_routed_operations(line)):
+                owners.setdefault(op, []).append((path.parent.name, line))
+    for symbol, owner in (
+        ("jnwb.inspect", "jnwb-nwb-data"),
+        ("jnwb.events", "jnwb-paradigm"),
+        ("jnwb.event_onsets", "jnwb-nwb-data"),
+        ("jnwb.unit_spike_times", "jnwb-nwb-data"),
+        ("jnwb.acquisition_channel", "jnwb-nwb-data"),
     ):
-        assert symbol in text
+        rows = owners.get(symbol, [])
+        assert [skill for skill, _ in rows] == [owner], (symbol, rows)
+        assert f"`{symbol}(" in rows[0][1], (symbol, rows[0][1])
+
+    text = SKILL.read_text(encoding="utf-8")
     assert "paths.describe()" in text
     assert "not a substitute for `jnwb.inspect" in text
     # Routing rows look like "- `jnwb.inspect(path_or_nwb)`". The MCP tools are named
