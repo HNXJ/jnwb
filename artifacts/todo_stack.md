@@ -37,12 +37,12 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
-| S style | 09-10, 09-11 | `jnwb/spectral.py` (the two dB call sites), `jnwb/connectivity.py` (`_adf_pvalue` and `_series_diagnostics`), `jnwb/vis/theme.py`, `docs/generate_figures.py`, their tests |
+| S style | 09-12, 09-11 | `jnwb/spectral.py` (`to_db`), `jnwb/connectivity.py` (`_ADF_NUMERICAL_FAILURES`), `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
 | W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
@@ -66,7 +66,7 @@ Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
 Read-only on `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
 landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their remaining problems are
-13-10 and 10-09; 13-07, 13-08 and 13-09 landed (`6c0b4542`, `d99cfc20`, `cb86990e`). What remains needs the downstream code.
+10-09; 13-07 to 13-10 landed (`6c0b4542`, `d99cfc20`, `cb86990e`, `737a583e`). What remains needs the downstream code.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
@@ -127,22 +127,6 @@ the screen, and show the per-session agreement table.
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 13-10 Infinite measures and masked spikes are not read as valid
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-infinite-measures.fixed.md`, `changelog.d/unit-quality-degenerate.fixed.md`.
-Source: the 13-09 critic and verifier, 2026-10-04.
-- An SNR, presence or firing rate of +inf passes as valid: `classify_unit_quality` gives `Good`, `assign_quality_tier` `'stable'`, and `audit_units`' SNR mean is NaN beside a good count that includes it; an infinite quality is already undefined. Check: an infinite measure is undefined input in each function, or refused by name.
-- `plot_unit_waveforms` ignores the mask of a masked 3-D spike array and averages the masked outlier in. Check: the mask is honoured or the array refused, as `assign_quality_tier` refuses one.
-- `assign_quality_tier` refuses a superset presence index only when `quality` carries `RangeIndex(0, n, 1)`; an int64 index 0..n-1 left by a CSV round-trip after `reset_index`, or `RangeIndex(1, n+1)`, still pairs the full table's first units silently, as 0.2.8 did. Check: Hamm rules whether the refusal covers any index equal to 0..n-1, weighed against refusing `head()` selections.
-- `compare_old_new_criteria` overwrites a caller column named `old_screened` or `transition` silently; `_finite_cutoff` raises an unnamed error for a torch 0-d tensor and an integer too large for a float. Check: each is refused by name or kept.
-- A JAX float32 cut-off is now compared at its exact value, where 0.2.8 truncated it to float32, so a value tied with the cut-off at float32 precision can change verdict; the fragment says "compared at its exact value as before". Check: the fragment states the JAX difference.
-- No test pins the strict or inclusive comparison at a cut-off for `assign_quality_tier` presence and SNR or `audit_units`' `good_count` (mutants `>` to `>=` and `>=` to `>` survive); the ties match 0.2.8. Check: a tie test for each.
-- With a repeated `unit_id`, `audit_units` names a unit by its index label as "unit 1". Check: the message says it is the index label.
-Accept: a test per check that fails before the repair.
-Stop: a repair that changes a value a released analysis reported on valid input goes to Hamm.
 
 ### 07-10 `jnwb-paradigm`: experiment structure, timing and condition semantics
 
@@ -336,17 +320,16 @@ Source: a repository organisation review (T10), re-read at `5bff9be7` on 2026-10
 Accept: each check observed on a fresh clone.
 Stop: none.
 
-### 09-10 Code and figure conventions the style audit found
+### 09-12 Edges the 09-10 verifier found
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/spectral.py`, `jnwb/connectivity.py`, `jnwb/vis/theme.py`, `docs/generate_figures.py`, `docs/assets/**`, `tests/test_spectral.py`, `tests/test_connectivity.py`.
-Source: a read-only audit against the code, visual and workspace style skills, 2026-10-04 (run `oc/20261004-084520`); the first two bullets re-read at `25d289b5`.
-- `jnwb/spectral.py:1557` and `:1656` retype `10*log10` instead of calling `to_db` (`:306`), against invariant 4.7. Check: both call `to_db`, and a test pins the output unchanged.
-- `jnwb/connectivity.py:463` turns every exception of the stationarity test into NaN, including a missing `statsmodels`. Check: an import failure raises; NaN stays for a numerical failure only.
-- `jnwb/vis/theme.py:80-102` paints opaque white Plotly backgrounds while the docs figures are transparent with light and dark variants; `docs/generate_figures.py:47-48,215-216` tells the fitted from the true onset by red against green only. Check: Plotly output matches both themes or is documented light-only; the onset lines differ by line style as well as colour, rendered in both themes.
-Accept: a test per code check; the figures re-rendered and inspected.
-Stop: a change alters a computed value.
+Writes: `jnwb/connectivity.py`, `jnwb/spectral.py`, `tests/test_connectivity.py`, `changelog.d/granger-stationarity-import.changed.md`.
+Source: the 09-10 verifier, 2026-10-04, at `bd3fe43a` (merged `11be9790`).
+- Under a caller's `np.errstate(all="raise")`, `_adf_pvalue` raises `FloatingPointError` (underflow in dot or multiply) on tiny, huge, near-constant or exponential series, where 0.2.8 returned NaN; the item kept NaN for a numerical failure. Check: `FloatingPointError` is a numerical failure giving NaN and `stationarity_not_tested`, and a test fails before the repair.
+- The `to_db` docstring calls it the single point every conversion passes through, while `band_power` converts through `_ratio_to_db`. Check: the docstring names `_ratio_to_db` as the shared formula.
+Accept: the test and the docstring.
+Stop: none.
 
 ### 09-09 PyPI publication from the tag push
 
