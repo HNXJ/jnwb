@@ -185,7 +185,12 @@ def test_mkdocs_tutorials_nav_order():
         for script in sorted(TUTORIAL_DIR.glob("[0-9][0-9]_*.py"))
     ]
     assert len(expected) >= 8
-    assert paths == expected
+    # Tutorial 00 reads the reader's own file, so it opens the Start group; the rest
+    # follow in order under Tutorials.
+    assert expected[0] == "tutorials/00_your_own_file.md"
+    start = next(item for item in nav if "Start" in item)["Start"]
+    assert expected[0] in [next(iter(entry.values())) for entry in start]
+    assert paths == expected[1:]
 
 
 def test_tutorial_docs_include_executable_sources():

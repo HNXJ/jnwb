@@ -1426,7 +1426,7 @@ def test_the_psi_shading_check_catches_the_nominal_band_edges(drawn):
 def test_a_thumbnail_is_judged_at_gallery_width_unless_it_links_to_its_page(href):
     stem = "assets/figures/fig05_complex_tfr_coi"
     cell = f'<table><tr><td><a href="{{}}"><img src="{stem}.png#only-light"></a></td></tr></table>'
-    assert _img_widths(cell.format("04_spectral_analysis_and_tfr/")) == [(stem, PAGE_WIDTH_PX)]
+    assert _img_widths(cell.format("coherence_and_tfr/")) == [(stem, PAGE_WIDTH_PX)]
     assert _img_widths(cell.format(href)) == [(stem, GALLERY_WIDTH_PX)]
 
 

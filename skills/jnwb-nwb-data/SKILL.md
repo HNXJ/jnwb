@@ -110,4 +110,5 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 ## 6. Documentation
 - [Tutorial: NWB Basics](../../docs/tutorials/01_nwb_basics.md)
 - [Tutorial: Addressing and metadata](../../docs/tutorials/02_addressing_and_metadata.md)
+- [`docs/reading_nwb.md`](../../docs/reading_nwb.md)
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)

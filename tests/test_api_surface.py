@@ -13,7 +13,7 @@ from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JNWB_DIR = REPO_ROOT / "jnwb"
-MODULE_MAP_PAGE = REPO_ROOT / "docs" / "01_architecture_and_philosophy.md"
+MODULE_MAP_PAGE = REPO_ROOT / "docs" / "architecture.md"
 
 
 def _discovered_module_keys() -> set[str]:
@@ -96,7 +96,7 @@ def _module_map_rows() -> dict[str, list[str]]:
 
 
 def test_the_module_map_has_a_row_for_every_module_that_owns_an_export():
-    """The map on the philosophy page is the only per-module summary a reader gets.
+    """The map on the architecture page is the only per-module summary a reader gets.
 
     It once omitted the modules a reader calls first -- file discovery, event onsets, the
     NWB read -- together with the time-frequency, laminar and RDM operations, and nothing
@@ -151,7 +151,7 @@ def _is_testing(module: str) -> bool:
 
 
 def test_no_analysis_module_imports_the_synthetic_generators():
-    """`docs/01_architecture_and_philosophy.md` says synthetic signals live in `jnwb.testing`
+    """`docs/architecture.md` says synthetic signals live in `jnwb.testing`
     and are never presented as measurements. That holds only while no module outside
     `jnwb/testing/` can reach the generators: an analysis path that imports one can fill a
     gap in real data with a plausible synthetic value, and nothing downstream can tell.

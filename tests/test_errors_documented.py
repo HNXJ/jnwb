@@ -36,9 +36,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 from tests.test_docs_user_navigation import (  # noqa: E402
+    declared_off_the_nav,
     excluded_from_the_site,
     nav_targets,
     orphaned_pages,
+    redirect_target,
 )
 
 DOCS = REPO_ROOT / "docs"
@@ -47,11 +49,14 @@ GENERATED = "api.md"
 
 
 def pages_off_the_nav(docs: Path, mkdocs: Path) -> list[str]:
-    """Published pages under `docs` that no parsed nav entry of `mkdocs` names."""
+    """Published pages under `docs` that no parsed nav entry of `mkdocs` names, other than a
+    declared redirect to a page on the nav."""
     on_nav = set(nav_targets(mkdocs))
     excluded = excluded_from_the_site(mkdocs)
+    moved = {rel for rel in declared_off_the_nav(mkdocs)
+             if (docs / rel).is_file() and redirect_target(docs / rel) in on_nav}
     return sorted(rel for rel in (p.relative_to(docs).as_posix() for p in docs.rglob("*.md"))
-                  if rel not in on_nav and rel not in excluded)
+                  if rel not in on_nav and rel not in excluded and rel not in moved)
 
 
 def _hand_written_pages():

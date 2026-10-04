@@ -88,4 +88,5 @@ itc = acc.itc()
 
 ## 6. Documentation
 - [`docs/04_spectral_analysis_and_tfr.md`](../../docs/04_spectral_analysis_and_tfr.md)
+- [`docs/coherence_and_tfr.md`](../../docs/coherence_and_tfr.md)
 - [`docs/05_artifact_detection_and_repair.md`](../../docs/05_artifact_detection_and_repair.md)

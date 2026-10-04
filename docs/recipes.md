@@ -1,7 +1,7 @@
 # Recipes
 
 One call per common operation, on synthetic arrays, so the block below runs as written after
-`pip install jnwb`. Loading from an NWB file is on [Paths & Addressing](02_paths_addressing_metadata.md)
+`pip install jnwb`. Loading from an NWB file is on [Reading NWB Data](reading_nwb.md)
 and artifact repair on [Artifact Detection & Repair](05_artifact_detection_and_repair.md).
 
 ```python
