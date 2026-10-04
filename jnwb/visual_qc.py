@@ -62,7 +62,11 @@ def plot_unit_waveforms(
             with ``channels=None``, a 1-D trace; with ``channels="peak"`` or ``"all"``, a
             ``(n_channels, n_samples)`` template or ``(n_spikes, n_channels, n_samples)``
             spikes, averaged over spikes first with NaN samples ignored. Single-channel
-            spikes are ``(n_spikes, 1, n_samples)``.
+            spikes are ``(n_spikes, 1, n_samples)``. Each sample of a 3-D unit's template is
+            the mean over the spikes that are not NaN at that sample, so where spikes drop out
+            at some samples and not others the per-sample spike count varies, the template's
+            amplitude at those samples shifts, and the peak channel can move; pass spikes
+            without per-sample gaps when the amplitude matters.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
         channels: ``"peak"`` draws the channel with the largest absolute deflection

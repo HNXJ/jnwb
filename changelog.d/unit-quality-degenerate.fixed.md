@@ -1,0 +1,3 @@
+- An infinite quality is no quality code: `assign_quality_tier` gives it `'unknown'` and `enrich_units_dataframe` an `is_stable` of `<NA>`, where +inf read as a stable unit and -inf as an unstable one.
+- `jnwb.metadata.compare_old_new_criteria` gives transition `'unknown'` to a unit whose old class is missing, where it read as not screened and gave `'gained'`; a unit with no old row is still not screened.
+- The docstrings of `audit_units` and `plot_unit_waveforms` state that a NaN in the audit is written by `json.dumps` as non-strict JSON, and that each sample of a waveform template averages only the spikes not NaN there, so its amplitude and peak channel can shift where spikes drop out.

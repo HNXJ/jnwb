@@ -121,6 +121,22 @@ def test_plot_unit_waveforms_ignores_nan_samples_across_spikes_and_refuses_dead_
     plt.close("all")
 
 
+def test_plot_unit_waveforms_states_the_per_sample_spike_count():
+    # Spikes dropping out at one sample shift the template's amplitude there: two spikes of
+    # -100 and -50 average -75, but where the -100 spike is NaN the sample reads -50.
+    spikes = np.zeros((2, 1, 30))
+    spikes[0, 0, 9:12] = -100.0
+    spikes[1, 0, 9:12] = -50.0
+    spikes[0, 0, 10] = np.nan
+    (fig,) = plot_unit_waveforms([7], {7: spikes}, channels="peak")
+    trace = fig.axes[0].get_lines()[0].get_ydata()
+    assert trace[[9, 10, 11]].tolist() == [-75.0, -50.0, -75.0]
+    plt.close("all")
+    doc = " ".join(plot_unit_waveforms.__doc__.split())
+    assert "mean over the spikes that are not NaN at that sample" in doc
+    assert "per-sample spike count varies" in doc
+
+
 def test_plot_unit_waveforms_treats_infinite_samples_as_not_finite():
     import pytest
 

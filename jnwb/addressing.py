@@ -42,7 +42,28 @@ def _stable_label_set(stable_labels, caller: str) -> frozenset:
             f"{caller}: stable_labels must be a collection of labels, not the string "
             f"{stable_labels!r}; pass ({stable_labels!r},) for one label."
         )
-    return frozenset(str(label).strip().lower() for label in stable_labels)
+    labels = frozenset(str(label).strip().lower() for label in stable_labels)
+    if not labels:
+        raise ValueError(
+            f"{caller}: stable_labels is empty, so no text label could be stable; pass at "
+            "least one label."
+        )
+    return labels
+
+
+def _finite_cutoff(value, name: str, caller: str) -> float:
+    """A cut-off as compared: a finite real number. ``None`` or a non-number raises
+    ``TypeError``; NaN or an infinity raises ``ValueError``, because every comparison with it
+    passes or fails every unit alike."""
+    if value is None or isinstance(value, (bool, np.bool_)) or not isinstance(
+            value, (int, float, np.integer, np.floating)):
+        raise TypeError(f"{caller}: {name} must be a finite number, not {value!r}.")
+    if not np.isfinite(value):
+        raise ValueError(
+            f"{caller}: {name} is {value!r}; a non-finite cut-off passes or fails every unit "
+            "alike. Pass a finite number."
+        )
+    return float(value)
 
 
 def _quality_is_stable(quality: pd.Series, stable_threshold: float,
@@ -52,7 +73,7 @@ def _quality_is_stable(quality: pd.Series, stable_threshold: float,
     When any value is numeric the column is read as codes, stable when
     ``quality >= stable_threshold``; otherwise as text labels, stable when the stripped,
     lower-cased label is in ``labels``. A unit whose quality is missing, the text of a missing
-    value, or not a number in a numeric column is ``<NA>``: unknown, not unstable.
+    value, not a number in a numeric column, or infinite is ``<NA>``: unknown, not unstable.
     """
     # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
     # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
@@ -60,7 +81,10 @@ def _quality_is_stable(quality: pd.Series, stable_threshold: float,
     present = quality.notna() & ~text.isin(_MISSING_TEXT)
     q_num = pd.to_numeric(quality, errors='coerce')
     if q_num.notna().any():
-        usable, stable = q_num.notna(), q_num >= stable_threshold
+        # An infinite quality is no quality code: undefined, as a NaN is.
+        finite = pd.Series(np.isfinite(q_num.to_numpy(dtype=float, na_value=np.nan)),
+                           index=q_num.index)
+        usable, stable = finite, q_num >= stable_threshold
     else:
         usable, stable = present, text.isin(labels)
     return stable.astype('boolean').mask(~usable)
@@ -474,8 +498,8 @@ def enrich_units_dataframe(
     any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
     ``"#N/A"``, ``"-1.#IND"``, ...) or ``"NaT"``, compared case-insensitively after stripping
     whitespace. When it is added, ``is_stable`` has pandas' nullable ``"boolean"`` dtype, and a
-    unit whose own quality is missing, or is not a number in a numeric column, is ``<NA>``:
-    its stability is unknown, not ``False``.
+    unit whose own quality is missing, is not a number in a numeric column, or is infinite
+    (no quality code) is ``<NA>``: its stability is unknown, not ``False``.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -485,7 +509,9 @@ def enrich_units_dataframe(
         threshold_unit: Optional unit for threshold.
         stable_threshold: numeric quality at or above which a unit is stable.
         stable_labels: text quality labels read as stable, a collection; a bare string
-            raises ``TypeError``. Both defaults, 1.0 and
+            raises ``TypeError`` and an empty one ``ValueError``, as does a
+            ``stable_threshold`` that is NaN or infinite (``None`` raises ``TypeError``).
+            Both defaults, 1.0 and
             ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
             source: pass the rule your sorter's codes follow.
             :func:`jnwb.assign_quality_tier` applies the same rule through the same code.
@@ -494,6 +520,8 @@ def enrich_units_dataframe(
         Standardized and enriched DataFrame
     """
     labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
+    stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold",
+                                      "enrich_units_dataframe")
     df = units_df.copy()
 
     # 1. Standardize unit_id column
