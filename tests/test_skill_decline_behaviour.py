@@ -444,11 +444,12 @@ def _(tmp_path):
     rows = jnwb.events(path, code_column="code")
     assert [int(c) for c in rows.codes] == [7, 7, 3]
     np.testing.assert_array_equal(rows.onsets, [0.5, 1.5, 2.5])
-    # Nothing the call returns can carry a name for a code: its fields are exactly these.
-    assert set(rows.__dataclass_fields__) == {
-        "table", "path", "code_column", "onset_column", "time_unit", "codes", "onsets",
-        "stop_times",
-    }
+    # Nothing the call returns can carry a name for a code: its fields are exactly these, and
+    # its only other public attribute is the count. A method such as `name_of(code)` fails this.
+    fields = {"table", "path", "code_column", "onset_column", "time_unit", "codes", "onsets",
+              "stop_times"}
+    assert set(rows.__dataclass_fields__) == fields
+    assert _public(rows) == fields | {"n_events"}, _public(rows) - fields
 
 
 # ---------------------------------------------------------------------------------- figures
@@ -506,15 +507,37 @@ def _public(obj) -> set[str]:
     return {name for name in dir(obj) if not name.startswith("_")}
 
 
-_VERDICT = re.compile(r"\b(?:correct\w*|certif\w*|valid|validity|verified|guarantee\w*|proves?)\b",
-                      re.I)
-_NEGATION = re.compile(r"\b(?:not|no|never|cannot|declined?)\b", re.I)
+_VERDICT = re.compile(
+    r"\b(?:correct\w*|certif\w*|valid|validity|validat\w*|verified|guarantee\w*|proves?"
+    r"|trustworth\w*|right(?:ly)?)\b", re.I)
+#: A negation that governs a predicate. "no" is left out: it is a determiner and negates its
+#: noun ("no field missing"), not a verdict later in the sentence.
+_NEGATION = re.compile(r"\b(?:not|never|cannot|declin\w*)\b|n't\b", re.I)
+#: The only words that may stand between a negation and the verdict word it governs ("not that
+#: it is correct", "decline a verdict on correctness"). Any other word, such as "empty" in "not
+#: empty is right", takes the negation for itself.
+_BRIDGE = {"a", "an", "the", "that", "it", "is", "are", "be", "been", "verdict", "on", "of"}
+#: "a request to call a result correct ... is declined": the verdict is what is declined.
+_DECLINED_REQUEST = re.compile(r"\brequest\b(?P<asked>.*)\b(?:is|are) declined\b", re.I)
+
+
+def _negation_governs(sentence: str, verdict: re.Match) -> bool:
+    """True when a negation governs `verdict`: in its clause with only bridge words between, or
+    the verdict is the content of a declined request."""
+    clause = re.split(r"[,;:]", sentence[: verdict.start()])[-1]
+    negations = list(_NEGATION.finditer(clause))
+    between = clause[negations[-1].end():].lower().split() if negations else None
+    if between is not None and set(between) <= _BRIDGE:
+        return True
+    request = _DECLINED_REQUEST.search(sentence)
+    return bool(request) and request.start("asked") <= verdict.start() < request.end("asked")
 
 
 def _verdicts_granted(text: str) -> list[str]:
-    """Sentences of `text` that speak of correctness or validity without negating it."""
+    """Sentences of `text` holding a correctness or validity word no negation governs."""
     sentences = re.split(r"(?<=[.;])\s+", text)
-    return [s for s in sentences if _VERDICT.search(s) and not _NEGATION.search(s)]
+    return [s for s in sentences
+            if any(not _negation_governs(s, v) for v in _VERDICT.finditer(s))]
 
 
 @case("jnwb-qc", "supported")
@@ -559,8 +582,18 @@ def _():
     # The skill grants no verdict either: each of its sentences that speaks of correctness or
     # validity also negates or declines. A verdict worded with a negation ("never wrong") passes
     # this; the planted affirmative one below does not.
-    assert not _verdicts_granted(skill_text("jnwb-qc")), _verdicts_granted(skill_text("jnwb-qc"))
-    assert _verdicts_granted("A `Result` with complete provenance is verified correct.")
+    text = skill_text("jnwb-qc")
+    assert not _verdicts_granted(text), _verdicts_granted(text)
+    # The skill's own negated limits are read, so the check above is not passing on nothing.
+    assert len(_VERDICT.findall(text)) >= 5
+    for planted in ("A `Result` with complete provenance is verified correct.",
+                    "A `Result` with complete provenance, and no field missing, is correct.",
+                    "A `Result` with no field missing is correct.",
+                    "A complete record validates the table.",
+                    "An audit count is trustworthy.",
+                    "A record that is not empty is right.",
+                    "A request is declined, and the table is valid."):
+        assert _verdicts_granted(planted) == [planted], planted
     # Nothing the record or the audit returns can carry a verdict: a new field, method or
     # property on a record, or a new key in an audit, fails one of these.
     record = _record()

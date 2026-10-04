@@ -1194,16 +1194,29 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
         if snippet not in md_path.read_text(encoding="utf-8"):
             violations.append(f"NWB_ONBOARDING: {md_name} not snippet-linked to {name}")
 
-    skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
-    if skill.exists():
-        skill_text = skill.read_text(encoding="utf-8")
-        for symbol in NWB_ONBOARDING_SYMBOLS:
-            if f"{symbol}(" not in skill_text:
+    # Each symbol is checked in the skill whose routing row holds it, read with the parser the
+    # skill tests use. A fixed skill path passed a tree whose `jnwb.events` row had moved to
+    # another skill, because an example line left behind still held the call.
+    from tests.test_skill_router_reach import _routed_operations
+
+    skill_files = sorted((root / "skills").glob("*/SKILL.md"))
+    if not skill_files:
+        violations.append("NWB_ONBOARDING: no skills/*/SKILL.md to route the NWB symbols")
+    rows = [
+        (path.parent.name, line)
+        for path in skill_files
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+    for symbol in NWB_ONBOARDING_SYMBOLS:
+        routing = [(skill, line) for skill, line in rows if symbol in _routed_operations(line)]
+        if skill_files and not routing:
+            violations.append(f"NWB_ONBOARDING: no skill has a routing row for {symbol}")
+        for skill, line in routing:
+            if f"{symbol}(" not in line:
                 violations.append(
-                    f"NWB_ONBOARDING: the skill names {symbol} but never routes a call to it"
+                    f"NWB_ONBOARDING: skills/{skill} has a routing row for {symbol} but the row "
+                    f"never routes a call to it"
                 )
-    else:
-        violations.append("NWB_ONBOARDING: skills/jnwb-nwb-data/SKILL.md missing")
 
     mkdocs = root / "mkdocs.yml"
     if not mkdocs.exists():

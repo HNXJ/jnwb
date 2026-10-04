@@ -446,7 +446,33 @@ class TestGate13ChecksBehaviourNotPresence:
             encoding="utf-8",
         )
         violations = check_nwb_onboarding_alignment(root)
-        assert any("never routes a call" in v for v in violations), violations
+        assert "NWB_ONBOARDING: no skill has a routing row for jnwb.inspect" in violations, violations
+
+    def test_a_routing_row_without_its_call_is_rejected(self, tmp_path):
+        root = self._tree(tmp_path)
+        skill = root / "skills" / "jnwb-paradigm" / "SKILL.md"
+        text = skill.read_text(encoding="utf-8")
+        row = "- `jnwb.events(path_or_nwb, table=None, code_column=\"codes\", onset_column=\"start_time\")`"
+        assert text.count(row) == 1
+        skill.write_text(text.replace(row, "- `jnwb.events`"), encoding="utf-8")
+        violations = check_nwb_onboarding_alignment(root)
+        assert violations == [
+            "NWB_ONBOARDING: skills/jnwb-paradigm has a routing row for jnwb.events but the row "
+            "never routes a call to it"
+        ], violations
+
+    def test_a_call_outside_the_routing_row_does_not_stand_in_for_it(self, tmp_path):
+        """07-10 moved the `events` row away; an example line elsewhere kept the gate green."""
+        root = self._tree(tmp_path)
+        skill = root / "skills" / "jnwb-paradigm" / "SKILL.md"
+        lines = skill.read_text(encoding="utf-8").splitlines(keepends=True)
+        rows = [i for i, line in enumerate(lines) if line.startswith("- `jnwb.events(")]
+        assert len(rows) == 1
+        del lines[rows[0]]
+        skill.write_text("".join(lines), encoding="utf-8")
+        assert "jnwb.events(" in skill.read_text(encoding="utf-8")  # the example call remains
+        violations = check_nwb_onboarding_alignment(root)
+        assert violations == ["NWB_ONBOARDING: no skill has a routing row for jnwb.events"], violations
 
 
 # ---------------------------------------------------------------------------- Gate 4
