@@ -40,7 +40,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-03, 13-11, 13-05, 13-06, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-23, 07-24, 07-12 | `skills/`, skill tests, `docs/agents.md`, `jnwb/nwb_inspect.py` and its tests (07-23), the gate 13 function of `scripts/harness_gate.py` (07-24) |
+| C skills | 07-24, 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-24) |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
@@ -128,16 +128,6 @@ route them through `jnwb-qc`. The screen and its per-session agreement table mov
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
 
-### 07-23 `inspect` reports column descriptions
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_inspect.py`, `tests/test_nwb_inspect.py`, `tests/test_inspect_one_schema.py`, `skills/jnwb-paradigm/SKILL.md`, `changelog.d/inspect-column-descriptions.added.md`.
-Source: the 07-10 actor, 2026-10-04; added to the API by Hamm the same day (`artifacts/rulings/2026-10-04.md`).
-- `jnwb-paradigm` takes condition meaning from explicit metadata first, but `jnwb.inspect` reports a column's name, dtype, shape and samples and not its NWB `description`, so the first source has no routed call. Check: each column record `inspect` returns carries the stored `description` (an empty or missing one reported as such, never filled in), a test reads it from a written file, and the skill routes the call.
-Accept: the suite and harness pass; the packet reports the `docs/api.md` change and the changelog text.
-Stop: the field changes an existing key of the `inspect` result.
-
 ### 07-24 Gate 13 reads the skill that routes each symbol
 
 Release: deferred-0.2.9.
@@ -162,7 +152,7 @@ approved, so the analyzer classes and the unrouted exports get checked exclusion
 - IB-63: `jnwb-landmark-viz` routes by module, so no signature check covers its rows. Check: per-function rows checked against `inspect.signature` when plotly is installed.
 - P-267: no skill routes `jnwb.ontology`, and the exclusion comment points to a workflow no skill has. Check: rows in 07-11's skill, or a checked exclusion.
 - P-279: the tuple check counts elements only, so a swapped return order survives it. Check: element names or types compared.
-- Exports and modules outside the routing: the inventory's 26 exports and 43 modules with names outside `__all__`. Check: Hamm rules each group (`artifacts/evidence/0.2.8/plan/decisions.md` D8).
+- Exports and modules outside the routing: the inventory's 26 exports and 43 modules with names outside `__all__`. Check: each group is a checked exclusion with its reason, since D8 (f) was not approved and no new routing rows are added (`artifacts/rulings/2026-09-29.md`).
 - Docs pages, examples and notebooks: the 0.2.9 acceptance names them routed or excluded, and no item checks them. Check: the routed-or-excluded check also reads every page under `docs/`, every script under `examples/` and every notebook, each routed by a skill or excluded with a reason it verifies.
 Accept: the excluded set is smaller than at `dcb75f12` and each remaining reason is checked.
 Stop: a row would restate a definition that belongs in `docs/`.
@@ -291,7 +281,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-03, 13-05, 13-06, 13-11, 07-23, 07-24, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-03, 13-05, 13-06, 13-11, 07-24, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
