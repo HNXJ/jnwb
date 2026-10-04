@@ -37,7 +37,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-09, 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -65,8 +65,8 @@ Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
 Read-only on `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
-landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their problems are 13-09
-and 10-09; 13-07 landed at `6c0b4542`, 13-08 at `d99cfc20`. What remains needs the downstream code.
+landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their remaining problems are
+13-10 and 10-09; 13-07, 13-08 and 13-09 landed (`6c0b4542`, `d99cfc20`, `cb86990e`). What remains needs the downstream code.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
@@ -131,42 +131,18 @@ Stop: the example would need empirical data.
 ### 13-10 Infinite measures and masked spikes are not read as valid
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-09.
-Writes: `jnwb/metadata.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-infinite-measures.fixed.md`.
-Source: the 13-09 critic, 2026-10-04.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-infinite-measures.fixed.md`, `changelog.d/unit-quality-degenerate.fixed.md`.
+Source: the 13-09 critic and verifier, 2026-10-04.
 - An SNR, presence or firing rate of +inf passes as valid: `classify_unit_quality` gives `Good`, `assign_quality_tier` `'stable'`, and `audit_units`' SNR mean is NaN beside a good count that includes it; an infinite quality is already undefined. Check: an infinite measure is undefined input in each function, or refused by name.
 - `plot_unit_waveforms` ignores the mask of a masked 3-D spike array and averages the masked outlier in. Check: the mask is honoured or the array refused, as `assign_quality_tier` refuses one.
 - `assign_quality_tier` refuses a superset presence index only when `quality` carries `RangeIndex(0, n, 1)`; an int64 index 0..n-1 left by a CSV round-trip after `reset_index`, or `RangeIndex(1, n+1)`, still pairs the full table's first units silently, as 0.2.8 did. Check: Hamm rules whether the refusal covers any index equal to 0..n-1, weighed against refusing `head()` selections.
 - `compare_old_new_criteria` overwrites a caller column named `old_screened` or `transition` silently; `_finite_cutoff` raises an unnamed error for a torch 0-d tensor and an integer too large for a float. Check: each is refused by name or kept.
+- A JAX float32 cut-off is now compared at its exact value, where 0.2.8 truncated it to float32, so a value tied with the cut-off at float32 precision can change verdict; the fragment says "compared at its exact value as before". Check: the fragment states the JAX difference.
+- No test pins the strict or inclusive comparison at a cut-off for `assign_quality_tier` presence and SNR or `audit_units`' `good_count` (mutants `>` to `>=` and `>=` to `>` survive); the ties match 0.2.8. Check: a tie test for each.
+- With a repeated `unit_id`, `audit_units` names a unit by its index label as "unit 1". Check: the message says it is the index label.
 Accept: a test per check that fails before the repair.
 Stop: a repair that changes a value a released analysis reported on valid input goes to Hamm.
-
-### 13-09 The quality functions refuse degenerate cut-offs and classes
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `skills/jnwb-nwb-data/SKILL.md`, `changelog.d/unit-quality-degenerate.fixed.md`, `changelog.d/unit-quality-degenerate.breaking.md`, `changelog.d/unit-quality-refusals.fixed.md`.
-Source: the 13-07 critic and verifier, 2026-10-04.
-- `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
-- `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
-- `stable_threshold` of NaN, +inf or `None` makes every defined quality non-stable, -inf or a negative value makes every one stable, and `stable_labels=()` disables the label path, all silently (`_quality_is_stable` in `jnwb/addressing.py`). Check: a non-finite or `None` threshold and an empty label set are refused by name.
-- `assign_quality_tier` reads a numpy masked array of presence or SNR through `np.asarray`, dropping the mask, so a masked unit reads as present; `plot_unit_waveforms` averages 3-D spikes with `nanmean`, so where spikes drop out per sample the template's amplitude shifts and can move the peak channel. Check: a masked array is refused or its mask honoured; the per-sample spike count is stated or a sample missing in some spikes is refused.
-- `assign_quality_tier` refuses a presence or SNR Series whose index covers every unit and adds labels, which 0.2.8 aligned and answered, as when presence is computed on the full table and `quality` is filtered; the refusal is filed under `fixed`, and no test isolates it. Check: a superset index is aligned by label, with a test that has extra labels and none missing.
-- A quality of +inf reads `'stable'` and -inf `'unknown'` in both `assign_quality_tier` and `enrich_units_dataframe`. Check: an infinite quality is undefined input, or the docstrings state the reading.
-- `audit_units` writes a one-unit spread as NaN, which `json.dumps` emits as invalid strict JSON. Check: the documented output is valid JSON, or the docstring says NaN.
-Accept: a test per check that fails before the repair.
-Stop: a refusal that changes a value a released analysis reported goes to Hamm.
-
-## Out of scope for 0.2.8 to 0.2.12
-
-Each needs its own authorization.
-
-- Raw-data-to-NWB conversion.
-- An authorization or permission subsystem.
-- Benchmark execution; the design is kept, unrun, in `artifacts/evidence/0.2.8/stack/`.
-- A capability-by-capability matrix over the whole public surface (P-268).
-- Dataset-specific package code, and new estimators that only improve a demonstration.
-- The 36 unverified review findings, except where an item reaches one.
 
 ### 07-10 `jnwb-paradigm`: experiment structure, timing and condition semantics
 
