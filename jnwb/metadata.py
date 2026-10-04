@@ -8,14 +8,15 @@ peak_channel_id, ...) exposed by any file.
 
 import datetime
 import logging
+import operator
 import warnings
 from pathlib import Path
 from typing import Collection, Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
 from jnwb.addressing import (
-    _STABLE_QUALITY_LABELS, _finite_cutoff, _quality_is_stable, _refuse_repeated_columns,
-    _stable_label_set,
+    _STABLE_QUALITY_LABELS, _finite_cutoff, _passes_cutoff, _quality_is_stable,
+    _refuse_repeated_columns, _stable_label_set,
 )
 from jnwb.nwb_io import nwb_read_io
 
@@ -276,7 +277,7 @@ def classify_unit_quality(
             "classify_unit_quality: thresholds is empty, so every unit would pass as 'Good' "
             "with no criterion; pass at least one {'metric': cut-off}, or None for the defaults."
         )
-    # Compared as float; the flag text keeps the caller's value.
+    # Compared at the caller's exact value; the flag text shows it as given.
     cut_offs = {col: _finite_cutoff(thresh, f"thresholds[{col!r}]", "classify_unit_quality")
                 for col, thresh in thresholds.items()}
     _refuse_repeated_columns(units_df, list(cut_offs), "classify_unit_quality")
@@ -295,8 +296,7 @@ def classify_unit_quality(
             continue
         values = pd.to_numeric(units_df[col], errors='coerce').to_numpy(dtype=float)
         is_undefined = np.isnan(values)
-        with np.errstate(invalid='ignore'):
-            fails = ~is_undefined & (values < cut_offs[col])
+        fails = ~is_undefined & _passes_cutoff(values, cut_offs[col], operator.lt)
         for i in np.flatnonzero(is_undefined):
             flags[i].append(f'{col} undefined')
         for i in np.flatnonzero(fails):
@@ -402,13 +402,15 @@ def get_snr_analysis(
         Dict with SNR statistics and pass rates
 
     Raises:
-        ValueError: ``snr`` or ``session_id`` occurs more than once in ``units_df``.
+        ValueError: ``snr``, or with ``detail=True`` ``session_id``, occurs more than once in
+            ``units_df``.
 
     Example:
         >>> snr_stats = get_snr_analysis(units_df, snr_threshold=1.0)
         >>> print(f"Units with SNR>=1.0: {snr_stats['pass_rate']:.1%}")
     """
-    _refuse_repeated_columns(units_df, ("snr", "session_id"), "get_snr_analysis")
+    _refuse_repeated_columns(units_df, ("snr", "session_id") if detail else ("snr",),
+                             "get_snr_analysis")
     if 'snr' not in units_df.columns:
         log.warning("No SNR column found")
         return {}
@@ -563,11 +565,11 @@ def audit_units(
             instance), the message naming the unit; or a cut-off is ``None`` or not a number.
         ValueError: ``quality_threshold`` or ``snr_threshold`` is NaN or infinite, which
             would count every unit or none, or a column this function reads occurs more than
-            once.
+            once (``spike_times``, ``quality``, ``snr`` or ``firing_rate``).
     """
     labels = _stable_label_set(stable_labels, "audit_units")
-    _refuse_repeated_columns(units_df, ("spike_times", "unit_id", "quality", "snr",
-                                        "firing_rate"), "audit_units")
+    _refuse_repeated_columns(units_df, ["spike_times", "quality", "snr", "firing_rate"],
+                             "audit_units")
     quality_threshold = _finite_cutoff(quality_threshold, "quality_threshold", "audit_units")
     snr_threshold = _finite_cutoff(snr_threshold, "snr_threshold", "audit_units")
     result = {
@@ -580,7 +582,9 @@ def audit_units(
 
     # Check spike times
     if 'spike_times' in units_df.columns:
-        unit_ids = (units_df['unit_id'] if 'unit_id' in units_df.columns
+        # unit_id only names a unit in the message below; a repeated unit_id column, which
+        # 0.2.8 never read, names it by its index label instead of being refused.
+        unit_ids = (units_df['unit_id'] if (units_df.columns == 'unit_id').sum() == 1
                     else pd.Series(units_df.index, index=units_df.index))
         n_with = 0
         for unit, st in zip(unit_ids, units_df['spike_times']):
@@ -606,7 +610,8 @@ def audit_units(
                 'std': float(quality_values.std()),
                 'min': float(quality_values.min()),
                 'max': float(quality_values.max()),
-                'good_count': int((quality_values >= quality_threshold).sum()),
+                'good_count': int(_passes_cutoff(quality_values, quality_threshold,
+                                                 operator.ge).sum()),
             }
         else:
             # The released matching: lower-cased, not stripped, so ' good' is not 'good'.
@@ -628,8 +633,10 @@ def audit_units(
                 'mean': float(snr_values.mean()),
                 'median': float(snr_values.median()),
                 'std': float(snr_values.std()),
-                'good_count': int((snr_values >= snr_threshold).sum()),
-                'good_rate': float((snr_values >= snr_threshold).mean())
+                'good_count': int(_passes_cutoff(snr_values, snr_threshold,
+                                                 operator.ge).sum()),
+                'good_rate': float(_passes_cutoff(snr_values, snr_threshold,
+                                                  operator.ge).mean())
             }
 
     # Firing rate statistics
@@ -722,9 +729,11 @@ def assign_quality_tier(
             order, and may carry labels ``quality`` lacks, which are ignored, as when it was
             computed on the full units table and ``quality`` is a filtered subset; a label of
             ``quality`` missing from it, or a repeated label, raises ``ValueError``. Extra
-            labels also raise ``ValueError`` when ``quality`` has the default index
-            ``0..n-1``, because after a filter and ``reset_index`` those are positions, not
-            unit labels, and aligning would pair the wrong units. An array
+            labels also raise ``ValueError`` when ``quality`` has the index ``0..n-1``,
+            which pandas gives a filter followed by ``reset_index``, ``head()``
+            and ``iloc[:k]`` alike; those labels may be positions rather than unit labels, so
+            aligning could pair the wrong units. Pass presence and SNR selected the same way
+            as ``quality``. An array
             is read by position; a scalar raises ``ValueError``, and so does a numpy masked
             array with a masked entry, whose mask would otherwise be dropped and the masked
             value read: fill it (``values.filled(np.nan)`` reads as missing) or unmask it.
@@ -772,15 +781,15 @@ def assign_quality_tier(
                     )
                 extra = values.index.difference(quality.index)
                 if len(extra) and _is_default_range_index(quality.index):
-                    # Ruled 2026-10-04: positions 0..n-1 are not unit labels after
-                    # reset_index, so aligning a full-table Series to them pairs wrong units.
+                    # Positions 0..n-1 may not be unit labels, so aligning a full-table
+                    # Series to them can pair the wrong units.
                     raise ValueError(
                         f"assign_quality_tier: {name} has labels quality lacks "
-                        f"({list(extra[:5])}) and quality has the default index 0..n-1. "
-                        "After a filter and reset_index those are positions, not unit labels, "
-                        "so aligning would pair the wrong units. Keep the unit labels on "
-                        "quality (filter without reset_index), or pass presence and SNR "
-                        "filtered the same way."
+                        f"({list(extra[:5])}) and quality has the index 0..n-1, "
+                        "which pandas gives a filter followed by reset_index, head() and "
+                        "iloc[:k] alike; those labels may be positions rather than unit "
+                        "labels, so aligning could pair the wrong units. Pass presence and SNR "
+                        "selected the same way as quality."
                     )
                 # Same labels in another order, or a superset: labels quality lacks drop out.
                 values = values.reindex(quality.index)
@@ -801,8 +810,8 @@ def assign_quality_tier(
 
     presence = _aligned(trial_presence_fraction, "trial_presence_fraction")
     snr_num = _aligned(snr, "snr")
-    with np.errstate(invalid="ignore"):
-        passes = (presence > presence_threshold) & (snr_num > snr_threshold)
+    passes = (_passes_cutoff(presence, presence_threshold, operator.gt)
+              & _passes_cutoff(snr_num, snr_threshold, operator.gt))
     tier = pd.Series("unknown", index=quality.index, dtype=object)
     tier[known & ~is_candidate & declared_mua] = "mua"
     tier[is_candidate & ~passes] = "unstable"

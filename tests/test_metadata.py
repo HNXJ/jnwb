@@ -799,14 +799,96 @@ class TestDegenerateCutOffs:
         other = pd.concat([frame, extra, extra], axis=1)
         assert audit_units(other)["total_units"] == 2
 
+    def test_a_repeated_column_is_refused_only_on_the_path_that_reads_it(self):
+        import numpy as np
+
+        from jnwb.addressing import enrich_units_dataframe
+
+        frame = pd.DataFrame({"unit_id": [5, 6, 7], "quality": [1.0, 0.0, 1.0],
+                              "spike_times": [np.array([0.1]), np.array([]), np.array([0.2])],
+                              "session_id": ["s", "s", "t"], "snr": [2.0, 0.5, 3.0]})
+
+        def twice(col):
+            return pd.concat([frame, frame[[col]]], axis=1)
+
+        # spike_times is read whenever present; unit_id only names a unit, so a repeated
+        # unit_id is not read and the count stays the released one.
+        with pytest.raises(ValueError, match=r"audit_units: column\(s\) \['spike_times'\]"):
+            audit_units(twice("spike_times"))
+        assert audit_units(twice("unit_id"))["units_with_spike_times"] == 2
+        # session_id is read only with detail=True.
+        assert get_snr_analysis(twice("session_id"))["n_units_with_snr"] == 3
+        with pytest.raises(ValueError, match=r"get_snr_analysis: column\(s\) \['session_id'\]"):
+            get_snr_analysis(twice("session_id"), detail=True)
+        # enrich reads unit_id always, cluster_id only to rename it to a missing unit_id,
+        # peak_channel_id only with electrodes, and never area, depth_class or group_name.
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['unit_id'\]"):
+            enrich_units_dataframe(twice("unit_id"), None)
+        clusters = frame.drop(columns="unit_id").assign(cluster_id=[5, 6, 7])
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['cluster_id'\]"):
+            enrich_units_dataframe(pd.concat([clusters, clusters[["cluster_id"]]], axis=1),
+                                   None)
+        both = frame.assign(cluster_id=[5, 6, 7])
+        enrich_units_dataframe(pd.concat([both, both[["cluster_id"]]], axis=1), None)
+        channels = frame.assign(peak_channel_id=[0, 1, 0])
+        electrodes = pd.DataFrame({"location": ["V1", "V1"]})
+        with pytest.raises(ValueError,
+                           match=r"enrich_units_dataframe: column\(s\) \['peak_channel_id'\]"):
+            enrich_units_dataframe(pd.concat([channels, channels[["peak_channel_id"]]],
+                                             axis=1), electrodes)
+        enrich_units_dataframe(pd.concat([channels, channels[["peak_channel_id"]]], axis=1),
+                               None)
+        for col in ("area", "depth_class", "group_name"):
+            labelled = frame.assign(**{col: ["a", "b", "c"]})
+            out = enrich_units_dataframe(pd.concat([labelled, labelled[[col]]], axis=1), None)
+            assert len(out) == 3, col
+
+    def test_a_cut_off_is_compared_at_its_exact_value(self):
+        import decimal
+        import fractions
+
+        # float(1/3) is below the Fraction 1/3, and 0.1 above the Decimal 0.1: 0.2.8 compared
+        # the caller's own number, and so does this.
+        third = pd.DataFrame({"quality": [1 / 3, 0.2, 0.5]})
+        out = classify_unit_quality(third, {"quality": fractions.Fraction(1, 3)})
+        assert out["quality_class"].tolist() == ["Poor", "Poor", "Good"]
+        tier = assign_quality_tier(pd.Series([1, 1]), pd.Series([0.99, 0.99]),
+                                   pd.Series([0.1, 0.05]), snr_threshold=decimal.Decimal("0.1"))
+        assert tier.tolist() == ["stable", "unstable"]
+        # A Decimal does not order against NaN, so a missing value is never compared with it.
+        nan = float("nan")
+        with_nan = classify_unit_quality(pd.DataFrame({"quality": [nan, 1.0]}),
+                                         {"quality": decimal.Decimal("0.5")})
+        assert with_nan["quality_class"].tolist() == ["Unknown", "Good"]
+        tier = assign_quality_tier(pd.Series([1, 1]), pd.Series([0.99, 0.99]),
+                                   pd.Series([nan, 1.0]), snr_threshold=decimal.Decimal("0.1"))
+        assert tier.tolist() == ["unstable", "stable"]
+        audit = audit_units(pd.DataFrame({"quality": [1 / 3, 0.5], "snr": [0.1, 0.05]}),
+                            quality_threshold=fractions.Fraction(1, 3),
+                            snr_threshold=decimal.Decimal("0.1"))
+        assert audit["quality_distribution"]["good_count"] == 1
+        assert audit["snr_stats"]["good_count"] == 1
+        from jnwb.addressing import enrich_units_dataframe
+        stable = enrich_units_dataframe(pd.DataFrame({"quality": [1 / 3, float("nan")]}), None,
+                                        stable_threshold=fractions.Fraction(1, 3))
+        assert stable["is_stable"].iloc[0] == False  # noqa: E712 -- nullable boolean
+        assert pd.isna(stable["is_stable"].iloc[1])
+
     def test_assign_quality_tier_refuses_a_superset_on_reset_positions(self):
         # The R6 case: presence is computed on the full table, quality is filtered and
         # reset_index'd, so labels 0..2 are positions and would pair units 3..5 with 0..2.
         full = pd.DataFrame({"quality": [1] * 6, "presence": [0.99] * 3 + [0.1] * 3,
                              "snr": [5.0] * 6, "keep": [False] * 3 + [True] * 3})
         kept = full[full["keep"]].reset_index(drop=True)
-        with pytest.raises(ValueError, match="default index 0..n-1"):
+        with pytest.raises(ValueError, match="index 0..n-1"):
             assign_quality_tier(kept["quality"], full["presence"], full["snr"])
+        # head() and iloc[:k] give the same index, and the message names them and the remedy.
+        for selected in (full.head(3), full.iloc[:3]):
+            with pytest.raises(ValueError, match=r"head\(\) and iloc\[:k\].*Pass presence and "
+                                                 r"SNR selected the same way as quality"):
+                assign_quality_tier(selected["quality"], full["presence"], full["snr"])
         # Filtered the same way, or filtered without reset_index, it aligns correctly.
         assert assign_quality_tier(kept["quality"], kept["presence"],
                                    kept["snr"]).tolist() == ["unstable"] * 3
