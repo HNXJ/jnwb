@@ -51,14 +51,10 @@ ONTOLOGY = [
     "AlignedDataset",
     "Alignment",
     "Dataset",
-    "EpochCollection",
     "Figure",
     "Interpretation",
-    "Lineage",
-    "Provenance",
     "Query",
     "Question",
-    "Result",
 ]
 
 # Containers a routed operation returns. Routing the operation routes the container; the
@@ -68,7 +64,6 @@ RETURNED_BY = {
     "ComplexTFR": ["complex_tfr"],
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],
-    "EventTable": ["events"],
     "JRSAResult": ["jrsa"],
     "Preflight": ["preflight"],
     "ProbeGeometry": ["probe_geometry"],

@@ -45,7 +45,7 @@ grouping trials by recording structure, or deciding what a condition code means.
 3. **One clock**: onsets are session seconds. Subtract the series' `starting_time` before
    epoching, as `jnwb-nwb-data` states under "Aligning events to a series". When most epochs
    are all-NaN with a warning, the onsets are on another clock, and that is reported as a
-   failure, not analysed.
+   failure, not analyzed.
 4. **Outcomes**: compose and execute when the table, code column and series are known;
    request `table=` or `code_column=` when a call refuses and names the tables or columns that exist;
    report failure for all-NaN epochs; decline to name an undocumented code.

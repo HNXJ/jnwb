@@ -416,7 +416,7 @@ def _():
 
 @case("jnwb-paradigm", "failure")
 def _():
-    assert_states("jnwb-paradigm", "that is reported as a failure, not analysed")
+    assert_states("jnwb-paradigm", "that is reported as a failure, not analyzed")
     fs = 1000.0
     onsets_ms = np.array([1000.0, 2000.0, 3000.0])  # milliseconds, read as seconds
     with pytest.warns(UserWarning, match="all-NaN"):
@@ -487,6 +487,102 @@ def _():
     assert_states("jnwb-landmark-viz", "No depth is drawn unless the caller passes one")
     canvas, notes = _spectrolaminar()
     assert len(canvas.fig.data) == 1 and notes == []
+
+
+# --------------------------------------------------------------------------------------- qc
+
+
+def _record(software_version=None):
+    question = jnwb.Question(hypothesis="h", signals=["spike_times"], contrast="none",
+                             inference_unit="unit")
+    provenance = jnwb.Provenance(software_version=software_version or jnwb.__version__,
+                                 backend="numpy", parameters={"snr_threshold": 1.0})
+    lineage = jnwb.Lineage(source_type="units_table", source_id="u", operation="audit_units")
+    return jnwb.Result(question=question, statistics={"good_count": 1}, provenance=provenance,
+                       lineage=lineage)
+
+
+def _public(obj) -> set[str]:
+    return {name for name in dir(obj) if not name.startswith("_")}
+
+
+_VERDICT = re.compile(r"\b(?:correct\w*|certif\w*|valid|validity|verified|guarantee\w*|proves?)\b",
+                      re.I)
+_NEGATION = re.compile(r"\b(?:not|no|never|cannot|declined?)\b", re.I)
+
+
+def _verdicts_granted(text: str) -> list[str]:
+    """Sentences of `text` that speak of correctness or validity without negating it."""
+    sentences = re.split(r"(?<=[.;])\s+", text)
+    return [s for s in sentences if _VERDICT.search(s) and not _NEGATION.search(s)]
+
+
+@case("jnwb-qc", "supported")
+def _():
+    units = pd.DataFrame({
+        "unit_id": [0, 1, 2],
+        "spike_times": [np.array([0.1, 0.5]), np.array([]), np.array([0.2])],
+        "quality": [1.0, 0.5, 2.0],
+        "snr": [3.0, 0.8, 1.5],
+    })
+    audit = jnwb.audit_units(units, quality_threshold=1.0, snr_threshold=1.0)
+    assert audit["units_with_spike_times"] == 2
+    assert audit["quality_distribution"]["good_count"] == 2
+    assert audit["snr_stats"]["good_count"] == 2
+    record = _record()
+    assert record.provenance.jnwb_version == jnwb.__version__
+    assert record.to_dict()["lineage"]["operation"] == "audit_units"
+
+
+@case("jnwb-qc", "request")
+def _():
+    question = jnwb.Question(hypothesis="h", signals=["lfp"], contrast="none", inference_unit="unit")
+    with pytest.raises(TypeError, match="'provenance' and 'lineage'"):
+        jnwb.Result(question=question, statistics={})
+
+
+@case("jnwb-qc", "failure")
+def _():
+    assert_states("jnwb-qc", "names a version that did not run, and that is reported as a failure")
+    claimed = _record(software_version="0.0.0")
+    assert claimed.provenance.jnwb_version == jnwb.__version__
+    assert claimed.provenance.version_claim_matches_execution is False
+    with pytest.raises(TypeError, match="jnwb_version"):
+        jnwb.Provenance(software_version="0.0.0", backend="numpy", jnwb_version="0.0.0")
+
+
+@case("jnwb-qc", "decline")
+def _():
+    assert_states("jnwb-qc",
+                  "No field or method of `Result`, `Provenance` or `Lineage` holds a verdict",
+                  "from its record or an audit count is declined")
+    # The skill grants no verdict either: each of its sentences that speaks of correctness or
+    # validity also negates or declines. A verdict worded with a negation ("never wrong") passes
+    # this; the planted affirmative one below does not.
+    assert not _verdicts_granted(skill_text("jnwb-qc")), _verdicts_granted(skill_text("jnwb-qc"))
+    assert _verdicts_granted("A `Result` with complete provenance is verified correct.")
+    # Nothing the record or the audit returns can carry a verdict: a new field, method or
+    # property on a record, or a new key in an audit, fails one of these.
+    record = _record()
+    assert _public(record) == {"question", "statistics", "provenance", "lineage", "to_dict"}
+    assert _public(record.provenance) == {
+        "software_version", "backend", "timestamp", "random_seed", "git_commit", "parameters",
+        "environment", "jnwb_version", "jnwb_path", "to_dict", "version_claim_matches_execution",
+    }
+    assert _public(record.lineage) == {"source_type", "source_id", "parents", "operation", "to_dict"}
+    assert set(record.to_dict()) == {"question", "statistics", "provenance", "lineage"}
+    units = pd.DataFrame({"unit_id": [0], "spike_times": [np.array([0.1])], "quality": [1.0],
+                          "snr": [2.0], "firing_rate": [5.0], "peak_channel_id": [0]})
+    audit = jnwb.audit_units(units)
+    assert set(audit) == {"total_units", "units_with_spike_times", "quality_distribution",
+                          "snr_stats", "firing_rate_stats"}
+    assert set(audit["quality_distribution"]) == {"mean", "median", "std", "min", "max",
+                                                  "good_count"}
+    assert set(audit["snr_stats"]) == {"mean", "median", "std", "good_count", "good_rate"}
+    assert set(audit["firing_rate_stats"]) == {"mean", "median", "min", "max"}
+    electrodes = jnwb.audit_electrodes(pd.DataFrame({"location": ["a"]}), units)
+    assert set(electrodes) == {"total_electrodes", "areas_represented", "units_assigned",
+                               "assignment_rate"}
 
 
 # ------------------------------------------------------------------------------------ tests

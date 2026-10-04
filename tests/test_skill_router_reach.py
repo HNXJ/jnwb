@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+import jnwb
+
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 ROUTER = SKILLS / "jnwb" / "SKILL.md"
 DOCS_AGENTS = SKILLS.parent / "docs" / "agents.md"
@@ -100,6 +102,26 @@ def test_the_paradigm_rows_live_in_one_skill() -> None:
     left = set(_routed_operations((SKILLS / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")))
     assert left, "no row of jnwb-nwb-data was read; the second check would pass on nothing"
     assert not left & set(PARADIGM_ROUTES), f"still routed by jnwb-nwb-data: {left & set(PARADIGM_ROUTES)}"
+
+
+#: The rows `jnwb-qc` routes: the audits from `jnwb-nwb-data`, the plots from `jnwb-figures`, and
+#: the result records, which no skill routed before.
+QC_ROUTES = (
+    "jnwb.audit_electrodes", "jnwb.audit_units", "jnwb.Lineage", "jnwb.Provenance", "jnwb.Result",
+    "jnwb.visual_qc",
+)
+
+
+def test_the_qc_rows_live_in_one_skill() -> None:
+    """Each row `jnwb-qc` routes is there once, and has left the skills it came from."""
+    taken = _routed_operations((SKILLS / "jnwb-qc" / "SKILL.md").read_text(encoding="utf-8"))
+    assert sorted(taken) == sorted(QC_ROUTES), f"jnwb-qc routes {sorted(taken)}"
+    for source in ("jnwb-nwb-data", "jnwb-figures"):
+        left = set(_routed_operations((SKILLS / source / "SKILL.md").read_text(encoding="utf-8")))
+        assert left, f"no row of {source} was read; the check would pass on nothing"
+        assert not left & set(QC_ROUTES), f"still routed by {source}: {left & set(QC_ROUTES)}"
+    for symbol in QC_ROUTES:
+        assert symbol.removeprefix("jnwb.") in jnwb.__all__, f"{symbol} is not exported"
 
 
 def test_the_row_parser_reads_every_call_a_bullet_routes() -> None:

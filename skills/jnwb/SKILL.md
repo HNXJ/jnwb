@@ -20,7 +20,8 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
-| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
+| Matplotlib figures: equal raster trial counts, vector export | `jnwb-figures` |
+| Quality control: unit and electrode table audits, unit-quality plots, result records of what ran on which inputs | `jnwb-qc` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 Before routing, check the plan:
