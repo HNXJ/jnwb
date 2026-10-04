@@ -1,7 +1,7 @@
 ---
 name: jnwb-nwb-data
 description: NWB inspection, event/onset extraction, path addressing, anatomical mapping,
-  electrode/unit QC, metadata census, and compression.
+  unit quality classification, metadata census, and compression.
 ---
 
 # `jnwb-nwb-data` — NWB Data, Addressing & Metadata
