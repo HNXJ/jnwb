@@ -16,12 +16,8 @@ areas/layers, auditing unit quality, or compressing arrays.
 
 - `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,
   and **all** interval tables with column samples. Selects no event table on the caller's behalf.
-- `jnwb.events(path_or_nwb, table=None, code_column="codes", onset_column="start_time")` →
-  `EventTable` with all rows from one interval table. Onsets in **seconds**.
 - `jnwb.event_onsets(path_or_nwb, table=None, codes=None, code_column="codes",
   onset_column="start_time")` → `numpy.ndarray` of onset times (seconds), table row order.
-- `jnwb.resolve_interval_table(path_or_nwb, table=None)` → table name using `trials` → sole table →
-  `AmbiguousIntervalTableError` when several tables and `table` omitted.
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
@@ -38,9 +34,10 @@ areas/layers, auditing unit quality, or compressing arrays.
   `NWBHDF5IO`; call `io.read()` and read data inside the block. Same `allow_missing` and waiver
   record as `read_nwb`. Read-only: any other `mode` raises `ValueError`; write with
   `pynwb.NWBHDF5IO`.
-- `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
-  epochs from continuous signals aligned to event onsets.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
+
+Choosing an interval table, event rows, epochs around events, recording structure and what a
+condition code means are routed by `jnwb-paradigm`.
 
 MCP tools `inspect_nwb` and `get_event_codes_and_timings` wrap `inspect` and `events` for agent
 hosts, and `prepare_signal_reference` describes one dataset without loading it and names the
@@ -74,7 +71,6 @@ hosts, and `prepare_signal_reference` describes one dataset without loading it a
 - `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5, *, stable_threshold=1.0, stable_labels=("good", "sua", "single", "stable", "clean"))`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` / `'unknown'` from quality, trial presence and SNR, reading quality by the `is_stable` rule of `enrich_units_dataframe`. A candidate (quality at or above `stable_threshold`, or a label in `stable_labels`) is `'stable'` only when presence and SNR both strictly exceed their thresholds, and `'unstable'` otherwise, including a missing presence or SNR. A non-candidate is `'mua'` only when declared so, as code 0 or the label `'mua'`; any other value (missing, infinite, -1, 0.5, `'noise'`, `'unsorted'`, a boolean, a date or a duration) is `'unknown'`. Presence and SNR are Series aligned to `quality` by unit label in any order, extra labels ignored, except when `quality` has the index `0..n-1`, which pandas gives a filter followed by `reset_index`, `head()` and `iloc[:k]` alike; those labels may be positions rather than unit labels, so aligning could pair the wrong units, and it raises: pass presence and SNR selected the same way as `quality`. They may also be arrays of its length read by position; a label of `quality` missing from them, a repeated label, a scalar, or a masked array with a masked entry raises `ValueError`, as does a NaN or infinite cut-off or an empty `stable_labels`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
 - `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
-- `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
 
 ### Compression and storage
 
@@ -100,6 +96,7 @@ import jnwb
 # session.nwb here is a small synthetic file of known contents; pass your own path.
 info = jnwb.inspect("session.nwb")
 table = "test_synth_task"  # from info["interval_tables"]
+stored = jnwb.events("session.nwb", table=table).codes  # the values to select from
 onsets = jnwb.event_onsets("session.nwb", table=table, codes=["test-synth-1"])
 spikes = jnwb.unit_spike_times("session.nwb", unit_index=0)
 lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)

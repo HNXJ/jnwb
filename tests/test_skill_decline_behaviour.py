@@ -387,6 +387,70 @@ def _():
     assert entry and entry[0]["rate_hz"] is None
 
 
+# ------------------------------------------------------------------------------- paradigm
+
+
+@case("jnwb-paradigm", "supported")
+def _():
+    from jnwb.testing.nwb_fixtures import TASK_TABLE
+
+    nwb, receipt = _nwb()
+    rows = jnwb.events(nwb, table=jnwb.resolve_interval_table(nwb, table=TASK_TABLE))
+    np.testing.assert_array_equal(rows.onsets, receipt.task_onsets_s)
+    assert rows.codes == receipt.task_codes
+    # A signal whose every sample holds its own time: the epoch's zero sample is the onset.
+    fs = 1000.0
+    epochs, time_axis_s = jnwb.epoch_continuous(np.arange(10_000) / fs, rows.onsets,
+                                                win_s=(-0.05, 0.05), fs=fs)
+    np.testing.assert_allclose(epochs[:, time_axis_s == 0.0].ravel(), receipt.task_onsets_s)
+
+
+@case("jnwb-paradigm", "request")
+def _():
+    from jnwb.testing.nwb_fixtures import TASK_TABLE
+
+    nwb, _receipt = _nwb()
+    with pytest.raises(jnwb.ColumnNotFoundError, match=r"Columns: \[.*'codes'"):
+        jnwb.events(nwb, table=TASK_TABLE, code_column="absent_column")
+
+
+@case("jnwb-paradigm", "failure")
+def _():
+    assert_states("jnwb-paradigm", "that is reported as a failure, not analysed")
+    fs = 1000.0
+    onsets_ms = np.array([1000.0, 2000.0, 3000.0])  # milliseconds, read as seconds
+    with pytest.warns(UserWarning, match="all-NaN"):
+        epochs, _ = jnwb.epoch_continuous(np.zeros(5_000), onsets_ms, win_s=(-0.1, 0.1), fs=fs)
+    assert np.isnan(epochs).all()
+
+
+@case("jnwb-paradigm", "decline")
+def _(tmp_path):
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    assert_states("jnwb-paradigm", "An undocumented code is reported, never named",
+                  "is no evidence for a name")
+    # The case the decline is named after: a code column whose description documents nothing.
+    nwbfile = pynwb.NWBFile(session_description="s", identifier="undocumented",
+                            session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    nwbfile.add_trial_column(name="code", description="undocumented")
+    for onset, code in ((0.5, 7), (1.5, 7), (2.5, 3)):
+        nwbfile.add_trial(start_time=onset, stop_time=onset + 0.2, code=code)
+    path = tmp_path / "undocumented.nwb"
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwbfile)
+    rows = jnwb.events(path, code_column="code")
+    assert [int(c) for c in rows.codes] == [7, 7, 3]
+    np.testing.assert_array_equal(rows.onsets, [0.5, 1.5, 2.5])
+    # Nothing the call returns can carry a name for a code: its fields are exactly these.
+    assert set(rows.__dataclass_fields__) == {
+        "table", "path", "code_column", "onset_column", "time_unit", "codes", "onsets",
+        "stop_times",
+    }
+
+
 # ---------------------------------------------------------------------------------- figures
 
 

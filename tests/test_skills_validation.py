@@ -34,6 +34,7 @@ import jnwb
 CANONICAL_SKILLS = {
     "jnwb",
     "jnwb-nwb-data",
+    "jnwb-paradigm",
     "jnwb-spiking",
     "jnwb-lfp-spectral",
     "jnwb-statistics",
@@ -517,7 +518,7 @@ _ARROW_ROW = re.compile(r"^- `jnwb\.((?:\w+\.)*\w+)\([^`]*\)`\s*(?:.*?)→")
 #: `trials` → sole table → `AmbiguousIntervalTableError`"); `unit_spike_times` writes
 #: "spike times in seconds", a unit rather than a type.
 _ARROW_ROWS_WITHOUT_A_TYPE_CLAIM = {
-    ("jnwb-nwb-data", "resolve_interval_table"),
+    ("jnwb-paradigm", "resolve_interval_table"),
     ("jnwb-nwb-data", "unit_spike_times"),
 }
 
