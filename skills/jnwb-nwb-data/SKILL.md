@@ -104,6 +104,7 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 
 ## 5. Verification
 - Tutorials under `examples/tutorials/` execute in CI (`tests/test_tutorials.py`).
+- `examples/quickstart_jnwb.py` is the smoke script and `examples/notebooks/01_spectral_and_inference.ipynb` the executed notebook (`tests/test_notebooks.py`).
 - Event/onset acceptance matrix: `tests/test_nwb_events.py`.
 
 ## 6. Documentation
