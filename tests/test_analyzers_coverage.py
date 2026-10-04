@@ -540,7 +540,7 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         self.assertTrue(UnitAnalyzer.quality_metrics(
             violating, 300.0, 5.0, max_violation_pct=20.0)['is_good_single_unit'])
 
-        counts = [1, 9] * 5 + [1]                          # planted per 1-s window
+        counts = [1, 9] * 5 + [1]                          # per second; windows [1, 9]*4 + [1, 10]
         bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
         res = UnitAnalyzer.quality_metrics(bursty, 300.0, 5.0)
         self.assertGreater(res['fano_factor'], 2.0)
@@ -589,6 +589,26 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         ref = fano_factor([st], st[0] + np.arange(n_windows), (0.0, 1.0), summary='mean')
         self.assertEqual(UnitAnalyzer.quality_metrics(st, 300.0, 5.0)['fano_factor'], ref['fano'])
 
+    def test_fano_factor_goes_through_the_shared_helper(self):
+        """A retyped variance would agree today and drift later; the value must come from the
+        helper jnwb.fano_factor uses."""
+        from unittest import mock
+        import jnwb.analyzers
+        import jnwb.spiking
+        self.assertIs(jnwb.analyzers._count_fano, jnwb.spiking._count_fano)
+        seen = []
+
+        def marker(counts):
+            seen.append(np.array(counts))
+            return np.array([123.25])
+
+        st = np.concatenate([[0.0], np.linspace(1.0, 2.0, 9)])
+        with mock.patch.object(jnwb.analyzers, '_count_fano', marker):
+            res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertEqual(res['fano_factor'], 123.25)
+        self.assertEqual(len(seen), 1)
+        np.testing.assert_array_equal(seen[0], [[1, 9]])
+
     def test_a_value_at_its_cut_off_does_not_pass(self):
         """Each comparison is strict: an interval equal to the refractory period is no
         violation, and a rate or Fano factor equal to its cut-off fails the verdict."""
@@ -598,6 +618,8 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
 
         steps = np.where(np.arange(3000) % 10 == 0, 0.001, 0.003)
         violating = np.concatenate([[0.0], np.cumsum(steps)])
+        # Spikes per second [1, 9]*5 + [1]; the windows start at 0.1 s and the last is closed,
+        # so its window counts are [1, 9]*4 + [1, 10].
         counts = [1, 9] * 5 + [1]
         bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
         for train, key, cut_off in ((violating, 'refr_violations_pct', 'max_violation_pct'),
@@ -620,6 +642,8 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                 self.assertIn(f"``{name}={params[name].default!r}``", doc)
         self.assertIn("by the rule of :func:`jnwb.fano_factor`: the unbiased\n(``ddof=1``) variance", doc)
         self.assertNotIn("no spike in them", doc)   # the first window always holds a spike
+        self.assertIn("the last one closed", doc)
+        self.assertIn("are right-open", doc)
 
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""

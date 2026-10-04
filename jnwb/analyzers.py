@@ -560,7 +560,10 @@ class UnitAnalyzer:
         The Fano factor is the variance over the mean of the spike counts in whole 1-s
         windows from the first spike, by the rule of :func:`jnwb.fano_factor`: the unbiased
         (``ddof=1``) variance. Up to 0.2.8 it was the population variance (``ddof=0``),
-        ``(n - 1) / n`` of this over ``n`` windows, half at two windows.
+        ``(n - 1) / n`` of this over ``n`` windows, half at two windows. The variance rule is
+        shared and the windowing is not: here the windows are ``[t0 + k, t0 + k + 1)`` from
+        the first spike ``t0`` with the last one closed, so a spike at the train's end counts,
+        where the trial windows of :func:`jnwb.fano_factor` are right-open.
 
         Each default is a convention with no cited source: ``refractory_ms=2.0``,
         ``max_violation_pct=5.0`` and ``max_fano=2.0``. Set them for the recording at hand.
