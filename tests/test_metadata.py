@@ -475,12 +475,50 @@ class TestUndefinedQualityInput:
         on_index = assign_quality_tier(q, pd.Series([0.99, 0.5, 0.99], index=q.index),
                                        pd.Series([5.0] * 3, index=q.index))
         assert on_index.tolist() == ["stable", "unstable", "mua"]
-        with pytest.raises(ValueError, match="trial_presence_fraction is indexed"):
+        with pytest.raises(ValueError, match="trial_presence_fraction is not on the units"):
             assign_quality_tier(q, pd.Series([0.99] * 3), pd.Series([5.0] * 3, index=q.index))
-        with pytest.raises(ValueError, match="snr is indexed"):
+        with pytest.raises(ValueError, match="snr is not on the units"):
             assign_quality_tier(q, np.array([0.99] * 3), pd.Series([5.0] * 3, index=[1, 2, 3]))
         with pytest.raises(ValueError, match="quality has 3 units"):
             assign_quality_tier(q, np.array([0.99] * 2), np.array([5.0] * 3))
+
+    def test_assign_quality_tier_aligns_a_reordered_index_by_label(self):
+        q = pd.Series([1, 1, 0], index=[10, 11, 12])
+        presence = pd.Series([0.99, 0.5, 0.99], index=q.index)
+        snr = pd.Series([5.0] * 3, index=q.index)
+        permuted = presence.loc[[12, 10, 11]]
+        assert assign_quality_tier(q, permuted, snr).tolist() == ["stable", "unstable", "mua"]
+        # A groupby result comes back sorted by its key, not in the frame's row order.
+        units = pd.DataFrame({"unit": ["c", "a", "b"], "quality": [1, 1, 0],
+                              "presence": [0.99, 0.5, 0.99]}).set_index("unit")
+        by_unit = units.groupby(level="unit")["presence"].mean()
+        assert by_unit.index.tolist() == ["a", "b", "c"]
+        tier = assign_quality_tier(units["quality"], by_unit,
+                                   pd.Series([5.0] * 3, index=units.index))
+        assert tier.tolist() == ["stable", "unstable", "mua"]
+        with pytest.raises(ValueError, match=r"missing \[12\], extra \[13\]"):
+            assign_quality_tier(q, presence.rename({12: 13}), snr)
+        with pytest.raises(ValueError, match=r"duplicated \[10\]"):
+            assign_quality_tier(q, pd.concat([presence, presence.loc[[10]]]), snr)
+        with pytest.raises(ValueError, match="quality has 3 units"):
+            assign_quality_tier(q, 0.99, snr)
+
+    def test_assign_quality_tier_reads_nullable_codes_and_no_bool_or_time_as_a_code(self):
+        na = pd.NA
+        for dtype, values in (("Int64", [0, 1, na]), ("Float64", [0.0, 1.0, na])):
+            tier = assign_quality_tier(pd.Series(values, dtype=dtype), pd.Series([1.0] * 3),
+                                       pd.Series([5.0] * 3))
+            assert tier.tolist() == ["mua", "stable", "unknown"], dtype
+        presence, snr = pd.Series([1.0] * 3), pd.Series([5.0] * 3)
+        for quality in (pd.Series([True, False, na], dtype="boolean"),
+                        pd.Series([True, False, False]),
+                        pd.Series([True, False, 0], dtype=object),
+                        pd.to_datetime(pd.Series(["2026-01-01"] * 3)),
+                        pd.to_timedelta(pd.Series([0, 1, 2]), unit="s")):
+            tier = assign_quality_tier(quality, presence, snr).tolist()
+            expected = (["unknown", "unknown", "mua"] if quality.dtype == object
+                        else ["unknown"] * 3)
+            assert tier == expected, quality.dtype
 
     def test_quality_cut_offs_are_arguments(self, tmp_path):
         import pynwb
@@ -510,7 +548,10 @@ class TestUndefinedQualityInput:
         assert audit_units(labels, stable_labels=("accepted",))[
             "quality_distribution"]["good_count"] == 1
         assert audit_units(labels, stable_labels=("good", "sua", "single", "stable", "clean"))[
-            "quality_distribution"]["good_count"] == 2
+            "quality_distribution"]["good_count"] == 1  # ' SUA' is not stripped
+        # The released matching: case-insensitive, whitespace kept.
+        assert audit_units(pd.DataFrame({"quality": [" good", "GOOD"]}))[
+            "quality_distribution"]["good_count"] == 1
 
         numeric = pd.DataFrame({"quality": [1.0, 2.0]})
         path = tmp_path / "ses-02_q.nwb"

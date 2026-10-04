@@ -121,6 +121,25 @@ def test_plot_unit_waveforms_ignores_nan_samples_across_spikes_and_refuses_dead_
     plt.close("all")
 
 
+def test_plot_unit_waveforms_treats_infinite_samples_as_not_finite():
+    import pytest
+
+    for mode in ("peak", "all"):
+        with pytest.raises(ValueError, match="unit 7 has an empty waveform or one with no finite"):
+            plot_unit_waveforms([7], {7: np.full((4, 30), np.inf)}, channels=mode)
+    template = np.zeros((4, 30))
+    template[2, 10] = -100.0
+    template[1] = np.inf
+    with pytest.raises(ValueError, match=r"unit 7 has no finite sample on channel\(s\) \[1\]"):
+        plot_unit_waveforms([7], {7: template}, channels="all")
+    # An infinite sample on a channel with finite ones does not make it the peak.
+    template[1] = 0.0
+    template[3, 4] = np.inf
+    (fig,) = plot_unit_waveforms([7], {7: template}, channels="peak")
+    assert fig.axes[0].get_lines()[0].get_label() == "Channel 2"
+    plt.close("all")
+
+
 def test_plot_unit_quality_distribution_returns_populated_figure():
     units = _units_df()
     fig = plot_unit_quality_distribution(units)

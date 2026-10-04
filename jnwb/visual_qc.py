@@ -66,7 +66,8 @@ def plot_unit_waveforms(
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
         channels: ``"peak"`` draws the channel with the largest absolute deflection
-            (NaN samples and all-NaN channels ignored), with ±1 SD across spikes when the
+            over finite samples (NaN and infinite samples, and channels with no finite
+            sample, ignored), with ±1 SD across spikes when the
             input is 3-D; ``"all"`` draws every channel and refuses a channel with no finite
             sample. Channels are never averaged together, because a channel mean shrinks the
             peak by the channel count.
@@ -84,8 +85,9 @@ def plot_unit_waveforms(
     Raises:
         KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
         ValueError: an array's dimensionality does not match ``channels``, a unit's drawn
-            template (after averaging over spikes) is empty or entirely NaN, or
-            ``channels="all"`` meets an all-NaN channel; the message names the unit.
+            template (after averaging over spikes) is empty or has no finite sample, or
+            ``channels="all"`` meets a channel with no finite sample; the message names the
+            unit.
 
     Example:
         >>> waveforms = {unit_id: waveform_array for unit_id in unit_ids}
@@ -115,14 +117,15 @@ def plot_unit_waveforms(
                 f"channels={channels!r} takes {' or '.join(f'{d}-D' for d in allowed)}"
             )
         template = _drawn_template(waveform)
-        if template.size == 0 or np.isnan(template).all():
+        if template.size == 0 or not np.isfinite(template).any():
             raise ValueError(
-                f"plot_unit_waveforms: unit {unit_id!r} has an empty or all-NaN waveform"
+                f"plot_unit_waveforms: unit {unit_id!r} has an empty waveform or one with no "
+                "finite sample (all NaN or infinite)"
                 + (" after averaging over spikes" if waveform.ndim == 3 else "")
                 + "; there is no trace to draw."
             )
         if channels == "all":
-            dead = [ch for ch, trace in enumerate(template) if np.isnan(trace).all()]
+            dead = [ch for ch, trace in enumerate(template) if not np.isfinite(trace).any()]
             if dead:
                 raise ValueError(
                     f"plot_unit_waveforms: unit {unit_id!r} has no finite sample on "
@@ -150,10 +153,12 @@ def plot_unit_waveforms(
             if channels is not None:
                 template = _drawn_template(waveform)
                 if channels == "peak":
-                    # A channel that is all NaN has no deflection and never wins; the check
-                    # above guarantees one channel has a finite sample.
-                    deflection = np.array([np.nanmax(np.abs(tr)) if np.isfinite(tr).any()
-                                           else np.nan for tr in template])
+                    # Deflection over finite samples only: a channel with none never wins, an
+                    # infinite sample does not make a channel the peak, and the check above
+                    # guarantees one channel has a finite sample.
+                    deflection = np.array([np.abs(tr[np.isfinite(tr)]).max()
+                                           if np.isfinite(tr).any() else np.nan
+                                           for tr in template])
                     peak = int(np.nanargmax(deflection))
                     ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
                             label=f'Channel {peak}')

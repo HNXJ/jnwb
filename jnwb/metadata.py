@@ -6,6 +6,7 @@ Functions operate on standard NWB units/electrodes table columns (snr, firing_ra
 peak_channel_id, ...) exposed by any file.
 """
 
+import datetime
 import logging
 import warnings
 from pathlib import Path
@@ -18,6 +19,11 @@ from jnwb.nwb_io import nwb_read_io
 log = logging.getLogger(__name__)
 
 _NWB_READ_ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError)
+
+#: Values `assign_quality_tier` does not read as a quality code: a boolean is no code 0 or 1,
+#: and a time is no code at all, though `pd.to_numeric` turns each into a number.
+_NOT_A_QUALITY_CODE = (bool, np.bool_, datetime.date, datetime.timedelta, np.datetime64,
+                       np.timedelta64)
 
 
 def _session_id_from_path(nwb_path: Path):
@@ -513,11 +519,12 @@ def audit_units(
             ``snr >= snr_threshold``. Both defaults, 1.0, are a convention with no cited
             source: pass the cut-offs your study justifies.
         stable_labels: when no quality is numeric, a text label counts toward
-            ``good_count`` when, stripped and lower-cased, it is one of these, by the rule of
-            :func:`jnwb.enrich_units_dataframe`. The default is ``("good",)``, the one label
-            this count has always read, and narrower than enrich's
-            ``("good", "sua", "single", "stable", "clean")``; pass that tuple to count as
-            ``is_stable`` does. A bare string raises ``TypeError``.
+            ``good_count`` when, lower-cased, it is one of these. Unlike
+            :func:`jnwb.enrich_units_dataframe`, the label is not stripped of whitespace
+            (``' good'`` does not count), as this count has always read it, and the default
+            is ``("good",)``, narrower than enrich's
+            ``("good", "sua", "single", "stable", "clean")``. A bare string raises
+            ``TypeError``.
 
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
@@ -569,8 +576,8 @@ def audit_units(
                 'good_count': int((quality_values >= quality_threshold).sum()),
             }
         else:
-            good_count = int(_quality_is_stable(units_df['quality'], quality_threshold,
-                                                labels).fillna(False).sum())
+            # The released matching: lower-cased, not stripped, so ' good' is not 'good'.
+            good_count = int(units_df['quality'].astype(str).str.lower().isin(labels).sum())
             result['quality_distribution'] = {
                 'mean': float('nan'),
                 'median': float('nan'),
@@ -671,13 +678,16 @@ def assign_quality_tier(
     - every other unit -> 'unknown': a missing quality, a value that is not a number in a
       numeric column, any other non-candidate code (-1, 0.5) and any other label ('noise',
       'unsorted'). Not being a single unit does not make a unit multi-unit activity.
+    - a boolean quality (``False`` is not the code 0, ``True`` not the code 1), or a date,
+      datetime or timedelta, is no quality code -> 'unknown'.
 
     Args:
         quality: per-unit quality Series: codes (0 = MUA, 1 = single-unit candidate) or labels.
         trial_presence_fraction: per-unit fraction of trials the unit was present for.
-        snr: per-unit signal-to-noise ratio. Each of the two is a Series on the same index as
-            ``quality`` (a different index raises ``ValueError``) or an array of the same
-            length, read by position.
+        snr: per-unit signal-to-noise ratio. Each of the two is a Series or an array of
+            ``len(quality)`` values. A Series is aligned to ``quality`` by unit label, in any
+            order; a label missing from it, an extra label or a repeated label raises
+            ``ValueError``. An array is read by position; a scalar raises ``ValueError``.
         presence_threshold: minimum presence fraction (exclusive) for 'stable'.
         snr_threshold: minimum SNR (exclusive) for 'stable'. Both defaults, 0.98 and 0.5,
             are a convention with no cited source: pass the cut-offs your study justifies
@@ -690,20 +700,33 @@ def assign_quality_tier(
         Series of {'mua', 'stable', 'unstable', 'unknown'}, same index as ``quality``.
     """
     labels = _stable_label_set(stable_labels, "assign_quality_tier")
+    # A boolean, date or duration is no quality code: False is not the code 0. Iterating a
+    # bool, boolean, datetime64 or timedelta64 Series yields these types, so one check covers
+    # each dtype and an object column alike.
+    not_a_code = np.array([isinstance(v, _NOT_A_QUALITY_CODE) for v in quality], dtype=bool)
     candidate = _quality_is_stable(quality, stable_threshold, labels)
-    known = candidate.notna().to_numpy()
-    is_candidate = candidate.fillna(False).to_numpy(dtype=bool)
-    declared_mua = ((pd.to_numeric(quality, errors="coerce") == 0)
-                    | (quality.astype(str).str.strip().str.lower() == "mua")).to_numpy(dtype=bool)
+    known = candidate.notna().to_numpy() & ~not_a_code
+    is_candidate = candidate.fillna(False).to_numpy(dtype=bool) & ~not_a_code
+    declared_mua = ((pd.to_numeric(quality, errors="coerce") == 0).fillna(False)
+                    | (quality.astype(str).str.strip().str.lower() == "mua")
+                    ).to_numpy(dtype=bool) & ~not_a_code
 
     def _aligned(values, name):
         if isinstance(values, pd.Series):
             if not values.index.equals(quality.index):
-                raise ValueError(
-                    f"assign_quality_tier: {name} is indexed {list(values.index[:5])}..., "
-                    f"quality {list(quality.index[:5])}...; pass Series on one index, or "
-                    "arrays read by position."
-                )
+                missing = quality.index.difference(values.index)
+                extra = values.index.difference(quality.index)
+                duplicated = values.index[values.index.duplicated()].unique()
+                if (len(missing) or len(extra) or len(duplicated)
+                        or not quality.index.is_unique):
+                    raise ValueError(
+                        f"assign_quality_tier: {name} is not on the units of quality: "
+                        f"missing {list(missing[:5])}, extra {list(extra[:5])}, duplicated "
+                        f"{list(duplicated[:5])}"
+                        + ("" if quality.index.is_unique else "; quality's index repeats")
+                        + ". Pass Series on the same unit labels, or arrays read by position."
+                    )
+                values = values.reindex(quality.index)  # same labels, another order
             values = values.to_numpy()
         values = np.asarray(values)
         if values.shape != (len(quality),):
