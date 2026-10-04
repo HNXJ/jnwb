@@ -1058,6 +1058,21 @@ class TestGrangerNotTestedIsNotPassed:
         assert d["ok_for_interpretation"] is False
         assert "stationarity_not_tested" in d["warnings"]
 
+    def test_a_floating_point_error_under_strict_errstate_is_nan_and_untested(self):
+        """Under a caller's ``np.errstate(all="raise")`` the fit underflows on a series of
+        amplitude 1e-300 and raised FloatingPointError, where 0.2.8 returned NaN. The series
+        is finite and not constant, so it reaches the fit rather than an early NaN return."""
+        from jnwb.connectivity import _adf_pvalue, _series_diagnostics
+
+        y = 1e-300 * np.random.default_rng(12345).normal(size=50)
+        assert np.all(np.isfinite(y)) and np.ptp(y) > 0
+        with np.errstate(all="raise"):
+            assert np.isnan(_adf_pvalue(y))
+            d = _series_diagnostics(y, np.random.default_rng(0).normal(size=50), order=3)
+        assert np.isnan(d["adf_pvalue"])
+        assert "stationarity_not_tested" in d["warnings"]
+        assert d["stationarity_ok"] is False
+
     def test_an_error_that_is_not_numerical_propagates(self, monkeypatch):
         """Only the named numerical failures become NaN; a defect in the call raises."""
         from jnwb.connectivity import _adf_pvalue

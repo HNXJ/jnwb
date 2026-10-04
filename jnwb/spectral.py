@@ -313,8 +313,11 @@ def _ratio_to_db(ratio):
 
 
 def to_db(ratio):
-    """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
-    through — average power, divide by baseline, then take the logarithm exactly once.
+    """``10*log10(ratio)`` with divide and invalid warnings silenced — average power, divide
+    by baseline, then take the logarithm exactly once.
+
+    The formula itself is :func:`_ratio_to_db`, shared with ``band_power``, which calls it
+    directly so a zero band still warns.
     """
     with np.errstate(divide="ignore", invalid="ignore"):
         return _ratio_to_db(ratio)
