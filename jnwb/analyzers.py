@@ -22,6 +22,7 @@ from scipy import signal, stats
 import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
+from .spiking import _count_fano
 from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
@@ -557,10 +558,9 @@ class UnitAnalyzer:
         Unit quality metrics: ISI, refractory period, Fano factor.
 
         The Fano factor is the variance over the mean of the spike counts in whole 1-s
-        windows from the first spike. The variance is the population variance
-        (``np.var``, ``ddof=0``), which is ``(n - 1) / n`` times the unbiased (``ddof=1``)
-        variance over ``n`` windows: at two windows it is half, so the Fano factor reads
-        low and the verdict is lenient on short trains.
+        windows from the first spike, by the rule of :func:`jnwb.fano_factor`: the unbiased
+        (``ddof=1``) variance. Up to 0.2.8 it was the population variance (``ddof=0``),
+        ``(n - 1) / n`` of this over ``n`` windows, half at two windows.
 
         Each default is a convention with no cited source: ``refractory_ms=2.0``,
         ``max_violation_pct=5.0`` and ``max_fano=2.0``. Set them for the recording at hand.
@@ -581,7 +581,7 @@ class UnitAnalyzer:
         Returns:
             Dict with quality scores. ``refr_violations_pct`` is NaN with fewer than two
             spikes (no interval). ``fano_factor`` is NaN with fewer than two whole 1-s
-            windows or no spike in them. ``is_good_single_unit`` is ``None`` when either is
+            windows. ``is_good_single_unit`` is ``None`` when either is
             NaN, else a ``bool``: ``True`` when both are strictly below their cut-offs.
 
         Raises:
@@ -625,8 +625,8 @@ class UnitAnalyzer:
                 n_windows  = int(duration)          # 1-s windows
                 bin_edges  = np.linspace(t_start, t_start + n_windows, n_windows + 1)
                 counts, _  = np.histogram(spike_times, bins=bin_edges)
-                fano_factor = float(np.var(counts) / np.mean(counts)) \
-                              if np.mean(counts) > 0 else np.nan
+                # The first window holds the first spike, so the mean is positive.
+                fano_factor = float(_count_fano(counts[None, :])[0])
             else:
                 fano_factor = np.nan
         else:

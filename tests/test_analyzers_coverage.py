@@ -567,19 +567,27 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         st = np.linspace(0.0, 2.0, 401)                   # 5 ms intervals
         self.assertEqual(st[-1] - st[0], 2.0)
         res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
-        counts = np.array([200, 201])                      # the end spike falls in the last window
-        self.assertEqual(res['fano_factor'], np.var(counts) / np.mean(counts))
+        # Counts 200 and 201 (the end spike falls in the last window): variance 0.5 (ddof=1).
+        self.assertEqual(res['fano_factor'], 0.5 / 200.5)
         self.assertIs(res['is_good_single_unit'], True)
 
-    def test_two_windows_fano_uses_the_population_variance(self):
-        """ddof=0, as stated: half the unbiased variance at two windows, so a lenient verdict."""
+    def test_two_windows_fano_uses_the_unbiased_variance(self):
+        """ddof=1, the rule of jnwb.fano_factor; 0.2.8's ddof=0 gave 16/5 and passed max_fano=5."""
         st = np.concatenate([[0.0], np.linspace(1.0, 2.0, 9)])   # counts 1 and 9
         res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
         self.assertEqual(res['refr_violations_pct'], 0.0)
-        self.assertEqual(res['fano_factor'], 16.0 / 5.0)   # ddof=1 would give 32 / 5
-        self.assertIs(res['is_good_single_unit'], False)
+        self.assertEqual(res['fano_factor'], 32.0 / 5.0)
         self.assertIs(UnitAnalyzer.quality_metrics(
-            st, 300.0, 5.0, max_fano=5.0)['is_good_single_unit'], True)
+            st, 300.0, 5.0, max_fano=5.0)['is_good_single_unit'], False)
+        self.assertIs(UnitAnalyzer.quality_metrics(
+            st, 300.0, 5.0, max_fano=7.0)['is_good_single_unit'], True)
+
+    def test_fano_factor_equals_jnwb_fano_factor_on_the_same_windows(self):
+        from jnwb import fano_factor
+        st = np.sort(np.random.default_rng(3).uniform(0.0, 50.5, 400))
+        n_windows = int(st[-1] - st[0])
+        ref = fano_factor([st], st[0] + np.arange(n_windows), (0.0, 1.0), summary='mean')
+        self.assertEqual(UnitAnalyzer.quality_metrics(st, 300.0, 5.0)['fano_factor'], ref['fano'])
 
     def test_a_value_at_its_cut_off_does_not_pass(self):
         """Each comparison is strict: an interval equal to the refractory period is no
@@ -602,7 +610,7 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                 self.assertIs(at['is_good_single_unit'], False)
                 self.assertIs(above['is_good_single_unit'], True)
 
-    def test_docstring_states_each_default_and_the_variance_bias(self):
+    def test_docstring_states_each_default_and_the_variance_rule(self):
         import inspect
         doc = inspect.getdoc(UnitAnalyzer.quality_metrics)
         self.assertIn("Each default is a convention with no cited source", doc)
@@ -610,7 +618,8 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
             with self.subTest(cut_off=name):
                 self.assertIn(f"``{name}={params[name].default!r}``", doc)
-        self.assertIn("``ddof=0``", doc)
+        self.assertIn("by the rule of :func:`jnwb.fano_factor`: the unbiased\n(``ddof=1``) variance", doc)
+        self.assertNotIn("no spike in them", doc)   # the first window always holds a spike
 
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""

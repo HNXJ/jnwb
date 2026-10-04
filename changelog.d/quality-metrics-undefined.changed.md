@@ -6,5 +6,8 @@
   used to pass. The 2 ms refractory period and the 5 % and Fano-2 cut-offs are the keyword
   arguments `refractory_ms`, `max_violation_pct` and `max_fano`, with those values as
   defaults; they are conventions with no cited source, and a cut-off that is not finite and
-  positive raises `ValueError` naming it. The Fano factor keeps the population variance
-  (`ddof=0`), half the unbiased variance at two windows; the docstring states it.
+  positive raises `ValueError` naming it.
+- `UnitAnalyzer.quality_metrics` computes its Fano factor by the rule of `jnwb.fano_factor`,
+  the unbiased (`ddof=1`) variance over the mean, where it used the population variance
+  (`ddof=0`). Over `n` windows the value grows by `n / (n - 1)`: at two windows with counts 1
+  and 9 it goes from 16/5 to 32/5. A verdict near `max_fano` can change from good to not good.
