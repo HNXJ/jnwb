@@ -163,6 +163,12 @@ rdm_sq = jnwb.rdm(X, metric="correlation", condensed=False)
 rho, p_val = jnwb.rdm_similarity(rdm_vec1, rdm_vec2, metric="spearman")
 ```
 
+Only the off-diagonal upper triangle is compared. RDM cells are not independent observations, so
+`p_val` is not a valid test of RDM relatedness; for inference, permute the condition labels and
+recompute the similarity (Kriegeskorte et al. 2008, "Step 5"). `rdm_similarity` leaves that to the
+caller, and `jnwb.jrsa` with `stats=True` runs a permutation null. With `metric="cosine"` the p
+value is `nan`.
+
 ## References
 
 The methods on this page are cited in [References](references.md).

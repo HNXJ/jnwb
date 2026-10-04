@@ -87,7 +87,7 @@ print(f"Repaired fraction: {frac:.1%}")
 
 ### 2. Time-Frequency Dynamics (Complex Morlet TFR)
 
-Extract phase and power with single-trial resolution using Morlet wavelets:
+Extract phase and power from one trial, `repaired[0]`, using Morlet wavelets:
 
 ```python
 freqs = np.linspace(6.0, 45.0, 30)
