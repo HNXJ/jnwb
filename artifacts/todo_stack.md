@@ -40,7 +40,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-03, 13-11, 13-05, 13-06, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-24, 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-24) |
+| C skills | 07-25, 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
@@ -107,7 +107,7 @@ Stop: none beyond the standing ones.
 ### 13-05 One skill routes unit quality
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-03, 07-24.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-03.
 Writes: `skills/jnwb-qc/SKILL.md` and `skills/jnwb-qc/agents/openai.yaml` (ruled 2026-10-03: unit quality extends `jnwb-qc`), `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `skills/jnwb-nwb-data/agents/openai.yaml`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
 07-24 writes `skills/jnwb-nwb-data/SKILL.md` and `tests/test_skill_decline_behaviour.py`, which this item writes too.
 Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public. `classify_unit_quality`, `assign_quality_tier`, `enrich_units_dataframe` and `get_snr_analysis` move here from `jnwb-nwb-data`, whose description and yaml then drop "unit quality classification"; the exact set `QC_ROUTES` in the skill tests grows with them.
@@ -128,16 +128,17 @@ route them through `jnwb-qc`. The screen and its per-session agreement table mov
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
 
-### 07-24 Gate 13 reads the skill that routes each symbol
+### 07-25 Edges the 07-24 verifier found
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py` (the gate 13 function), `tests/test_gates_reject_the_trees_they_passed.py`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skill_decline_behaviour.py`.
-Source: the 07-10 actor, 2026-10-04.
-- Gate 13 requires every onboarding symbol's call in `skills/jnwb-nwb-data/SKILL.md`; after 07-10 moved `events` to `jnwb-paradigm`, an example line in `jnwb-nwb-data` keeps it green. Check: the gate accepts the call in the skill whose routing row holds the symbol, the example line goes, and a test fails when that row's call is removed.
-- The `jnwb-paradigm` decline test kills a new `EventTable` field but not a method that names a code (the 07-10 verifier's mutant M2). Check: the test asserts `EventTable`'s public attributes are its fields and `n_events`, and that mutant is killed.
-- The `jnwb-qc` decline test passes a verdict sentence that holds an unrelated negation word ("and no field missing, is correct") or a verdict word outside its list ("validates"), per the 07-11 verifier. Check: the negation must govern the verdict word, the list covers validate, trustworthy and right, and both mutants are killed.
-Accept: the harness passes and the gate's test kills the removal.
+Writes: `scripts/harness_gate.py` (the gate 13 function), `tests/test_gates_reject_the_trees_they_passed.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_docs_nwb_workflow.py`, `skills/jnwb-nwb-data/SKILL.md`.
+Source: the 07-24 verifier, 2026-10-04, at `04c5434a`.
+- Gate 13 finds `symbol(` anywhere on a routing row's first line, so a row that names a symbol and calls it only in its description passes. Check: the call is read from the row head, and a fixture with the call only in the description is rejected.
+- The `jnwb-qc` decline check's declined-request pattern is greedy, so a granted verdict between two "request" words passes, and a negated limit with words between the negation and the verdict word is flagged. Check: one fixture of each, the first rejected and the second passed.
+- The live `jnwb-qc` skill meets the floor of five verdict words only because `correct` also matches "corrected". Check: the floor counts distinct verdict sentences, and the live skill meets it with margin or the floor is lowered with its reason.
+- `tests/test_docs_nwb_workflow.py` asserts `jnwb-nwb-data` mentions `jnwb.events`, which `jnwb-paradigm` routes. Check: the test reads the owning skill's routing row, and the pointer mention in `jnwb-nwb-data` goes.
+Accept: each check observed; the harness and the touched tests pass.
 Stop: none.
 
 ### 07-12 Every export routed or excluded with a checked reason
@@ -281,7 +282,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-03, 13-05, 13-06, 13-11, 07-24, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-03, 13-05, 13-06, 13-11, 07-25, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
