@@ -290,8 +290,9 @@ def test_guide_lines_and_colour_cutoffs_come_from_arguments():
     plt.close(fig)
 
     # 1.5 passes the default 1.0 but not a cut-off of 2.0; 0.3 fails 0.5 but passes 0.2.
+    # 60 % passes the default 50 but not 70; 22 % fails the default 25 but passes 20.
     fig = compare_session_quality(
-        _comparison([1.5, 0.3], [0.6, 0.3]),
+        _comparison([1.5, 0.3], [0.6, 0.22]),
         snr_good=2.0, snr_fair=0.2, rate_good=70, rate_fair=20,
     )
     snr_ax, rate_ax = fig.axes[0], fig.axes[2]
