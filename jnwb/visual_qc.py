@@ -88,7 +88,9 @@ def plot_unit_waveforms(
 
     Raises:
         KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
-        ValueError: an array's dimensionality does not match ``channels``, a unit's drawn
+        ValueError: a unit's waveform is a numpy masked array with a masked entry, whose
+            mask would be dropped (pass ``waveform.filled(np.nan)``, which the template
+            ignores); an array's dimensionality does not match ``channels``, a unit's drawn
             template (after averaging over spikes) is empty or has no finite sample, or
             ``channels="all"`` meets a channel with no finite sample; the message names the
             unit.
@@ -105,7 +107,15 @@ def plot_unit_waveforms(
     if missing:
         raise KeyError(f"plot_unit_waveforms: no waveform for unit(s) {missing}")
     for unit_id in unit_ids:
-        waveform = np.asarray(waveforms_dict[unit_id], dtype=float)
+        raw = waveforms_dict[unit_id]
+        if np.ma.isMaskedArray(raw) and np.ma.getmaskarray(raw).any():
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} is a masked array with masked "
+                "entries, whose mask np.asarray would drop and average the masked samples in; "
+                "pass waveform.filled(np.nan) to leave them out of the template, or an "
+                "unmasked array."
+            )
+        waveform = np.asarray(raw, dtype=float)
         if channels is None and waveform.ndim == 2:
             # INTENTIONAL BREAK: a 2-D array was averaged over its rows; see the docstring.
             raise ValueError(

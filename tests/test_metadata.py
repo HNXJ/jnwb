@@ -926,3 +926,143 @@ class TestDegenerateCutOffs:
         doc = " ".join(audit_units.__doc__.split())
         assert "not strict JSON" in doc
         assert "allow_nan=False" in doc
+
+
+class TestInfiniteMeasuresAndTies:
+    """An infinite measure is undefined input, as an infinite quality is; ties are pinned."""
+
+    def test_classify_unit_quality_reads_an_infinite_measure_as_undefined(self):
+        inf = float("inf")
+        frame = pd.DataFrame({"quality": [1.0, inf, 1.0, 1.0, 1.0],
+                              "snr": [2.0, 2.0, inf, -inf, 2.0],
+                              "firing_rate": [inf, 1.0, 1.0, 1.0, 1.0]})
+        out = classify_unit_quality(frame)
+        assert out["issue_flags"].tolist() == [["firing_rate undefined"], ["quality undefined"],
+                                               ["snr undefined"], ["snr undefined"], []]
+        assert out["quality_class"].tolist() == ["Unknown"] * 4 + ["Good"]
+        assert out["is_valid"].tolist() == [False] * 4 + [True]
+
+    def test_assign_quality_tier_reads_an_infinite_presence_or_snr_as_missing(self):
+        import numpy as np
+
+        inf = float("inf")
+        q = pd.Series([1.0] * 4)
+        presence = pd.Series([inf, 0.99, 0.99, -inf])
+        snr = pd.Series([5.0, inf, 5.0, 5.0])
+        assert assign_quality_tier(q, presence, snr).tolist() == [
+            "unstable", "unstable", "stable", "unstable"]
+        assert assign_quality_tier(q, presence.to_numpy(), snr.to_numpy()).tolist() == [
+            "unstable", "unstable", "stable", "unstable"]
+        # A read-only array is read, not written.
+        frozen = presence.to_numpy().copy()
+        frozen.setflags(write=False)
+        assert assign_quality_tier(q, frozen, np.array([5.0] * 4)).tolist()[0] == "unstable"
+
+    def test_audit_and_snr_analysis_leave_an_infinite_measure_out(self):
+        inf = float("inf")
+        frame = pd.DataFrame({"quality": [1.0, inf, 2.0], "snr": [inf, 2.0, 0.5],
+                              "firing_rate": [inf, 1.0, 3.0], "session_id": ["s", "s", "s"]})
+        audit = audit_units(frame)
+        assert audit["quality_distribution"]["good_count"] == 2
+        assert audit["quality_distribution"]["mean"] == 1.5
+        assert audit["quality_distribution"]["max"] == 2.0
+        assert audit["snr_stats"]["mean"] == 1.25
+        assert audit["snr_stats"]["good_count"] == 1
+        assert audit["snr_stats"]["good_rate"] == 0.5
+        assert audit["firing_rate_stats"]["mean"] == 2.0
+        assert audit["firing_rate_stats"]["max"] == 3.0
+        every_inf = audit_units(pd.DataFrame({"quality": [inf, -inf]}))["quality_distribution"]
+        assert every_inf["good_count"] == 0
+        assert pd.isna(every_inf["mean"])
+        # Still a numeric column: its infinities are not read as the text label 'inf'.
+        as_label = audit_units(pd.DataFrame({"quality": [inf, -inf]}), stable_labels=("inf",))
+        assert as_label["quality_distribution"]["good_count"] == 0
+        snr = get_snr_analysis(frame, detail=True)
+        assert snr["n_units_with_snr"] == 2
+        assert snr["pass_count"] == 1
+        assert snr["snr_max"] == 2.0
+        assert snr["by_session"]["s"] == {"n": 2, "mean": 1.25, "pass_rate": 0.5}
+
+    def test_a_quality_filter_excludes_an_infinite_quality(self, tmp_path):
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-inf",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        for i, quality in enumerate([1.0, float("inf"), 0.0]):
+            nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=quality)
+        path = tmp_path / "ses-01_q.nwb"
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        kept = get_all_units_metadata(path, filter_quality=True)
+        assert kept["quality"].tolist() == [1.0]
+
+    def test_assign_quality_tier_ties_are_not_stable(self):
+        # presence > presence_threshold and snr > snr_threshold, both strict, as in 0.2.8.
+        q = pd.Series([1.0] * 3)
+        tier = assign_quality_tier(q, pd.Series([0.98, 0.99, 0.99]),
+                                   pd.Series([5.0, 0.5, 0.51]))
+        assert tier.tolist() == ["unstable", "unstable", "stable"]
+
+    def test_audit_units_ties_count_as_good(self):
+        # quality >= 1.0 and snr >= 1.0, both inclusive, as in 0.2.8.
+        audit = audit_units(pd.DataFrame({"quality": [1.0, 0.99, 2.0],
+                                          "snr": [1.0, 0.99, 2.0]}))
+        assert audit["quality_distribution"]["good_count"] == 2
+        assert audit["snr_stats"]["good_count"] == 2
+        assert audit["snr_stats"]["good_rate"] == 2 / 3
+
+    def test_audit_units_names_a_unit_without_unit_id_by_its_index_label(self):
+        import numpy as np
+
+        spikes = [np.array([0.1]), float("nan")]
+        frame = pd.DataFrame({"spike_times": spikes}, index=[10, 11])
+        with pytest.raises(TypeError, match=r"the unit at index label 11 \(no single unit_id"):
+            audit_units(frame)
+        repeated = pd.concat([frame.assign(unit_id=[5, 6]), pd.DataFrame(
+            {"unit_id": [5, 6]}, index=[10, 11])], axis=1)
+        with pytest.raises(TypeError, match="the unit at index label 11"):
+            audit_units(repeated)
+        with pytest.raises(TypeError, match="audit_units: unit 6 has spike_times"):
+            audit_units(frame.assign(unit_id=[5, 6]))
+
+    def test_compare_old_new_criteria_refuses_a_column_it_would_overwrite(self):
+        from jnwb.metadata import compare_old_new_criteria
+
+        keys = dict(new_key=("s", "u"), old_key=("s", "u"))
+        old = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "old": [False, False]})
+        for col in ("old_screened", "transition"):
+            new = pd.DataFrame({"s": ["x"] * 2, "u": [0, 1], "new": [True, False],
+                                col: ["keep-a", "keep-b"]})
+            with pytest.raises(ValueError, match=rf"already has column\(s\) \['{col}'\]"):
+                compare_old_new_criteria(new, old, "new", "old", **keys)
+        # Comparing a frame this function returned is the case that would overwrite silently.
+        first = compare_old_new_criteria(new.drop(columns="transition"), old, "new", "old",
+                                         **keys)
+        with pytest.raises(ValueError, match=r"\['old_screened', 'transition'\]"):
+            compare_old_new_criteria(first, old, "new", "old", **keys)
+
+    def test_a_cut_off_too_large_for_a_float_is_refused_by_name(self):
+        import fractions
+
+        frame = pd.DataFrame({"quality": [0.0, 1.0]})
+        for huge in (10 ** 400, fractions.Fraction(10 ** 400)):
+            with pytest.raises(ValueError, match=r"thresholds\['quality'\] is .*too large"):
+                classify_unit_quality(frame, {"quality": huge})
+            with pytest.raises(ValueError, match="assign_quality_tier: snr_threshold is"):
+                assign_quality_tier(frame["quality"], pd.Series([1.0] * 2),
+                                    pd.Series([5.0] * 2), snr_threshold=huge)
+        # A large integer a float holds is still a cut-off.
+        assert classify_unit_quality(frame, {"quality": 10 ** 300})[
+            "quality_class"].tolist() == ["Poor", "Poor"]
+
+    def test_a_torch_tensor_cut_off_is_refused_by_name(self):
+        torch = pytest.importorskip("torch")
+
+        frame = pd.DataFrame({"quality": [0.0, 1.0]})
+        with pytest.raises(TypeError, match=r"thresholds\['quality'\] must be a finite number"):
+            classify_unit_quality(frame, {"quality": torch.tensor(1.0)})
+        with pytest.raises(TypeError, match="audit_units: snr_threshold must be a finite"):
+            audit_units(frame, snr_threshold=torch.tensor(1.0))

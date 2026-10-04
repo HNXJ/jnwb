@@ -156,6 +156,31 @@ def test_plot_unit_waveforms_treats_infinite_samples_as_not_finite():
     plt.close("all")
 
 
+def test_plot_unit_waveforms_refuses_a_masked_entry():
+    import pytest
+
+    # Three spikes of -100 at sample 10 on one channel; the masked third spike is a +5000
+    # outlier that np.asarray would average in, drawing (-100 - 100 + 5000) / 3 = 1600.
+    spikes = np.zeros((3, 1, 30))
+    spikes[:, 0, 10] = -100.0
+    spikes[2, 0, 10] = 5000.0
+    mask = np.zeros(spikes.shape, dtype=bool)
+    mask[2] = True
+    masked = np.ma.masked_array(spikes, mask=mask)
+    for mode in ("peak", "all"):
+        with pytest.raises(ValueError, match="unit 7 is a masked array with masked entries"):
+            plot_unit_waveforms([7], {7: masked}, channels=mode)
+    with pytest.raises(ValueError, match="unit 7 is a masked array"):
+        plot_unit_waveforms([7], {7: np.ma.masked_array(np.zeros(30), mask=[True] + [False] * 29)})
+    # The remedy reads the masked spike as missing; an unmasked masked array draws as before.
+    (fig,) = plot_unit_waveforms([7], {7: masked.filled(np.nan)}, channels="peak")
+    assert fig.axes[0].get_lines()[0].get_ydata()[10] == -100.0
+    (fig,) = plot_unit_waveforms([7], {7: np.ma.masked_array(spikes[:2], mask=False)},
+                                 channels="peak")
+    assert fig.axes[0].get_lines()[0].get_ydata()[10] == -100.0
+    plt.close("all")
+
+
 def test_plot_unit_quality_distribution_returns_populated_figure():
     units = _units_df()
     fig = plot_unit_quality_distribution(units)

@@ -64,19 +64,32 @@ def _finite_cutoff(value, name: str, caller: str):
     other real number (``int``, ``float``, ``Fraction``, ``Decimal``) as given, so that
     :func:`_passes_cutoff` compares as the caller's own number would. ``None``, a boolean, a
     complex number and anything else raise ``TypeError``; NaN or an infinity raises
-    ``ValueError``, because every comparison with it passes or fails every unit alike."""
+    ``ValueError``, because every comparison with it passes or fails every unit alike. An array
+    whose dtype numpy cannot read (a torch tensor) raises ``TypeError``, and a number too large
+    for a float ``ValueError``, each naming the cut-off."""
     is_array = getattr(value, "ndim", None) == 0 and hasattr(value, "dtype")
     if is_array:
-        real = np.dtype(value.dtype).kind in "iuf"  # a 0-d array or numpy scalar, not bool
+        # numpy and JAX carry a numpy dtype; a torch tensor's torch.float32 is not one.
+        real = isinstance(value.dtype, np.dtype) and value.dtype.kind in "iuf"  # not bool
     else:
         real = (isinstance(value, (numbers.Real, decimal.Decimal))
                 and not isinstance(value, bool))
     if not real:
-        raise TypeError(f"{caller}: {name} must be a finite number, not {value!r}.")
-    if not np.isfinite(float(value)):  # float() only validates; the value compared is exact
+        raise TypeError(
+            f"{caller}: {name} must be a finite number, not {value!r}"
+            + ("; pass a Python number, or a numpy or JAX scalar." if is_array else ".")
+        )
+    # Checked at the exact value: float() of an int or Fraction beyond the float range raises
+    # OverflowError, and a NaN is the one value unequal to itself.
+    if is_array:
+        finite = bool(np.isfinite(value))
+    else:
+        # A Python float bound: an int compared with a numpy float is converted and overflows.
+        finite = value == value and abs(value) <= float(np.finfo(np.float64).max)
+    if not finite:
         raise ValueError(
-            f"{caller}: {name} is {value!r}; a non-finite cut-off passes or fails every unit "
-            "alike. Pass a finite number."
+            f"{caller}: {name} is {value!r}; a non-finite cut-off, or one too large for a "
+            "float, passes or fails every unit alike. Pass a finite number."
         )
     return value.item() if is_array else value
 
