@@ -39,7 +39,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-03, 13-11, 13-05, 13-06, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-12, 13-11, 13-05, 13-06, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-25, 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -74,22 +74,16 @@ landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their re
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
 
-### 13-03 Waveform and spike-train quality measures
+### 13-12 One ISI-CV rule, and the duration tie pinned
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, `tests/test_unit_quality.py`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/references.md`, `changelog.d/unit-quality-measures.added.md`.
-From a mean waveform `(n_channels, n_samples)` with `fs` and channel geometry: peak channel,
-trough-to-peak duration, polarity and asymmetry (positive against negative peak on the peak
-channel) and SNR; spatial derivative sharpness across channels and flatness, each with its
-threshold a required caller argument and no claimed source. From spike times: presence ratio over
-caller-given blocks, refractory-violation rate with the refractory period required, and ISI CV
-(ruled 2026-10-03). The downstream pipeline's redefined duration waits in 13-02.
-- Each measure states its unit, input class and published source (DOI resolved, not recalled). Check: gate 5 and `tests/test_references_resolve.py` pass.
-- Synthetic units with a known answer for every measure: a flat waveform, an inverted one, a positive-dominant one, a unit absent from half the blocks, a unit with planted violations. Check: each recovers its planted value, and a mutant of each measure is killed.
-- Undefined input (one channel for a spatial measure, no spikes, zero-length block) returns NaN or raises with the reason, never 0. Check: one test per case.
-Accept: the suite and harness pass; the measures sit in `__all__` with docs, and the packet reports the `docs/api.md` rows for the integrator.
-Stop: a measure has more than one defensible published definition and the 2026-10-03 ruling does not choose between them.
+Writes: `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `jnwb/unit_quality.py`, `tests/test_analyzers_coverage.py`, `tests/test_unit_quality.py`, `changelog.d/unit-quality-cv-isi.changed.md`.
+Source: Hamm's ruling of 2026-10-04 (`artifacts/rulings/2026-10-04.md`) and the 13-03 verifier, at `caeb4be3`.
+- `UnitAnalyzer.quality_metrics` computes `cv_isi` with ddof=0 while `jnwb.isi_cv` uses ddof=1, two rules for one estimator (invariant 4.7). Check: `quality_metrics` calls `isi_cv`'s rule, a test pins the shared value, and the changed 0.2.8 value is announced under changed.
+- No test pins the tie branch of `trough_to_peak_ms` (Allen's rule takes the trough branch when the peak and trough magnitudes are equal); the mutant `>` to `>=` survives. Check: a symmetric-waveform test kills it.
+Accept: the suite and harness pass.
+Stop: none.
 
 ### 13-11 Unit-quality display edges
 
@@ -107,7 +101,7 @@ Stop: none beyond the standing ones.
 ### 13-05 One skill routes unit quality
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-03.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `skills/jnwb-qc/SKILL.md` and `skills/jnwb-qc/agents/openai.yaml` (ruled 2026-10-03: unit quality extends `jnwb-qc`), `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `skills/jnwb-nwb-data/agents/openai.yaml`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
 07-24 writes `skills/jnwb-nwb-data/SKILL.md` and `tests/test_skill_decline_behaviour.py`, which this item writes too.
 Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public. `classify_unit_quality`, `assign_quality_tier`, `enrich_units_dataframe` and `get_snr_analysis` move here from `jnwb-nwb-data`, whose description and yaml then drop "unit quality classification"; the exact set `QC_ROUTES` in the skill tests grows with them.
@@ -282,7 +276,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-03, 13-05, 13-06, 13-11, 07-25, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-12, 13-05, 13-06, 13-11, 07-25, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -982,7 +976,7 @@ Stop: an estimator whose shape Hamm has not ruled.
 
 Release: deferred-0.2.9.
 AUTONOMY: none.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 13-03, and the collaborator's label-learning skill.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill.
 Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
 Ruled 2026-10-03: decided later. When the collaborator's label-learning skill arrives, this
 design and theirs go to Hamm, who rules the screen into the core or deletes this item so the
