@@ -39,9 +39,9 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-12, 13-11, 13-05, 13-06, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-25, 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
-| D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
+| Q unit quality | 13-12, 13-11, 13-05, 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| C skills | 07-12 | `skills/`, skill tests, `docs/agents.md`, the gate 13 function of `scripts/harness_gate.py` (07-25) |
+| D docs | 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
@@ -60,6 +60,16 @@ transfer from about 10% of human-screened units to the rest has already been tri
 The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
+
+### 09-15 Each topic page links its tutorial
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 13-06.
+Writes: `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/reading_nwb.md`.
+Source: the 09-01 actor, 2026-10-04; plan (c) of `artifacts/evidence/0.2.8/plan/restructure_plan.md`.
+- Tutorials 01 to 08 are not linked from the topic pages they exercise, which plan (c) asks for; lane Q owns those pages. Check: each tutorial has one link from its topic page, and the link check resolves.
+Accept: the docs build and link check pass.
+Stop: none.
 
 ### 13-02 Inventory: unit-quality criteria against what jnwb computes
 
@@ -122,19 +132,6 @@ route them through `jnwb-qc`. The screen and its per-session agreement table mov
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
 
-### 07-25 Edges the 07-24 verifier found
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/harness_gate.py` (the gate 13 function), `tests/test_gates_reject_the_trees_they_passed.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_docs_nwb_workflow.py`, `skills/jnwb-nwb-data/SKILL.md`.
-Source: the 07-24 verifier, 2026-10-04, at `04c5434a`.
-- Gate 13 finds `symbol(` anywhere on a routing row's first line, so a row that names a symbol and calls it only in its description passes. Check: the call is read from the row head, and a fixture with the call only in the description is rejected.
-- The `jnwb-qc` decline check's declined-request pattern is greedy, so a granted verdict between two "request" words passes, and a negated limit with words between the negation and the verdict word is flagged. Check: one fixture of each, the first rejected and the second passed.
-- The live `jnwb-qc` skill meets the floor of five verdict words only because `correct` also matches "corrected". Check: the floor counts distinct verdict sentences, and the live skill meets it with margin or the floor is lowered with its reason.
-- `tests/test_docs_nwb_workflow.py` asserts `jnwb-nwb-data` mentions `jnwb.events`, which `jnwb-paradigm` routes. Check: the test reads the owning skill's routing row, and the pointer mention in `jnwb-nwb-data` goes.
-Accept: each check observed; the harness and the touched tests pass.
-Stop: none.
-
 ### 07-12 Every export routed or excluded with a checked reason
 
 Release: deferred-0.2.9.
@@ -153,28 +150,10 @@ Accept: the excluded set is smaller than at `dcb75f12` and each remaining reason
 Stop: a row would restate a definition that belongs in `docs/`.
 Waits: routing completeness; a stale row raises loudly and no value is wrong.
 
-### 09-01 The menu by how a reader arrives
-
-Release: deferred-0.2.9.
-Role: docs-harness. Skill: none. Blocked by: none.
-Writes: `mkdocs.yml`, `docs/index.md`, `docs/architecture.md`, `docs/01_architecture_and_philosophy.md`, `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/reading_nwb.md`, `docs/coherence_and_tfr.md`, `docs/documentation_form.md`, `docs/tutorials/*.md`, `tests/test_docs_user_navigation.py`, `tests/test_documentation_form.py`, `tests/test_docs_links.py`.
-Plan: `artifacts/evidence/0.2.8/plan/restructure_plan.md` (c). Topic filenames stay, so skill links hold.
-- Nav regrouped into Start, Analyse, Tutorials, Use with an agent, Fix a problem, Look up, Design.
-- `01_architecture_and_philosophy.md` merged into `architecture.md` with nothing lost; the module map kept.
-- `02` split: paths and streaming move to `reading_nwb.md`; addressing and metadata stay.
-- `04` split: coherence and TFR move to `coherence_and_tfr.md`; PSD and decibels stay.
-- P-269: the magnitude, direction, delay and inference distinctions as one table in `architecture.md`.
-- P-277: the reachability test misses an agent named in an edge label, "Assistant", "LLM" and "requires an LLM agent", and fails a legitimate `subgraph`. Check: each is a fixture.
-- P-278: the routing diagram asks "inference supported?" before "inputs present?", and the dependency diagram omits six libraries. Check: the order that `artifacts/direction.md` implies, and the full list.
-Accept: N1 to N5 pass; every page under its ceiling or tabled; no page's facts lost, by a
-before-and-after claim table.
-Stop: a merge would drop a fact another page does not hold.
-Waits: presentation; no shipped behaviour changes.
-
 ### 09-02 Documentation statements
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: per finding. Blocked by: 09-01.
+Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `README.md`, `docs/common_mistakes.md`, `docs/02_paths_addressing_metadata.md`, `docs/reading_nwb.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`, `docs/install.md`, `docs/quickstart.md`, `examples/tutorials/09_open_data.py`, `tests/test_open_data_example.py`, `tests/test_docs_operation_statements.py`, `tests/test_docs_interpretation_statements.py`.
 - P-20: no page shows the unit-to-layer composition. Check: one worked composition on the addressing page.
 - P-280: minor text (open-data "within a millisecond" is 6-9 ms; `plot_decoding_timecourse`'s promised ribbon; `rdm_similarity` Step 5 and the wPLI threshold only in docstrings; `correlate`'s `test=`; the quickstart's "single trial"; `population_trajectory`'s short context name). Check: each corrected where a reader sees it.
@@ -276,7 +255,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-12, 13-05, 13-06, 13-11, 07-25, 07-12, 09-01, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-12, 13-05, 13-06, 13-11, 07-12, 09-02, 09-03, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
