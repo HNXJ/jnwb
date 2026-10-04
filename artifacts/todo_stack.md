@@ -150,6 +150,8 @@ Writes: `jnwb/metadata.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `test
 Source: the 13-09 critic, 2026-10-04.
 - An SNR, presence or firing rate of +inf passes as valid: `classify_unit_quality` gives `Good`, `assign_quality_tier` `'stable'`, and `audit_units`' SNR mean is NaN beside a good count that includes it; an infinite quality is already undefined. Check: an infinite measure is undefined input in each function, or refused by name.
 - `plot_unit_waveforms` ignores the mask of a masked 3-D spike array and averages the masked outlier in. Check: the mask is honoured or the array refused, as `assign_quality_tier` refuses one.
+- `assign_quality_tier` refuses a superset presence index only when `quality` carries `RangeIndex(0, n, 1)`; an int64 index 0..n-1 left by a CSV round-trip after `reset_index`, or `RangeIndex(1, n+1)`, still pairs the full table's first units silently, as 0.2.8 did. Check: Hamm rules whether the refusal covers any index equal to 0..n-1, weighed against refusing `head()` selections.
+- `compare_old_new_criteria` overwrites a caller column named `old_screened` or `transition` silently; `_finite_cutoff` raises an unnamed error for a torch 0-d tensor and an integer too large for a float. Check: each is refused by name or kept.
 Accept: a test per check that fails before the repair.
 Stop: a repair that changes a value a released analysis reported on valid input goes to Hamm.
 
@@ -157,7 +159,7 @@ Stop: a repair that changes a value a released analysis reported on valid input 
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
+Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `skills/jnwb-nwb-data/SKILL.md`, `changelog.d/unit-quality-degenerate.fixed.md`, `changelog.d/unit-quality-degenerate.breaking.md`, `changelog.d/unit-quality-refusals.fixed.md`.
 Source: the 13-07 critic and verifier, 2026-10-04.
 - `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
 - `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
