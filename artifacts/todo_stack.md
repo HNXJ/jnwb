@@ -37,7 +37,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-07, 13-08, 13-09, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-08, 13-09, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -64,8 +64,8 @@ Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
 Read-only on `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
-landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their problems are 13-07,
-13-08 and 10-09. What remains needs the downstream code.
+landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their problems are 13-08,
+13-09 and 10-09; 13-07 landed at `6c0b4542`. What remains needs the downstream code.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
@@ -119,29 +119,13 @@ Stop: the capability gate of the fact stack is not met.
 ### 13-06 A worked unit-quality example
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-05, 13-07.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-05.
 Writes: `examples/unit_quality.ipynb`, `tests/test_notebooks.py`, `docs/09_decoding_and_visual_qc.md`, `mkdocs.yml`.
 On synthetic units only: compute the measures, draw `plot_unit_waveforms` down the probe, apply
 the screen, and show the per-session agreement table.
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 13-07 The shipped quality functions refuse undefined input and take their cut-offs as arguments
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-refusals.fixed.md`.
-Source: 13-02's inventory (`artifacts/evidence/0.2.9/unit_qc_inventory.md`, F1 to F12); each reproduction is written in its row. Classified required for 0.2.9 by an independent verifier, 2026-10-03.
-- P-359: `classify_unit_quality` passes a NaN `quality` or `snr`, the labels `'mua'` and `'noise'`, and a frame without `quality` or `snr` as `Good`, `is_valid=True`. Check: each is flagged or refused by name, never `Good` (fact S9).
-- P-360: `assign_quality_tier` tests `q == 1` where its docstring says `quality >= 1`; quality 2, NaN and `'good'` read `'unstable'`, while `enrich_units_dataframe` reads `'good'` as stable. Check: one rule for both functions, stated in both docstrings, and NaN refused or returned as unknown.
-- P-361 computed part: `audit_units` hard-codes quality and SNR at 1.0; `classify_unit_quality`, `get_snr_analysis`, `get_all_units_metadata` and `enrich_units_dataframe` default to cut-offs with no cited source. Check: every cut-off is an argument, and a default either cites its source or is removed so the caller chooses (13-01's ruling).
-- P-362: `audit_units` reports a quality standard deviation of 0.0 for one unit, and a NaN `spike_times` entry raises `TypeError` without naming the unit. Check: NaN for n = 1, as `snr_stats` gives; the unit named.
-- P-363: `compare_old_new_criteria` (ruled shipped, 2026-10-03) counts a NaN new class as `gained`, duplicates rows for a duplicated old key, and defaults its keys to a downstream corpus's column names (fact B2). Check: NaN, `None` and `pd.NA` classes refused or reported as unknown; a duplicated key refused; the keys required arguments.
-- P-364 docstring part: `get_snr_analysis`'s example says "SNR>1.0" for an inclusive test. Check: the docstring states `>=`.
-- P-365 channel part: `plot_unit_waveforms` averages a `(n_channels, n_samples)` template across channels, so a 4-channel template's -100 is drawn as -25.0, and a missing unit draws an empty panel. Check: the peak channel or every channel drawn, as a parameter says, and a missing unit refused.
-Accept: each check is a test that fails on `196ceb11`; the suite and harness pass.
-Stop: a repair changes a value a released analysis reported, beyond refusing undefined input; it goes to Hamm.
 
 ### 13-08 `UnitAnalyzer.quality_metrics` declines undefined input
 
@@ -160,13 +144,15 @@ Stop: none beyond the ruling.
 ### 13-09 The quality functions refuse degenerate cut-offs and classes
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-07.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
 Source: the 13-07 critic and verifier, 2026-10-04.
 - `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
 - `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
 - `stable_threshold` of NaN, +inf or `None` makes every defined quality non-stable, -inf or a negative value makes every one stable, and `stable_labels=()` disables the label path, all silently (`_quality_is_stable` in `jnwb/addressing.py`). Check: a non-finite or `None` threshold and an empty label set are refused by name.
 - `assign_quality_tier` reads a numpy masked array of presence or SNR through `np.asarray`, dropping the mask, so a masked unit reads as present; `plot_unit_waveforms` averages 3-D spikes with `nanmean`, so where spikes drop out per sample the template's amplitude shifts and can move the peak channel. Check: a masked array is refused or its mask honoured; the per-sample spike count is stated or a sample missing in some spikes is refused.
+- `assign_quality_tier` refuses a presence or SNR Series whose index covers every unit and adds labels, which 0.2.8 aligned and answered, as when presence is computed on the full table and `quality` is filtered; the refusal is filed under `fixed`, and no test isolates it. Check: a superset index is aligned by label, with a test that has extra labels and none missing.
+- A quality of +inf reads `'stable'` and -inf `'unknown'` in both `assign_quality_tier` and `enrich_units_dataframe`. Check: an infinite quality is undefined input, or the docstrings state the reading.
 - `audit_units` writes a one-unit spread as NaN, which `json.dumps` emits as invalid strict JSON. Check: the documented output is valid JSON, or the docstring says NaN.
 Accept: a test per check that fails before the repair.
 Stop: a refusal that changes a value a released analysis reported goes to Hamm.
@@ -553,7 +539,7 @@ Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`,
 - P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call, a serial run exits after a failed close, the swallowed-error mutant killed, later calls fail fast. Waits: loud, and release runs use xdist, where the hang does not occur.
 - P-361 display part: `plot_unit_quality_distribution` and `compare_session_quality` draw guide lines and colour cut-offs at 1.0, 0.5, 50 and 25 with no cited source. Check: each from an argument. Waits: display only; no computed value changes.
 - P-364 display part: `compare_session_quality` colours a session with NaN `snr_mean` red, as failing, and labels its axis "% Units with SNR > 1.0" whatever threshold produced the rate. Check: NaN drawn as unknown; the label from the threshold. Waits: display and wording only.
-- P-365 label part: `plot_unit_quality_distribution` labels `waveform_duration` in μs and `plot_unit_waveforms` every trace in μV, while the repository's fixtures pass ms-scale and μs-scale values. Check: the unit is an argument (fact I3). Waits: display only; 13-07 repairs the channel averaging.
+- P-365 label part: `plot_unit_quality_distribution` labels `waveform_duration` in μs and `plot_unit_waveforms` every trace in μV, while the repository's fixtures pass ms-scale and μs-scale values. Check: the unit is an argument (fact I3). Waits: display only; the channel averaging was repaired in `6c0b4542`.
 - P-332 display part: `plot_sorted_heatmap(category_labels)` is ignored. Check: used or refused. Waits: display.
 - P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: killing tests. Waits: behaves correctly.
 Accept: each check passes.
