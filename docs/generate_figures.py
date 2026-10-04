@@ -212,9 +212,16 @@ def fig03_onset():
     ax.plot(t, pred, color=C_VIOLET, lw=1.8,
             label=f"Bounded fit: t0 = {fit['t0']:.1f} ms, tau = {fit['tau']:.1f} ms "
                   f"(R² = {fit['r2']:.2f})", zorder=4)
-    ax.axvline(fit["t0"], color=C_VIOLET, ls="--", lw=1.0, zorder=1)
-    ax.axvline(t0_true, color=C_GREEN, ls=":", lw=1.2,
+    # The two onsets differ by line style as well as color (long dashes against dots), and each
+    # is named beside its line, so neither the color nor the legend is needed to tell them apart.
+    ax.axvline(fit["t0"], color=C_VIOLET, ls=(0, (6, 3)), lw=1.2, zorder=1)
+    ax.axvline(t0_true, color=C_GREEN, ls=":", lw=1.5,
                label=f"Ground truth (t0 = {t0_true:.0f} ms, tau = {tau_true:.0f} ms)", zorder=1)
+    top = ax.get_xaxis_transform()
+    ax.text(t0_true - 6.0, 0.97, f"true onset\n{t0_true:.0f} ms", transform=top,
+            ha="right", va="top", fontsize=style.SMALL, color=C_DARK)
+    ax.text(fit["t0"] + 6.0, 0.97, f"fitted onset\n{fit['t0']:.1f} ms", transform=top,
+            ha="left", va="top", fontsize=style.SMALL, color=C_DARK)
 
     ax.set_ylim(0, float(np.max(noisy_rate)) * 1.02)
     ax.set_xlabel("Time (ms)")

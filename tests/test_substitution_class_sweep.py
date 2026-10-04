@@ -755,8 +755,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
-    ("connectivity.py", "_adf_pvalue", "Exception", (), True, 1):
-        "Returns float('nan'). Absence, and NaN propagates rather than reading as a value.",
+    ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
+        "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
+        "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "
+        "missing statsmodels is imported outside the handler and raises.",
     ("io.py", "_stored_seek_is_reliable", "Exception", (), True, 1):
         "Returns False when its zipfile probe raises, so a stored entry is read forward, the "
         "path that needs no seek. Same bytes either way; only time differs.",
@@ -895,7 +897,7 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
 
 _SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None else float(raw)\n"
 _RESOLVES_BODY = "    try:\n        return resolve_acquisition(file_path, name) == name\n"
-_ADF_BODY = "    try:\n        import warnings\n\n        from statsmodels.tsa.stattools import adfuller\n"
+_ADF_BODY = "    from statsmodels.tsa.stattools import adfuller\n\n    y = np.asarray(series, dtype=float).ravel()\n"
 _NAM_GUARD = "try:\n    import torch\n    import torch.nn as nn\n"
 _TIE_COUNT_BODY = "    null = np.asarray(null, dtype=float)\n    obs = float(observed)\n"
 _TIE_COUNT_CHAIN = ('    if alternative == "greater":\n        hit = 0\n'
@@ -971,10 +973,12 @@ class TestASiteIsReviewedAtItsOwnSite:
         _assert_names_both(result, ("mcp_server/nwb_tools.py", "_resolves", "Exception", (), True))
 
     def test_a_value_planted_before_a_reviewed_nan_is_named(self):
-        planted = "    try:\n        float(y[0])\n    except Exception:\n        return 0.5\n"
+        planted = ("    try:\n        float(series[0])\n    except _ADF_NUMERICAL_FAILURES:\n"
+                   "        return 0.5\n")
         result = _plant_before("connectivity.py", _ADF_BODY, planted,
                                scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
-        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "Exception", (), True))
+        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES",
+                                    (), True))
 
     def test_a_module_guard_planted_before_a_reviewed_one_is_named(self):
         planted = ("try:\n    import torch.nn as nn\n    _TORCH_AVAILABLE = True\n"

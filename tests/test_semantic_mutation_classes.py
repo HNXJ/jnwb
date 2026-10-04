@@ -175,8 +175,10 @@ CASES: tuple[SemanticMutation, ...] = (
         "H6",
         "amplitude-decibels-for-a-power-ratio",
         "jnwb/spectral.py",
-        "        return 10.0 * np.log10(ratio)\n",
-        "        return 20.0 * np.log10(ratio)\n",
+        # Re-anchored: the conversion moved out of `to_db`'s errstate block into
+        # `_ratio_to_db`, which `to_db` and `band_power` share, one indent level shallower.
+        "    return 10.0 * np.log10(ratio)\n",
+        "    return 20.0 * np.log10(ratio)\n",
         ("tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels",),
         (
             "tests/test_composition_aggregation_order.py::TestH6AccumulatorToDecibels"

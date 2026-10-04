@@ -303,12 +303,21 @@ def _require_positive_fs(fs, func_name: str) -> float:
     return value
 
 
+def _ratio_to_db(ratio):
+    """``10*log10(ratio)`` under the caller's floating-point error state.
+
+    :func:`to_db` silences the divide and invalid warnings around it; ``band_power`` calls
+    this directly, so a zero band still warns as it did before it shared the conversion.
+    """
+    return 10.0 * np.log10(ratio)
+
+
 def to_db(ratio):
     """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
     through — average power, divide by baseline, then take the logarithm exactly once.
     """
     with np.errstate(divide="ignore", invalid="ignore"):
-        return 10.0 * np.log10(ratio)
+        return _ratio_to_db(ratio)
 
 
 #: Accepted aggregation estimands for :func:`aggregate_to_db`. These are genuinely different
@@ -1553,8 +1562,7 @@ def relative_power(
         else:  # log_ratio
             quotient = p_arr / b_broadcast
             _refuse_ratio_overflow(np.isinf(quotient))
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return 10.0 * np.log10(quotient)
+            return to_db(quotient)
 
 
 def band_power(
@@ -1653,7 +1661,7 @@ def band_power(
             raise ValueError(
                 "band_power: the baseline has no power in freq_range, so the dB ratio is undefined"
             )
-        band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
+        band_power_val = _ratio_to_db(band_power_val / baseline_power_val)
 
     return float(band_power_val)
 
