@@ -38,7 +38,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
+| C skills | 07-10, 07-11, 07-23, 07-24, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md`, `jnwb/nwb_inspect.py` and its tests (07-23), the gate 13 function of `scripts/harness_gate.py` (07-24) |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
@@ -152,6 +152,26 @@ routing row, here only, so the skill that draws a figure is not the one that jud
 Accept: the template and all four outcomes; its router and `docs/agents.md` rows; gate 2 passes.
 Stop: the capability gate of the fact stack is not met.
 Waits: new skill; no shipped behaviour changes.
+
+### 07-23 `inspect` reports column descriptions
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 07-10.
+Writes: `jnwb/nwb_inspect.py`, `tests/test_nwb_inspect.py`, `tests/test_inspect_one_schema.py`, `skills/jnwb-paradigm/SKILL.md`, `changelog.d/inspect-column-descriptions.added.md`.
+Source: the 07-10 actor, 2026-10-04; added to the API by Hamm the same day (`artifacts/rulings/2026-10-04.md`).
+- `jnwb-paradigm` takes condition meaning from explicit metadata first, but `jnwb.inspect` reports a column's name, dtype, shape and samples and not its NWB `description`, so the first source has no routed call. Check: each column record `inspect` returns carries the stored `description` (an empty or missing one reported as such, never filled in), a test reads it from a written file, and the skill routes the call.
+Accept: the suite and harness pass; the packet reports the `docs/api.md` change and the changelog text.
+Stop: the field changes an existing key of the `inspect` result.
+
+### 07-24 Gate 13 reads the skill that routes each symbol
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: 07-10.
+Writes: `scripts/harness_gate.py` (the gate 13 function), `tests/test_gates_reject_the_trees_they_passed.py`, `skills/jnwb-nwb-data/SKILL.md`.
+Source: the 07-10 actor, 2026-10-04.
+- Gate 13 requires every onboarding symbol's call in `skills/jnwb-nwb-data/SKILL.md`; after 07-10 moved `events` to `jnwb-paradigm`, an example line in `jnwb-nwb-data` keeps it green. Check: the gate accepts the call in the skill whose routing row holds the symbol, the example line goes, and a test fails when that row's call is removed.
+Accept: the harness passes and the gate's test kills the removal.
+Stop: none.
 
 ### 07-12 Every export routed or excluded with a checked reason
 
