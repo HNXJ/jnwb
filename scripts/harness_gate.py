@@ -1203,9 +1203,14 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
         # The call is read from the row head: up to the colon that ends it, or up to the arrow
         # that introduces the return value. A call in the description is a mention, and a row
         # that names the symbol and calls it only there passed when the whole line was read.
+        # With neither separator, the head ends at the first whitespace after the first span.
         end = _ROW_HEAD_END.search(line)
-        head = line[: end.start() + 1] if end else line
-        return head.split("→", 1)[0]
+        if end:
+            return line[: end.start() + 1].split("→", 1)[0]
+        if "→" in line:
+            return line.split("→", 1)[0]
+        span = re.match(r"- `[^`]*`\S*", line)
+        return span.group() if span else line
 
     skill_files = sorted((root / "skills").glob("*/SKILL.md"))
     if not skill_files:
