@@ -81,19 +81,31 @@ markdown_extensions:
       alternate_style: true
 
 # Top-level groups are named for the question a reader arrives with, not for the material
-# they contain -- rule N4 of docs/documentation_form.md. The order is the order those
-# questions are asked: install it, learn it, use it, fix it, look something up, understand
-# why it is shaped this way.
+# they contain -- rule N4 of docs/documentation_form.md. The order is the order readers arrive:
+# a new user, a user with data and a question, one who wants a runnable script, an agent or
+# its builder, one with an error, one who knows the name.
 nav:
-  - Getting started:
+  - Start:
       - Welcome: index.md
       - Installation: install.md
       - Quickstart: quickstart.md
+      - Your Own NWB File: tutorials/00_your_own_file.md
       - Recipes: recipes.md
-      - Analyzing with an Agent: agents.md
+
+  - Analyze:
+      - Reading NWB: reading_nwb.md
+      - Addressing & Metadata: 02_paths_addressing_metadata.md
+      - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
+      - Spectra & Decibels: 04_spectral_analysis_and_tfr.md
+      - Coherence & TFR: coherence_and_tfr.md
+      - Artifact Detection & Repair: 05_artifact_detection_and_repair.md
+      - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
+      - Directed Connectivity: 08_directed_connectivity_and_information.md
+      - Decoding & Unit-Quality Plots: 09_decoding_and_visual_qc.md
+      - Representational Similarity: 03_representational_similarity_jrsa.md
+      - Plotly Figures: vis.md
 
   - Tutorials:
-      - Your Own NWB File: tutorials/00_your_own_file.md
       - NWB Basics: tutorials/01_nwb_basics.md
       - Addressing & Metadata: tutorials/02_addressing_and_metadata.md
       - Spiking Dynamics: tutorials/03_spiking.md
@@ -104,30 +116,26 @@ nav:
       - End-to-End Workflow: tutorials/08_end_to_end_pipeline.md
       - Open Data: tutorials/09_open_data.md
 
-  - Doing an analysis:
-      - Paths & Addressing: 02_paths_addressing_metadata.md
-      - Representational Similarity: 03_representational_similarity_jrsa.md
-      - Spectral Analysis & TFR: 04_spectral_analysis_and_tfr.md
-      - Artifact Detection & Repair: 05_artifact_detection_and_repair.md
-      - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
-      - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
-      - Directed Connectivity: 08_directed_connectivity_and_information.md
-      - Decoding & Unit-Quality Plots: 09_decoding_and_visual_qc.md
-      - Plotly Figures: vis.md
+  # The agent and design readers share one group: rule N2 forbids a group of one page, and
+  # each arrival has one page of its own.
+  - Use with an agent:
+      - Analyzing with an Agent: agents.md
+      - Architecture: architecture.md
 
-  - Troubleshooting:
+  - Fix a problem:
       - Common Mistakes: common_mistakes.md
       - Errors: errors.md
 
-  - Reference:
+  - Look up:
       - Public API: api.md
       - Operation Specifications: 10_operation_specifications.md
       - References: references.md
-
-  - Design & conventions:
-      - Architecture: architecture.md
-      - Philosophy & Boundary: 01_architecture_and_philosophy.md
       - Glossary: glossary.md
+
+# A page that moved keeps its URL as a redirect to the page that absorbed it. It is off the
+# nav on purpose, and listed here so the build does not report it as forgotten.
+not_in_nav: |
+  01_architecture_and_philosophy.md
 
 
 # extra.jnwb_version is injected at build time by the hook below, from jnwb.__version__.

@@ -1,77 +1,10 @@
-# 02. Paths, Addressing, Metadata & Ontology
+# 02. Addressing, Metadata & Ontology
 
-Data roots, streaming reads, anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology.
-
----
-
-## 1. Path Management & Drive Remap Isolation (`jnwb/paths.py`)
-
-`jnwb.paths` resolves data roots for batch jobs from environment variables, so no absolute path
-is written into code. It does not look inside a `.nwb` file: per-file discovery (acquisitions,
-interval tables, event codes) is `jnwb.inspect` and the
-[addressing tutorial](tutorials/02_addressing_and_metadata.md).
-
-### Key API Functions
-
-```python
-import jnwb
-
-# Print the status of all registered data roots and their resolution state
-jnwb.paths.describe()
-
-# Where the INSTALLED jnwb package lives. This is jnwb's own root, never yours --
-# anchor to your own file (Path(__file__).resolve().parent.parent) for your project.
-jnwb_package_root = jnwb.paths.PACKAGE_ROOT
-
-# Outputs and artifacts resolve against the process working directory, so they
-# follow the consuming project rather than the install location.
-outputs = jnwb.paths.outputs_dir()
-artifacts = jnwb.paths.artifacts_dir()
-
-# Resolve an external data root (raises FileNotFoundError naming the env var to set)
-nwb_dir = jnwb.paths.nwb_dir()
-```
-
-### Environment Variable Mapping
-
-| Path Key | Environment Variable | Default Fallback | Purpose |
-|----------|----------------------|------------------|---------|
-| `nwb_dir` | `JNWB_NWB_DIR` | `None` (must be set) | Directory containing primary `.nwb` session files |
-| `analysis_dir` | `JNWB_ANALYSIS_DIR` | `None` (must be set) | Analysis root volume |
-| `outputs` | `JNWB_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
-| `artifacts` | `JNWB_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
-
-Each variable still reads a legacy `OMISSION_*` alias of the same suffix, with a
-`DeprecationWarning`.
+Anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology. Data roots and streaming reads are on [Reading NWB Data](reading_nwb.md).
 
 ---
 
-## 2. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
-
-`np.load` decompresses a whole `.npz` array into RAM. `jnwb.stream_npz_array` reads a slice of it, from `ZIP_DEFLATED` and `ZIP_STORED` archives alike. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead. A stored entry is seeked past what the slice skips; a compressed one is read forward up to the slice's last element, so its time grows with the slice's position:
-
-```python
-import jnwb
-from pathlib import Path
-
-npz_path = Path("session_data.npz")
-
-# Stream only the desired channels and time slice without allocating the full array
-# e.g., channels 10:20 across time steps 1000:5000:
-sliced_data = jnwb.stream_npz_array(
-    npz_path,
-    key="lfp_matrix",
-    slice_tuple=(slice(10, 20), slice(1000, 5000)),
-)
-
-# Preserves exact dtype, shape, and C / Fortran memory order
-print(sliced_data.shape, sliced_data.dtype)
-```
-
-Also accessible as `jnwb.io.stream_npz_array`.
-
-
-## 3. Spatial & Laminar Addressing (`jnwb/addressing.py`)
+## 1. Spatial & Laminar Addressing (`jnwb/addressing.py`)
 
 `jnwb.addressing` translates raw hardware channel indices and microelectrode tip coordinates into anatomical area assignments and a geometric depth class.
 
@@ -166,8 +99,7 @@ It comes from the sign of the gradient along the rows and the `orientation` you 
 no default: an electrode table can list contacts from either end, and the LFP cannot say which.
 Pass `"deep_to_superficial"` when row 0 is the deepest contact. Reporting any of the
 three as a conduction speed or as evidence that one layer drives another is the
-association-to-causality step that [Architecture &
-Philosophy](01_architecture_and_philosophy.md#c-causal-directional-verbs) rules out.
+association-to-causality step that [Architecture](architecture.md#causal-and-directional-verbs) rules out.
 
 ![Area and Depth-Class Addressing](assets/figures/fig01_addressing_laminar.png#only-light)
 ![Area and Depth-Class Addressing](assets/figures/fig01_addressing_laminar.dark.png#only-dark)
@@ -180,7 +112,7 @@ assignments and neither carries a causal direction.
 
 ---
 
-## 4. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
+## 2. Unit Metadata, Quality Classification & Census Audits (`jnwb/metadata.py`)
 
 ### Multi-Session Metadata Extraction & Classification
 
@@ -245,7 +177,7 @@ good_v1_units = jnwb.filter_by_criteria(
 
 ---
 
-## 5. Query & Event Ontology (`jnwb/ontology.py`)
+## 3. Query & Event Ontology (`jnwb/ontology.py`)
 
 These objects record *what was asked, of which data, under which alignment, and what was
 concluded*. They hold no data-access code: nothing here opens an NWB file. They are the
