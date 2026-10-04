@@ -59,9 +59,8 @@ to the real layout instead of an assumed one.
 
 The skills live in [`skills/`](https://github.com/HNXJ/jnwb/tree/main/skills) in the
 repository, and in the sdist. Each is a `SKILL.md` with a description and routing rules,
-alongside an `agents/openai.yaml` manifest. The canonical tree is `skills/`, and a copy under
-`jnwb/` would be a second tree, which the repository's own gates forbid. To use them, clone the
-repository or unpack the sdist and point your agent at that directory.
+alongside an `agents/openai.yaml` manifest. To use them, clone the repository or unpack the
+sdist and point your agent at that directory.
 
 `pip install jnwb` does not deliver them, from the wheel or the sdist: the build installs
 `jnwb/` and discards everything beside it. An installed copy therefore carries a pointer
@@ -75,9 +74,8 @@ import jnwb
 jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.8/skills'
 ```
 
-Inside an unpacked sdist the skill files are present but the pages they link to are not:
-`docs/` and `AGENTS.md` stay out of the sdist, so every repository-relative link in a skill
-resolves only in a checkout.
+The sdist leaves out `docs/` and `AGENTS.md`, so a skill's repository-relative links resolve
+only in a checkout.
 
 The entry point is the router skill, `jnwb`. Its routing table, copied here, sends each task to
 the skill that covers it:

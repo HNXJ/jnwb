@@ -35,7 +35,7 @@ parameters and seed, and the inputs the result came from. Reading the tables rou
   source, the identifiers of its parents and the operation that made it.
 
 ## 3. Invariants & Safeguards
-1. **An audit counts; it does not certify**: the audits count and summarise columns under the
+1. **An audit counts; it does not certify**: the audits count and summarize columns under the
    cut-offs the caller passes. State the cut-offs wherever a count is reported.
 2. **An absent column is unaudited**: a summary returned as `{}` means the column was not in
    the table. Report it as not audited, never as no problem found.

@@ -416,7 +416,7 @@ def _():
 
 @case("jnwb-paradigm", "failure")
 def _():
-    assert_states("jnwb-paradigm", "that is reported as a failure, not analysed")
+    assert_states("jnwb-paradigm", "that is reported as a failure, not analyzed")
     fs = 1000.0
     onsets_ms = np.array([1000.0, 2000.0, 3000.0])  # milliseconds, read as seconds
     with pytest.warns(UserWarning, match="all-NaN"):
