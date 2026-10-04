@@ -407,3 +407,222 @@ class TestSessionIdFromFilename:
         bad.write_bytes(b"not an hdf5 file")
         assert len(electrode_inventory([good, bad])) == 4
         assert len(get_all_units_metadata([good, bad])) == 2
+
+
+class TestUndefinedQualityInput:
+    """A quality function given a value it cannot compare reports that, never a verdict."""
+
+    def test_classify_unit_quality_never_passes_undefined_input_as_good(self):
+        nan = float("nan")
+        frames = {
+            "nan": pd.DataFrame({"quality": [nan, 1.0], "snr": [2.0, nan],
+                                 "firing_rate": [5.0, 5.0]}),
+            "labels": pd.DataFrame({"quality": ["mua", "noise"], "snr": [2.0, 2.0],
+                                    "firing_rate": [5.0, 5.0]}),
+            "absent": pd.DataFrame({"firing_rate": [5.0]}),
+        }
+        for case, frame in frames.items():
+            out = classify_unit_quality(frame)
+            assert (out["quality_class"] == "Unknown").all(), case
+            assert not out["is_valid"].any(), case
+        nan_flags = classify_unit_quality(frames["nan"])["issue_flags"].tolist()
+        assert nan_flags == [["quality undefined"], ["snr undefined"]]
+        absent_flags = classify_unit_quality(frames["absent"])["issue_flags"].iloc[0]
+        assert absent_flags == ["quality absent", "snr absent"]
+        # A measured critical failure outranks an undefined metric.
+        mixed = pd.DataFrame({"quality": [nan], "snr": [0.2], "firing_rate": [5.0]})
+        assert classify_unit_quality(mixed)["quality_class"].tolist() == ["Poor"]
+
+    def test_assign_quality_tier_shares_enrich_rule_and_reports_undefined_as_unknown(self):
+        from jnwb.addressing import enrich_units_dataframe
+
+        nan = float("nan")
+        # A candidate under enrich's is_stable is a stable/unstable tier; an unknown is_stable
+        # is an unknown tier; a non-candidate is 'mua' only when declared so (0 or 'mua').
+        expected = {0: "mua", 1: "stable", 2: "stable", 0.5: "unknown", -1: "unknown",
+                    "good": "stable", "sua": "stable", "mua": "mua", " MUA ": "mua",
+                    "noise": "unknown", "unsorted": "unknown", nan: "unknown"}
+        for quality, tier_expected in expected.items():
+            q = pd.Series([quality, None], dtype=object)
+            tier = assign_quality_tier(q, pd.Series([1.0, 1.0]), pd.Series([5.0, 5.0]))
+            assert tier.iloc[0] == tier_expected, quality
+            enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None)
+            stable = enriched["is_stable"].iloc[0] if "is_stable" in enriched else pd.NA
+            if pd.isna(stable):
+                assert tier_expected == "unknown", quality
+            else:
+                assert bool(stable) == (tier_expected == "stable"), quality
+        # The same arguments move both functions the same way.
+        q = pd.Series([1.0, 2.0, 3.0])
+        tier = assign_quality_tier(q, pd.Series([1.0] * 3), pd.Series([5.0] * 3),
+                                   stable_threshold=2.0)
+        enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None,
+                                          stable_threshold=2.0)["is_stable"]
+        assert tier.tolist() == ["unknown", "stable", "stable"]
+        assert enriched.tolist() == [False, True, True]
+        labelled = assign_quality_tier(pd.Series(["Accepted ", "good", "mua"]),
+                                       pd.Series([1.0] * 3), pd.Series([5.0] * 3),
+                                       stable_labels=("accepted",))
+        assert labelled.tolist() == ["stable", "unknown", "mua"]
+
+    def test_assign_quality_tier_aligns_presence_and_snr_or_refuses(self):
+        import numpy as np
+
+        q = pd.Series([1, 1, 0], index=[10, 11, 12])
+        tier = assign_quality_tier(q, np.array([0.99, 0.5, 0.99]), np.array([5.0, 5.0, 5.0]))
+        assert tier.tolist() == ["stable", "unstable", "mua"]
+        assert tier.index.tolist() == [10, 11, 12]
+        on_index = assign_quality_tier(q, pd.Series([0.99, 0.5, 0.99], index=q.index),
+                                       pd.Series([5.0] * 3, index=q.index))
+        assert on_index.tolist() == ["stable", "unstable", "mua"]
+        with pytest.raises(ValueError, match="trial_presence_fraction is not on the units"):
+            assign_quality_tier(q, pd.Series([0.99] * 3), pd.Series([5.0] * 3, index=q.index))
+        with pytest.raises(ValueError, match="snr is not on the units"):
+            assign_quality_tier(q, np.array([0.99] * 3), pd.Series([5.0] * 3, index=[1, 2, 3]))
+        with pytest.raises(ValueError, match="quality has 3 units"):
+            assign_quality_tier(q, np.array([0.99] * 2), np.array([5.0] * 3))
+
+    def test_assign_quality_tier_aligns_a_reordered_index_by_label(self):
+        q = pd.Series([1, 1, 0], index=[10, 11, 12])
+        presence = pd.Series([0.99, 0.5, 0.99], index=q.index)
+        snr = pd.Series([5.0] * 3, index=q.index)
+        permuted = presence.loc[[12, 10, 11]]
+        assert assign_quality_tier(q, permuted, snr).tolist() == ["stable", "unstable", "mua"]
+        # A groupby result comes back sorted by its key, not in the frame's row order.
+        units = pd.DataFrame({"unit": ["c", "a", "b"], "quality": [1, 1, 0],
+                              "presence": [0.99, 0.5, 0.99]}).set_index("unit")
+        by_unit = units.groupby(level="unit")["presence"].mean()
+        assert by_unit.index.tolist() == ["a", "b", "c"]
+        tier = assign_quality_tier(units["quality"], by_unit,
+                                   pd.Series([5.0] * 3, index=units.index))
+        assert tier.tolist() == ["stable", "unstable", "mua"]
+        with pytest.raises(ValueError, match=r"missing \[12\], extra \[13\]"):
+            assign_quality_tier(q, presence.rename({12: 13}), snr)
+        with pytest.raises(ValueError, match=r"duplicated \[10\]"):
+            assign_quality_tier(q, pd.concat([presence, presence.loc[[10]]]), snr)
+        with pytest.raises(ValueError, match="quality has 3 units"):
+            assign_quality_tier(q, 0.99, snr)
+
+    def test_assign_quality_tier_reads_nullable_codes_and_no_bool_or_time_as_a_code(self):
+        na = pd.NA
+        for dtype, values in (("Int64", [0, 1, na]), ("Float64", [0.0, 1.0, na])):
+            tier = assign_quality_tier(pd.Series(values, dtype=dtype), pd.Series([1.0] * 3),
+                                       pd.Series([5.0] * 3))
+            assert tier.tolist() == ["mua", "stable", "unknown"], dtype
+        presence, snr = pd.Series([1.0] * 3), pd.Series([5.0] * 3)
+        for quality in (pd.Series([True, False, na], dtype="boolean"),
+                        pd.Series([True, False, False]),
+                        pd.Series([True, False, 0], dtype=object),
+                        pd.to_datetime(pd.Series(["2026-01-01"] * 3)),
+                        pd.to_timedelta(pd.Series([0, 1, 2]), unit="s")):
+            tier = assign_quality_tier(quality, presence, snr).tolist()
+            expected = (["unknown", "unknown", "mua"] if quality.dtype == object
+                        else ["unknown"] * 3)
+            assert tier == expected, quality.dtype
+
+    def test_quality_cut_offs_are_arguments(self, tmp_path):
+        import pynwb
+        from datetime import datetime, timezone
+
+        snr = pd.DataFrame({"snr": [0.7, 0.7], "quality": [1.5, 1.5]})
+        assert audit_units(snr)["snr_stats"]["good_rate"] == 0.0
+        audit = audit_units(snr, snr_threshold=0.5, quality_threshold=2.0)
+        assert audit["snr_stats"]["good_rate"] == 1.0
+        assert audit["quality_distribution"]["good_count"] == 0
+
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-3",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        for i, label in enumerate(["good", "sua", "accepted"]):
+            nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=label)
+        path = tmp_path / "ses-01_q.nwb"
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        kept = get_all_units_metadata(path, filter_quality=True, stable_labels=("accepted",))
+        assert kept["quality"].tolist() == ["accepted"]
+
+        # audit_units counts text labels by the shared rule; its default keeps the released
+        # count of 'good' alone, and the caller widens it.
+        labels = pd.DataFrame({"quality": ["good", " SUA", "accepted", "mua"]})
+        assert audit_units(labels)["quality_distribution"]["good_count"] == 1
+        assert audit_units(labels, stable_labels=("accepted",))[
+            "quality_distribution"]["good_count"] == 1
+        assert audit_units(labels, stable_labels=("good", "sua", "single", "stable", "clean"))[
+            "quality_distribution"]["good_count"] == 1  # ' SUA' is not stripped
+        # The released matching: case-insensitive, whitespace kept.
+        assert audit_units(pd.DataFrame({"quality": [" good", "GOOD"]}))[
+            "quality_distribution"]["good_count"] == 1
+
+        numeric = pd.DataFrame({"quality": [1.0, 2.0]})
+        path = tmp_path / "ses-02_q.nwb"
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-4",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        for i, value in enumerate(numeric["quality"]):
+            nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=value)
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        units = get_all_units_metadata(path, stable_threshold=2.0)
+        assert units["is_stable"].tolist() == [False, True]
+
+        # A bare string would be read as a set of one-letter labels.
+        from jnwb.addressing import enrich_units_dataframe
+        q = pd.Series(["good"])
+        calls = {
+            "enrich_units_dataframe": lambda: enrich_units_dataframe(
+                pd.DataFrame({"quality": q}), None, stable_labels="good"),
+            "audit_units": lambda: audit_units(pd.DataFrame({"quality": q}),
+                                               stable_labels="good"),
+            "assign_quality_tier": lambda: assign_quality_tier(
+                q, pd.Series([1.0]), pd.Series([5.0]), stable_labels="good"),
+            "get_all_units_metadata": lambda: get_all_units_metadata(
+                path, stable_labels="good"),
+        }
+        for name, call in calls.items():
+            with pytest.raises(TypeError, match=f"{name}: stable_labels"):
+                call()
+
+    def test_audit_units_reports_one_value_spread_as_nan_and_names_a_bad_unit(self):
+        import numpy as np
+
+        audit = audit_units(pd.DataFrame({"quality": [1.0], "snr": [2.0]}))
+        assert np.isnan(audit["quality_distribution"]["std"])
+        assert np.isnan(audit["snr_stats"]["std"])
+        bad = pd.DataFrame({"unit_id": [11, 12],
+                            "spike_times": [np.array([0.1]), float("nan")]})
+        with pytest.raises(TypeError, match="unit 12"):
+            audit_units(bad)
+
+    def test_compare_old_new_criteria_refuses_undefined_classes_and_duplicate_keys(self):
+        import inspect
+
+        from jnwb.metadata import compare_old_new_criteria
+
+        keys = dict(new_key=("session", "unit_row"), old_key=("session_prefix", "unit_row_idx"))
+        old = pd.DataFrame({"session_prefix": ["s"] * 4, "unit_row_idx": [0, 1, 2, 3],
+                            "keep_old": [True, False, True, False]})
+        new = pd.DataFrame({"session": ["s"] * 4, "unit_row": [0, 1, 2, 3],
+                            "keep": pd.array([True, None, pd.NA, float("nan")], dtype=object)})
+        out = compare_old_new_criteria(new, old, "keep", "keep_old", **keys)
+        assert out["transition"].tolist() == ["unchanged_included", "unknown", "unknown",
+                                              "unknown"]
+        boolean = new.assign(keep=pd.array([True, None, None, False], dtype="boolean"))
+        out = compare_old_new_criteria(boolean, old, "keep", "keep_old", **keys)
+        assert out["transition"].tolist() == ["unchanged_included", "unknown", "unknown",
+                                              "unchanged_excluded"]
+
+        duplicated = pd.concat([old, old.iloc[[0]]], ignore_index=True)
+        with pytest.raises(ValueError, match="old_df has more than one row"):
+            compare_old_new_criteria(new, duplicated, "keep", "keep_old", **keys)
+        new_duplicated = pd.concat([new, new.iloc[[0]]], ignore_index=True)
+        with pytest.raises(ValueError, match="new_df has more than one row"):
+            compare_old_new_criteria(new_duplicated, old, "keep", "keep_old", **keys)
+
+        signature = inspect.signature(compare_old_new_criteria)
+        for name in ("new_key", "old_key"):
+            assert signature.parameters[name].default is inspect.Parameter.empty, name
+
+    def test_get_snr_analysis_example_states_the_inclusive_test(self):
+        doc = get_snr_analysis.__doc__
+        assert "SNR>=1.0" in doc
+        assert "SNR>1.0" not in doc

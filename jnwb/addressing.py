@@ -9,7 +9,7 @@ carries no area vocabulary and does not normalize spelling or aliases.
 
 from dataclasses import dataclass
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
 
@@ -28,6 +28,42 @@ except ImportError:
 
 # Compared after strip() and lower(); "nat" is how a missing datetime prints.
 _MISSING_TEXT = frozenset(s.lower() for s in _PANDAS_NA_STRINGS) | {"nat"}
+
+# The text quality labels `enrich_units_dataframe` reads as stable by default; a convention
+# with no cited source, which the caller replaces through `stable_labels`.
+_STABLE_QUALITY_LABELS = ("good", "sua", "single", "stable", "clean")
+
+
+def _stable_label_set(stable_labels, caller: str) -> frozenset:
+    """``stable_labels`` as compared: stripped and lower-cased. A bare string is refused,
+    because iterating it would accept each of its characters as a label."""
+    if isinstance(stable_labels, (str, bytes)):
+        raise TypeError(
+            f"{caller}: stable_labels must be a collection of labels, not the string "
+            f"{stable_labels!r}; pass ({stable_labels!r},) for one label."
+        )
+    return frozenset(str(label).strip().lower() for label in stable_labels)
+
+
+def _quality_is_stable(quality: pd.Series, stable_threshold: float,
+                       labels: frozenset) -> pd.Series:
+    """The one quality rule: nullable-boolean stability per unit.
+
+    When any value is numeric the column is read as codes, stable when
+    ``quality >= stable_threshold``; otherwise as text labels, stable when the stripped,
+    lower-cased label is in ``labels``. A unit whose quality is missing, the text of a missing
+    value, or not a number in a numeric column is ``<NA>``: unknown, not unstable.
+    """
+    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
+    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
+    text = quality.astype(str).str.strip().str.lower()
+    present = quality.notna() & ~text.isin(_MISSING_TEXT)
+    q_num = pd.to_numeric(quality, errors='coerce')
+    if q_num.notna().any():
+        usable, stable = q_num.notna(), q_num >= stable_threshold
+    else:
+        usable, stable = present, text.isin(labels)
+    return stable.astype('boolean').mask(~usable)
 
 
 def parse_probe_areas(label: str) -> tuple:
@@ -417,6 +453,8 @@ def enrich_units_dataframe(
     depth_unit: Optional[str] = None,
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
+    stable_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.DataFrame:
     """Enrich units DataFrame with standardized area, depth class, and quality flags.
 
@@ -428,8 +466,9 @@ def enrich_units_dataframe(
 
     No ``layer`` column is written. One already on ``units_df`` is returned as supplied.
 
-    ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
-    membership in the accepted good labels otherwise -- and is not added when ``units_df``
+    ``is_stable`` is derived from a ``quality`` column -- ``quality >= stable_threshold`` when
+    it is numeric, membership in ``stable_labels`` (compared lower-cased and stripped)
+    otherwise -- and is not added when ``units_df``
     has no ``quality`` column, or one holding only NaN, None, blank strings or the text of a
     missing value, because there is nothing to derive it from. The text of a missing value is
     any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
@@ -444,10 +483,17 @@ def enrich_units_dataframe(
         depth_unit: Optional unit for electrode depth coordinates (e.g. 'um', 'mm').
         threshold: Optional depth threshold for the depth class.
         threshold_unit: Optional unit for threshold.
+        stable_threshold: numeric quality at or above which a unit is stable.
+        stable_labels: text quality labels read as stable, a collection; a bare string
+            raises ``TypeError``. Both defaults, 1.0 and
+            ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
+            source: pass the rule your sorter's codes follow.
+            :func:`jnwb.assign_quality_tier` applies the same rule through the same code.
 
     Returns:
         Standardized and enriched DataFrame
     """
+    labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
     df = units_df.copy()
 
     # 1. Standardize unit_id column
@@ -500,22 +546,12 @@ def enrich_units_dataframe(
         if 'group_name' not in df.columns:
             df['group_name'] = None
 
-    # 3. Handle quality and stable flags
-    # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
-    # for categorical quality labels, standard accepted good labels are stable.
-    quality = df['quality'] if 'quality' in df.columns else None
-    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
-    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
-    text = quality.astype(str).str.strip().str.lower() if quality is not None else None
-    if quality is not None and (quality.notna() & ~text.isin(_MISSING_TEXT)).any():
-        q_num = pd.to_numeric(quality, errors='coerce')
-        if q_num.notna().any():
-            usable, stable = q_num.notna(), q_num >= 1.0
-        else:
-            _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
-            usable, stable = quality.notna() & ~text.isin(_MISSING_TEXT), text.isin(_GOOD_LABELS)
-        # A unit with no usable quality is <NA>: unknown, not unstable.
-        df['is_stable'] = stable.astype('boolean').mask(~usable)
+    # 3. Handle quality and stable flags: quality >= stable_threshold for numeric codes,
+    # membership in stable_labels for text labels; both are the caller's to set.
+    if 'quality' in df.columns:
+        stable = _quality_is_stable(df['quality'], stable_threshold, labels)
+        if stable.notna().any():
+            df['is_stable'] = stable
     # With no quality column, or one holding only NaN, None or blank strings, there is nothing
     # to derive stability from, so no `is_stable` is added: an all-<NA> column would be a
     # label with no data behind it.

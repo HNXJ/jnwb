@@ -6,17 +6,24 @@ Functions operate on standard NWB units/electrodes table columns (snr, firing_ra
 peak_channel_id, ...) exposed by any file.
 """
 
+import datetime
 import logging
 import warnings
 from pathlib import Path
-from typing import Literal, Optional, List, Dict, Tuple, Union
+from typing import Collection, Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
+from jnwb.addressing import _STABLE_QUALITY_LABELS, _quality_is_stable, _stable_label_set
 from jnwb.nwb_io import nwb_read_io
 
 log = logging.getLogger(__name__)
 
 _NWB_READ_ERRORS = (OSError, ValueError, KeyError, TypeError, RuntimeError)
+
+#: Values `assign_quality_tier` does not read as a quality code: a boolean is no code 0 or 1,
+#: and a time is no code at all, though `pd.to_numeric` turns each into a number.
+_NOT_A_QUALITY_CODE = (bool, np.bool_, datetime.date, datetime.timedelta, np.datetime64,
+                       np.timedelta64)
 
 
 def _session_id_from_path(nwb_path: Path):
@@ -59,16 +66,26 @@ def get_all_units_metadata(
     filter_quality: bool = False,
     quality_threshold: float = 1.0,
     on_read_error: Literal["skip", "raise"] = "skip",
+    *,
+    stable_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.DataFrame:
     """
     Extract all units and metadata from one or more NWB files.
 
     Args:
         nwb_paths: Single NWB path or list of paths
-        filter_quality: If True, filter to units with quality >= quality_threshold
-        quality_threshold: Quality cutoff (default 1.0 = 'good')
+        filter_quality: If True, filter to units with quality >= quality_threshold, or,
+            when a file's quality holds text labels, to units whose label is in
+            ``stable_labels``.
+        quality_threshold: numeric quality cut-off. The default 1.0 is a convention with no
+            cited source: pass the cut-off your sorter's codes follow.
         on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
             ``"raise"`` re-raises the first read/processing error.
+        stable_threshold, stable_labels: the ``is_stable`` rule, passed to
+            :func:`jnwb.enrich_units_dataframe`, whose default convention they share.
+            ``quality_threshold`` decides the numeric filter and ``stable_threshold`` the
+            ``is_stable`` column; a bare-string ``stable_labels`` raises ``TypeError``.
 
     Returns:
         DataFrame with all unit metadata across sessions
@@ -83,6 +100,7 @@ def get_all_units_metadata(
         >>> units = get_all_units_metadata('/path/to/nwb')
         >>> stable_units = get_all_units_metadata('/path/to/nwbs', filter_quality=True, quality_threshold=1.0)
     """
+    _stable_label_set(stable_labels, "get_all_units_metadata")
     if isinstance(nwb_paths, (str, Path)):
         nwb_paths = [nwb_paths]
 
@@ -109,7 +127,9 @@ def get_all_units_metadata(
                 elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
 
                 from jnwb.addressing import enrich_units_dataframe
-                units_df = enrich_units_dataframe(raw_units, elec_df)
+                units_df = enrich_units_dataframe(raw_units, elec_df,
+                                                  stable_threshold=stable_threshold,
+                                                  stable_labels=stable_labels)
                 units_df['session_id'] = session_id
 
                 log.info(f"{session_id}: {len(units_df)} units extracted")
@@ -213,14 +233,23 @@ def classify_unit_quality(
 
     Args:
         units_df: DataFrame with unit metrics (from get_all_units_metadata or NWB directly)
-        thresholds: Dict of {'metric': threshold_value}
-                   Default: {'quality': 1.0, 'snr': 1.0, 'firing_rate': 0.1}
+        thresholds: Dict of {'metric': threshold_value}; a unit is flagged when
+                   ``metric < threshold_value``.
+                   Default: {'quality': 1.0, 'snr': 1.0, 'firing_rate': 0.1}. These values,
+                   and the rule that a ``quality`` or ``snr`` failure makes a unit 'Poor', are
+                   a convention with no cited source: pass the cut-offs your study justifies.
 
     Returns:
         DataFrame with added classification columns:
-        - quality_class: 'Good', 'Fair', 'Poor'
-        - is_valid: bool (passes all thresholds)
-        - issue_flags: list of failed criteria
+        - quality_class: 'Good', 'Fair', 'Poor' or 'Unknown'
+        - is_valid: bool (every threshold column present, defined and passed)
+        - issue_flags: list of failed or undefined criteria
+
+        A metric that cannot be compared is not a pass. A value that is missing or not a
+        number (NaN, ``None``, a label such as ``'mua'``) is flagged ``'<metric> undefined'``,
+        and a threshold whose column the frame lacks flags every unit ``'<metric> absent'``.
+        Such a unit is 'Unknown' unless a measured ``quality`` or ``snr`` failure makes it
+        'Poor', and its ``is_valid`` is False.
 
     Example:
         >>> classified = classify_unit_quality(units_df)
@@ -234,27 +263,36 @@ def classify_unit_quality(
         }
 
     units_df = units_df.copy()
-    units_df['issue_flags'] = units_df.apply(lambda row: [], axis=1)
-
-    # Quality classification
-    for col, thresh in thresholds.items():
-        if col in units_df.columns:
-            units_df.loc[pd.to_numeric(units_df[col], errors='coerce') < thresh, 'issue_flags'] = \
-                units_df['issue_flags'].apply(lambda x: x + [f'{col}<{thresh}'])
-
-    # Overall class
-    units_df['quality_class'] = 'Good'
-    units_df.loc[units_df['issue_flags'].apply(len) > 0, 'quality_class'] = 'Fair'
-
-    # Check for critical metric failures (quality, snr) -> 'Poor'
+    flags = [[] for _ in range(len(units_df))]
+    undefined = np.zeros(len(units_df), dtype=bool)
+    critical_failure = np.zeros(len(units_df), dtype=bool)
     critical_cols = {'quality', 'snr'}
-    critical_flags = {f"{col}<{thresholds[col]}" for col in critical_cols if col in thresholds}
-    if critical_flags:
-        units_df.loc[units_df['issue_flags'].apply(
-            lambda x: any(f in critical_flags for f in x)
-        ), 'quality_class'] = 'Poor'
 
-    units_df['is_valid'] = units_df['issue_flags'].apply(len) == 0
+    for col, thresh in thresholds.items():
+        if col not in units_df.columns:
+            for row_flags in flags:
+                row_flags.append(f'{col} absent')
+            undefined[:] = True
+            continue
+        values = pd.to_numeric(units_df[col], errors='coerce').to_numpy(dtype=float)
+        is_undefined = np.isnan(values)
+        with np.errstate(invalid='ignore'):
+            fails = ~is_undefined & (values < thresh)
+        for i in np.flatnonzero(is_undefined):
+            flags[i].append(f'{col} undefined')
+        for i in np.flatnonzero(fails):
+            flags[i].append(f'{col}<{thresh}')
+        undefined |= is_undefined
+        if col in critical_cols:
+            critical_failure |= fails
+
+    units_df['issue_flags'] = pd.Series(flags, index=units_df.index, dtype=object)
+    has_flag = np.array([len(f) > 0 for f in flags], dtype=bool)
+    quality_class = np.where(has_flag, 'Fair', 'Good').astype(object)
+    quality_class[undefined] = 'Unknown'
+    quality_class[critical_failure] = 'Poor'
+    units_df['quality_class'] = quality_class
+    units_df['is_valid'] = ~has_flag
 
     return units_df
 
@@ -336,15 +374,17 @@ def get_snr_analysis(
 
     Args:
         units_df: DataFrame with SNR values
-        snr_threshold: Cutoff for 'good' SNR
+        snr_threshold: Cut-off for 'good' SNR; a unit passes when ``snr >= snr_threshold``.
+            The default 1.0 is a convention with no cited source: pass the cut-off your
+            study justifies.
         detail: If True, return per-session breakdown
 
     Returns:
         Dict with SNR statistics and pass rates
 
     Example:
-        >>> snr_stats = get_snr_analysis(units_df)
-        >>> print(f"Units with SNR>1.0: {snr_stats['pass_rate']:.1%}")
+        >>> snr_stats = get_snr_analysis(units_df, snr_threshold=1.0)
+        >>> print(f"Units with SNR>=1.0: {snr_stats['pass_rate']:.1%}")
     """
     if 'snr' not in units_df.columns:
         log.warning("No SNR column found")
@@ -458,7 +498,13 @@ def electrode_inventory(
     return pd.concat(all_elecs, ignore_index=False)
 
 
-def audit_units(units_df: pd.DataFrame) -> Dict:
+def audit_units(
+    units_df: pd.DataFrame,
+    *,
+    quality_threshold: float = 1.0,
+    snr_threshold: float = 1.0,
+    stable_labels: Collection[str] = ("good",),
+) -> Dict:
     """
     Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate
     summary statistics.
@@ -467,12 +513,30 @@ def audit_units(units_df: pd.DataFrame) -> Dict:
 
     Args:
         units_df: units DataFrame, e.g. from :func:`get_all_units_metadata`.
+        quality_threshold: a numeric quality counts toward ``good_count`` when
+            ``quality >= quality_threshold``.
+        snr_threshold: an SNR counts toward ``good_count`` and ``good_rate`` when
+            ``snr >= snr_threshold``. Both defaults, 1.0, are a convention with no cited
+            source: pass the cut-offs your study justifies.
+        stable_labels: when no quality is numeric, a text label counts toward
+            ``good_count`` when, lower-cased, it is one of these. Unlike
+            :func:`jnwb.enrich_units_dataframe`, the label is not stripped of whitespace
+            (``' good'`` does not count), as this count has always read it, and the default
+            is ``("good",)``, narrower than enrich's
+            ``("good", "sua", "single", "stable", "clean")``. A bare string raises
+            ``TypeError``.
 
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
         snr_stats, firing_rate_stats (each a sub-dict of mean/median/std/... or
-        ``{}`` when the source column is absent).
+        ``{}`` when the source column is absent). A standard deviation of one value is
+        NaN, not 0.0.
+
+    Raises:
+        TypeError: a ``spike_times`` entry is neither ``None`` nor a sequence (a NaN, for
+            instance); the message names the unit.
     """
+    labels = _stable_label_set(stable_labels, "audit_units")
     result = {
         'total_units': len(units_df),
         'units_with_spike_times': 0,
@@ -483,7 +547,21 @@ def audit_units(units_df: pd.DataFrame) -> Dict:
 
     # Check spike times
     if 'spike_times' in units_df.columns:
-        result['units_with_spike_times'] = sum(1 for st in units_df['spike_times'] if st is not None and len(st) > 0)
+        unit_ids = (units_df['unit_id'] if 'unit_id' in units_df.columns
+                    else pd.Series(units_df.index, index=units_df.index))
+        n_with = 0
+        for unit, st in zip(unit_ids, units_df['spike_times']):
+            if st is None:
+                continue
+            try:
+                n_spikes = len(st)
+            except TypeError:
+                raise TypeError(
+                    f"audit_units: unit {unit!r} has spike_times {st!r}, which is not a "
+                    "sequence of spike times; use an empty array for a unit with no spikes."
+                ) from None
+            n_with += n_spikes > 0
+        result['units_with_spike_times'] = int(n_with)
 
     # Quality distribution
     if 'quality' in units_df.columns:
@@ -492,13 +570,14 @@ def audit_units(units_df: pd.DataFrame) -> Dict:
             result['quality_distribution'] = {
                 'mean': float(quality_values.mean()),
                 'median': float(quality_values.median()),
-                'std': float(quality_values.std()) if len(quality_values) > 1 else 0.0,
+                'std': float(quality_values.std()),
                 'min': float(quality_values.min()),
                 'max': float(quality_values.max()),
-                'good_count': int((quality_values >= 1.0).sum()),
+                'good_count': int((quality_values >= quality_threshold).sum()),
             }
         else:
-            good_count = int((units_df['quality'].astype(str).str.lower() == 'good').sum())
+            # The released matching: lower-cased, not stripped, so ' good' is not 'good'.
+            good_count = int(units_df['quality'].astype(str).str.lower().isin(labels).sum())
             result['quality_distribution'] = {
                 'mean': float('nan'),
                 'median': float('nan'),
@@ -516,8 +595,8 @@ def audit_units(units_df: pd.DataFrame) -> Dict:
                 'mean': float(snr_values.mean()),
                 'median': float(snr_values.median()),
                 'std': float(snr_values.std()),
-                'good_count': int((snr_values >= 1.0).sum()),
-                'good_rate': float((snr_values >= 1.0).mean())
+                'good_count': int((snr_values >= snr_threshold).sum()),
+                'good_rate': float((snr_values >= snr_threshold).mean())
             }
 
     # Firing rate statistics
@@ -577,35 +656,94 @@ def assign_quality_tier(
     snr: pd.Series,
     presence_threshold: float = 0.98,
     snr_threshold: float = 0.5,
+    *,
+    stable_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.Series:
-    """Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.
+    """Tier units 'mua' / 'stable' / 'unstable' / 'unknown' from quality, presence and SNR.
 
-    Three plain Series and two thresholds in; a tier Series out. Column names are not looked up
+    Three plain Series and the thresholds in; a tier Series out. Column names are not looked up
     internally -- callers pass Series explicitly.
 
-    quality==0 -> 'mua' (a common Kilosort-curation convention: is_stable = quality>=1).
-    quality==1 & presence>presence_threshold & snr>snr_threshold -> 'stable'.
-    quality==1 & (presence<=threshold or snr<=snr_threshold or either missing) -> 'unstable'.
+    The quality rule is :func:`jnwb.enrich_units_dataframe`'s ``is_stable`` rule, computed by
+    the same code with the same defaults: when any quality is numeric, a unit is a single-unit
+    candidate when ``quality >= stable_threshold``; otherwise when its label, stripped and
+    lower-cased, is one of ``stable_labels``.
+
+    - candidate & presence>presence_threshold & snr>snr_threshold -> 'stable'.
+    - candidate & (presence<=presence_threshold or snr<=snr_threshold or either missing)
+      -> 'unstable'.
+    - not a candidate and declared multi-unit -- the code 0, or the label 'mua' after
+      stripping and lower-casing -> 'mua'.
+    - every other unit -> 'unknown': a missing quality, a value that is not a number in a
+      numeric column, any other non-candidate code (-1, 0.5) and any other label ('noise',
+      'unsorted'). Not being a single unit does not make a unit multi-unit activity.
+    - a boolean quality (``False`` is not the code 0, ``True`` not the code 1), or a date,
+      datetime or timedelta, is no quality code -> 'unknown'.
 
     Args:
-        quality: per-unit quality code Series (0 = MUA, 1 = single-unit candidate).
+        quality: per-unit quality Series: codes (0 = MUA, 1 = single-unit candidate) or labels.
         trial_presence_fraction: per-unit fraction of trials the unit was present for.
-        snr: per-unit signal-to-noise ratio.
+        snr: per-unit signal-to-noise ratio. Each of the two is a Series or an array of
+            ``len(quality)`` values. A Series is aligned to ``quality`` by unit label, in any
+            order; a label missing from it, an extra label or a repeated label raises
+            ``ValueError``. An array is read by position; a scalar raises ``ValueError``.
         presence_threshold: minimum presence fraction (exclusive) for 'stable'.
-        snr_threshold: minimum SNR (exclusive) for 'stable'.
+        snr_threshold: minimum SNR (exclusive) for 'stable'. Both defaults, 0.98 and 0.5,
+            are a convention with no cited source: pass the cut-offs your study justifies
+            and state them wherever the tier is reported.
+        stable_threshold, stable_labels: the candidate rule above; their defaults, 1.0 and
+            ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
+            source. A bare-string ``stable_labels`` raises ``TypeError``.
 
     Returns:
-        Series of {'mua', 'stable', 'unstable'}, same index as ``quality``.
+        Series of {'mua', 'stable', 'unstable', 'unknown'}, same index as ``quality``.
     """
-    q = pd.to_numeric(quality, errors="coerce")
-    presence = pd.to_numeric(trial_presence_fraction, errors="coerce")
-    snr_num = pd.to_numeric(snr, errors="coerce")
-    tier = pd.Series("unstable", index=quality.index, dtype=object)
-    tier[q == 0] = "mua"
-    stable_mask = (q == 1) & (presence > presence_threshold) & (snr_num > snr_threshold)
-    tier[stable_mask] = "stable"
-    unstable_mask = (q == 1) & ~stable_mask
-    tier[unstable_mask] = "unstable"
+    labels = _stable_label_set(stable_labels, "assign_quality_tier")
+    # A boolean, date or duration is no quality code: False is not the code 0. Iterating a
+    # bool, boolean, datetime64 or timedelta64 Series yields these types, so one check covers
+    # each dtype and an object column alike.
+    not_a_code = np.array([isinstance(v, _NOT_A_QUALITY_CODE) for v in quality], dtype=bool)
+    candidate = _quality_is_stable(quality, stable_threshold, labels)
+    known = candidate.notna().to_numpy() & ~not_a_code
+    is_candidate = candidate.fillna(False).to_numpy(dtype=bool) & ~not_a_code
+    declared_mua = ((pd.to_numeric(quality, errors="coerce") == 0).fillna(False)
+                    | (quality.astype(str).str.strip().str.lower() == "mua")
+                    ).to_numpy(dtype=bool) & ~not_a_code
+
+    def _aligned(values, name):
+        if isinstance(values, pd.Series):
+            if not values.index.equals(quality.index):
+                missing = quality.index.difference(values.index)
+                extra = values.index.difference(quality.index)
+                duplicated = values.index[values.index.duplicated()].unique()
+                if (len(missing) or len(extra) or len(duplicated)
+                        or not quality.index.is_unique):
+                    raise ValueError(
+                        f"assign_quality_tier: {name} is not on the units of quality: "
+                        f"missing {list(missing[:5])}, extra {list(extra[:5])}, duplicated "
+                        f"{list(duplicated[:5])}"
+                        + ("" if quality.index.is_unique else "; quality's index repeats")
+                        + ". Pass Series on the same unit labels, or arrays read by position."
+                    )
+                values = values.reindex(quality.index)  # same labels, another order
+            values = values.to_numpy()
+        values = np.asarray(values)
+        if values.shape != (len(quality),):
+            raise ValueError(
+                f"assign_quality_tier: {name} has shape {values.shape}, quality has "
+                f"{len(quality)} units."
+            )
+        return pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+
+    presence = _aligned(trial_presence_fraction, "trial_presence_fraction")
+    snr_num = _aligned(snr, "snr")
+    with np.errstate(invalid="ignore"):
+        passes = (presence > presence_threshold) & (snr_num > snr_threshold)
+    tier = pd.Series("unknown", index=quality.index, dtype=object)
+    tier[known & ~is_candidate & declared_mua] = "mua"
+    tier[is_candidate & ~passes] = "unstable"
+    tier[is_candidate & passes] = "stable"
     return tier
 
 
@@ -614,13 +752,20 @@ def compare_old_new_criteria(
     old_df: pd.DataFrame,
     class_col_new: str,
     class_col_old: str,
-    new_key: Tuple[str, str] = ("session", "unit_row"),
-    old_key: Tuple[str, str] = ("session_prefix", "unit_row_idx"),
+    new_key: Tuple[str, str],
+    old_key: Tuple[str, str],
 ) -> pd.DataFrame:
     """Diff two boolean unit-classification columns across two DataFrames on a join key.
 
     Retained in metadata.py for module-level compatibility with downstream unit inclusion
     curation pipelines. Not exported in top-level jnwb namespace.
+
+    ``transition`` is ``gained``, ``lost``, ``unchanged_included`` or
+    ``unchanged_excluded``; a unit with no old row, or an old class that is missing, counts as
+    not screened (``old_screened`` False) and as previously excluded. A new class that is
+    missing (NaN, ``None``, ``pd.NA``) has no transition: it reads ``unknown``. A key that
+    occurs twice in either frame raises ``ValueError``, because the merge would duplicate the
+    unit with conflicting transitions.
 
     INTENTIONAL BREAK. ``class_col_new`` and ``class_col_old`` are required and precede
     the key arguments. When this function was promoted into the package they had study-
@@ -628,17 +773,32 @@ def compare_old_new_criteria(
     library; removing them made an existing two-positional call raise
     ``TypeError: missing 2 required positional arguments``. Name the two columns
     explicitly.
+
+    INTENTIONAL BREAK. ``new_key`` and ``old_key`` are required. Their defaults,
+    ``("session", "unit_row")`` and ``("session_prefix", "unit_row_idx")``, named one
+    downstream corpus's columns; a call that relied on them raises ``TypeError`` and now
+    passes those two tuples explicitly.
     """
     new_s, new_u = new_key
     old_s, old_u = old_key
+    for frame, cols, name in ((new_df, [new_s, new_u], "new_df"),
+                              (old_df, [old_s, old_u], "old_df")):
+        duplicated = frame.duplicated(subset=cols, keep=False)
+        if duplicated.any():
+            keys = frame.loc[duplicated, cols].drop_duplicates().to_records(index=False).tolist()
+            raise ValueError(
+                f"compare_old_new_criteria: {name} has more than one row for key {cols} "
+                f"{keys}; each unit must occur once on each side."
+            )
     old_small = old_df[[old_s, old_u, class_col_old]].rename(
         columns={old_s: new_s, old_u: new_u, class_col_old: "_old_class"}
     )
     merged = new_df.merge(old_small, on=[new_s, new_u], how="left")
     merged["old_screened"] = merged["_old_class"].notna()
-    merged["_old_class"] = merged["_old_class"].astype("boolean").fillna(False).astype(bool)
-    new_class = merged[class_col_new].astype(bool)
-    old_class = merged["_old_class"].astype(bool)
+    old_class = merged["_old_class"].astype("boolean").fillna(False).astype(bool).tolist()
+    new_defined = merged[class_col_new].notna().tolist()
+    new_class = [bool(v) if d else False
+                 for v, d in zip(merged[class_col_new], new_defined)]
 
     def _transition(row_new: bool, row_old: bool, screened: bool) -> str:
         if not screened:
@@ -652,8 +812,8 @@ def compare_old_new_criteria(
         return "unchanged_excluded"
 
     merged["transition"] = [
-        _transition(bool(n), bool(o), bool(s))
-        for n, o, s in zip(new_class, old_class, merged["old_screened"])
+        _transition(n, o, bool(s)) if d else "unknown"
+        for n, o, s, d in zip(new_class, old_class, merged["old_screened"], new_defined)
     ]
     merged = merged.drop(columns=["_old_class"])
     return merged

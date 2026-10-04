@@ -352,6 +352,17 @@ def test_a_unit_with_no_usable_quality_has_unknown_stability(quality):
     assert stable.dropna().tolist() == [True, False]
 
 
+def test_the_stability_cut_off_and_labels_are_arguments():
+    numeric = pd.DataFrame({"unit_id": [0, 1], "quality": [1.0, 2.0]})
+    assert enrich_units_dataframe(numeric, None)["is_stable"].tolist() == [True, True]
+    assert enrich_units_dataframe(
+        numeric, None, stable_threshold=2.0)["is_stable"].tolist() == [False, True]
+    labels = pd.DataFrame({"unit_id": [0, 1], "quality": ["good", "Accepted "]})
+    assert enrich_units_dataframe(labels, None)["is_stable"].tolist() == [True, False]
+    assert enrich_units_dataframe(
+        labels, None, stable_labels=("accepted",))["is_stable"].tolist() == [False, True]
+
+
 def test_a_quality_column_with_no_usable_value_adds_no_stability_label():
     """NaN, None, blank strings and the text of a missing value are no quality at all."""
     for quality in (

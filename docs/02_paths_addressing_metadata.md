@@ -192,7 +192,8 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 # Extract all units across multiple sessions into a unified pandas DataFrame
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
-# Classify unit quality tiers (attaches quality_class: 'Good'|'Fair'|'Poor', is_valid, issue_flags)
+# Attaches quality_class ('Good'|'Fair'|'Poor'|'Unknown'), is_valid, issue_flags.
+# A missing or non-numeric metric makes the unit 'Unknown'; the thresholds have no cited source.
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area
@@ -216,9 +217,9 @@ elec_audit = jnwb.audit_electrodes(electrodes_df, units_df)
 # Generate multi-session electrode inventory
 inventory = jnwb.electrode_inventory(nwb_files)
 
-# Assign explicit quality tier ('mua' | 'stable' | 'unstable') from presence and SNR.
-# All three arguments are per-unit Series, not scalars, and `quality` is the integer
-# sorter code (0 = MUA, 1 = single-unit candidate), not a word.
+# Quality tier ('mua' | 'stable' | 'unstable' | 'unknown') from per-unit Series, not scalars.
+# Candidates follow `is_stable` of `enrich_units_dataframe`; 'mua' only for code 0 or label
+# 'mua'; anything else is 'unknown'.
 tier = jnwb.assign_quality_tier(
     quality=classified_units["quality"],
     trial_presence_fraction=classified_units["trial_presence_fraction"],
