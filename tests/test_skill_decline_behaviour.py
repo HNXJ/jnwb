@@ -507,8 +507,10 @@ def _public(obj) -> set[str]:
     return {name for name in dir(obj) if not name.startswith("_")}
 
 
+#: "correct" takes only the endings of a judgement: "corrected", "correcting" and "correction"
+#: name the act of fixing a value, and "not corrected by hand" grants and limits nothing.
 _VERDICT = re.compile(
-    r"\b(?:correct\w*|certif\w*|valid|validity|validat\w*|verified|guarantee\w*|proves?"
+    r"\b(?:correct(?:ly|ness)?|certif\w*|valid|validity|validat\w*|verified|guarantee\w*|proves?"
     r"|trustworth\w*|right(?:ly)?)\b", re.I)
 #: A negation that governs a predicate. "no" is left out: it is a determiner and negates its
 #: noun ("no field missing"), not a verdict later in the sentence.
@@ -517,27 +519,55 @@ _NEGATION = re.compile(r"\b(?:not|never|cannot|declin\w*)\b|n't\b", re.I)
 #: it is correct", "decline a verdict on correctness"). Any other word, such as "empty" in "not
 #: empty is right", takes the negation for itself.
 _BRIDGE = {"a", "an", "the", "that", "it", "is", "are", "be", "been", "verdict", "on", "of"}
-#: "a request to call a result correct ... is declined": the verdict is what is declined.
-_DECLINED_REQUEST = re.compile(r"\brequest\b(?P<asked>.*)\b(?:is|are) declined\b", re.I)
+#: A negated word of knowing or showing whose complement holds the verdict: "cannot tell whether
+#: it is correct", "never proof that it is correct". Only these, followed by "whether", "that" or
+#: "if", carry the negation past other words.
+_NEGATED_KNOWING = {"tell", "tells", "say", "says", "show", "shows", "proof", "evidence",
+                    "establish", "establishes", "decide", "decides", "know", "knows", "mean",
+                    "means", "imply", "implies"}
+_COMPLEMENTIZER = {"whether", "that", "if"}
+#: "a request to call a result correct ... is declined": the verdict is what is declined. The
+#: asked part holds no other "request" and no "is" or "are", so a verdict in an earlier request
+#: or clause ("a request is accepted when the table is valid and ... is declined") is not read
+#: as declined.
+_DECLINED_REQUEST = re.compile(
+    r"\brequest\b(?P<asked>(?:(?!\b(?:request|is|are)\b).)*)\b(?:is|are) declined\b", re.I)
 
 
 def _negation_governs(sentence: str, verdict: re.Match) -> bool:
     """True when a negation governs `verdict`: in its clause with only bridge words between, or
-    the verdict is the content of a declined request."""
+    through a negated word of knowing and its complementizer, or the verdict is the content of a
+    declined request."""
     clause = re.split(r"[,;:]", sentence[: verdict.start()])[-1]
     negations = list(_NEGATION.finditer(clause))
     between = clause[negations[-1].end():].lower().split() if negations else None
     if between is not None and set(between) <= _BRIDGE:
         return True
+    if between:
+        rest = between[next((k for k, w in enumerate(between) if w not in _BRIDGE), 0):]
+        if len(rest) >= 2 and rest[0] in _NEGATED_KNOWING and rest[1] in _COMPLEMENTIZER:
+            return True
     request = _DECLINED_REQUEST.search(sentence)
     return bool(request) and request.start("asked") <= verdict.start() < request.end("asked")
 
 
+def _verdict_sentences(text: str) -> list[str]:
+    """Sentences of `text` holding a correctness or validity word, each counted once."""
+    return [s for s in re.split(r"(?<=[.;])\s+", text) if _VERDICT.search(s)]
+
+
 def _verdicts_granted(text: str) -> list[str]:
     """Sentences of `text` holding a correctness or validity word no negation governs."""
-    sentences = re.split(r"(?<=[.;])\s+", text)
-    return [s for s in sentences
+    return [s for s in _verdict_sentences(text)
             if any(not _negation_governs(s, v) for v in _VERDICT.finditer(s))]
+
+
+#: The fewest verdict sentences the live `jnwb-qc` text must hold, so that its grant check reads
+#: the skill's limits rather than passing on nothing. The skill states four (an audit does not
+#: certify; a record does not say a value is correct; a request for a verdict is declined; a
+#: verdict on correctness is declined); three leaves room for one to be reworded without a
+#: verdict word and still fails a text that has lost its limits.
+_VERDICT_FLOOR = 3
 
 
 @case("jnwb-qc", "supported")
@@ -585,7 +615,7 @@ def _():
     text = skill_text("jnwb-qc")
     assert not _verdicts_granted(text), _verdicts_granted(text)
     # The skill's own negated limits are read, so the check above is not passing on nothing.
-    assert len(_VERDICT.findall(text)) >= 5
+    assert len(_verdict_sentences(text)) >= _VERDICT_FLOOR
     for planted in ("A `Result` with complete provenance is verified correct.",
                     "A `Result` with complete provenance, and no field missing, is correct.",
                     "A `Result` with no field missing is correct.",
@@ -724,3 +754,32 @@ def test_a_row_states_the_undefined_case(skill, phrase, call, flags):
     finite = {k: v for k, v in values.items() if not np.isnan(v)}
     assert not finite, f"no estimate exists, yet {finite} is reported; the {skill} row states NaN"
     assert observed_flags == flags
+
+
+@pytest.mark.parametrize("sentence", [
+    "A unit that is never silent is valid.",
+    "If a column isn't missing, the table is correct.",
+    "The record does not drift and is trustworthy.",
+    # The verdict belongs to the accepted request, not to the declined one after it.
+    "A request to audit is accepted when the table is valid and the other request is declined.",
+    "A request to audit is accepted when the table is valid and the result is declined.",
+])
+def test_the_qc_verdict_check_rejects_a_granted_verdict(sentence):
+    assert _verdicts_granted(sentence) == [sentence]
+
+
+@pytest.mark.parametrize("sentence", [
+    "jnwb cannot tell whether the table is correct.",
+    "A complete record is never proof that the analysis is correct.",
+    "An audit does not certify the table.",
+    "Provenance is not a verdict on validity.",
+])
+def test_the_qc_verdict_check_passes_a_negated_limit(sentence):
+    assert _verdicts_granted(sentence) == []
+
+
+def test_the_qc_verdict_floor_counts_verdict_sentences():
+    """Five verdict words in one sentence are one limit, and "corrected" names no verdict."""
+    assert _verdict_sentences("It is not correct, not valid, not right, not proven, not verified.") \
+        == ["It is not correct, not valid, not right, not proven, not verified."]
+    assert _verdict_sentences("A failure is reported, not corrected by hand.") == []

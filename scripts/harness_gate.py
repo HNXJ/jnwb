@@ -1197,7 +1197,15 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
     # Each symbol is checked in the skill whose routing row holds it, read with the parser the
     # skill tests use. A fixed skill path passed a tree whose `jnwb.events` row had moved to
     # another skill, because an example line left behind still held the call.
-    from tests.test_skill_router_reach import _routed_operations
+    from tests.test_skill_router_reach import _ROW_HEAD_END, _routed_operations
+
+    def _row_head(line: str) -> str:
+        # The call is read from the row head: up to the colon that ends it, or up to the arrow
+        # that introduces the return value. A call in the description is a mention, and a row
+        # that names the symbol and calls it only there passed when the whole line was read.
+        end = _ROW_HEAD_END.search(line)
+        head = line[: end.start() + 1] if end else line
+        return head.split("→", 1)[0]
 
     skill_files = sorted((root / "skills").glob("*/SKILL.md"))
     if not skill_files:
@@ -1212,7 +1220,7 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
         if skill_files and not routing:
             violations.append(f"NWB_ONBOARDING: no skill has a routing row for {symbol}")
         for skill, line in routing:
-            if f"{symbol}(" not in line:
+            if f"`{symbol}(" not in _row_head(line):
                 violations.append(
                     f"NWB_ONBOARDING: skills/{skill} has a routing row for {symbol} but the row "
                     f"never routes a call to it"
