@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Collection, Literal, Optional, List, Dict, Tuple, Union
 import numpy as np
 import pandas as pd
-from jnwb.addressing import _STABLE_QUALITY_LABELS
+from jnwb.addressing import _STABLE_QUALITY_LABELS, _quality_is_stable, _stable_label_set
 from jnwb.nwb_io import nwb_read_io
 
 log = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ def get_all_units_metadata(
     quality_threshold: float = 1.0,
     on_read_error: Literal["skip", "raise"] = "skip",
     *,
+    stable_threshold: float = 1.0,
     stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.DataFrame:
     """
@@ -75,8 +76,10 @@ def get_all_units_metadata(
             cited source: pass the cut-off your sorter's codes follow.
         on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
             ``"raise"`` re-raises the first read/processing error.
-        stable_labels: text quality labels read as stable, passed to
-            :func:`jnwb.enrich_units_dataframe`, whose default convention it shares.
+        stable_threshold, stable_labels: the ``is_stable`` rule, passed to
+            :func:`jnwb.enrich_units_dataframe`, whose default convention they share.
+            ``quality_threshold`` decides the numeric filter and ``stable_threshold`` the
+            ``is_stable`` column; a bare-string ``stable_labels`` raises ``TypeError``.
 
     Returns:
         DataFrame with all unit metadata across sessions
@@ -91,6 +94,7 @@ def get_all_units_metadata(
         >>> units = get_all_units_metadata('/path/to/nwb')
         >>> stable_units = get_all_units_metadata('/path/to/nwbs', filter_quality=True, quality_threshold=1.0)
     """
+    _stable_label_set(stable_labels, "get_all_units_metadata")
     if isinstance(nwb_paths, (str, Path)):
         nwb_paths = [nwb_paths]
 
@@ -118,6 +122,7 @@ def get_all_units_metadata(
 
                 from jnwb.addressing import enrich_units_dataframe
                 units_df = enrich_units_dataframe(raw_units, elec_df,
+                                                  stable_threshold=stable_threshold,
                                                   stable_labels=stable_labels)
                 units_df['session_id'] = session_id
 
@@ -492,6 +497,7 @@ def audit_units(
     *,
     quality_threshold: float = 1.0,
     snr_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> Dict:
     """
     Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate
@@ -506,6 +512,10 @@ def audit_units(
         snr_threshold: an SNR counts toward ``good_count`` and ``good_rate`` when
             ``snr >= snr_threshold``. Both defaults, 1.0, are a convention with no cited
             source: pass the cut-offs your study justifies.
+        stable_labels: when no quality is numeric, a text label counts toward
+            ``good_count`` when, stripped and lower-cased, it is one of these; the rule and
+            default of :func:`jnwb.enrich_units_dataframe`. A bare string raises
+            ``TypeError``.
 
     Returns:
         Dict with total_units, units_with_spike_times, quality_distribution,
@@ -517,6 +527,7 @@ def audit_units(
         TypeError: a ``spike_times`` entry is neither ``None`` nor a sequence (a NaN, for
             instance); the message names the unit.
     """
+    labels = _stable_label_set(stable_labels, "audit_units")
     result = {
         'total_units': len(units_df),
         'units_with_spike_times': 0,
@@ -556,7 +567,8 @@ def audit_units(
                 'good_count': int((quality_values >= quality_threshold).sum()),
             }
         else:
-            good_count = int((units_df['quality'].astype(str).str.lower() == 'good').sum())
+            good_count = int(_quality_is_stable(units_df['quality'], quality_threshold,
+                                                labels).fillna(False).sum())
             result['quality_distribution'] = {
                 'mean': float('nan'),
                 'median': float('nan'),
@@ -635,45 +647,53 @@ def assign_quality_tier(
     snr: pd.Series,
     presence_threshold: float = 0.98,
     snr_threshold: float = 0.5,
+    *,
+    stable_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.Series:
-    """Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.
+    """Tier units into 'mua' / 'stable' / 'unstable' from quality, trial presence, and SNR.
 
-    Three plain Series and two thresholds in; a tier Series out. Column names are not looked up
+    Three plain Series and the thresholds in; a tier Series out. Column names are not looked up
     internally -- callers pass Series explicitly.
 
-    The quality rule is the one :func:`jnwb.enrich_units_dataframe` applies to the same
-    codes: 1 is a single-unit candidate, 0 is not, and a missing quality is unknown. This
-    function defines only the codes 0 and 1:
+    The quality rule is :func:`jnwb.enrich_units_dataframe`'s ``is_stable`` rule, computed by
+    the same code with the same defaults: when any quality is numeric, a unit is a single-unit
+    candidate when ``quality >= stable_threshold``; otherwise when its label, stripped and
+    lower-cased, is one of ``stable_labels``.
 
-    - quality==0 -> 'mua'.
-    - quality==1 & presence>presence_threshold & snr>snr_threshold -> 'stable'.
-    - quality==1 & (presence<=presence_threshold or snr<=snr_threshold or either missing)
+    - not a candidate (quality 0 or 0.5, a label such as 'mua') -> 'mua'.
+    - candidate & presence>presence_threshold & snr>snr_threshold -> 'stable'.
+    - candidate & (presence<=presence_threshold or snr<=snr_threshold or either missing)
       -> 'unstable'.
-    - any other quality -> 'unknown': a missing value, a code other than 0 or 1 (2, 0.5),
-      or a label ('good', 'mua'). ``enrich_units_dataframe`` also reads a numeric quality
-      above 1 and the labels it accepts as stable; this function does not guess what such a
-      code means here.
+    - a quality that is missing, or not a number in a numeric column -> 'unknown'.
 
     Args:
-        quality: per-unit quality code Series (0 = MUA, 1 = single-unit candidate).
+        quality: per-unit quality Series: codes (0 = MUA, 1 = single-unit candidate) or labels.
         trial_presence_fraction: per-unit fraction of trials the unit was present for.
         snr: per-unit signal-to-noise ratio.
         presence_threshold: minimum presence fraction (exclusive) for 'stable'.
         snr_threshold: minimum SNR (exclusive) for 'stable'. Both defaults, 0.98 and 0.5,
             are a convention with no cited source: pass the cut-offs your study justifies
             and state them wherever the tier is reported.
+        stable_threshold, stable_labels: the candidate rule above; their defaults, 1.0 and
+            ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
+            source. A bare-string ``stable_labels`` raises ``TypeError``.
 
     Returns:
         Series of {'mua', 'stable', 'unstable', 'unknown'}, same index as ``quality``.
     """
-    q = pd.to_numeric(quality, errors="coerce")
+    labels = _stable_label_set(stable_labels, "assign_quality_tier")
+    candidate = _quality_is_stable(quality, stable_threshold, labels)
+    known = candidate.notna().to_numpy()
+    is_candidate = candidate.fillna(False).to_numpy(dtype=bool)
     presence = pd.to_numeric(trial_presence_fraction, errors="coerce")
     snr_num = pd.to_numeric(snr, errors="coerce")
+    passes = ((presence > presence_threshold) & (snr_num > snr_threshold)).reindex(
+        quality.index, fill_value=False).to_numpy(dtype=bool)
     tier = pd.Series("unknown", index=quality.index, dtype=object)
-    tier[q == 0] = "mua"
-    stable_mask = (q == 1) & (presence > presence_threshold) & (snr_num > snr_threshold)
-    tier[(q == 1) & ~stable_mask] = "unstable"
-    tier[stable_mask] = "stable"
+    tier[known & ~is_candidate] = "mua"
+    tier[is_candidate & ~passes] = "unstable"
+    tier[is_candidate & passes] = "stable"
     return tier
 
 

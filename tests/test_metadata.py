@@ -429,20 +429,35 @@ class TestUndefinedQualityInput:
         assert nan_flags == [["quality undefined"], ["snr undefined"]]
         absent_flags = classify_unit_quality(frames["absent"])["issue_flags"].iloc[0]
         assert absent_flags == ["quality absent", "snr absent"]
+        # A measured critical failure outranks an undefined metric.
+        mixed = pd.DataFrame({"quality": [nan], "snr": [0.2], "firing_rate": [5.0]})
+        assert classify_unit_quality(mixed)["quality_class"].tolist() == ["Poor"]
 
     def test_assign_quality_tier_shares_enrich_rule_and_reports_undefined_as_unknown(self):
         from jnwb.addressing import enrich_units_dataframe
 
-        tier = assign_quality_tier(
-            pd.Series([0, 1, 2, float("nan"), "good"]),
-            pd.Series([1.0] * 5), pd.Series([5.0] * 5),
-        )
-        assert tier.tolist() == ["mua", "stable", "unknown", "unknown", "unknown"]
-        stable = enrich_units_dataframe(pd.DataFrame({"quality": [0, 1, float("nan")]}),
-                                        None)["is_stable"]
-        assert stable.tolist()[:2] == [False, True] and stable.isna().tolist()[2]
-        assert "enrich_units_dataframe" in assign_quality_tier.__doc__
-        assert "assign_quality_tier" in enrich_units_dataframe.__doc__
+        nan = float("nan")
+        expected = {0: "mua", 1: "stable", 2: "stable", 0.5: "mua", "good": "stable",
+                    "sua": "stable", nan: "unknown"}
+        for quality, tier_expected in expected.items():
+            q = pd.Series([quality, None], dtype=object)
+            tier = assign_quality_tier(q, pd.Series([1.0, 1.0]), pd.Series([5.0, 5.0]))
+            assert tier.iloc[0] == tier_expected, quality
+            enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None)
+            stable = enriched["is_stable"].iloc[0] if "is_stable" in enriched else pd.NA
+            as_tier = ("unknown" if pd.isna(stable) else "stable" if stable else "mua")
+            assert as_tier == tier_expected, quality
+        # The same arguments move both functions the same way.
+        q = pd.Series([1.0, 2.0, 3.0])
+        tier = assign_quality_tier(q, pd.Series([1.0] * 3), pd.Series([5.0] * 3),
+                                   stable_threshold=2.0)
+        enriched = enrich_units_dataframe(pd.DataFrame({"quality": q}), None,
+                                          stable_threshold=2.0)["is_stable"]
+        assert tier.tolist() == ["mua", "stable", "stable"]
+        assert enriched.tolist() == [False, True, True]
+        labelled = assign_quality_tier(pd.Series(["Accepted ", "good"]), pd.Series([1.0] * 2),
+                                       pd.Series([5.0] * 2), stable_labels=("accepted",))
+        assert labelled.tolist() == ["stable", "mua"]
 
     def test_quality_cut_offs_are_arguments(self, tmp_path):
         import pynwb
@@ -464,6 +479,41 @@ class TestUndefinedQualityInput:
             io.write(nwb)
         kept = get_all_units_metadata(path, filter_quality=True, stable_labels=("accepted",))
         assert kept["quality"].tolist() == ["accepted"]
+
+        # audit_units counts text labels by the same rule and labels.
+        labels = pd.DataFrame({"quality": ["good", " SUA", "accepted", "mua"]})
+        assert audit_units(labels)["quality_distribution"]["good_count"] == 2
+        assert audit_units(labels, stable_labels=("accepted",))[
+            "quality_distribution"]["good_count"] == 1
+
+        numeric = pd.DataFrame({"quality": [1.0, 2.0]})
+        path = tmp_path / "ses-02_q.nwb"
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-4",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        for i, value in enumerate(numeric["quality"]):
+            nwb.add_unit(spike_times=[0.1 * (i + 1), 0.9], quality=value)
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        units = get_all_units_metadata(path, stable_threshold=2.0)
+        assert units["is_stable"].tolist() == [False, True]
+
+        # A bare string would be read as a set of one-letter labels.
+        from jnwb.addressing import enrich_units_dataframe
+        q = pd.Series(["good"])
+        calls = {
+            "enrich_units_dataframe": lambda: enrich_units_dataframe(
+                pd.DataFrame({"quality": q}), None, stable_labels="good"),
+            "audit_units": lambda: audit_units(pd.DataFrame({"quality": q}),
+                                               stable_labels="good"),
+            "assign_quality_tier": lambda: assign_quality_tier(
+                q, pd.Series([1.0]), pd.Series([5.0]), stable_labels="good"),
+            "get_all_units_metadata": lambda: get_all_units_metadata(
+                path, stable_labels="good"),
+        }
+        for name, call in calls.items():
+            with pytest.raises(TypeError, match=f"{name}: stable_labels"):
+                call()
 
     def test_audit_units_reports_one_value_spread_as_nan_and_names_a_bad_unit(self):
         import numpy as np
@@ -495,8 +545,11 @@ class TestUndefinedQualityInput:
                                               "unchanged_excluded"]
 
         duplicated = pd.concat([old, old.iloc[[0]]], ignore_index=True)
-        with pytest.raises(ValueError, match="more than one row"):
+        with pytest.raises(ValueError, match="old_df has more than one row"):
             compare_old_new_criteria(new, duplicated, "keep", "keep_old", **keys)
+        new_duplicated = pd.concat([new, new.iloc[[0]]], ignore_index=True)
+        with pytest.raises(ValueError, match="new_df has more than one row"):
+            compare_old_new_criteria(new_duplicated, old, "keep", "keep_old", **keys)
 
         signature = inspect.signature(compare_old_new_criteria)
         for name in ("new_key", "old_key"):

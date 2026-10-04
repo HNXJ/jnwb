@@ -31,14 +31,18 @@ def _units_df(n=20, seed=0):
 
 def test_plot_unit_waveforms_paginates_and_plots_mean_std():
     unit_ids = list(range(14))
-    waveforms = {uid: np.random.default_rng(uid).normal(size=(30, 82)) for uid in unit_ids}
+    # Single-channel spikes are (n_spikes, 1, n_samples).
+    waveforms = {uid: np.random.default_rng(uid).normal(size=(30, 1, 82)) for uid in unit_ids}
 
-    figs = plot_unit_waveforms(unit_ids, waveforms, max_units_per_page=12)
+    figs = plot_unit_waveforms(unit_ids, waveforms, max_units_per_page=12, channels="peak")
 
     # 14 units at 12/page -> 2 pages
     assert len(figs) == 2
     assert len(figs[0].axes) == 12
     assert len(figs[1].axes) == 2
+    (line,) = figs[0].axes[0].get_lines()
+    np.testing.assert_allclose(line.get_ydata(), waveforms[0][:, 0, :].mean(axis=0))
+    assert len(figs[0].axes[0].collections) == 1  # the ±1 SD band across spikes
     for fig in figs:
         plt.close(fig)
 
@@ -46,20 +50,46 @@ def test_plot_unit_waveforms_paginates_and_plots_mean_std():
 def test_plot_unit_waveforms_draws_channels_unaveraged_and_refuses_a_missing_unit():
     import pytest
 
+    # The peak is a -100 trough on channel 2; channel 0 carries a smaller, positive +60, so
+    # a signed maximum would pick channel 0 and a channel mean would draw -25.
     template = np.zeros((4, 30))
-    template[0, 10] = -100.0
+    template[2, 10] = -100.0
+    template[0, 5] = 60.0
     (peak_fig,) = plot_unit_waveforms([7], {7: template}, channels="peak")
     (line,) = peak_fig.axes[0].get_lines()
     assert line.get_ydata().min() == -100.0
+    assert line.get_label() == "Channel 2"
+    # Spikes average to the template; the first spike alone is flat.
+    spikes = np.stack([np.zeros_like(template), 2 * template])
+    (spike_fig,) = plot_unit_waveforms([7], {7: spikes}, channels="peak")
+    assert spike_fig.axes[0].get_lines()[0].get_ydata().min() == -100.0
     (all_fig,) = plot_unit_waveforms([7], {7: np.stack([template] * 3)}, channels="all")
     assert len(all_fig.axes[0].get_lines()) == 4
     assert min(ln.get_ydata().min() for ln in all_fig.axes[0].get_lines()) == -100.0
+    # A NaN channel is ignored when choosing the peak.
+    with_nan = template.copy()
+    with_nan[1] = np.nan
+    (nan_fig,) = plot_unit_waveforms([7], {7: with_nan}, channels="peak")
+    assert nan_fig.axes[0].get_lines()[0].get_label() == "Channel 2"
     plt.close("all")
 
     with pytest.raises(KeyError, match=r"\[8\]"):
         plot_unit_waveforms([7, 8], {7: template}, channels="peak")
     with pytest.raises(ValueError, match="3-D"):
         plot_unit_waveforms([7], {7: np.stack([template] * 3)})
+    with pytest.raises(ValueError, match="channels='peak'"):
+        plot_unit_waveforms([7], {7: template})
+    for mode in ("peak", "all"):
+        for empty in (np.full((4, 30), np.nan), np.zeros((0, 30))):
+            with pytest.raises(ValueError, match="unit 7"):
+                plot_unit_waveforms([7], {7: empty}, channels=mode)
+    # Every sample is finite in some spike, yet the spike mean is NaN everywhere.
+    holes = np.ones((2, 4, 30))
+    holes[0, :, ::2] = np.nan
+    holes[1, :, 1::2] = np.nan
+    with pytest.raises(ValueError, match="unit 7"):
+        plot_unit_waveforms([7], {7: holes}, channels="peak")
+    plt.close("all")
 
 
 def test_plot_unit_quality_distribution_returns_populated_figure():

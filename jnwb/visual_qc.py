@@ -46,23 +46,31 @@ def plot_unit_waveforms(
     Args:
         unit_ids: List of unit IDs to plot
         waveforms_dict: Dict mapping unit_id to an array whose shape ``channels`` names:
-            with ``channels=None``, a 1-D trace or ``(n_spikes, n_samples)`` single-channel
-            spikes, drawn as their mean and ±1 SD; with ``channels="peak"`` or ``"all"``, a
+            with ``channels=None``, a 1-D trace; with ``channels="peak"`` or ``"all"``, a
             ``(n_channels, n_samples)`` template or ``(n_spikes, n_channels, n_samples)``
-            spikes, averaged over spikes first.
+            spikes, averaged over spikes first. Single-channel spikes are
+            ``(n_spikes, 1, n_samples)``.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
-        channels: ``"peak"`` draws the channel with the largest absolute deflection;
+        channels: ``"peak"`` draws the channel with the largest absolute deflection
+            (NaN samples ignored), with ±1 SD across spikes when the input is 3-D;
             ``"all"`` draws every channel. Channels are never averaged together, because a
-            channel mean shrinks the peak by the channel count. A 3-D array needs one of the
-            two.
+            channel mean shrinks the peak by the channel count.
+
+    INTENTIONAL BREAK. A 2-D array with ``channels=None`` used to be read as
+    ``(n_spikes, n_samples)`` and drawn as a mean over its rows, so a
+    ``(n_channels, n_samples)`` template was averaged across channels and its peak shrunk by
+    the channel count. Its rows are ambiguous, so it now raises ``ValueError``: pass
+    ``channels="peak"`` or ``"all"`` for a template, or reshape single-channel spikes to
+    ``(n_spikes, 1, n_samples)``.
 
     Returns:
         List of matplotlib figures
 
     Raises:
         KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
-        ValueError: an array's dimensionality does not match ``channels``.
+        ValueError: an array's dimensionality does not match ``channels``, or a unit's
+            waveform is empty or entirely NaN; the message names the unit.
 
     Example:
         >>> waveforms = {unit_id: waveform_array for unit_id in unit_ids}
@@ -76,12 +84,25 @@ def plot_unit_waveforms(
     if missing:
         raise KeyError(f"plot_unit_waveforms: no waveform for unit(s) {missing}")
     for unit_id in unit_ids:
-        ndim = np.ndim(waveforms_dict[unit_id])
-        allowed = (1, 2) if channels is None else (2, 3)
-        if ndim not in allowed:
+        waveform = np.asarray(waveforms_dict[unit_id], dtype=float)
+        if channels is None and waveform.ndim == 2:
+            # INTENTIONAL BREAK: a 2-D array was averaged over its rows; see the docstring.
             raise ValueError(
-                f"plot_unit_waveforms: unit {unit_id!r} has a {ndim}-D waveform; "
+                f"plot_unit_waveforms: unit {unit_id!r} has a 2-D waveform, whose rows may be "
+                "spikes or channels; pass channels='peak' or channels='all' for a "
+                "(n_channels, n_samples) template, or reshape single-channel spikes to "
+                "(n_spikes, 1, n_samples)."
+            )
+        allowed = (1,) if channels is None else (2, 3)
+        if waveform.ndim not in allowed:
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has a {waveform.ndim}-D waveform; "
                 f"channels={channels!r} takes {' or '.join(f'{d}-D' for d in allowed)}"
+            )
+        if waveform.size == 0 or np.isnan(waveform).all():
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has an empty or all-NaN waveform; "
+                "there is no trace to draw."
             )
 
     figures = []
@@ -100,34 +121,32 @@ def plot_unit_waveforms(
         for idx, unit_id in enumerate(page_units):
             ax = plt.subplot(rows, cols, idx + 1)
 
-            waveform = np.asarray(waveforms_dict[unit_id])
+            waveform = np.asarray(waveforms_dict[unit_id], dtype=float)
             if channels is not None:
                 template = waveform.mean(axis=0) if waveform.ndim == 3 else waveform
                 if channels == "peak":
-                    peak = int(np.argmax(np.max(np.abs(template), axis=1)))
+                    # A channel that is all NaN has no deflection; it never wins.
+                    deflection = np.array([np.nanmax(np.abs(tr)) if np.isfinite(tr).any()
+                                           else -np.inf for tr in template])
+                    if not np.isfinite(deflection).any():
+                        raise ValueError(
+                            f"plot_unit_waveforms: unit {unit_id!r} has no channel with a "
+                            "finite sample; there is no peak channel."
+                        )
+                    peak = int(np.nanargmax(deflection))
                     ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
                             label=f'Channel {peak}')
+                    if waveform.ndim == 3:
+                        spread = waveform[:, peak, :].std(axis=0)
+                        ax.fill_between(range(template.shape[1]),
+                                        template[peak] - spread, template[peak] + spread,
+                                        alpha=0.3, color=MADELANE_GOLD, label='±1 STD')
                 else:
                     for ch, trace in enumerate(template):
                         ax.plot(trace, linewidth=1, label=f'Channel {ch}')
             else:
-                if waveform.ndim == 2:
-                    # Multiple spikes: plot mean and std
-                    mean_wf = np.mean(waveform, axis=0)
-                    std_wf = np.std(waveform, axis=0)
-
-                    ax.plot(mean_wf, color=MADELANE_GOLD, linewidth=2, label='Mean')
-                    ax.fill_between(
-                        range(len(mean_wf)),
-                        mean_wf - std_wf,
-                        mean_wf + std_wf,
-                        alpha=0.3,
-                        color=MADELANE_GOLD,
-                        label='±1 STD'
-                    )
-                else:
-                    # Single waveform
-                    ax.plot(waveform, color=MADELANE_GOLD, linewidth=2)
+                # A single 1-D trace; 2-D input was refused above.
+                ax.plot(waveform, color=MADELANE_GOLD, linewidth=2)
 
             ax.set_title(f'Unit {unit_id}', fontsize=10, fontweight='bold')
             ax.set_xlabel('Sample')

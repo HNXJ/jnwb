@@ -24,7 +24,7 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.ProbeGeometry | class | *Extracted contact geometry and spatial properties for an electrode array.* |
 | jnwb.classify_layer_from_depth | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str`<br>*Classify a unit's geometric depth class from electrode z depth.* |
-| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
+| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None`<br>*Map peak channel ID to brain area location.* |
 | jnwb.probe_geometry | function | `(electrodes_table: typing.Any, *, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False, stagger_tolerance_um: float = 100.0) -> jnwb.addressing.ProbeGeometry`<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
@@ -133,13 +133,13 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5) -> pandas.Series`<br>*Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.* |
+| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5, *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.Series`<br>*Tier units into 'mua' / 'stable' / 'unstable' from quality, trial presence, and SNR.* |
 | jnwb.audit_electrodes | function | `(elec_df: pandas.DataFrame, units_df: pandas.DataFrame | None = None) -> Dict`<br>*Audit electrode configuration and unit-to-electrode mapping coverage.* |
-| jnwb.audit_units | function | `(units_df: pandas.DataFrame) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
+| jnwb.audit_units | function | `(units_df: pandas.DataFrame, *, quality_threshold: float = 1.0, snr_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
 | jnwb.classify_unit_quality | function | `(units_df: pandas.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.DataFrame`<br>*Classify units by quality based on metrics.* |
 | jnwb.electrode_inventory | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Build inventory of electrodes, mapping to units and areas.* |
 | jnwb.filter_by_criteria | function | `(df: pandas.DataFrame, criteria: Dict, *, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame`<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
-| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
+| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
 
