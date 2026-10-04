@@ -67,7 +67,7 @@ Each variable still reads a legacy `OMISSION_*` alias of the same suffix, with a
 
 ## 3. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)
 
-`np.load` decompresses a whole `.npz` array into RAM. `jnwb.stream_npz_array` reads a slice of it, from `ZIP_DEFLATED` and `ZIP_STORED` archives alike. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead. A stored entry is seeked past what the slice skips; a compressed one is read forward up to the slice's last element, so its time grows with the slice's position:
+`np.load` decompresses a whole `.npz` array into RAM. `jnwb.stream_npz_array` reads a slice of it, from `ZIP_DEFLATED` and `ZIP_STORED` archives alike. Peak memory is strictly proportional to the requested output slice plus bounded streaming/selection overhead. A stored entry is seeked past what the slice skips, except on CPython 3.12.0, where `ZipExtFile.seek` loses count of the bytes left in a stored entry and the skipped bytes are read instead. A compressed entry is read forward up to the slice's last element on every interpreter, so its time grows with the slice's position:
 
 ```python
 import jnwb

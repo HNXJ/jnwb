@@ -40,6 +40,11 @@ page violates a rule, the fix goes to the generator or the script it includes.
 | F7 | No page states a fact that a gate or a test does not enforce and no command in the page demonstrates. | review |
 | F8 | No term from the [slop lexicon](#slop-lexicon) appears in prose. | machine-checked against the lexicon below, across `docs/`, `README.md`, `skills/` and the tutorial scripts |
 
+**F7 and a rewrite.** A rewrite never leaves a fact that was present before absent after, so that
+rule outranks F7. F7 binds the facts a change adds: a new fact is enforced by a gate or a test,
+demonstrated by a command in the page, or left out. A true fact already on a page stays when
+nothing enforces it, because deleting it to satisfy a form rule loses information.
+
 F1 had two violations, at `04_spectral_analysis_and_tfr.md:103` and
 `06_spikes_psth_and_onset_dynamics.md:74` — both a function name used as a heading, both now
 `###`. The count is zero and is machine-checked, so it stays zero without being watched.
@@ -133,20 +138,21 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 827, `recipes` at 348 sit under it |
-| Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | eight of the twelve sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 828, `recipes` at 348 sit under it |
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | seven of the twelve sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-04 with `wc -w`. Seven pages sit over their ceiling, and each owes the one
+Measured 2026-10-04 with `wc -w`. Eight pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2447 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1400 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 482 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one |
+| `common_mistakes` | 2515 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `02_paths_addressing_metadata` | 1536 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
+| `03_representational_similarity_jrsa` | 1256 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
 | `04_spectral_analysis_and_tfr` | 1221 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
 | `06_spikes_psth_and_onset_dynamics` | 1378 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
 | `architecture` | 1809 | two pages merged: the module map is a 549-word reference table, and the prose states the boundary, the invariants and the claim table once each |

@@ -703,3 +703,247 @@ def test_the_sliding_window_recipe_states_the_floor_its_null_imposes():
     res = jnwb.jrsa(x1, x2, metric="pearson", window=(0, width), lag=lag, rng=0)
     assert res.execution["n_overlap"] == n
     assert res.p > 0.05 and abs(res.p - 1 / n) < 0.03, res.p
+
+
+# --------------------------------------------------------------- directed jrsa metrics
+
+
+def _directed_pair(n=4000):
+    """`d` drives `f` one sample later, with its own noise on `f`."""
+    rng = np.random.default_rng(1)
+    d = rng.normal(size=n)
+    f = 0.3 * rng.normal(size=n)
+    f[1:] += 0.8 * d[:-1]
+    return d, f
+
+
+def test_the_jrsa_direction_table_matches_the_connectivity_functions():
+    page = _page("docs/03_representational_similarity_jrsa.md")
+    table = page.split("**Direction of the directed metrics**", 1)[1].split("- **Tensor", 1)[0]
+    table = "\n".join(line.strip() for line in table.splitlines())
+    d, f = _directed_pair()
+
+    def lead(metric, driver, follower, **kw):
+        return float(jnwb.jrsa(driver, follower, metric=metric, stats=False, **kw).value)
+
+    for metric, connectivity in (("granger_ssr_ftest", jnwb.granger),
+                                 ("transfer_entropy_histogram_nats", jnwb.transfer_entropy)):
+        cells = _table_row(table, f'`"{metric}"`')
+        assert cells[1].startswith("x2 → x1"), cells
+        assert "the reverse of" in cells[2], cells
+        # The page puts the driver second: jrsa(f, d) is d -> f, so it is the larger value and
+        # equals the connectivity function called with the driver first.
+        assert lead(metric, f, d) > 10 * lead(metric, d, f), metric
+        result = connectivity(d, f, **({"n_surrogates": 0} if connectivity is jnwb.transfer_entropy
+                                       else {}))
+        assert result.x_to_y > 10 * result.y_to_x, metric
+
+    cells = _table_row(table, '`"phase_slope"`')
+    assert cells[1].startswith("positive when x1 leads x2"), cells
+    assert "the same sign as" in cells[2], cells
+    kw = dict(fs=1000.0, bands=(10.0, 200.0))
+    assert lead("phase_slope", d, f, **kw) > 0
+    assert lead("phase_slope", f, d, **kw) < 0
+    assert jnwb.phase_slope_index(d, f, **kw).x_to_y > 0
+
+
+# --------------------------------------------------------------- the loop that replaces sliding=True
+
+
+def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises():
+    page = _page("docs/03_representational_similarity_jrsa.md")
+    section = page.split("### Sliding Windows", 1)[1].split("## 4.", 1)[0]
+    assert "`sliding=True` raises `NotImplementedError`" in _flat(section)
+    code = re.search(r"```python\n(.*?)```", section, re.S)[1]
+
+    x1 = np.random.default_rng(2).normal(size=(12, 10, 50))
+    x2 = np.random.default_rng(3).normal(size=(12, 10, 50))
+    scope = {"np": np, "jnwb": jnwb, "x1": x1, "x2": x2}
+    exec(compile(code, "docs/03 sliding loop", "exec"), scope)
+    width, step, lag = scope["width"], scope["step"], 5
+    values = scope["values"]
+    assert values.shape == (len(range(0, 50 - width + 1, step)),) == (7,)
+    for s, value in zip(scope["starts"], values):
+        sliced = jnwb.jrsa(x1[..., s:s + width], x2[..., s:s + width], metric="pearson",
+                           lag=lag, rng=0)
+        assert value == float(sliced.value), s
+    assert len({round(float(v), 12) for v in values}) == len(values), "windows repeat one value"
+    with pytest.raises(NotImplementedError):
+        jnwb.jrsa(x1, x2, metric="pearson", sliding=True)
+
+
+# --------------------------------------------------------------- transfer entropy source window
+
+
+def _lag_set(page: str, l: int, u: int) -> set:
+    """The lags (t minus the index) the page's source window `X_{a:b}` spans, read off its
+    formula by evaluating each endpoint at t = 0."""
+    match = re.search(r"X_\{(t-u(?:-l(?:\+1)?)?):(t-u(?:-l(?:\+1)?)?)\}", page)
+    assert match, "the transfer-entropy formula no longer writes its source window"
+    ends = [-eval(compile(e, "<window>", "eval"), {"__builtins__": {}}, {"t": 0, "u": u, "l": l})
+            for e in match.groups()]
+    return set(range(min(ends), max(ends) + 1))
+
+
+def test_the_transfer_entropy_source_window_is_the_l_samples_ending_at_the_delay():
+    page = _page("docs/08_directed_connectivity_and_information.md")
+    assert "`k` is the target history, `l` the source history and $u$ is `delay`" in _flat(page)
+    l, u, n = 3, 1, 6000
+    window = _lag_set(page, l, u)
+    assert len(window) == l, window
+
+    te = {}
+    for lag in range(0, u + l + 2):
+        rng = np.random.default_rng(5)
+        x = rng.normal(size=n)
+        y = 0.3 * rng.normal(size=n)
+        y[lag:] += x[:n - lag]
+        te[lag] = jnwb.transfer_entropy(x, y, k=1, l=l, delay=u, n_surrogates=0).x_to_y
+    inside = {lag: v for lag, v in te.items() if lag in window}
+    outside = {lag: v for lag, v in te.items() if lag not in window}
+    assert min(inside.values()) > 0.5 > 0.05 > max(outside.values()), te
+
+
+# --------------------------------------------------------------- alignment for either storage
+
+
+def _stored_session(path, start_s, storage):
+    """A file whose every sample holds its own session time, stored with `starting_time` and
+    `rate` or with `timestamps`; four trials at `start_s` plus 0.5, 1.0, 1.5 and 2.0 s."""
+    from datetime import datetime, timezone
+
+    from pynwb import NWBFile, NWBHDF5IO
+    from pynwb.ecephys import ElectricalSeries
+
+    nwb = NWBFile(session_description="storage", identifier=f"{storage}{start_s}",
+                  session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    device = nwb.create_device(name="probe")
+    group = nwb.create_electrode_group(name="shank0", description="d", location="unknown",
+                                       device=device)
+    for index in range(2):
+        nwb.add_electrode(group=group, location="unknown", x=0.0, y=0.0, z=float(index))
+    session_s = start_s + np.arange(3000) / 1000.0
+    timing = ({"starting_time": start_s, "rate": 1000.0} if storage == "rate"
+              else {"timestamps": session_s})
+    nwb.add_acquisition(ElectricalSeries(
+        name="probe_0_lfp", data=np.column_stack([session_s, session_s]),
+        electrodes=nwb.create_electrode_table_region([0, 1], "all"), **timing))
+    nwb.add_trial_column(name="stimulus", description="stimulus label")
+    for index, lag in enumerate((0.5, 1.0, 1.5, 2.0)):
+        nwb.add_trial(start_time=start_s + lag, stop_time=start_s + lag + 0.05,
+                      stimulus="grating" if index % 2 == 0 else "blank")
+    nwb.add_unit(spike_times=[start_s + 0.6])
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+
+
+def _fenced_python(page: str, *needles: str) -> str:
+    blocks = [b for b in re.findall("```python\n(.*?)```", page, re.S)
+              if all(n in b for n in needles)]
+    assert len(blocks) == 1, (needles, len(blocks))
+    return blocks[0]
+
+
+@pytest.mark.parametrize("storage", ["rate", "timestamps"])
+@pytest.mark.parametrize("start_s", [0.0, 100.0])
+def test_the_alignment_patterns_put_each_epoch_on_its_onset_for_either_storage(
+        tmp_path, monkeypatch, storage, start_s):
+    import warnings
+
+    _stored_session(tmp_path / "session.nwb", start_s, storage)
+    readme = _page("README.md")
+    mistakes = _page("docs/common_mistakes.md")
+    workflow = _fenced_python(readme, "jnwb.inspect(", "event_onsets(")
+    readme_block = _fenced_python(readme, "epoch_continuous(", "acquisition_channel(")
+    mistakes_block = _fenced_python(mistakes, "epoch_continuous(", "acquisition_channel(")
+
+    monkeypatch.chdir(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        readme_scope: dict = {}
+        exec(compile(workflow, "README.md", "exec"), readme_scope)
+        exec(compile(readme_block, "README.md", "exec"), readme_scope)
+        mistakes_scope: dict = {"jnwb": jnwb}
+        exec(compile(mistakes_block, "common_mistakes.md", "exec"), mistakes_scope)
+
+    for epochs, t, onsets in ((readme_scope["epochs"], readme_scope["t_axis_s"], [0.5, 1.5]),
+                              (mistakes_scope["epochs"], mistakes_scope["t"],
+                               [0.5, 1.0, 1.5, 2.0])):
+        at_zero = epochs[:, int(np.argmin(np.abs(t)))]
+        np.testing.assert_allclose(at_zero, start_s + np.array(onsets), rtol=0, atol=1e-9)
+    assert readme_scope["start_s"] == pytest.approx(start_s)
+    assert mistakes_scope["start_s"] == pytest.approx(start_s)
+
+
+# --------------------------------------------------------------- unit to layer composition
+
+
+def _composition_inputs(n=24):
+    import pandas as pd
+    from jnwb.testing.synth import synth_laminar_motif
+
+    receipt = synth_laminar_motif(n_channels=n, n_samples=6000, fs=1000.0, c_crossover=6.0,
+                                  pitch_um=50.0, rng=0)
+    electrodes_df = pd.DataFrame({"id": np.arange(n), "x": 0.0, "y": 0.0,
+                                  "z": np.arange(n) * receipt.pitch_um,
+                                  "location": "V1"}).set_index("id", drop=False)
+    units_df = pd.DataFrame({"unit_id": np.arange(6), "peak_channel_id": [0, 3, 12, 18, 23, 99],
+                             "quality": [1.0] * 6})
+    return {"jnwb": jnwb, "lfp": receipt.lfp, "fs": receipt.fs,
+            "electrodes_df": electrodes_df, "units_df": units_df}
+
+
+def test_the_unit_to_layer_composition_on_the_addressing_page_runs_and_reads_the_peak_channel():
+    page = _page("docs/02_paths_addressing_metadata.md")
+    section = page.split("### Unit to Layer", 1)[1].split("### Probe Geometry", 1)[0]
+    code = re.search(r"```python\n(.*?)```", section, re.S)[1]
+    scope = _composition_inputs()
+    exec(compile(code, "docs/02 unit to layer", "exec"), scope)
+    units, layers = scope["enriched_units"], scope["layers"]
+
+    assert "layer" not in jnwb.enrich_units_dataframe(
+        scope["units_df"], scope["electrodes_df"], depth_unit="um").columns
+    assert scope["vflip_result"].accepted
+    assert set(layers.values()) >= {"input", "deep"}, "an all-na labelling proves no lookup"
+    for channel, layer in zip(units["peak_channel_id"], units["layer"]):
+        assert layer == layers.get(channel, "na"), channel
+    assert units["layer"].iloc[-1] == "na", "a peak channel off the shaft must not get a layer"
+    assert (units["layer"] != units["depth_class"].str.lower()).any(), (
+        "the page says the two columns can disagree")
+
+    scope = _composition_inputs()
+    scope["lfp"] = np.random.default_rng(0).normal(size=scope["lfp"].shape)
+    exec(compile(code, "docs/02 unit to layer", "exec"), scope)
+    assert not scope["vflip_result"].accepted
+    assert set(scope["enriched_units"]["layer"]) == {"na"}
+    text = _flat(section)
+    assert "Every unit is `\"na\"` when the profile is rejected" in text
+
+
+# --------------------------------------------------------------- statements that sat in docstrings
+
+
+def test_the_page_states_the_wpli_default_the_signature_has():
+    default = inspect.signature(jnwb.zflip).parameters["min_wpli"].default
+    page = _page("docs/02_paths_addressing_metadata.md")
+    assert f"`min_wpli` (default {default})" in page
+
+
+def test_the_rdm_similarity_page_says_its_p_is_not_a_relatedness_test():
+    page = _flat(_page("docs/03_representational_similarity_jrsa.md"))
+    assert "`p_val` is not a valid test of RDM relatedness" in page
+    assert "permute the condition labels" in page and '"Step 5"' in page
+    rng = np.random.default_rng(0)
+    a, b = rng.normal(size=10), rng.normal(size=10)
+    assert np.isnan(jnwb.rdm_similarity(a, b, metric="cosine")[1])
+    assert "not a valid test of RDM relatedness" in " ".join(
+        inspect.getdoc(jnwb.rdm_similarity).split())
+
+
+def test_the_stored_seek_exception_on_the_streaming_page_is_the_one_the_code_makes():
+    page = _flat(_page("docs/reading_nwb.md"))
+    assert ("A stored entry is seeked past what the slice skips, except on CPython 3.12.0"
+            in page)
+    assert "A compressed entry is read forward" in page
+    doc = " ".join(inspect.getdoc(jnwb.io._stored_seek_is_reliable).split())
+    assert "CPython 3.12.0 loses count of the bytes left in a stored entry" in doc

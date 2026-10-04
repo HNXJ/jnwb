@@ -20,6 +20,7 @@ import tomllib
 from pathlib import Path
 
 import h5py
+import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -146,3 +147,45 @@ def test_the_clock_check_refuses_an_offset_beyond_its_bound(tutorial):
     shifted = dataclasses.replace(clock, offset_s=clock.offset_s + 3 * tutorial.OFFSET_BOUND_S)
     with pytest.raises(tutorial.ClockCheckError, match="exceeds"):
         tutorial.check_clock(shifted, data, good)
+
+
+def test_the_offset_comment_states_the_lags_the_check_measures(tutorial):
+    data = tutorial.read_excerpt(EXCERPT)
+    clock = tutorial.derive_clock(data["lfp"], data["trains"])
+    lags_ms = [lag * 1e3 for lag, _ in
+               tutorial.check_clock(clock, data, data["quality"] == "good")["lags_s"].values()]
+    assert min(lags_ms) >= 6.0 and max(lags_ms) < 9.0, lags_ms
+    assert "check_clock finds 6 to 9 ms" in SCRIPT.read_text(encoding="utf-8")
+    assert "6 to 9 ms after the first spike" in (
+        REPO_ROOT / "docs" / "tutorials" / "09_open_data.md").read_text(encoding="utf-8")
+
+
+def test_the_clock_check_refuses_a_tick_rate_only_the_far_segments_reveal(tutorial):
+    """A rate error the offset hides at the window grows with the distance from it, so only
+    the start and end segments, thousands of seconds away, show it: a check that read the
+    window alone passes this clock."""
+    data = tutorial.read_excerpt(EXCERPT)
+    clock = tutorial.derive_clock(data["lfp"], data["trains"])
+    good = data["quality"] == "good"
+    assert tutorial.SEGMENTS == ("start", "window", "end")
+    ticks = {name: float(np.mean(data["lfp"][name]["ticks"])) for name in tutorial.SEGMENTS}
+    reach = max(abs(t - ticks["window"]) for t in ticks.values()) / clock.tick_rate
+    assert reach > 1000.0, "the segments no longer sit far apart"
+
+    # Scale the rate so the farthest segment sits 30 ms off, then move the offset to put the
+    # window back where it was.
+    rate = clock.tick_rate * (1.0 + 0.030 / reach)
+    offset = clock.offset_s + (ticks["window"] - clock.first_tick) * (
+        1.0 / clock.tick_rate - 1.0 / rate)
+    skewed = dataclasses.replace(clock, tick_rate=rate, offset_s=offset)
+    shift = {name: abs(float(skewed.seconds(t) - clock.seconds(t))) for name, t in ticks.items()}
+    assert shift["window"] < 1e-6 and 0.025 < max(shift.values()) < 0.035, shift
+
+    with pytest.raises(tutorial.ClockCheckError, match="exceeds") as refused:
+        tutorial.check_clock(skewed, data, good)
+    lags = {k: float(v) for k, v in re.findall(r"(\w+) ([+-][\d.]+) ms", str(refused.value))}
+    assert set(lags) == set(tutorial.SEGMENTS), lags
+    assert abs(lags["window"]) * 1e-3 <= tutorial.OFFSET_BOUND_S, (
+        "the window alone refuses this clock, so it does not separate the check from a "
+        "window-only one", lags)
+    assert max(abs(v) for v in lags.values()) * 1e-3 > tutorial.OFFSET_BOUND_S

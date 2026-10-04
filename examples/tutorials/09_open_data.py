@@ -124,7 +124,7 @@ def derive_clock(lfp: dict, trains: list) -> Clock:
         tick_step=tick_step,
         tick_rate=tick_span / (last_spike - first_spike),
         first_tick=first_tick,
-        offset_s=first_spike,   # the recording starts within a millisecond of its first spike
+        offset_s=first_spike,   # first sample placed at the first spike; check_clock finds 6 to 9 ms
     )
 
 

@@ -369,13 +369,23 @@ in it reads as an error.
 
 ### The Correct Pattern
 Compare the onsets against the extent of the data before trusting either. Onsets are
-session time and sample 0 is at the series' `starting_time`, so the data span
-`starting_time` to `starting_time + duration`:
+session time and sample 0 is at the series' `starting_time`, or at its first timestamp when
+the series stores `timestamps` (`starting_time` is then `None`), so the data span that start to
+that start plus the duration:
 
 ```python
+import numpy as np
+from pynwb import NWBHDF5IO
+
 series = jnwb.inspect("session.nwb")["acquisitions"][0]
-data, fs = jnwb.acquisition_channel("session.nwb", name=series["name"], channel=0)
-start_s = series["starting_time"]
+if series["starting_time"] is not None:      # stored with starting_time and rate
+    data, fs = jnwb.acquisition_channel("session.nwb", name=series["name"], channel=0)
+    start_s = series["starting_time"]
+else:                                        # stored with timestamps, sampled regularly
+    with NWBHDF5IO("session.nwb", "r") as io:
+        stored = io.read().acquisition[series["name"]]
+        t, data = stored.timestamps[:], stored.data[:, 0]  # series["layout"], raw samples
+    fs, start_s = 1.0 / np.median(np.diff(t)), float(t[0])
 onsets = jnwb.event_onsets("session.nwb", table="trials")
 if onsets.max() > start_s + len(data) / fs:
     onsets = onsets / 1000.0        # they were milliseconds; say so in the script

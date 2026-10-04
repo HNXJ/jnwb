@@ -37,6 +37,26 @@ enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 
 `jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. None of these writes a `layer` column.
 
+### Unit to Layer (`peak_channel_id` with `label_layers`)
+
+A layer label belongs to a contact, and a unit's layer is the layer of its peak channel. Three
+calls compose it: the probe geometry, the laminar profile fitted on the LFP, and a lookup of each
+unit's `peak_channel_id` in the labels:
+
+```python
+# lfp: (n_channels, n_samples), rows in the order of electrodes_df; fs in Hz
+geom = jnwb.probe_geometry(electrodes_df, units="um")
+vflip_result = jnwb.vflip_from_lfp(lfp, fs, probe_geometry=geom)
+layers = jnwb.label_layers(vflip_result, geom)   # {channel id: "superficial" | "input" | "deep" | "na"}
+
+enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df, depth_unit="um")
+enriched_units["layer"] = enriched_units["peak_channel_id"].map(layers).fillna("na")
+```
+
+`depth_class` and `layer` are different columns and can disagree for one unit. Every unit is
+`"na"` when the profile is rejected (`vflip_result.accepted` is `False`), and a unit whose peak
+channel is not on the labelled shaft is `"na"` too.
+
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 
 Extracts contact spacing, linear ordering, orientation, and layout properties from NWB electrode tables or 3D coordinate arrays with explicit units:
@@ -57,7 +77,7 @@ For multi-probe files, pass `probe_name=<name>` explicitly. Fails loudly on dupl
 
 ### Laminar Phase Profiling & Delay Estimation (`jnwb.zflip`, `ZFlipResult`)
 
-Estimates phase gradients across ordered laminar contacts and, only when every adjacent pair's wPLI is at least `min_wpli` and its phase is linear in frequency, an apparent per-contact phase delay and velocity:
+Estimates phase gradients across ordered laminar contacts and, only when every adjacent pair's wPLI is at least `min_wpli` (default 0.15) and its phase is linear in frequency, an apparent per-contact phase delay and velocity:
 
 ```python
 # lfp_matrix: (n_channels, n_samples) ordered along probe shaft
