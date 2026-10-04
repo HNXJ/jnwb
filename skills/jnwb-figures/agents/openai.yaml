@@ -1,6 +1,6 @@
 interface:
   display_name: jnwb-figures
   description: Matplotlib publication figures, vector export, tight auto-axis scaling, and
-    unit-quality plots.
+    equal raster trial counts.
 policy:
   allow_implicit_invocation: true
