@@ -42,7 +42,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
-| S style | 09-12, 09-11 | `jnwb/spectral.py` (`to_db`), `jnwb/connectivity.py` (`_ADF_NUMERICAL_FAILURES`), `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
+| S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
 | W harness learning | 09-07 | `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py` (its `GATES` list only), `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Question round at the opening: the dB-lexicon values 09-04 reads. D8 and D9 are ruled.
@@ -63,26 +63,26 @@ brings it here when ready.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
-Read-only on `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, the duration docstring in `jnwb/unit_quality.py` once 13-03 lands.
+Read-only on the rest of `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
 landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their remaining problems are
 10-09; 13-07 to 13-10 landed (`6c0b4542`, `d99cfc20`, `cb86990e`, `737a583e`). What remains needs the downstream code.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
+- The 13-03 duration docstring names the downstream pipeline's redefined duration against the published trough-to-peak duration (ruling 13-01, row D8). Check: the docstring sentence cites the downstream code read for D8.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
 
 ### 13-03 Waveform and spike-train quality measures
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: 13-02.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
 Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, `tests/test_unit_quality.py`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/references.md`, `changelog.d/unit-quality-measures.added.md`.
 From a mean waveform `(n_channels, n_samples)` with `fs` and channel geometry: peak channel,
 trough-to-peak duration, polarity and asymmetry (positive against negative peak on the peak
 channel) and SNR; spatial derivative sharpness across channels and flatness, each with its
 threshold a required caller argument and no claimed source. From spike times: presence ratio over
 caller-given blocks, refractory-violation rate with the refractory period required, and ISI CV
-(ruled 2026-10-03). The downstream pipeline's redefined duration is named in the docstring against
-the published one, from 13-02's reading of its code.
+(ruled 2026-10-03). The downstream pipeline's redefined duration waits in 13-02.
 - Each measure states its unit, input class and published source (DOI resolved, not recalled). Check: gate 5 and `tests/test_references_resolve.py` pass.
 - Synthetic units with a known answer for every measure: a flat waveform, an inverted one, a positive-dominant one, a unit absent from half the blocks, a unit with planted violations. Check: each recovers its planted value, and a mutant of each measure is killed.
 - Undefined input (one channel for a spatial measure, no spikes, zero-length block) returns NaN or raises with the reason, never 0. Check: one test per case.
@@ -318,17 +318,6 @@ Source: a repository organisation review (T10), re-read at `5bff9be7` on 2026-10
 - kaleido 1.x exports through a Chrome install that `docs/install.md` and the dev install line do not mention; a fresh clone without Chrome errors in the `vis` tests (reported as 4 errors; not reproduced here). Check: the install page names the Chrome requirement and `BROWSER_PATH`, and a fresh-clone run shows the tests pass or skip by name.
 - `README.md:52`'s development install `.[test,docs]` leaves out the `vis` extra the suite exercises; `CONTRIBUTING.md:17` clones over SSH, which needs a GitHub key, while `docs/install.md:60` uses HTTPS. Check: one development install line naming every extra the suite needs, and an HTTPS clone with SSH as the alternative.
 Accept: each check observed on a fresh clone.
-Stop: none.
-
-### 09-12 Edges the 09-10 verifier found
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/connectivity.py`, `jnwb/spectral.py`, `tests/test_connectivity.py`, `changelog.d/granger-stationarity-import.changed.md`.
-Source: the 09-10 verifier, 2026-10-04, at `bd3fe43a` (merged `11be9790`).
-- Under a caller's `np.errstate(all="raise")`, `_adf_pvalue` raises `FloatingPointError` (underflow in dot or multiply) on tiny, huge, near-constant or exponential series, where 0.2.8 returned NaN; the item kept NaN for a numerical failure. Check: `FloatingPointError` is a numerical failure giving NaN and `stationarity_not_tested`, and a test fails before the repair.
-- The `to_db` docstring calls it the single point every conversion passes through, while `band_power` converts through `_ratio_to_db`. Check: the docstring names `_ratio_to_db` as the shared formula.
-Accept: the test and the docstring.
 Stop: none.
 
 ### 09-09 PyPI publication from the tag push
