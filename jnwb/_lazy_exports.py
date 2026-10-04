@@ -54,6 +54,13 @@ EXPORT_MODULES: dict[str, str] = {
     "audit_units": "metadata",
     "audit_electrodes": "metadata",
     "assign_quality_tier": "metadata",
+    # unit quality measures
+    "waveform_features": "unit_quality",
+    "waveform_snr": "unit_quality",
+    "waveform_flatness": "unit_quality",
+    "spatial_derivative_sharpness": "unit_quality",
+    "presence_ratio": "unit_quality",
+    "isi_cv": "unit_quality",
     # decoding
     "majority_baseline": "decoding",
     "fold_majority_baseline": "decoding",

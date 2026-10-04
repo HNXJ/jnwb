@@ -368,6 +368,14 @@ __all__ = [
     'audit_electrodes',
     'assign_quality_tier',
 
+    # Unit quality measures
+    'waveform_features',
+    'waveform_snr',
+    'waveform_flatness',
+    'spatial_derivative_sharpness',
+    'presence_ratio',
+    'isi_cv',
+
     # Digital filtering
     'bandpass_filter',
     'notch_filter',
