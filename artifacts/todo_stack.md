@@ -38,7 +38,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| C skills | 07-11, 07-23, 07-24, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md`, `jnwb/nwb_inspect.py` and its tests (07-23), the gate 13 function of `scripts/harness_gate.py` (07-24) |
+| C skills | 07-23, 07-24, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md`, `jnwb/nwb_inspect.py` and its tests (07-23), the gate 13 function of `scripts/harness_gate.py` (07-24) |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
 | R release | 09-09 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py` |
@@ -109,9 +109,9 @@ Stop: the collaborator's skill reaches a different design; both go to Hamm.
 ### 13-05 One skill routes unit quality
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-03, 07-11.
-Writes: `skills/jnwb-qc/SKILL.md` and `skills/jnwb-qc/agents/openai.yaml` (ruled 2026-10-03: unit quality extends `jnwb-qc`), `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
-Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 13-03.
+Writes: `skills/jnwb-qc/SKILL.md` and `skills/jnwb-qc/agents/openai.yaml` (ruled 2026-10-03: unit quality extends `jnwb-qc`), `skills/jnwb/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `skills/jnwb-nwb-data/agents/openai.yaml`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `tests/test_skill_default_claims_match_signatures.py`, `docs/agents.md`.
+Rows for 13-03's measures, 13-04's screen if it exists, and the 13-02 rows kept public. `classify_unit_quality`, `assign_quality_tier`, `enrich_units_dataframe` and `get_snr_analysis` move here from `jnwb-nwb-data`, whose description and yaml then drop "unit quality classification"; the exact set `QC_ROUTES` in the skill tests grows with them.
 - All four outcomes: execute a screen; request missing waveforms, `fs` or geometry; report a fit the labels cannot support; decline "this unit is a single neuron" from quality metrics alone. Check: one decline test per outcome.
 - Sorter quality labels are an input, never ground truth. Check: a safeguard stated once and linked from `docs/common_mistakes.md`.
 Accept: the template in `CONTRIBUTING.md` (Skill rule); gate 2 passes; router and `docs/agents.md` rows.
@@ -127,17 +127,6 @@ the screen, and show the per-session agreement table.
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 07-11 `jnwb-qc`: independent scientific and output QC
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `skills/jnwb-qc/SKILL.md`, `skills/jnwb-qc/agents/openai.yaml`, `skills/jnwb/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-nwb-data/SKILL.md`, `tests/test_skills_validation.py`, `tests/test_skill_decline_behaviour.py`, `tests/test_skill_router_reach.py`, `docs/agents.md`.
-`visual_qc`, `audit_units`, `audit_electrodes`, `Result`, `Provenance` and `Lineage` each get one
-routing row, here only, so the skill that draws a figure is not the one that judges it.
-Accept: the template and all four outcomes; its router and `docs/agents.md` rows; gate 2 passes.
-Stop: the capability gate of the fact stack is not met.
-Waits: new skill; no shipped behaviour changes.
 
 ### 07-23 `inspect` reports column descriptions
 
@@ -157,13 +146,14 @@ Writes: `scripts/harness_gate.py` (the gate 13 function), `tests/test_gates_reje
 Source: the 07-10 actor, 2026-10-04.
 - Gate 13 requires every onboarding symbol's call in `skills/jnwb-nwb-data/SKILL.md`; after 07-10 moved `events` to `jnwb-paradigm`, an example line in `jnwb-nwb-data` keeps it green. Check: the gate accepts the call in the skill whose routing row holds the symbol, the example line goes, and a test fails when that row's call is removed.
 - The `jnwb-paradigm` decline test kills a new `EventTable` field but not a method that names a code (the 07-10 verifier's mutant M2). Check: the test asserts `EventTable`'s public attributes are its fields and `n_events`, and that mutant is killed.
+- The `jnwb-qc` decline test passes a verdict sentence that holds an unrelated negation word ("and no field missing, is correct") or a verdict word outside its list ("validates"), per the 07-11 verifier. Check: the negation must govern the verdict word, the list covers validate, trustworthy and right, and both mutants are killed.
 Accept: the harness passes and the gate's test kills the removal.
 Stop: none.
 
 ### 07-12 Every export routed or excluded with a checked reason
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: per skill. Blocked by: 07-11.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/*/SKILL.md`, `tests/test_skill_symbol_coverage.py`, `tests/test_skills_validation.py`.
 Measured at `ac08e973`: 26 of 162 exports and 8 of 48 modules named by no skill
 (`artifacts/evidence/0.2.7/package_inventory.md`). D8 was ruled 2026-09-29: (e) and (f) not
