@@ -161,10 +161,11 @@ Stop: none beyond the ruling.
 
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-07.
-Writes: `jnwb/metadata.py`, `tests/test_metadata.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
+Writes: `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `changelog.d/unit-quality-degenerate.fixed.md`.
 Source: the 13-07 critic and verifier, 2026-10-04.
 - `compare_old_new_criteria` coerces a class with `bool(v)`, so the strings `"False"` and `"no"` count as included; a NaN old class reads as not screened and gives `gained`; a string old class raises an unnamed `TypeError`. Check: a non-boolean class is refused by name, and a NaN old class gives `'unknown'`.
 - `classify_unit_quality` with `thresholds={}` passes every unit as `Good`; a NaN or infinite threshold passes quality 0; `audit_units(snr_threshold=nan)` counts nothing silently; a duplicated column raises an unnamed `TypeError`. Check: each is refused by name.
+- `stable_threshold` of NaN, +inf or `None` makes every defined quality non-stable, -inf or a negative value makes every one stable, and `stable_labels=()` disables the label path, all silently (`_quality_is_stable` in `jnwb/addressing.py`). Check: a non-finite or `None` threshold and an empty label set are refused by name.
 - `audit_units` writes a one-unit spread as NaN, which `json.dumps` emits as invalid strict JSON. Check: the documented output is valid JSON, or the docstring says NaN.
 Accept: a test per check that fails before the repair.
 Stop: a refusal that changes a value a released analysis reported goes to Hamm.
@@ -365,10 +366,9 @@ Stop: the window convention changes a released function's counts.
 Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `.github/workflows/workflow.yml`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`.
-The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed in `01606de1` (merged `ae7c6930`, verified independently, rulings 2026-10-03 and 2026-10-04). What remains only a real run can show.
-- Check: one CI run on `dev` at the merge is green.
+The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed in `01606de1` (merged `ae7c6930`, verified independently, rulings 2026-10-03 and 2026-10-04). CI on `dev` at `f4fb2510` was green (run 37192638893). What remains only the tag push can show.
 - Check: the 0.2.9 tag push pauses `publish-pypi` for the `pypi` approval inside the run, PyPI trusted publishing accepts the push-event job, `publish-pypi` downloads that run's distribution, and `github-release` creates the Release whose body passes `tests/test_release_body_gate.py`'s live test.
-Accept: both checks observed.
+Accept: the check observed.
 Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
 # 0.2.10
