@@ -37,7 +37,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-08, 13-09, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-08, 13-09, 13-10, 13-02, 13-03, 13-04, 13-05, 13-06 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | C skills | 07-10, 07-11, 07-12, 07-08, 07-09 | `skills/`, skill tests, composition tests, `docs/agents.md` |
 | D docs | 09-01, 09-02, 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references and facts | 09-05, 09-04, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` once 09-02 is merged |
@@ -140,6 +140,17 @@ Undefined input landed in `2987ac31` (merged `0316da95`, verified independently)
 - The verdict's type is now `bool` or `None`; the fragment sits under `fixed`. Check: it moves to `changed` if the type change is user-visible.
 Accept: the ruling applied and each check passing.
 Stop: none beyond the ruling.
+
+### 13-10 Infinite measures and masked spikes are not read as valid
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: 13-09.
+Writes: `jnwb/metadata.py`, `jnwb/visual_qc.py`, `tests/test_metadata.py`, `tests/test_visual_qc.py`, `changelog.d/unit-quality-infinite-measures.fixed.md`.
+Source: the 13-09 critic, 2026-10-04.
+- An SNR, presence or firing rate of +inf passes as valid: `classify_unit_quality` gives `Good`, `assign_quality_tier` `'stable'`, and `audit_units`' SNR mean is NaN beside a good count that includes it; an infinite quality is already undefined. Check: an infinite measure is undefined input in each function, or refused by name.
+- `plot_unit_waveforms` ignores the mask of a masked 3-D spike array and averages the masked outlier in. Check: the mask is honoured or the array refused, as `assign_quality_tier` refuses one.
+Accept: a test per check that fails before the repair.
+Stop: a repair that changes a value a released analysis reported on valid input goes to Hamm.
 
 ### 13-09 The quality functions refuse degenerate cut-offs and classes
 
