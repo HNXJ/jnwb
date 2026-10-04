@@ -64,7 +64,7 @@ python examples/quickstart_jnwb.py
 
 ## Step-by-step tour
 
-The steps below are a separate walkthrough, not the panels of `examples/quickstart_jnwb.py`; run the script when you need the figure smoke test.
+The steps below are a separate walkthrough, not the panels of `examples/quickstart_jnwb.py`.
 
 ### 1. Artifact Detection & Repair
 

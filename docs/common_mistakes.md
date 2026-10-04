@@ -34,7 +34,7 @@ db_mean = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_
 db_weighted = jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
 ```
 
-`jnwb.aggregate_to_db` strictly enforces this: negative inputs raise an immediate error, preventing callers from accidentally passing decibels.
+`jnwb.aggregate_to_db` enforces this: negative inputs raise an error, preventing callers from accidentally passing decibels.
 
 ---
 
@@ -76,7 +76,7 @@ Using an unconstrained global permutation (`np.random.permutation(y)`) to constr
 y_null = np.random.permutation(y_true)
 ```
 
-If class proportions vary across sessions or cycles, global shuffling destroys the covariance structure between trial covariates and labels, yielding an overly optimistic null distribution and severely inflated false positive rates ($p < 0.05$ under the null).
+If class proportions vary across sessions or cycles, global shuffling destroys the covariance structure between trial covariates and labels, yielding an overly optimistic null distribution and inflated false positive rates ($p < 0.05$ under the null).
 
 ### The Correct Pattern
 Permute labels **within each group independently**, preserving each block's internal marginal composition:
@@ -291,7 +291,7 @@ onsets = jnwb.event_onsets(
 )
 ```
 
-The guards are there to be used rather than worked around. Several interval tables and none
+Several interval tables and none
 named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
 does not exist raises `ColumnNotFoundError` listing the columns that do; on a table with no
 `codes` column, `events` returns its onsets and warns that it found no codes. Each message contains

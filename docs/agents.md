@@ -78,7 +78,6 @@ jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.8/skills'
 Inside an unpacked sdist the skill files are present but the pages they link to are not:
 `docs/` and `AGENTS.md` stay out of the sdist, so every repository-relative link in a skill
 resolves only in a checkout.
-The pointer above is the route that works from anywhere.
 
 The entry point is the router skill, `jnwb`. Its routing table, copied here, sends each task to
 the skill that covers it:
