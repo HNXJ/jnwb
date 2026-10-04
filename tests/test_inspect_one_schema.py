@@ -248,6 +248,21 @@ class TestAnObjectWithNoFileBehindIt:
         assert ([c["name"] for c in from_memory["interval_tables"][0]["columns"]]
                 == ["codes", "id", "start_time", "stop_time"])
 
+    def test_column_records_have_the_same_keys_and_descriptions(self, tmp_path):
+        """Both forms carry each column's stored `description` under one key set."""
+        from_memory = jnwb.inspect(_build())
+        from_file = jnwb.inspect(_write(tmp_path, "described.nwb"))
+        for section in ("electrodes", "units"):
+            for form in (from_memory, from_file):
+                assert all("description" in c for c in form[section]["columns"]), section
+        memory_cols = from_memory["interval_tables"][0]["columns"]
+        file_cols = from_file["interval_tables"][0]["columns"]
+        assert [sorted(c) for c in memory_cols] == [sorted(c) for c in file_cols]
+        assert ([c["description"] for c in memory_cols]
+                == [c["description"] for c in file_cols]
+                == ["labels", None, "Start time of epoch, in seconds",
+                    "Stop time of epoch, in seconds"])
+
     def test_it_refuses_an_ambiguous_container_too(self):
         entry = jnwb.inspect(_build(two_series=True))["processing_continuous"][0]
         assert entry["series"] == ["lfp_alpha", "lfp_beta"]

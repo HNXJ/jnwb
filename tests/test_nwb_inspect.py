@@ -454,3 +454,45 @@ class TestStartingTime:
                 assert "5.0 s" in str(ours[0].message)
                 assert "epoch_continuous" in str(ours[0].message)
 
+
+def _described_columns():
+    """An in-memory NWB file whose trials table has one documented column, `codes`, and
+    one stored with an empty description, `blank`."""
+    nwb = _series_starting_at(0.0)
+    nwb.add_trial_column(name="codes", description="1 = face, 2 = house")
+    nwb.add_trial_column(name="blank", description="")
+    nwb.add_trial(start_time=0.1, stop_time=0.2, codes=1, blank=0)
+    nwb.add_unit(spike_times=[0.1, 0.2])
+    return nwb
+
+
+class TestColumnDescriptions:
+    """Each column record carries the stored NWB `description`: `""` when stored empty,
+    `None` when the column stores none (`id`), never a filled-in text."""
+
+    EXPECTED = {"blank": "", "codes": "1 = face, 2 = house", "id": None,
+                "start_time": "Start time of epoch, in seconds",
+                "stop_time": "Stop time of epoch, in seconds"}
+
+    def _forms(self, tmp_path):
+        from pynwb import NWBHDF5IO
+        path = tmp_path / "described.nwb"
+        with NWBHDF5IO(str(path), "w") as io:
+            io.write(_described_columns())
+        return {"file": inspect(path), "memory": inspect(_described_columns())}
+
+    def test_interval_columns_report_the_stored_description(self, tmp_path):
+        for form, result in self._forms(tmp_path).items():
+            columns = result["interval_tables"][0]["columns"]
+            got = {c["name"]: c["description"] for c in columns}
+            assert got == self.EXPECTED, form
+
+    def test_unit_and_electrode_columns_carry_the_key(self, tmp_path):
+        for form, result in self._forms(tmp_path).items():
+            units = {c["name"]: c["description"] for c in result["units"]["columns"]}
+            assert units["id"] is None, form
+            assert units["spike_times"] == "the spike times for each unit in seconds", form
+            electrodes = {c["name"]: c["description"] for c in result["electrodes"]["columns"]}
+            assert electrodes["id"] is None, form
+            assert electrodes["location"], form
+

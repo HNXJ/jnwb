@@ -71,6 +71,13 @@ def _ndt(obj: h5py.Group | h5py.Dataset) -> str | None:
     return _decode(raw)
 
 
+def _stored_description(ds: h5py.Dataset) -> str | None:
+    """The column's stored NWB ``description``: ``""`` when stored empty, ``None`` when
+    absent (an ``id`` column stores none)."""
+    raw = ds.attrs.get("description")
+    return None if raw is None else str(_decode(raw))
+
+
 def _sample_column(ds: h5py.Dataset, n: int = _MAX_SAMPLES) -> list[Any]:
     if ds.shape[0] == 0:
         return []
@@ -150,6 +157,7 @@ def _inspect_intervals_h5py(intervals: h5py.Group) -> list[dict[str, Any]]:
                     "dtype": str(ds.dtype),
                     "shape": list(ds.shape),
                     "sample_values": _sample_column(ds),
+                    "description": _stored_description(ds),
                 }
             )
         tables.append(
@@ -434,7 +442,8 @@ def _inspect_electrodes_h5py(electrodes: h5py.Group) -> dict[str, Any]:
     for col_name in sorted(electrodes.keys()):
         ds = electrodes[col_name]
         if isinstance(ds, h5py.Dataset):
-            columns.append({"name": col_name, "dtype": str(ds.dtype)})
+            columns.append({"name": col_name, "dtype": str(ds.dtype),
+                            "description": _stored_description(ds)})
     return {"n_rows": n_rows, "columns": columns}
 
 
@@ -446,7 +455,8 @@ def _inspect_units_h5py(units: h5py.Group) -> dict[str, Any]:
     for col_name in sorted(units.keys()):
         ds = units[col_name]
         if isinstance(ds, h5py.Dataset):
-            columns.append({"name": col_name, "dtype": str(ds.dtype)})
+            columns.append({"name": col_name, "dtype": str(ds.dtype),
+                            "description": _stored_description(ds)})
     return {
         "n_rows": n_rows,
         "columns": columns,
@@ -922,12 +932,14 @@ def _table_columns_pynwb(table: Any, with_shape: bool, with_samples: bool) -> li
     """Columns of a `DynamicTable`, including its `id` column, sorted by name.
 
     `id` is a column of every `DynamicTable`; `to_dataframe()` makes it the index, which
-    is why the object form used to report one fewer column than the file form.
+    is why the object form used to report one fewer column than the file form. `id`
+    stores no description, so its ``description`` is ``None``, as in the file form.
     """
     df = table.to_dataframe()
     series = {"id": df.index.to_series()}
     for col in df.columns:
         series[str(col)] = df[col]
+    descriptions = {c.name: c.description for c in table.columns}
     out: list[dict[str, Any]] = []
     for col_name in sorted(series):
         values = series[col_name]
@@ -936,6 +948,7 @@ def _table_columns_pynwb(table: Any, with_shape: bool, with_samples: bool) -> li
             entry["shape"] = [len(values)]
         if with_samples:
             entry["sample_values"] = values.head(_MAX_SAMPLES).tolist()
+        entry["description"] = descriptions.get(col_name)
         out.append(entry)
     return out
 
@@ -1061,6 +1074,8 @@ def inspect(path_or_nwb: InspectInput) -> dict[str, Any]:
 
     Discovery only: lists acquisitions, electrodes, units, and **all** interval
     tables with columns and sample values. Does not select a default event table.
+    Each column record carries the column's stored NWB ``description``: ``""`` when stored
+    empty, ``None`` when the column stores none, as an ``id`` column does.
 
     Both call forms answer with one schema. They used to be two independent
     walks, so ``inspect(path)`` and ``inspect(nwb)`` reported different keys, different

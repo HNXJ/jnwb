@@ -35,7 +35,9 @@ grouping trials by recording structure, or deciding what a condition code means.
 
 ## 3. Invariants & Safeguards
 1. **Condition meaning, strongest evidence first**: (a) metadata the file carries: the code
-   column's `description`, a lookup table stored with the session, the protocol text; (b) a
+   column's `description`, read first from its column record in `jnwb.inspect(path_or_nwb)`
+   (`""` or `None` means the file documents none), a lookup table stored with the session, the
+   protocol text; (b) a
    mapping the caller supplies with its source; (c) structural inference last: row order,
    cycles, code frequencies. Structure groups trials; it does not name them. jnwb reads codes
    as opaque values at every step.
