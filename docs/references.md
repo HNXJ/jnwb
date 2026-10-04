@@ -3,9 +3,10 @@
 Published sources for the methods jnwb implements. Each row names the result jnwb implements and
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
 a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
-2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26) and matched the title, authors and year of its Crossref record (DataCite for
-the arXiv entry). Where jnwb
-departs from the published result, the row and the docstring say how.
+2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26, the unit-quality sources on
+2026-10-04). Each matched the title, authors and year of its Crossref record, except the arXiv
+entry, matched to its DataCite record, and Llobet et al. 2022, matched to bioRxiv's record of its
+version 1. Where jnwb departs from the published result, the row and the docstring say how.
 
 ## Signal processing
 
@@ -68,6 +69,19 @@ treatment in these two books, checked on Open Library:
 | Cohen, M. R., & Kohn, A. (2011). Measuring and interpreting neuronal correlations. *Nature Neuroscience* 14(7), 811-819. [doi:10.1038/nn.2842](https://doi.org/10.1038/nn.2842) | The spike-count correlation, the Pearson r of two units' spike counts, whose value depends on the counting window. The paper's $r_{sc}$ is taken across trials; `spike_count_correlation` takes it across time bins of one window, so shared rate changes (signal correlation) raise it too | `spike_count_correlation` |
 | Churchland, M. M., et al. (2010). Stimulus onset quenches neural variability: a widespread cortical phenomenon. *Nature Neuroscience* 13(3), 369-378. [doi:10.1038/nn.2501](https://doi.org/10.1038/nn.2501) | The Fano factor per unit, the across-trial variance over the mean of the count in a fixed window, summarised over units | `fano_factor` |
 | Wagenaar, D. A., Pine, J., & Potter, S. M. (2006). An extremely rich repertoire of bursting patterns during the development of cortical cultures. *BMC Neuroscience* 7, 11. [doi:10.1186/1471-2202-7-11](https://doi.org/10.1186/1471-2202-7-11) | Network bursts as periods of elevated population activity; jnwb detects them as runs of population rate at or above a threshold for at least a minimum duration and reports the fraction of spikes inside them | `network_burst_index` |
+
+## Unit quality
+
+`waveform_flatness` and `spatial_derivative_sharpness` have no published source; their
+thresholds are the caller's.
+
+| Reference | Result implemented | Functions |
+|---|---|---|
+| Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x) | Methods, unit quality metrics: the peak channel as the channel of maximum amplitude (peak minus trough); waveform duration as the difference in time between its peak and trough, which the code behind the paper (`calculate_waveform_duration` in `ecephys_spike_sorting`) takes from the larger extremum to the opposite one after it, as `waveform_features` does; SNR as the amplitude over twice the standard deviation of the residual waveforms; presence ratio as the fraction of blocks holding a spike. The paper used 100 equal blocks; `presence_ratio` takes the caller's | `waveform_features`, `waveform_snr`, `presence_ratio` |
+| Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018) | The peak-to-trough ratio, the amplitude of the peak over that of the trough, on the channel of largest amplitude | `waveform_features` |
+| Shinomoto, S., et al. (2009). Relating neuronal firing patterns to functional differentiation of cerebral cortex. *PLoS Computational Biology* 5(7), e1000433. [doi:10.1371/journal.pcbi.1000433](https://doi.org/10.1371/journal.pcbi.1000433) | The coefficient of variation of the inter-spike intervals, their standard deviation over their mean (eq. 1); jnwb takes the unbiased (`ddof=1`) standard deviation, the variance rule of `fano_factor` | `isi_cv` |
+| Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011) | The fraction $f$ of a unit's spikes from a contaminating source, the smaller root of $r = 2(\tau_R - \tau_C) N^2 (1 - f) f / T$, with $r$ the number of consecutive inter-spike intervals shorter than the refractory period $\tau_R$, $\tau_C$ the censored period, $N$ the spike count and $T$ the recording duration | `refractory_contamination` |
+| Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging of multiple spike-sorting analyses with Lussac. *bioRxiv* preprint, version 1. [doi:10.1101/2022.02.08.479192](https://doi.org/10.1101/2022.02.08.479192) | A derivation of the Hill et al. (2011) estimate (eqs. 1 and 4), cited as the derivation only; jnwb computes the estimate as Hill et al. write it, with the plain recording duration | `refractory_contamination` |
 
 ## Representational analysis
 

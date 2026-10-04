@@ -189,3 +189,24 @@ trajectory_res = jnwb.compute_population_trajectory(
     session, area="V1", epochs_df=trials_df, n_components=3,
 )
 ```
+
+---
+
+## 5. Unit Quality Measures (`jnwb.unit_quality`)
+
+Each function measures one sorted unit and keeps or rejects none. Sources are in
+[References](references.md#unit-quality).
+
+| Function | Input | Returns |
+|---|---|---|
+| `waveform_features(waveform, fs)` | mean waveform `(n_channels, n_samples)`, `fs` in Hz | `peak_channel`, `amplitude`, `trough_to_peak_ms`, `peak_trough_ratio`, `polarity` |
+| `waveform_snr(spike_waveforms)` | waveforms `(n_spikes, n_samples)` on one channel | mean amplitude over twice the residual SD |
+| `waveform_flatness(waveform, *, threshold)` | mean waveform | `amplitude`, `is_flat` |
+| `spatial_derivative_sharpness(waveform, channel_positions, *, threshold)` | mean waveform, channel positions | `sharpness` per length unit, `is_sharp` |
+| `presence_ratio(spike_times, blocks)` | spikes (s), `[start, stop)` blocks (s) | fraction of blocks with a spike |
+| `isi_cv(spike_times)` | spikes (s) | interval SD over mean |
+| `refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)` | spikes (s) | contaminating fraction, violations, reason |
+
+`trough_to_peak_ms` runs from the larger extremum to the opposite one after it, so it is never
+negative. The flatness and sharpness thresholds have no default and no published value.
+Undefined input is NaN or a `ValueError` naming the reason, never 0.

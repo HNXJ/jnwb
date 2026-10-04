@@ -133,18 +133,19 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
 | Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 827, `recipes` at 348 sit under it |
-| Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
+| Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | eight of the eleven sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 
-Measured 2026-10-04 with `wc -w`. Five pages sit over their ceiling, and each owes the one
+Measured 2026-10-04 with `wc -w`. Six pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
 | `common_mistakes` | 2447 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1759 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
+| `06_spikes_psth_and_onset_dynamics` | 1378 | the same shape again: PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
 | `04_spectral_analysis_and_tfr` | 1988 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |

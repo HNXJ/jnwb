@@ -437,6 +437,27 @@ contradicts a written claim it appears in section 6.
 | `resample_onsets[target_n]` | target_n | 1000, 5000, 20000, 100000, 500000 | 0.28, 0.53, 3.52, 9.56, 30.4 | +0.79 | 0.977 | 108x | sub-linear | T(target_n) | derived | agree |
 | `save_figure_suite` | n_figures | 3, 5, 10, 20, 30 | 184.2, 293.2, 594.0, 1303, 2011 | +1.05 | 0.999 | 11x | O(n) | T(F * render) | derived | CONSTANT |
 
+### `jnwb.unit_quality`
+
+Added 2026-10-04 with the module, after the counts of section 1. Measured with the `Spec`,
+`sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python 3.14.3,
+jnwb imported from the checkout. Held fixed: 16 channels (`waveform_features`); 60 samples per
+waveform (`waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`); 20000 uniform
+spikes over 1000 s (`presence_ratio`); uniform spikes at 20 Hz, `refractory_ms=1.5`,
+`censored_ms=0` (`isi_cv`, `refractory_contamination`). `C` channels, `n` samples, `N` spike
+waveforms, `S` spikes, `B` blocks. The rows of `waveform_features`, `presence_ratio`, `isi_cv`
+and `refractory_contamination` were measured again the same day after their rules changed.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `waveform_features[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.0359, 0.1625, 2.497, 36.09 | +1.02 | 0.985 | 1005x | O(n) | T(C*n) | derived | agree |
+| `waveform_snr[n_spikes]` | n_spikes | 1000, 10000, 100000, 400000 | 0.2301, 6.247, 62.48, 263.4 | +1.16 | 0.992 | 1145x | O(n) | T(N*n) | derived | agree |
+| `waveform_flatness[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 0.0283, 0.1479, 1.638, 25.15 | +0.99 | 0.989 | 889x | O(n) | T(C*n) | derived | agree |
+| `spatial_derivative_sharpness[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 0.0964, 0.2439, 1.839, 26.84 | +0.82 | 0.958 | 278x | O(n) | T(C*n) | derived | agree |
+| `presence_ratio[n_blocks]` | n_blocks | 100, 1000, 10000, 50000 | 0.2466, 0.3073, 0.99, 3.31 | +0.42 | 0.900 | 13x | sub-linear | T(S log S + B log S) | derived | agree |
+| `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1475, 2.039, 25.87, 113.6 | +1.11 | 1.000 | 770x | O(n) | T(S log S) | derived | agree |
+| `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1363, 1.391, 21.58, 90.44 | +1.10 | 0.999 | 664x | O(n) | T(S log S) | derived | agree |
+
 ## 4. Gaps
 
 19 order gaps lie along a parameter this measurement swept; 30 do not;
