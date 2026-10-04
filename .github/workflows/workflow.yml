@@ -6,8 +6,6 @@ on:
     tags: [ "v*" ]
   pull_request:
     branches: [ main, dev ]
-  release:
-    types: [ published ]
   workflow_dispatch:
     inputs:
       target:
@@ -22,20 +20,19 @@ on:
           - "testpypi"
 
 # Least privilege at the top, raised per job where a job needs it: the two publish jobs
-# each ask for id-token: write. Without a floor here every job inherited whatever the
-# repository default was, on a pipeline that can upload to PyPI.
+# each ask for id-token: write, and github-release alone asks for contents: write. Without a
+# floor here every job inherited whatever the repository default was, on a pipeline that can
+# upload to PyPI.
 permissions:
   contents: read
 
 # One run per ref. Two pushes in quick succession ran overlapping publish-capable
-# pipelines; the later one now cancels the earlier. Tags and releases are excluded: those
-# are the refs that actually publish, and cancelling one mid-upload is the failure this
-# is meant to prevent, not a cost worth paying for a faster queue. The event is part of the
-# key: a tag's release run waits for that tag's push run to publish to TestPyPI, and in one
-# group it would queue behind the run it is waiting for.
+# pipelines; the later one now cancels the earlier. Tags are excluded: a tag push is the run
+# that publishes, and cancelling one mid-upload is the failure this is meant to prevent, not
+# a cost worth paying for a faster queue.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'release' }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   qualified:
@@ -46,7 +43,6 @@ jobs:
     # this run. Every other event, no such run, and a failed query leave `run_id` empty, and
     # every leg runs in full.
     name: Find a passed dev run of this commit
-    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       actions: read  # To read this commit's dev push runs
@@ -78,16 +74,10 @@ jobs:
 
   test:
     name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
-    # Not on a published release: that run uploads the tag push run's files, and publish-pypi's
-    # first step requires that run's TestPyPI upload and verification, which needed these legs
-    # and the build to pass on the same commit. Re-running them repeated the matrix on a tree
-    # already qualified (0.2.7: 86 runner-minutes and 26 minutes before PyPI could start). The same
-    # condition is on test-floors and build; scripts/release_gate.py still requires all three of
-    # a push run. On a tag push that `qualified` matched to a passed dev run, every step after
-    # the first is skipped; the job stays, because build needs it and a skipped job would skip
-    # the build and every publish job after it.
+    # On a tag push that `qualified` matched to a passed dev run, every step after the first is
+    # skipped; the job stays, because build needs it and a skipped job would skip the build and
+    # every publish job after it.
     needs: qualified
-    if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
@@ -159,7 +149,6 @@ jobs:
     # On a tag push the steps skip as the matrix legs' do, for the reason given there.
     name: Test (dependency floors, Python 3.12.0 on ubuntu-latest)
     needs: qualified
-    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -236,7 +225,6 @@ jobs:
   build:
     name: Build & Validate Distribution
     needs: [test, test-floors]
-    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -375,10 +363,9 @@ jobs:
   publish-testpypi:
     name: Publish to TestPyPI
     needs: build
-    # Every tag push publishes to TestPyPI, a final tag as well as an rc one, and the release
-    # event does not: publish-pypi below uploads the files this job uploaded, downloaded from
-    # the tag's push run and checked against TestPyPI's hashes, once that upload and its
-    # verification both succeeded.
+    # Every tag push publishes to TestPyPI, a final tag as well as an rc one: publish-pypi below
+    # uploads the files this job uploaded, this run's artifact checked against TestPyPI's
+    # hashes, once that upload and its verification both succeeded.
     if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi')
     runs-on: ubuntu-latest
     environment:
@@ -414,6 +401,8 @@ jobs:
     needs: publish-testpypi
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    outputs:
+      final: ${{ steps.kind.outputs.final }}
     steps:
       - uses: actions/checkout@v4
 
@@ -454,16 +443,44 @@ jobs:
           /tmp/testpypi_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
             --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
 
+      - name: Decide whether the tag names a final release
+        # Only a final release reaches PyPI; an rc, alpha, beta or dev tag stops at TestPyPI.
+        # Final means PEP 440 final: release segments with at most a .postN. Any other spelling
+        # reads as not final, so an unusual tag stays off PyPI rather than reaching it.
+        id: kind
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if [[ "$version" =~ ^[0-9]+(\.[0-9]+)*(\.post[0-9]+)?$ ]]; then
+            final=true
+          else
+            final=false
+          fi
+          echo "final=$final" >> "$GITHUB_OUTPUT"
+          echo "jnwb $version final: $final"
+
+      - name: Check the release notes before anything reaches PyPI
+        # github-release writes and checks them again after the upload; checking here first
+        # means notes that would be refused stop the run while PyPI is still untouched.
+        if: steps.kind.outputs.final == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python -m pip install packaging
+          python scripts/release_body.py --tag "$TAG" --output "$RUNNER_TEMP/release_body.md"
+
   publish-pypi:
     name: Publish to PyPI
-    # No `needs: build`: build does not run on a release event, and the files uploaded are the
-    # tag push run's, which its first step checks. Production PyPI is published only when a GitHub Release is published for the tag, and
-    # only after the tag's push run published it to TestPyPI and verified it from there. The
-    # two are separate runs, so `needs:` cannot order them; the first step reads the push
-    # run's two jobs instead. What is uploaded is that push run's distribution artifact, the
-    # files TestPyPI received, not this run's rebuild; each file's sha256 must equal the one
-    # TestPyPI records for it before anything is uploaded.
-    if: github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease
+    # In the tag push run, after verify-testpypi succeeded and only when the tag names a final
+    # release. `needs:` orders it after the TestPyPI upload and its verification, and through them
+    # after the build and every test leg. What is uploaded is this run's distribution artifact,
+    # the files TestPyPI received; each file's sha256 must equal the one TestPyPI records for it
+    # before anything is uploaded. The `pypi` environment's protection rules still apply here.
+    needs: verify-testpypi
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.verify-testpypi.outputs.final == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -471,72 +488,18 @@ jobs:
     permissions:
       id-token: write  # Mandatory for PyPI Trusted Publishing (OIDC)
       contents: read
-      actions: read    # To read the tag push run's TestPyPI jobs
     steps:
-      - name: Require the tag push to have published this commit to TestPyPI
-        # Waits up to an hour for that run, then fails. Both the upload and its verification
-        # must conclude success in one run; anything else -- failure, skipped, cancelled, no
-        # such job, or two jobs of one name -- fails the step and nothing reaches PyPI. The
-        # run that passed is the step's `run_id` output.
-        id: testpypi
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ github.event.release.tag_name }}
-          SHA: ${{ github.sha }}
-          TESTPYPI_JOB: Publish to TestPyPI
-          VERIFY_JOB: Verify the TestPyPI upload
-        run: |
-          set -euo pipefail
-          deadline=$((SECONDS + 3600))
-          while :; do
-            runs=$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$SHA&per_page=100" \
-              --jq '.workflow_runs[] | select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml") | .id')
-            conclusions=""
-            matched=""
-            for run in $runs; do
-              jobs="repos/$REPO/actions/runs/$run/jobs?per_page=100"
-              # A job not listed yet has not concluded either; two jobs of one name cannot say
-              # which of them uploaded, and read as ambiguous.
-              upload=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.TESTPYPI_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
-              verify=$(gh api "$jobs" --jq '[.jobs[] | select(.name == env.VERIFY_JOB)] | if length == 0 then "pending" elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
-              pair="${upload:-pending}+${verify:-pending}"
-              conclusions="$conclusions $pair"
-              if [ "$pair" = "success+success" ] && [ -z "$matched" ]; then
-                matched="$run"
-              fi
-            done
-            conclusions=$(echo $conclusions)
-            echo "TestPyPI upload+verify of the $TAG push run(s) at $SHA: ${conclusions:-none yet}"
-            case " $conclusions " in
-              *" success+success "*)
-                echo "run_id=$matched" >> "$GITHUB_OUTPUT"
-                exit 0 ;;
-              *pending*|"  ")
-                if [ "$SECONDS" -ge "$deadline" ]; then
-                  echo "::error::no TestPyPI publication and verification of $TAG concluded within an hour"
-                  exit 1
-                fi
-                sleep 60 ;;
-              *)
-                echo "::error::the $TAG push run did not publish and verify on TestPyPI ($conclusions); PyPI is not published"
-                exit 1 ;;
-            esac
-          done
-
       - name: Download the distribution artifacts TestPyPI received
+        # No run-id: the artifact of this run, which build stored and publish-testpypi uploaded.
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
-          run-id: ${{ steps.testpypi.outputs.run_id }}
-          github-token: ${{ github.token }}
 
       - name: Require every file to match its TestPyPI upload byte for byte
         shell: bash
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           version="${TAG#v}"
@@ -565,3 +528,40 @@ jobs:
         with:
           packages-dir: dist/
           verbose: true
+
+  github-release:
+    name: Create the GitHub Release
+    # After the PyPI upload, in the same run. The notes are written by scripts/release_body.py:
+    # the pinned install command, the supported Python range and the version's CHANGELOG.md
+    # section, checked by the release gate's body check before the Release is created. A
+    # violation fails the job before `gh release create` runs. The only job that can write.
+    needs: publish-pypi
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # To create the Release for this tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The token can write; nothing after checkout needs it in .git/config.
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Write the release notes and check their claims
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python -m pip install packaging
+          python scripts/release_body.py --tag "$TAG" --output "$RUNNER_TEMP/release_body.md"
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --verify-tag --title "$TAG" \
+            --notes-file "$RUNNER_TEMP/release_body.md"

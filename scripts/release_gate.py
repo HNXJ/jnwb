@@ -648,22 +648,13 @@ class CIOutcome(NamedTuple):
 
 _MATRIX_REF = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_.\-]+)\s*\}\}")
 
-#: The ``if:`` carried by the jobs a published GitHub Release does not re-run. The release run
-#: publishes the tag push run's files, and its first step requires that run's TestPyPI upload
-#: and verification to have succeeded, which through ``needs:`` required its test legs and build
-#: to succeed on the same commit. Re-running them in the release run repeated the whole matrix
-#: on a tree already qualified.
-SKIPPED_ON_RELEASE = "github.event_name != 'release'"
-
-
 def required_ci_jobs(workflow: Optional[str] = None,
                      root: Optional[pathlib.Path] = None) -> List[str]:
     """The job names that must have run and passed, expanded over the strategy matrix.
 
     Derived from the workflow file, for the reason recorded at :data:`CI_WORKFLOW_PATH`.
 
-    A job carrying an ``if:`` other than :data:`SKIPPED_ON_RELEASE` is excluded: the publish
-    jobs are conditional by design and
+    A job carrying an ``if:`` is excluded: the publish jobs are conditional by design and
     report ``skipped`` on an ordinary push, so requiring them would make the check fail for
     every commit and therefore be switched off. A job *without* an ``if:`` is unconditional,
     and ``skipped`` on such a job means an upstream ``needs:`` never produced it -- which is
@@ -684,9 +675,7 @@ def required_ci_jobs(workflow: Optional[str] = None,
     for job_id, job in jobs.items():
         if not isinstance(job, dict):
             continue
-        # The one condition that keeps a job required: skipped only on a release event, which
-        # this gate never qualifies. It runs on every push, so a push run must carry it.
-        if "if" in job and " ".join(str(job["if"]).split()) != SKIPPED_ON_RELEASE:
+        if "if" in job:
             continue
         template = str(job.get("name") or job_id)
         matrix = ((job.get("strategy") or {}).get("matrix")) or {}

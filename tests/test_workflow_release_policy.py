@@ -1,7 +1,8 @@
 """Regression tests for CI release / PyPI trigger topology.
 
-Production PyPI must be unreachable from a tag push alone. A published GitHub Release
-(non-prerelease) is required. Duplicate upload attempts must fail loudly, not be masked.
+Production PyPI is reached only from a `v*` tag push naming a final release, and only after
+that run uploaded to TestPyPI and verified the upload from there. The same run then creates the
+GitHub Release, its notes checked before it is created. No other event reaches PyPI.
 """
 from __future__ import annotations
 
@@ -33,20 +34,109 @@ def _publish_pypi_if() -> str:
 
 
 class TestWorkflowReleasePolicy:
-    def test_publish_pypi_requires_github_release_published(self):
+    def test_publish_pypi_runs_only_on_a_v_tag_push(self):
         condition = _publish_pypi_if()
-        assert "github.event_name == 'release'" in condition
-        assert "github.event.action == 'published'" in condition
-        assert "!github.event.release.prerelease" in condition
+        assert condition.startswith(
+            "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && "), condition
+        assert " || " not in condition, condition
+        assert "release" not in condition.replace("refs/tags/v", ""), condition
+        assert "workflow_dispatch" not in condition and "inputs." not in condition, condition
 
-    def test_tag_push_alone_cannot_reach_production_pypi(self):
-        condition = _publish_pypi_if()
-        assert "github.event_name == 'push'" not in condition
-        assert "refs/tags/v" not in condition
+    def test_no_published_release_triggers_the_workflow(self):
+        """A second publishing path is a second run that can reach PyPI."""
+        triggers = _load_workflow()[True]
+        assert "release" not in triggers, sorted(triggers)
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        assert "github.event.release" not in text
+        assert "event_name == 'release'" not in text and "event_name != 'release'" not in text
 
     def test_prerelease_cannot_reach_production_pypi(self):
-        condition = _publish_pypi_if()
-        assert "!github.event.release.prerelease" in condition
+        """publish-pypi runs only when the verify job says the tag names a final release."""
+        assert _publish_pypi_if().endswith(
+            " && needs.verify-testpypi.outputs.final == 'true'"), _publish_pypi_if()
+        verify = _load_workflow()["jobs"]["verify-testpypi"]
+        assert verify["outputs"] == {"final": "${{ steps.kind.outputs.final }}"}, verify.get("outputs")
+
+    def test_the_final_release_rule_agrees_with_pep_440(self):
+        """The regex the `kind` step applies, against `packaging`'s own reading. A rule that
+        admitted `rc`, `a`, `b` or `dev` would publish a prerelease to PyPI."""
+        import subprocess
+
+        from packaging.version import Version
+
+        step = next(s for s in _load_workflow()["jobs"]["verify-testpypi"]["steps"]
+                    if s.get("id") == "kind")
+        assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.ref_name }}", step["env"]
+        pattern = re.search(r'\[\[ "\$version" =~ (\S+) \]\]', step["run"]).group(1)
+        assert 'echo "final=$final" >> "$GITHUB_OUTPUT"' in step["run"], step["run"]
+        cases = ["0.2.9", "1.0", "10.20.30", "0.2.9.post1", "0.2.9rc1", "0.2.9a1", "0.2.9b2",
+                 "0.2.9.dev3", "0.2.9rc1.post1", "0.2.9.post1.dev1", "1!0.2.9"]
+        for version in cases:
+            matched = re.fullmatch(pattern, version)
+            # Not final by PEP 440 must never match; the epoch spelling may be refused too.
+            assert bool(matched) <= (not Version(version).is_prerelease), version
+            if "!" not in version:
+                assert bool(matched) == (not Version(version).is_prerelease), version
+        # The same pattern as bash reads it, off Windows, where `bash` can be the WSL launcher.
+        import sys
+
+        if sys.platform == "win32":
+            return
+        try:
+            out = subprocess.run(
+                ["bash", "-c",
+                 f'for v in "$@"; do if [[ "$v" =~ {pattern} ]]; then echo "$v"; fi; done',
+                 "_", *cases], capture_output=True, text=True, timeout=30)
+        except (FileNotFoundError, OSError):
+            return
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.split() == ["0.2.9", "1.0", "10.20.30", "0.2.9.post1"], out.stdout
+
+    @staticmethod
+    def _bash():
+        """A POSIX bash, or None. On Windows a bare `bash` can resolve to the WSL launcher in
+        System32 ahead of PATH, so Git's own bash is looked up next to `git`."""
+        import shutil
+        import sys
+
+        if sys.platform != "win32":
+            return shutil.which("bash")
+        git = shutil.which("git")
+        # git.exe sits in Git\cmd, Git\bin or Git\mingw64\bin; bash in Git\usr\bin or Git\bin.
+        for base in (Path(git).resolve().parents if git else ()):
+            for candidate in (base / "usr" / "bin" / "bash.exe", base / "bin" / "bash.exe"):
+                if candidate.is_file():
+                    return str(candidate)
+        return None
+
+    def test_the_kind_step_run_in_bash_says_final_only_for_a_final_tag(self, tmp_path):
+        """The step itself, not its regex: a `final=true` inserted before the output line, or
+        a branch that never reaches `final=true`, passes a test that only reads the pattern."""
+        import os
+        import subprocess
+
+        import pytest
+
+        bash = self._bash()
+        if bash is None:
+            pytest.skip("no bash on this machine")
+        step = next(s for s in _load_workflow()["jobs"]["verify-testpypi"]["steps"]
+                    if s.get("id") == "kind")
+        assert set(step["env"]) == {"TAG"}, step["env"]
+        script = tmp_path / "kind.sh"
+        script.write_bytes(step["run"].encode("utf-8"))
+        expected = {"v0.2.9": "true", "v1.0": "true", "v0.2.9.post1": "true",
+                    "v0.2.9rc1": "false", "v0.2.9a1": "false", "v0.2.9b1": "false",
+                    "v0.2.9.dev1": "false"}
+        for tag, final in expected.items():
+            output = tmp_path / f"output_{tag}"
+            output.write_bytes(b"")
+            env = dict(os.environ, TAG=tag, GITHUB_OUTPUT=output.as_posix())
+            result = subprocess.run([bash, script.as_posix()], env=env, capture_output=True,
+                                    text=True, timeout=60)
+            assert result.returncode == 0, (tag, result.stderr)
+            lines = output.read_text(encoding="utf-8").splitlines()
+            assert lines == [f"final={final}"], (tag, lines)
 
     def test_legacy_dual_trigger_if_is_rejected(self):
         """Regression: 0.1.6 workflow published on tag push *and* on release."""
@@ -54,35 +144,31 @@ class TestWorkflowReleasePolicy:
         normalized_legacy = " ".join(_LEGACY_DUAL_TRIGGER_IF.split())
         assert condition != normalized_legacy
 
-    def test_testpypi_needs_build_and_pypi_needs_the_push_run(self):
-        """The release run does not rebuild; PyPI receives the push run's checked files.
-
-        publish-pypi carries no `needs:` because build is skipped on a release event, and a job
-        that needs a skipped job is skipped too. What orders it is its first step, which reads
-        the tag push run's TestPyPI jobs (tested below).
-        """
+    def test_testpypi_needs_build_and_pypi_needs_the_verification(self):
+        """PyPI waits for the TestPyPI upload and its verification in the same run, and through
+        them for the build and every test leg."""
         jobs = _load_workflow()["jobs"]
         assert jobs["publish-testpypi"]["needs"] == "build"
-        assert "needs" not in jobs["publish-pypi"]
+        assert jobs["verify-testpypi"]["needs"] == "publish-testpypi"
+        assert jobs["publish-pypi"]["needs"] == "verify-testpypi"
 
-    def test_a_release_run_skips_exactly_the_jobs_the_push_run_qualified(self):
+    def test_every_test_leg_and_the_build_are_unconditional_and_required(self):
         import sys
 
         if str(REPO_ROOT) not in sys.path:
             sys.path.append(str(REPO_ROOT))
-        from scripts.release_gate import SKIPPED_ON_RELEASE, required_ci_jobs
+        from scripts.release_gate import required_ci_jobs
 
         jobs = _load_workflow()["jobs"]
-        skipped = {jid for jid, job in jobs.items()
-                   if " ".join(str(job.get("if", "")).split()) == SKIPPED_ON_RELEASE}
-        assert skipped == {"qualified", "test", "test-floors", "build"}, skipped
-        # Skipped on a release event is still required of the push run the gate qualifies.
+        for jid in ("qualified", "test", "test-floors", "build"):
+            assert "if" not in jobs[jid], (jid, jobs[jid].get("if"))
         required = required_ci_jobs(root=REPO_ROOT)
         assert jobs["build"]["name"] in required and jobs["test-floors"]["name"] in required
         assert any(name.startswith("Test (Python ") for name in required), required
 
-    def test_the_release_skip_does_not_make_a_job_optional(self):
-        """Any other condition still drops a job from the required set."""
+    def test_any_condition_makes_a_job_optional_and_none_keeps_it_required(self):
+        """No condition is special-cased: the release-event skip no longer exists, so a job
+        carrying it is conditional like any other."""
         import sys
 
         if str(REPO_ROOT) not in sys.path:
@@ -95,7 +181,7 @@ class TestWorkflowReleasePolicy:
             "  b:\n    name: B\n    if: github.event_name == 'push'\n    runs-on: x\n"
             "  c:\n    name: C\n    runs-on: x\n"
         )
-        assert sorted(required_ci_jobs(workflow)) == ["A", "C"]
+        assert sorted(required_ci_jobs(workflow)) == ["C"]
 
     def test_tag_push_still_triggers_validation_pipeline(self):
         workflow_text = WORKFLOW_PATH.read_text(encoding="utf-8")
@@ -187,87 +273,55 @@ class TestATagPushReusesTheDevRunOfItsCommit:
 
 
 class TestTestPyPIBeforePyPI:
-    """The tag push publishes to TestPyPI and verifies the upload from there, and PyPI publishes
-    only after both succeeded. The release event is a different run from the tag push, so
-    `needs:` cannot order the jobs; the PyPI job's first step reads the push run's two TestPyPI
-    jobs and fails unless both concluded success.
+    """The tag push publishes to TestPyPI, verifies the upload from there, and only then
+    publishes to PyPI, in one run: `needs:` orders the jobs, and PyPI receives this run's
+    artifact, each file checked against TestPyPI's hash before the upload.
 
-    What would pass while the order is broken: a gate step that exists but runs after the upload,
-    carries `continue-on-error` or an `if:`, looks for a job name the TestPyPI job no longer has,
-    reads another tag or commit, or exits 0 on a conclusion other than success.
+    What would pass while the order is broken: a download from another run, a hash check that
+    runs after the upload, carries `continue-on-error` or an `if:`, or reads another tag.
     """
 
     @staticmethod
     def _steps():
         return _load_workflow()["jobs"]["publish-pypi"]["steps"]
 
-    @classmethod
-    def _gate(cls):
-        gates = [s for s in cls._steps() if "TESTPYPI_JOB" in (s.get("env") or {})]
-        assert len(gates) == 1, f"expected one TestPyPI gate in publish-pypi, found {len(gates)}"
-        return gates[0]
-
-    def test_the_gate_runs_before_anything_is_uploaded(self):
-        steps = self._steps()
-        uploads = [i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", ""))]
-        assert len(uploads) == 1, uploads
-        assert steps.index(self._gate()) == 0 < uploads[0], [s.get("name") for s in steps]
-
     def test_nothing_before_the_upload_can_be_skipped_or_forgiven(self):
         job = _load_workflow()["jobs"]["publish-pypi"]
         assert not job.get("continue-on-error"), "publish-pypi is continue-on-error"
         steps = self._steps()
-        upload = next(i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", "")))
-        for step in steps[:upload + 1]:
+        uploads = [i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", ""))]
+        assert len(uploads) == 1, uploads
+        for step in steps[:uploads[0] + 1]:
             assert "if" not in step and not step.get("continue-on-error"), step.get("name")
 
-    # A job still running has no conclusion and a job not listed yet has none either; both read
-    # as pending, never as success. Two jobs of one name cannot say which one uploaded, so a
-    # failed upload beside a successful namesake reads as ambiguous rather than as success.
-    _ONE_JOB = ('[.jobs[] | select(.name == env.{})] | if length == 0 then "pending" '
-                'elif length == 1 then (.[0].conclusion // "pending") else "ambiguous" end')
-
-    def test_the_gate_reads_the_testpypi_job_by_its_name(self):
-        name = _load_workflow()["jobs"]["publish-testpypi"]["name"]
-        gate = self._gate()
-        assert gate["env"]["TESTPYPI_JOB"] == name
-        assert self._ONE_JOB.format("TESTPYPI_JOB") in gate["run"], gate["run"]
-
     def test_no_two_jobs_share_a_name(self):
-        """The gate reads jobs by name; a second job named like the upload would be read too."""
+        """Job names are what the release gate reads of a run; two alike cannot be told apart."""
         names = [job.get("name", jid) for jid, job in _load_workflow()["jobs"].items()]
         assert len(names) == len(set(names)), sorted(names)
 
-    def test_the_gate_outputs_the_run_that_passed(self):
-        gate = self._gate()
-        run = gate["run"]
-        assert gate.get("id") == "testpypi", gate.get("id")
-        assert re.search(r'if \[ "\$pair" = "success\+success" \] && \[ -z "\$matched" \]; then'
-                         r'\s*\n\s*matched="\$run"\s*\n\s*fi', run), run
-        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
-        success = re.search(r'^\s*\*" success\+success "\*\)\s*\n(.*?);;', block.group(1),
-                            re.M | re.S)
-        assert success and 'echo "run_id=$matched" >> "$GITHUB_OUTPUT"' in success.group(1), run
-
     def test_pypi_receives_the_files_testpypi_received(self):
-        """The release run rebuilds; its files are not the ones verified on TestPyPI. The
-        artifact comes from the push run the gate matched, and each file's sha256 must equal
-        TestPyPI's record of it before the upload."""
+        """The artifact is this run's, the one build stored and publish-testpypi uploaded, and
+        each file's sha256 must equal TestPyPI's record of it before the upload."""
+        jobs = _load_workflow()["jobs"]
+        stored = [s for s in jobs["build"]["steps"] if "upload-artifact" in str(s.get("uses", ""))]
+        assert len(stored) == 1, stored
+        name = stored[0]["with"]["name"]
+        for jid in ("publish-testpypi", "publish-pypi"):
+            got = [s for s in jobs[jid]["steps"] if "download-artifact" in str(s.get("uses", ""))]
+            assert len(got) == 1, (jid, got)
+            # Exactly a name and a path: a run-id, token or repository fetches another run's.
+            assert got[0]["with"] == {"name": name, "path": "dist/"}, (jid, got[0]["with"])
         steps = self._steps()
         upload = next(i for i, s in enumerate(steps) if "pypi-publish" in str(s.get("uses", "")))
-        downloads = [i for i, s in enumerate(steps)
-                     if "download-artifact" in str(s.get("uses", ""))]
-        assert len(downloads) == 1 and downloads[0] < upload, downloads
-        with_ = steps[downloads[0]]["with"]
-        gate_id = self._gate()["id"]
-        assert with_.get("run-id") == f"${{{{ steps.{gate_id}.outputs.run_id }}}}", with_
-        assert with_.get("github-token") == "${{ github.token }}", with_
-        checks = [s for s in steps[downloads[0] + 1:upload]
+        download = next(i for i, s in enumerate(steps)
+                        if "download-artifact" in str(s.get("uses", "")))
+        assert download < upload, [s.get("name") for s in steps]
+        checks = [s for s in steps[download + 1:upload]
                   if "https://test.pypi.org/pypi/jnwb/$version/json" in str(s.get("run", ""))]
         assert len(checks) == 1, "no step compares the files with TestPyPI before the upload"
         step = checks[0]
         run = step["run"]
-        assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.event.release.tag_name }}"
+        assert " ".join(str(step["env"]["TAG"]).split()) == "${{ github.ref_name }}", step["env"]
         assert "set -euo pipefail" in run and 'version="${TAG#v}"' in run, run
         assert "select(.filename == $name) | .digests.sha256" in run, run
         assert 'have=$(sha256sum "$file" | cut -d\' \' -f1)' in run, run
@@ -276,41 +330,15 @@ class TestTestPyPIBeforePyPI:
         assert re.search(r'if \[ "\$count" -eq 0 \] \|\| \[ "\$count" -ne "\$remote" \]; then'
                          r'\s*\n[^\n]*\n\s*exit 1\b', run), run
 
-    def test_the_gate_reads_this_releases_tag_push_run(self):
-        gate = self._gate()
-        env = {k: " ".join(str(v).split()) for k, v in gate["env"].items()}
-        assert env["TAG"] == "${{ github.event.release.tag_name }}", env
-        assert env["SHA"] == "${{ github.sha }}", env
-        assert "event=push&head_sha=$SHA" in gate["run"]
-        assert ('select(.head_branch == env.TAG and .path == ".github/workflows/workflow.yml")'
-                in gate["run"]), gate["run"]
-        permissions = _load_workflow()["jobs"]["publish-pypi"]["permissions"]
-        assert permissions.get("actions") == "read", permissions
-
-    def test_only_success_lets_the_gate_pass(self):
-        """The `case` over the conclusions: its one exiting-0 arm matches `success` alone."""
-        run = self._gate()["run"]
-        assert "set -euo pipefail" in run
-        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
-        assert block, "the gate no longer decides by a case over the conclusions"
-        arms = re.findall(r"^\s*([^\s(][^\n]*?)\)[ \t]*\n(.*?);;", block.group(1), re.M | re.S)
-        assert arms, "the gate has no case arms; this test is stale"
-        passing = [pattern for pattern, body in arms if re.search(r"\bexit 0\b", body)]
-        assert passing == ['*" success+success "*'], arms
-        assert len(re.findall(r"\bexit 0\b", run)) == 1, "an exit 0 outside the success arm"
-        failing = [pattern for pattern, body in arms if re.search(r"\bexit 1\b", body)]
-        assert "*" in failing, "a conclusion other than success and pending does not fail"
-
-    def test_waiting_for_the_push_run_ends_in_failure_after_an_hour(self):
-        """A pending or absent job waits; without the deadline it would wait until the runner's
-        own limit and never say why."""
-        run = self._gate()["run"]
-        assert "deadline=$((SECONDS + 3600))" in run
-        block = re.search(r'^\s*case " \$conclusions " in\n(.*?)^\s*esac\b', run, re.M | re.S)
-        waiting = re.search(r'^\s*\*pending\*\|"  "\)\s*\n(.*?);;', block.group(1), re.M | re.S)
-        assert waiting, "the gate has no arm for a pending or absent job"
-        assert re.search(r'if \[ "\$SECONDS" -ge "\$deadline" \]; then\s*\n[^\n]*\n\s*exit 1\b',
-                         waiting.group(1)), waiting.group(1)
+    def test_pypi_publishes_through_the_pypi_environment_with_trusted_publishing(self):
+        """The environment carries the approval rule; trusted publishing needs the OIDC token
+        and nothing more."""
+        job = _load_workflow()["jobs"]["publish-pypi"]
+        assert job["environment"] == {"name": "pypi", "url": "https://pypi.org/p/jnwb"}, job
+        assert job["permissions"] == {"id-token": "write", "contents": "read"}, job["permissions"]
+        upload = [s for s in self._steps() if "pypi-publish" in str(s.get("uses", ""))][0]
+        assert "password" not in (upload.get("with") or {}), upload
+        assert "repository-url" not in (upload.get("with") or {}), upload
 
     # --- the verification of the upload from TestPyPI -------------------------------------
 
@@ -352,12 +380,10 @@ class TestTestPyPIBeforePyPI:
         assert f'if [ "$attempt" -eq {loop.group(1)} ]' in loop.group(2), loop.group(2)
         assert re.search(r"\bexit 1\b", loop.group(2)), loop.group(2)
 
-    def test_the_pypi_gate_requires_the_verify_job_to_succeed(self):
-        gate = self._gate()
-        assert gate["env"]["VERIFY_JOB"] == self._verify_job()["name"]
-        assert self._ONE_JOB.format("VERIFY_JOB") in gate["run"], gate["run"]
-        assert 'pair="${upload:-pending}+${verify:-pending}"' in gate["run"], gate["run"]
-        assert 'conclusions="$conclusions $pair"' in gate["run"], gate["run"]
+    def test_the_pypi_upload_needs_the_verify_job(self):
+        jobs = _load_workflow()["jobs"]
+        assert self._verify_job() == jobs["verify-testpypi"]
+        assert jobs["publish-pypi"]["needs"] == "verify-testpypi"
 
     def test_the_verify_job_checks_the_installed_environment(self):
         """`pip check` in the venv under test, between the install and the smoke script: a
@@ -382,15 +408,13 @@ class TestTestPyPIBeforePyPI:
     # Status functions that let a job or step run after something it depends on failed.
     _RUNS_AFTER_FAILURE = re.compile(r"\b(?:always|cancelled|failure)\s*\(")
 
-    def test_no_job_the_pypi_gate_waits_on_can_be_forgiven(self):
-        """A `continue-on-error` job concludes success when it fails, so the gate would read a
+    def test_no_job_the_pypi_upload_needs_can_be_forgiven(self):
+        """A `continue-on-error` job concludes success when it fails, so `needs:` would read a
         failed upload or verification, or a failed job either depends on, as a pass. An `if:`
         with `always()`, `!cancelled()` or `failure()` runs a job after its dependency failed,
         which forgives that failure the same way."""
         jobs = _load_workflow()["jobs"]
-        gate = self._gate()["env"]
-        by_name = {job.get("name"): jid for jid, job in jobs.items() if isinstance(job, dict)}
-        pending = [by_name[gate["TESTPYPI_JOB"]], by_name[gate["VERIFY_JOB"]]]
+        pending = ["publish-pypi"]
         seen = set()
         while pending:
             jid = pending.pop()
@@ -406,7 +430,7 @@ class TestTestPyPIBeforePyPI:
                     jid, step.get("name"), step["if"])
             needs = job.get("needs") or []
             pending.extend([needs] if isinstance(needs, str) else needs)
-        assert {"publish-testpypi", "build", "test", "test-floors"} <= seen, seen
+        assert {"verify-testpypi", "publish-testpypi", "build", "test", "test-floors"} <= seen, seen
 
     def test_the_status_function_check_sees_each_form(self):
         for condition in ("${{ always() }}", "${{ !cancelled() }}", "failure() || success()",
@@ -628,15 +652,18 @@ class TestPublishCapablePipelineHygiene:
         assert permissions == {"contents": "read"}, permissions
 
     def test_only_the_publish_jobs_raise_that_floor(self):
-        """The one other job that raises it reads Actions runs, and nothing more."""
+        """Of the two other jobs that raise it, one reads Actions runs and nothing more, and the
+        one that creates the GitHub Release writes contents and nothing more."""
         jobs = _load_workflow()["jobs"]
         raised = {
             name: job["permissions"]
             for name, job in jobs.items()
             if isinstance(job, dict) and "permissions" in job
         }
-        assert set(raised) == {"publish-testpypi", "publish-pypi", "qualified"}, raised
+        assert set(raised) == {"publish-testpypi", "publish-pypi", "qualified",
+                               "github-release"}, raised
         assert raised.pop("qualified") == {"actions": "read", "contents": "read"}
+        assert raised.pop("github-release") == {"contents": "write"}
         for name, permissions in raised.items():
             assert permissions.get("id-token") == "write", (name, permissions)
 
@@ -645,17 +672,10 @@ class TestPublishCapablePipelineHygiene:
         assert concurrency, "no concurrency group; overlapping runs are possible again"
         assert "github.ref" in concurrency["group"], concurrency
 
-    def test_a_tags_push_and_release_runs_do_not_share_a_group(self):
-        """The release run waits on the push run's TestPyPI job; sharing a group, whichever
-        started second would queue behind the other and the wait would time out. Pushes to one
-        branch still share a group, so the later still cancels the earlier."""
-        group = " ".join(_load_workflow()["concurrency"]["group"].split())
-        assert group == "${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}", group
-
     def test_a_run_that_can_publish_is_never_cancelled_mid_upload(self):
-        """Cancelling a tag or release run is the failure this is meant to prevent."""
-        cancel = str(_load_workflow()["concurrency"]["cancel-in-progress"])
-        assert "refs/tags/" in cancel and "release" in cancel, cancel
+        """Cancelling a tag run is the failure this is meant to prevent."""
+        cancel = " ".join(str(_load_workflow()["concurrency"]["cancel-in-progress"]).split())
+        assert cancel == "${{ !startsWith(github.ref, 'refs/tags/') }}", cancel
         assert cancel.strip().lower() not in {"true", "${{ true }}"}, cancel
 
     def test_a_manual_dispatch_publishes_nothing_by_default(self):
@@ -693,3 +713,91 @@ class TestPublishCapablePipelineHygiene:
         pinned = re.findall(r"uses:\s*\S*pypi-publish@[0-9a-f]{40}\s*#\s*(v[\d.]+)", text)
         assert len(pinned) == 2, f"a pin carries no version comment: {pinned}"
         assert len(set(pinned)) == 1, f"the two publish jobs pin different versions: {pinned}"
+
+
+class TestTheTagPushCreatesTheRelease:
+    """After the PyPI upload the same run creates the GitHub Release, its notes written by
+    `scripts/release_body.py` and refused by the body check before `gh release create` runs.
+
+    What would pass while that is broken: a release job that runs before or without the upload,
+    a check step that is skipped or forgiven, notes created from another file than the one
+    checked, or a Release created with notes GitHub generates.
+    """
+
+    BODY_SCRIPT = "python scripts/release_body.py --tag \"$TAG\" --output \"$RUNNER_TEMP/release_body.md\""
+
+    @staticmethod
+    def _job():
+        return _load_workflow()["jobs"]["github-release"]
+
+    def test_the_release_follows_the_pypi_upload_in_the_tag_push_run(self):
+        job = self._job()
+        assert job["needs"] == "publish-pypi", job.get("needs")
+        condition = " ".join(str(job["if"]).split())
+        assert condition == "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')"
+        assert not job.get("continue-on-error")
+
+    def test_the_notes_are_checked_before_the_release_is_created(self):
+        steps = self._job()["steps"]
+        runs = [str(s.get("run", "")) for s in steps]
+        write = [i for i, r in enumerate(runs) if self.BODY_SCRIPT in r]
+        create = [i for i, r in enumerate(runs) if "gh release create" in r]
+        assert len(write) == 1 and len(create) == 1 and write[0] < create[0], runs
+        for step in steps[:create[0] + 1]:
+            assert "if" not in step and not step.get("continue-on-error"), step.get("name")
+        for i in (write[0], create[0]):
+            assert " ".join(str(steps[i]["env"]["TAG"]).split()) == "${{ github.ref_name }}"
+        command = " ".join(runs[create[0]].replace("\\\n", " ").split())
+        assert command == ('gh release create "$TAG" --verify-tag --title "$TAG" '
+                           '--notes-file "$RUNNER_TEMP/release_body.md"'), command
+        assert steps[create[0]]["env"]["GH_TOKEN"] == "${{ github.token }}"
+        assert any("actions/checkout" in str(s.get("uses", "")) for s in steps[:write[0]])
+
+    def test_no_job_that_can_write_leaves_its_token_in_the_checkout(self):
+        """`actions/checkout` stores the job's token in `.git/config` unless told not to; in a
+        job with `contents: write` any later step could push with it."""
+        jobs = _load_workflow()["jobs"]
+        writers = [jid for jid, job in jobs.items()
+                   if "write" in (job.get("permissions") or {}).get("contents", "")]
+        assert writers == ["github-release"], writers
+        for jid in writers:
+            checkouts = [s for s in jobs[jid]["steps"]
+                         if "actions/checkout" in str(s.get("uses", ""))]
+            assert checkouts, jid
+            for step in checkouts:
+                assert (step.get("with") or {}).get("persist-credentials") is False, (jid, step)
+
+    def test_the_notes_are_checked_before_anything_reaches_pypi(self):
+        """A body the check refuses stops the run while PyPI is still untouched."""
+        steps = _load_workflow()["jobs"]["verify-testpypi"]["steps"]
+        checks = [s for s in steps if self.BODY_SCRIPT in str(s.get("run", ""))]
+        assert len(checks) == 1, [s.get("name") for s in steps]
+        assert checks[0]["if"] == "steps.kind.outputs.final == 'true'", checks[0].get("if")
+        assert not checks[0].get("continue-on-error")
+        kind = next(i for i, s in enumerate(steps) if s.get("id") == "kind")
+        assert steps.index(checks[0]) > kind
+
+    def test_the_contributing_steps_describe_this_order(self):
+        """Steps 4 to 6 of "Releasing" are what a maintainer follows; a step that still says to
+        publish a Release by hand would have them do what the workflow no longer reads."""
+        text = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        section = re.search(r"^## Releasing\n(.*?)^## ", text, re.M | re.S).group(1)
+        steps = dict(re.findall(r"^([4-6])\. (.*?)(?=^\d\. |^\*\*|\Z)", section, re.M | re.S))
+        assert sorted(steps) == ["4", "5", "6"], sorted(steps)
+        four, five = (" ".join(steps[k].split()) for k in ("4", "5"))
+        assert "`publish-testpypi`" in four and "`verify-testpypi`" in four, four
+        assert "`scripts/release_body.py`" in four, four
+        assert "`publish-pypi` needs `verify-testpypi`" in five, five
+        assert "this run's distribution artifact" in five and "`pypi` environment" in five, five
+        assert "`github-release`" in five and "`check_release_body_claims`" in five, five
+        assert "`gh release create`" in five and "for a final version only" in five, five
+        jobs = _load_workflow()["jobs"]
+        for job_id in re.findall(r"`([a-z]+(?:-[a-z]+)+)`", four + five):
+            assert job_id in jobs, job_id
+        assert "release: published" not in section and "Create a **GitHub Release**" not in section
+
+    def test_the_body_script_exists_and_reuses_the_release_gates_check(self):
+        source = (REPO_ROOT / "scripts" / "release_body.py").read_text(encoding="utf-8")
+        assert "from scripts.release_gate import" in source, source[:400]
+        for name in ("check_release_body_claims", "release_metadata"):
+            assert re.search(rf"^\s+{name},$", source, re.M), name
