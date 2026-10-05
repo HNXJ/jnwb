@@ -27,7 +27,7 @@ Every figure the documentation generators draw (`docs/generate_figures.py` and
 | fits | a fit drawn over a log-log spectrum sits on the spectrum's grid, centred on it |
 | palette | every colour drawn is a series colour, the highlight, the neutral or the theme's ink, and no generator types one |
 | colour vision | the series and highlight colours drawn stay apart under deutan, protan and tritan simulation |
-| type | every text is set in Arial first and measures 8 to 11 pt |
+| type | every text is set in Liberation Sans and measures 8 to 11 pt |
 | spines | no axes draws a top or right spine |
 | panel letters | each panel of a multi-panel figure carries one bold letter, outside its title |
 | line widths | every data line is 1.2 to 1.8 pt, taken from the style module |
@@ -1652,7 +1652,7 @@ def _text_size_failures(fig, bounds=RULED_TEXT_PT) -> list[str]:
 def _font_failures(fig) -> list[str]:
     _renderer(fig)
     return [f"{t.get_text()!r} is set in {t.get_fontfamily()}" for t in _drawn_texts(fig)
-            if t.get_fontfamily()[0] != "Arial"]
+            if t.get_fontfamily()[0] != STYLE.FONT]
 
 
 def _spine_failures(fig) -> list[str]:
