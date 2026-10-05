@@ -11,7 +11,7 @@ edges in them are closed.
 
 Acceptance: `AGENTS.md` §11; `jnwb.__all__` and every public signature identical to 0.2.9;
 gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
-record in `artifacts/evidence/0.2.10/`; one command moves every version surface (10-17).
+record in `artifacts/evidence/0.2.10/`.
 
 Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
@@ -39,10 +39,9 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | F spectral and laminar | 10-01, 10-02, 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-05, 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 09-08, 10-16, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
-| R release surfaces | 10-17 | `scripts/bump_version.py`, `tests/test_bump_version.py`, the "Releasing" section of `CONTRIBUTING.md` |
 
 10-01 opens the cycle in F; 10-05 and 10-07 start once it is merged, and H fills that gap with
-09-08 and 10-16; R runs beside them.
+09-08 and 10-16.
 
 ### 10-01 Tests find module files by import, not by path
 
@@ -183,6 +182,9 @@ Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 10-01.
 Writes: `jnwb/statistics.py`, `jnwb/statistics/**`, `tests/test_statistics.py`, `artifacts/frozen_validated.json`.
 Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a); `StatisticalAnalysis` moves whole. Gate 19's two
 `jnwb/statistics.py` entries are re-pointed with unchanged hashes.
+- `tests/test_statistics.py:707` reads `inspect.getsource(jnwb.statistics)`, which on a package returns
+only `__init__`, so the check passes vacuously after the split. Check: it scans every module of the
+package, and a reintroduced key in a submodule fails it.
 Accept: as 10-02, and gate 19 passes with no hash changed.
 Stop: a move changes a function body gate 19 hashes.
 Waits: layout only.
@@ -224,16 +226,6 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - Closure pass 2026-10-05: the `quality_metrics` refractory comparison uses `<` with no tolerance, where `refractory_contamination` allows 1 ns; predates 0.2.9. Check: one comparison rule, called, not retyped (`AGENTS.md` 4.7). Waits: differs only for intervals within 1 ns of the period.
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
-
-### 10-17 One command moves every version surface
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/bump_version.py`, `tests/test_bump_version.py`, the "Releasing" section of `CONTRIBUTING.md`.
-Found at the 0.2.9 release (2026-10-05): the bump moved `__version__` and left `__release_date__`, the checkout version in `README.md`, the `SKILLS_URL` example in `docs/agents.md` and the import profile at 0.2.8; 9 tests failed and a repair round followed.
-- Check: `python scripts/bump_version.py X.Y.Z --date YYYY-MM-DD` rewrites every surface the version tests read, taking the list from those tests' own source of it rather than a copy, and a test fails when a surface is left behind.
-Accept: the check passes, and step 1 of "Releasing" in `CONTRIBUTING.md` names the command.
-Stop: none.
 
 # 0.2.11
 
