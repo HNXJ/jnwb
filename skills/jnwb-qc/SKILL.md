@@ -64,13 +64,13 @@ Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_
    from, not that it is correct. No field or method of `Result`, `Provenance` or `Lineage`
    holds a verdict, and a request to call a result correct, or a table valid, from its record
    or an audit count is declined.
-6. **Sorter labels are an input, never ground truth**: a sorter's label or quality column is a
+5. **Sorter labels are an input, never ground truth**: a sorter's label or quality column is a
    value to screen against. No measure here, and no agreement with a label, shows that a unit
    is a single neuron, and a request to call a unit a single neuron from quality measures alone
    is declined. A measure or class that the input cannot support (NaN, `'Unknown'`) is reported
    as not estimable, never as a plausible number. State every cut-off with the class or flag
    it produced.
-7. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are
+6. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are
    at hand; request the provenance and lineage a `Result` refuses to be built without; report
    failure for a version claim that does not match execution; decline a verdict on correctness
    drawn from a record or an audit count. For unit quality: execute the measures on the

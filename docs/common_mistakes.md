@@ -412,6 +412,6 @@ neuron. A label is the sorter's output and no measure of `jnwb.unit_quality` con
 
 ### The Correct Pattern
 Screen units against cut-offs you state, report a measure the input cannot support (NaN,
-`'Unknown'`) as not estimable, and leave the single-neuron claim unmade. The sixth safeguard of
+`'Unknown'`) as not estimable, and leave the single-neuron claim unmade. The fifth safeguard of
 the [`jnwb-qc` skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb-qc/SKILL.md) holds the
 rule.
