@@ -172,6 +172,8 @@ SEEDS = {
     "fifth-level heading": ("heading depth", _append(PAGE_A, "\n##### Deeper\n"), "Deeper"),
     "indented fourth-level heading": ("heading depth", _append(PAGE_A, "\n   #### Indented\n"),
                                       "Indented"),
+    "heading after a fence indented four spaces": (
+        "heading depth", _append(PAGE_A, "\nText.\n\n    ```\n    code\n\n#### After\n"), "After"),
     "deep heading on a tutorial page": ("heading depth", _append(TUTORIAL, "\n#### Too deep\n"),
                                         "tutorials/t1.md:"),
     "superseded form on a tutorial page": (

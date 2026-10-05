@@ -140,7 +140,7 @@ def fenced_comments(text: str) -> str:
     )
 
 
-_FENCE_LINE = re.compile(r"^\s*(```|~~~)")
+_FENCE_LINE = re.compile(r"^ {0,3}(```|~~~)")
 
 
 def unfenced_lines(text: str) -> Iterator[Tuple[int, str]]:
