@@ -14,7 +14,7 @@ Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows 
 not only at its ends.
 
 ```bash
-git clone git@github.com:HNXJ/jnwb.git
+git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
@@ -23,8 +23,11 @@ pip install -e ".[test,docs,vis]"
 
 These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
 Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
-accelerated paths, `all` for everything. The GPU paths fall back to CPU with a warning when their
-dependency is absent, so you can work on most of the library without them.
+accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
+Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
+in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back
+to CPU with a warning when their dependency is absent, so you can work on most of the library
+without them.
 
 Verify the install:
 
@@ -40,8 +43,8 @@ reaches a release.
 
 ## Branches
 
-`dev` is where work lands. `main` holds releases and is fast-forwarded to `dev` when one
-is cut — no merge commits, so the two never diverge.
+`dev` is where work lands. `main` holds releases and moves by merging `dev` into it with a
+merge commit, not a fast-forward (step 3 of [Releasing](#releasing)).
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.
@@ -416,11 +419,13 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
    `success`.
-3. Merge `dev` into `main` and push it. Not a fast-forward: `main` carries the merge commit
-   of every previous release PR, so `git merge --ff-only dev` fails there and always has.
-   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
-   `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
-   all went through a PR merge; this step said "fast-forward" through all of them.
+3. Run `git fetch origin main`, then merge `dev` into `main` with a merge commit and push it.
+   `main` carries the merge commit of every release, so it is ahead of `dev` until `dev` takes
+   those commits in. `release_gate.py` reads the commit being released: when it is a merge onto `main`,
+   its first parent (the old `main`) must be an ancestor of its second (`dev`); otherwise
+   `origin/main`, else `main`, must be an ancestor of it. The gate does not fetch.
+   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
+   ahead of `main`, with no content on `main` that `dev` lacked and no conflict.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run

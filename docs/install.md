@@ -31,6 +31,11 @@ every other export work, and accessing `jnwb.vis` raises `ImportError` naming
 `pip install jnwb[vis]`. So does `from jnwb import *`, because `vis` is in `jnwb.__all__`.
 [Plotly Figures](vis.md) shows a canvas end to end.
 
+kaleido 1.x writes SVG and PNG through a Chrome or Chromium that neither it nor `vis` installs.
+Without one, an export raises `RuntimeError` ("Kaleido requires Google Chrome to be installed"). Install one with the `kaleido_get_chrome`
+command (or `kaleido.get_chrome_sync()` in Python), or set the `BROWSER_PATH` environment
+variable to an existing browser executable.
+
 ### GPU and parallel execution
 
 Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'`, the default,
@@ -59,8 +64,10 @@ Clone and install an editable development environment:
 ```bash
 git clone https://github.com/HNXJ/jnwb.git
 cd jnwb
-pip install -e ".[all]"
+pip install -e ".[test,docs,vis]"
 ```
+
+These are the extras the suite exercises; the `vis` exports need the Chrome described under [Extras](#extras). Clone with `git@github.com:HNXJ/jnwb.git` instead if you have a GitHub SSH key.
 
 ### Do not clone other projects inside this checkout
 

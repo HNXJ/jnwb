@@ -1646,6 +1646,51 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     return violations
 
 
+def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
+                             head: Optional[str] = None) -> List[str]:
+    """Why the commit being released drops a commit of ``main``; empty when it does not.
+
+    ``main`` moves by merging ``dev`` into it. At a two-parent commit that is ``origin/main``
+    (else ``main``) or whose first parent is, the first parent (the old ``main``) must be an
+    ancestor of the second (``dev``). At any other commit, including a lane merged into ``dev``,
+    ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
+    unknown and refused. Nothing here fetches.
+    """
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+
+    target = head or "HEAD"
+    listed = git("rev-list", "--parents", "-n", "1", target)
+    words = listed.stdout.split()
+    if listed.returncode != 0 or not words:
+        return [f"{target[:12]} does not resolve, so whether it contains main is unknown"]
+    full, parents = words[0], words[1:]
+    ref = next((r for r in ("origin/main", "main")
+                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
+               None)
+    if ref is None:
+        return ["neither origin/main nor main resolves, so whether main is an ancestor of "
+                "the commit being released is unknown"]
+    main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
+    # A merge commit is a release merge only when it is main or merges onto main; any other
+    # two-parent commit (a lane merged into dev) is read as a plain commit.
+    if len(parents) == 2 and main_sha in (full, parents[0]):
+        container, contained = parents[1], parents[0]
+        what = f"the first parent {contained[:12]} (the old main) of the merge {target[:12]}"
+        where = f"its second parent {container[:12]}"
+    else:
+        contained, container = ref, target
+        what, where = ref, target[:12]
+    ancestry = git("merge-base", "--is-ancestor", contained, container)
+    if ancestry.returncode == 0:
+        return []
+    if ancestry.returncode == 1:
+        return [f"{what} is not an ancestor of {where}: bring main's commits into dev before "
+                "releasing, so the release contains every commit on main"]
+    return [f"whether {what} is an ancestor of {where} could not be determined: "
+            f"{ancestry.stderr.strip()[:120]}"]
+
+
 def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
     """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
 
@@ -1881,7 +1926,8 @@ def main() -> None:
                               text=True, check=True).stdout.strip()
     except (subprocess.CalledProcessError, OSError):
         head = None
-    stack_violations = check_state_is_current() + check_release_readiness(head=head)
+    stack_violations = (check_state_is_current() + check_release_readiness(head=head)
+                        + main_ancestry_violations(head=head))
     if stack_violations:
         for violation in stack_violations:
             log.error(violation)
@@ -1891,7 +1937,9 @@ def main() -> None:
             "stack; zero todo items still required for this cycle; and a blocker-focused closure "
             "receipt reporting zero new blockers, recorded at HEAD or at an ancestor that differs "
             "from HEAD only in the receipt and %s, with no item it held open relabelled since "
-            "or deleted without the receipt recording it as finished. Work deferred to %s, and "
+            "or deleted without the receipt recording it as finished; and a commit that contains "
+            "main (a merge's first parent contained in its second; otherwise origin/main, "
+            "fetched, an ancestor). Work deferred to %s, and "
             "%s items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)
