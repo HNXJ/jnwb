@@ -63,7 +63,7 @@ comparison = stats.exploratory_compare(
 
 ### Benjamini-Hochberg FDR Control (`fdr_correct`)
 
-For confirmatory hypothesis testing across cohorts of channels, frequency bins, or time lags, apply explicit FDR control:
+For confirmatory tests across channels, frequency bins or time lags:
 
 ```python
 p_values = np.array([0.001, 0.004, 0.015, 0.048, 0.120])

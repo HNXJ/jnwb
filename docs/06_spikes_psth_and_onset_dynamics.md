@@ -1,6 +1,6 @@
 # 06. Spike Extraction, PSTH & Onset Dynamics
 
-PSTHs, response metrics, spike-LFP phase locking, causal smoothing, onset fitting and population trajectories. The [spiking tutorial](tutorials/03_spiking.md) runs them on synthetic data.
+PSTHs, response metrics, spike-LFP phase locking, causal smoothing, onset fitting and population trajectories. The [spiking tutorial](tutorials/03_spiking.md) runs the PSTH, smoothing and onset fit.
 
 ---
 

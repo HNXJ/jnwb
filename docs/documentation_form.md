@@ -139,23 +139,22 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
 | Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 828, `recipes` at 348 sit under it |
-| Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | six of the twelve sit under it |
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | seven of the twelve sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-04 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
+Measured 2026-10-04 with `wc -w`. Eight pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
 | `common_mistakes` | 2596 | twelve failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1548 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
-| `03_representational_similarity_jrsa` | 1256 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
-| `04_spectral_analysis_and_tfr` | 1231 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
-| `06_spikes_psth_and_onset_dynamics` | 1386 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
-| `07_statistical_inference_and_nulls` | 1207 | the bootstrap, permutation, FDR and fire-probability sections each state the null a p-value is computed under; the page sat at its ceiling before the tutorial link |
+| `02_paths_addressing_metadata` | 1551 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
+| `03_representational_similarity_jrsa` | 1264 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
+| `04_spectral_analysis_and_tfr` | 1233 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
+| `06_spikes_psth_and_onset_dynamics` | 1388 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
 | `architecture` | 1809 | two pages merged: the module map is a 549-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |

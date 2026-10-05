@@ -1,7 +1,5 @@
 # 09. Population Decoding, Unit-Quality Plots & Publication Graphics
 
-The [ensembles tutorial](tutorials/07_ensembles.md) runs the decoder and representational similarity.
-
 ## 1. Population Decoding & Nested Cross-Validation (`jnwb.decoding`)
 
 `jnwb.decoding` provides a linear support vector machine (SVM) decoder with nested cross-validation, majority baselines, and separate fold-partitioning functions that hold out whole groups against temporal autocorrelation leakage.
