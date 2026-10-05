@@ -258,6 +258,15 @@ def test_only_a_missing_chrome_may_skip_the_browser_tests(session_browser_parts)
     assert parts.chrome_missing(ended_by(ChromeNotFoundError("no chrome")))
     assert not parts.chrome_missing(ended_by(FileNotFoundError("no browser")))
     assert not parts.chrome_missing(ended_by(None))
+
+    try:  # reached only through __context__: the raise has no `from`
+        try:
+            raise ChromeNotFoundError("no chrome")
+        except ChromeNotFoundError:
+            raise parts.failed("died during calc_fig")  # noqa: B904
+    except parts.failed as err:
+        assert err.__cause__ is None
+        assert parts.chrome_missing(err)
     assert not parts.chrome_missing(parts.failed("gave no calc_fig in 90 s"))
 
 

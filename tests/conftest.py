@@ -36,6 +36,11 @@ BROWSER_STOP_SECONDS = 60
 FIRST_FIGURE = {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}], "layout": {}}
 
 
+#: Set to "1" where a browser must exist (every CI leg): a missing Chrome then errors every
+#: browser-backed test instead of skipping it. Any other value leaves the skip on.
+REQUIRE_BROWSER = "JNWB_REQUIRE_BROWSER"
+
+
 class SessionBrowserFailed(RuntimeError):
     """kaleido's session browser died, or gave no answer within its bound."""
 
@@ -181,7 +186,7 @@ def session_browser():
         try:
             first_figure(kaleido.calc_fig_sync)
         except SessionBrowserFailed as err:
-            if chrome_is_missing(err):
+            if chrome_is_missing(err) and os.environ.get(REQUIRE_BROWSER) != "1":
                 pytest.skip("Chrome is not installed, so kaleido cannot render: run "
                             "`kaleido_get_chrome` or set BROWSER_PATH")
             raise
