@@ -40,7 +40,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
+| E references | 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
 | V figure style | 09-13 | `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`; `examples/tutorials/09_open_data.py` and `tests/test_figure_form.py` once lane D has merged them |
@@ -73,22 +73,10 @@ which Hamm named on 2026-10-04: `E:/repos/jomission`, read-only.
 Accept: every downstream row cites the pipeline's code.
 Stop: reading the downstream code needs access its owner has not given.
 
-### 09-05 Method papers on the references page
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `docs/references.md`, `jnwb/connectivity.py`, `jnwb/spectral.py`, `jnwb/laminar.py`, `tests/test_references_resolve.py`, `artifacts/evidence/0.2.9/references/bastos_survey.md`.
-Ruled 2026-09-29: method papers only. The survey is `artifacts/evidence/0.2.9/references/bastos_survey.md`; its DOIs were resolved on Crossref that day.
-- Rows for Bastos and Schoffelen 2016, Bastos et al. 2018 (PNAS), Bastos et al. 2020 (PNAS), Bastos et al. 2021 (eLife), Vezoli et al. 2021, Friston et al. 2014 and Barnett and Seth 2011, each naming the result jnwb implements or the pitfall it states. Check: `tests/test_references_resolve.py` passes with every listed function citing its row's DOI.
-- A docstring cites a paper only where the function implements or follows its method; a paper that only motivates a choice is cited from a docs page. Check: each new citation names the section or equation it follows.
-- The survey's inferred rows are read in full text before any procedure is cited from them. Check: the row's evidence column reads observed. Waits: citations only; no number changes.
-Accept: every row resolves, names its functions, and each function's docstring carries the DOI.
-Stop: a paper's procedure differs from what the function computes; the row then says how, as the Mendoza-Halliday row does.
-
 ### 09-06 The interpretational pitfalls, stated once
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 09-05.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `docs/common_mistakes.md`, `docs/08_directed_connectivity_and_information.md`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`.
 - Common reference, volume conduction, SNR asymmetry, common input, sample-size bias, phase slope as direction, bivariate against conditional Granger, filtering before Granger and non-stationarity: one statement each, linked to its reference row and to the function that guards it or the gap that leaves it open. Check: each statement links a `docs/references.md` row. Waits: documentation only.
@@ -145,7 +133,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -376,7 +364,7 @@ Stop: a test would need a threshold no reference fixes.
 ### 10-12 Skills point to their sources
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: per skill. Blocked by: 09-05, 10-03, 10-06.
+Role: jnwb-developer. Skill: per skill. Blocked by: 10-03, 10-06.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - Each connectivity and spectral safeguard names its `docs/references.md` row instead of restating the method. Check: the line test finds no restated definition. Waits: pointers only.
 - A request to compare with published nonparametric Granger values meets the estimator difference, as a decline or a qualification. Check: a decline-behaviour case. Waits: skill text only.
@@ -729,7 +717,7 @@ Stop: a workflow change would alter the ruled publication order.
 
 Release: deferred-0.2.9.
 AUTONOMY: none for the fact row; the graph edges are `max`.
-Role: jnwb-developer. Skill: none. Blocked by: 09-05.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - The fact graph gains reference nodes and DOI-to-function edges read from `docs/references.md`. Check: a planted row with no function is reported.
 - A proposed Science fact, every routed method cites a published source, held by `tests/test_references_resolve.py`. Check: Hamm approves the row; it reads HELD.
