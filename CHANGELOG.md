@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- An infinite quality is no quality code: `assign_quality_tier` gives it `'unknown'` and `enrich_units_dataframe` an `is_stable` of `<NA>`, where `assign_quality_tier` gave `'unstable'` for both +inf and -inf and `enrich_units_dataframe` gave `True` for +inf and `False` for -inf.
+- An infinite quality is no quality code: `assign_quality_tier` gives it `'unknown'` and `enrich_units_dataframe` an `is_stable` of `<NA>` (no `is_stable` column when no quality is usable), where `assign_quality_tier` gave `'unstable'` for both +inf and -inf and `enrich_units_dataframe` gave `True` for +inf and `False` for -inf.
 - `jnwb.metadata.compare_old_new_criteria` gives transition `'unknown'` to a unit whose old class is missing, where it read as not screened and gave `'gained'`; a unit with no old row is still not screened. A caller column named `_old_class` no longer collides with the function's working column.
 - The docstrings of `audit_units` and `plot_unit_waveforms` state that a NaN in the audit is written by `json.dumps` as non-strict JSON, and that each sample of a waveform template averages only the spikes not NaN there, so its amplitude and peak channel can shift where spikes drop out.
 - A torch tensor cut-off raises `TypeError` naming the cut-off, and an integer too large for a float `ValueError`, where each raised an unnamed `TypeError` or `OverflowError`.
