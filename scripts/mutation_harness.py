@@ -175,28 +175,60 @@ def sha256_file(path: Path) -> str:
 # where a public object's source lives
 # --------------------------------------------------------------------------------------------
 
-def source_path(name: str, anchor: str | None = None) -> str:
+def _import_jnwb(repo: Path | None):
+    """The ``jnwb`` package, imported from ``repo`` when it is not already imported.
+
+    The directory is on ``sys.path`` only for the import, and only when it is not there already;
+    nothing is left prepended. A package already imported from elsewhere is refused for a
+    ``repo`` that does not hold it, because its paths would describe another tree.
+    """
+    import importlib
+
+    if repo is not None and "jnwb" not in sys.modules:
+        added = str(repo) not in sys.path
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        try:
+            package = importlib.import_module("jnwb")
+        finally:
+            if added:
+                sys.path.remove(str(repo))
+    else:
+        package = importlib.import_module("jnwb")
+    return package
+
+
+def source_path(name: str, anchor: str | None = None, *, repo: Path | None = None) -> str:
     """Repository-relative posix path of the file that defines ``jnwb.<name>``.
 
     Derived with :func:`inspect.getsourcefile`, so a function that moves to another module
     changes no caller. A case whose text lives in a private helper names a public object that
     reaches it and passes the text as ``anchor``: when the public object's file does not hold
-    the anchor exactly once, the unique file under ``jnwb/`` that does is used. Zero or several
-    such files raise, because a path picked among candidates is not a derivation. The root is
-    the directory holding the imported ``jnwb`` package, and it must be a source tree: an
-    installed copy has no ``pyproject.toml`` beside it and is refused.
+    the anchor at all, the unique file under ``jnwb/`` that does is used. Zero or several
+    such files raise, because a path picked among candidates is not a derivation. A public
+    object's own file that holds the anchor more than once raises too, rather than handing the
+    case to some other file. The root is the directory holding the imported ``jnwb`` package
+    (which must be ``repo`` when that is given), and it must be a source tree: an installed
+    copy has no ``pyproject.toml`` beside it and is refused.
     """
-    import importlib
     import inspect
 
-    package = importlib.import_module("jnwb")
-    repo = Path(inspect.getsourcefile(package) or "").resolve().parent.parent
+    package = _import_jnwb(repo)
+    root = Path(inspect.getsourcefile(package) or "").resolve().parent.parent
+    if repo is not None and root != Path(repo).resolve():
+        raise MutationHarnessError(f"jnwb is imported from {root}, not from {repo}")
+    repo = root
     if not (repo / "pyproject.toml").is_file():
         raise MutationHarnessError(f"jnwb is imported from {repo}, which is not a source tree")
     found = Path(inspect.getsourcefile(getattr(package, name)) or "").resolve()
     rel = found.relative_to(repo)
-    if anchor is None or found.read_bytes().decode("utf-8").count(anchor) == 1:
+    own = 0 if anchor is None else found.read_bytes().decode("utf-8").count(anchor)
+    if anchor is None or own == 1:
         return rel.as_posix()
+    if own > 1:
+        raise MutationHarnessError(
+            f"anchor {anchor[:60]!r} occurs {own} times in {rel.as_posix()}, the file of jnwb.{name}"
+        )
     hits = [
         p
         for p in sorted((repo / "jnwb").rglob("*.py"))
@@ -1221,10 +1253,16 @@ def load_cases(path: Path) -> list[MutationCase]:
 #: to every other worker. ``tests/test_mutation_harness_validity.py`` holds them to what can be
 #: checked without mutating anything: the anchor still lands exactly once, and every node id they
 #: name still exists in the file it names.
-KNOWN_GAPS: tuple[MutationCase, ...] = (
+def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
+    """The recorded gaps, built at use: a path derived from ``jnwb`` needs ``jnwb`` imported,
+    and importing this module must not import it (run by path, it would resolve to whatever
+    copy is installed). ``repo`` is the source tree the paths are derived in."""
+    return (
     MutationCase(
         name="P-171 | density-versus-power is named by a test that measures a ratio",
-        path=source_path("band_power", "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n"),
+        path=source_path(
+            "band_power", "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n", repo=repo
+        ),
         original="        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
         replacement=(
             '        return signal.welch(trace, fs=fs, nperseg=nperseg, scaling="spectrum")\n'
@@ -1251,7 +1289,7 @@ KNOWN_GAPS: tuple[MutationCase, ...] = (
             "test_band_power_is_the_mean_psd_over_the_band. The naming is what is not covered."
         ),
     ),
-)
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1283,9 +1321,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.known_gaps == (args.cases is not None):
         parser.error("give exactly one of a case file or --known-gaps")
-    cases = list(KNOWN_GAPS) if args.known_gaps else load_cases(args.cases)
-
     worktree = resolve_worktree(args.worktree)
+    cases = list(known_gaps(worktree)) if args.known_gaps else load_cases(args.cases)
     try:
         with MutationSession(worktree, declared_modifications=args.declare_modified) as session:
             # Stated before the cases run, so a refusal further down is still attributable to a

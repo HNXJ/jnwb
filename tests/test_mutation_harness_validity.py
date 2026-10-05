@@ -56,7 +56,6 @@ from scripts.mutation_harness import (  # noqa: E402
     JOURNAL_ABSENT,
     JOURNAL_PRESENT,
     JOURNAL_UNREADABLE,
-    KNOWN_GAPS,
     ConditionFailed,
     HarnessBusy,
     JournalState,
@@ -71,7 +70,9 @@ from scripts.mutation_harness import (  # noqa: E402
     Verdict,
     apply_mutation,
     default_state_root,
+    known_gaps,
     parse_porcelain,
+    source_path,
     resolve_worktree,
     restore_and_verify,
     sha256_bytes,
@@ -1156,10 +1157,11 @@ def _resolve_node_id(node_id: str) -> bool:
 def test_the_measured_gaps_are_recorded_as_expected_survivors() -> None:
     """06-27 measured P-170 and P-171 and could only narrate them. P-170 is now killed by
     `test_the_returned_spectrum_carries_the_same_sign_as_net`; P-171 stays declared."""
-    assert len(KNOWN_GAPS) == 1
-    recorded = {gap.name.split(" | ")[0] for gap in KNOWN_GAPS}
+    gaps = known_gaps(REPO_ROOT)
+    assert len(gaps) == 1
+    recorded = {gap.name.split(" | ")[0] for gap in gaps}
     assert recorded == {"P-171"}, recorded
-    for gap in KNOWN_GAPS:
+    for gap in gaps:
         assert gap.expected_survivor is True
         assert len(gap.survivor_reason.split()) >= 15, (
             f"{gap.name}: the reason does not say why the gap is tolerated"
@@ -1175,7 +1177,7 @@ def test_every_recorded_gap_still_lands_on_this_checkout() -> None:
     because a mutation of ``jnwb/`` in this checkout is visible to every other ``-n auto`` worker.
     """
     problems: list[str] = []
-    for gap in KNOWN_GAPS:
+    for gap in known_gaps(REPO_ROOT):
         target = REPO_ROOT / gap.path
         if not target.is_file():
             problems.append(f"{gap.name}: {gap.path} does not exist")
@@ -1261,3 +1263,27 @@ def test_the_known_gaps_mode_needs_no_case_file() -> None:
 
     with pytest.raises(SystemExit):
         harness.main(["--worktree", str(REPO_ROOT)])
+
+
+def test_importing_the_harness_imports_no_jnwb() -> None:
+    """Run by path the harness would import whichever ``jnwb`` is installed, so a path derived
+    at import time raised there. Checked in a subprocess, because this process has jnwb loaded."""
+    probe = (
+        "import sys; sys.path.insert(0, sys.argv[1]);"
+        "import scripts.mutation_harness as h;"
+        "assert 'jnwb' not in sys.modules, 'importing the harness imported jnwb';"
+        "assert not hasattr(h, 'KNOWN_GAPS')"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", probe, str(REPO_ROOT)], capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_an_anchor_held_twice_by_the_public_objects_file_is_refused() -> None:
+    """It must not fall through to another file that happens to hold it once."""
+    anchor = "    lfp_matrix: np.ndarray,\n"
+    own = REPO_ROOT / source_path("band_power")
+    assert own.read_bytes().decode("utf-8").count(anchor) > 1, "the fixture no longer repeats"
+    with pytest.raises(MutationHarnessError, match="occurs"):
+        source_path("band_power", anchor)
