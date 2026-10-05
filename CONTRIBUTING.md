@@ -14,7 +14,7 @@ Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows 
 not only at its ends.
 
 ```bash
-git clone git@github.com:HNXJ/jnwb.git
+git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
@@ -23,7 +23,9 @@ pip install -e ".[test,docs,vis]"
 
 These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
 Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
-accelerated paths, `all` for everything. The GPU paths fall back to CPU with a warning when their
+accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
+Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
+in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back to CPU with a warning when their
 dependency is absent, so you can work on most of the library without them.
 
 Verify the install:
@@ -40,8 +42,10 @@ reaches a release.
 
 ## Branches
 
-`dev` is where work lands. `main` holds releases and is fast-forwarded to `dev` when one
-is cut — no merge commits, so the two never diverge.
+`dev` is where work lands. `main` holds releases. Release 0.2.8 moved `main` by merging `dev`
+into it with merge commits (`3146c210`, `dfa5d3b3`), and `dev` contains `main`; step 3 of
+[Releasing](#releasing) says how `main` moves. Whether later releases merge or fast-forward
+awaits a ruling.
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.

@@ -49,8 +49,10 @@ pip install "jnwb[torch,gpu]"     # optional backends
 This checkout is `0.2.8`. To install it from a clone instead of from PyPI:
 
 ```bash
-pip install .                     # or: pip install -e ".[test,docs]" for development
+pip install .                     # or: pip install -e ".[test,docs,vis]" for development
 ```
+
+The `vis` extra exports SVG and PNG through kaleido, which needs a Chrome or Chromium: see [Install](https://jnwb.readthedocs.io/en/latest/install/).
 
 Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplotlib`, `scikit-learn`, `statsmodels`, `joblib`.
 
