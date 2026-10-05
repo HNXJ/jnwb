@@ -2,7 +2,9 @@
 
 G1 and G2 of `docs/documentation_form.md`: no figure paints its own background (each corner pixel
 is transparent), and each figure is drawn twice, a light and a dark variant, shown on its page
-with `#only-light` and `#only-dark`.
+with `#only-light` and `#only-dark`. The page-side half of G2 (every shown figure is a pair, and
+every fixed colour a generator writes reads on both page backgrounds) is read once, by
+`scripts/docs_form_gate.py`; this module reads the pixels and the drawn figures.
 
 Every figure the two generators draw (`docs/generate_figures.py` and `examples/quickstart_jnwb.py`)
 is drawn here in both themes and inspected as drawn:
@@ -10,7 +12,6 @@ is drawn here in both themes and inspected as drawn:
 | Check | Holds when |
 |---|---|
 | theme contrast | each colour in a generator's `THEMES` reaches 4.5 (text) or 3 (marks) on that theme's page |
-| fixed colours | a colour written outside `THEMES` reaches 2 on both pages |
 | ink contrast | under 5 % of the painted pixels sit below 1.5 against the page, colour-mapped meshes aside |
 | legends | no legend box meets data, text or an arrow on any axes, nor a figure legend |
 | text placement | no text meets another text, or data in the axes; every text lies inside the canvas |
@@ -42,6 +43,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
+from scripts import docs_form_gate as gate  # noqa: E402
+from scripts.docs_form_gate import PAGE  # noqa: E402
+from scripts.docs_form_gate import contrast as _contrast  # noqa: E402
+from scripts.docs_form_gate import hex_colour as _hex  # noqa: E402
+from scripts.docs_form_gate import illegible_literals as _illegible_literals  # noqa: E402
+from scripts.docs_form_gate import luminance as _luminance  # noqa: E402
+from scripts.docs_form_gate import themes_node as _themes_node  # noqa: E402
 from tests.test_synthetic_figures_are_labelled import figure_captions  # noqa: E402
 
 matplotlib = pytest.importorskip("matplotlib")
@@ -57,22 +65,13 @@ from matplotlib.transforms import Bbox  # noqa: E402
 import jnwb  # noqa: E402
 
 DOCS = REPO_ROOT / "docs"
-DOC_GENERATOR = DOCS / "generate_figures.py"
-QUICKSTART = REPO_ROOT / "examples" / "quickstart_jnwb.py"
+GENERATORS = [REPO_ROOT / g for g in gate.GENERATORS]
+DOC_GENERATOR, QUICKSTART = GENERATORS
 STYLE_MODULE = DOCS / "figure_style.py"
-GENERATORS = [DOC_GENERATOR, QUICKSTART]
 FIGURES = sorted((DOCS / "assets" / "figures").glob("*.png")) + sorted(
     (DOCS / "assets").glob("jnwb_quickstart*.png")
 )
 
-#: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
-#: `scripts/docs_form_gate.py` reads the pages with these same two patterns.
-IMAGE_LINE = re.compile(r"^!\[[^\]]*\]\((assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)
-IMG_TAG = re.compile(r'<img src="(assets/[^"]+?)(\.dark)?\.png#only-(light|dark)"')
-
-#: Page backgrounds of the built site (`docs/_theme_override.css`), by theme.
-PAGE = {"light": "#ffffff", "dark": "#1b1b1b"}
-MIN_FIXED_CONTRAST = 2.0
 MIN_TEXT_CONTRAST = 4.5
 MIN_MARK_CONTRAST = 3.0
 DIM_INK = 1.5
@@ -86,14 +85,13 @@ THEME_ROLES = {
 }
 NOT_A_COLOUR = {"suffix", "stem", "formats"}
 
-#: Colours drawn over a figure element rather than over the page, by generator function.
-DRAWN_OVER_A_FIGURE: dict[str, dict[str, str]] = {}
-
 #: Widths, in CSS px, at which the built site displays a figure: a topic page at a 1440 px
 #: viewport, and a cell of the two-column gallery on the landing page. A gallery image that
 #: links to its full-size file is read at the full size.
 PAGE_WIDTH_PX = 688
 GALLERY_WIDTH_PX = 311
+#: The content column of a 375 px phone with 16 px gutters. A figure shown wider is scaled down to it.
+MOBILE_WIDTH_PX = 343
 MIN_TEXT_PX = 9.0
 
 PERCEPTUAL = {"viridis", "plasma", "inferno", "magma", "cividis"}
@@ -111,68 +109,6 @@ MAX_FIT_OFFSET_DECADES = 0.05
 
 # ---------------------------------------------------------------------------------------------
 # Colour
-
-
-def _hex(value: str, in_colour_argument: bool = False) -> str | None:
-    """The colour a string literal names, or None. A one-letter name counts only as an argument
-    named for a colour, where it cannot be anything else."""
-    if re.fullmatch(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})", value):
-        return mcolors.to_hex(value)
-    if value.lower() in mcolors.CSS4_COLORS or value.startswith(("xkcd:", "tab:")):
-        try:
-            return mcolors.to_hex(value)
-        except ValueError:
-            return None
-    if in_colour_argument and value in mcolors.BASE_COLORS:
-        return mcolors.to_hex(value)
-    return None
-
-
-def _luminance(colour: str) -> float:
-    rgb = np.array(mcolors.to_rgb(colour))
-    lin = np.where(rgb <= 0.03928, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
-    return float(0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2])
-
-
-def _contrast(a: str, b: str) -> float:
-    la, lb = sorted((_luminance(a), _luminance(b)), reverse=True)
-    return (la + 0.05) / (lb + 0.05)
-
-
-COLOUR_ARGUMENTS = {"color", "colors", "c", "facecolor", "edgecolor", "labelcolor", "fc", "ec",
-                    "markerfacecolor", "markeredgecolor", "mfc", "mec"}
-
-
-def _themes_node(tree):
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "THEMES" for t in node.targets):
-            return node.value
-    return None
-
-
-def _illegible_literals(source: str) -> list[str]:
-    """Colour literals outside a `THEMES` table that fail contrast on either page."""
-    tree = ast.parse(source)
-    table = _themes_node(tree)
-    in_table = {id(n) for n in ast.walk(table)} if table is not None else set()
-    owner, in_colour_argument = {}, set()
-    for fn in (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)):
-        for n in ast.walk(fn):
-            owner.setdefault(id(n), fn.name)
-    for kw in (n for n in ast.walk(tree) if isinstance(n, ast.keyword)):
-        if kw.arg in COLOUR_ARGUMENTS:
-            in_colour_argument.update(id(n) for n in ast.walk(kw.value))
-    offenders = []
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or id(node) in in_table:
-            continue
-        colour = _hex(node.value, id(node) in in_colour_argument)
-        if colour is None or node.value in DRAWN_OVER_A_FIGURE.get(owner.get(id(node)), {}):
-            continue
-        worst = min(_contrast(colour, bg) for bg in PAGE.values())
-        if worst < MIN_FIXED_CONTRAST:
-            offenders.append(f"line {node.lineno}: {node.value} (contrast {worst:.2f})")
-    return offenders
 
 
 def _theme_contrast_failures(source: str) -> list[str]:
@@ -511,6 +447,11 @@ def _displayed_px(points: float, figure_width_in: float, displayed_width_px: flo
     return points * displayed_width_px / (72.0 * figure_width_in)
 
 
+def _mobile_width_px(desktop_width_px: float) -> float:
+    """The width a figure shown at `desktop_width_px` has on a phone: no wider than its column."""
+    return min(desktop_width_px, MOBILE_WIDTH_PX)
+
+
 def _fit_offsets(fig) -> list[str]:
     """A line labelled as a fit, drawn on log-log axes over a spectrum, sits on the spectrum's
     frequencies, and the spectrum's median log residual against it is near zero."""
@@ -792,6 +733,31 @@ NAMES = [n for key in _registry() for n in (key, key.replace(".png", ".dark.png"
 #: starts to pass fails the suite, so the entry is removed with the repair.
 AWAITING: dict[tuple[str, str], str] = {}
 
+#: Every embed fails the mobile-width check for one reason: the shared style sets the smallest
+#: text at 7.5 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.0 px. The
+#: embeds are listed one by one so that a new embed is judged and not waved through.
+_MOBILE_TEXT_TOO_SMALL = ("smallest text renders at 5.0 px at 343 px (7.5 pt, 7.2 in figure); "
+                          "needs a figure style that holds 9 px at that width")
+AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO_SMALL for embed in (
+    "02_paths_addressing_metadata.md:fig01_addressing_laminar.png",
+    "04_spectral_analysis_and_tfr.md:fig04_psd_spectral_tilt.png",
+    "04_spectral_analysis_and_tfr.md:fig06_aggregate_to_db.png",
+    "05_artifact_detection_and_repair.md:fig10_artifact_repair.png",
+    "06_spikes_psth_and_onset_dynamics.md:fig02_raster_psth.png",
+    "06_spikes_psth_and_onset_dynamics.md:fig03_onset_fitting.png",
+    "07_statistical_inference_and_nulls.md:fig08_permutation_null.png",
+    "08_directed_connectivity_and_information.md:fig09_directed_connectivity.png",
+    "09_decoding_and_visual_qc.md:fig07_population_decoding.png",
+    "coherence_and_tfr.md:fig05_complex_tfr_coi.png",
+    "index.md:fig03_onset_fitting.png",
+    "index.md:fig05_complex_tfr_coi.png",
+    "index.md:fig07_population_decoding.png",
+    "index.md:fig08_permutation_null.png",
+    "index.md:fig09_directed_connectivity.png",
+    "index.md:fig10_artifact_repair.png",
+    "quickstart.md:jnwb_quickstart.png",
+)})
+
 
 def _cases(check: str, names=NAMES):
     return [pytest.param(n, id=n, marks=pytest.mark.xfail(strict=True, reason=AWAITING[(check, n)]))
@@ -862,27 +828,6 @@ def test_no_figure_paints_its_own_background(png):
     assert np.all(corners == 0), f"{png.name} paints a background: corner alpha {corners}"
 
 
-def test_every_figure_on_a_page_has_both_variants():
-    shown = {}
-    for page in sorted(DOCS.rglob("*.md")):
-        text = page.read_text(encoding="utf-8")
-        for stem, dark, scheme in IMAGE_LINE.findall(text) + IMG_TAG.findall(text):
-            assert (scheme == "dark") == bool(dark), f"{page.name}: {stem} variant and scheme disagree"
-            shown.setdefault((page.name, stem), set()).add(scheme)
-    assert shown, "no themed figure found; the reader has stopped working"
-    for (page, stem), schemes in shown.items():
-        assert schemes == {"light", "dark"}, f"{page}: {stem} is shown only for {schemes}"
-        for suffix in (".png", ".dark.png"):
-            assert (DOCS / f"{stem}{suffix}").is_file(), f"{page}: {stem}{suffix} is missing"
-    bare = [
-        f"{page.name}: {m}"
-        for page in sorted(DOCS.rglob("*.md"))
-        for m in re.findall(r"[(\"](assets/(?:figures/[^)\s\"#]+|jnwb_quickstart[^)\s\"#]*)\.png)[)\"]",
-                            page.read_text(encoding="utf-8"))
-    ]
-    assert not bare, f"a figure shown the same under both schemes: {bare}"
-
-
 def test_every_awaiting_entry_names_a_case():
     cases = set(NAMES) | {g.name for g in GENERATORS} | {STYLE_MODULE.name} | {
         f"{page}:{name}" for page, name, _, _ in EMBEDS}
@@ -897,12 +842,6 @@ def test_every_embed_is_inspected():
 
 # ---------------------------------------------------------------------------------------------
 # Colour
-
-
-@pytest.mark.parametrize("generator", GENERATORS, ids=lambda p: p.name)
-def test_every_fixed_colour_reads_on_both_page_backgrounds(generator):
-    offenders = _illegible_literals(generator.read_text(encoding="utf-8"))
-    assert not offenders, f"{generator.name}: move these into THEMES or explain them: {offenders}"
 
 
 @pytest.mark.parametrize("generator", [pytest.param(g, id=g.name, marks=[pytest.mark.xfail(
@@ -1158,6 +1097,27 @@ def test_the_smallest_text_is_legible_where_the_page_shows_it(drawn, name, width
     assert px >= MIN_TEXT_PX, (
         f"{name}: {points:.1f} pt in a {fig.get_figwidth():.1f} in figure shown at {width} px "
         f"renders at {px:.1f} px")
+
+
+@pytest.mark.parametrize("name,width,caption", _embed_cases("displayed size at the mobile width"))
+def test_the_smallest_text_is_legible_at_the_mobile_width(drawn, name, width, caption):
+    """A figure shown wider than the phone's content column is scaled down to it."""
+    fig = drawn[name].fig
+    shown = _mobile_width_px(width)
+    points = _smallest_text_pt(fig)
+    px = _displayed_px(points, fig.get_figwidth(), shown)
+    assert px >= MIN_TEXT_PX, (
+        f"{name}: {points:.1f} pt in a {fig.get_figwidth():.1f} in figure shown at {shown} px "
+        f"renders at {px:.1f} px")
+
+
+def test_the_mobile_width_reads_text_the_page_width_passes():
+    """7.5 pt in a 7.2 in figure reads at the page width, not at the phone's; a narrower figure
+    holds at both. A gallery cell, already narrower than the phone, keeps its own width."""
+    assert _displayed_px(7.5, 7.2, PAGE_WIDTH_PX) >= MIN_TEXT_PX
+    assert _displayed_px(7.5, 7.2, _mobile_width_px(PAGE_WIDTH_PX)) < MIN_TEXT_PX
+    assert _displayed_px(7.5, 3.0, _mobile_width_px(PAGE_WIDTH_PX)) >= MIN_TEXT_PX
+    assert _mobile_width_px(GALLERY_WIDTH_PX) == GALLERY_WIDTH_PX
 
 
 #: A number that rounds to zero and prints its minus sign: "-0.0", "−0", "-0.00".
