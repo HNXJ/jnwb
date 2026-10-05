@@ -122,7 +122,7 @@ jobs:
           sudo apt-get update
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y ttf-mscorefonts-installer
-          fc-list | grep -i "arial" | head -3
+          fc-match Arial | grep -q Arial
 
       - name: Install dependencies
         if: env.QUALIFIED_BY == ''
@@ -190,7 +190,7 @@ jobs:
           sudo apt-get update
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y ttf-mscorefonts-installer
-          fc-list | grep -i "arial" | head -3
+          fc-match Arial | grep -q Arial
 
       - name: Resolve the declared floors
         if: env.QUALIFIED_BY == ''
@@ -263,7 +263,7 @@ jobs:
           sudo apt-get update
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y ttf-mscorefonts-installer
-          fc-list | grep -i "arial" | head -3
+          fc-match Arial | grep -q Arial
 
       - name: Install build tools, documentation tools & dependencies
         run: |

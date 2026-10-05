@@ -13,7 +13,7 @@ excluded with a checked reason; the nav matches the arrival table of `artifacts/
 criterion the downstream curation pipeline applies is a public operation, a caller choice or a
 checked exclusion, as far as the code at hand holds it (the rows only the lab pipeline holds moved
 to 10-15, ruled 2026-10-04); one skill routes the whole surface with all four outcomes; the docs
-figures follow the figure style ruled 2026-10-04 (09-13).
+figures follow the figure style ruled 2026-10-04.
 
 Every item here but 09-14 carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.8; the version heading carries the schedule (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
@@ -42,7 +42,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
-| V figure style | 09-13 | `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`; `examples/tutorials/09_open_data.py` and `tests/test_figure_form.py` once lane D has merged them |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. D8 and D9 are ruled.
 
@@ -80,34 +79,11 @@ The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed 
 Accept: the check observed.
 Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
-### 09-13 Docs figures follow the ruled style
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`, `examples/tutorials/09_open_data.py`, `tests/test_figure_form.py`.
-Ruled 2026-10-04 (`artifacts/rulings/2026-10-04.md`, the docs figure style): Hamm's visual style,
-with the project's checks kept as gates. This item aligns `docs/figure_style.py` and regenerates the
-existing figures; new figures are 0.2.13's. 09-02 and 09-03, now landed, wrote `examples/tutorials/09_open_data.py`
-and `tests/test_figure_form.py`. The departures come from a read-only figure inventory at
-`9cf0bb0f`, spot-checked at `4474cbcc`; a bare `:N` is a line of `docs/generate_figures.py`. Not
-ruled, so left as found: `examples/quickstart_jnwb.py:281` calls `subplots_adjust`, fig05 places its
-colorbar after `tight_layout` (`:344`), and figures are 180 dpi PNG only (`docs/figure_style.py:19`).
-- Series colours `#1565c0`, `#ff9800`, `#00acc1`, `#e53935` and highlight `#cfb87c`: only fig01 follows the palette; the departures are `:44-48`, fig06 `:370`, `examples/quickstart_jnwb.py:61-72` and `examples/tutorials/09_open_data.py:262`, and the highlight is `#c3aa5f` (`:45`). Check: every series and highlight colour comes from `docs/figure_style.py`, and a test reads the palette there.
-- Arial first, 8 to 11 pt: the family is generic sans-serif and the small size 7.5 pt (`docs/figure_style.py:11,16`); `examples/tutorials/09_open_data.py` sets `fontsize=8` itself. Check: Arial heads the font family, and a test finds every text size in 8 to 11 pt.
-- No top or right spine: `figure_style.RC` keeps all four. Check: the style removes them, and a test reads the spines of every generated figure.
-- Bold panel letters: the letters sit inside centred titles, and the quickstart figure has none. Check: each multi-panel figure carries one bold letter per panel, outside its title.
-- Data lines 1.2 to 1.8 pt: widths of 0.7 to 1.0 at fig04 `:260,279`, fig05 `:314`, fig10 `:601` and `examples/quickstart_jnwb.py:110,111,162`, and 2.0 at fig08 `:486` and `examples/tutorials/09_open_data.py:267,275`. Check: data line widths come from `docs/figure_style.py`, within 1.2 to 1.8.
-- A true minus sign: an ASCII hyphen stands for minus at fig04 `:281`, fig09 `:556` and `_signed` in `examples/quickstart_jnwb.py:77`. Check: a test finds no ASCII hyphen before a digit in rendered label and tick text.
-- One colour per variable across figures: the majority baseline differs between fig07 `:425` and `examples/quickstart_jnwb.py:242`, the observed value between fig08 `:486` and `examples/quickstart_jnwb.py:188`, the fitted onset between fig03 `:217` and `examples/quickstart_jnwb.py:165`. Check: one colour per named variable in `docs/figure_style.py`, used by every figure.
-- The dark-theme contrast, colour-vision distance and minimum text size tests stay: deutan ΔE is 13.5 to 15.1 between gold, red and green; the quickstart dark TRUTH and BAD pair is ΔE 1.9 (`examples/quickstart_jnwb.py:66`); `examples/tutorials/09_open_data.py` hard-codes `#333333` and `#e8e8e8` and has no dark variant. Check: the three tests pass on every regenerated figure, the tutorial figure included in light and dark.
-Accept: the docs generator regenerates every existing figure in light and dark; the figure tests and `scripts/docs_form_gate.py` pass; each rule above has a test that fails on a departure it names.
-Stop: a style rule conflicts with a contrast or colour-vision gate.
-
 ### 09-14 Release step 0.2.9
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 09-11.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -749,11 +725,11 @@ collaborator's skill.
 ### 14-01 Spectral and laminar figures
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-13.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/tutorials/06_laminar.md`.
 Source: the "Top 10" list of the figure inventory of 2026-10-04, a read-only survey at `9cf0bb0f`,
 numbered as there. Each figure is synthetic unless its bullet says otherwise, generated by
-`docs/generate_figures.py` in the 09-13 style in light and dark, its caption naming each jnwb
+`docs/generate_figures.py` in the figure style ruled 2026-10-04 in light and dark, its caption naming each jnwb
 function it calls.
 - Inventory 10: the spectral page states Welch and multitaper PSDs in text only. Check: a figure of both with `CANONICAL_BANDS` shaded. Waits: documentation only; no number changes.
 - Inventory 4: coherence, imaginary coherency and wPLI under zero-lag mixing are compared in text only. Check: a figure of the three on the coherence page. Waits: documentation only; no number changes.
@@ -764,11 +740,11 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 ### 14-02 Spiking figures
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-13.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/common_mistakes.md`.
 Source: the "Top 10" list of the figure inventory of 2026-10-04, a read-only survey at `9cf0bb0f`,
 numbered as there. Each figure is synthetic unless its bullet says otherwise, generated by
-`docs/generate_figures.py` in the 09-13 style in light and dark, its caption naming each jnwb
+`docs/generate_figures.py` in the figure style ruled 2026-10-04 in light and dark, its caption naming each jnwb
 function it calls.
 - Inventory 1: causal and Gaussian smoothing of a step differ by about 35 ms, stated in text only. Check: a figure of both (`causal_exp_smooth`, `gaussian_smooth_rate`, `fit_exponential_onset`) on the spiking page and in section 8 of `docs/common_mistakes.md`. Waits: documentation only; no number changes.
 - Inventory 9: phase locking has no figure. Check: a spike-phase polar histogram with PLI and PPC on the spiking page. Waits: documentation only; no number changes.
@@ -778,11 +754,11 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 ### 14-03 Inference and directed-connectivity figures
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-13.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`.
 Source: the "Top 10" list of the figure inventory of 2026-10-04, a read-only survey at `9cf0bb0f`,
 numbered as there. Each figure is synthetic unless its bullet says otherwise, generated by
-`docs/generate_figures.py` in the 09-13 style in light and dark, its caption naming each jnwb
+`docs/generate_figures.py` in the figure style ruled 2026-10-04 in light and dark, its caption naming each jnwb
 function it calls.
 - Inventory 2: the cluster permutation test has no figure. Check: a TFR difference with the significant cluster outlined (`cluster_permutation_test`) on the inference page. Waits: documentation only; no number changes.
 - Inventory 8: spectral Granger and the PSI trap are text only. Check: spectral Granger in both directions, and PSI narrowband against broadband, on the directed-connectivity page and in section 7 of `docs/common_mistakes.md`. Waits: documentation only; no number changes.
@@ -792,11 +768,11 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 ### 14-04 Similarity and artifact figures
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-13.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/05_artifact_detection_and_repair.md`.
 Source: the "Top 10" list of the figure inventory of 2026-10-04, a read-only survey at `9cf0bb0f`,
 numbered as there. Each figure is synthetic unless its bullet says otherwise, generated by
-`docs/generate_figures.py` in the 09-13 style in light and dark, its caption naming each jnwb
+`docs/generate_figures.py` in the figure style ruled 2026-10-04 in light and dark, its caption naming each jnwb
 function it calls.
 - Inventory 5: RDMs and jRSA windows are text only. Check: two RDMs and a windowed jRSA trace against its null (`rdm`, `rdm_similarity`, `jrsa(null=)`) on the jRSA page, not through `JRSAResult.plot()`, whose figure size is fixed. Waits: documentation only; no number changes.
 - Inventory 7: bad-channel and bad-trial detection have no figure. Check: the channel-correlation matrix, the flagged channels and the consensus bad-trial map on the artifact page. Waits: documentation only; no number changes.
@@ -806,7 +782,7 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 ### 14-05 Tutorial figures through the docs generator
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-13.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py`.
 Ruled 2026-10-04: tutorial pages 00 to 09 get figures through the docs generator. Per the figure
 inventory of 2026-10-04, tutorial 04 prints its PSD, TFR and wPLI, tutorial 06 its CSD, vFLIP, zFLIP
