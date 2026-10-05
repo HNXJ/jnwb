@@ -289,7 +289,7 @@ def draw(res: dict, theme: str):
         ax_a.annotate(where, (t_ms[-1], layer["rate_hz"][-1]), xytext=(4, 0),
                       textcoords="offset points", va="center", fontsize=style.SMALL,
                       color=ink["fg"])
-    ax_a.axvspan(0, 500, color=style.HIGHLIGHT, alpha=0.4, zorder=0, lw=0)
+    ax_a.axvspan(0, 500, color=style.HIGHLIGHT[theme], alpha=0.4, zorder=0, lw=0)
     ax_a.set(xlabel="Time from grating onset (ms)", ylabel="Rate (Hz)")
     style.panel_title(ax_a, "A", "PSTH of good units by layer")
     ax_a.legend(frameon=False, loc="upper left")

@@ -75,12 +75,15 @@ from matplotlib.transforms import Bbox  # noqa: E402
 import jnwb  # noqa: E402
 
 DOCS = REPO_ROOT / "docs"
-GENERATORS = [REPO_ROOT / g for g in gate.GENERATORS]
+STYLE_MODULE = DOCS / "figure_style.py"
+#: Every source the gate reads for a figure colour: the generators and the style module.
+GATED = [REPO_ROOT / g for g in gate.GENERATORS]
+assert STYLE_MODULE in GATED, "the gate does not read the style module"
+GENERATORS = [g for g in GATED if g != STYLE_MODULE]
 DOC_GENERATOR, QUICKSTART = GENERATORS
 TUTORIAL = REPO_ROOT / "examples" / "tutorials" / "09_open_data.py"
 #: Every file that draws a figure for the documentation or its examples.
 SOURCES = [*GENERATORS, TUTORIAL]
-STYLE_MODULE = DOCS / "figure_style.py"
 _style_spec = importlib.util.spec_from_file_location("_figure_style", STYLE_MODULE)
 STYLE = importlib.util.module_from_spec(_style_spec)
 _style_spec.loader.exec_module(STYLE)
@@ -97,7 +100,11 @@ MAX_DIM_INK_SHARE = 0.05
 THEME_ROLES = {
     "fg": "text", "edge": "mark", "faint": "mark",
     "FG": "text", "FG2": "text", "FG3": "text", "FAINT": "mark",
+    "highlight": "fill",
 }
+#: The bar each role clears against its own page: text, a mark, and a fill drawn as a window or band.
+ROLE_CONTRAST = {"text": MIN_TEXT_CONTRAST, "mark": MIN_MARK_CONTRAST,
+                 "fill": gate.MIN_FIXED_CONTRAST}
 NOT_A_COLOUR = {"suffix", "stem", "formats"}
 
 #: Widths, in CSS px, at which the built site displays a figure: a topic page at a 1440 px
@@ -148,7 +155,7 @@ def _theme_contrast_failures(source: str) -> list[str]:
             if colour is None:
                 failures.append(f"{theme}.{key}: {value!r} is not a colour")
                 continue
-            need = MIN_TEXT_CONTRAST if role == "text" else MIN_MARK_CONTRAST
+            need = ROLE_CONTRAST[role]
             ratio = _contrast(colour, PAGE[theme])
             if ratio < need:
                 failures.append(f"{theme}.{key} {value} ({role}): {ratio:.2f} < {need}")
@@ -916,7 +923,7 @@ def test_every_embed_is_inspected():
 
 @pytest.mark.parametrize("generator", [pytest.param(g, id=g.name, marks=[pytest.mark.xfail(
     strict=True, reason=AWAITING[("theme contrast", g.name)])] if ("theme contrast", g.name) in AWAITING
-    else []) for g in GENERATORS])
+    else []) for g in GATED])
 def test_every_theme_colour_reads_on_its_own_page(generator):
     failures = _theme_contrast_failures(generator.read_text(encoding="utf-8"))
     assert not failures, f"{generator.name}: {failures}"
@@ -1475,7 +1482,7 @@ def test_the_psi_axis_carries_no_phase_slope_unit(drawn):
 
 
 # ---------------------------------------------------------------------------------------------
-# The ruled style (`artifacts/rulings/2026-10-04.md`). The checks read the drawn figure, since a
+# The docs figure style. The checks read the drawn figure, since a
 # default that no one set (the colour cycle, the font family) draws without a literal in any
 # source; the palette and the line widths are also read in the source, so a generator cannot
 # type its own.
@@ -1488,7 +1495,7 @@ from matplotlib.patches import Patch  # noqa: E402
 #: The ruled values. `figure_style.py` is the one place a figure takes them from, and this is
 #: the one place the suite spells them out.
 RULED_SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
-RULED_HIGHLIGHT = "#cfb87c"
+RULED_HIGHLIGHT_DARK = "#cfb87c"
 RULED_TEXT_PT = (8.0, 11.0)
 RULED_LINE_PT = (1.2, 1.8)
 TRUE_MINUS = "−"
@@ -1561,8 +1568,9 @@ def _ink(name: str) -> set[str]:
     return {mcolors.to_hex(v) for k, v in colours.items() if k not in NOT_A_COLOUR}
 
 
-def _palette_strays(fig, ink: set[str]) -> list[str]:
-    allowed = {mcolors.to_hex(c) for c in (*STYLE.SERIES, STYLE.HIGHLIGHT, STYLE.NEUTRAL)} | ink
+def _palette_strays(fig, ink: set[str], theme: str) -> list[str]:
+    """Colours drawn that are no series, no neutral, not `theme`'s highlight and not its ink."""
+    allowed = {mcolors.to_hex(c) for c in (*STYLE.SERIES, STYLE.HIGHLIGHT[theme], STYLE.NEUTRAL)} | ink
     return [f"{colour} by {drew[0]}" for colour, drew in sorted(_drawn_colours(fig).items())
             if colour not in allowed]
 
@@ -1618,7 +1626,7 @@ def _delta_e(a: str, b: str, kind: str) -> float:
     return float(np.linalg.norm(seen(a) - seen(b)))
 
 
-def _cvd_failures(colours, marks=(*STYLE.SERIES, STYLE.HIGHLIGHT)) -> list[str]:
+def _cvd_failures(colours, marks=(*STYLE.SERIES, *STYLE.HIGHLIGHT.values())) -> list[str]:
     """Pairs of the `marks` colours among `colours`, and the neutral against them, that two
     viewers of a colour-vision deficiency cannot tell apart."""
     colours = {mcolors.to_hex(c) for c in colours}
@@ -1747,7 +1755,7 @@ def _variable_failures(fig) -> list[str]:
 
 @pytest.mark.parametrize("name", STYLE_NAMES)
 def test_every_colour_drawn_is_a_palette_colour_or_the_ink(drawn, name):
-    strays = _palette_strays(drawn[name].fig, _ink(name))
+    strays = _palette_strays(drawn[name].fig, _ink(name), "dark" if ".dark" in name else "light")
     assert not strays, f"{name}: {strays}"
 
 
@@ -1759,10 +1767,10 @@ def test_no_figure_source_types_a_colour(source):
 
 def test_the_style_module_holds_the_ruled_palette():
     assert tuple(STYLE.SERIES) == RULED_SERIES, STYLE.SERIES
-    assert STYLE.HIGHLIGHT == RULED_HIGHLIGHT, STYLE.HIGHLIGHT
+    assert STYLE.HIGHLIGHT["dark"] == RULED_HIGHLIGHT_DARK, STYLE.HIGHLIGHT
     assert tuple(STYLE.TEXT_RANGE_PT) == RULED_TEXT_PT and tuple(STYLE.LINE_RANGE_PT) == RULED_LINE_PT
     assert set(STYLE.VARIABLE) == set(VARIABLE_LABELS), "a named variable has no legend pattern"
-    assert set(STYLE.VARIABLE.values()) <= {*STYLE.SERIES, STYLE.HIGHLIGHT, STYLE.NEUTRAL}
+    assert set(STYLE.VARIABLE.values()) <= {*STYLE.SERIES, STYLE.NEUTRAL}
     sizes = (STYLE.SMALL, STYLE.LABEL, STYLE.TITLE, STYLE.LETTER)
     assert all(RULED_TEXT_PT[0] <= s <= RULED_TEXT_PT[1] for s in sizes), sizes
     widths = (STYLE.LW_THIN, STYLE.LW, STYLE.LW_THICK)
@@ -1776,7 +1784,21 @@ def test_the_drawn_colours_stay_apart_under_colour_vision_deficiency(drawn, name
 
 
 def test_the_palette_stays_apart_under_colour_vision_deficiency():
-    assert not _cvd_failures([*STYLE.SERIES, STYLE.HIGHLIGHT, STYLE.NEUTRAL])
+    for theme, highlight in STYLE.HIGHLIGHT.items():
+        assert not _cvd_failures([*STYLE.SERIES, highlight, STYLE.NEUTRAL]), theme
+
+
+def test_the_light_highlight_is_the_dark_one_darkened_to_the_fixed_colour_bar():
+    """On the light page #cfb87c reads 1.94, under the bar for a fixed colour. The light theme
+    draws the same hue, as dark as the bar needs and no darker."""
+    import colorsys
+
+    dark, light = (colorsys.rgb_to_hls(*mcolors.to_rgb(STYLE.HIGHLIGHT[t])) for t in ("dark", "light"))
+    assert abs(dark[0] - light[0]) * 360 < 1.0, "the light highlight is another hue"
+    assert light[1] < dark[1], "the light highlight is not darker"
+    ratio = _contrast(_hex(STYLE.HIGHLIGHT["light"]), PAGE["light"])
+    assert gate.MIN_FIXED_CONTRAST <= ratio < gate.MIN_FIXED_CONTRAST + 0.05, ratio
+    assert _contrast(_hex(STYLE.HIGHLIGHT["dark"]), PAGE["light"]) < gate.MIN_FIXED_CONTRAST
 
 
 @pytest.mark.parametrize("name", STYLE_NAMES)
@@ -1866,7 +1888,7 @@ def test_the_style_checks_catch_their_cases():
         a.text(0.5, 0.5, "-0.5 and 10-40 Hz", fontsize=7.0)
         b.text(0.5, 0.2, "twelve", fontsize=12.0)
         a.legend()
-        assert _palette_strays(fig, {"#2d2d2d"}), "a palette colour was not read"
+        assert _palette_strays(fig, {"#2d2d2d"}, "light"), "a palette colour was not read"
         assert _spine_failures(fig) == ["axes 0 draws its top spine", "axes 0 draws its right spine",
                                         "axes 1 draws its top spine", "axes 1 draws its right spine"]
         assert len(_line_width_failures(fig)) == 2
@@ -1890,7 +1912,12 @@ def test_the_style_checks_catch_their_cases():
                          _font_failures, _panel_letter_failures, _ascii_minus_failures,
                          _variable_failures):
             assert not failures(fig), (failures.__name__, failures(fig))
-        assert not _palette_strays(fig, _rgb_hex(["#2d2d2d", "#8a8a8a"]) | {"#000000"})
+        assert not _palette_strays(fig, _rgb_hex(["#2d2d2d", "#8a8a8a"]) | {"#000000"}, "light")
+        plt.close(fig)
+        fig, ax = plt.subplots()
+        ax.axvspan(0, 1, color=STYLE.HIGHLIGHT["dark"])
+        assert _palette_strays(fig, set(), "light"), "the dark highlight passed on the light theme"
+        assert not [s for s in _palette_strays(fig, set(), "dark") if "cfb87c" in s]
         plt.close(fig)
     with matplotlib.rc_context({"axes.unicode_minus": False}):
         fig, ax = plt.subplots()

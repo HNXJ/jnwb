@@ -184,3 +184,27 @@ def test_one_ci_leg_compares_the_figures_at_the_version_that_wrote_them():
     env = str((steps[suite].get("env") or {}).get(REQUIRE_COMPARISON, ""))
     assert "matrix.figures == 'compared'" in env and "'1'" in env, (
         f"the suite step does not set {REQUIRE_COMPARISON}=1 on the compared leg: {env!r}")
+
+
+def test_every_linux_leg_that_runs_the_suite_installs_arial_first():
+    """The figures are drawn in Arial, which the ubuntu runners lack: a leg that ran the
+    comparison without it would fail on the fallback font. Each such job installs the core
+    fonts, with the licence accepted through debconf, before its first pytest step."""
+    import yaml
+
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    checked = []
+    for name, job in jobs.items():
+        steps = job.get("steps", [])
+        runs = [i for i, s in enumerate(steps) if "pytest" in str(s.get("run", ""))
+                and "tests" in str(s.get("run", ""))]
+        on = str(job.get("runs-on", ""))
+        if not runs or ("windows" in on and "ubuntu" not in on):
+            continue
+        checked.append(name)
+        fonts = [i for i, s in enumerate(steps)
+                 if re.search(r"apt-get install\b[^\n]*ttf-mscorefonts-installer", str(s.get("run", "")))]
+        assert fonts and fonts[0] < runs[0], f"job {name} runs the suite without installing Arial first"
+        install = steps[fonts[0]]["run"]
+        assert "debconf-set-selections" in install and "accepted-mscorefonts-eula select true" in install
+    assert {"test", "test-floors", "build"} <= set(checked), checked

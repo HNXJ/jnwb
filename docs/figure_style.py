@@ -27,10 +27,13 @@ TEXT_RANGE_PT = (8.0, 11.0)
 WIDTH = 7.2
 DPI = 180
 
-#: Series colours in the order a categorical comparison takes them, and the highlight that marks
-#: a window or band over them.
+#: Series colours in the order a categorical comparison takes them.
 SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
-HIGHLIGHT = "#cfb87c"
+#: The highlight that marks a window or band over them, by theme. The dark theme draws #cfb87c;
+#: on the light page that colour reaches 1.94, so the light theme draws the same hue darkened
+#: until it reaches 2.0, the bar for a fixed colour. Each is read against its own page.
+THEMES = {"light": {"highlight": "#cdb577"}, "dark": {"highlight": "#cfb87c"}}
+HIGHLIGHT = {theme: colours["highlight"] for theme, colours in THEMES.items()}
 #: Reference lines, noise and the veil over excluded data: a colour that is no series.
 NEUTRAL = "#888888"
 

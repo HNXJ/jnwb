@@ -50,15 +50,18 @@ THEMES = {
 C_DARK = THEMES["light"]["fg"]
 C_LIGHT_GRAY = THEMES["light"]["faint"]
 SUFFIX = THEMES["light"]["suffix"]
+#: The highlight of the theme being drawn, from the style module.
+C_HIGHLIGHT = style.HIGHLIGHT["light"]
 
 style.apply()
 
 
 def apply_theme(name):
     """Set the foreground colours every figure draws with; the background stays transparent."""
-    global C_DARK, C_LIGHT_GRAY, SUFFIX
+    global C_DARK, C_LIGHT_GRAY, SUFFIX, C_HIGHLIGHT
     theme = THEMES[name]
     C_DARK, C_LIGHT_GRAY, SUFFIX = theme["fg"], theme["faint"], theme["suffix"]
+    C_HIGHLIGHT = style.HIGHLIGHT[name]
     plt.rcParams.update({
         "text.color": theme["fg"],
         "axes.labelcolor": theme["fg"],
@@ -75,8 +78,13 @@ def _save(fig, name):
 
 
 AREA_COLOURS = style.AREA
-#: The depth class colours of fig01 panel B: the highlight for superficial, a series for deep.
-CLASS_COLOURS = {"Superficial": style.HIGHLIGHT, "Deep": style.SERIES[3]}
+
+
+def class_colours():
+    """The depth class colours of fig01 panel B: the highlight for superficial, a series for deep."""
+    return {"Superficial": C_HIGHLIGHT, "Deep": style.SERIES[3]}
+
+
 #: The depth fig01 classifies at, passed to the classifier and drawn from the same name.
 DEPTH_THRESHOLD_UM = 1000.0
 
@@ -116,7 +124,8 @@ def fig01_addressing():
 
     # Panel B: the class of each contact, keyed, with the threshold it was classified at
     z_coords = elec_df["z"].values
-    colours = [CLASS_COLOURS[c] for c in depth_classes]
+    class_colour = class_colours()
+    colours = [class_colour[c] for c in depth_classes]
     ax2.barh(range(n_ch), z_coords, color=colours, edgecolor="none", height=0.7)
     ax2.axvline(DEPTH_THRESHOLD_UM, color=C_DARK, ls="--", lw=style.LW_THIN)
     ax2.set_xlim(0.0, 2800.0)
@@ -126,8 +135,8 @@ def fig01_addressing():
     style.panel_title(ax2, "B", "Geometric depth class\n(jnwb.classify_layer_from_depth)")
     ax2.invert_yaxis()
     ax2.legend(handles=[
-        Patch(color=CLASS_COLOURS["Superficial"], label="Superficial (z ≤ threshold)"),
-        Patch(color=CLASS_COLOURS["Deep"], label="Deep (z > threshold)"),
+        Patch(color=class_colour["Superficial"], label="Superficial (z ≤ threshold)"),
+        Patch(color=class_colour["Deep"], label="Deep (z > threshold)"),
         Line2D([], [], color=C_DARK, ls="--", lw=style.LW_THIN,
                label=f"threshold = {DEPTH_THRESHOLD_UM:.0f} µm"),
     ], frameon=False, loc="upper right")
@@ -308,7 +317,7 @@ def fig05_complex_tfr():
     sig[burst_mask] += 2.0 * np.sin(2 * np.pi * BURST_HZ * t[burst_mask])
 
     ax1.plot(t_ms, sig, color=C_DARK, lw=style.LW_THIN)
-    ax1.axvspan(*BURST_MS, color=style.HIGHLIGHT, alpha=0.4, lw=0)
+    ax1.axvspan(*BURST_MS, color=C_HIGHLIGHT, alpha=0.4, lw=0)
     ax1.set_ylabel("LFP (a.u.)")
     style.panel_title(ax1, "A", "LFP signal with a transient oscillatory burst")
     ax1.tick_params(labelbottom=False)
@@ -329,7 +338,7 @@ def fig05_complex_tfr():
     ax2.set_ylabel("Frequency (Hz)")
     style.panel_title(ax2, "B", "Complex Morlet TFR and cone of influence (jnwb.complex_tfr)")
     ax2.legend(handles=[
-        Patch(color=style.HIGHLIGHT, alpha=0.4, label=f"Injected {BURST_HZ:.0f} Hz burst (panel A)"),
+        Patch(color=C_HIGHLIGHT, alpha=0.4, label=f"Injected {BURST_HZ:.0f} Hz burst (panel A)"),
         Line2D([], [], color=style.SERIES[2], ls="--", lw=style.LW_THIN,
                label="Cone of influence (tfr.coi_mask)"),
         Patch(color=style.NEUTRAL, alpha=0.6, label="Edge-affected, excluded"),
@@ -551,7 +560,7 @@ def fig09_directed_connectivity():
     f_lo, f_hi = psi.per_band["band"]["band_hz"]
     freqs = psi.spectrum["freqs"]
     summed = freqs[(freqs >= f_lo) & (freqs <= f_hi)]
-    ax2.axvspan(summed[0], summed[-1], color=style.HIGHLIGHT, alpha=0.4, lw=0,
+    ax2.axvspan(summed[0], summed[-1], color=C_HIGHLIGHT, alpha=0.4, lw=0,
                 label=f"Summed bins ({summed[0]:.1f}–{summed[-1]:.1f} Hz)")
     ax2.plot(psi_freqs[mask], psi_spec[mask], color=style.SERIES[0], lw=style.LW, marker="o",
              ms=3.5, label=f"Net PSI = {style.num(psi.x_to_y, '+.3f')} (positive: X leads Y)")
@@ -623,7 +632,7 @@ def fig10_artifact_repair():
              label="Repaired (median substitution)")
     # The shaded samples are the detector's output: every sample the repair changed on any channel.
     replaced = np.any(repaired[HIT_TRIAL] != seg[HIT_TRIAL], axis=0)
-    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=style.HIGHLIGHT,
+    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=C_HIGHLIGHT,
                      alpha=0.4, lw=0, label=f"Samples replaced (z_thresh = {Z_THRESH:.1f})")
     ax2.set_ylim(*y_lim)
     ax2.set_yticks(y_ticks)
