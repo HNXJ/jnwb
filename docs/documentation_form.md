@@ -138,7 +138,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 828, `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 895, `quickstart` at 828, `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | seven of the twelve sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
