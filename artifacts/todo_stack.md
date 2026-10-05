@@ -63,6 +63,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `.github/workflows/workflow.yml`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`.
 The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed in `01606de1` (merged `ae7c6930`, verified independently, rulings 2026-10-03 and 2026-10-04). CI on `dev` at `f4fb2510` was green (run 37192638893). What remains only the tag push can show.
 - Check: the 0.2.9 tag push pauses `publish-pypi` for the `pypi` approval inside the run, PyPI trusted publishing accepts the push-event job, `publish-pypi` downloads that run's distribution, and `github-release` creates the Release whose body passes `tests/test_release_body_gate.py`'s live test.
+Observed 2026-10-05: the `v0.2.9` tag push (run 37330156064, tag on main's merge commit `e240d9c8`) held `publish-pypi` in `waiting` for the `pypi` approval inside the run; after Hamm approved, trusted publishing accepted the push-event job, `publish-pypi` and `github-release` concluded success, and `pip install jnwb==0.2.9` in a fresh venv gives 0.2.9 from site-packages with `pip check` clean.
 Accept: the check observed.
 Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
