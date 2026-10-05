@@ -150,7 +150,7 @@ sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2515 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
+| `common_mistakes` | 2596 | twelve failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1536 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
 | `03_representational_similarity_jrsa` | 1256 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
 | `04_spectral_analysis_and_tfr` | 1221 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
