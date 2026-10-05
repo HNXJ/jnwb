@@ -27,45 +27,43 @@ encodes one corpus's coding or a cut-off that no cited source supports.
 
 ## B. The downstream criteria
 
-Rows D1 to D9 are **from the recorded description; pending the owner's code**. The description is
-the "Context, recorded 2026-10-01" paragraph of `artifacts/todo_stack.md`; the downstream code has
-not been made available, so no definition, threshold or channel rule below is read from it.
-Classes follow the 13-01 ruling of `artifacts/rulings/2026-10-03.md` (published definitions plus
-caller parameters; spatial derivative sharpness and flatness with a required threshold and no
-claimed source).
+Read from the downstream code Hamm named on 2026-10-04 (corrected the same day), `E:/omission`
+(HNXJ/omission) at `c3d69375c5ae282bb63f116a6b97f085579ea140`, by `git show`/`git grep` at that
+commit only; nothing there was run and no data was opened. Paths below are in that repository.
+The first repository named, `E:/repos/jomission` at `0d39ad5f`, was searched and holds no unit
+curation.
 
-The code named on 2026-10-04, `E:/repos/jomission`, was read at `0d39ad5f` (`main` = `origin/main`,
-2026-09-21; clean tree) and holds none of D1 to D9. Its README describes a laminar omission
-simulation built on JaxFNE; its package (`ablations`, `analysis`, `configs`, `dynamics`, `harness`,
-`network`, `paradigm`, `qualification`, `recording`, `simulation`, `tfne`, `visualization`,
-`visualize`) reads no sorted unit, waveform or curation label. Searched, case-insensitive:
-`git grep` for `presence.ratio|kilosort|curation|mirrored|peak.channel` at `HEAD`,
-`origin/dev/sci-ei-native-state-1` and `local-recovery/atlas-suite` (hits only in plot data inside
-`results/viz/*/atlas/field.html` and one gate-threshold note in `manifests/harness/inventory.json`);
-a ripgrep of every `.py` and `.md` for `mirror|is_flat|flat_wave|presence_ratio|unit_quality|curat|kilosort|waveform`
-and for `\bsnr\b|trough|peak.channel|refractory|units_df|is_stable|quality` (hits are simulation
-code: network mirroring, simulated current waveforms, ISI CV of simulated cells); and
-`git log --all` by message (`curat|unit.?quality|waveform|mirror|spike.?sort|kilosort|SNR|presence`)
-and by diff (`-G presence_ratio|is_flat|mirrored|kilosort|peak_to_trough|trough_to_peak|unit_quality|snr`),
-whose hits are simulation commits. The rows below therefore stay as recorded.
+**Where the described pipeline lives.** The recorded description ("Context, recorded 2026-10-01"
+in `artifacts/todo_stack.md`) is of the lab's curation pipeline, which `E:/omission` cites and does
+not hold: `yihan777/alpha_beta_mechanism` at `826e540`, `2025_09_putative_classification`
+(`jnwb_ext/waveforms.py:27`, `artifacts/HANDOFF_RAW_DATA.md:64`,
+`context/state/JNWB_REQUESTS.md:616-617`; its waveform re-extraction is MATLAB,
+`artifacts/HANDOFF_RAW_DATA.md:72`).
+`E:/omission` replicates two of its parts, the width (`D_`) and the unit screen (`A_`), and
+applies its own presence, quality and SNR tiers. So D4 to D8 and D10 cite code; D1, D3 and D9 are
+absent from it, and D2 only has neighbours. Searched at `HEAD`, case-insensitive, outside
+`context/archive` and `context/draft-*`: `git grep` for
+`mirror|flat|sharp|presence|snr|derivative|peak.?to.?trough|trough.?to.?peak|curat|kilosort|quality`
+over `jnwb_ext/`, `scripts/`, `context/figures/fig03_unit_census/`, and for
+`human|manual(ly)? curat|good.?unit.?ind|curated` (no unit-curation hit).
 
-| ID | Criterion | Class | jnwb now | Maps to | Parameter that makes it the caller's choice |
+| ID | Criterion | Code at `c3d69375` | Definition, threshold and channel rule read there | Class | jnwb |
 |---|---|---|---|---|---|
-| D1 | Peak-channel derivative sharpness across channels | missing-generic | nothing reads channel geometry or a multichannel template | 13-03 spatial derivative sharpness | its threshold, required, and the channel geometry |
-| D2 | Flat-waveform rejection | missing-generic | nothing | 13-03 flatness | its threshold, required |
-| D3 | Mirrored-waveform rejection | unknown until the owner's code is read | nothing | if "mirrored" means inverted, D3 and D4 map to the same 13-03 measure (polarity and asymmetry of the positive against the negative peak on the peak channel); another meaning would need its own row | none until the meaning is known |
-| D4 | Rejection of a peak-channel waveform that rises more than it falls | missing-generic | nothing | 13-03 asymmetry (positive against negative peak on the peak channel) | the asymmetry cut-off |
-| D5 | Presence ratio | missing-generic | F2 consumes a supplied `trial_presence_fraction`; no jnwb function computes one | 13-03 presence ratio over caller-given blocks | the blocks, and the cut-off (F2's `presence_threshold`) |
-| D6 | SNR | present for thresholding a supplied SNR (F1, F2, F3, F4); missing-generic for computing one | jnwb reads a supplied `snr` column and never computes SNR from a waveform | 13-03 SNR (published definition, DOI resolved there) | `snr_threshold` (F2, F4) or `thresholds['snr']` (F1); F3's 1.0 is not a parameter (P-361) |
-| D7 | Sorter quality | present | F1 `thresholds['quality']`, F2's `quality` code, F11 `is_stable`, F12 `filter_quality=`/`quality_threshold=` | none; the description records the flags as unreliable, so using them is the caller's decision | `thresholds['quality']`, `quality_threshold`; F11's label set is not a parameter |
-| D8 | Redefined peak-to-trough duration | study-specific (the redefinition); the published trough-to-peak duration is missing-generic | jnwb passes a supplied `waveform_duration` through (F5, F7) with no unit read (P-365) | 13-03 trough-to-peak duration; the 13-03 docstring names the downstream redefinition against it once its code is read | the duration's sample rate `fs`; the redefinition itself stays downstream |
-| D9 | Human curation down the probe | study-specific (a human act; the labels stay downstream, fact B2) | F9 diffs two supplied inclusion columns; nothing fits a screen to labels | 13-04, blocked by the 13-01 ruling | the caller's label column |
+| D1 | Peak-channel derivative sharpness across channels | absent | the nearest is `n_channels_half_amp`, channels within 8 of the stored centre whose range is at least half the picked channel's (`scripts/unit_waveform_features.py:146`); reported, never a screen | missing-generic, now covered | `spatial_derivative_sharpness`, its threshold required |
+| D2 | Flat-waveform rejection | neighbours only: `pt_width` returns no width when the picked trace has zero range, `"flat waveform"` (`jnwb_ext/waveforms.py:338-340`); category `weak` when the aligned deflection is below `SNR_MIN = 5` baseline SDs of the mean trace (`scripts/unit_waveform_features.py:63`, `:139-148`) | zero range: exact; `weak`: own SNR of the mean (D6), cut 5; both exclude a unit from width typing, not from analysis | zero range covered (`waveform_flatness` flags it at any threshold); `weak` study-specific | `waveform_flatness`, threshold required |
+| D3 | Mirrored-waveform rejection | absent as named; no waveform code says "mirror" | the one inversion the code handles is category `positive`: the largest aligned deflection is positive and is the trace's maximum on the aligned samples; it is measured on the flipped trace and never typed (`scripts/unit_waveform_features.py:21-23`, `:159-164`) | settled as far as this code goes: "mirrored" = inverted polarity, the same measure as D4; the lab pipeline's own rule is unread | `waveform_features` `polarity` |
+| D4 | Peak-channel waveform rises more than it falls | `positive_dominant = w.max() > -w.min()` (`jnwb_ext/waveforms.py:337`), reported per unit and summarised per file (`scripts/extract_unit_waveforms.py:111`, `:119`); no screen applies it | the definition of jnwb `polarity == 1`; the channel differs: the deepest trough within `AMP_ROW_WINDOW = 8` channels of the stored peak channel (`waveforms.py:99`, `:330-332`), against jnwb's largest-amplitude channel | covered by a jnwb operation; the channel rule is the caller's (pass the channel rows) | `waveform_features` `polarity` |
+| D5 | Presence ratio | two: the stored sorter `presence_ratio > 0.60` in the `A_` screen (`jnwb_ext/waveforms.py:112`, `:415`); and `trial_presence_fraction`, the fraction of correct trials with a spike in `[-600, 4200)` ms of trial onset, half-open (`scripts/compute_unit_trial_presence.py:1-4`, `:78-91`), cut `> 0.98` (`context/figures/fig03_unit_census/fig03_unit_census.py:138`, `:319`) | trial presence is the presence ratio with trials as the blocks | covered by a jnwb operation with caller blocks; the cuts are caller choices | `presence_ratio(spike_times, blocks)` |
+| D6 | SNR | three: the stored per-spike `snr > 0.5` in the stable tier, through jnwb `assign_quality_tier` defaults (`scripts/classify_units_omission_inclusion_v1.py:172-174`); `snr > 0.3` in `A_` (`jnwb_ext/waveforms.py:113`, `:417`); `snr_mean`, the mean trace's aligned extreme over the SD of its detrended samples 0 to 10, cut 5 (`scripts/unit_waveform_features.py:33-34`, `:139-148`) | stored `snr` is the sorter's; `snr_mean` is the noise of the mean, not Siegle's residual SD | stored `snr`: covered (compute with `waveform_snr`, threshold F2/F4); `snr_mean`: study-specific | `waveform_snr`; F2 `snr_threshold` |
+| D7 | Sorter quality | `quality == 0` is `mua`, `quality == 1` the stable candidate (`fig03_unit_census.py:304-305`, `:318`; `assign_quality_tier`, `classify_units_omission_inclusion_v1.py:173`) | the NWB/Kilosort label, 0 or 1 | caller choice (F1, F2) | unchanged |
+| D8 | Redefined duration | `pt_width` (`jnwb_ext/waveforms.py:39-52`, `:349-364`): the deepest-trough channel; the trace scaled by its range; cut `[trough - 15, trough + 55]`; from the trough on, minus a ramp 0 to 1 over 56 samples; the first strict local maximum `j`; `pt_ms = (j + 2) / 30`, two samples more than the plain count `pt_ms_plain` (the pipeline's 1-based indexing), at a fixed 30 kHz (`:88-91`) | against the published trough-to-peak (`waveform_features`, Allen's rule): the channel there is the largest amplitude, the start the dominant extremum, the end the first occurrence of the opposite global extremum, no ramp, no offset, `fs` given. The stored sorter value is kept beside it (`scripts/extract_unit_waveforms.py:150`). `E:/omission` itself types on a third width, `pt_first_ms`, trough to the first local maximum followed by a fall of 10% of the trough depth on the 300 Hz high-passed mean (`scripts/unit_waveform_features.py:91-99`) | the redefinition study-specific; the published duration covered | `waveform_features` `trough_to_peak_ms`; its docstring names the redefinition |
+| D9 | Human curation down the probe | absent: no label, index or code for it at this commit | none | study-specific (fact B2) | none; 13-04 |
+| D10 | The pipeline's unit screen `A_` (in the code, not in the description) | `GOOD_UNIT`, `good_unit` (`jnwb_ext/waveforms.py:110-114`, `:409-422`), used to flag units (`scripts/extract_unit_waveforms.py:127`, `:142`) | stored ecephys metrics: `0.1 < firing_rate < 40`, `presence_ratio > 0.60`, `isi_violations < 0.1`, `snr > 0.3`, `amplitude_cutoff < 0.1`, `spread / 1e6 < 350` um, finite `waveform_halfwidth`, `repolarization_slope > 0.1` | thresholds study-specific; presence ratio and SNR covered (`presence_ratio`, `waveform_snr`); `isi_violations` is the sorter's Hill-style estimate, not compared with `refractory_contamination` line by line; amplitude cut-off, half-width, repolarisation slope and spread missing-generic | partly |
 
 ## C. Open
 
 | Item | Why open |
 |---|---|
-| D1 to D9 | read from the recorded description only; the code named for them, `E:/repos/jomission` at `0d39ad5f`, holds no unit curation (section B), so where the pipeline lives needs the owner |
-| D3 | its class waits on the meaning of "mirrored" in the owner's code |
-| D8 and the 13-03 docstring | the redefined duration is not in the named code, so `waveform_features` names no redefinition yet |
+| D1, D3 (the lab pipeline's own rule) and D9 | absent from `E:/omission` at `c3d69375`; they live in the cited lab pipeline (`yihan777/alpha_beta_mechanism` at `826e540`), which was not read, so confirming them needs its owner's access |
+| D10's amplitude cut-off, half-width, repolarisation slope and spread | published ecephys metrics jnwb does not compute; candidates for a todo item, not code here |
 | The source of F1, F2, F3, F11 and F12 defaults | none is cited in the code, its docstrings, `skills/jnwb-nwb-data/SKILL.md`, `docs/references.md`, `docs/common_mistakes.md` or `artifacts/rulings/`; filed as P-360 and P-361 |
