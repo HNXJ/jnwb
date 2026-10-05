@@ -6,7 +6,10 @@ keeps them in step, so this module holds them to each other in both directions:
 
 * every DOI on the page is well formed, and its link text and link target name the same DOI;
 * every row names a result, not only a source;
-* every function a row lists exists and cites that row's DOI in its docstring;
+* every function a method row lists exists and cites that row's DOI in its docstring;
+* every function a pitfall row lists exists, and nothing in `jnwb/` cites that row's DOI: a
+  paper that states a pitfall is cited from the page, and a docstring citing it belongs on a
+  method row;
 * every DOI cited anywhere in `jnwb/` is on the page;
 * every public function whose docstring cites a DOI is listed on that DOI's row;
 * every author-year citation in a `jnwb/vis` docstring names a row of the page. Those
@@ -46,6 +49,10 @@ AUTHOR_YEAR = re.compile(
     r"\b([A-Z][\w'-]+)(?:\s+et al\.?|\s+(?:&|and)\s+[A-Z][\w'-]+)?,?\s+\(?((?:19|20)\d{2})\b"
 )
 ROW_YEAR = re.compile(r"\(((?:19|20)\d{2})\)")
+#: A method table's functions implement the row's result; a pitfall table's are those its
+#: pitfall concerns. No other table header is allowed, so a new form cannot escape both checks.
+METHOD_HEADER = ("Reference", "Result implemented", "Functions")
+PITFALL_HEADER = ("Reference", "Pitfall stated", "Functions it concerns")
 
 
 def _norm(doi: str) -> str:
@@ -53,19 +60,32 @@ def _norm(doi: str) -> str:
     return doi.rstrip(".,").lower()
 
 
-def _rows(text: str) -> list[tuple[str, str, str]]:
-    """``(reference, result, functions)`` for every body row of every references table."""
+def _table_rows(text: str) -> list[tuple[tuple[str, ...], str, str, str]]:
+    """``(header, reference, result, functions)`` for every body row of every references table."""
     rows = []
+    header = None
     for line in text.splitlines():
         line = line.strip()
         if not line.startswith("|") or set(line) <= set("|- "):
             continue
         cells = [c.strip() for c in line.strip("|").split("|")]
         if cells and cells[0] == "Reference":
+            header = tuple(cells)
+            assert header in (METHOD_HEADER, PITFALL_HEADER), f"unknown table header: {line}"
             continue
         assert len(cells) == 3, f"a references row does not have three cells: {line[:80]}"
-        rows.append((cells[0], cells[1], cells[2]))
+        assert header is not None, f"a references row sits under no header: {line[:80]}"
+        rows.append((header, cells[0], cells[1], cells[2]))
     return rows
+
+
+def _rows(text: str, header: tuple[str, ...] | None = None) -> list[tuple[str, str, str]]:
+    """``(reference, result, functions)`` for the rows under `header`, or under any header."""
+    return [
+        (reference, result, functions)
+        for under, reference, result, functions in _table_rows(text)
+        if header is None or under == header
+    ]
 
 
 def _row_doi(reference_cell: str) -> str:
@@ -115,9 +135,22 @@ def rows(page):
     return _rows(page)
 
 
-def test_the_page_parses_into_rows(rows):
+@pytest.fixture(scope="module")
+def method_rows(page):
+    return _rows(page, METHOD_HEADER)
+
+
+@pytest.fixture(scope="module")
+def pitfall_rows(page):
+    return _rows(page, PITFALL_HEADER)
+
+
+def test_the_page_parses_into_rows(rows, method_rows, pitfall_rows):
     # A parser that silently matched nothing would make every test below vacuous.
     assert len(rows) >= 20, f"only {len(rows)} reference rows parsed; the table parser is wrong"
+    assert len(method_rows) >= 20, f"only {len(method_rows)} method rows parsed"
+    assert pitfall_rows, "no pitfall row parsed; the header match is wrong"
+    assert len(method_rows) + len(pitfall_rows) == len(rows)
 
 
 def test_every_doi_is_well_formed_and_its_link_agrees(page):
@@ -137,8 +170,8 @@ def test_every_row_names_the_result_it_implements(rows):
         )
 
 
-def test_every_listed_function_cites_its_row(rows):
-    for reference, _, functions in rows:
+def test_every_listed_function_cites_its_row(method_rows):
+    for reference, _, functions in method_rows:
         doi = _row_doi(reference)
         names = CODE_SPAN.findall(functions)
         assert names, f"the row for doi:{doi} lists no function"
@@ -150,6 +183,23 @@ def test_every_listed_function_cites_its_row(rows):
             assert doi in _doc_dois(obj), (
                 f"the row for doi:{doi} lists `{name}`, whose docstring does not cite that DOI"
             )
+
+
+def test_a_pitfall_row_names_functions_and_no_source_cites_it(pitfall_rows):
+    source = "\n".join(p.read_text(encoding="utf-8") for p in sorted(PACKAGE.rglob("*.py")))
+    cited = {_norm(doi) for doi in SOURCE_DOI.findall(source)}
+    for reference, _, functions in pitfall_rows:
+        doi = _row_doi(reference)
+        names = CODE_SPAN.findall(functions)
+        assert names, f"the pitfall row for doi:{doi} lists no function"
+        for name in names:
+            try:
+                _resolve(name)
+            except AttributeError:
+                pytest.fail(f"the pitfall row for doi:{doi} lists `{name}`, which jnwb does not have")
+        assert doi not in cited, (
+            f"jnwb/ cites doi:{doi}, a pitfall row; a cited paper's method belongs on a method row"
+        )
 
 
 def test_every_doi_in_the_package_is_on_the_page(page):

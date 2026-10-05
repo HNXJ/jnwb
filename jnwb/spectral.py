@@ -1954,6 +1954,14 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
 
     Returns:
         (n_channels - 1, n_samples) bipolar-referenced array.
+
+    References:
+        Bastos, A. M., et al. (2020). Layer and rhythm specificity for predictive routing.
+        PNAS. doi:10.1073/pnas.2014868117 -- Experimental Procedures, "Local Field Potential
+        Power, Coherence, and Granger Causality Analysis": sample-by-sample bipolar
+        differences taken before coherence and Granger causality, because a common
+        reference can make both spurious. The paper subtracts contacts 400 um apart; this
+        function subtracts adjacent contacts.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:
