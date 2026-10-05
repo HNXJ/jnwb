@@ -66,7 +66,8 @@ Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, the duration docstring in `jnwb/unit_quality.py` once 13-03 lands.
 Read-only on the rest of `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
 landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their remaining problems are
-10-09; 13-07 to 13-10 landed (`6c0b4542`, `d99cfc20`, `cb86990e`, `737a583e`). What remains needs the downstream code.
+10-09; 13-07 to 13-10 landed (`6c0b4542`, `d99cfc20`, `cb86990e`, `737a583e`). What remains needs the downstream code,
+which Hamm named on 2026-10-04: `E:/repos/jomission`, read-only.
 - D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
 - The 13-03 duration docstring names the downstream pipeline's redefined duration against the published trough-to-peak duration (ruling 13-01, row D8). Check: the docstring sentence cites the downstream code read for D8.
 Accept: every downstream row cites the pipeline's code.
@@ -448,7 +449,7 @@ Release: deferred-0.2.9.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
 Split from the documentation-check item on 2026-10-04, which landed every other bullet.
-- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Options graded at review: an annotation oracle over literals and page-assigned names plus a small table of argument types for unassigned names (75), or a placeholder-type table alone, which restates the annotations (40). Check: the oracle fails all three. Waits: the documented calls are already corrected; the oracle guards recurrence.
+- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Ruled 2026-10-04 (Hamm): an annotation oracle over literals and page-assigned names, plus a small table of argument types for names a page never assigns. Check: the oracle fails all three. Waits: the documented calls are already corrected; the oracle guards recurrence.
 - The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the gate's nav reader. Waits: no commented page exists.
 Accept: each check passes.
 Stop: the oracle needs a type that no annotation or table entry states.
