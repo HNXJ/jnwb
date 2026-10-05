@@ -25,8 +25,9 @@ These are the extras CI installs for the suite; collection imports `jnwb.vis`, w
 Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
 accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
 Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
-in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back to CPU with a warning when their
-dependency is absent, so you can work on most of the library without them.
+in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back
+to CPU with a warning when their dependency is absent, so you can work on most of the library
+without them.
 
 Verify the install:
 
@@ -43,9 +44,8 @@ reaches a release.
 ## Branches
 
 `dev` is where work lands. `main` holds releases. Release 0.2.8 moved `main` by merging `dev`
-into it with merge commits (`3146c210`, `dfa5d3b3`), and `dev` contains `main`; step 3 of
-[Releasing](#releasing) says how `main` moves. Whether later releases merge or fast-forward
-awaits a ruling.
+into it with merge commits (`3146c210`, `dfa5d3b3`), and `dev` contains `main`. `main` moves by
+merging `dev` into it (step 3 of [Releasing](#releasing)), never by fast-forward.
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.
@@ -420,11 +420,12 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
    `success`.
-3. Merge `dev` into `main` and push it. Not a fast-forward: `main` carries the merge commit
-   of every previous release PR, so `git merge --ff-only dev` fails there and always has.
-   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
-   `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
-   all went through a PR merge; this step said "fast-forward" through all of them.
+3. Merge `dev` into `main` with a merge commit and push it, as at 0.2.8 (`3146c210`,
+   `dfa5d3b3`). `main` carries the merge commit of every release, so it is ahead of `dev` until
+   `dev` takes those commits in; `release_gate.py` refuses a release commit that does not
+   contain `main`. Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
+   ahead of `main`, with no content on `main` that `dev` lacked and no conflict. Releases
+   0.1.x–0.2.5 and 0.2.8 went through a merge into `main`.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run

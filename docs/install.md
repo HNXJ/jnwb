@@ -32,7 +32,7 @@ every other export work, and accessing `jnwb.vis` raises `ImportError` naming
 [Plotly Figures](vis.md) shows a canvas end to end.
 
 kaleido 1.x writes SVG and PNG through a Chrome or Chromium that neither it nor `vis` installs.
-Without one, an export raises `ChromeNotFoundError`. Install one with the `kaleido_get_chrome`
+Without one, an export raises `RuntimeError` ("Kaleido requires Google Chrome to be installed"). Install one with the `kaleido_get_chrome`
 command (or `kaleido.get_chrome_sync()` in Python), or set the `BROWSER_PATH` environment
 variable to an existing browser executable.
 

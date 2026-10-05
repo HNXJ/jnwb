@@ -1646,6 +1646,34 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     return violations
 
 
+def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
+                             head: Optional[str] = None) -> List[str]:
+    """Why ``main`` is not contained in the commit being released; empty when it is.
+
+    ``main`` moves by merging ``dev`` into it, and ``dev`` then contains that merge, so a
+    release commit that does not contain ``main`` is on a history that dropped a release.
+    The ref is ``origin/main``, else ``main``; with neither, the answer is unknown and refused.
+    """
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+
+    target = head or "HEAD"
+    ref = next((r for r in ("origin/main", "main")
+                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
+               None)
+    if ref is None:
+        return ["neither origin/main nor main resolves, so whether main is an ancestor of the "
+                "commit being released is unknown"]
+    ancestry = git("merge-base", "--is-ancestor", ref, target)
+    if ancestry.returncode == 0:
+        return []
+    if ancestry.returncode == 1:
+        return [f"{ref} is not an ancestor of {target[:12]}: bring main's commits into dev "
+                "before tagging, so the release contains every commit on main"]
+    return [f"whether {ref} is an ancestor of {target[:12]} could not be determined: "
+            f"{ancestry.stderr.strip()[:120]}"]
+
+
 def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
     """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
 
@@ -1881,7 +1909,8 @@ def main() -> None:
                               text=True, check=True).stdout.strip()
     except (subprocess.CalledProcessError, OSError):
         head = None
-    stack_violations = check_state_is_current() + check_release_readiness(head=head)
+    stack_violations = (check_state_is_current() + check_release_readiness(head=head)
+                        + main_ancestry_violations(head=head))
     if stack_violations:
         for violation in stack_violations:
             log.error(violation)
