@@ -72,11 +72,11 @@ from scripts.mutation_harness import (  # noqa: E402
     default_state_root,
     known_gaps,
     parse_porcelain,
-    source_path,
     resolve_worktree,
     restore_and_verify,
     sha256_bytes,
     sha256_file,
+    source_path,
     state_dir_for,
 )
 

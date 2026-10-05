@@ -1300,7 +1300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--known-gaps",
         action="store_true",
-        help="run the recorded KNOWN_GAPS instead of a case file. A gap that has closed is an "
+        help="run the gaps `known_gaps` records instead of a case file. A gap that has closed is an "
         "UNEXPECTED-KILL and fails the run, so the record cannot go on claiming a gap that is gone.",
     )
     parser.add_argument(

@@ -2054,7 +2054,7 @@ def main() -> None:
     gaps_hold, gaps_report = check_known_gaps_hold()
     log.info(gaps_report)
     if not gaps_hold:
-        log.error("A recorded mutation gap no longer matches the measurement; update KNOWN_GAPS.")
+        log.error("A recorded mutation gap no longer matches the measurement; update `known_gaps` in scripts/mutation_harness.py.")
         sys.exit(1)
 
     for cmd in _api_md_check_commands():
