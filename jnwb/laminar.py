@@ -844,6 +844,23 @@ def vflip_from_lfp(
         doi:10.1038/s41593-023-01554-7 -- the spectrolaminar motif :func:`vflip` tests for;
         the :mod:`jnwb.laminar` module docstring says how its estimator differs from the
         paper's FLIP and vFLIP.
+        Bastos, A. M., et al. (2018). Laminar recordings in frontal cortex suggest distinct
+        layers for maintenance and control of working memory. PNAS.
+        doi:10.1073/pnas.1710323115 -- Results, "Gamma Power Peaks in Superficial Layers
+        and Alpha/Beta Peaks in Deep Layers", and Fig. 2B: power at each frequency relative
+        to the other contacts, averaged into a low-band and a high-band depth profile, whose
+        crossover lies near the first current source density sink. The paper divides by the
+        largest power across contacts and averages 4-22 Hz and 58-260 Hz (50-250 Hz in the
+        Fig. 2 legend); step 1 of :func:`vflip` also subtracts the smallest, the default
+        bands are 8-30 Hz and 50-150 Hz, and step 3 rescales each profile before the
+        crossing is found.
+        Bastos, A. M., et al. (2021). Neural effects of propofol-induced unconsciousness and
+        its reversal using thalamic stimulation. eLife. doi:10.7554/eLife.60824 -- Materials
+        and methods, "Neural recordings in cortex": the crossover of the gamma and
+        alpha-beta relative power profiles as the estimate of layer 4, which
+        ``crossover_contact`` reports. The paper gives no normalization for it beyond citing
+        Bastos et al. (2018), and describes no acceptance test; :func:`vflip` rejects a fit
+        whose support score is below `min_support_score`.
         Welch, P. D. (1967). The use of fast Fourier transform for the estimation of power
         spectra. IEEE Trans. Audio Electroacoust. doi:10.1109/TAU.1967.1161901
         -- the spectrum as the average of windowed periodograms over overlapping segments.
