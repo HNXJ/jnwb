@@ -43,6 +43,18 @@ A ``Verdict`` with ``killed=False`` was otherwise only ever a failure, so a *mea
 gap had nowhere to live but a lane report, and a measured hole becomes a forgotten one (P-172).
 An expected survivor inverts the assertion: the gap is asserted to still be a gap, and the run
 fails when the mutant starts being killed and nobody updated the record.
+
+Recipe for running a mutation oracle over ``jnwb/`` (P-305):
+
+* ``tests/test_semantic_mutation_classes.py`` compares each target's bytes in a clone of ``HEAD``
+  against the checkout and fails on any uncommitted byte change to a target. A selector that
+  would run the whole suite while a mutant is applied must deselect that file, or the oracle is
+  red for a reason the mutant did not cause.
+* CUDA agreement tests kill a device mutant only on a machine with a GPU. On a CPU-only
+  machine such a mutant survives, and a survivor there is not evidence of a coverage gap.
+
+A case names its target with :func:`source_path`, which derives the file from the public object
+that defines it; no case here or in the tests spells a ``jnwb/<module>.py`` path.
 """
 
 from __future__ import annotations
@@ -157,6 +169,44 @@ def sha256_bytes(data: bytes) -> str:
 def sha256_file(path: Path) -> str:
     """Digest of a file's bytes, read binary so no line ending is rewritten under us."""
     return sha256_bytes(Path(path).read_bytes())
+
+
+# --------------------------------------------------------------------------------------------
+# where a public object's source lives
+# --------------------------------------------------------------------------------------------
+
+def source_path(name: str, anchor: str | None = None) -> str:
+    """Repository-relative posix path of the file that defines ``jnwb.<name>``.
+
+    Derived with :func:`inspect.getsourcefile`, so a function that moves to another module
+    changes no caller. A case whose text lives in a private helper names a public object that
+    reaches it and passes the text as ``anchor``: when the public object's file does not hold
+    the anchor exactly once, the unique file under ``jnwb/`` that does is used. Zero or several
+    such files raise, because a path picked among candidates is not a derivation. The root is
+    the directory holding the imported ``jnwb`` package, and it must be a source tree: an
+    installed copy has no ``pyproject.toml`` beside it and is refused.
+    """
+    import importlib
+    import inspect
+
+    package = importlib.import_module("jnwb")
+    repo = Path(inspect.getsourcefile(package) or "").resolve().parent.parent
+    if not (repo / "pyproject.toml").is_file():
+        raise MutationHarnessError(f"jnwb is imported from {repo}, which is not a source tree")
+    found = Path(inspect.getsourcefile(getattr(package, name)) or "").resolve()
+    rel = found.relative_to(repo)
+    if anchor is None or found.read_bytes().decode("utf-8").count(anchor) == 1:
+        return rel.as_posix()
+    hits = [
+        p
+        for p in sorted((repo / "jnwb").rglob("*.py"))
+        if p.read_bytes().decode("utf-8").count(anchor) == 1
+    ]
+    if len(hits) != 1:
+        raise MutationHarnessError(
+            f"anchor {anchor[:60]!r} for jnwb.{name} is held by {len(hits)} files under jnwb/"
+        )
+    return hits[0].relative_to(repo).as_posix()
 
 
 # --------------------------------------------------------------------------------------------
@@ -1174,7 +1224,7 @@ def load_cases(path: Path) -> list[MutationCase]:
 KNOWN_GAPS: tuple[MutationCase, ...] = (
     MutationCase(
         name="P-171 | density-versus-power is named by a test that measures a ratio",
-        path="jnwb/spectral.py",
+        path=source_path("band_power", "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n"),
         original="        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
         replacement=(
             '        return signal.welch(trace, fs=fs, nperseg=nperseg, scaling="spectrum")\n'

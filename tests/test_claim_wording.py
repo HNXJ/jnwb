@@ -16,11 +16,17 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+# Appended, not prepended: an installed copy must not be shadowed by the source tree.
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+from scripts.mutation_harness import source_path  # noqa: E402
 
 TERMS = re.compile(
     r"\b(causes?|caused|causing|time[\s-]+delays?|propagation[\s-]+delays?|latenc(?:y|ies))\b",
@@ -79,7 +85,7 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
     ("jnwb/onset_fitting.py", "For a latency read as a threshold crossing", ONSET),
     ("jnwb/onset_fitting.py", "onset latency differences as biological", CAVEAT),
     ("jnwb/onset_fitting.py", "a latency difference between two traces", CAVEAT),
-    ("jnwb/spectral.py", "contains zeros causing", METHOD),
+    (source_path("relative_power", "contains zeros causing"), "contains zeros causing", METHOD),
     ("jnwb/spiking.py", "firing rate/latency/z-score", ONSET),
     ("jnwb/spiking.py", "- latency: Time to first spike", ONSET),
     ("jnwb/testing/synth.py", "Latency increment per contact", SYNTHETIC),
@@ -174,7 +180,7 @@ def test_every_use_on_the_public_surfaces_is_listed_and_every_listing_is_used() 
     "The phase slope gives the time-delay between contacts.",
 ])
 def test_the_sweep_flags_the_claims_it_exists_to_stop(sentence: str) -> None:
-    for path in ("docs/08_directed_connectivity_and_information.md", "jnwb/connectivity.py"):
+    for path in ("docs/08_directed_connectivity_and_information.md", source_path("granger")):
         unlisted, _ = _unlisted_and_unused([(path, 1, sentence)])
         assert unlisted, f"{sentence!r} in {path} passed the sweep"
 

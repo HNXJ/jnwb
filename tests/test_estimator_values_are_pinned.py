@@ -332,7 +332,7 @@ def _ar_gc(src: np.ndarray, tgt: np.ndarray, p: int) -> float:
 
     An oracle rather than a re-implementation: it shares no code with the estimator's
     solver, order selection or ridge path, and it writes `np.log` explicitly, which is the
-    property under test. `jnwb/connectivity.py` documents the residual variance as the
+    property under test. `granger`'s module documents the residual variance as the
     maximum-likelihood RSS / N, so that convention is used and no other. Measured, it
     reproduces `granger`'s number to 0.0.
     """
