@@ -146,8 +146,16 @@ jobs:
         # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         env:
           JNWB_REQUIRE_FIGURE_COMPARISON: ${{ matrix.figures == 'compared' && '1' || '0' }}
+        # A failed test is also written as an annotation: job logs need a sign-in to read,
+        # annotations are public through the checks API.
         run: |
-          pytest -v -n auto tests/
+          set -o pipefail
+          rc=0
+          pytest -v -n auto tests/ 2>&1 | tee pytest.log || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            grep -E '^(FAILED|ERROR) ' pytest.log | head -10 | sed 's/^/::error::/' || true
+          fi
+          exit "$rc"
 
   test-floors:
     # The matrix legs install the newest release of every dependency, so the `>=` floors in
@@ -241,8 +249,16 @@ jobs:
 
       - name: Run pytest
         if: env.QUALIFIED_BY == ''
+        # A failed test is also written as an annotation: job logs need a sign-in to read,
+        # annotations are public through the checks API.
         run: |
-          pytest -v -n auto tests/
+          set -o pipefail
+          rc=0
+          pytest -v -n auto tests/ 2>&1 | tee pytest.log || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            grep -E '^(FAILED|ERROR) ' pytest.log | head -10 | sed 's/^/::error::/' || true
+          fi
+          exit "$rc"
 
   build:
     name: Build & Validate Distribution
