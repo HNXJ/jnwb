@@ -9,8 +9,10 @@ required to fail its own check and no other.
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
+import types
 from pathlib import Path
 from typing import Callable, Dict
 
@@ -20,8 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+from scripts import docs_build  # noqa: E402
 from scripts import docs_form_gate as gate  # noqa: E402
-from tests import test_documentation_form as form  # noqa: E402
 
 CONTRACT = """# Documentation form
 
@@ -66,6 +68,8 @@ The trace color is normalized before plotting.
 
 The file is unlocked after `delve` returns, and delve-rs is a crate name.
 
+    #### an indented code block, not a heading
+
 ```python
 #### a comment, not a heading
 
@@ -97,6 +101,7 @@ nav:
   - Start:
       - A: a.md
       - B: b.md
+      - Ext: https://example.org/guide.md
   - More:
       - C: c.md
       - D: d.md
@@ -114,6 +119,7 @@ def tree(tmp_path: Path) -> Path:
     _write(tmp_path / "docs" / "a.md", PAGE)
     for name in ("b", "c", "d"):
         _write(tmp_path / "docs" / f"{name}.md", f"# Page {name.upper()}\n\nA short page.\n")
+    _write(tmp_path / "docs" / "tutorials" / "t1.md", "# Tutorial\n\nA short tutorial.\n")
     _write(tmp_path / "README.md", "# Fixture\n\nA readme.\n")
     for asset in ("figures/fig.png", "figures/fig.dark.png", "jnwb-logo.png"):
         (tmp_path / "docs" / "assets" / asset).parent.mkdir(parents=True, exist_ok=True)
@@ -157,12 +163,30 @@ def _unlink(rel: str) -> Callable[[Path], None]:
 
 NAV = "mkdocs.yml"
 PAGE_A = "docs/a.md"
+TUTORIAL = "docs/tutorials/t1.md"
 
 SEEDS = {
     "superseded form": ("vocabulary", _append(PAGE_A, "\nThe trace colour is fixed.\n"),
                         "'colour'"),
     "fourth-level heading": ("heading depth", _append(PAGE_A, "\n#### Too deep\n"), "Too deep"),
     "fifth-level heading": ("heading depth", _append(PAGE_A, "\n##### Deeper\n"), "Deeper"),
+    "indented fourth-level heading": ("heading depth", _append(PAGE_A, "\n   #### Indented\n"),
+                                      "Indented"),
+    "deep heading on a tutorial page": ("heading depth", _append(TUTORIAL, "\n#### Too deep\n"),
+                                        "tutorials/t1.md:"),
+    "superseded form on a tutorial page": (
+        "vocabulary", _append(TUTORIAL, "\nThe trace colour is fixed.\n"), "tutorials/t1.md"),
+    "three parallel facts on a tutorial page": (
+        "parallel facts",
+        _append(TUTORIAL, "\n`alpha` returns a float, `beta` returns an array, and `gamma` "
+                          "returns a table.\n"),
+        "tutorials/t1.md:"),
+    "slop term on a tutorial page": ("slop lexicon", _append(TUTORIAL, "\nWe delve in.\n"),
+                                     "tutorials/t1.md: 'delve'"),
+    "figure file linked without a scheme": (
+        "figure theme independence",
+        _append(PAGE_A, "\nThe [raw file](assets/figures/fig.png) opens alone.\n"),
+        "referenced without"),
     "nested group": ("navigation", _replace(NAV, "      - D: d.md\n",
                                             "      - D: d.md\n      - Sub:\n          - E: b.md\n"),
                      "N1"),
@@ -260,20 +284,14 @@ def test_the_live_tree():
         return int(match.group(1))
 
     assert count(r"of (\d+) concepts") >= 6
-    assert count(r"concepts in (\d+) pages") >= 18
+    assert count(r"concepts in (\d+) pages") >= 28
+    assert count(r"(\d+) groups") >= 4
     assert count(r"(\d+) targets") >= 25
     assert count(r"(\d+) figures shown as light/dark pairs") >= 10
-    assert count(r"(\d+) paragraphs") >= 200
+    assert count(r"(\d+) paragraphs") >= 300
+    assert count(r"paragraphs in (\d+) pages") >= 28
     assert count(r"none of (\d+) terms") >= 40
-    assert count(r"terms in (\d+) pages") >= 18
-
-
-def test_the_gate_reads_the_corpus_and_vocabulary_the_suite_reads():
-    """The gate re-reads files to take a root; on the live tree it must read what the suite reads."""
-    assert gate.corpus(REPO_ROOT) == form._corpus()
-    parsed = gate.parse_vocabulary((REPO_ROOT / gate.CONTRACT).read_text(encoding="utf-8"))
-    as_tuples = [(r.concept, r.preferred, r.superseded) for r in parsed]
-    assert as_tuples == [(r.concept, r.preferred, r.superseded) for r in form.VOCABULARY]
+    assert count(r"terms in (\d+) pages") >= 28
 
 
 def test_the_prose_detector_sees_clauses_in_live_prose():
@@ -283,3 +301,44 @@ def test_the_prose_detector_sees_clauses_in_live_prose():
             for number, paragraph in gate.paragraphs(text)
             if len(gate.parallel_fact_subjects(paragraph)) == gate.PARALLEL_FACTS - 1]
     assert len(near) >= 3, near
+
+
+def test_the_gate_reads_the_tutorial_pages():
+    """Bypass: the tutorial pages leave the corpus, and F1, F2 and F5 pass over their prose."""
+    for pages in (gate.corpus(REPO_ROOT), gate.f2_pages(REPO_ROOT)):
+        tutorials = [name for name, _ in pages if name.startswith("tutorials/")]
+        assert len(tutorials) >= 9, tutorials
+
+
+def test_the_gate_imports_nothing_from_the_tests():
+    """The tests call the gate. A gate that reads helpers out of a test module has two owners
+    for one rule, and a change to either moves the other."""
+    tree = ast.parse((REPO_ROOT / "scripts" / "docs_form_gate.py").read_text(encoding="utf-8"))
+    imported = [node.module or "" if isinstance(node, ast.ImportFrom) else alias.name
+                for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))
+                for alias in (node.names if isinstance(node, ast.Import) else [None])]
+    assert not [name for name in imported if name == "tests" or name.startswith("tests.")], imported
+
+
+def test_the_docs_build_writes_outside_the_tree(monkeypatch, tmp_path):
+    """The site goes to a temporary directory that is gone afterwards, or to the one named."""
+    calls = []
+
+    def fake_run(command, cwd):
+        site = Path(command[command.index("--site-dir") + 1])
+        site.mkdir(parents=True)
+        (site / "index.html").write_text("built", encoding="utf-8")
+        calls.append((site, Path(cwd), command))
+        return types.SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(docs_build.subprocess, "run", fake_run)
+    assert docs_build.main([]) == 0
+    site, cwd, command = calls[0]
+    assert cwd == REPO_ROOT and command[-3:-2] == ["--strict"]
+    assert REPO_ROOT not in site.resolve().parents, f"the site was written inside the tree: {site}"
+    assert not site.exists(), "the temporary site was left behind"
+
+    kept = tmp_path / "kept"
+    assert docs_build.main(["--keep", str(kept)]) == 0
+    assert calls[1][0] == kept.resolve() and (kept / "index.html").is_file()
+    assert docs_build.main(["--bogus"]) == 2
