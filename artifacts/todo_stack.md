@@ -38,10 +38,10 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | F spectral and laminar | 10-01, 10-02, 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-05, 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking and decoding | 09-08, 10-16, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| H statistics, spiking and decoding | 09-08, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 
 10-01 opens the cycle in F; 10-05 and 10-07 start once it is merged, and H fills that gap with
-09-08 and 10-16.
+09-08.
 
 ### 10-01 Tests find module files by import, not by path
 
@@ -164,16 +164,6 @@ moved to 14-07 in 0.2.14 on 2026-10-04.
 - `spike_count_correlation` with exactly 2 bins returns `mean_r` from correlations that are all ±1. Check: a minimum of 3 bins, or a stated warning, by ruling. Waits: `n_bins` is returned and Pearson r of 2 points is ±1 by definition, not a wrong value.
 Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
 Stop: the window convention changes a released function's counts.
-
-### 10-16 The `vis` tests skip by name without Chrome
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `tests/test_vis.py`, `tests/conftest.py`.
-Found by 09-11 on 2026-10-05: with Chrome hidden, `tests/test_vis*.py` gives 73 passed and 2 errors in fixture setup (`ChromeNotFoundError` wrapped as `SessionBrowserFailed`): `test_exports_in_the_group_render_in_the_session_browser` and `test_canvas_save_and_seal_triple_export`.
-- Check: without Chrome each browser-backed test skips with a reason naming Chrome; with Chrome they run. Waits: CI and the documented install both provide Chrome; the error names the cause.
-Accept: the check observed with Chrome hidden and present.
-Stop: none.
 
 ### 10-07 `statistics` as a package
 
