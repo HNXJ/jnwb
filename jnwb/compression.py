@@ -838,7 +838,8 @@ def compress_fp32(
             no longer opens its target, and the target keeps its source dtype unless it is
             named too. A soft link that is itself a top-level key arrives in the output as an
             independent copy of what it opens, so a dataset cast at another name, or a group
-            holding one, keeps its source dtype under that link. The cast is IRREVERSIBLE. Required: omitting it or passing ``None``
+            holding one, keeps its source dtype under that link. The cast is IRREVERSIBLE.
+            Required: omitting it or passing ``None``
             raises ``TypeError`` before anything is written.
         drop_convolved: drop ``convolved_spike_train`` rather than recompressing it. This is
             IRREVERSIBLE DATA LOSS on this corpus (no kernel parameters are recorded anywhere
@@ -870,7 +871,8 @@ def compress_fp32(
             one that a cast would leave reading differently under another name, which is one
             named through a soft-link alias, with a second hard link, or opened by a top-level
             soft link directly or through a group (naming all its names at once is refused as
-            well, since a cast would end the link); or a scalar dataset. A hard or soft link to either of the first two is refused
+            well, since a cast would end the link); or a scalar dataset. A hard or soft link to
+            either of the first two is refused
             like its target. Also raised when a regular ``timestamps`` array sits beside a
             ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
             comes before anything is written.

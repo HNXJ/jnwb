@@ -1090,7 +1090,7 @@ class TestTheDefaultCensusWarnsOfAnAbsentColumn:
     warn, and the `layer` case keeps its own message rather than a second one.
     """
 
-    @pytest.mark.parametrize("col", ["area", "depth_class"])
+    @pytest.mark.parametrize("col", ["session_id", "area", "depth_class"])
     def test_an_absent_default_column_warns(self, col):
         units = _synthetic_units().drop(columns=[col, "layer"])
         with pytest.warns(UserWarning, match=rf"no \['{col}'\] column.*not split by it"):
@@ -1113,4 +1113,3 @@ class TestTheDefaultCensusWarnsOfAnAbsentColumn:
             unit_census_report(units)
         messages = [str(w.message) for w in caught if w.category is UserWarning]
         assert len(messages) == 1 and "'layer' column is not read" in messages[0]
-

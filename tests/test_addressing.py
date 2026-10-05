@@ -810,6 +810,7 @@ def test_a_sublayer_alternation_is_one_location():
     assert parse_probe_areas("V1/a") == ("V1", "a")
     assert parse_probe_areas("VISa/b") == ("VISa", "b")   # a letter not after a digit
     assert parse_probe_areas("V6A/b") == ("V6A", "b")     # a digit, then an uppercase letter
+    assert parse_probe_areas("VISp6a/bc") == ("VISp6a", "bc")   # more than one letter
     assert parse_probe_areas("V6a/V6") == ("V6a", "V6")
     assert parse_probe_areas("V6a/B") == ("V6a", "B")
     elec = pd.DataFrame({"location": ["VISp6a/b"] * 2, "group_name": ["A"] * 2})
@@ -833,7 +834,8 @@ class TestEnrichingWithoutAPeakChannelWarns:
             out = enrich_units_dataframe(units, self.ELECTRODES, depth_unit="um")
         assert out["area"].isna().all() and (out["depth_class"] == "Unknown").all()
 
-    @pytest.mark.parametrize("case", ["with peak channel", "no electrodes", "empty electrodes"])
+    @pytest.mark.parametrize("case", ["with peak channel", "no electrodes", "empty electrodes",
+                                      "nothing to fill"])
     def test_a_resolvable_or_electrode_free_call_does_not_warn(self, case):
         import warnings
 
@@ -843,6 +845,9 @@ class TestEnrichingWithoutAPeakChannelWarns:
             units, electrodes = units.drop(columns="peak_channel_id"), None
         if case == "empty electrodes":
             units, electrodes = units.drop(columns="peak_channel_id"), self.ELECTRODES.iloc[0:0]
+        if case == "nothing to fill":
+            units = units.drop(columns="peak_channel_id").assign(
+                area="V1", depth_class="Deep", group_name="A")
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             out = enrich_units_dataframe(units, electrodes, depth_unit="um")

@@ -557,7 +557,8 @@ def enrich_units_dataframe(
     ``area``, ``depth_class`` and ``group_name`` are resolved only when ``units_df`` has a
     ``peak_channel_id`` column and ``electrodes_df`` has rows. Otherwise each of them that
     ``units_df`` lacks is filled on every row, with None or 'Unknown'; a ``units_df`` without
-    ``peak_channel_id`` beside a non-empty ``electrodes_df`` emits a ``UserWarning``.
+    ``peak_channel_id`` beside a non-empty ``electrodes_df`` emits a ``UserWarning`` when it
+    fills any of them.
 
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= stable_threshold`` when
     it is numeric, membership in ``stable_labels`` (compared lower-cased and stripped)
