@@ -82,7 +82,7 @@ def waveform_features(waveform, fs: float) -> Dict[str, Any]:
       A downstream curation pipeline's redefinition differs: it reads the channel of the
       deepest trough, scales that trace by its range, subtracts a linear ramp from 0 to 1 over
       the 56 samples from the trough on, ends at the first strict local maximum of the result
-      and adds two samples, so the two durations need not agree.
+      and adds two samples at an assumed 30 kHz, so the two durations need not agree.
     * ``peak_trough_ratio`` is the peak amplitude over the trough amplitude, ``max / |min|``,
       unitless (Jia et al. 2019, "PT ratio"). Above 1 the waveform rises more than it falls.
       It assumes a baseline of zero (an offset changes it), and is NaN unless the peak is
