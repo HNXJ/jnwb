@@ -39,7 +39,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
+| Q unit quality | 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
@@ -58,16 +58,6 @@ transfer from about 10% of human-screened units to the rest has already been tri
 The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
-
-### 09-15 Each topic page links its tutorial
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `docs/02_paths_addressing_metadata.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/09_decoding_and_visual_qc.md`, `docs/reading_nwb.md`.
-Source: the 09-01 actor, 2026-10-04; plan (c) of `artifacts/evidence/0.2.8/plan/restructure_plan.md`.
-- Tutorials 01 to 08 are not linked from the topic pages they exercise, which plan (c) asks for; lane Q owns those pages. Check: each tutorial has one link from its topic page, and the link check resolves.
-Accept: the docs build and link check pass.
-Stop: none.
 
 ### 13-02 Inventory: unit-quality criteria against what jnwb computes
 
