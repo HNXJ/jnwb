@@ -36,8 +36,28 @@ BROWSER_STOP_SECONDS = 60
 FIRST_FIGURE = {"data": [{"type": "scatter", "x": [0, 1], "y": [0, 1]}], "layout": {}}
 
 
+#: Set to "1" where a browser must exist (every CI leg): a missing Chrome then errors every
+#: browser-backed test instead of skipping it. Any other value leaves the skip on.
+REQUIRE_BROWSER = "JNWB_REQUIRE_BROWSER"
+
+
 class SessionBrowserFailed(RuntimeError):
     """kaleido's session browser died, or gave no answer within its bound."""
+
+
+def chrome_is_missing(err) -> bool:
+    """True when ``err`` or a cause behind it is choreographer's ``ChromeNotFoundError``.
+
+    Only this ending means there is no browser to render with; any other failure of the session
+    browser is a defect and stays an error.
+    """
+    seen = set()
+    while err is not None and id(err) not in seen:
+        seen.add(id(err))
+        if type(err).__name__ == "ChromeNotFoundError":
+            return True
+        err = err.__cause__ or err.__context__
+    return False
 
 
 def bounded(call, seconds, what, alive=lambda: True, cause=lambda: None):
@@ -138,7 +158,8 @@ def session_browser_parts():
     """This file's session-browser functions, for tests that exercise them without importing it."""
     return SimpleNamespace(bounded=bounded, install=install_session_browser,
                            uninstall=uninstall_session_browser, first_figure=first_figure,
-                           stop=stop_browser, failed=SessionBrowserFailed)
+                           stop=stop_browser, failed=SessionBrowserFailed,
+                           chrome_missing=chrome_is_missing)
 
 
 @pytest.fixture(scope="session")
@@ -162,7 +183,13 @@ def session_browser():
     kaleido.start_sync_server(silence_warnings=True)
     try:
         server.call_function.seconds = BROWSER_START_SECONDS
-        first_figure(kaleido.calc_fig_sync)
+        try:
+            first_figure(kaleido.calc_fig_sync)
+        except SessionBrowserFailed as err:
+            if chrome_is_missing(err) and os.environ.get(REQUIRE_BROWSER) != "1":
+                pytest.skip("Chrome is not installed, so kaleido cannot render: run "
+                            "`kaleido_get_chrome` or set BROWSER_PATH")
+            raise
         server.call_function.seconds = BROWSER_RENDER_SECONDS
         yield
     finally:
