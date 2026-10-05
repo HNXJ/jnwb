@@ -1,20 +1,24 @@
-# 0.2.10
+# 0.2.9
 
-Opened 2026-10-05, after 0.2.9 was published. Items are deleted when done, never ticked; git,
+Opened 2026-10-03, after 0.2.8 was published. Items are deleted when done, never ticked; git,
 `CHANGELOG.md` and the receipts hold history. The previous cycle's record is
-`artifacts/archive/0.2.9/todo_stack_0.2.9.md`, with its closure receipt beside it; its 0.2.9
-section held only the two release-step items at the release, and every later section moves here
-unchanged.
+`artifacts/archive/0.2.8/todo_stack_0.2.8.md`, with its closure receipt beside it; its 0.2.8
+section held no open item at the release, and every later section moves here unchanged.
 
-Theme: oversized modules become small packages behind the same public API, and the scientific
-edges in them are closed.
+Theme: unit quality control is a public capability, first (Hamm, 2026-10-03); then the skill set
+is complete and routes every export, and the documentation menu follows how a reader arrives.
 
-Acceptance: `AGENTS.md` §11; `jnwb.__all__` and every public signature identical to 0.2.9;
-gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
-record in `artifacts/evidence/0.2.10/`.
+Acceptance: `AGENTS.md` §11; every export, module, docs page, example and notebook is routed or
+excluded with a checked reason; the nav matches the arrival table of `artifacts/evidence/0.2.8/plan/restructure_plan.md` (c); every
+criterion the downstream curation pipeline applies is a public operation, a caller choice or a
+checked exclusion, as far as the code at hand holds it (the rows only the lab pipeline holds moved
+to 10-15, ruled 2026-10-04); one skill routes the whole surface with all four outcomes; the docs
+figures follow the figure style ruled 2026-10-04.
 
-Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+The version is 0.2.9 (bumped 2026-10-05): 09-14 and 09-09 carry `release-step-0.2.9`, which STEP 0a
+reads as the release step, and every later item carries `deferred-0.2.10`, the one deferred value
+`scripts/release_gate.py` accepts now; the version heading carries the schedule
+(`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -31,6 +35,64 @@ while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md
 Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Accept`, `Stop` as
 needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferred cycle end with
 `Waits:` and the reason it cannot make release evidence falsely pass.
+
+## Lanes
+
+| Lane | Items, in order | Owns |
+|---|---|---|
+| R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
+
+Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. D8 and D9 are ruled.
+
+Context, recorded 2026-10-01 from a working discussion. A downstream pipeline screens sorted
+units in two stages: algorithmic screens (a peak-channel derivative-sharpness check across
+channels, rejection of flat or mirrored waveforms, rejection of units whose peak-channel waveform
+rises more than it falls, presence ratio, SNR, sorter quality), then human curation down the
+probe, which removes about half of the units the algorithmic stage keeps. Sorter quality flags
+proved unreliable. The pipeline redefines peak-to-trough duration; the result correlates with the
+sorter's value without equalling it. Three datasets carry a final human good-unit index, and a
+transfer from about 10% of human-screened units to the rest has already been tried downstream.
+The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
+synthetic fixtures only. A collaborator is developing the label-learning skill separately and
+brings it here when ready.
+
+### 09-09 PyPI publication from the tag push
+
+Release: release-step-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`.
+The workflow, `scripts/release_body.py`, their tests and facts R1 and R3 landed in `01606de1` (merged `ae7c6930`, verified independently, rulings 2026-10-03 and 2026-10-04). CI on `dev` at `f4fb2510` was green (run 37192638893). What remains only the tag push can show.
+- Check: the 0.2.9 tag push pauses `publish-pypi` for the `pypi` approval inside the run, PyPI trusted publishing accepts the push-event job, `publish-pypi` downloads that run's distribution, and `github-release` creates the Release whose body passes `tests/test_release_body_gate.py`'s live test.
+Observed 2026-10-05: the `v0.2.9` tag push (run 37330156064, tag on main's merge commit `e240d9c8`) held `publish-pypi` in `waiting` for the `pypi` approval inside the run; after Hamm approved, trusted publishing accepted the push-event job, `publish-pypi` and `github-release` concluded success, and `pip install jnwb==0.2.9` in a fresh venv gives 0.2.9 from site-packages with `pip check` clean.
+Accept: the check observed.
+Stop: the `pypi` environment's approval cannot run inside the tag-push run.
+
+### 09-14 Release step 0.2.9
+
+Release: release-step-0.2.9.
+AUTONOMY: none.
+Role: actor. Skill: none. Blocked by: none.
+Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
+The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
+- The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
+- The version is bumped to 0.2.9. Check: the harness passes, its version gates included.
+- The later cycles are relabelled `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts once the declared version is 0.2.9. Check: every item of 0.2.10 to 0.2.14 carries it, and STEP 0a counts none of them.
+- An independent blocker-focused closure pass (`AGENTS.md` §11). Check: `artifacts/blocker_fixpoint_receipt.md` names the commit the pass ran against and its new blockers.
+- 09-09's check happens at the tag push, so 09-09 takes this item's release value at the bump. Check: the tag-push observation recorded in 09-09 before it is deleted.
+Accept: `python scripts/release_gate.py` passes before the tag.
+Stop: a step needs an authority this item does not carry.
+
+# 0.2.10
+
+Theme: oversized modules become small packages behind the same public API, and the scientific
+edges in them are closed.
+
+Acceptance: `AGENTS.md` §11; `jnwb.__all__` and every public signature identical to 0.2.9;
+gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
+record in `artifacts/evidence/0.2.10/`.
+
+Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## Lanes
 
