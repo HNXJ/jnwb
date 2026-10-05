@@ -40,7 +40,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| E references | 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
 | V figure style | 09-13 | `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`; `examples/tutorials/09_open_data.py` and `tests/test_figure_form.py` once lane D has merged them |
@@ -58,17 +57,6 @@ transfer from about 10% of human-screened units to the rest has already been tri
 The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
-
-### 09-06 The interpretational pitfalls, stated once
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `docs/common_mistakes.md`, `docs/08_directed_connectivity_and_information.md`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`.
-- Common reference, volume conduction, SNR asymmetry, common input, sample-size bias, phase slope as direction, bivariate against conditional Granger, filtering before Granger and non-stationarity: one statement each, linked to its reference row and to the function that guards it or the gap that leaves it open. Check: each statement links a `docs/references.md` row. Waits: documentation only.
-- `granger_spectral` is parametric; published values from nonparametric Granger are not directly comparable. Check: the statement sits on the directed-connectivity page. Waits: documentation only.
-Accept: the docs form gate passes and no pitfall is stated on two pages.
-Stop: a statement would claim a safeguard jnwb does not implement.
 
 ### 09-11 Install, contribution and branch instructions match what works
 
@@ -119,7 +107,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -335,7 +323,7 @@ Stop: a declaration would change a public signature without a ruling.
 ### 10-11 One synthetic test per interpretational pitfall
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-06, 09-06.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-06.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Common reference: a shared reference inflates coherence and Granger; `bipolar_reference` removes the inflation. Check: both directions asserted.
@@ -344,7 +332,7 @@ Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each 
 - Common input: a common driver with unequal delays makes bivariate Granger spurious and conditional `granger` removes it. Check: both asserted.
 - Sample-size bias: the `pairwise_phase_consistency` and debiased wPLI null means stay near zero for every segment count. Check: several counts.
 Waits: tests only; each records present behaviour.
-Accept: every pitfall statement of 09-06 is held by a test or names its gap.
+Accept: every pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap.
 Stop: a test would need a threshold no reference fixes.
 
 ### 10-12 Skills point to their sources
