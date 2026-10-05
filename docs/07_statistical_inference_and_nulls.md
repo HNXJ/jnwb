@@ -1,6 +1,6 @@
 # 07. Statistical Inference, Resampling & Null Hypothesis Modeling
 
-Bootstrap intervals, permutations under a named exchangeability scheme, FDR control, fire-probability tests and trial-cycle detection.
+Bootstrap intervals, permutations under a named exchangeability scheme, FDR control, fire-probability tests and trial-cycle detection. The [statistics tutorial](tutorials/05_statistics.md) runs a permutation test.
 
 ---
 
