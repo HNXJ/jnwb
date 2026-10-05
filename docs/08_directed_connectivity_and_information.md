@@ -76,11 +76,16 @@ assert spectral_res.spectrum is not None
 print("Beta-band summary:", spectral_res.per_band.get("beta"))
 ```
 
+`granger_spectral` is parametric. Published values from nonparametric Granger, as in
+[Vezoli et al. (2021)](references.md#pitfalls), are not directly comparable. The
+[pitfalls of coupling and direction](common_mistakes.md#interpretational-pitfalls-of-coupling-and-direction)
+are stated once there.
+
 ---
 
 ## 3. Phase Slope Index (`phase_slope_index`)
 
-PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention — observational directionality, not perturbational causality.
+PSI estimates lag asymmetry from the slope of cross-spectral phase across frequency bins. Positive `net` (and `x_to_y` for PSI) indicates X leads Y under the PSI convention.
 
 ```python
 x_long = rng.normal(size=4000)
@@ -110,9 +115,8 @@ gives 7.
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
 
-Panel A of that figure is `jnwb.granger` at order 15 on a synthetic pair with a known lead, and panel B is
-`jnwb.phase_slope_index` on the same pair. Both name a direction in the statistics, and neither
-names one in the tissue, which is the invariant stated above.
+Panel A is `jnwb.granger` at order 15 on a synthetic pair with a known lead; panel B is
+`jnwb.phase_slope_index` on the same pair.
 
 ---
 
