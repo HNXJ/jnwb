@@ -64,6 +64,19 @@ def test_a_release_merge_whose_dev_contains_the_old_main_passes(tmp_path):
     assert main_ancestry_violations(_release_merge(tmp_path, dev_absorbs_main=True)) == []
 
 
+def test_an_unpushed_release_merge_whose_dev_lacks_the_old_main_fails(tmp_path):
+    """Merged locally, gate run before the push: origin/main is HEAD^1 and is not HEAD."""
+    root = _repo(tmp_path, main_extra=True)
+    _git(root, "checkout", "main")
+    _git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _git(root, "merge", "--no-ff", "-m", "release", "dev")
+    rev = lambda name: subprocess.run(["git", "rev-parse", name], cwd=root, check=True,  # noqa: E731
+                                      capture_output=True, text=True).stdout.strip()
+    assert rev("origin/main") == rev("HEAD^1") and rev("origin/main") != rev("HEAD")
+    violations = main_ancestry_violations(root)
+    assert len(violations) == 1 and "old main" in violations[0]
+
+
 def test_a_release_merge_whose_dev_lacks_a_commit_of_the_old_main_fails(tmp_path):
     violations = main_ancestry_violations(_release_merge(tmp_path, dev_absorbs_main=False))
     assert len(violations) == 1

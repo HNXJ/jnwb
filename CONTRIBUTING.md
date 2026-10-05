@@ -421,7 +421,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    `success`.
 3. Run `git fetch origin main`, then merge `dev` into `main` with a merge commit and push it.
    `main` carries the merge commit of every release, so it is ahead of `dev` until `dev` takes
-   those commits in. `release_gate.py` reads the commit being released: when it is a merge,
+   those commits in. `release_gate.py` reads the commit being released: when it is a merge onto `main`,
    its first parent (the old `main`) must be an ancestor of its second (`dev`); otherwise
    `origin/main`, else `main`, must be an ancestor of it. The gate does not fetch.
    Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
