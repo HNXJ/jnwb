@@ -40,7 +40,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| R release | 09-16, 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
+| R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. D8 and D9 are ruled.
 
@@ -56,17 +56,6 @@ The curated datasets and their labels stay downstream (fact B2); jnwb receives o
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
 
-### 09-16 The committed figures render the same on the ubuntu CI legs
-
-Release: required-0.2.9.
-AUTONOMY: none.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `.github/workflows/workflow.yml`, `docs/generate_figures.py`, `docs/assets/figures/*.png`, `tests/test_generated_figures_are_maintained.py`.
-Found 2026-10-05 on CI run 37266345076 (`92b827f6`): with `ttf-mscorefonts-installer` (Arial 2.82) on ubuntu, seven committed figures differ from the regenerated ones in 0.20% to 0.44% of their pixels against the 0.001% slack; the windows legs (Arial 7.06) pass. The 2026-10-04 ruling asks for a font that reproduces the Arial figures with the check unchanged; the core-fonts Arial does not.
-- Check: every leg that compares figures passes `test_the_committed_figure_is_what_the_generator_draws` with `CHANGED_FRACTION` unchanged.
-Accept: the check observed on a dev CI run.
-Stop: the font every leg draws with, or which legs compare figures, is Hamm's ruling.
-
 ### 09-09 PyPI publication from the tag push
 
 Release: release-step-0.2.9.
@@ -81,7 +70,7 @@ Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 09-16.
+Role: actor. Skill: none. Blocked by: none.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
