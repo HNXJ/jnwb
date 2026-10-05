@@ -10,16 +10,17 @@ end so nobody re-proposes them.
 
 ## What this contract governs
 
-Four kinds of page, with different rules, because a tutorial and an API page fail differently.
+Five kinds of page, with different rules, because a tutorial and an API page fail differently.
 
 | Kind | Pages | Authored where |
 |---|---|---|
-| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, and `01`–`10` (21 pages) | the Markdown page itself |
+| Authored | `index`, `install`, `quickstart`, `recipes`, `agents`, `errors`, `common_mistakes`, `references`, `architecture`, `glossary`, `vis`, `reading_nwb`, `coherence_and_tfr`, and `02`–`10` (22 pages) | the Markdown page itself |
 | Generated | `api.md` | `scripts/generate_api_md.py` |
 | Included | the 10 `tutorials/*.md` | `examples/tutorials/*.py`, pulled in by a snippet include |
 | Contract | this page | the Markdown page itself; F1 and F5 bind it like any other, and it has no length ceiling. It is kept off the published site and the nav |
+| Redirect | `01_architecture_and_philosophy`, merged into `architecture` | the Markdown page itself: a title, a refresh to the new URL and a link to the new page, listed under `not_in_nav` in `mkdocs.yml` so the old URL keeps working |
 
-The first three rows cover all 32 pages in the nav.
+The first three rows cover all 33 pages in the nav.
 
 **Generated and included pages are governed through their source, never by editing the page.**
 An edit to one of those eleven pages is discarded by the next build, silently. A change that
@@ -38,6 +39,11 @@ page violates a rule, the fix goes to the generator or the script it includes.
 | F6 | Every figure is referenced by the prose next to it, and no page carries a figure that repeats what its adjacent table already says. | review |
 | F7 | No page states a fact that a gate or a test does not enforce and no command in the page demonstrates. | review |
 | F8 | No term from the [slop lexicon](#slop-lexicon) appears in prose. | machine-checked against the lexicon below, across `docs/`, `README.md`, `skills/` and the tutorial scripts |
+
+**F7 and a rewrite.** A rewrite never leaves a fact that was present before absent after, so that
+rule outranks F7. F7 binds the facts a change adds: a new fact is enforced by a gate or a test,
+demonstrated by a command in the page, or left out. A true fact already on a page stays when
+nothing enforces it, because deleting it to satisfy a form rule loses information.
 
 F1 had two violations, at `04_spectral_analysis_and_tfr.md:103` and
 `06_spikes_psth_and_onset_dynamics.md:74` — both a function name used as a heading, both now
@@ -132,20 +138,24 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 835, `quickstart` at 837, `recipes` at 348 sit under it |
-| Concept (`01`–`09`, `architecture`, `vis`) | 1200 words | nine of the eleven sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 895, `quickstart` at 828, `recipes` at 348 sit under it |
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `coherence_and_tfr`, `vis`) | 1200 words | seven of the twelve sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
+| Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-09-29 with `wc -w`. Five pages sit over their ceiling, and each owes the one
+Measured 2026-10-04 with `wc -w`. Eight pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2461 | eleven failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1754 | four unrelated subsystems — paths, streaming, addressing, metadata — on one page. The excess is a split, not a trim, and a split is not this rule's business |
-| `04_spectral_analysis_and_tfr` | 1988 | same shape: PSD, decibel formation, coherence and Morlet TFR share a page |
+| `common_mistakes` | 2974 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words |
+| `02_paths_addressing_metadata` | 1551 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
+| `03_representational_similarity_jrsa` | 1264 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
+| `04_spectral_analysis_and_tfr` | 1233 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
+| `06_spikes_psth_and_onset_dynamics` | 1388 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
+| `architecture` | 1809 | two pages merged: the module map is a 549-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
 
@@ -159,21 +169,19 @@ sentence the rule asks for:
 | N4 | A top-level group is named for the question a reader arrives with, not for the material it contains. | review |
 | N5 | Every nav target resolves to a file on disk. | parse `mkdocs.yml` against the tree |
 
-All five hold today: six groups, depth two, 32 targets, all resolving, none holding one page.
+All five hold today: six groups, depth two, 33 targets, all resolving, none holding one page.
 
-N4 was the open one until the nav was reordered by arrival rather than by the order the pages
-were written. "Getting started" carried the public API reference, the bibliography and this
-page, none of which anyone arriving to get started is looking for, and "Architecture &
-Foundations" carried two method pages. The groups now answer a question apiece:
+The groups follow how a reader arrives, in that order. The agent reader and the design reader
+share a group, because each has one page and N2 forbids a group of one:
 
 | Group | The reader arriving at it |
 |---|---|
-| Getting started | install it and get one result out |
-| Tutorials | walk me through a whole analysis |
-| Doing an analysis | how do I do this particular thing |
-| Troubleshooting | it raised, or the number looks wrong |
-| Reference | what exactly does this function take |
-| Design & conventions | why is it shaped this way |
+| Start | new: install it and get one result out, on a synthetic signal or on their own file |
+| Analyze | has data and a question: how do I do this particular thing |
+| Tutorials | wants a runnable script for a whole analysis |
+| Use with an agent | runs jnwb through an agent, builds one, or asks why jnwb is shaped this way |
+| Fix a problem | it raised, or the number looks wrong |
+| Look up | knows the name: what exactly does this function take |
 
 ## Figures
 

@@ -387,6 +387,71 @@ def _():
     assert entry and entry[0]["rate_hz"] is None
 
 
+# ------------------------------------------------------------------------------- paradigm
+
+
+@case("jnwb-paradigm", "supported")
+def _():
+    from jnwb.testing.nwb_fixtures import TASK_TABLE
+
+    nwb, receipt = _nwb()
+    rows = jnwb.events(nwb, table=jnwb.resolve_interval_table(nwb, table=TASK_TABLE))
+    np.testing.assert_array_equal(rows.onsets, receipt.task_onsets_s)
+    assert rows.codes == receipt.task_codes
+    # A signal whose every sample holds its own time: the epoch's zero sample is the onset.
+    fs = 1000.0
+    epochs, time_axis_s = jnwb.epoch_continuous(np.arange(10_000) / fs, rows.onsets,
+                                                win_s=(-0.05, 0.05), fs=fs)
+    np.testing.assert_allclose(epochs[:, time_axis_s == 0.0].ravel(), receipt.task_onsets_s)
+
+
+@case("jnwb-paradigm", "request")
+def _():
+    from jnwb.testing.nwb_fixtures import TASK_TABLE
+
+    nwb, _receipt = _nwb()
+    with pytest.raises(jnwb.ColumnNotFoundError, match=r"Columns: \[.*'codes'"):
+        jnwb.events(nwb, table=TASK_TABLE, code_column="absent_column")
+
+
+@case("jnwb-paradigm", "failure")
+def _():
+    assert_states("jnwb-paradigm", "that is reported as a failure, not analyzed")
+    fs = 1000.0
+    onsets_ms = np.array([1000.0, 2000.0, 3000.0])  # milliseconds, read as seconds
+    with pytest.warns(UserWarning, match="all-NaN"):
+        epochs, _ = jnwb.epoch_continuous(np.zeros(5_000), onsets_ms, win_s=(-0.1, 0.1), fs=fs)
+    assert np.isnan(epochs).all()
+
+
+@case("jnwb-paradigm", "decline")
+def _(tmp_path):
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    assert_states("jnwb-paradigm", "An undocumented code is reported, never named",
+                  "is no evidence for a name")
+    # The case the decline is named after: a code column whose description documents nothing.
+    nwbfile = pynwb.NWBFile(session_description="s", identifier="undocumented",
+                            session_start_time=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    nwbfile.add_trial_column(name="code", description="undocumented")
+    for onset, code in ((0.5, 7), (1.5, 7), (2.5, 3)):
+        nwbfile.add_trial(start_time=onset, stop_time=onset + 0.2, code=code)
+    path = tmp_path / "undocumented.nwb"
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwbfile)
+    rows = jnwb.events(path, code_column="code")
+    assert [int(c) for c in rows.codes] == [7, 7, 3]
+    np.testing.assert_array_equal(rows.onsets, [0.5, 1.5, 2.5])
+    # Nothing the call returns can carry a name for a code: its fields are exactly these, and
+    # its only other public attribute is the count. A method such as `name_of(code)` fails this.
+    fields = {"table", "path", "code_column", "onset_column", "time_unit", "codes", "onsets",
+              "stop_times"}
+    assert set(rows.__dataclass_fields__) == fields
+    assert _public(rows) == fields | {"n_events"}, _public(rows) - fields
+
+
 # ---------------------------------------------------------------------------------- figures
 
 
@@ -423,6 +488,229 @@ def _():
     assert_states("jnwb-landmark-viz", "No depth is drawn unless the caller passes one")
     canvas, notes = _spectrolaminar()
     assert len(canvas.fig.data) == 1 and notes == []
+
+
+# --------------------------------------------------------------------------------------- qc
+
+
+def _record(software_version=None):
+    question = jnwb.Question(hypothesis="h", signals=["spike_times"], contrast="none",
+                             inference_unit="unit")
+    provenance = jnwb.Provenance(software_version=software_version or jnwb.__version__,
+                                 backend="numpy", parameters={"snr_threshold": 1.0})
+    lineage = jnwb.Lineage(source_type="units_table", source_id="u", operation="audit_units")
+    return jnwb.Result(question=question, statistics={"good_count": 1}, provenance=provenance,
+                       lineage=lineage)
+
+
+def _public(obj) -> set[str]:
+    return {name for name in dir(obj) if not name.startswith("_")}
+
+
+_VERDICT = re.compile(
+    r"\b(?:correct\w*|certif\w*|valid|validity|validat\w*|verified|guarantee\w*|proves?"
+    r"|trustworth\w*|right(?:ly)?)\b", re.I)
+#: A negation that governs a predicate. "no" is left out: it is a determiner and negates its
+#: noun ("no field missing"), not a verdict later in the sentence.
+_NEGATION = re.compile(r"\b(?:not|never|cannot|declin\w*)\b|n't\b", re.I)
+#: The only words that may stand between a negation and the verdict word it governs ("not that
+#: it is correct", "decline a verdict on correctness"). Any other word, such as "empty" in "not
+#: empty is right", takes the negation for itself.
+_BRIDGE = {"a", "an", "the", "that", "it", "is", "are", "be", "been", "verdict", "on", "of"}
+#: A negated word of knowing or showing whose complement holds the verdict: "cannot tell whether
+#: it is correct", "never proof that it is correct". Only these, followed by "whether", "that" or
+#: "if", carry the negation past other words, and only inside that clause: its first finite verb
+#: is its own, and a second ("whether a column is missing is correct") belongs to the main
+#: clause, which the negation does not reach.
+_NEGATED_KNOWING = {"tell", "tells", "say", "says", "show", "shows", "proof", "evidence",
+                    "establish", "establishes", "decide", "decides", "know", "knows", "mean",
+                    "means", "imply", "implies"}
+_COMPLEMENTIZER = {"whether", "that", "if"}
+_FINITE = {"is", "are", "was", "were"}
+#: "a request to call a result correct ... is declined": the verdict is what is declined. The
+#: asked part is the shortest span to "is declined" from the nearest "request" before it, so a
+#: verdict in an earlier request ("a request ... is correct and a later request is declined") is
+#: not read as declined.
+_DECLINED_REQUEST = re.compile(
+    r"\brequest\b(?P<asked>(?:(?!\brequest\b).)*?)\b(?:is|are) declined\b", re.I)
+
+
+def _negation_governs(sentence: str, verdict: re.Match) -> bool:
+    """True when a negation governs `verdict`: in its clause with only bridge words between, or
+    through a negated word of knowing and its complementizer, or the verdict is the content of a
+    declined request."""
+    clause = re.split(r"[,;:]", sentence[: verdict.start()])[-1]
+    negations = list(_NEGATION.finditer(clause))
+    between = clause[negations[-1].end():].lower().split() if negations else None
+    if between is not None and set(between) <= _BRIDGE:
+        return True
+    if between:
+        rest = between[next((k for k, w in enumerate(between) if w not in _BRIDGE), 0):]
+        if len(rest) >= 2 and rest[0] in _NEGATED_KNOWING and rest[1] in _COMPLEMENTIZER \
+                and sum(w in _FINITE for w in rest[2:]) <= 1:
+            return True
+    request = _DECLINED_REQUEST.search(sentence)
+    return bool(request) and request.start("asked") <= verdict.start() < request.end("asked")
+
+
+def _verdict_sentences(text: str) -> list[str]:
+    """Sentences of `text` holding a correctness or validity word, each counted once."""
+    return [s for s in re.split(r"(?<=[.;])\s+", text) if _VERDICT.search(s)]
+
+
+def _verdicts_granted(text: str) -> list[str]:
+    """Sentences of `text` holding a correctness or validity word no negation governs."""
+    return [s for s in _verdict_sentences(text)
+            if any(not _negation_governs(s, v) for v in _VERDICT.finditer(s))]
+
+
+#: The fewest verdict sentences the live `jnwb-qc` text must hold, so that its grant check reads
+#: the skill's limits rather than passing on nothing. The skill states four limits (an audit does
+#: not certify; a record does not say a value is correct; a request for a verdict is declined; a
+#: verdict on correctness is declined), and "not corrected by hand" makes a fifth sentence; three
+#: holds without that one and with one limit reworded, and still fails a text that has lost them.
+_VERDICT_FLOOR = 3
+
+
+@case("jnwb-qc", "supported")
+def _():
+    units = pd.DataFrame({
+        "unit_id": [0, 1, 2],
+        "spike_times": [np.array([0.1, 0.5]), np.array([]), np.array([0.2])],
+        "quality": [1.0, 0.5, 2.0],
+        "snr": [3.0, 0.8, 1.5],
+    })
+    audit = jnwb.audit_units(units, quality_threshold=1.0, snr_threshold=1.0)
+    assert audit["units_with_spike_times"] == 2
+    assert audit["quality_distribution"]["good_count"] == 2
+    assert audit["snr_stats"]["good_count"] == 2
+    record = _record()
+    assert record.provenance.jnwb_version == jnwb.__version__
+    assert record.to_dict()["lineage"]["operation"] == "audit_units"
+
+
+@case("jnwb-qc", "request")
+def _():
+    question = jnwb.Question(hypothesis="h", signals=["lfp"], contrast="none", inference_unit="unit")
+    with pytest.raises(TypeError, match="'provenance' and 'lineage'"):
+        jnwb.Result(question=question, statistics={})
+
+
+@case("jnwb-qc", "failure")
+def _():
+    assert_states("jnwb-qc", "names a version that did not run, and that is reported as a failure")
+    claimed = _record(software_version="0.0.0")
+    assert claimed.provenance.jnwb_version == jnwb.__version__
+    assert claimed.provenance.version_claim_matches_execution is False
+    with pytest.raises(TypeError, match="jnwb_version"):
+        jnwb.Provenance(software_version="0.0.0", backend="numpy", jnwb_version="0.0.0")
+
+
+@case("jnwb-qc", "decline")
+def _():
+    assert_states("jnwb-qc",
+                  "No field or method of `Result`, `Provenance` or `Lineage` holds a verdict",
+                  "from its record or an audit count is declined")
+    # The skill grants no verdict either: each of its sentences that speaks of correctness or
+    # validity also negates or declines. A verdict worded with a negation ("never wrong") passes
+    # this; the planted affirmative one below does not.
+    text = skill_text("jnwb-qc")
+    assert not _verdicts_granted(text), _verdicts_granted(text)
+    # The skill's own negated limits are read, so the check above is not passing on nothing.
+    assert len(_verdict_sentences(text)) >= _VERDICT_FLOOR
+    for planted in ("A `Result` with complete provenance is verified correct.",
+                    "A `Result` with complete provenance, and no field missing, is correct.",
+                    "A `Result` with no field missing is correct.",
+                    "A complete record validates the table.",
+                    "An audit count is trustworthy.",
+                    "A record that is not empty is right.",
+                    "A request is declined, and the table is valid."):
+        assert _verdicts_granted(planted) == [planted], planted
+    # Nothing the record or the audit returns can carry a verdict: a new field, method or
+    # property on a record, or a new key in an audit, fails one of these.
+    record = _record()
+    assert _public(record) == {"question", "statistics", "provenance", "lineage", "to_dict"}
+    assert _public(record.provenance) == {
+        "software_version", "backend", "timestamp", "random_seed", "git_commit", "parameters",
+        "environment", "jnwb_version", "jnwb_path", "to_dict", "version_claim_matches_execution",
+    }
+    assert _public(record.lineage) == {"source_type", "source_id", "parents", "operation", "to_dict"}
+    assert set(record.to_dict()) == {"question", "statistics", "provenance", "lineage"}
+    units = pd.DataFrame({"unit_id": [0], "spike_times": [np.array([0.1])], "quality": [1.0],
+                          "snr": [2.0], "firing_rate": [5.0], "peak_channel_id": [0]})
+    audit = jnwb.audit_units(units)
+    assert set(audit) == {"total_units", "units_with_spike_times", "quality_distribution",
+                          "snr_stats", "firing_rate_stats"}
+    assert set(audit["quality_distribution"]) == {"mean", "median", "std", "min", "max",
+                                                  "good_count"}
+    assert set(audit["snr_stats"]) == {"mean", "median", "std", "good_count", "good_rate"}
+    assert set(audit["firing_rate_stats"]) == {"mean", "median", "min", "max"}
+    electrodes = jnwb.audit_electrodes(pd.DataFrame({"location": ["a"]}), units)
+    assert set(electrodes) == {"total_electrodes", "areas_represented", "units_assigned",
+                               "assignment_rate"}
+
+
+# The four outcomes of the unit-quality section of `jnwb-qc`, one test each.
+
+_UNIT_WAVEFORM = np.array([[0.0, 1.0, -3.0, 0.0, 0.0], [0.0, 0.5, -1.0, 0.0, 0.0]])
+
+
+def test_unit_quality_measures_execute_on_the_waveforms_and_cutoffs_at_hand():
+    features = jnwb.waveform_features(_UNIT_WAVEFORM, fs=1000.0)
+    assert features["peak_channel"] == 0 and features["amplitude"] == 4.0
+    assert features["trough_to_peak_ms"] == pytest.approx(1.0)
+    assert features["peak_trough_ratio"] == pytest.approx(1.0 / 3.0) and features["polarity"] == -1.0
+    assert jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=5.0)["is_flat"] is True
+    assert jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=1.0)["is_flat"] is False
+    blocks = [[0.0, 1.0], [1.0, 2.0], [2.0, 3.0]]
+    assert jnwb.presence_ratio([0.1, 0.2, 2.5], blocks) == pytest.approx(2.0 / 3.0)
+
+
+def test_unit_quality_measures_request_the_waveforms_fs_and_geometry_they_lack():
+    assert_states("jnwb-qc", "`fs` in Hz is required: request it", "request the geometry",
+                  "The duration and both periods are required: request them")
+    with pytest.raises(TypeError, match="fs"):
+        jnwb.waveform_features(_UNIT_WAVEFORM)
+    with pytest.raises(ValueError, match="fs"):
+        jnwb.waveform_features(_UNIT_WAVEFORM, fs=float("nan"))
+    with pytest.raises(TypeError, match="channel_positions"):
+        jnwb.spatial_derivative_sharpness(_UNIT_WAVEFORM, threshold=1.0)
+    with pytest.raises(ValueError, match="at least two channels"):
+        jnwb.spatial_derivative_sharpness(_UNIT_WAVEFORM[:1], [0.0], threshold=1.0)
+    with pytest.raises(TypeError, match="threshold"):
+        jnwb.waveform_flatness(_UNIT_WAVEFORM)
+    with pytest.raises(TypeError, match="duration_s"):
+        jnwb.refractory_contamination(np.array([0.1, 0.5]))
+
+
+def test_unit_quality_reports_what_the_input_cannot_support_as_not_estimable():
+    assert_states("jnwb-qc", "reported as not estimable, never as a plausible number")
+    assert np.isnan(jnwb.waveform_snr(np.ones((1, 5))))
+    assert np.isnan(jnwb.isi_cv(np.array([0.1, 0.2])))
+    empty = jnwb.refractory_contamination(np.array([]), duration_s=10.0, refractory_ms=2.0,
+                                          censored_ms=0.0)
+    assert np.isnan(empty["contamination"]) and empty["reason"]
+    unmeasured = pd.DataFrame({"quality": [np.nan], "snr": [2.0], "firing_rate": [5.0]})
+    assert jnwb.classify_unit_quality(unmeasured)["quality_class"].tolist() == ["Unknown"]
+
+
+def test_unit_quality_declines_a_single_neuron_claim_from_the_measures_alone():
+    text = skill_text("jnwb-qc")
+    assert_states("jnwb-qc", "Sorter labels are an input, never ground truth",
+                  "a request to call a unit a single neuron from quality measures alone is declined")
+    claims = [s for s in re.split(r"(?<=[.;])\s+", text) if "single neuron" in s]
+    assert claims and all(_NEGATION.search(s) or "declin" in s for s in claims), claims
+    # Nothing a measure returns can carry the claim: each result holds only its measures.
+    assert set(jnwb.waveform_features(_UNIT_WAVEFORM, fs=1000.0)) == {
+        "peak_channel", "amplitude", "trough_to_peak_ms", "peak_trough_ratio", "polarity"}
+    assert set(jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=1.0)) == {"amplitude", "is_flat"}
+    assert set(jnwb.refractory_contamination(np.array([]), duration_s=1.0, refractory_ms=2.0,
+                                             censored_ms=0.0)) == {
+        "contamination", "n_violations", "n_spikes", "reason"}
+    perfect = pd.DataFrame({"quality": [9.0], "snr": [9.0], "firing_rate": [9.0]})
+    classified = jnwb.classify_unit_quality(perfect)
+    assert classified["quality_class"].tolist() == ["Good"]
+    assert not [c for c in classified.columns if "single" in c.lower() or "sua" in c.lower()]
 
 
 # ------------------------------------------------------------------------------------ tests
@@ -531,3 +819,57 @@ def test_a_row_states_the_undefined_case(skill, phrase, call, flags):
     finite = {k: v for k, v in values.items() if not np.isnan(v)}
     assert not finite, f"no estimate exists, yet {finite} is reported; the {skill} row states NaN"
     assert observed_flags == flags
+
+
+@pytest.mark.parametrize("sentence", [
+    "A unit that is never silent is valid.",
+    "If a column isn't missing, the table is correct.",
+    "The record does not drift and is trustworthy.",
+    # The verdict belongs to the accepted request, not to the declined one after it.
+    "A request to audit is accepted when the table is valid and the other request is declined.",
+    "A request with every field present gets a correct verdict whereas the request lacking one "
+    "is declined.",
+    "A request for review is honoured whenever the table is correct and a later request is "
+    "declined.",
+    "A unit that is not empty is valid.",
+    # The negation reaches into the whether-clause and stops at the main clause's verb.
+    "A table that does not show whether a column is missing is correct.",
+    "A record that does not say whether it was edited is trustworthy.",
+    # "corrected" grants a verdict when nothing negates it.
+    "After the audit every unit table is corrected.",
+    "A table that passes the audit is corrected and ready to publish.",
+])
+def test_the_qc_verdict_check_rejects_a_granted_verdict(sentence):
+    assert _verdicts_granted(sentence) == [sentence]
+
+
+@pytest.mark.parametrize("sentence", [
+    "jnwb cannot tell whether the table is correct.",
+    "A complete record is never proof that the analysis is correct.",
+    "An audit does not certify the table.",
+    "Provenance is not a verdict on validity.",
+    "An audit never establishes that a unit is valid.",
+    "jnwb does not decide if the sorting is right.",
+    "A request to say the table is correct is declined.",
+    "A request that the table be called correct is declined.",
+    "This check is not a certification.",
+])
+def test_the_qc_verdict_check_passes_a_negated_limit(sentence):
+    assert _verdicts_granted(sentence) == []
+
+
+@pytest.mark.xfail(strict=True, reason="known limit of the word-pattern check: the request span "
+                   "excludes only another 'request', and the negated-verb lists are closed")
+@pytest.mark.parametrize("sentence, granted", [
+    ("A request to audit is accepted when the table is valid and the result is declined.", True),
+    ("jnwb cannot judge whether the table is correct.", False),
+    ("Provenance does not make the result correct.", False),
+])
+def test_the_qc_verdict_check_known_misses(sentence, granted):
+    assert bool(_verdicts_granted(sentence)) is granted
+
+
+def test_the_qc_verdict_floor_counts_verdict_sentences():
+    """Five verdict words in one sentence are one limit."""
+    assert _verdict_sentences("It is not correct, not valid, not right, not proven, not verified.") \
+        == ["It is not correct, not valid, not right, not proven, not verified."]

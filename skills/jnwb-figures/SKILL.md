@@ -1,20 +1,19 @@
 ---
 name: jnwb-figures
 description: Matplotlib publication figures, vector export, tight auto-axis scaling, and
-  unit-quality plots.
+  equal raster trial counts.
 ---
 
-# `jnwb-figures` — Matplotlib Figures, Unit-Quality Plots & Vector Export
+# `jnwb-figures` — Matplotlib Figures & Vector Export
 
 ## 1. Trigger
-Matplotlib publication figures, unit-quality plots (`jnwb.visual_qc`), equal raster trial counts, or vector export (SVG/PDF). PSTH arrays route to `jnwb-spiking`; multi-panel Plotly figures route to `jnwb-landmark-viz`.
+Matplotlib publication figures, equal raster trial counts, or vector export (SVG/PDF). PSTH arrays route to `jnwb-spiking`; multi-panel Plotly figures route to `jnwb-landmark-viz`; unit-quality plots route to `jnwb-qc`.
 
 ## 2. Routing
 - `jnwb.setup_vector_graphics()`: Sets publication rcParams for editable vector text (`svg.fonttype = 'none'`).
 - `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Sets the x-limits to `x_span` exactly, whatever the data spans, so pass your own span; the signature's `(-500, 4124)` is one fixed window. Fits the y-limits to the plotted lines with `y_margin` padding and floors the lower limit at 0, so it suits non-negative traces such as rates: negative values fall out of view.
 - `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=["png", "pdf"])`: Exports a **list** of figures, one `<basename>_page<N>.<fmt>` per figure per format. `figures` is iterated, so a single figure must be passed as `[fig]`; passing the figure itself raises `TypeError: 'Figure' object is not iterable`.
 - `jnwb.resample_onsets(onsets, target_n=100, rng=42)`: Resamples onsets to exactly `target_n`, for an equal raster trial count across units. With at least `target_n` onsets it draws without replacement; with fewer it draws **with** replacement, so onsets repeat.
-- `jnwb.visual_qc`: Submodule of unit-quality plots -- waveforms, quality distributions, noise against signal, and quality compared across sessions (import `jnwb.visual_qc`).
 
 ## 3. Invariants & Safeguards
 1. **Vector text**: never convert text to outlines or rasterize labels on export; `setup_vector_graphics` keeps text editable.

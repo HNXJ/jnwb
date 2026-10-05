@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+import jnwb
+
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
 ROUTER = SKILLS / "jnwb" / "SKILL.md"
 DOCS_AGENTS = SKILLS.parent / "docs" / "agents.md"
@@ -83,6 +85,47 @@ def test_each_operation_has_one_routing_row() -> None:
     assert owners, "no routing row was found; this test checks nothing"
     shared = {op: skills for op, skills in owners.items() if len(skills) > 1}
     assert not shared, f"operations routed by more than one row: {shared}"
+
+
+#: The rows `jnwb-paradigm` took from `jnwb-nwb-data`: experiment structure, timing and
+#: conditions. `detect_trial_cycles` and `assign_subblock_quartiles` shared one row and moved as one.
+PARADIGM_ROUTES = (
+    "jnwb.assign_subblock_quartiles", "jnwb.detect_trial_cycles", "jnwb.epoch_continuous",
+    "jnwb.EpochCollection", "jnwb.events", "jnwb.EventTable", "jnwb.resolve_interval_table",
+)
+
+
+def test_the_paradigm_rows_live_in_one_skill() -> None:
+    """Each row `jnwb-paradigm` took is routed there once, and has left `jnwb-nwb-data`."""
+    taken = _routed_operations((SKILLS / "jnwb-paradigm" / "SKILL.md").read_text(encoding="utf-8"))
+    assert sorted(taken) == sorted(PARADIGM_ROUTES), f"jnwb-paradigm routes {sorted(taken)}"
+    left = set(_routed_operations((SKILLS / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")))
+    assert left, "no row of jnwb-nwb-data was read; the second check would pass on nothing"
+    assert not left & set(PARADIGM_ROUTES), f"still routed by jnwb-nwb-data: {left & set(PARADIGM_ROUTES)}"
+
+
+#: The rows `jnwb-qc` routes: the audits and the unit-quality classes and tiers from
+#: `jnwb-nwb-data`, the plots from `jnwb-figures`, the unit-quality measures, and the result
+#: records, which no skill routed before.
+QC_ROUTES = (
+    "jnwb.assign_quality_tier", "jnwb.audit_electrodes", "jnwb.audit_units",
+    "jnwb.classify_unit_quality", "jnwb.enrich_units_dataframe", "jnwb.get_snr_analysis",
+    "jnwb.isi_cv", "jnwb.Lineage", "jnwb.presence_ratio", "jnwb.Provenance",
+    "jnwb.refractory_contamination", "jnwb.Result", "jnwb.spatial_derivative_sharpness",
+    "jnwb.visual_qc", "jnwb.waveform_features", "jnwb.waveform_flatness", "jnwb.waveform_snr",
+)
+
+
+def test_the_qc_rows_live_in_one_skill() -> None:
+    """Each row `jnwb-qc` routes is there once, and has left the skills it came from."""
+    taken = _routed_operations((SKILLS / "jnwb-qc" / "SKILL.md").read_text(encoding="utf-8"))
+    assert sorted(taken) == sorted(QC_ROUTES), f"jnwb-qc routes {sorted(taken)}"
+    for source in ("jnwb-nwb-data", "jnwb-figures"):
+        left = set(_routed_operations((SKILLS / source / "SKILL.md").read_text(encoding="utf-8")))
+        assert left, f"no row of {source} was read; the check would pass on nothing"
+        assert not left & set(QC_ROUTES), f"still routed by {source}: {left & set(QC_ROUTES)}"
+    for symbol in QC_ROUTES:
+        assert symbol.removeprefix("jnwb.") in jnwb.__all__, f"{symbol} is not exported"
 
 
 def test_the_row_parser_reads_every_call_a_bullet_routes() -> None:

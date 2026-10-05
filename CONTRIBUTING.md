@@ -14,7 +14,7 @@ Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows 
 not only at its ends.
 
 ```bash
-git clone git@github.com:HNXJ/jnwb.git
+git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
@@ -23,8 +23,11 @@ pip install -e ".[test,docs,vis]"
 
 These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
 Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
-accelerated paths, `all` for everything. The GPU paths fall back to CPU with a warning when their
-dependency is absent, so you can work on most of the library without them.
+accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
+Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
+in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back
+to CPU with a warning when their dependency is absent, so you can work on most of the library
+without them.
 
 Verify the install:
 
@@ -40,8 +43,8 @@ reaches a release.
 
 ## Branches
 
-`dev` is where work lands. `main` holds releases and is fast-forwarded to `dev` when one
-is cut — no merge commits, so the two never diverge.
+`dev` is where work lands. `main` holds releases and moves by merging `dev` into it with a
+merge commit, not a fast-forward (step 3 of [Releasing](#releasing)).
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.
@@ -416,35 +419,36 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
    `success`.
-3. Merge `dev` into `main` and push it. Not a fast-forward: `main` carries the merge commit
-   of every previous release PR, so `git merge --ff-only dev` fails there and always has.
-   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42 ahead of
-   `main`, with no content on `main` that `dev` lacked and no conflict. Releases 0.1.x–0.2.5
-   all went through a PR merge; this step said "fast-forward" through all of them.
+3. Run `git fetch origin main`, then merge `dev` into `main` with a merge commit and push it.
+   `main` carries the merge commit of every release, so it is ahead of `dev` until `dev` takes
+   those commits in. `release_gate.py` reads the commit being released: when it is a merge onto `main`,
+   its first parent (the old `main`) must be an ancestor of its second (`dev`); otherwise
+   `origin/main`, else `main`, must be an ancestor of it. The gate does not fetch.
+   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
+   ahead of `main`, with no content on `main` that `dev` lacked and no conflict.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run
    of the same commit passed, the test matrix and the floors leg skip their steps and name that
-   run, and the build still runs in full. Then the
-   `publish-testpypi` job, which uploads to TestPyPI, then the `verify-testpypi` job, which
-   downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs that file into a fresh
-   environment with every dependency from PyPI, runs `pip check`, and runs
-   `scripts/smoke_installed.py` against it from outside the checkout. It does **not** upload
-   to PyPI.
-5. Create a **GitHub Release** for that tag (non-prerelease). The workflow's `publish-pypi`
-   job runs on `release: published`; the test matrix, the floors leg and the build do not run again on that
-   event, since the push run already passed them on the same commit. Its first step waits for
-   the tag push run and fails
-   unless that run's `publish-testpypi` and `verify-testpypi` jobs, one of each name, both
-   concluded `success`. It then downloads that push run's distribution artifact, not the
-   release run's rebuild, requires each file's sha256 to equal the one TestPyPI records for
-   it, and only then uploads those files to production PyPI via trusted publishing.
+   run, and the build still runs in full. Then the `publish-testpypi` job uploads to TestPyPI,
+   and the `verify-testpypi` job downloads only the `jnwb==X.Y.Z` wheel from TestPyPI, installs
+   that file into a fresh environment with every dependency from PyPI, runs `pip check`, runs
+   `scripts/smoke_installed.py` against it from outside the checkout, and, for a final version,
+   runs `scripts/release_body.py` so notes the body check refuses stop the run before PyPI.
+5. In the same run, for a final version only, `publish-pypi` needs `verify-testpypi`: it
+   downloads this run's distribution artifact, requires each file's sha256 to equal the one
+   TestPyPI records for it, and uploads those files to production PyPI via trusted publishing
+   in the `pypi` environment, whose approval rule applies. Then `github-release` writes the
+   notes with `scripts/release_body.py` (a fenced `pip install jnwb==X.Y.Z`, the supported
+   Python range and the version's `CHANGELOG.md` section), fails if
+   `check_release_body_claims` reports a violation, and otherwise runs `gh release create`.
+   Creating the Release needs no browser; approving the `pypi` environment's deployment
+   remains a reviewer step. No other event publishes to PyPI.
 6. Verify the result from PyPI in a fresh venv, rather than trusting the workflow's green
    tick. PyPI versions are immutable: a bad upload can never be replaced, only superseded.
 
 **TestPyPI:** every `v*` tag push runs the `publish-testpypi` job, an `rc` tag
-(`vX.Y.ZrcN`) as well as a final one; a release event never does, because PyPI receives the
-files the tag's push run uploaded to TestPyPI, checked against TestPyPI's hashes.
+(`vX.Y.ZrcN`) as well as a final one; an `rc`, alpha, beta or dev tag stops there.
 `workflow_dispatch` with target `testpypi` is also
 available for maintainers; it uploads but does not verify, since no tag names the version.
 

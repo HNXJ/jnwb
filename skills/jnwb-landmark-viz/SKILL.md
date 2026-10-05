@@ -21,6 +21,20 @@ Multi-panel publication figures in Plotly: spectrolaminar maps, laminar gradient
 | Hierarchy regression | `hierarchy` |
 | Publication theme and axis configuration | `theme` |
 
+### Panel functions
+Each takes the `canvas` and the `row` and `col` of its panel first; the rows name the required arguments, and the signature carries the rest.
+- `jnwb.vis.laminar.plot_spectrolaminar_map(canvas, row, col, rel_power, freqs, depths, *, depth_unit)`: relative power by frequency and depth.
+- `jnwb.vis.laminar.plot_opposing_gradients(canvas, row, col, gamma_power, alphabeta_power, depths, *, depth_unit)`: the two band profiles against depth.
+- `jnwb.vis.laminar.plot_csd(canvas, row, col, csd_matrix, time_ms, depths, *, value_unit, depth_unit)`: current source density.
+- `jnwb.vis.spiking.plot_multi_condition_raster_psth(canvas, row_raster, col_raster, row_psth, col_psth, st, onsets)`: one raster and one PSTH panel over conditions.
+- `jnwb.vis.spiking.plot_sorted_heatmap(canvas, row, col, rate_matrix, time_ms, *, value_unit)`: sorted population responses.
+- `jnwb.vis.state_space.plot_decoding_timecourse(canvas, row, col, time_ms, accuracy)`: decoding accuracy over time.
+- `jnwb.vis.state_space.plot_rsm_heatmap(canvas, row, col, rsm_matrix, condition_labels)`: a representational similarity matrix.
+- `jnwb.vis.spectral.plot_spectral_modulation_matrix(canvas, row, col, delta_db_matrix, areas, bands)`: ΔdB by area and band.
+- `jnwb.vis.spectral.plot_granger_spectra(canvas, row, col, freqs, gc_ff, gc_fb)`: the two directed spectra.
+- `jnwb.vis.hierarchy.plot_hierarchy_regression(canvas, row, col, hierarchy_ranks, values, ci_low, ci_high, area_labels, *, y_label)`: values against hierarchy rank.
+- `jnwb.vis.sidecar.serialize_argument_sidecar(output_path, argument_data)`: writes the argument sidecar for a figure built without `save_and_seal`.
+
 ### Rendering and export
 Figures are built from `plotly.graph_objects` and `plotly.subplots.make_subplots`. Dense rasters and continuous LFPs use `go.Scattergl`. Every `save_and_seal` call writes SVG with editable `<text>` (through `kaleido`), one PNG at `png_dpi` dots per inch and interactive HTML, and returns a dict mapping `svg`, `png`, `html` and `argument` to the written paths. The HTML loads plotly.js from a CDN, so it needs a network connection to render.
 

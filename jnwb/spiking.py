@@ -755,6 +755,18 @@ def spike_count_correlation(
     }
 
 
+def _count_fano(counts) -> np.ndarray:
+    """Fano factor of each row of a count array ``(n_rows, n_counts)``: the unbiased
+    (ddof=1) variance over the mean, NaN where the mean is 0. The one Fano rule of the
+    library; `fano_factor` and `UnitAnalyzer.quality_metrics` call it."""
+    counts = np.asarray(counts, dtype=float)
+    mean = counts.mean(axis=1)
+    out = np.full(counts.shape[0], np.nan)
+    ok = mean > 0
+    out[ok] = counts[ok].var(axis=1, ddof=1) / mean[ok]
+    return out
+
+
 def fano_factor(
     spike_times,
     onsets_s,
@@ -811,10 +823,8 @@ def fano_factor(
         counts[i] = np.searchsorted(u, onsets + w1, side="left") - np.searchsorted(u, onsets + w0, side="left")
     mean = counts.mean(axis=1) if trains else np.zeros(0)
     excluded = np.flatnonzero(mean == 0)
-    per_unit = np.full(len(trains), np.nan)
-    ok = mean > 0
-    per_unit[ok] = counts[ok].var(axis=1, ddof=1) / mean[ok]
-    usable = per_unit[ok]
+    per_unit = _count_fano(counts)
+    usable = per_unit[mean > 0]
     agg = np.mean if summary == "mean" else np.median
     return {
         "fano": float(agg(usable)) if usable.size else float("nan"),

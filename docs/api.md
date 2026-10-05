@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 166 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 173 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -24,7 +24,7 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.ProbeGeometry | class | *Extracted contact geometry and spatial properties for an electrode array.* |
 | jnwb.classify_layer_from_depth | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> str`<br>*Classify a unit's geometric depth class from electrode z depth.* |
-| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
+| jnwb.enrich_units_dataframe | function | `(units_df: pandas.DataFrame, electrodes_df: pandas.DataFrame | None, *, depth_unit: str | None = None, threshold: float | None = None, threshold_unit: str | None = None, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Enrich units DataFrame with standardized area, depth class, and quality flags.* |
 | jnwb.map_peak_channel_to_area | function | `(peak_channel_id: float, electrodes_df: pandas.DataFrame) -> str | None`<br>*Map peak channel ID to brain area location.* |
 | jnwb.probe_geometry | function | `(electrodes_table: typing.Any, *, probe_name: str | None = None, units: str = 'um', nominal_pitch: float | None = None, pitch_tolerance: float = 0.1, strict_linear: bool = False, stagger_tolerance_um: float = 100.0) -> jnwb.addressing.ProbeGeometry`<br>*Extract contact geometry, linear ordering, and spacing from electrode coordinates.* |
 
@@ -133,13 +133,13 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5) -> pandas.Series`<br>*Tier units into 'mua' / 'stable' / 'unstable' from quality code, trial presence, and SNR.* |
+| jnwb.assign_quality_tier | function | `(quality: pandas.Series, trial_presence_fraction: pandas.Series, snr: pandas.Series, presence_threshold: float = 0.98, snr_threshold: float = 0.5, *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.Series`<br>*Tier units 'mua' / 'stable' / 'unstable' / 'unknown' from quality, presence and SNR.* |
 | jnwb.audit_electrodes | function | `(elec_df: pandas.DataFrame, units_df: pandas.DataFrame | None = None) -> Dict`<br>*Audit electrode configuration and unit-to-electrode mapping coverage.* |
-| jnwb.audit_units | function | `(units_df: pandas.DataFrame) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
+| jnwb.audit_units | function | `(units_df: pandas.DataFrame, *, quality_threshold: float = 1.0, snr_threshold: float = 1.0, stable_labels: typing.Collection = ('good',)) -> Dict`<br>*Audit unit quality and completeness: spike-time coverage, and quality/SNR/firing-rate summary statistics.* |
 | jnwb.classify_unit_quality | function | `(units_df: pandas.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.DataFrame`<br>*Classify units by quality based on metrics.* |
 | jnwb.electrode_inventory | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Build inventory of electrodes, mapping to units and areas.* |
 | jnwb.filter_by_criteria | function | `(df: pandas.DataFrame, criteria: Dict, *, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame`<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
-| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
+| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
 
@@ -239,7 +239,7 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.laplacian_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*1D nearest-neighbor Laplacian re-reference along a probe's depth order.* |
 | jnwb.relative_power | function | `(power: numpy.ndarray, baseline: numpy.ndarray, *, model: str = 'mean_of_ratios', axis: int | Tuple[int, ...] | None = None, device: str = 'cpu') -> numpy.ndarray`<br>*Compute relative power of a signal against baseline under an explicit mathematical estimand.* |
 | jnwb.spectral_tilt | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 100.0), device: str = 'cpu') -> Dict`<br>*Fit 1/f spectral tilt via linear regression of log10 power versus log10 frequency.* |
-| jnwb.to_db | function | `(ratio)`<br>*``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass through — average power, divide by baseline, then take the logarithm exactly once.* |
+| jnwb.to_db | function | `(ratio)`<br>*``10*log10(ratio)`` with divide and invalid warnings silenced — average power, divide by baseline, then take the logarithm exactly once.* |
 | jnwb.voltage_curvature_1d | function | `(lfp_matrix: numpy.ndarray, pitch_um: float, axis: int = 0) -> numpy.ndarray`<br>*Compute the discrete second spatial derivative of extracellular potential along a laminar probe.* |
 | jnwb.wpli | function | `(x: numpy.ndarray, y: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), nperseg: int | None = None, noverlap: int | None = None, device: str = 'cpu') -> Dict[str, typing.Any]`<br>*Weighted Phase Lag Index (wPLI) between two continuous signals.* |
 
@@ -299,6 +299,18 @@ All 166 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.build_time_resolved_matrix | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, quality: str | None = None) -> Tuple[numpy.ndarray, List[int], numpy.ndarray]`<br>*Build a trial-by-trial time-resolved population spike count matrix.* |
 | jnwb.compute_population_trajectory | function | `(session, area: str, epochs_df: pandas.DataFrame, time_window_ms: Tuple[float, float] = (-1000.0, 2000.0), bin_size_ms: float = 20.0, n_components: int = 3, quality: str | None = None, device: str = 'cpu') -> Dict[str, numpy.ndarray | List[int] | float | str]`<br>*Compute population trajectory using standardized correlation PCA (SVD). Supports GPU SVD acceleration via PyTorch if device='cuda' and CUDA is available.* |
+
+## Module: jnwb.unit_quality
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.isi_cv | function | `(spike_times) -> 'float'`<br>*Coefficient of variation of the inter-spike intervals (Shinomoto et al. 2009, eq. 1).* |
+| jnwb.presence_ratio | function | `(spike_times, blocks) -> 'float'`<br>*Fraction of caller-given blocks that hold at least one spike (Siegle et al. 2021).* |
+| jnwb.refractory_contamination | function | `(spike_times, *, duration_s: 'float', refractory_ms: 'float', censored_ms: 'float') -> 'Dict[str, Any]'`<br>*Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).* |
+| jnwb.spatial_derivative_sharpness | function | `(waveform, channel_positions, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*How sharply amplitude falls from the peak channel to its nearest channels.* |
+| jnwb.waveform_features | function | `(waveform, fs: 'float') -> 'Dict[str, Any]'`<br>*Peak channel, amplitude, trough-to-peak duration, peak-trough ratio and polarity.* |
+| jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |
+| jnwb.waveform_snr | function | `(spike_waveforms) -> 'float'`<br>*Signal-to-noise ratio of one unit on one channel (Siegle et al. 2021, Methods).* |
 
 ## Module: jnwb.viz
 

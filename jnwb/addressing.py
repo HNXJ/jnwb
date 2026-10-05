@@ -8,8 +8,11 @@ carries no area vocabulary and does not normalize spelling or aliases.
 """
 
 from dataclasses import dataclass
+import decimal
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+import numbers
+import operator
+from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
 
@@ -28,6 +31,115 @@ except ImportError:
 
 # Compared after strip() and lower(); "nat" is how a missing datetime prints.
 _MISSING_TEXT = frozenset(s.lower() for s in _PANDAS_NA_STRINGS) | {"nat"}
+
+# The text quality labels `enrich_units_dataframe` reads as stable by default; a convention
+# with no cited source, which the caller replaces through `stable_labels`.
+_STABLE_QUALITY_LABELS = ("good", "sua", "single", "stable", "clean")
+
+# The units-table columns `enrich_units_dataframe` reads by name on every path; `cluster_id`
+# and `peak_channel_id` are read only on the paths that use them.
+_ENRICH_READS = ("unit_id", "quality", "firing_rate", "waveform_duration", "snr")
+
+
+def _stable_label_set(stable_labels, caller: str) -> frozenset:
+    """``stable_labels`` as compared: stripped and lower-cased. A bare string is refused,
+    because iterating it would accept each of its characters as a label."""
+    if isinstance(stable_labels, (str, bytes)):
+        raise TypeError(
+            f"{caller}: stable_labels must be a collection of labels, not the string "
+            f"{stable_labels!r}; pass ({stable_labels!r},) for one label."
+        )
+    labels = frozenset(str(label).strip().lower() for label in stable_labels)
+    if not labels:
+        raise ValueError(
+            f"{caller}: stable_labels is empty, so no text label could be stable; pass at "
+            "least one label."
+        )
+    return labels
+
+
+def _finite_cutoff(value, name: str, caller: str):
+    """A cut-off checked to be a finite real number and returned for comparison with its exact
+    value: a 0-d numpy or JAX array or a numpy scalar as its Python number (``.item()``), any
+    other real number (``int``, ``float``, ``Fraction``, ``Decimal``) as given, so that
+    :func:`_passes_cutoff` compares as the caller's own number would. ``None``, a boolean, a
+    complex number and anything else raise ``TypeError``; NaN or an infinity raises
+    ``ValueError``, because every comparison with it passes or fails every unit alike. An array
+    whose dtype numpy cannot read (a torch tensor) raises ``TypeError``, and a number too large
+    for a float ``ValueError``, each naming the cut-off."""
+    is_array = getattr(value, "ndim", None) == 0 and hasattr(value, "dtype")
+    if is_array:
+        # numpy and JAX carry a numpy dtype; a torch tensor's torch.float32 is not one.
+        real = isinstance(value.dtype, np.dtype) and value.dtype.kind in "iuf"  # not bool
+    else:
+        real = (isinstance(value, (numbers.Real, decimal.Decimal))
+                and not isinstance(value, bool))
+    if not real:
+        raise TypeError(
+            f"{caller}: {name} must be a finite number, not {value!r}"
+            + ("; pass a Python number, or a numpy or JAX scalar." if is_array else ".")
+        )
+    # Checked at the exact value: float() of an int or Fraction beyond the float range raises
+    # OverflowError, and a NaN is the one value unequal to itself.
+    if is_array:
+        finite = bool(np.isfinite(value))
+    else:
+        # A Python float bound: an int compared with a numpy float is converted and overflows.
+        finite = value == value and abs(value) <= float(np.finfo(np.float64).max)
+    if not finite:
+        raise ValueError(
+            f"{caller}: {name} is {value!r}; a non-finite cut-off, or one too large for a "
+            "float, passes or fails every unit alike. Pass a finite number."
+        )
+    return value.item() if is_array else value
+
+
+def _passes_cutoff(values, cut_off, compare) -> np.ndarray:
+    """``compare(value, cut_off)`` per value as a boolean array, False where a value is NaN.
+    numpy compares a ``Fraction`` or ``Decimal`` cut-off element by element at its exact
+    value, as pandas did before; converting it to ``float`` would move the boundary. NaN is
+    left out because a ``Decimal`` refuses to order against it."""
+    values = np.asarray(values, dtype=float)
+    out = np.zeros(values.shape, dtype=bool)
+    defined = ~np.isnan(values)
+    out[defined] = compare(values[defined], cut_off)
+    return out
+
+
+def _refuse_repeated_columns(frame: pd.DataFrame, columns, caller: str) -> None:
+    """A column read by name that occurs twice would be a DataFrame, not one value per unit;
+    refuse it by name instead of failing inside pandas or numpy."""
+    repeated = [col for col in dict.fromkeys(columns) if (frame.columns == col).sum() > 1]
+    if repeated:
+        raise ValueError(
+            f"{caller}: column(s) {repeated} occur more than once in the units table; keep "
+            "one column per metric."
+        )
+
+
+def _quality_is_stable(quality: pd.Series, stable_threshold: float,
+                       labels: frozenset) -> pd.Series:
+    """The one quality rule: nullable-boolean stability per unit.
+
+    When any value is numeric the column is read as codes, stable when
+    ``quality >= stable_threshold``; otherwise as text labels, stable when the stripped,
+    lower-cased label is in ``labels``. A unit whose quality is missing, the text of a missing
+    value, not a number in a numeric column, or infinite is ``<NA>``: unknown, not unstable.
+    """
+    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
+    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
+    text = quality.astype(str).str.strip().str.lower()
+    present = quality.notna() & ~text.isin(_MISSING_TEXT)
+    q_num = pd.to_numeric(quality, errors='coerce')
+    if q_num.notna().any():
+        # An infinite quality is no quality code: undefined, as a NaN is.
+        as_float = q_num.to_numpy(dtype=float, na_value=np.nan)
+        usable = pd.Series(np.isfinite(as_float), index=q_num.index)
+        stable = pd.Series(_passes_cutoff(as_float, stable_threshold, operator.ge),
+                           index=q_num.index)
+    else:
+        usable, stable = present, text.isin(labels)
+    return stable.astype('boolean').mask(~usable)
 
 
 def parse_probe_areas(label: str) -> tuple:
@@ -417,6 +529,8 @@ def enrich_units_dataframe(
     depth_unit: Optional[str] = None,
     threshold: Optional[float] = None,
     threshold_unit: Optional[str] = None,
+    stable_threshold: float = 1.0,
+    stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
 ) -> pd.DataFrame:
     """Enrich units DataFrame with standardized area, depth class, and quality flags.
 
@@ -428,15 +542,16 @@ def enrich_units_dataframe(
 
     No ``layer`` column is written. One already on ``units_df`` is returned as supplied.
 
-    ``is_stable`` is derived from a ``quality`` column -- ``quality >= 1`` when it is numeric,
-    membership in the accepted good labels otherwise -- and is not added when ``units_df``
+    ``is_stable`` is derived from a ``quality`` column -- ``quality >= stable_threshold`` when
+    it is numeric, membership in ``stable_labels`` (compared lower-cased and stripped)
+    otherwise -- and is not added when ``units_df``
     has no ``quality`` column, or one holding only NaN, None, blank strings or the text of a
     missing value, because there is nothing to derive it from. The text of a missing value is
     any string ``pandas.read_csv`` reads as missing by default (``"nan"``, ``"n/a"``, ``"<NA>"``,
     ``"#N/A"``, ``"-1.#IND"``, ...) or ``"NaT"``, compared case-insensitively after stripping
     whitespace. When it is added, ``is_stable`` has pandas' nullable ``"boolean"`` dtype, and a
-    unit whose own quality is missing, or is not a number in a numeric column, is ``<NA>``:
-    its stability is unknown, not ``False``.
+    unit whose own quality is missing, is not a number in a numeric column, or is infinite
+    (no quality code) is ``<NA>``: its stability is unknown, not ``False``.
 
     Args:
         units_df: Raw NWB units DataFrame
@@ -444,10 +559,29 @@ def enrich_units_dataframe(
         depth_unit: Optional unit for electrode depth coordinates (e.g. 'um', 'mm').
         threshold: Optional depth threshold for the depth class.
         threshold_unit: Optional unit for threshold.
+        stable_threshold: numeric quality at or above which a unit is stable.
+        stable_labels: text quality labels read as stable, a collection; a bare string
+            raises ``TypeError`` and an empty one ``ValueError``, as does a
+            ``stable_threshold`` that is NaN or infinite (``None`` or a boolean raises
+            ``TypeError``), and a column this function reads (``quality``, ``unit_id``,
+            ``snr``, ...) that occurs more than once in ``units_df``.
+            Both defaults, 1.0 and
+            ``("good", "sua", "single", "stable", "clean")``, are a convention with no cited
+            source: pass the rule your sorter's codes follow.
+            :func:`jnwb.assign_quality_tier` applies the same rule through the same code.
 
     Returns:
         Standardized and enriched DataFrame
     """
+    labels = _stable_label_set(stable_labels, "enrich_units_dataframe")
+    stable_threshold = _finite_cutoff(stable_threshold, "stable_threshold",
+                                      "enrich_units_dataframe")
+    reads = list(_ENRICH_READS)
+    if 'unit_id' not in units_df.columns:
+        reads.append('cluster_id')  # renamed to unit_id
+    if electrodes_df is not None and len(electrodes_df) > 0:
+        reads.append('peak_channel_id')  # the anatomical lookup
+    _refuse_repeated_columns(units_df, reads, "enrich_units_dataframe")
     df = units_df.copy()
 
     # 1. Standardize unit_id column
@@ -500,22 +634,12 @@ def enrich_units_dataframe(
         if 'group_name' not in df.columns:
             df['group_name'] = None
 
-    # 3. Handle quality and stable flags
-    # Standard quality cutoff: quality >= 1.0 is stable for numeric metrics;
-    # for categorical quality labels, standard accepted good labels are stable.
-    quality = df['quality'] if 'quality' in df.columns else None
-    # Numeric columns arrive as `str` on some sessions, so a missing value can be the text of
-    # one (any string pandas reads as missing, or "NaT") rather than a real NaN.
-    text = quality.astype(str).str.strip().str.lower() if quality is not None else None
-    if quality is not None and (quality.notna() & ~text.isin(_MISSING_TEXT)).any():
-        q_num = pd.to_numeric(quality, errors='coerce')
-        if q_num.notna().any():
-            usable, stable = q_num.notna(), q_num >= 1.0
-        else:
-            _GOOD_LABELS = {"good", "sua", "single", "stable", "clean"}
-            usable, stable = quality.notna() & ~text.isin(_MISSING_TEXT), text.isin(_GOOD_LABELS)
-        # A unit with no usable quality is <NA>: unknown, not unstable.
-        df['is_stable'] = stable.astype('boolean').mask(~usable)
+    # 3. Handle quality and stable flags: quality >= stable_threshold for numeric codes,
+    # membership in stable_labels for text labels; both are the caller's to set.
+    if 'quality' in df.columns:
+        stable = _quality_is_stable(df['quality'], stable_threshold, labels)
+        if stable.notna().any():
+            df['is_stable'] = stable
     # With no quality column, or one holding only NaN, None or blank strings, there is nothing
     # to derive stability from, so no `is_stable` is added: an all-<NA> column would be a
     # label with no data behind it.

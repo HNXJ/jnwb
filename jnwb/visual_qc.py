@@ -14,8 +14,9 @@ Date: 2026-06-25
 """
 
 import logging
+import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -31,31 +32,147 @@ MADELANE_GRAY = "#D3D3D3"
 MADELANE_TEAL = "#00FFCC"
 MADELANE_ORANGE = "#FF5E00"
 
+# A value that is NaN is drawn in this colour and marked "unknown", never as failing.
+UNKNOWN_COLOR = "lightgray"
+
+
+def _with_unit(name: str, unit: Optional[str]) -> str:
+    """An axis label: the quantity, then its unit in parentheses when one is given."""
+    return f'{name} ({unit})' if unit else name
+
+
+def _cutoff_colors(values, good: float, fair: float) -> List[str]:
+    """Green above ``good``, orange above ``fair``, red otherwise; NaN in the unknown colour."""
+    return [UNKNOWN_COLOR if np.isnan(x) else 'green' if x > good else 'orange' if x > fair
+            else 'red' for x in values]
+
+
+def _mark_unknown(ax, x_pos, values) -> None:
+    """Write "unknown" at the base of each bar whose value is NaN, which draws no bar."""
+    for x, v in zip(x_pos, values):
+        if np.isnan(v):
+            ax.text(x, 0, 'unknown', ha='center', va='bottom', rotation=90,
+                    color='dimgray', fontsize=8)
+
+
+def _drawn_template(waveform: np.ndarray) -> np.ndarray:
+    """The array a waveform panel draws: 3-D spikes averaged over spikes, NaN samples ignored
+    (a sample NaN in every spike stays NaN); 1-D and 2-D input as given."""
+    if waveform.ndim != 3:
+        return waveform
+    if waveform.shape[0] == 0:  # no spikes: nothing to average, refused by the caller
+        return np.full(waveform.shape[1:], np.nan)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns stay NaN
+        return np.nanmean(waveform, axis=0)
+
 
 def plot_unit_waveforms(
     unit_ids: List[Union[int, str]],
     waveforms_dict: Dict,
     max_units_per_page: int = 12,
-    figsize: tuple = (16, 10)
+    figsize: tuple = (16, 10),
+    *,
+    channels: Optional[Literal["peak", "all"]] = None,
+    voltage_unit: Optional[str] = "μV",
 ) -> List[plt.Figure]:
     """
     Plot waveforms for multiple units (multi-unit grid).
 
     Args:
         unit_ids: List of unit IDs to plot
-        waveforms_dict: Dict mapping unit_id → (n_spikes, n_samples) array
+        waveforms_dict: Dict mapping unit_id to an array whose shape ``channels`` names:
+            with ``channels=None``, a 1-D trace; with ``channels="peak"`` or ``"all"``, a
+            ``(n_channels, n_samples)`` template or ``(n_spikes, n_channels, n_samples)``
+            spikes, averaged over spikes first with NaN samples ignored. Single-channel
+            spikes are ``(n_spikes, 1, n_samples)``. Each sample of a 3-D unit's template is
+            the mean over the spikes that are not NaN at that sample, so where spikes drop out
+            at some samples and not others the per-sample spike count varies, the template's
+            amplitude at those samples shifts, and the peak channel can move; pass spikes
+            without per-sample gaps when the amplitude matters.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
+        channels: ``"peak"`` draws the channel with the largest absolute deflection
+            over finite samples (NaN and infinite samples, and channels with no finite
+            sample, ignored), with ±1 SD across spikes when the
+            input is 3-D; ``"all"`` draws every channel and refuses a channel with no finite
+            sample. Channels are never averaged together, because a channel mean shrinks the
+            peak by the channel count.
+        voltage_unit: The unit of the waveform values, written on each voltage axis; the
+            traces are drawn as given and never rescaled. Pass the unit of your data; the
+            default ``"μV"`` is only a label. ``None`` or ``""`` leaves the unit off.
+
+    INTENTIONAL BREAK. A 2-D array with ``channels=None`` used to be read as
+    ``(n_spikes, n_samples)`` and drawn as a mean over its rows, so a
+    ``(n_channels, n_samples)`` template was averaged across channels and its peak shrunk by
+    the channel count. Its rows are ambiguous, so it now raises ``ValueError``: pass
+    ``channels="peak"`` or ``"all"`` for a template, or reshape single-channel spikes to
+    ``(n_spikes, 1, n_samples)``.
 
     Returns:
         List of matplotlib figures
 
+    Raises:
+        KeyError: a unit in ``unit_ids`` has no entry in ``waveforms_dict``.
+        ValueError: a unit's waveform is a numpy masked array with a masked entry, whose
+            mask would be dropped (pass ``waveform.filled(np.nan)``, which the template
+            ignores); an array's dimensionality does not match ``channels``, a unit's drawn
+            template (after averaging over spikes) is empty or has no finite sample, or
+            ``channels="all"`` meets a channel with no finite sample; the message names the
+            unit.
+
     Example:
         >>> waveforms = {unit_id: waveform_array for unit_id in unit_ids}
         >>> figs = plot_unit_waveforms(unit_ids, waveforms)
-        >>> for fig in figs:
+        >>> for i, fig in enumerate(figs):
         ...     fig.savefig(f'unit_waveforms_{i}.png')
     """
+    if channels not in (None, "peak", "all"):
+        raise ValueError(f"plot_unit_waveforms: channels={channels!r}; use None, 'peak' or 'all'")
+    missing = [u for u in unit_ids if u not in waveforms_dict]
+    if missing:
+        raise KeyError(f"plot_unit_waveforms: no waveform for unit(s) {missing}")
+    for unit_id in unit_ids:
+        raw = waveforms_dict[unit_id]
+        if np.ma.isMaskedArray(raw) and np.ma.getmaskarray(raw).any():
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} is a masked array with masked "
+                "entries, whose mask np.asarray would drop and average the masked samples in; "
+                "pass waveform.filled(np.nan) to leave them out of the template, or an "
+                "unmasked array."
+            )
+        waveform = np.asarray(raw, dtype=float)
+        if channels is None and waveform.ndim == 2:
+            # INTENTIONAL BREAK: a 2-D array was averaged over its rows; see the docstring.
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has a 2-D waveform, whose rows may be "
+                "spikes or channels; pass channels='peak' or channels='all' for a "
+                "(n_channels, n_samples) template, or reshape single-channel spikes to "
+                "(n_spikes, 1, n_samples)."
+            )
+        allowed = (1,) if channels is None else (2, 3)
+        if waveform.ndim not in allowed:
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has a {waveform.ndim}-D waveform; "
+                f"channels={channels!r} takes {' or '.join(f'{d}-D' for d in allowed)}"
+            )
+        template = _drawn_template(waveform)
+        if template.size == 0 or not np.isfinite(template).any():
+            raise ValueError(
+                f"plot_unit_waveforms: unit {unit_id!r} has an empty waveform or one with no "
+                "finite sample (all NaN or infinite)"
+                + (" after averaging over spikes" if waveform.ndim == 3 else "")
+                + "; there is no trace to draw."
+            )
+        if channels == "all":
+            dead = [ch for ch, trace in enumerate(template) if not np.isfinite(trace).any()]
+            if dead:
+                raise ValueError(
+                    f"plot_unit_waveforms: unit {unit_id!r} has no finite sample on "
+                    f"channel(s) {dead}; channels='all' draws every channel, so drop them or "
+                    "pass channels='peak'."
+                )
+
     figures = []
     n_units = len(unit_ids)
 
@@ -72,29 +189,36 @@ def plot_unit_waveforms(
         for idx, unit_id in enumerate(page_units):
             ax = plt.subplot(rows, cols, idx + 1)
 
-            if unit_id in waveforms_dict:
-                waveform = waveforms_dict[unit_id]
-                if waveform.ndim == 2:
-                    # Multiple spikes: plot mean and std
-                    mean_wf = np.mean(waveform, axis=0)
-                    std_wf = np.std(waveform, axis=0)
-
-                    ax.plot(mean_wf, color=MADELANE_GOLD, linewidth=2, label='Mean')
-                    ax.fill_between(
-                        range(len(mean_wf)),
-                        mean_wf - std_wf,
-                        mean_wf + std_wf,
-                        alpha=0.3,
-                        color=MADELANE_GOLD,
-                        label='±1 STD'
-                    )
+            waveform = np.asarray(waveforms_dict[unit_id], dtype=float)
+            if channels is not None:
+                template = _drawn_template(waveform)
+                if channels == "peak":
+                    # Deflection over finite samples only: a channel with none never wins, an
+                    # infinite sample does not make a channel the peak, and the check above
+                    # guarantees one channel has a finite sample.
+                    deflection = np.array([np.abs(tr[np.isfinite(tr)]).max()
+                                           if np.isfinite(tr).any() else np.nan
+                                           for tr in template])
+                    peak = int(np.nanargmax(deflection))
+                    ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
+                            label=f'Channel {peak}')
+                    if waveform.ndim == 3:
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", RuntimeWarning)
+                            spread = np.nanstd(waveform[:, peak, :], axis=0)
+                        ax.fill_between(range(template.shape[1]),
+                                        template[peak] - spread, template[peak] + spread,
+                                        alpha=0.3, color=MADELANE_GOLD, label='±1 STD')
                 else:
-                    # Single waveform
-                    ax.plot(waveform, color=MADELANE_GOLD, linewidth=2)
+                    for ch, trace in enumerate(template):
+                        ax.plot(trace, linewidth=1, label=f'Channel {ch}')
+            else:
+                # A single 1-D trace; 2-D input was refused above.
+                ax.plot(waveform, color=MADELANE_GOLD, linewidth=2)
 
             ax.set_title(f'Unit {unit_id}', fontsize=10, fontweight='bold')
             ax.set_xlabel('Sample')
-            ax.set_ylabel('Voltage (μV)')
+            ax.set_ylabel(_with_unit('Voltage', voltage_unit))
             ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
@@ -106,7 +230,11 @@ def plot_unit_waveforms(
 def plot_unit_quality_distribution(
     units_df: pd.DataFrame,
     session_ids: Optional[List[int]] = None,
-    figsize: tuple = (14, 8)
+    figsize: tuple = (14, 8),
+    *,
+    snr_threshold: float = 1.0,
+    quality_threshold: float = 1.0,
+    duration_unit: Optional[str] = "μs",
 ) -> plt.Figure:
     """
     Plot quality metric distributions (multi-panel).
@@ -119,6 +247,13 @@ def plot_unit_quality_distribution(
         units_df: DataFrame with unit metrics (from get_all_units_metadata)
         session_ids: Optional list of sessions to filter (default: all)
         figsize: Figure size
+        snr_threshold: Where the SNR panel draws its guide line. The default 1.0 is a display
+            convention with no published source; pass the threshold your screen used.
+        quality_threshold: Where the quality and quality-by-area panels draw their guide
+            line; the default 1.0 likewise has no published source.
+        duration_unit: The unit of ``waveform_duration``, written on its axis; the values
+            are drawn as given and never rescaled. Pass the unit of your data; the default
+            ``"μs"`` is only a label. ``None`` or ``""`` leaves the unit off.
 
     Returns:
         matplotlib figure
@@ -133,16 +268,19 @@ def plot_unit_quality_distribution(
     fig, axes = plt.subplots(2, 3, figsize=figsize)
     fig.suptitle('Unit Quality Distribution', fontsize=14, fontweight='bold')
 
-    # Metric histograms: (axis, column, x label, title, bins, mean format, threshold label).
-    # A panel whose column is absent is left empty and says so, as the area and
-    # stability panels below already are.
+    # Metric histograms: (axis, column, x label, title, bins, mean format, guide line as
+    # (position, label) or None). A panel whose column is absent is left empty and says so,
+    # as the area and stability panels below already are.
     histograms = [
         (axes[0, 0], 'firing_rate', 'Firing Rate (spikes/sec)', 'Firing Rate', 30, '.1f', None),
-        (axes[0, 1], 'snr', 'SNR', 'SNR', 30, '.2f', 'Threshold: 1.0'),
-        (axes[0, 2], 'waveform_duration', 'Waveform Duration (μs)', 'Waveform Duration', 30, '.0f', None),
-        (axes[1, 0], 'quality', 'Quality', 'Quality Score', 20, None, 'Good threshold: 1.0'),
+        (axes[0, 1], 'snr', 'SNR', 'SNR', 30, '.2f',
+         (snr_threshold, f'Threshold: {snr_threshold}')),
+        (axes[0, 2], 'waveform_duration', _with_unit('Waveform Duration', duration_unit),
+         'Waveform Duration', 30, '.0f', None),
+        (axes[1, 0], 'quality', 'Quality', 'Quality Score', 20, None,
+         (quality_threshold, f'Good threshold: {quality_threshold}')),
     ]
-    for ax, col, xlabel, title, bins, mean_fmt, threshold in histograms:
+    for ax, col, xlabel, title, bins, mean_fmt, guide in histograms:
         if col not in units_df.columns:
             ax.set_title(f'{title} ({col} absent)')
             continue
@@ -153,8 +291,8 @@ def plot_unit_quality_distribution(
         ax.set_title(f'{title} (n={len(vals)})')
         if mean_fmt is not None:
             ax.axvline(vals.mean(), color='r', linestyle='--', label=f'Mean: {vals.mean():{mean_fmt}}')
-        if threshold is not None:
-            ax.axvline(1.0, color='g', linestyle=':', label=threshold)
+        if guide is not None:
+            ax.axvline(guide[0], color='g', linestyle=':', label=guide[1])
         ax.legend()
 
     # Quality by area
@@ -173,7 +311,8 @@ def plot_unit_quality_distribution(
         ax.set_xticklabels(unique_areas, rotation=45)
         ax.set_ylabel('Quality')
         ax.set_title('Quality by Area')
-        ax.axhline(1.0, color='g', linestyle=':', alpha=0.5, label='Good threshold')
+        ax.axhline(quality_threshold, color='g', linestyle=':', alpha=0.5,
+                   label='Good threshold')
         ax.legend()
 
     # Stability flag distribution
@@ -200,7 +339,9 @@ def plot_unit_quality_distribution(
 
 def plot_noise_vs_signal(
     units_df: pd.DataFrame,
-    figsize: tuple = (12, 8)
+    figsize: tuple = (12, 8),
+    *,
+    duration_unit: Optional[str] = "μs",
 ) -> plt.Figure:
     """
     Plot signal-to-noise tradeoffs (multi-metric scatter).
@@ -210,6 +351,9 @@ def plot_noise_vs_signal(
     Args:
         units_df: DataFrame with unit metrics
         figsize: Figure size
+        duration_unit: The unit of ``waveform_duration``, written on its axis; the values
+            are drawn as given and never rescaled. Pass the unit of your data; the default
+            ``"μs"`` is only a label. ``None`` or ``""`` leaves the unit off.
 
     Returns:
         matplotlib figure
@@ -235,7 +379,7 @@ def plot_noise_vs_signal(
     ax = axes[0, 1]
     wd_vals = pd.to_numeric(units_df.get('waveform_duration', []), errors='coerce')
     ax.scatter(wd_vals, snr_vals, alpha=0.5, s=30)
-    ax.set_xlabel('Waveform Duration (μs)')
+    ax.set_xlabel(_with_unit('Waveform Duration', duration_unit))
     ax.set_ylabel('SNR')
     ax.set_title('SNR vs. Waveform Duration')
     ax.grid(True, alpha=0.3)
@@ -275,16 +419,32 @@ def plot_noise_vs_signal(
 
 def compare_session_quality(
     sessions_comparison_df: pd.DataFrame,
-    figsize: tuple = (14, 6)
+    figsize: tuple = (14, 6),
+    *,
+    snr_good: float = 1.0,
+    snr_fair: float = 0.5,
+    rate_good: float = 50,
+    rate_fair: float = 25,
+    rate_threshold: float = 1.0,
 ) -> plt.Figure:
     """
     Plot cross-session quality metrics.
+
+    A session whose ``snr_mean`` or ``snr_good_rate`` is NaN draws no bar in that panel and
+    is marked "unknown", never coloured as failing. The colour cut-offs and guide lines are
+    display conventions with no published source; their defaults are 1.0 and 0.5 for mean
+    SNR and 50 and 25 % for the pass rate.
 
     Args:
         sessions_comparison_df: one row per session, with columns ``session_id``,
             ``snr_mean`` and ``total_units``, and optionally ``snr_good_rate`` (a
             fraction, 0 to 1, plotted as a percentage).
         figsize: Figure size
+        snr_good, snr_fair: A mean SNR above ``snr_good`` is green, above ``snr_fair``
+            orange, otherwise red; the guide line is drawn at ``snr_good``.
+        rate_good, rate_fair: The same cut-offs for the pass rate, in percent.
+        rate_threshold: The SNR threshold that produced ``snr_good_rate``, written on the
+            pass-rate axis; it labels the axis and computes nothing.
 
     Returns:
         matplotlib figure
@@ -299,10 +459,12 @@ def compare_session_quality(
 
     # SNR across sessions
     ax = axes[0]
-    snr_means = sessions_comparison_df['snr_mean'].values
-    colors = ['green' if x > 1.0 else 'orange' if x > 0.5 else 'red' for x in snr_means]
+    snr_means = pd.to_numeric(sessions_comparison_df['snr_mean'], errors='coerce').to_numpy(float)
+    colors = _cutoff_colors(snr_means, snr_good, snr_fair)
     ax.bar(x_pos, snr_means, color=colors, alpha=0.7, edgecolor='black')
-    ax.axhline(1.0, color='g', linestyle=':', linewidth=2, label='Good threshold')
+    _mark_unknown(ax, x_pos, snr_means)
+    ax.axhline(snr_good, color='g', linestyle=':', linewidth=2,
+               label=f'Good threshold: {snr_good}')
     ax.set_xticks(x_pos)
     ax.set_xticklabels(sessions_comparison_df['session_id'], rotation=45, ha='right')
     ax.set_ylabel('Mean SNR')
@@ -323,13 +485,16 @@ def compare_session_quality(
     # SNR good rate
     ax = axes[2]
     if 'snr_good_rate' in sessions_comparison_df.columns:
-        good_rates = sessions_comparison_df['snr_good_rate'].values * 100
-        colors_rate = ['green' if x > 50 else 'orange' if x > 25 else 'red' for x in good_rates]
+        good_rates = pd.to_numeric(sessions_comparison_df['snr_good_rate'],
+                                   errors='coerce').to_numpy(float) * 100
+        colors_rate = _cutoff_colors(good_rates, rate_good, rate_fair)
         ax.bar(x_pos, good_rates, color=colors_rate, alpha=0.7, edgecolor='black')
-        ax.axhline(50, color='g', linestyle=':', linewidth=2, label='50% target')
+        _mark_unknown(ax, x_pos, good_rates)
+        ax.axhline(rate_good, color='g', linestyle=':', linewidth=2,
+                   label=f'Threshold: {rate_good}%')
         ax.set_xticks(x_pos)
         ax.set_xticklabels(sessions_comparison_df['session_id'], rotation=45, ha='right')
-        ax.set_ylabel('% Units with SNR > 1.0')
+        ax.set_ylabel(f'% Units with SNR > {rate_threshold}')
         ax.set_title('SNR Pass Rate by Session')
         ax.legend()
         ax.grid(True, alpha=0.3, axis='y')

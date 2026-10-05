@@ -1,6 +1,6 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP.
+`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP. The [ensembles tutorial](tutorials/07_ensembles.md) runs it beside a decoder.
 
 ---
 
@@ -162,6 +162,12 @@ rdm_sq = jnwb.rdm(X, metric="correlation", condensed=False)
 # Compare two RDMs directly (Spearman, Pearson, Kendall, or Cosine)
 rho, p_val = jnwb.rdm_similarity(rdm_vec1, rdm_vec2, metric="spearman")
 ```
+
+Only the off-diagonal upper triangle is compared. RDM cells are not independent observations, so
+`p_val` is not a valid test of RDM relatedness; for inference, permute the condition labels and
+recompute the similarity (Kriegeskorte et al. 2008, "Step 5"). `rdm_similarity` leaves that to the
+caller, and `jnwb.jrsa` with `stats=True` runs a permutation null. With `metric="cosine"` the p
+value is `nan`.
 
 ## References
 

@@ -37,8 +37,6 @@ trial, so what the substitution changed and what it left alone are read off one 
 
 ## 2. Artifact Detection (`jnwb.artifact_detection`)
 
-The five detection functions below are top-level `jnwb` exports.
-
 ### Channel Correlation Matrix & Bad Channel Rejection
 Computes the inter-channel correlation matrix and identifies disconnected or noisy electrodes via median correlation z-scores:
 
@@ -53,7 +51,6 @@ bad_chan_mask, mean_corrs, z_scores = jnwb.bad_channels_from_correlation(corr, z
 ```
 
 ### Trial Correlation Matrix & Single-Channel Bad Trials
-Identifies corrupted trials within an individual channel:
 
 ```python
 # trials_data: (n_trials, n_timepoints)
@@ -73,7 +70,6 @@ Either condition alone flags a trial. On a single channel that is deliberately
 permissive; cross-channel consensus below is what decides exclusion.
 
 ### Consensus Bad Trials Across Channels
-Aggregates bad trial flags across multiple channels using a consensus voting threshold:
 
 ```python
 # bad_flags: (n_channels, n_trials) boolean array

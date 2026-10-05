@@ -5,6 +5,9 @@ sample. This module holds the whole of `jnwb.__all__` against the skill files: a
 either mentioned by some skill, or it appears below with a category, and the category's own
 assertion has to hold for it.
 
+The same holds for modules, docs pages, example scripts and notebooks: each is named by a
+skill or the nav, or is listed below with a reason a test checks against the tree.
+
 The exclusions are not a mute list. An entry that names a symbol the package no longer
 exports, or one a skill has since started routing, fails here -- a registry that can go stale
 without erroring is the defect this file exists to prevent.
@@ -46,19 +49,17 @@ ERRORS = [
 ]
 
 # The `jnwb.ontology` vocabulary: a data model for describing an analysis, not operations to
-# choose between. An agent reaches these by constructing what a workflow asks for.
+# choose between. No skill routes the module; a reader meets these types in
+# `docs/02_paths_addressing_metadata.md`, and `test_excluded_ontology_types_come_from_the_ontology_module`
+# holds each to the module.
 ONTOLOGY = [
     "AlignedDataset",
     "Alignment",
     "Dataset",
-    "EpochCollection",
     "Figure",
     "Interpretation",
-    "Lineage",
-    "Provenance",
     "Query",
     "Question",
-    "Result",
 ]
 
 # Containers a routed operation returns. Routing the operation routes the container; the
@@ -68,7 +69,6 @@ RETURNED_BY = {
     "ComplexTFR": ["complex_tfr"],
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],
-    "EventTable": ["events"],
     "JRSAResult": ["jrsa"],
     "Preflight": ["preflight"],
     "ProbeGeometry": ["probe_geometry"],
@@ -81,9 +81,38 @@ RETURNED_BY = {
 # so routing the bare class as well would put two spellings of one call in the matrix.
 NAMESPACES = ["StatisticalAnalysis"]
 
-# Class facades over free functions the matrices already route. Routing both spellings would
-# make the matrix ambiguous about which one an agent should call.
+# The analyzer classes. Their methods compute on their own, so they are not facades over
+# routed functions; routing rows for them were declined (2026-09-29, D8 (e)). The methods
+# left without a row are listed per class below and held to the live class by
+# `test_excluded_analyzer_methods_are_the_unrouted_ones`.
 ANALYZERS = ["PopulationAnalyzer", "TFRAnalyzer", "UnitAnalyzer"]
+ANALYZER_METHODS_WITHOUT_A_ROW = {
+    "PopulationAnalyzer": ["compare_criteria", "distribution_by_area", "network_connectivity",
+                           "pie_chart_data", "population_trajectory"],
+    "TFRAnalyzer": ["average_across_channels", "by_layer", "compare_conditions",
+                    "correlate_areas", "extract_band", "trial_average"],
+    "UnitAnalyzer": ["autocorrelogram", "psth", "quality_metrics", "raster"],
+}
+RULINGS = ROOT / "artifacts" / "rulings" / "2026-09-29.md"
+
+# Modules no skill routes, each with the reason its exclusion is checked against the tree.
+# A module is routed when a skill names it or an ancestor package, or routes an export
+# defined in it; a module that becomes routed fails `test_no_module_exclusion_is_stale`.
+MODULE_EXCLUSIONS = {
+    "jnwb.analyzers": "analyzers",
+    "jnwb.bilinear": "unexported",
+    "jnwb.gpu_pca": "unexported",
+    "jnwb.nam": "unexported",
+    "jnwb.mcp_server": "unexported",
+    "jnwb.testing": "unexported",
+}
+
+# Pages and scripts reached by neither the nav nor a skill. A path that becomes routed
+# fails `test_no_path_exclusion_is_stale`.
+PATH_EXCLUSIONS = {
+    "docs/01_architecture_and_philosophy.md": "redirect",
+    "docs/documentation_form.md": "contract",
+}
 
 # Enumerations and tables that a routed operation validates its arguments against, plus the
 # pointer an installed copy carries in place of the skills themselves -- SKILLS_URL is how a
@@ -236,11 +265,188 @@ def test_excluded_namespaces_have_their_methods_routed(routed: dict[str, set[str
         assert methods, f"no method of {name} carries a routing row"
 
 
-def test_excluded_analyzers_are_classes_over_routed_functions() -> None:
+METHOD_CALL = re.compile(r"`jnwb\.(\w+)\.(\w+)\(")
+
+
+def test_excluded_analyzers_are_classes_in_the_analyzers_module() -> None:
     for name in ANALYZERS:
         obj = getattr(jnwb, name)
         assert isinstance(obj, type), f"{name} is not a class"
         assert obj.__module__ == "jnwb.analyzers", f"{name} lives in {obj.__module__}"
+
+
+def test_excluded_analyzer_methods_are_the_unrouted_ones() -> None:
+    """The reason is that no row routes a method, so the list is the live class minus the rows."""
+    assert sorted(ANALYZER_METHODS_WITHOUT_A_ROW) == sorted(ANALYZERS)
+    with_row = set()
+    for text in _pages().values():
+        for line in text.splitlines():
+            if line.lstrip().startswith("- "):
+                with_row.update(METHOD_CALL.findall(line))
+    for cls_name, listed in ANALYZER_METHODS_WITHOUT_A_ROW.items():
+        cls = getattr(jnwb, cls_name)
+        live = sorted(m for m, v in vars(cls).items()
+                      if not m.startswith("_") and callable(getattr(cls, m)))
+        routed_now = sorted(m for m in live if (cls_name, m) in with_row)
+        assert not routed_now, f"{cls_name} methods now have a row; unlist them: {routed_now}"
+        assert sorted(listed) == live, (
+            f"{cls_name} public methods are {live}; the exclusion lists {sorted(listed)}. "
+            f"A new method needs a row or a ruling, not a silent exclusion."
+        )
+    ruling = RULINGS.read_text(encoding="utf-8")
+    row = next((ln for ln in ruling.splitlines() if ln.startswith("| D8")), "")
+    assert "no new routing rows for the analyzer classes" in row, (
+        f"{RULINGS.name} no longer holds the D8 ruling that the analyzer exclusion cites"
+    )
+
+
+def _public_modules() -> list[str]:
+    names = []
+    for path in sorted((ROOT / "jnwb").rglob("*.py")):
+        parts = list(path.relative_to(ROOT).with_suffix("").parts)
+        if parts[-1] == "__init__":
+            parts.pop()
+        if len(parts) < 2 or any(p.startswith("_") for p in parts[1:]):
+            continue
+        names.append(".".join(parts))
+    return names
+
+
+def _export_modules() -> dict[str, str]:
+    """export -> the module that defines it, read off the live object."""
+    out = {}
+    for name in jnwb.__all__:
+        module = getattr(getattr(jnwb, name), "__module__", None)
+        if isinstance(module, str):
+            out[name] = module
+    return out
+
+
+def _within(module: str, package: str) -> bool:
+    return module == package or module.startswith(package + ".")
+
+
+def _module_is_routed(module: str, text: str, routed: dict[str, set[str]]) -> bool:
+    rel = module.removeprefix("jnwb.")
+    path = rel.replace(".", "/")
+    ancestors = [".".join(rel.split(".")[: i + 1]) for i in range(len(rel.split(".")))]
+    if any(re.search(rf"\bjnwb\.{re.escape(a)}\b", text) for a in ancestors):
+        return True
+    if re.search(rf"\bjnwb/{re.escape(path)}(?:\.py|/)", text):
+        return True
+    return any(_within(m, module) for n, m in _export_modules().items() if n in routed)
+
+
+def test_every_module_is_routed_or_excluded(routed: dict[str, set[str]]) -> None:
+    text = "\n".join(_pages().values())
+    modules = _public_modules()
+    assert len(modules) >= 40, f"only {len(modules)} public modules found; the walk broke"
+    orphans = [
+        m for m in modules
+        if not _module_is_routed(m, text, routed)
+        and not any(_within(m, e) for e in MODULE_EXCLUSIONS)
+    ]
+    assert not orphans, f"modules no skill names or routes, with no exclusion: {orphans}"
+
+
+def test_no_module_exclusion_is_stale(routed: dict[str, set[str]]) -> None:
+    text = "\n".join(_pages().values())
+    modules = set(_public_modules())
+    for module in MODULE_EXCLUSIONS:
+        assert module in modules, f"{module} is excluded but no longer exists"
+        assert not _module_is_routed(module, text, routed), (
+            f"{module} is routed now; remove its exclusion"
+        )
+
+
+def test_module_exclusion_reasons_hold() -> None:
+    defined_in = {}
+    for name, module in _export_modules().items():
+        defined_in.setdefault(module, []).append(name)
+    for module, reason in MODULE_EXCLUSIONS.items():
+        exports = sorted(n for m, ns in defined_in.items() if _within(m, module) for n in ns)
+        if reason == "unexported":
+            assert not exports, f"{module} is excluded as unexported but defines {exports}"
+        elif reason == "analyzers":
+            assert exports and set(exports) <= set(ANALYZERS), f"{module} defines {exports}"
+        else:
+            raise AssertionError(f"{module}: unknown reason {reason!r}")
+
+
+def _mkdocs_block(key: str) -> list[str]:
+    """The lines under a top-level key of mkdocs.yml, up to the next top-level key."""
+    lines = (ROOT / "mkdocs.yml").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.startswith(key + ":"))
+    block = []
+    for ln in lines[start + 1:]:
+        if ln and not ln[0].isspace() and not ln.startswith("#"):
+            break
+        block.append(ln)
+    return block
+
+
+def _nav_pages() -> set[str]:
+    return {m for ln in _mkdocs_block("nav") for m in re.findall(r"([\w/.-]+\.md)\b", ln)}
+
+
+def _skill_paths() -> set[str]:
+    text = "\n".join(_pages().values())
+    return set(re.findall(r"(?:docs|examples)/[\w./-]*[\w/]", text))
+
+
+def _doc_pages() -> list[str]:
+    return [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / "docs").rglob("*.md"))]
+
+
+def _example_files() -> list[str]:
+    return [p.relative_to(ROOT).as_posix()
+            for pattern in ("*.py", "*.ipynb") for p in sorted((ROOT / "examples").rglob(pattern))]
+
+
+def _path_is_routed(path: str, nav: set[str], refs: set[str]) -> bool:
+    if path.startswith("docs/") and path.removeprefix("docs/") in nav:
+        return True
+    return any(path == r or (r.endswith("/") and path.startswith(r)) for r in refs)
+
+
+def test_every_page_script_and_notebook_is_routed_or_excluded() -> None:
+    nav, refs = _nav_pages(), _skill_paths()
+    pages, examples = _doc_pages(), _example_files()
+    assert len(nav) >= 25 and len(pages) >= 25 and len(examples) >= 12, (
+        f"{len(nav)} nav pages, {len(pages)} pages, {len(examples)} examples: a parser broke"
+    )
+    orphans = [p for p in pages + examples
+               if not _path_is_routed(p, nav, refs) and p not in PATH_EXCLUSIONS]
+    assert not orphans, f"in no nav and no skill, with no exclusion: {orphans}"
+
+
+def test_no_path_exclusion_is_stale() -> None:
+    nav, refs = _nav_pages(), _skill_paths()
+    for path in PATH_EXCLUSIONS:
+        assert (ROOT / path).is_file(), f"{path} is excluded but does not exist"
+        assert not _path_is_routed(path, nav, refs), f"{path} is routed now; remove its exclusion"
+
+
+def test_path_exclusion_reasons_hold() -> None:
+    for path, reason in PATH_EXCLUSIONS.items():
+        name = Path(path).name
+        text = (ROOT / path).read_text(encoding="utf-8")
+        if reason == "redirect":
+            target = re.search(r'http-equiv="refresh"[^>]*url=\.\./([\w-]+)/', text)
+            assert target, f"{path} is excluded as a redirect and holds no refresh"
+            assert (ROOT / "docs" / f"{target.group(1)}.md").is_file(), (
+                f"{path} redirects to {target.group(1)}, which is not a page"
+            )
+            assert f"{target.group(1)}.md" in _nav_pages(), f"redirect target is not in the nav"
+            assert name in "\n".join(_mkdocs_block("not_in_nav")), (
+                f"{name} is not declared in mkdocs `not_in_nav`"
+            )
+        elif reason == "contract":
+            assert name in "\n".join(_mkdocs_block("exclude_docs")), (
+                f"{name} is excluded as a contributor contract but not from the built site"
+            )
+        else:
+            raise AssertionError(f"{path}: unknown reason {reason!r}")
 
 
 def test_excluded_constants_are_not_callable() -> None:

@@ -45,6 +45,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "tfr": "public",
     "tfr_accumulator": "public",
     "trajectory": "public",
+    "unit_quality": "public",
     "viz": "public",
     "vis": "public",
     "vis.canvas": "public",

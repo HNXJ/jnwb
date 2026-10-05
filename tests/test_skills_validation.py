@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 import ast
 import dataclasses
+import importlib.util
 import inspect
 import re
 try:
@@ -34,6 +35,7 @@ import jnwb
 CANONICAL_SKILLS = {
     "jnwb",
     "jnwb-nwb-data",
+    "jnwb-paradigm",
     "jnwb-spiking",
     "jnwb-lfp-spectral",
     "jnwb-statistics",
@@ -41,6 +43,7 @@ CANONICAL_SKILLS = {
     "jnwb-connectivity",
     "jnwb-figures",
     "jnwb-landmark-viz",
+    "jnwb-qc",
 }
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -307,9 +310,9 @@ def _live_default_matches(live, written: str) -> bool:
         return str(live) == written
 
 
-#: The corpus held 120 inline routing calls when this was set. A floor far below the count
+#: The corpus held 143 inline routing calls when this was set. A floor far below the count
 #: only trips on mass deletion; this one fails once more than three rows disappear.
-_ROUTING_ROWS_FLOOR = 117
+_ROUTING_ROWS_FLOOR = 140
 
 
 def test_skill_routing_signatures_match_runtime():
@@ -324,9 +327,15 @@ def test_skill_routing_signatures_match_runtime():
     without a baseline.
     """
     checked = 0
+    skipped = 0
     for skill_name in CANONICAL_SKILLS:
         content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
         for func_name, args_str in _routing_calls(content):
+            if func_name.startswith("vis.") and importlib.util.find_spec("plotly") is None:
+                # `jnwb.vis` raises ImportError without the optional extra; its rows are
+                # read when the extra is installed, as the CI job that installs it does.
+                skipped += 1
+                continue
             target = jnwb
             for attr in func_name.split("."):
                 assert hasattr(target, attr), (
@@ -382,7 +391,7 @@ def test_skill_routing_signatures_match_runtime():
                 f"gets a TypeError, or supplies them in the wrong order"
             )
 
-    assert checked >= _ROUTING_ROWS_FLOOR, (
+    assert checked + skipped >= _ROUTING_ROWS_FLOOR, (
         f"only {checked} routing rows were matched against a floor of {_ROUTING_ROWS_FLOOR}; "
         f"rows that are not matched are not checked, which is how 7 tuple-bearing rows and "
         f"4 StatisticalAnalysis rows went unread. Removing rows on purpose lowers the floor "
@@ -517,7 +526,7 @@ _ARROW_ROW = re.compile(r"^- `jnwb\.((?:\w+\.)*\w+)\([^`]*\)`\s*(?:.*?)→")
 #: `trials` → sole table → `AmbiguousIntervalTableError`"); `unit_spike_times` writes
 #: "spike times in seconds", a unit rather than a type.
 _ARROW_ROWS_WITHOUT_A_TYPE_CLAIM = {
-    ("jnwb-nwb-data", "resolve_interval_table"),
+    ("jnwb-paradigm", "resolve_interval_table"),
     ("jnwb-nwb-data", "unit_spike_times"),
 }
 
@@ -730,6 +739,79 @@ _RETURN_CONTENT_PROBES = {
 }
 
 
+def _psth_rate_from_inputs() -> np.ndarray:
+    """The PSTH rate the `raster_psth` probe must return, recomputed from its inputs."""
+    st = np.sort(np.random.default_rng(1).uniform(0.0, 10.0, 200))
+    edges_ms = np.arange(-100.0, 400.0 + 10.0, 10.0)
+    counts = [np.histogram((st - onset) * 1000.0, edges_ms)[0] for onset in (1.0, 3.0, 5.0)]
+    return np.mean(counts, axis=0) / 0.010
+
+
+def _rdm_spearman_from_inputs() -> float:
+    from scipy.stats import spearmanr
+
+    rng = np.random.default_rng(8)
+    a, b = (jnwb.rdm(rng.normal(size=(5, 8))) for _ in range(2))
+    return float(spearmanr(np.ravel(a), np.ravel(b))[0])
+
+
+#: What each element of a written tuple return must be, by the name the row gives it. The
+#: row's names are compared with these and each element is tested against what its name
+#: says, so a swapped return order fails; a count of elements agrees with a swap. Each
+#: predicate says something the other elements of the same tuple do not satisfy -- a
+#: frequency axis starts at 0 and increases, a rate equals the rate recomputed from the
+#: inputs, a p-value does not fall below its floor.
+_TUPLE_ELEMENTS = {
+    "compute_psd": [
+        ("freqs", lambda e, out: e.ndim == 1 and e[0] == 0 and bool(np.all(np.diff(e) > 0))
+         and len(e) == len(out[1])),
+        ("psd", lambda e, out: e.shape == out[0].shape and bool(np.all(e >= 0))
+         and not np.array_equal(e, out[0])),
+    ],
+    "exact_sign_flip": [
+        ("observed_mean", lambda e, out: bool(np.isclose(
+            e, np.random.default_rng(3).normal(0.5, 1, 10).mean()))),
+        ("p_value", lambda e, out: 0.0 < e <= 1.0 and e >= out[2]),
+        ("p_floor", lambda e, out: 0.0 < e <= out[1]),
+    ],
+    "raster_psth": [
+        ("t_ms", lambda e, out: bool(np.allclose(e, np.arange(-95.0, 400.0, 10.0)))),
+        ("rate_hz", lambda e, out: bool(np.allclose(e, _psth_rate_from_inputs()))),
+        ("sem_hz", lambda e, out: e.shape == out[1].shape and bool(np.all(e[~np.isnan(e)] >= 0))
+         and not np.allclose(e, out[1])),
+    ],
+    "repair_lfp_trials": [
+        ("repaired", lambda e, out: e.shape == (12, 4, 200)),
+        ("frac_flagged", lambda e, out: np.ndim(e) == 0 and 0.0 <= e <= 1.0),
+        ("info", lambda e, out: isinstance(e, dict) and e["n_trials"] == out[0].shape[0]),
+    ],
+    "repair_band_artifacts": [
+        ("repaired", lambda e, out: e.shape == (10, 5, 40)),
+        ("frac_flagged_by_band", lambda e, out: isinstance(e, dict)
+         and all(0.0 <= v <= 1.0 for v in e.values())),
+    ],
+    "acquisition_channel": [
+        ("data", lambda e, out: e.ndim == 1 and e.size > 1),
+        ("rate_hz", lambda e, out: np.ndim(e) == 0 and e == 1000.0),
+    ],
+    "epoch_continuous": [
+        ("epochs", lambda e, out: e.shape == (3, 400)),
+        ("time_axis_s", lambda e, out: e.shape == (out[0].shape[-1],)
+         and bool(np.isclose(e[0], -0.1)) and bool(np.allclose(np.diff(e), 0.001))),
+    ],
+    "build_time_resolved_matrix": [
+        ("X", lambda e, out: e.ndim == 3 and e.shape[1:] == (len(out[1]), len(out[2]))),
+        ("unit_ids", lambda e, out: list(e) == [0, 1, 2]),
+        ("bin_centers_ms", lambda e, out: e.ndim == 1 and bool(np.all(np.diff(e) > 0))
+         and bool(np.isclose(e[0], -90.0))),
+    ],
+    "rdm_similarity": [
+        ("statistic", lambda e, out: bool(np.isclose(e, _rdm_spearman_from_inputs()))),
+        ("p_value", lambda e, out: 0.0 <= e <= 1.0 and not np.isclose(e, out[0])),
+    ],
+}
+
+
 def _is_record(obj) -> bool:
     """Can this object carry a named field at all?"""
     return dataclasses.is_dataclass(type(obj)) or hasattr(type(obj), "_fields")
@@ -839,6 +921,20 @@ def test_skill_return_contents_claims_match_runtime():
                 f"{where} writes {len(payload)} return values {tuple(payload)!r}; the call "
                 f"returns {len(out)}"
             )
+            declared = _TUPLE_ELEMENTS.get(sym)
+            assert declared is not None, (
+                f"{where} writes the tuple {tuple(payload)!r} and no element check names "
+                f"what its elements are, so a swapped order would pass"
+            )
+            assert [n for n, _ in declared] == list(payload), (
+                f"{where} writes the elements {tuple(payload)!r}; the element checks are "
+                f"for {tuple(n for n, _ in declared)!r}"
+            )
+            for (name, holds), element in zip(declared, out):
+                assert holds(element, out), (
+                    f"{where} names element {name!r}, but the returned element does not "
+                    f"behave as {name!r}: the order is wrong"
+                )
 
 
 def test_every_arrow_row_states_a_return_the_harness_executes():
@@ -1674,7 +1770,7 @@ class TestRowsAgainstTheLiveCall:
             pd.Series([0.99, 0.99, 0.98, 0.99, 0.99]),
             pd.Series([1.0, 1.0, 1.0, 1.0, 1.0]),
         )
-        assert tier.tolist() == ["mua", "stable", "unstable", "unstable", "unstable"]
+        assert tier.tolist() == ["mua", "stable", "unstable", "stable", "unknown"]
 
         with pytest.raises(KeyError):
             jnwb.unit_census_report(pd.DataFrame(

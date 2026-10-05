@@ -1,27 +1,26 @@
-# Blocker fixpoint receipt, 0.2.8
+# Blocker fixpoint receipt, 0.2.9
 
 | Field | Value |
 |---|---|
-| commit | `2e450b3c8d1d8353653762bc4c99856f254340be` |
+| commit | `9205437867f0ea11477eedeb61e983f4b6db73c0` |
 | new release-blocking problems found | 0 |
-| ruling | `AGENTS.md` §11 condition 3, amended 2026-09-23: the terminating condition is an independent blocker-focused pass that finds no new release-blocking problem; next-cycle observations become `deferred-0.2.9` entries |
-| pass | Independent reviewers, none of whom wrote what they reviewed: a closure critic over the library changes since v0.2.7, then a verifier over the closure repairs and the release record, then a delta verification of its repairs |
+| ruling | `AGENTS.md` §11 condition 3, amended 2026-09-23: the terminating condition is an independent blocker-focused pass that finds no new release-blocking problem; next-cycle observations become `deferred-0.2.10` entries |
+| pass | Independent reviewers, none of whom wrote what they reviewed: a closure critic over the 0.2.9 changes, then a verifier over the release delta, then a re-verification of its repair |
 
 ## Verification
 
 | Scope | Verified at | Verdict | New blockers |
 |---|---|---|---|
-| Closure critic (second model) over `v0.2.7..b6e1fa2f -- jnwb/`, each new function checked against its cited definition by hand computation | `b6e1fa2f` | Two required: a bare list of spike times split into one-spike units; `spike_count_correlation` cited as trial-based r_sc while it correlates time bins. Both repaired in `a404a9ee`, with exact-boundary bursts and the `compute_psd` default floor. Three deferred to 09-08 | 0 after the repair |
-| Changelog completeness against `v0.2.7..HEAD -- jnwb/`, by the integrator | `a404a9ee` | Four new public functions, `compute_psd(nperseg=)` and the `directed_network` thread-count fix had no fragment; added | 0 after the repair |
-| Verifier over `b6e1fa2f..0a44d402`: the closure repairs, the version bump, the CHANGELOG against the code, the benchmark records | `0a44d402` | One required: the bare-list check consumed a generator, giving 0 units. Repaired in `2ab9e031`, with the warm import benchmark (no bytecode cache was written) and the granger changelog bullet | 0 after the repair |
-| Delta verification of `2ab9e031` and `2e450b3c` | `2e450b3c` | PASS: a generator gives the b6e1fa2f result, bare lists stay refused, the new case fails on a404a9ee; the warm row is a warm import; the granger bullet measured within its bound | 0 |
-| A file-reading review through the agy worker was attempted four times and returned no answer each time; it contributes nothing to this receipt | n/a | not used | n/a |
+| Closure critic (Opus) over `v0.2.8..2d852b0d`: public behaviour against the changelog fragments and `docs/api.md`, skills routing, the release and harness gates, the workflow's publication order and figure-font step, the unit-quality changes; second pass over every deferral | `2d852b0d` | No blocker; no deferral reclassified. Four next-cycle findings filed in 10-08, 10-09 and 10-15 (`artifacts/evidence/0.2.9/closure_pass_2026-10-05.md`) | 0 |
+| Verifier (Opus) over `2d852b0d..56cfb935`: the version bump, the assembled CHANGELOG against `v0.2.8..HEAD -- jnwb/` with probed values, the peak-memory record, the relabel to `deferred-0.2.10` | `56cfb935` | One required: five surfaces still at 0.2.8 (`__release_date__`, `README.md`, `docs/agents.md`, the import profile) and 9 failing tests; one changelog wording slip. Repaired in `2f984b5d` | 0 after the repair |
+| Re-verification of `56cfb935..92054378`: no remaining 0.2.8 claim, 09-16's CI evidence, full suite and gates | `92054378` | PASS | 0 |
 
-## Receipts at `2e450b3c`
+## Receipts at `92054378`
 
 | Check | Result |
 |---|---|
-| Full suite, `-n 12` | 6186 passed, 29 skipped, 0 failed |
+| Full suite, `-n 12` | 6618 passed, 29 skipped, 0 failed |
 | Harness gates | 22 PASS, 0 FAIL, 0 NOT RUN, 0 ERROR |
-| Peak-memory record | `jnwb_version` 0.2.8, measured on a clean tree at `2ab9e031` |
-| CI at `0a44d402` | every unconditional job concluded success (run 37138319821) |
+| `release_gate.py` | stops only on this receipt being absent |
+| Peak-memory record | `jnwb_version` 0.2.9, measured on a clean tree at `75ec1f54`; only the record and the todo stack change after it |
+| CI at `bd242873` | every unconditional job concluded success (run 37318301569); the figure comparison ran on the 3.12, 3.13 and 3.14 ubuntu legs and skipped only on the dependency-floors leg |

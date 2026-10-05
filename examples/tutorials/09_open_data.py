@@ -28,7 +28,10 @@ if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") and (
     _CHECKOUT / "jnwb" / "__init__.py"
 ).exists():
     sys.path.insert(0, str(_CHECKOUT))
+if str(_CHECKOUT / "docs") not in sys.path:
+    sys.path.append(str(_CHECKOUT / "docs"))
 
+import figure_style as style
 import jnwb
 
 EXCERPT = _CHECKOUT / "examples" / "data" / "dandi000253_excerpt.nwb"
@@ -124,7 +127,7 @@ def derive_clock(lfp: dict, trains: list) -> Clock:
         tick_step=tick_step,
         tick_rate=tick_span / (last_spike - first_spike),
         first_tick=first_tick,
-        offset_s=first_spike,   # the recording starts within a millisecond of its first spike
+        offset_s=first_spike,   # first sample placed at the first spike; check_clock finds 6 to 9 ms
     )
 
 
@@ -252,38 +255,67 @@ def analyze(path: Path = EXCERPT) -> dict:
     }
 
 
-def plot(res: dict, out_dir: Path) -> list:
+#: Ink per theme, and the file stem each theme writes. Series colors, sizes and widths come
+#: from `docs/figure_style.py`, shared with the documentation figures.
+THEMES = {
+    "light": {"fg": "#2d2d2d", "edge": "#8a8a8a", "stem": "09_open_data"},
+    "dark": {"fg": "#e0e0e0", "edge": "#707070", "stem": "09_open_data.dark"},
+}
+
+
+def draw(res: dict, theme: str):
+    """The figure of `res` in `theme`, drawn under the style of `docs/figure_style.py`.
+
+    Sets rcParams: call it inside `matplotlib.rc_context()`.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    ink = THEMES[theme]
     jnwb.setup_vector_graphics()
-    colors = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]   # fixed categorical order
-    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(9.0, 3.6), constrained_layout=True)
+    style.apply()
+    plt.rcParams.update({
+        "text.color": ink["fg"], "axes.labelcolor": ink["fg"], "axes.titlecolor": ink["fg"],
+        "xtick.color": ink["fg"], "ytick.color": ink["fg"], "axes.edgecolor": ink["edge"],
+        "legend.labelcolor": ink["fg"],
+    })
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.6), constrained_layout=True)
     t_ms = res["psth"]["t_ms"]
-    for color, (where, layer) in zip(colors, res["psth"]["layers"].items()):
+    for color, (where, layer) in zip(style.SERIES, res["psth"]["layers"].items()):
         label = f"{where} (n={layer['n_units']})"
-        ax_a.plot(t_ms, layer["rate_hz"], color=color, lw=2, label=label)
+        ax_a.plot(t_ms, layer["rate_hz"], color=color, lw=style.LW, label=label)
         ax_a.annotate(where, (t_ms[-1], layer["rate_hz"][-1]), xytext=(4, 0),
-                      textcoords="offset points", va="center", fontsize=8, color="#333333")
-    ax_a.axvspan(0, 500, color="#e8e8e8", zorder=0, lw=0)
-    ax_a.set(xlabel="Time from grating onset (ms)", ylabel="Rate (Hz)",
-             title="A  PSTH of good units by layer")
-    ax_a.legend(frameon=False, fontsize=8, loc="upper left")
+                      textcoords="offset points", va="center", fontsize=style.SMALL,
+                      color=ink["fg"])
+    ax_a.axvspan(0, 500, color=style.HIGHLIGHT[theme], alpha=0.4, zorder=0, lw=0)
+    ax_a.set(xlabel="Time from grating onset (ms)", ylabel="Rate (Hz)")
+    style.panel_title(ax_a, "A", "PSTH of good units by layer")
+    ax_a.legend(frameon=False, loc="upper left")
     lf = res["lfp"]
-    ax_b.plot(lf["db"], lf["depth_um"], color=colors[0], lw=2, marker="o", ms=5)
+    ax_b.plot(lf["db"], lf["depth_um"], color=style.SERIES[0], lw=style.LW, marker="o", ms=5)
     for db, depth, where in zip(lf["db"], lf["depth_um"], lf["location"]):
         ax_b.annotate(where, (db, depth), xytext=(6, 0), textcoords="offset points",
-                      va="center", fontsize=8, color="#333333")
-    ax_b.axvline(0.0, color="#999999", lw=1)
-    ax_b.set(xlabel=f"{BAND[0]:.0f}-{BAND[1]:.0f} Hz power, grating vs gray (dB)",
-             ylabel="Contact position on probe (µm)", title="B  LFP band power by depth")
-    for ax in (ax_a, ax_b):
-        ax.spines[["top", "right"]].set_visible(False)
-    jnwb.save_figure_suite([fig], out_dir, "09_open_data", dpi=150, formats=["png"])
-    plt.close(fig)
-    return sorted(Path(out_dir).glob("09_open_data_page*.png"))
+                      va="center", fontsize=style.SMALL, color=ink["fg"])
+    ax_b.axvline(0.0, color=style.NEUTRAL, lw=style.LW_THIN)
+    ax_b.set(xlabel=f"{BAND[0]:.0f}–{BAND[1]:.0f} Hz power, grating vs gray (dB)",
+             ylabel="Contact position on probe (µm)")
+    style.panel_title(ax_b, "B", "LFP band power by depth")
+    return fig
+
+
+def plot(res: dict, out_dir: Path) -> list:
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    matplotlib.use("Agg")
+    with plt.rc_context():
+        for theme, ink in THEMES.items():
+            fig = draw(res, theme)
+            jnwb.save_figure_suite([fig], out_dir, ink["stem"], dpi=150, formats=["png"])
+            plt.close(fig)
+    return sorted(Path(out_dir).glob("09_open_data*_page*.png"))
 
 
 def main() -> None:

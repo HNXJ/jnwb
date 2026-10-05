@@ -5,7 +5,7 @@ Start here if the file came from somewhere else and you do not yet know what is 
 The other tutorials write a synthetic session and check it against values they already
 know, which makes them good tests and poor first reads: copy one against your own file and
 it fails inside the tutorial, on an identifier that was never yours. This one reads the
-layout off [`jnwb.inspect`](../02_paths_addressing_metadata.md) and adapts to what it finds.
+layout off [`jnwb.inspect`](../reading_nwb.md) and adapts to what it finds.
 
 ```bash
 python examples/tutorials/00_your_own_file.py /path/to/session.nwb

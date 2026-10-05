@@ -12,14 +12,16 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 
 | Task | Skill |
 |---|---|
-| NWB files: inspection, events, paths, metadata, electrode addressing, unit quality and census, compression | `jnwb-nwb-data` |
+| NWB files: inspection, event onsets by code, paths, metadata, electrode addressing, census, compression | `jnwb-nwb-data` |
+| Experiment structure: interval tables, event rows, epochs around events, recording cycles, condition meaning from documented metadata | `jnwb-paradigm` |
 | Spike trains: binning, raster, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
 | LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
 | Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |
-| Matplotlib figures: unit-quality plots, equal raster trial counts, vector export | `jnwb-figures` |
+| Matplotlib figures: equal raster trial counts, vector export | `jnwb-figures` |
+| Quality control: unit-quality measures and classes, unit and electrode table audits, unit-quality plots, result records of what ran on which inputs | `jnwb-qc` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
 Before routing, check the plan:

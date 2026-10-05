@@ -1,0 +1,5 @@
+interface:
+  display_name: jnwb-qc
+  description: Quality control of unit and electrode tables and of results -- unit-quality measures and classes, table audits, unit-quality plots for inspection, and the record of what ran, on what inputs, with which parameters.
+policy:
+  allow_implicit_invocation: true

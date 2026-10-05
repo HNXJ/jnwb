@@ -36,8 +36,11 @@ SYNTHETIC = "a parameter of a synthetic signal, true by construction"
 
 #: (path, fragment containing the term, reason). The fragment must enclose the matched word.
 ALLOWED: tuple[tuple[str, str, str], ...] = (
-    ("docs/01_architecture_and_philosophy.md", "onset latency modeling", ONSET),
-    ("docs/01_architecture_and_philosophy.md", "bounded onset latency fitting", ONSET),
+    ("docs/architecture.md", "onset latency modeling", ONSET),
+    ("docs/architecture.md", "bounded onset latency fitting", ONSET),
+    ("docs/architecture.md", "a physical cause, or an effect", CAVEAT),
+    ("docs/architecture.md", "none for a cause, which takes a perturbation", CAVEAT),
+    ("docs/architecture.md", "a cause from any row above", CAVEAT),
     ("docs/06_spikes_psth_and_onset_dynamics.md", "response_zscore, latency", ONSET),
     ("docs/06_spikes_psth_and_onset_dynamics.md", "response onset latency accurately", ONSET),
     ("docs/06_spikes_psth_and_onset_dynamics.md", "deterministic time delay", FILTER),

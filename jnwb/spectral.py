@@ -303,12 +303,24 @@ def _require_positive_fs(fs, func_name: str) -> float:
     return value
 
 
+def _ratio_to_db(ratio):
+    """``10*log10(ratio)`` under the caller's floating-point error state.
+
+    :func:`to_db` silences the divide and invalid warnings around it; ``band_power`` calls
+    this directly, so a zero band still warns as it did before it shared the conversion.
+    """
+    return 10.0 * np.log10(ratio)
+
+
 def to_db(ratio):
-    """``10*log10(ratio)``, the single point every power-ratio-to-dB conversion should pass
-    through — average power, divide by baseline, then take the logarithm exactly once.
+    """``10*log10(ratio)`` with divide and invalid warnings silenced — average power, divide
+    by baseline, then take the logarithm exactly once.
+
+    The formula itself is :func:`_ratio_to_db`, shared with ``band_power``, which calls it
+    directly so a zero band still warns.
     """
     with np.errstate(divide="ignore", invalid="ignore"):
-        return 10.0 * np.log10(ratio)
+        return _ratio_to_db(ratio)
 
 
 #: Accepted aggregation estimands for :func:`aggregate_to_db`. These are genuinely different
@@ -1553,8 +1565,7 @@ def relative_power(
         else:  # log_ratio
             quotient = p_arr / b_broadcast
             _refuse_ratio_overflow(np.isinf(quotient))
-            with np.errstate(divide="ignore", invalid="ignore"):
-                return 10.0 * np.log10(quotient)
+            return to_db(quotient)
 
 
 def band_power(
@@ -1653,7 +1664,7 @@ def band_power(
             raise ValueError(
                 "band_power: the baseline has no power in freq_range, so the dB ratio is undefined"
             )
-        band_power_val = 10 * np.log10(band_power_val / baseline_power_val)
+        band_power_val = _ratio_to_db(band_power_val / baseline_power_val)
 
     return float(band_power_val)
 
@@ -1943,6 +1954,14 @@ def bipolar_reference(channel_data: np.ndarray, channel_order: Optional[np.ndarr
 
     Returns:
         (n_channels - 1, n_samples) bipolar-referenced array.
+
+    References:
+        Bastos, A. M., et al. (2020). Layer and rhythm specificity for predictive routing.
+        PNAS. doi:10.1073/pnas.2014868117 -- Experimental Procedures, "Local Field Potential
+        Power, Coherence, and Granger Causality Analysis": sample-by-sample bipolar
+        differences taken before coherence and Granger causality, because a common
+        reference can make both spurious. The paper subtracts contacts 400 um apart; this
+        function subtracts adjacent contacts.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:

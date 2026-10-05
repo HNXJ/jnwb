@@ -1,14 +1,14 @@
 ---
 name: jnwb-nwb-data
 description: NWB inspection, event/onset extraction, path addressing, anatomical mapping,
-  electrode/unit QC, metadata census, and compression.
+  metadata census, and compression.
 ---
 
 # `jnwb-nwb-data` — NWB Data, Addressing & Metadata
 
 ## 1. Trigger
 Inspecting NWB files, extracting event onsets, resolving paths, mapping electrode channels to
-areas/layers, auditing unit quality, or compressing arrays.
+areas/layers, or compressing arrays.
 
 ## 2. Routing
 
@@ -16,12 +16,8 @@ areas/layers, auditing unit quality, or compressing arrays.
 
 - `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,
   and **all** interval tables with column samples. Selects no event table on the caller's behalf.
-- `jnwb.events(path_or_nwb, table=None, code_column="codes", onset_column="start_time")` →
-  `EventTable` with all rows from one interval table. Onsets in **seconds**.
 - `jnwb.event_onsets(path_or_nwb, table=None, codes=None, code_column="codes",
   onset_column="start_time")` → `numpy.ndarray` of onset times (seconds), table row order.
-- `jnwb.resolve_interval_table(path_or_nwb, table=None)` → table name using `trials` → sole table →
-  `AmbiguousIntervalTableError` when several tables and `table` omitted.
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
@@ -38,9 +34,10 @@ areas/layers, auditing unit quality, or compressing arrays.
   `NWBHDF5IO`; call `io.read()` and read data inside the block. Same `allow_missing` and waiver
   record as `read_nwb`. Read-only: any other `mode` raises `ValueError`; write with
   `pynwb.NWBHDF5IO`.
-- `jnwb.epoch_continuous(data, onsets, *, win_s, fs)` → `(epochs, time_axis_s)` extracting fixed-window
-  epochs from continuous signals aligned to event onsets.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
+
+Choosing an interval table, event rows, epochs around events, recording structure and what a
+condition code means are routed by `jnwb-paradigm`.
 
 MCP tools `inspect_nwb` and `get_event_codes_and_timings` wrap `inspect` and `events` for agent
 hosts, and `prepare_signal_reference` describes one dataset without loading it and names the
@@ -64,17 +61,13 @@ hosts, and `prepare_signal_reference` describes one dataset without loading it a
 
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`
-- `jnwb.enrich_units_dataframe(units_df, electrodes_df)`: Writes the geometric depth class ('Deep' / 'Superficial' / 'Unknown') to `depth_class`; no `layer` column is written, so read `depth_class`. `get_all_units_metadata` emits it the same way. `is_stable` (pandas `"boolean"` dtype) is `<NA>` for a unit with no usable `quality`, and is absent when no unit has one; `filter_quality=True` excludes `<NA>` units.
 - `jnwb.probe_geometry(electrodes_table, *, probe_name=None, units="um", nominal_pitch=None, pitch_tolerance=0.1, strict_linear=False)`
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
-- `jnwb.classify_unit_quality(units_df, thresholds=None)`
 - `jnwb.electrode_inventory(nwb_paths)`
-- `jnwb.audit_units(units_df)` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables.
 - `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by `session_id`, `area` and `depth_class`, does not read a `layer` column, and emits `UserWarning` when the frame has `layer` but no `depth_class` (which `enrich_units_dataframe` supplies). It aggregates `firing_rate`, `waveform_duration` and `snr` and counts `unit_id` (or `cluster_id`), so it takes a frame as `get_all_units_metadata` builds it; a frame without those columns raises `KeyError`.
-- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5)`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` from quality code, trial presence and SNR. Quality 0 is `'mua'`; quality 1 is `'stable'` only when presence and SNR both strictly exceed their thresholds; everything else, including a missing value or a quality code other than 0 or 1, is `'unstable'`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
-- `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
-- `jnwb.detect_trial_cycles(epochs_df, gap_factor=10.0)` and `jnwb.assign_subblock_quartiles(epochs_df, n_quantiles=4)`: Recording-structure labels -- cycle boundaries from a gap threshold, and temporal quantile buckets by `start_time` order. Both are grouping variables for `permute_labels` and `cluster_permutation_test`, not results.
+
+Auditing a session's unit and electrode tables, and unit quality (measures, classes, tiers, SNR), are routed by `jnwb-qc`.
 
 ### Compression and storage
 
@@ -107,9 +100,11 @@ lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel
 
 ## 5. Verification
 - Tutorials under `examples/tutorials/` execute in CI (`tests/test_tutorials.py`).
+- `examples/quickstart_jnwb.py` is the smoke script and `examples/notebooks/01_spectral_and_inference.ipynb` the executed notebook (`tests/test_notebooks.py`).
 - Event/onset acceptance matrix: `tests/test_nwb_events.py`.
 
 ## 6. Documentation
 - [Tutorial: NWB Basics](../../docs/tutorials/01_nwb_basics.md)
 - [Tutorial: Addressing and metadata](../../docs/tutorials/02_addressing_and_metadata.md)
+- [`docs/reading_nwb.md`](../../docs/reading_nwb.md)
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)

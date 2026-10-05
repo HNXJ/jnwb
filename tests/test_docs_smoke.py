@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -6,6 +9,16 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import jnwb
+
+QUICKSTART_PAGE = Path(__file__).resolve().parents[1] / "docs" / "quickstart.md"
+_PYTHON_BLOCK = re.compile(r"^```python\n(.*?)^```", re.M | re.S)
+
+
+def _quickstart_blocks() -> list[str]:
+    """The quickstart page's Python blocks from its import block to its last step, in order."""
+    text = QUICKSTART_PAGE.read_text(encoding="utf-8")
+    assert text.count("## Install & Import") == 1, "the quickstart page lost its import section"
+    return _PYTHON_BLOCK.findall(text.split("## Install & Import", 1)[1])
 
 
 class TestDocsSmokeFixtures:
@@ -264,16 +277,25 @@ class TestDocsSmokeFixtures:
         assert (out_suite / "test_fig_page1.png").exists()
         plt.close(fig)
 
-    def test_doc_quickstart_psi_and_jrsa_blocks(self, rng):
-        sig_a = rng.normal(size=1000)
-        sig_b = np.roll(sig_a, 5) + 0.5 * rng.normal(size=1000)
-        psi = jnwb.phase_slope_index(
-            sig_a, sig_b, fs=1000.0, bands=(8.0, 30.0), n_surrogates=50, seed=0,
-        )
-        assert psi.p_x_to_y is not None
+    def test_doc_quickstart_tour_runs_as_the_page_writes_it(self, tmp_path, monkeypatch):
+        """Executes the quickstart page's own Python blocks in order, in one namespace.
 
-        X = rng.normal(size=(6, 16, 50))
-        Y = X + 0.3 * rng.normal(size=(6, 16, 50))
-        jrsa_res = jnwb.jrsa(X, Y, metric="rsa", stats=True, permutations=100, null="iid", rng=0)
+        The page seeds one generator in its first step and every later step draws from it, so
+        the arrays of the PSI and jRSA steps depend on the draws before them. A fixture that
+        seeds its own generator tests other arrays than the page shows.
+        """
+        monkeypatch.chdir(tmp_path)
+        blocks = _quickstart_blocks()
+        assert len(blocks) >= 7, f"only {len(blocks)} Python blocks on the quickstart page"
+        namespace = {"__name__": "__quickstart_page__"}
+        for block in blocks:
+            exec(compile(block, "docs/quickstart.md", "exec"), namespace)  # noqa: S102
+
+        psi = namespace["psi"]
+        assert isinstance(psi, jnwb.DirectedResult)
+        assert psi.p_x_to_y is not None
+        assert psi.params["n_segments"] == 19, "the page's comment states 19 segments"
+
+        jrsa_res = namespace["jrsa_res"]
         assert jrsa_res.p is not None
         assert jrsa_res.parameters["permutations"] == 100

@@ -22,6 +22,8 @@ from scipy import signal, stats
 import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
+from .spiking import _count_fano
+from .unit_quality import isi_cv
 from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
@@ -309,7 +311,7 @@ class UnitAnalyzer:
     - raster(spike_times, epochs) → Raster plot data
     - psth(spike_times, epochs, bin_size) → PSTH with CI
     - autocorrelogram(spike_times, max_lag) → ACG
-    - quality_metrics(spike_times, amplitudes) → Quality scores
+    - quality_metrics(spike_times, waveform_duration_us, firing_rate) → Quality scores
     - firing_rate(spike_times, window) → FR over time
     """
 
@@ -413,7 +415,7 @@ class UnitAnalyzer:
         over-filled refractory bin read as a single unit and a clean one did not. Its keys
         ``refractory_period_violation``, ``is_single_unit``, ``refr_count`` and
         ``baseline_count`` are removed. The single-unit check is :meth:`quality_metrics`,
-        from inter-spike intervals under 2 ms.
+        from inter-spike intervals under ``refractory_ms``.
 
         Args:
             spike_times: Spike times in seconds
@@ -551,11 +553,25 @@ class UnitAnalyzer:
 
     @staticmethod
     def quality_metrics(spike_times: np.ndarray, waveform_duration_us: float,
-                        firing_rate: float) -> Dict:
+                        firing_rate: float, *, refractory_ms: float = 2.0,
+                        max_violation_pct: float = 5.0, max_fano: float = 2.0) -> Dict:
         """
         Unit quality metrics: ISI, refractory period, Fano factor.
 
-        Fano factor computed via np.histogram (no Python loop over 1-s windows).
+        The Fano factor is the variance over the mean of the spike counts in whole 1-s
+        windows from the first spike, by the rule of :func:`jnwb.fano_factor`: the unbiased
+        (``ddof=1``) variance. Up to 0.2.8 it was the population variance (``ddof=0``),
+        ``(n - 1) / n`` of this over ``n`` windows, half at two windows. The variance rule is
+        shared and the windowing is not: here the windows are ``[t0 + k, t0 + k + 1)`` from
+        the first spike ``t0`` with the last one closed, so a spike at the train's end counts,
+        where the trial windows of :func:`jnwb.fano_factor` are right-open.
+
+        ``cv_isi`` is :func:`jnwb.isi_cv`, with the unbiased (``ddof=1``) standard deviation
+        of the intervals. Up to 0.2.8 it used ``ddof=0`` and read lower by
+        ``sqrt((n - 1) / n)`` for ``n`` intervals.
+
+        Each default is a convention with no cited source: ``refractory_ms=2.0``,
+        ``max_violation_pct=5.0`` and ``max_fano=2.0``. Set them for the recording at hand.
 
         Args:
             spike_times: Spike times in seconds, in any order; they are sorted first.
@@ -564,15 +580,32 @@ class UnitAnalyzer:
                 recording's span.
             waveform_duration_us: Trough-to-peak duration (µs)
             firing_rate: Mean firing rate (Hz)
+            refractory_ms: An inter-spike interval shorter than this, in ms, is a
+                refractory violation.
+            max_violation_pct: The verdict needs a violation rate, in percent of
+                intervals, below this.
+            max_fano: The verdict needs a Fano factor below this.
 
         Returns:
-            Dict with quality scores
+            Dict with quality scores. ``refr_violations_pct`` is NaN with fewer than two
+            spikes (no interval). ``fano_factor`` is NaN with fewer than two whole 1-s
+            windows. ``is_good_single_unit`` is ``None`` when either is
+            NaN, else a ``bool``: ``True`` when both are strictly below their cut-offs.
 
         Raises:
             ValueError: If ``spike_times`` is not 1-D or holds a NaN or an infinity. A NaN
                 sorted last, made the mean interval NaN and still read as a good single
-                unit; a 2-D array was pooled into one train.
+                unit; a 2-D array was pooled into one train. Also if a cut-off is not
+                finite and positive.
         """
+        for name, value in (("refractory_ms", refractory_ms),
+                            ("max_violation_pct", max_violation_pct),
+                            ("max_fano", max_fano)):
+            if not (np.isfinite(value) and value > 0):
+                raise ValueError(
+                    f"UnitAnalyzer.quality_metrics: {name} must be finite and positive; "
+                    f"got {value!r}."
+                )
         spike_times = np.asarray(spike_times, dtype=float)
         if spike_times.ndim != 1:
             raise ValueError(
@@ -589,27 +622,31 @@ class UnitAnalyzer:
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 
-        refr_violations    = int((isis_ms < 2).sum())
-        refr_violation_pct = 100.0 * refr_violations / len(isis) if len(isis) > 0 else 0.0
+        refr_violations    = int((isis_ms < refractory_ms).sum())
+        refr_violation_pct = 100.0 * refr_violations / len(isis) if len(isis) > 0 else np.nan
 
-        # Fano factor via histogram (vectorized)
+        # Fano factor via histogram (vectorized); a variance needs two windows.
         if len(spike_times) > 1:
             t_start, t_end = spike_times[0], spike_times[-1]
             duration = t_end - t_start
-            if duration > 1.0:
+            if duration >= 2.0:
                 n_windows  = int(duration)          # 1-s windows
                 bin_edges  = np.linspace(t_start, t_start + n_windows, n_windows + 1)
                 counts, _  = np.histogram(spike_times, bins=bin_edges)
-                fano_factor = float(np.var(counts) / np.mean(counts)) \
-                              if np.mean(counts) > 0 else np.nan
+                # The first window holds the first spike, so the mean is positive.
+                fano_factor = float(_count_fano(counts[None, :])[0])
             else:
                 fano_factor = np.nan
         else:
             fano_factor = np.nan
 
         mean_isi = float(np.mean(isis_ms)) if len(isis_ms) > 0 else np.nan
-        cv_isi   = float(np.std(isis_ms) / mean_isi) \
-                   if (mean_isi > 0 and len(isis_ms) > 1) else np.nan
+        cv_isi   = isi_cv(spike_times)
+
+        if np.isnan(refr_violation_pct) or np.isnan(fano_factor):
+            verdict = None
+        else:
+            verdict = bool(refr_violation_pct < max_violation_pct and fano_factor < max_fano)
 
         return {
             'firing_rate_hz':       float(firing_rate),
@@ -620,8 +657,7 @@ class UnitAnalyzer:
             'refr_violations_pct':  refr_violation_pct,
             'fano_factor':          fano_factor,
             'waveform_duration_us': float(waveform_duration_us),
-            'is_good_single_unit':  refr_violation_pct < 5 and
-                                    (np.isnan(fano_factor) or fano_factor < 2),
+            'is_good_single_unit':  verdict,
         }
 
 

@@ -6,6 +6,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-10-05
+
+### Breaking
+
+- `classify_unit_quality` raises `ValueError` for empty `thresholds`, which passed every unit as `'Good'`, and for a NaN or infinite threshold, which passed or failed every unit alike; a `None`, boolean or non-numeric threshold raises `TypeError` naming it. Any real number is still a threshold, including a 0-d array, a `Fraction` and a `Decimal`, compared at its exact value as 0.2.8 compared a `Fraction` or `Decimal`. A JAX array cut-off of `classify_unit_quality` or `assign_quality_tier` is now compared at its exact value too, where 0.2.8 compared in JAX's float32 and rounded each unit's value to float32, so a value within float32 rounding of the cut-off can change verdict. A cut-off too large for a float, such as `Fraction(10**400)`, raises `ValueError` naming it, as an infinite one does.
+- `audit_units`, `assign_quality_tier` and `enrich_units_dataframe` (and `get_all_units_metadata` through it) raise `ValueError` for a NaN or infinite cut-off (`quality_threshold`, `snr_threshold`, `presence_threshold`, `stable_threshold`) and for an empty `stable_labels`, which counted every unit, none, or no label silently; a `None` or boolean cut-off raises `TypeError`.
+- `classify_unit_quality`, `audit_units`, `get_snr_analysis` and `enrich_units_dataframe` raise `ValueError` naming a column that occurs more than once in the units table when they read it: a threshold column; `spike_times`, `quality`, `snr` or `firing_rate` in `audit_units`; `snr`, and `session_id` with `detail=True`, in `get_snr_analysis`; `unit_id`, `quality`, `snr`, `firing_rate` and `waveform_duration`, `cluster_id` when there is no `unit_id`, and `peak_channel_id` when electrodes are given, in `enrich_units_dataframe`. 0.2.8 raised an unnamed `TypeError`, `AttributeError` or `ValueError` for each of these, except a repeated `spike_times`, for which `audit_units` counted the repeated column labels instead of the units. A repeated column the function does not read is left alone.
+- `assign_quality_tier` raises `ValueError` for a numpy masked array of presence or SNR with a masked entry, which 0.2.8 read as passing; pass `values.filled(np.nan)` to read it as missing. It also raises `ValueError` when a presence or SNR Series carries labels `quality` lacks and `quality` has pandas' default `RangeIndex(0, n)`, which pandas gives a filter followed by `reset_index`, `head()` and `iloc[:k]` alike; those labels may be positions rather than unit labels, so aligning could pair the wrong units. Pass presence and SNR selected the same way as `quality`. The frame `get_all_units_metadata` returns has this index, so a `head()` of it against full-table presence now raises. Named unit labels still align as in 0.2.8.
+- `jnwb.metadata.compare_old_new_criteria` raises `ValueError` naming the column for a class that is not `True`, `False`, 1 or 0, such as the strings `"False"` and `"no"`, which counted as included. It also raises `ValueError` when `new_df` has a column named `old_screened` or `transition`, which its output overwrote silently, as when comparing a frame it returned.
+- `plot_unit_waveforms` raises `ValueError` naming the unit for a numpy masked array with a masked entry, whose masked samples were averaged into the template; pass `waveform.filled(np.nan)` to leave them out.
+- `jnwb.metadata.compare_old_new_criteria` requires `new_key` and `old_key`; their defaults named one downstream corpus's columns. It raises `ValueError` when a key occurs twice in either frame, where the merge duplicated the unit with conflicting transitions.
+- `plot_unit_waveforms` raises `KeyError` for a unit with no waveform instead of drawing an empty panel, and `ValueError` for a 2-D array with `channels=None`, whose rows may be spikes or channels: pass `channels="peak"` or `"all"` for a `(n_channels, n_samples)` template, or reshape single-channel spikes to `(n_spikes, 1, n_samples)`.
+- `assign_quality_tier` raises `ValueError` for a scalar `trial_presence_fraction` or `snr`, which used to be broadcast to every unit; pass one value per unit.
+
+### Added
+
+- `jnwb.inspect` reports each column's stored NWB `description` under a new `description` key
+  in every column record of `interval_tables`, `electrodes` and `units`, from a path and from an
+  in-memory `NWBFile` alike. A description stored empty reads `""`; a column that stores none,
+  such as `id`, reads `None`. No existing key changes.
+- The unit-quality plots of `jnwb.visual_qc` take keyword-only display arguments, each defaulting to the value drawn before: `plot_unit_quality_distribution(..., snr_threshold=, quality_threshold=, duration_unit=)`, `plot_noise_vs_signal(..., duration_unit=)`, `plot_unit_waveforms(..., voltage_unit=)` and `compare_session_quality(..., snr_good=, snr_fair=, rate_good=, rate_fair=, rate_threshold=)`. The guide lines and colour cut-offs have no published source; pass the thresholds your screen used. The unit arguments label the axes of values drawn as given (microseconds and microvolts by default), so pass the unit of your data.
+- Unit quality measures in `jnwb.unit_quality`, each for one sorted unit:
+  `waveform_features(waveform, fs)` gives the peak channel, amplitude, duration (ms, from the
+  larger extremum to the opposite one after it), peak-trough ratio and polarity of a mean waveform `(n_channels, n_samples)`;
+  `waveform_snr(spike_waveforms)` the amplitude over twice the residual standard deviation;
+  `presence_ratio(spike_times, blocks)` the fraction of caller-given blocks holding a spike;
+  `isi_cv(spike_times)` the coefficient of variation of the inter-spike intervals, with the
+  unbiased (`ddof=1`) standard deviation; and
+  `refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)` the
+  fraction of contaminating spikes by the estimate of Hill et al. (2011), the refractory and
+  censored periods required. Each cites its published definition in `docs/references.md`. `waveform_flatness` and
+  `spatial_derivative_sharpness` have no published source and take a required `threshold`.
+  Undefined input is NaN or raises `ValueError` naming the reason, never 0.
+
+### Changed
+
+- `jnwb.granger` and `jnwb.granger_causality` raise `ImportError` when `statsmodels`, a
+  declared dependency, cannot be imported, where their diagnostics read
+  `stationarity_not_tested` and the result was returned. The stationarity p-value is still NaN,
+  with that warning, when the Dickey-Fuller fit cannot run on the series (`LinAlgError`,
+  `ValueError`, or `FloatingPointError` under a caller's `np.errstate(all="raise")`, from the
+  fit); any other error from the fit now propagates instead of reading as NaN.
+- `UnitAnalyzer.quality_metrics` gives no single-unit verdict on undefined input, and
+  `is_good_single_unit` is now a Python `bool` or `None`, where it was a NumPy or Python bool.
+  A train of 0 or 1 spikes read `refr_violations_pct` 0.0 and `is_good_single_unit` True; the
+  rate is now NaN. The Fano factor is NaN with fewer than two whole 1-s windows, where one
+  window read 0.0. `is_good_single_unit` is `None` when either value is NaN; a NaN Fano factor
+  used to pass. The 2 ms refractory period and the 5 % and Fano-2 cut-offs are the keyword
+  arguments `refractory_ms`, `max_violation_pct` and `max_fano`, with those values as
+  defaults; they are conventions with no cited source, and a cut-off that is not finite and
+  positive raises `ValueError` naming it.
+- `UnitAnalyzer.quality_metrics` computes its Fano factor by the rule of `jnwb.fano_factor`,
+  the unbiased (`ddof=1`) variance over the mean, where it used the population variance
+  (`ddof=0`). Over `n` windows the value grows by `n / (n - 1)`: at two windows with counts 1
+  and 9 it goes from 16/5 to 32/5. A verdict near `max_fano` can change from good to not good.
+- `UnitAnalyzer.quality_metrics` computes `cv_isi` by the rule of `jnwb.isi_cv`, the unbiased
+  (`ddof=1`) standard deviation of the inter-spike intervals over their mean, where it used
+  `ddof=0`. For `n` intervals the value is `sqrt(n / (n - 1))` times what 0.2.8 reported:
+  `sqrt(2)` larger at two intervals. No other key changes.
+- `assign_quality_tier` reads a single-unit candidate by the `is_stable` rule of `enrich_units_dataframe`, through the same code, with new keyword-only `stable_threshold=` (default 1.0) and `stable_labels=` (default `("good", "sua", "single", "stable", "clean")`), and gives `'mua'` only to a unit declared so, as code 0 or the label `'mua'`. Tiers that change on valid input: quality 2 and the labels `'good'` and `'sua'` go from `'unstable'` to `'stable'` or `'unstable'` by presence and SNR; quality 0.5 and -1 and every other label, such as `'noise'` and `'unsorted'`, go from `'unstable'` to `'unknown'`; the label `'mua'` goes from `'unstable'` to `'mua'`. A boolean, date or duration quality is no quality code and reads `'unknown'`, where `False` read `'mua'` and `True` a single unit.
+
+### Fixed
+
+- An infinite quality is no quality code: `assign_quality_tier` gives it `'unknown'` and `enrich_units_dataframe` an `is_stable` of `<NA>` (no `is_stable` column when no quality is usable), where `assign_quality_tier` gave `'unstable'` for both +inf and -inf and `enrich_units_dataframe` gave `True` for +inf and `False` for -inf.
+- `jnwb.metadata.compare_old_new_criteria` gives transition `'unknown'` to a unit whose old class is missing, where it read as not screened and gave `'gained'`; a unit with no old row is still not screened. A caller column named `_old_class` no longer collides with the function's working column.
+- The docstrings of `audit_units` and `plot_unit_waveforms` state that a NaN in the audit is written by `json.dumps` as non-strict JSON, and that each sample of a waveform template averages only the spikes not NaN there, so its amplitude and peak channel can shift where spikes drop out.
+- A torch tensor cut-off raises `TypeError` naming the cut-off, and an integer too large for a float `ValueError`, where each raised an unnamed `TypeError` or `OverflowError`.
+- `audit_units` names a unit with no single `unit_id` column by its index label, as "the unit at index label 11", where the message read "unit 11" as though it were the unit id.
+- `compare_session_quality` marks a session whose `snr_mean` or `snr_good_rate` is NaN as "unknown" instead of colouring it red as failing, and labels the pass-rate axis with `rate_threshold` instead of a fixed "SNR > 1.0". Its legend names each guide line's value instead of "Good threshold" and "50% target".
+- An infinite SNR, presence, firing rate or quality is undefined input, as a NaN is: `classify_unit_quality` flags it `'<metric> undefined'` and classes the unit `'Unknown'`, where +inf passed as `'Good'` and -inf failed; `assign_quality_tier` reads an infinite presence or SNR as missing, so a candidate is `'unstable'`, where +inf made it `'stable'`; `audit_units` and `get_snr_analysis` leave it out of every statistic and count, where it entered `good_count`, `pass_count` and the mean beside a NaN standard deviation; and `get_all_units_metadata(filter_quality=True)` excludes an infinite quality, which passed the filter.
+- `classify_unit_quality` no longer passes a unit it cannot judge as `Good`: a missing or non-numeric value (NaN, `None`, a label such as `'mua'`) is flagged `'<metric> undefined'`, a threshold whose column is absent flags `'<metric> absent'`, and such a unit is the new class `'Unknown'` with `is_valid=False`, unless a measured `quality` or `snr` failure makes it `'Poor'`. Under the default thresholds a frame without a `firing_rate` column is now `'Unknown'` throughout.
+- `assign_quality_tier` returns `'unknown'` for a missing quality where it returned `'unstable'`, reads a nullable `Int64` or `Float64` quality holding `pd.NA`, and aligns a `trial_presence_fraction` or `snr` Series to `quality` by unit label, raising `ValueError` for a missing or repeated label, or an array of another length, where an unmatched unit read `'unstable'`; labels `quality` lacks are ignored, as in 0.2.8, unless `quality` has the default index `0..n-1`.
+- `audit_units` takes keyword-only `quality_threshold=`, `snr_threshold=` (default 1.0) and `stable_labels=` (default `("good",)`) in place of a hard-coded 1.0 and label `'good'`, reports the standard deviation of a single value as NaN rather than 0.0, and names the unit whose `spike_times` entry is not a sequence.
+- `enrich_units_dataframe` takes keyword-only `stable_threshold=` and `stable_labels=`, and `get_all_units_metadata` passes both through. A bare string for `stable_labels` raises `TypeError` in every function that takes it. The defaults of these, of `classify_unit_quality`, `get_snr_analysis`, `get_all_units_metadata` and `assign_quality_tier` are documented as conventions with no cited source.
+- `jnwb.metadata.compare_old_new_criteria` reports a missing new class as transition `'unknown'` instead of `'gained'`, `'unchanged_excluded'` or an exception.
+- `plot_unit_waveforms` takes keyword-only `channels=` (`"peak"` or `"all"`) for `(n_channels, n_samples)` templates and `(n_spikes, n_channels, n_samples)` spikes, which it drew as a channel mean that shrank the peak by the channel count. Spikes are averaged with NaN samples ignored; the peak channel is the one with the largest absolute deflection, all-NaN channels ignored; an empty drawn template or one with no finite sample (all NaN or infinite), or such a channel under `channels="all"`, raises `ValueError` naming the unit.
+
 ## [0.2.8] - 2026-10-03
 
 ### Added

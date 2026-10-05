@@ -1,6 +1,6 @@
 # 07. Statistical Inference, Resampling & Null Hypothesis Modeling
 
-Bootstrap intervals, permutations under a named exchangeability scheme, FDR control, fire-probability tests and trial-cycle detection.
+Bootstrap intervals, permutations under a named exchangeability scheme, FDR control, fire-probability tests and trial-cycle detection. The [statistics tutorial](tutorials/05_statistics.md) runs a permutation test.
 
 ---
 
@@ -63,7 +63,7 @@ comparison = stats.exploratory_compare(
 
 ### Benjamini-Hochberg FDR Control (`fdr_correct`)
 
-For confirmatory hypothesis testing across cohorts of channels, frequency bins, or time lags, apply explicit FDR control:
+For confirmatory tests across channels, frequency bins or time lags:
 
 ```python
 p_values = np.array([0.001, 0.004, 0.015, 0.048, 0.120])

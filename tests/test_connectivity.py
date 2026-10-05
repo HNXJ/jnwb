@@ -5,8 +5,6 @@ may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 
-import ast
-import pathlib
 import warnings
 
 import numpy as np
@@ -1016,55 +1014,75 @@ class TestGrangerNotTestedIsNotPassed:
     """An untested assumption and a degenerate fit were both reported as
     interpretable results."""
 
-    # `sys.path[0]` for a script is the script's own directory, not the cwd, so without
-    # this the probe would import whatever `jnwb` happens to be in site-packages rather
-    # than the checkout under test.
-    STATIONARITY_PROBE = [
-        "import sys, numpy as np",
-        "sys.path.insert(0, REPO_ROOT_PLACEHOLDER)",
-        "class B:",
-        "    def find_spec(self, name, path=None, target=None):",
-        "        if name == 'statsmodels' or name.startswith('statsmodels.'):",
-        "            raise ImportError('blocked for this probe')",
-        "        return None",
-        "sys.meta_path.insert(0, B())",
-        "for m in [k for k in sys.modules if k.startswith('statsmodels')]:",
-        "    del sys.modules[m]",
-        "from jnwb.connectivity import granger",
-        "rng = np.random.default_rng(0)",
-        "a = np.cumsum(rng.normal(size=800))",
-        "b = np.cumsum(rng.normal(size=800))",
-        "d = granger(a, b, order=3).diagnostics",
-        "print(repr((d['ok_for_interpretation'], d['warnings'])))",
-    ]
+    @staticmethod
+    def _random_walks():
+        rng = np.random.default_rng(0)
+        return np.cumsum(rng.normal(size=800)), np.cumsum(rng.normal(size=800))
 
-    def test_an_untested_stationarity_assumption_is_not_reported_as_passed(self, tmp_path):
-        """`_adf_pvalue` turns a missing `statsmodels` into NaN, and
-        `bool(np.isnan(adf_p) or ...)` turned that into stationarity_ok=True: two pure
-        random walks came back ok_for_interpretation=True with an empty warnings list.
+    def test_a_missing_statsmodels_raises_instead_of_reading_as_untested(self, monkeypatch):
+        """`statsmodels` is a declared dependency, so its absence is a broken install, not a
+        series the test could not run on. `_adf_pvalue` turned the ImportError into NaN, and
+        every Granger diagnostic then read "stationarity_not_tested" with no error."""
+        import sys
 
-        Run in a subprocess because blocking an import mid-process is not reversible.
-        """
-        import subprocess
-        import sys as _sys
+        from jnwb.connectivity import _adf_pvalue
 
-        script = tmp_path / "probe.py"
-        repo_root = pathlib.Path(__file__).resolve().parents[1]
-        lines = [
-            line.replace("REPO_ROOT_PLACEHOLDER", repr(str(repo_root)))
-            for line in self.STATIONARITY_PROBE
-        ]
-        script.write_text(chr(10).join(lines), encoding="utf-8")
-        out = subprocess.run(
-            [_sys.executable, str(script)],
-            cwd=str(pathlib.Path(__file__).resolve().parents[1]),
-            capture_output=True,
-            text=True,
-        )
-        assert out.returncode == 0, out.stderr
-        ok, warns = ast.literal_eval(out.stdout.strip().splitlines()[-1])
-        assert ok is False, "an untested assumption must not be reported as interpretable"
-        assert "stationarity_not_tested" in warns
+        a, b = self._random_walks()
+        # None in sys.modules makes `from statsmodels.tsa.stattools import ...` raise
+        # ImportError; monkeypatch puts the real module back afterwards.
+        monkeypatch.setitem(sys.modules, "statsmodels.tsa.stattools", None)
+        with pytest.raises(ImportError):
+            _adf_pvalue(a)
+        with pytest.raises(ImportError):
+            _adf_pvalue(np.arange(5.0))
+        with pytest.raises(ImportError):
+            granger(a, b, order=3)
+        with warnings.catch_warnings(), pytest.raises(ImportError):
+            warnings.simplefilter("ignore", DeprecationWarning)
+            granger_causality(a, b, order=3)
+
+    @pytest.mark.parametrize("failure", [np.linalg.LinAlgError("SVD did not converge"),
+                                         ValueError("Invalid input, x is constant")])
+    def test_a_numerical_failure_is_nan_and_reported_untested(self, monkeypatch, failure):
+        """A fit that cannot run on the series stays NaN, and NaN is not a pass: two pure
+        random walks once came back ok_for_interpretation=True with an empty warnings list."""
+        from jnwb.connectivity import _adf_pvalue
+
+        def singular(*args, **kwargs):
+            raise failure
+
+        a, b = self._random_walks()
+        monkeypatch.setattr("statsmodels.tsa.stattools.adfuller", singular)
+        assert np.isnan(_adf_pvalue(a))
+        d = granger(a, b, order=3).diagnostics
+        assert d["ok_for_interpretation"] is False
+        assert "stationarity_not_tested" in d["warnings"]
+
+    def test_a_floating_point_error_under_strict_errstate_is_nan_and_untested(self):
+        """Under a caller's ``np.errstate(all="raise")`` the fit underflows on a series of
+        amplitude 1e-300 and raised FloatingPointError, where 0.2.8 returned NaN. The series
+        is finite and not constant, so it reaches the fit rather than an early NaN return."""
+        from jnwb.connectivity import _adf_pvalue, _series_diagnostics
+
+        y = 1e-300 * np.random.default_rng(12345).normal(size=50)
+        assert np.all(np.isfinite(y)) and np.ptp(y) > 0
+        with np.errstate(all="raise"):
+            assert np.isnan(_adf_pvalue(y))
+            d = _series_diagnostics(y, np.random.default_rng(0).normal(size=50), order=3)
+        assert np.isnan(d["adf_pvalue"])
+        assert "stationarity_not_tested" in d["warnings"]
+        assert d["stationarity_ok"] is False
+
+    def test_an_error_that_is_not_numerical_propagates(self, monkeypatch):
+        """Only the named numerical failures become NaN; a defect in the call raises."""
+        from jnwb.connectivity import _adf_pvalue
+
+        def broken(*args, **kwargs):
+            raise TypeError("adfuller() got an unexpected keyword argument")
+
+        monkeypatch.setattr("statsmodels.tsa.stattools.adfuller", broken)
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            _adf_pvalue(self._random_walks()[0])
 
     def test_a_tested_and_passing_series_is_still_interpretable(self):
         rng = np.random.default_rng(1)

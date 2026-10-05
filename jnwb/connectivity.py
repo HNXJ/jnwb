@@ -427,6 +427,15 @@ def select_optimal_lag(
     return opt_lag
 
 
+#: What `_adf_pvalue` reads as "the test could not run on this series" and turns into NaN:
+#: a singular or non-converging least-squares fit, and the `ValueError` statsmodels raises
+#: for a series too short or too flat for the regression, and the `FloatingPointError` the fit
+#: raises (underflow or overflow) under a caller's ``np.errstate(all="raise")`` on a tiny, huge
+#: or exponential series. Anything else propagates.
+#: `LinAlgError` subclasses `ValueError`; it is named so the reader need not know that.
+_ADF_NUMERICAL_FAILURES = (np.linalg.LinAlgError, ValueError, FloatingPointError)
+
+
 def _adf_pvalue(series: np.ndarray) -> float:
     """Dickey-Fuller p-value (no lag augmentation, constant term). H0: unit root.
 
@@ -441,27 +450,26 @@ def _adf_pvalue(series: np.ndarray) -> float:
 
     `statsmodels` is a hard dependency, so this defers to its MacKinnon p-values for the
     same regression (``maxlag=0``, ``regression='c'``) rather than carrying a private and
-    wrong approximation.
+    wrong approximation. A missing `statsmodels` raises `ImportError`; NaN means only that
+    the test could not run on this series (:data:`_ADF_NUMERICAL_FAILURES`).
     """
+    from statsmodels.tsa.stattools import adfuller
+
     y = np.asarray(series, dtype=float).ravel()
     if len(y) < 10:
         return float("nan")
     if not np.all(np.isfinite(y)) or np.ptp(y) == 0:
         return float("nan")
     try:
-        import warnings
-
-        from statsmodels.tsa.stattools import adfuller
-
         with warnings.catch_warnings():
             # statsmodels warns that adfuller's plain-tuple return will become an
             # ADFullerResult in 0.16. Read the p-value in a way that works either way
             # rather than emitting a FutureWarning from every Granger diagnostic.
             warnings.simplefilter("ignore", FutureWarning)
             res = adfuller(y, maxlag=0, regression="c", autolag=None)
-        return float(res[1]) if isinstance(res, tuple) else float(res.pvalue)
-    except Exception:
+    except _ADF_NUMERICAL_FAILURES:
         return float("nan")
+    return float(res[1]) if isinstance(res, tuple) else float(res.pvalue)
 
 
 def _ljung_box_pvalue(residuals: np.ndarray, nlags: int = 10) -> float:
@@ -489,10 +497,9 @@ def _series_diagnostics(series: np.ndarray, residuals: np.ndarray, order: int) -
     lb_p = _ljung_box_pvalue(residuals, nlags=min(10, max(order * 2, 2)))
     warnings = []
     # Not tested is not passed. `bool(np.isnan(adf_p) or ...)` reported stationarity_ok
-    # True whenever the test could not run -- most importantly when `statsmodels`, a
-    # declared hard dependency, is absent, since `_adf_pvalue` converts that ImportError
-    # into NaN. Two pure random walks then came back ok_for_interpretation=True with an
-    # empty warnings list.
+    # True whenever the test could not run: two pure random walks came back
+    # ok_for_interpretation=True with an empty warnings list. A missing `statsmodels` now
+    # raises in `_adf_pvalue`, so NaN here is a series the test could not run on.
     if np.isnan(adf_p):
         warnings.append("stationarity_not_tested")
     elif adf_p > 0.05:

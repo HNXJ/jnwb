@@ -2060,3 +2060,85 @@ class TestCoherenceGpuFallbackKeepsTheNull:
         with pytest.raises(ValueError):
             sp.cross_area_coherence(x, y, device="no-such-device", **kw)
         assert gen.bit_generator.state == before
+
+
+class TestDecibelSitesShareOneConversion:
+    """`relative_power(model="log_ratio")` and `band_power(normalize=True)` each retyped
+    ``10*log10`` instead of passing through the conversion `to_db` owns (invariant 4.7)."""
+
+    FS = 1000.0
+    BAND = (4.0, 30.0)
+
+    @staticmethod
+    def _bits(value):
+        return np.ascontiguousarray(np.asarray(value, dtype=np.float64)).tobytes()
+
+    def _traces(self):
+        rng = np.random.default_rng(0)
+        return rng.standard_normal(2000), rng.standard_normal(2000)
+
+    def _reference_db(self, trace, baseline):
+        """``10*log10`` of the band-mean Welch ratio, computed here without jnwb."""
+        from scipy import signal
+
+        def band_mean(z):
+            f, p = signal.welch(z, fs=self.FS, nperseg=min(len(z), 4096))
+            return float(np.mean(p[(f >= self.BAND[0]) & (f <= self.BAND[1])]))
+
+        with np.errstate(divide="ignore"):
+            return 10 * np.log10(band_mean(trace) / band_mean(baseline))
+
+    def test_both_sites_call_the_shared_conversion(self, monkeypatch):
+        import jnwb.spectral as sp
+
+        calls = []
+        shared = sp._ratio_to_db
+
+        def recording(ratio):
+            calls.append(np.shape(ratio))
+            return shared(ratio)
+
+        monkeypatch.setattr(sp, "_ratio_to_db", recording)
+        sp.relative_power(np.full((2, 3), 2.0), np.ones((2, 3)), model="log_ratio")
+        assert calls == [(2, 3)], "relative_power(model='log_ratio') bypassed to_db"
+        x, base = self._traces()
+        sp.band_power(x, fs=self.FS, freq_range=self.BAND, baseline=base)
+        assert calls == [(2, 3), ()], "band_power(normalize=True) bypassed the shared conversion"
+
+    def test_log_ratio_values_and_refusals_are_unchanged(self):
+        rng = np.random.default_rng(0)
+        p, b = rng.random((4, 5)) + 0.1, rng.random((4, 5)) + 0.1
+        zero = np.zeros((2, 3))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            random_db = relative_power(p, b, model="log_ratio")
+            zero_db = relative_power(zero, np.ones((2, 3)), model="log_ratio")
+        assert self._bits(random_db) == self._bits(10.0 * np.log10(p / b))
+        assert self._bits(zero_db) == self._bits(np.full((2, 3), -np.inf))
+        with pytest.raises(ValueError, match="power contains negative values"):
+            relative_power(-p, b, model="log_ratio")
+        with pytest.raises(ValueError, match="must contain finite values"):
+            relative_power(np.array([np.inf, 1.0]), np.ones(2), model="log_ratio")
+        with pytest.raises(ValueError, match="overflows to inf"):
+            relative_power(np.array([1e308, 1.0]), np.array([1e-308, 1.0]), model="log_ratio")
+        # The bare conversion keeps its own contract on a negative ratio: NaN, silently.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert np.isnan(to_db(-1.0))
+
+    def test_band_power_db_values_and_warnings_are_unchanged(self):
+        x, base = self._traces()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            got = band_power(x, fs=self.FS, freq_range=self.BAND, baseline=base)
+        assert self._bits(got) == self._bits(self._reference_db(x, base))
+        flat = np.ones(2000)
+        with pytest.warns(RuntimeWarning, match="divide by zero encountered in log10"):
+            zero_band = band_power(flat, fs=self.FS, freq_range=self.BAND, baseline=base)
+        assert zero_band == -np.inf
+        huge = band_power(1e150 * x, fs=self.FS, freq_range=self.BAND, baseline=1e-150 * base)
+        assert huge == np.inf
+        with pytest.raises(ValueError, match="baseline has no power"):
+            band_power(x, fs=self.FS, freq_range=self.BAND, baseline=flat)
+        with pytest.raises(ValueError, match="must be finite"):
+            band_power(np.r_[np.inf, x[1:]], fs=self.FS, freq_range=self.BAND, baseline=base)

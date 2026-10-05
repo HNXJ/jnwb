@@ -46,11 +46,13 @@ pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.8`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.9`. To install it from a clone instead of from PyPI:
 
 ```bash
-pip install .                     # or: pip install -e ".[test,docs]" for development
+pip install .                     # or: pip install -e ".[test,docs,vis]" for development
 ```
+
+The `vis` extra exports SVG and PNG through kaleido, which needs a Chrome or Chromium: see [Install](https://jnwb.readthedocs.io/en/latest/install/).
 
 Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplotlib`, `scikit-learn`, `statsmodels`, `joblib`.
 
@@ -108,12 +110,24 @@ print(f"TFR shape: {tfr.shape}, beta power: {beta:.4f}")
 ```
 
 Read spikes and LFP for alignment after you have onsets. Onsets are session time; sample 0
-of the LFP is at its `starting_time`:
+of the LFP is at its `starting_time`, or at its first timestamp when the series stores
+`timestamps` (`starting_time` is `None` and `acquisition_channel` raises, so the samples are
+read from the file):
 
 ```python
+import numpy as np
+from pynwb import NWBHDF5IO
+
 spikes = jnwb.unit_spike_times("session.nwb", unit_index=0)
-lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)
-start_s = next(a["starting_time"] for a in info["acquisitions"] if a["name"] == "probe_0_lfp")
+entry = next(a for a in info["acquisitions"] if a["name"] == "probe_0_lfp")
+if entry["starting_time"] is not None:       # stored with starting_time and rate
+    lfp, fs_hz = jnwb.acquisition_channel("session.nwb", name="probe_0_lfp", channel=0)
+    start_s = entry["starting_time"]
+else:                                        # stored with timestamps, sampled regularly
+    with NWBHDF5IO("session.nwb", "r") as io:
+        series = io.read().acquisition["probe_0_lfp"]
+        t, lfp = series.timestamps[:], series.data[:, 0]   # entry["layout"], raw samples
+    fs_hz, start_s = 1.0 / np.median(np.diff(t)), float(t[0])
 epochs, t_axis_s = jnwb.epoch_continuous(lfp, onsets - start_s, win_s=(-0.1, 0.4), fs=fs_hz)
 ```
 

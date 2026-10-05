@@ -505,6 +505,155 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"must be one 1-D train; got shape \(2, 250\)"):
             UnitAnalyzer.quality_metrics(st.reshape(2, 250), 300.0, 5.0)
 
+    def test_zero_or_one_spike_gives_nan_and_no_verdict(self):
+        """With no interval there is no violation rate: it read 0.0 and a good single unit."""
+        for st in (np.array([]), np.array([1.0])):
+            with self.subTest(n_spikes=len(st)):
+                res = UnitAnalyzer.quality_metrics(st, 400.0, 0.0)
+                self.assertTrue(np.isnan(res['refr_violations_pct']))
+                self.assertTrue(np.isnan(res['fano_factor']))
+                self.assertIsNone(res['is_good_single_unit'])
+
+    def test_an_undefined_fano_factor_gives_no_verdict(self):
+        """A span under two whole 1-s windows has no count variance: a NaN Fano factor read
+        as passing, and one window read Fano 0."""
+        for span in (0.5, 1.5):
+            with self.subTest(span_s=span):
+                st = np.arange(0.0, span, 0.005)          # 5 ms intervals, no violation
+                res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+                self.assertEqual(res['refr_violations_pct'], 0.0)
+                self.assertTrue(np.isnan(res['fano_factor']))
+                self.assertIsNone(res['is_good_single_unit'])
+
+    def test_each_cut_off_is_an_argument(self):
+        regular = np.arange(0.0, 10.0, 0.003)             # 3 ms intervals, Fano near 0
+        self.assertTrue(UnitAnalyzer.quality_metrics(regular, 300.0, 5.0)['is_good_single_unit'])
+        res = UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, refractory_ms=4.0)
+        self.assertEqual(res['refr_violations_pct'], 100.0)
+        self.assertFalse(res['is_good_single_unit'])
+
+        steps = np.where(np.arange(3000) % 10 == 0, 0.001, 0.003)   # 10 % at 1 ms
+        violating = np.concatenate([[0.0], np.cumsum(steps)])
+        self.assertAlmostEqual(
+            UnitAnalyzer.quality_metrics(violating, 300.0, 5.0)['refr_violations_pct'], 10.0)
+        self.assertFalse(UnitAnalyzer.quality_metrics(violating, 300.0, 5.0)['is_good_single_unit'])
+        self.assertTrue(UnitAnalyzer.quality_metrics(
+            violating, 300.0, 5.0, max_violation_pct=20.0)['is_good_single_unit'])
+
+        counts = [1, 9] * 5 + [1]                          # per second; windows [1, 9]*4 + [1, 10]
+        bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
+        res = UnitAnalyzer.quality_metrics(bursty, 300.0, 5.0)
+        self.assertGreater(res['fano_factor'], 2.0)
+        self.assertFalse(res['is_good_single_unit'])
+        self.assertTrue(UnitAnalyzer.quality_metrics(
+            bursty, 300.0, 5.0, max_fano=10.0)['is_good_single_unit'])
+
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            with self.subTest(cut_off=name):
+                with self.assertRaisesRegex(ValueError, name):
+                    UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: 0.0})
+
+    def test_a_non_finite_cut_off_is_refused_by_name(self):
+        """An infinite cut-off passed every unit, or none, without a word."""
+        regular = np.arange(0.0, 10.0, 0.003)
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            for bad in (np.inf, -np.inf, np.nan):
+                with self.subTest(cut_off=name, value=bad):
+                    with self.assertRaisesRegex(ValueError, f"{name} must be finite"):
+                        UnitAnalyzer.quality_metrics(regular, 300.0, 5.0, **{name: bad})
+
+    def test_cv_isi_is_the_rule_of_isi_cv(self):
+        """One estimator, one rule: intervals 1 and 3 s give sd sqrt(2) (ddof=1) over mean 2;
+        0.2.8's ddof=0 read 0.5, lower by sqrt((n - 1) / n) for n intervals."""
+        import jnwb
+        st = np.array([0.0, 1.0, 4.0])
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertAlmostEqual(res['cv_isi'], np.sqrt(2.0) / 2.0, places=12)
+        self.assertEqual(res['cv_isi'], jnwb.isi_cv(st))
+
+    def test_a_span_of_exactly_two_seconds_has_a_fano_factor(self):
+        """Two whole 1-s windows are the fewest a variance needs."""
+        st = np.linspace(0.0, 2.0, 401)                   # 5 ms intervals
+        self.assertEqual(st[-1] - st[0], 2.0)
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        # Counts 200 and 201 (the end spike falls in the last window): variance 0.5 (ddof=1).
+        self.assertEqual(res['fano_factor'], 0.5 / 200.5)
+        self.assertIs(res['is_good_single_unit'], True)
+
+    def test_two_windows_fano_uses_the_unbiased_variance(self):
+        """ddof=1, the rule of jnwb.fano_factor; 0.2.8's ddof=0 gave 16/5 and passed max_fano=5."""
+        st = np.concatenate([[0.0], np.linspace(1.0, 2.0, 9)])   # counts 1 and 9
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertEqual(res['refr_violations_pct'], 0.0)
+        self.assertEqual(res['fano_factor'], 32.0 / 5.0)
+        self.assertIs(UnitAnalyzer.quality_metrics(
+            st, 300.0, 5.0, max_fano=5.0)['is_good_single_unit'], False)
+        self.assertIs(UnitAnalyzer.quality_metrics(
+            st, 300.0, 5.0, max_fano=7.0)['is_good_single_unit'], True)
+
+    def test_fano_factor_equals_jnwb_fano_factor_on_the_same_windows(self):
+        from jnwb import fano_factor
+        st = np.sort(np.random.default_rng(3).uniform(0.0, 50.5, 400))
+        n_windows = int(st[-1] - st[0])
+        ref = fano_factor([st], st[0] + np.arange(n_windows), (0.0, 1.0), summary='mean')
+        self.assertEqual(UnitAnalyzer.quality_metrics(st, 300.0, 5.0)['fano_factor'], ref['fano'])
+
+    def test_fano_factor_goes_through_the_shared_helper(self):
+        """A retyped variance would agree today and drift later; the value must come from the
+        helper jnwb.fano_factor uses."""
+        from unittest import mock
+        import jnwb.analyzers
+        import jnwb.spiking
+        self.assertIs(jnwb.analyzers._count_fano, jnwb.spiking._count_fano)
+        seen = []
+
+        def marker(counts):
+            seen.append(np.array(counts))
+            return np.array([123.25])
+
+        st = np.concatenate([[0.0], np.linspace(1.0, 2.0, 9)])
+        with mock.patch.object(jnwb.analyzers, '_count_fano', marker):
+            res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0)
+        self.assertEqual(res['fano_factor'], 123.25)
+        self.assertEqual(len(seen), 1)
+        np.testing.assert_array_equal(seen[0], [[1, 9]])
+
+    def test_a_value_at_its_cut_off_does_not_pass(self):
+        """Each comparison is strict: an interval equal to the refractory period is no
+        violation, and a rate or Fano factor equal to its cut-off fails the verdict."""
+        quarter = np.arange(41) * 0.25                     # 250 ms intervals, exact in binary
+        self.assertEqual(UnitAnalyzer.quality_metrics(
+            quarter, 300.0, 5.0, refractory_ms=250.0)['refr_violations_pct'], 0.0)
+
+        steps = np.where(np.arange(3000) % 10 == 0, 0.001, 0.003)
+        violating = np.concatenate([[0.0], np.cumsum(steps)])
+        # Spikes per second [1, 9]*5 + [1]; the windows start at 0.1 s and the last is closed,
+        # so its window counts are [1, 9]*4 + [1, 10].
+        counts = [1, 9] * 5 + [1]
+        bursty = np.concatenate([k + np.linspace(0.1, 0.9, c) for k, c in enumerate(counts)])
+        for train, key, cut_off in ((violating, 'refr_violations_pct', 'max_violation_pct'),
+                                    (bursty, 'fano_factor', 'max_fano')):
+            with self.subTest(cut_off=cut_off):
+                value = UnitAnalyzer.quality_metrics(train, 300.0, 5.0)[key]
+                at = UnitAnalyzer.quality_metrics(train, 300.0, 5.0, **{cut_off: value})
+                above = UnitAnalyzer.quality_metrics(
+                    train, 300.0, 5.0, **{cut_off: np.nextafter(value, np.inf)})
+                self.assertIs(at['is_good_single_unit'], False)
+                self.assertIs(above['is_good_single_unit'], True)
+
+    def test_docstring_states_each_default_and_the_variance_rule(self):
+        import inspect
+        doc = inspect.getdoc(UnitAnalyzer.quality_metrics)
+        self.assertIn("Each default is a convention with no cited source", doc)
+        params = inspect.signature(UnitAnalyzer.quality_metrics).parameters
+        for name in ('refractory_ms', 'max_violation_pct', 'max_fano'):
+            with self.subTest(cut_off=name):
+                self.assertIn(f"``{name}={params[name].default!r}``", doc)
+        self.assertIn("by the rule of :func:`jnwb.fano_factor`: the unbiased\n(``ddof=1``) variance", doc)
+        self.assertNotIn("no spike in them", doc)   # the first window always holds a spike
+        self.assertIn("the last one closed", doc)
+        self.assertIn("are right-open", doc)
+
 class TestPopulationAnalyzerTrajectory(unittest.TestCase):
     """Test PopulationAnalyzer.population_trajectory for dtype, device_used, and fallback."""
 

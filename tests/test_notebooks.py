@@ -21,8 +21,8 @@ def test_there_is_a_notebook_to_run():
     assert NOTEBOOKS, f"no notebooks in {NOTEBOOK_DIR}"
 
 
-@pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
-def test_notebook_executes(path, tmp_path, monkeypatch):
+def _execute(path, tmp_path, monkeypatch):
+    """Run the notebook top to bottom in a kernel on this tree; return it with its outputs."""
     import os
 
     from jupyter_client.manager import KernelManager
@@ -43,4 +43,22 @@ def test_notebook_executes(path, tmp_path, monkeypatch):
     client = nbclient.NotebookClient(
         nb, timeout=120, km=km, resources={"metadata": {"path": str(tmp_path)}}
     )
-    client.execute()
+    return client.execute()
+
+
+@pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
+def test_notebook_executes(path, tmp_path, monkeypatch):
+    _execute(path, tmp_path, monkeypatch)
+
+
+def test_unit_quality_notebook_reaches_each_outcome(tmp_path, monkeypatch):
+    """The four outcomes are printed by the notebook, not only reachable by its code."""
+    nb = _execute(NOTEBOOK_DIR / "unit_quality.ipynb", tmp_path, monkeypatch)
+    text = "\n".join(
+        "".join(o.get("text", "")) for c in nb.cells if c.cell_type == "code" for o in c.outputs
+    )
+    assert "request the probe geometry: spatial_derivative_sharpness" in text
+    assert "contaminated unit: nan" in text
+    assert "snr of one spike: nan" in text
+    assert "isi_cv of two spikes: nan" in text
+    assert "Declined" in text

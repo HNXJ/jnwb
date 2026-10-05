@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.8'
-__release_date__ = '2026-10-03'
+__version__ = '0.2.9'
+__release_date__ = '2026-10-05'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -367,6 +367,15 @@ __all__ = [
     'audit_units',
     'audit_electrodes',
     'assign_quality_tier',
+
+    # Unit quality measures
+    'waveform_features',
+    'waveform_snr',
+    'waveform_flatness',
+    'spatial_derivative_sharpness',
+    'presence_ratio',
+    'isi_cv',
+    'refractory_contamination',
 
     # Digital filtering
     'bandpass_filter',

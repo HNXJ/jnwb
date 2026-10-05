@@ -53,6 +53,9 @@ Panels are addressed by `(row, col)` from 0. Widths follow the presets `'1col'` 
 non-empty, and `SOURCE_ARTIFACTS` must name at least one source, so a figure cannot be sealed
 without saying what it rests on.
 
+The theme is light only: every figure has an opaque white background and near-black text,
+with no dark variant, so on a dark page it shows as a white panel.
+
 ## Panels
 
 Each function draws into one `(row, col)` of a canvas.

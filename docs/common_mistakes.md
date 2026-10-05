@@ -34,7 +34,7 @@ db_mean = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_
 db_weighted = jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
 ```
 
-`jnwb.aggregate_to_db` strictly enforces this: negative inputs raise an immediate error, preventing callers from accidentally passing decibels.
+`jnwb.aggregate_to_db` enforces this: negative inputs raise an error, preventing callers from accidentally passing decibels.
 
 ---
 
@@ -76,7 +76,7 @@ Using an unconstrained global permutation (`np.random.permutation(y)`) to constr
 y_null = np.random.permutation(y_true)
 ```
 
-If class proportions vary across sessions or cycles, global shuffling destroys the covariance structure between trial covariates and labels, yielding an overly optimistic null distribution and severely inflated false positive rates ($p < 0.05$ under the null).
+If class proportions vary across sessions or cycles, global shuffling destroys the covariance structure between trial covariates and labels, yielding an overly optimistic null distribution and inflated false positive rates ($p < 0.05$ under the null).
 
 ### The Correct Pattern
 Permute labels **within each group independently**, preserving each block's internal marginal composition:
@@ -162,7 +162,7 @@ $$\text{Association} \neq \text{Directionality} \neq \text{Causality}$$
 
 | Metric | What it measures | What it cannot rule out |
 |---|---|---|
-| Granger causality | Whether past values of $X$ improve linear autoregressive prediction of $Y$ | Unobserved common inputs; differing signal-to-noise ratios |
+| Granger causality | Whether past values of $X$ improve linear autoregressive prediction of $Y$ | The [pitfalls below](#interpretational-pitfalls-of-coupling-and-direction) |
 | Phase Slope Index | The sum over adjacent frequency bins of $\mathrm{Im}(C^*_f\,C_{f+\delta f})$ on the coherency $C$; its sign is read as which signal leads. It tests neither linearity nor a delay | A common driver with asymmetric conduction delays |
 | Transfer Entropy | Information-theoretic reduction in uncertainty of $Y$ given $X$'s past. Non-parametric | Anything: it is still observational |
 
@@ -291,7 +291,7 @@ onsets = jnwb.event_onsets(
 )
 ```
 
-The guards are there to be used rather than worked around. Several interval tables and none
+Several interval tables and none
 named `trials` raises `AmbiguousIntervalTableError` listing the names; a code column that
 does not exist raises `ColumnNotFoundError` listing the columns that do; on a table with no
 `codes` column, `events` returns its onsets and warns that it found no codes. Each message contains
@@ -369,13 +369,23 @@ in it reads as an error.
 
 ### The Correct Pattern
 Compare the onsets against the extent of the data before trusting either. Onsets are
-session time and sample 0 is at the series' `starting_time`, so the data span
-`starting_time` to `starting_time + duration`:
+session time and sample 0 is at the series' `starting_time`, or at its first timestamp when
+the series stores `timestamps` (`starting_time` is then `None`), so the data span that start to
+that start plus the duration:
 
 ```python
+import numpy as np
+from pynwb import NWBHDF5IO
+
 series = jnwb.inspect("session.nwb")["acquisitions"][0]
-data, fs = jnwb.acquisition_channel("session.nwb", name=series["name"], channel=0)
-start_s = series["starting_time"]
+if series["starting_time"] is not None:      # stored with starting_time and rate
+    data, fs = jnwb.acquisition_channel("session.nwb", name=series["name"], channel=0)
+    start_s = series["starting_time"]
+else:                                        # stored with timestamps, sampled regularly
+    with NWBHDF5IO("session.nwb", "r") as io:
+        stored = io.read().acquisition[series["name"]]
+        t, data = stored.timestamps[:], stored.data[:, 0]  # series["layout"], raw samples
+    fs, start_s = 1.0 / np.median(np.diff(t)), float(t[0])
 onsets = jnwb.event_onsets("session.nwb", table="trials")
 if onsets.max() > start_s + len(data) / fs:
     onsets = onsets / 1000.0        # they were milliseconds; say so in the script
@@ -391,3 +401,37 @@ ordinary, and their epochs are partly NaN by design. A non-finite onset raises
 `time_unit` on an `EventTable` is a label, not a measurement: the interval table carries
 no extent to check it against. The check is possible only where the onsets meet the
 continuous data, which is `epoch_continuous`.
+
+---
+
+## 12. Sorter Labels Read as Ground Truth
+
+### The Mistake
+Reading a sorter's `good` label, or its quality column, as proof that a unit is a single
+neuron. A label is the sorter's output and no measure of `jnwb.unit_quality` confirms it.
+
+### The Correct Pattern
+Screen units against cut-offs you state, report a measure the input cannot support (NaN,
+`'Unknown'`) as not estimable, and leave the single-neuron claim unmade. The fifth safeguard of
+the [`jnwb-qc` skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb-qc/SKILL.md) holds the
+rule.
+
+---
+
+## Interpretational Pitfalls of Coupling and Direction
+
+Each pitfall is stated here once. Sources are rows of the
+[Pitfalls table](references.md#pitfalls) (Bastos and Schoffelen 2016, Vezoli et al. 2021, Friston
+et al. 2014, Barnett and Seth 2011). A pitfall with no guard in `jnwb` is the caller's step.
+
+| Pitfall | What goes wrong | Guard in `jnwb`, or the caller's step |
+|---|---|---|
+| Common reference | A reference shared by two channels adds zero-lag coherence and Granger influence between them | Caller: apply `bipolar_reference` or `laplacian_reference` before coherence or Granger. No estimator detects a shared reference |
+| Volume conduction | Field spread couples sites with no interaction | Stated under [imaginary coherency and wPLI](coherence_and_tfr.md#imaginary-coherency-weighted-phase-lag-index-imaginary_coherency-wpli) |
+| Signal-to-noise asymmetry | The channel with the better signal-to-noise ratio appears to lead, so a Granger direction can be spurious | Caller: compare power between channels and conditions before reading direction. `jnwb` has no time-reversal or power-stratification control |
+| Common input | An unrecorded source drives both signals and leaves a Granger or phase-slope direction between them | No estimator removes it; a recorded source is conditioned on as [stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling) |
+| Bivariate against conditional Granger | A bivariate fit credits X with influence routed through a third recorded signal | [Stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling). `granger` takes `Z`, which `directed_network` passes to every pair; `granger_spectral` has no `Z` |
+| Sample-size bias | Coherence sits near 1/K for K segments under no coupling | PLV bias and PPC are [stated here](06_spikes_psth_and_onset_dynamics.md#pairwise-phase-consistency-pairwise_phase_consistency); `wpli` returns `wpli_debiased_sq`; `cross_area_coherence` returns `n_segments_used`. Caller: compare conditions at equal K |
+| Phase slope as direction | A phase slope gives a lag asymmetry in the statistics, not an anatomical direction | `phase_slope_index` tests the lead (`p_net`) apart from coupling; see [its page](08_directed_connectivity_and_information.md#3-phase-slope-index-phase_slope_index) |
+| Filtering before Granger | Granger causality is invariant under an invertible filter, so band-passing cannot isolate a band, and it often raises the fitted order | Caller: do not filter first; read `per_band` of `granger_spectral`. No estimator detects a filtered input |
+| Non-stationarity | A slowly decaying or drifting mode makes a finite-order VAR fail | `granger_spectral` records a warning in `diagnostics` and sets `diagnostics['stationary']` false when the VAR's spectral radius reaches 1. `granger` has no such check, only `detrend='linear'` on request |

@@ -76,10 +76,12 @@ COVERED_PAGES = frozenset({
     "docs/07_statistical_inference_and_nulls.md",
     "docs/08_directed_connectivity_and_information.md",
     "docs/09_decoding_and_visual_qc.md",
+    "docs/coherence_and_tfr.md",
     "docs/common_mistakes.md",
     "docs/errors.md",
     "docs/index.md",
     "docs/quickstart.md",
+    "docs/reading_nwb.md",
     "docs/recipes.md",
     "docs/vis.md",
 })

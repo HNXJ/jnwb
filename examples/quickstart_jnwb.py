@@ -15,8 +15,9 @@ WHY SIMULATED, AND HOW IT IS MARKED
     never presented as measured. No number here is an empirical result about any dataset.
 
 STYLE
-    Fonts, size tiers and the figure width come from `docs/figure_style.py`, the module every
-    documentation figure uses, so the script runs from a checkout.
+    Palette, fonts, size tiers, line widths and the figure width come from
+    `docs/figure_style.py`, the module every documentation figure uses, so the script runs from
+    a checkout.
 
 OUTPUT
     examples/figures/jnwb_quickstart.{svg,png} and jnwb_quickstart.dark.png. Two runs write the
@@ -56,25 +57,22 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 #: Seeds the SVG element ids, so two runs write the same file.
 SVG_SALT = "jnwb-quickstart"
 
-#: Foreground colours per theme. The figure is drawn on a transparent background twice: the light
-#: theme writes jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png.
+#: Ink per theme. The figure is drawn on a transparent background twice: the light theme writes
+#: jnwb_quickstart.{svg,png} and the dark theme jnwb_quickstart.dark.png. Series colours are not
+#: here: they come from `docs/figure_style.py`, one palette for both themes.
 THEMES = {
     "light": {"FG": "#2d2d2d", "FG2": "#555555", "FG3": "#2d2d2d", "FAINT": "#8a8a8a",
-              "ACCENT": "#7048e8", "TRUTH": "#2e7d32", "BAD": "#c62828",
               "stem": "jnwb_quickstart", "formats": ("svg", "png")},
     "dark": {"FG": "#e0e0e0", "FG2": "#bbbbbb", "FG3": "#cccccc", "FAINT": "#707070",
-             "ACCENT": "#9775fa", "TRUTH": "#66bb6a", "BAD": "#ef6f6c",
              "stem": "jnwb_quickstart.dark", "formats": ("png",)},
 }
-COLOURS = ("FG", "FG2", "FG3", "FAINT", "ACCENT", "TRUTH", "BAD")
-FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD = (THEMES["light"][k] for k in COLOURS)
-#: The second series of a comparison, as in the documentation figures.
-GOLD = "#c3aa5f"
+COLOURS = ("FG", "FG2", "FG3", "FAINT")
+FG, FG2, FG3, FAINT = (THEMES["light"][k] for k in COLOURS)
 
 
 def _signed(value: float) -> str:
     """One decimal with its sign, and zero printed as +0.0 rather than -0.0."""
-    return f"{round(value, 1) + 0.0:+.1f}"
+    return style.num(round(value, 1) + 0.0, "+.1f")
 
 
 def _label_bars(ax, values, text) -> None:
@@ -107,8 +105,10 @@ def panel_artifact(ax) -> str:
     expected = len(hit) * width
     touched = [int(i) for i in np.flatnonzero(np.abs(seg - repaired).max(axis=(1, 2)) > 1.0)]
 
-    ax.plot(t, seg[hit[0], 0], color=BAD, lw=0.8, label="raw (artifact injected)")
-    ax.plot(t, repaired[hit[0], 0], color=ACCENT, lw=0.9, label="after repair_lfp_trials")
+    ax.plot(t, seg[hit[0], 0], color=style.VARIABLE["observed"], lw=style.LW_THIN,
+            label="raw (artifact injected)")
+    ax.plot(t, repaired[hit[0], 0], color=style.SERIES[0], lw=style.LW_THIN,
+            label="after repair_lfp_trials")
     ax.set_xlabel("time (ms)")
     ax.set_ylabel("LFP (a.u.)")
     _headroom(ax, 0.45)
@@ -131,8 +131,8 @@ def panel_band_power(ax) -> str:
         jnwb.band_power(boost, fs=FS, freq_range=jnwb.CANONICAL_BANDS[b], baseline=base)
         for b in names
     ]
-    ax.bar(range(len(names)), db, color=ACCENT, width=0.62)
-    ax.axhline(0, color=FG2, lw=0.8)
+    ax.bar(range(len(names)), db, color=style.SERIES[0], width=0.62)
+    ax.axhline(0, color=FG2, lw=style.LW_THIN)
     ax.set_xticks(range(len(names)))
     ax.set_xticklabels([n.replace("_", "\n") for n in names])
     _label_bars(ax, db, _signed)
@@ -144,8 +144,8 @@ def panel_band_power(ax) -> str:
     # bar's left edge below its value label.
     ax.annotate(f"{injected_hz:.0f} Hz injected here", xy=(top - 0.31, db[top] * 0.75),
                 xytext=(top - 0.55, max(db) * 0.95), ha="right", va="center",
-                fontsize=style.SMALL, color=TRUTH,
-                arrowprops=dict(arrowstyle="->", color=TRUTH, lw=0.8))
+                fontsize=style.SMALL, color=FG,
+                arrowprops=dict(arrowstyle="->", color=style.VARIABLE["truth"], lw=style.LW_THIN))
     return f"largest increase in {win} ({'CORRECT' if win == 'beta' else 'UNEXPECTED'})"
 
 
@@ -159,10 +159,11 @@ def panel_onset(ax) -> str:
     sm = jnwb.causal_exp_smooth(noisy, bin_ms=bin_ms, tau_ms=30.0)
     fit = jnwb.fit_exponential_onset(t, sm, t0_bounds_ms=(0.0, None))
 
-    ax.plot(t, noisy, color=FAINT, lw=0.7, label="simulated rate")
-    ax.plot(t, sm, color=ACCENT, lw=1.4, label="causal_exp_smooth")
-    ax.axvline(t0_true, color=TRUTH, lw=1.2, ls="--", label="true $t_0$")
-    ax.axvline(fit["t0"], color=BAD, lw=1.2, label="fitted $t_0$")
+    ax.plot(t, noisy, color=FAINT, lw=style.LW_THIN, label="simulated rate")
+    ax.plot(t, sm, color=style.VARIABLE["smoothed"], lw=style.LW, label="causal_exp_smooth")
+    ax.axvline(t0_true, color=style.VARIABLE["truth"], lw=style.LW_THIN, ls="--",
+               label="true $t_0$")
+    ax.axvline(fit["t0"], color=style.VARIABLE["fitted"], lw=style.LW_THIN, label="fitted $t_0$")
     ax.set_xlabel("time (ms)")
     ax.set_ylabel("rate (Hz)")
     # Upper left: before the onset the rate sits at its floor, so the key fits there.
@@ -185,7 +186,7 @@ def panel_permutation(ax) -> str:
     glob = [acc(jnwb.permute_labels(y, scheme="global", rng=rng)) for _ in range(300)]
     bins = np.linspace(0.4, 1.0, 26)
     ax.hist(glob, bins=bins, color=FAINT, label='scheme="global"')
-    ax.axvline(acc(y), color=TRUTH, lw=1.4, label="observed")
+    ax.axvline(acc(y), color=style.VARIABLE["observed"], lw=style.LW, label="observed")
 
     # The point of this panel used to be a histogram of the within-group null sitting
     # on a single value. jnwb will not produce that null any more: with one label per
@@ -195,7 +196,8 @@ def panel_permutation(ax) -> str:
     try:
         within = [acc(jnwb.permute_labels(y, groups=groups, scheme="within_group",
                                           rng=rng)) for _ in range(300)]
-        ax.hist(within, bins=bins, color=BAD, alpha=0.75, label='scheme="within_group"')
+        ax.hist(within, bins=bins, color=style.SERIES[0], alpha=0.75,
+                label='scheme="within_group"')
         caption = ("a within-group null on group-constant labels cannot move; the "
                    "global null can, and would look significant")
     except ValueError as refusal:
@@ -218,14 +220,14 @@ def panel_connectivity(ax) -> str:
         x[i] = 0.55 * x[i - 1] + rng.normal(0, 1)
         y[i] = 0.35 * y[i - 1] + 0.60 * x[i - 2] + rng.normal(0, 1)
     r = jnwb.granger(x, y, order="auto")
-    ax.bar([0, 1], [r.x_to_y, r.y_to_x], color=[ACCENT, GOLD], width=0.55)
+    ax.bar([0, 1], [r.x_to_y, r.y_to_x], color=list(style.SERIES[:2]), width=0.55)
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["X $\\rightarrow$ Y\n(true direction)", "Y $\\rightarrow$ X"])
-    _label_bars(ax, (r.x_to_y, r.y_to_x), lambda v: f"{v:.3f}")
+    _label_bars(ax, (r.x_to_y, r.y_to_x), lambda v: style.num(v, ".3f"))
     ax.set_ylabel(f"Granger influence ({r.unit})")
     ax.set_ylim(0, max(r.x_to_y, r.y_to_x) * 1.20)
     ok = r.x_to_y > r.y_to_x
-    return (f"net = {r.net:+.3f} in the simulated direction "
+    return (f"net = {style.num(r.net, '+.3f')} in the simulated direction "
             f"({'CORRECT' if ok else 'WRONG DIRECTION'})")
 
 
@@ -238,9 +240,10 @@ def panel_decoding(ax) -> str:
     X_nul = rng.normal(0, 1, (n, d))                             # nothing to decode
     a = jnwb.nested_cv_linear_svm(X_sig, labels, n_splits=5)
     b = jnwb.nested_cv_linear_svm(X_nul, labels, n_splits=5)
-    ax.bar([0, 1], [a["accuracy"], b["accuracy"]], color=[ACCENT, GOLD], width=0.55)
-    ax.axhline(a["majority_baseline_accuracy"], color=TRUTH, lw=1.3, ls="--",
-               label="majority baseline")
+    ax.bar([0, 1], [a["accuracy"], b["accuracy"]], color=list(style.SERIES[:2]),
+           width=0.55)
+    ax.axhline(a["majority_baseline_accuracy"], color=style.VARIABLE["baseline"],
+               lw=style.LW_THIN, ls="--", label="majority baseline")
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["signal present", "no signal"])
     ax.set_ylabel("accuracy")
@@ -269,9 +272,9 @@ def main() -> None:
     # turns a silent substitution into a visible one.
     print(f"jnwb {jnwb.__version__} from {os.path.dirname(jnwb.__file__)}")
     os.makedirs(OUT, exist_ok=True)
-    global FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD
+    global FG, FG2, FG3, FAINT
     for theme in THEMES.values():
-        FG, FG2, FG3, FAINT, ACCENT, TRUTH, BAD = (theme[k] for k in COLOURS)
+        FG, FG2, FG3, FAINT = (theme[k] for k in COLOURS)
         style.apply()
         plt.rcParams.update({"svg.fonttype": "none", "svg.hashsalt": SVG_SALT,
                              "text.color": FG, "axes.labelcolor": FG, "axes.titlecolor": FG,
@@ -281,9 +284,9 @@ def main() -> None:
         fig.subplots_adjust(hspace=1.1, wspace=0.34, left=0.09, right=0.98, top=0.89,
                             bottom=0.08)
 
-        for ax, (title, api, fn) in zip(axes.ravel(), PANELS):
+        for ax, letter, (title, api, fn) in zip(axes.ravel(), "ABCDEF", PANELS):
             caption = fn(ax)
-            ax.set_title(f"{title}\n{api}", loc="left", fontsize=style.LABEL)
+            style.panel_title(ax, letter, f"{title}\n{api}", fontsize=style.LABEL)
             # Below the x-axis label, whatever its height, and as wide as the panel.
             ax.annotate("\n".join(textwrap.wrap(caption, CAPTION_WIDTH)), xy=(0.0, 0.0),
                         xycoords=("axes fraction", ax.xaxis.label), xytext=(0, -3),
@@ -295,7 +298,7 @@ def main() -> None:
                      fontsize=style.TITLE, y=0.975)
         fig.text(0.5, 0.945, "ALL DATA ON THIS FIGURE IS SIMULATED. No panel is an empirical "
                              "result about any recording.", ha="center", fontsize=style.LABEL,
-                 color=BAD, style="italic")
+                 color=FG, style="italic")
         for ext in theme["formats"]:
             p = os.path.join(OUT, f"{theme['stem']}.{ext}")
             # An SVG records its creation date unless told not to; a PNG records none.

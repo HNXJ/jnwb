@@ -7,6 +7,9 @@ Enforces Nature / Neuron / Science publication standards:
 - Strict sans-serif typography (Helvetica/Arial)
 - Colorblind-accessible discrete palettes (Paul Tol, Okabe-Ito, Nature Muted)
 - Continuous colormaps (Magma, Viridis, Plasma, Cividis, RdBu_r)
+
+Light only: the template paints an opaque white paper and plot area with near-black text and
+spines, and there is no dark variant. On a dark page a figure shows as a white panel.
 """
 
 from __future__ import annotations
@@ -94,7 +97,11 @@ COLORS = {
 # ==============================================================================
 
 def get_publication_layout_template() -> go.layout.Template:
-    """Construct a Plotly Template adhering to Nature/Neuron publication guidelines."""
+    """Construct a Plotly Template adhering to Nature/Neuron publication guidelines.
+
+    Light only: opaque white backgrounds (``COLORS["paper_bg"]``, ``COLORS["bg"]``) under
+    near-black text; there is no dark variant.
+    """
     template = go.layout.Template()
     template.layout = go.Layout(
         font=dict(family=FONT_FAMILY, size=FONT_SIZES["tick"], color=COLORS["text"]),
