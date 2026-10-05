@@ -4,6 +4,11 @@ Each figure draws results of public jnwb calls on synthetic test signals with kn
 truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
 line widths and the figure width come from docs/figure_style.py.
 
+Regenerate with the Matplotlib release the compared CI leg pins (`matplotlib==` in
+.github/workflows/workflow.yml; each PNG records the one that wrote it) and with the figure font:
+set JNWB_FIGURE_FONT_DIR to the directory holding LiberationSans-Regular.ttf and
+LiberationSans-Bold.ttf from the 2.1.5 release tarball named in that workflow.
+
 Usage:
     python docs/generate_figures.py                     # rewrite docs/assets/figures/
     python docs/generate_figures.py --out-dir DIR       # write elsewhere, e.g. to compare
@@ -52,6 +57,9 @@ C_LIGHT_GRAY = THEMES["light"]["faint"]
 SUFFIX = THEMES["light"]["suffix"]
 #: The highlight of the theme being drawn, from the style module.
 C_HIGHLIGHT = style.HIGHLIGHT["light"]
+
+#: The exit status of a run that stopped because the figure font is absent.
+FONT_MISSING_EXIT = 3
 
 style.apply()
 
@@ -668,6 +676,11 @@ def main(argv=None):
     parser.add_argument("--out-dir", type=Path, default=FIGURE_DIR)
     parser.add_argument("--only", nargs="+", choices=sorted(FIGURES), default=sorted(FIGURES))
     args = parser.parse_args(argv)
+    try:
+        style.check_font()
+    except style.FontMissing as exc:
+        print(f"generate_figures: {exc}", file=sys.stderr)
+        raise SystemExit(FONT_MISSING_EXIT)
     OUT_DIR = args.out_dir
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for theme in THEMES:

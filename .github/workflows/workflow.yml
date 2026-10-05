@@ -112,17 +112,19 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Install Arial for the documentation figures
-        # The committed figures are drawn in Arial, and tests/test_generated_figures_are_maintained.py
-        # compares them pixel for pixel, so every leg that runs it draws with Arial. Windows has it;
-        # the ubuntu runners get Microsoft's core fonts, the EULA accepted through debconf.
-        if: runner.os == 'Linux' && env.QUALIFIED_BY == ''
+      - name: Install Liberation Sans for the documentation figures
+        # The committed figures are drawn in Liberation Sans, and
+        # tests/test_generated_figures_are_maintained.py compares them pixel for pixel, so every
+        # leg that runs it, Windows included, draws with the same font file: the 2.1.5 release
+        # tarball, held to its sha256 and handed to the figure style through JNWB_FIGURE_FONT_DIR.
+        if: env.QUALIFIED_BY == ''
+        shell: bash
         run: |
-          sudo add-apt-repository -y multiverse
-          sudo apt-get update
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo apt-get install -y ttf-mscorefonts-installer
-          fc-match Arial | grep -q Arial
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
+          tar xzf liberation-fonts.tar.gz
+          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         if: env.QUALIFIED_BY == ''
@@ -182,15 +184,16 @@ jobs:
         with:
           python-version: ${{ env.FLOOR_PYTHON }}
 
-      - name: Install Arial for the documentation figures
-        # As in the test job: the figure comparison draws with Arial.
+      - name: Install Liberation Sans for the documentation figures
+        # As in the test job: the figure comparison draws with Liberation Sans.
         if: env.QUALIFIED_BY == ''
+        shell: bash
         run: |
-          sudo add-apt-repository -y multiverse
-          sudo apt-get update
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo apt-get install -y ttf-mscorefonts-installer
-          fc-match Arial | grep -q Arial
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
+          tar xzf liberation-fonts.tar.gz
+          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
 
       - name: Resolve the declared floors
         if: env.QUALIFIED_BY == ''
@@ -256,14 +259,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Arial for the documentation figures
-        # The wheel suite below runs the figure comparison, which draws with Arial.
+      - name: Install Liberation Sans for the documentation figures
+        # The wheel suite below runs the figure comparison, which draws with Liberation Sans.
+        shell: bash
         run: |
-          sudo add-apt-repository -y multiverse
-          sudo apt-get update
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
-          sudo apt-get install -y ttf-mscorefonts-installer
-          fc-match Arial | grep -q Arial
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
+          tar xzf liberation-fonts.tar.gz
+          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
 
       - name: Install build tools, documentation tools & dependencies
         run: |

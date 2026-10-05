@@ -53,6 +53,12 @@ CHANGED_FRACTION = 1e-5
 #: a CI leg can pass "0" explicitly.
 REQUIRE_COMPARISON = "JNWB_REQUIRE_FIGURE_COMPARISON"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "workflow.yml"
+#: The generator's exit status when the figure font is not registered.
+FONT_MISSING_EXIT = 3
+#: The one font file every leg installs, and its hash.
+FONT_URL = "https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz"
+FONT_SHA256 = "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0"
+FONT_DIR_ENV = "JNWB_FIGURE_FONT_DIR"
 
 
 def _registry():
@@ -81,11 +87,16 @@ def _changed_fraction(a: np.ndarray, b: np.ndarray) -> float:
 
 @pytest.fixture(scope="module")
 def regenerated(tmp_path_factory):
+    """The directory the generator wrote, or, when it stopped because the figure font is not
+    registered (its exit status `FONT_MISSING_EXIT`), the message it printed naming the font."""
     out = tmp_path_factory.mktemp("figures")
-    subprocess.run(
+    run = subprocess.run(
         [sys.executable, str(GENERATOR), "--out-dir", str(out)],
-        check=True, capture_output=True, text=True, cwd=REPO_ROOT, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, cwd=REPO_ROOT, stdin=subprocess.DEVNULL,
     )
+    if run.returncode == FONT_MISSING_EXIT:
+        return run.stderr.strip()
+    run.check_returncode()
     return out
 
 
@@ -113,7 +124,12 @@ def test_the_committed_figure_is_what_the_generator_draws(name, regenerated):
         if os.environ.get(REQUIRE_COMPARISON) == "1":
             pytest.fail(f"{REQUIRE_COMPARISON} is set and no comparison is possible: {why}")
         pytest.skip(why)
-    fraction = _changed_fraction(mpimg.imread(committed), mpimg.imread(regenerated / name))
+    if isinstance(regenerated, str):
+        why = f"the figure font is missing, so nothing can be compared: {regenerated}"
+        if os.environ.get(REQUIRE_COMPARISON) == "1":
+            pytest.fail(f"{REQUIRE_COMPARISON} is set and no comparison is possible: {why}")
+        pytest.skip(why)
+    fraction =_changed_fraction(mpimg.imread(committed), mpimg.imread(regenerated / name))
     assert fraction < CHANGED_FRACTION, (
         f"{name}: {fraction:.4%} of pixels differ from `python docs/generate_figures.py "
         f"--only {name}`; regenerate it, or explain the drift"
@@ -186,10 +202,11 @@ def test_one_ci_leg_compares_the_figures_at_the_version_that_wrote_them():
         f"the suite step does not set {REQUIRE_COMPARISON}=1 on the compared leg: {env!r}")
 
 
-def test_every_linux_leg_that_runs_the_suite_installs_arial_first():
-    """The figures are drawn in Arial, which the ubuntu runners lack: a leg that ran the
-    comparison without it would fail on the fallback font. Each such job installs the core
-    fonts, with the licence accepted through debconf, before its first pytest step."""
+def test_every_leg_that_runs_the_suite_installs_the_figure_font_first():
+    """The figures are drawn in Liberation Sans, which no runner has: a leg that ran the
+    comparison without it would stop on the missing font. Each job that runs the suite, Windows
+    included, downloads the one pinned release tarball, checks its sha256, extracts it and
+    exports `JNWB_FIGURE_FONT_DIR` through `$GITHUB_ENV` before its first pytest step."""
     import yaml
 
     jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
@@ -199,12 +216,16 @@ def test_every_linux_leg_that_runs_the_suite_installs_arial_first():
         runs = [i for i, s in enumerate(steps) if "pytest" in str(s.get("run", ""))
                 and "tests" in str(s.get("run", ""))]
         on = str(job.get("runs-on", ""))
-        if not runs or ("windows" in on and "ubuntu" not in on):
+        if not runs:
             continue
         checked.append(name)
-        fonts = [i for i, s in enumerate(steps)
-                 if re.search(r"apt-get install\b[^\n]*ttf-mscorefonts-installer", str(s.get("run", "")))]
-        assert fonts and fonts[0] < runs[0], f"job {name} runs the suite without installing Arial first"
-        install = steps[fonts[0]]["run"]
-        assert "debconf-set-selections" in install and "accepted-mscorefonts-eula select true" in install
+        fonts = [i for i, s in enumerate(steps) if FONT_URL in str(s.get("run", ""))]
+        assert fonts and fonts[0] < runs[0], f"job {name} runs the suite without installing the font first"
+        step = steps[fonts[0]]
+        install = step["run"]
+        assert step.get("shell") == "bash", f"job {name}: the font step must run in bash on every leg"
+        assert f"{FONT_SHA256}  " in install and "sha256sum -c" in install, f"job {name}: the download is not checked"
+        assert "tar xzf" in install
+        assert re.search(rf"{FONT_DIR_ENV}=\S+\s*>>\s*\"?\$GITHUB_ENV", install), f"job {name} does not export the font directory"
     assert {"test", "test-floors", "build"} <= set(checked), checked
+    assert len({FONT_URL, FONT_SHA256}) == 2

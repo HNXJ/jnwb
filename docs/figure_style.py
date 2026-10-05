@@ -10,11 +10,21 @@ from this module, and `tests/test_figure_form.py` reads the rendered figures aga
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 from cycler import cycler
+from matplotlib import font_manager
 
-#: Arial first. The later families only draw where Arial is not installed.
-FAMILY = ["Arial", "DejaVu Sans"]
+#: Liberation Sans, which has Arial's metrics and is one file on every machine, so a figure
+#: renders the same pixels on Windows and Linux. No fallback family: a machine without the font
+#: stops generation (`FontMissing`) instead of drawing a different figure.
+FONT = "Liberation Sans"
+#: The directory holding the two font files below; `apply` registers them with Matplotlib.
+FONT_DIR_ENV = "JNWB_FIGURE_FONT_DIR"
+FONT_FILES = ("LiberationSans-Regular.ttf", "LiberationSans-Bold.ttf")
+FAMILY = [FONT]
 #: Size tiers, in points: panel titles, axis labels, and everything smaller (ticks, legends,
 #: annotations). The panel letter is the largest text on a figure.
 LETTER = 11.0
@@ -77,8 +87,46 @@ RC = {
 }
 
 
+class FontMissing(RuntimeError):
+    """The figure font is not registered with Matplotlib."""
+
+
+def register_font() -> None:
+    """Register the font files in the directory `FONT_DIR_ENV` names, first dropping any
+    other copy of `FONT` Matplotlib found: on a tie `findfont` takes the first entry, so a
+    system copy would otherwise draw in place of the pinned file."""
+    directory = os.environ.get(FONT_DIR_ENV)
+    if not directory:
+        return
+    manager = font_manager.fontManager
+    manager.ttflist = [entry for entry in manager.ttflist if entry.name != FONT]
+    for name in FONT_FILES:
+        path = Path(directory) / name
+        if path.is_file():
+            font_manager.fontManager.addfont(str(path))
+
+
+def check_font() -> None:
+    """Raise `FontMissing` unless the regular and the bold file of `FONT` in the directory
+    `FONT_DIR_ENV` names are the ones Matplotlib resolves, so neither a bold request on the
+    regular file nor another copy of the font passes."""
+    directory = os.environ.get(FONT_DIR_ENV)
+    expected = Path(directory).resolve() if directory else None
+    for weight, name in zip(("normal", "bold"), FONT_FILES):
+        try:
+            found = font_manager.findfont(
+                font_manager.FontProperties(family=FONT, weight=weight), fallback_to_default=False)
+        except ValueError:
+            found = ""
+        if Path(found).name != name or Path(found).resolve().parent != expected:
+            raise FontMissing(
+                f"font {FONT!r} ({name}) is not registered: set {FONT_DIR_ENV} to the directory "
+                f"holding {', '.join(FONT_FILES)}")
+
+
 def apply() -> None:
-    """Set the style for the figures that follow."""
+    """Set the style for the figures that follow, registering the figure font first."""
+    register_font()
     plt.rcParams.update(RC)
 
 
