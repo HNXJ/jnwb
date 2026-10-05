@@ -279,6 +279,8 @@ def _rng_probes():
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
             t1, t2, fs=100.0, bands=(10.0, 30.0), n_surrogates=5, rng=r),
         "resample_onsets": lambda r: jnwb.resample_onsets(np.arange(10.0), target_n=20, rng=r),
+        "curate_and_label": lambda r: jnwb.curate_and_label(
+            g.normal(size=(8, 4, 600)), 500.0, pitch_um=25.0, compute_xflip=False, rng=r),
         "shuffle_r2_ci": lambda r: jnwb.shuffle_r2_ci(a, a + b, n_shuffle=10, rng=r),
         "transfer_entropy": lambda r: jnwb.transfer_entropy(t1[:300], t2[:300], n_surrogates=5,
                                                             rng=r),

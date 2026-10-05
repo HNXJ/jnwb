@@ -107,7 +107,7 @@ CALL_FORMS = {
 #: than in a fence, so it needs its own collector. These are its data rows and the three
 #: ways a row is resolved to something with parameters.
 SPEC_PAGE = "docs/10_operation_specifications.md"
-SPEC_ROW_COUNT = 11
+SPEC_ROW_COUNT = 16
 STRATEGY_SIGNATURE = "the Operation names a callable in the Module Location"
 STRATEGY_CALL_FORMS = "the Input column holds call forms against a named class"
 STRATEGY_MODULE_UNION = "the Operation names a module; any of its callables may own the name"

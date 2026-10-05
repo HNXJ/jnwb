@@ -70,6 +70,7 @@ RETURNED_BY = {
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],
     "JRSAResult": ["jrsa"],
+    "LaminarCurationResult": ["curate_and_label"],
     "Preflight": ["preflight"],
     "ProbeGeometry": ["probe_geometry"],
     "VFlipResult": ["vflip", "vflip_from_lfp"],

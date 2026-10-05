@@ -736,6 +736,9 @@ _RETURN_CONTENT_PROBES = {
     "network_burst_index": lambda: jnwb.network_burst_index(
         [np.array([0.1, 0.11, 0.12, 0.8])], (0.0, 1.0), bin_ms=50.0, threshold_hz=40.0,
         min_duration_ms=50.0),
+    "curate_and_label": lambda: jnwb.curate_and_label(
+        np.random.default_rng(4).normal(size=(12, 4, 600)), 500.0, pitch_um=25.0,
+        compute_xflip=False),
 }
 
 

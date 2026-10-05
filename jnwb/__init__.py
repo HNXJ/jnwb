@@ -93,6 +93,14 @@ from .laminar import (
     zflip,
     ZFlipResult,
 )
+from .laminar_curation import (
+    curate_and_label,
+    detect_bad_channels,
+    evoked_csd_sink,
+    fuse_laminar_anchors,
+    interpolate_channel_runs,
+    LaminarCurationResult,
+)
 
 #: `__version__` is a literal, so two copies carry the same string whether or not they carry
 #: the same code. That is how an installed `0.2.5` whose `read_nwb` accepts no `allow_missing`
@@ -308,6 +316,12 @@ __all__ = [
     'XFlipResult',
     'zflip',
     'ZFlipResult',
+    'curate_and_label',
+    'detect_bad_channels',
+    'evoked_csd_sink',
+    'fuse_laminar_anchors',
+    'interpolate_channel_runs',
+    'LaminarCurationResult',
 
     # Analyzers
     'TFRAnalyzer',

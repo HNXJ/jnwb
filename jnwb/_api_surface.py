@@ -31,6 +31,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "io": "public",
     "jrsa": "public",
     "laminar": "public",
+    "laminar_curation": "public",
     "metadata": "public",
     "nwb_inspect": "public",
     "nwb_events": "public",

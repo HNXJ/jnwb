@@ -268,6 +268,16 @@ contradicts a written claim it appears in section 6.
 | `zflip[n_samples]` | n_samples | 8192, 50000, 200000, 500000 | 7.36, 22.8, 96.1, 252.3 | +0.86 | 0.983 | 34x | O(n) | T(n log L) | derived | agree |
 | `zflip[n_surrogates]` | n_surrogates | 4, 16, 64, 128 | 29.9, 90.1, 347.6, 708.3 | +0.92 | 0.997 | 24x | O(n) | T(S) | derived | agree |
 
+### `jnwb.laminar_curation`
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `curate_and_label[n_epochs]` | n_epochs | 8, 32, 128, 512 | 28.08, 72.24, 267.7, 970 | +0.86 | 0.995 | 35x | O(n) | T(E) | derived | agree |
+| `detect_bad_channels[n_samples]` | n_samples | 10000, 100000, 1000000, 4000000 | 24.69, 235.1, 2073, 8451 | +0.97 | 1.000 | 342x | O(n) | T(n) | derived | agree |
+| `evoked_csd_sink[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 2.525, 28.72, 306.2, 3594 | +1.05 | 1.000 | 1423x | O(n) | T(C*W) | derived | agree |
+| `fuse_laminar_anchors[n_windows]` | n_windows | 1000, 10000, 100000, 1000000 | 0.1286, 0.2133, 1.205, 17.58 | +0.72 | 0.920 | 137x | sub-linear | T(W) | derived | agree |
+| `interpolate_channel_runs[n_channels]` | n_channels | 1000, 10000, 100000, 1000000 | 4.044, 46.11, 441.5, 4613 | +1.02 | 1.000 | 1141x | O(n) | T(C*n) | derived | agree |
+
 ### `jnwb.metadata`
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
@@ -707,7 +717,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 21 |
+| result container | 22 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -717,7 +727,7 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **52** |
+| **Total** | **53** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -743,6 +753,7 @@ algorithm column still describes the replaced code for both rows.
 | `IntervalTableNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `InvalidOnsetValueError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `JRSAResult` | result container | plain dataclass (jnwb/jrsa.py:30); construction is O(1) field binding. summary/plot/save do scale but are not the export. |
+| `LaminarCurationResult` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__; only method is to_dict. |
 | `Lineage` | result container | frozen dataclass, no __post_init__. |
 | `MissingRequiredNWBFieldError` | exception class | __init__ formats one f-string from one field name: O(1). |
 | `NWBEventError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
