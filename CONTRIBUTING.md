@@ -43,9 +43,9 @@ reaches a release.
 
 ## Branches
 
-`dev` is where work lands. `main` holds releases. Release 0.2.8 moved `main` by merging `dev`
-into it with merge commits (`3146c210`, `dfa5d3b3`), and `dev` contains `main`. `main` moves by
-merging `dev` into it (step 3 of [Releasing](#releasing)), never by fast-forward.
+`dev` is where work lands. `main` holds releases and moves by merging `dev` into it with a
+merge commit (step 3 of [Releasing](#releasing)), as it has since v0.2.4; it is never
+fast-forwarded.
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.
@@ -420,12 +420,13 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
    `success`.
-3. Merge `dev` into `main` with a merge commit and push it, as at 0.2.8 (`3146c210`,
-   `dfa5d3b3`). `main` carries the merge commit of every release, so it is ahead of `dev` until
-   `dev` takes those commits in; `release_gate.py` refuses a release commit that does not
-   contain `main`. Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
-   ahead of `main`, with no content on `main` that `dev` lacked and no conflict. Releases
-   0.1.x–0.2.5 and 0.2.8 went through a merge into `main`.
+3. Run `git fetch origin main`, then merge `dev` into `main` with a merge commit and push it.
+   `main` carries the merge commit of every release, so it is ahead of `dev` until `dev` takes
+   those commits in. `release_gate.py` reads the commit being released: when it is a merge,
+   its first parent (the old `main`) must be an ancestor of its second (`dev`); otherwise
+   `origin/main`, else `main`, must be an ancestor of it. The gate does not fetch.
+   Measured 2026-09-21 — `main` was 7 such commits ahead of `dev` and `dev` 42
+   ahead of `main`, with no content on `main` that `dev` lacked and no conflict.
    The `dev` ruleset's deletion rule has no bypass, so no merge can delete `dev`; the
    delete-merged-branch setting still deletes a merged feature branch's head.
 4. Tag `vX.Y.Z` and push the tag. The tag push runs CI (test + build); when a `dev` push run

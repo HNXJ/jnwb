@@ -1648,29 +1648,42 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
 
 def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                              head: Optional[str] = None) -> List[str]:
-    """Why ``main`` is not contained in the commit being released; empty when it is.
+    """Why the commit being released drops a commit of ``main``; empty when it does not.
 
-    ``main`` moves by merging ``dev`` into it, and ``dev`` then contains that merge, so a
-    release commit that does not contain ``main`` is on a history that dropped a release.
-    The ref is ``origin/main``, else ``main``; with neither, the answer is unknown and refused.
+    ``main`` moves by merging ``dev`` into it. At the merge commit itself, its first parent is
+    the old ``main`` and must be an ancestor of its second parent (``dev``). At any other
+    commit, ``origin/main``, else ``main``, must be an ancestor of it; with neither, the answer
+    is unknown and refused. Nothing here fetches.
     """
     def git(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
 
     target = head or "HEAD"
-    ref = next((r for r in ("origin/main", "main")
-                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
-               None)
-    if ref is None:
-        return ["neither origin/main nor main resolves, so whether main is an ancestor of the "
-                "commit being released is unknown"]
-    ancestry = git("merge-base", "--is-ancestor", ref, target)
+    listed = git("rev-list", "--parents", "-n", "1", target)
+    words = listed.stdout.split()
+    if listed.returncode != 0 or not words:
+        return [f"{target[:12]} does not resolve, so whether it contains main is unknown"]
+    parents = words[1:]
+    if len(parents) == 2:
+        container, contained = parents[1], parents[0]
+        what = f"the first parent {contained[:12]} (the old main) of the merge {target[:12]}"
+        where = f"its second parent {container[:12]}"
+    else:
+        contained = next((r for r in ("origin/main", "main")
+                          if git("rev-parse", "--verify", "--quiet",
+                                 f"{r}^{{commit}}").returncode == 0), None)
+        if contained is None:
+            return ["neither origin/main nor main resolves, so whether main is an ancestor of "
+                    "the commit being released is unknown"]
+        container = target
+        what, where = contained, target[:12]
+    ancestry = git("merge-base", "--is-ancestor", contained, container)
     if ancestry.returncode == 0:
         return []
     if ancestry.returncode == 1:
-        return [f"{ref} is not an ancestor of {target[:12]}: bring main's commits into dev "
-                "before tagging, so the release contains every commit on main"]
-    return [f"whether {ref} is an ancestor of {target[:12]} could not be determined: "
+        return [f"{what} is not an ancestor of {where}: bring main's commits into dev before "
+                "releasing, so the release contains every commit on main"]
+    return [f"whether {what} is an ancestor of {where} could not be determined: "
             f"{ancestry.stderr.strip()[:120]}"]
 
 
@@ -1920,7 +1933,9 @@ def main() -> None:
             "stack; zero todo items still required for this cycle; and a blocker-focused closure "
             "receipt reporting zero new blockers, recorded at HEAD or at an ancestor that differs "
             "from HEAD only in the receipt and %s, with no item it held open relabelled since "
-            "or deleted without the receipt recording it as finished. Work deferred to %s, and "
+            "or deleted without the receipt recording it as finished; and a commit that contains "
+            "main (a merge's first parent contained in its second; otherwise origin/main, "
+            "fetched, an ancestor). Work deferred to %s, and "
             "%s items, stay in the todo stack.",
             TODO_PATH, NEXT_CYCLE, RELEASE_STEP_VALUE)
         sys.exit(1)

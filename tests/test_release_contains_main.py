@@ -50,6 +50,26 @@ def test_a_release_commit_missing_a_commit_on_main_fails(tmp_path):
     assert len(violations) == 1 and "not an ancestor" in violations[0]
 
 
+def _release_merge(tmp_path: pathlib.Path, dev_absorbs_main: bool) -> pathlib.Path:
+    """``dev`` merged into ``main`` with a merge commit, as a release does; HEAD is that merge."""
+    root = _repo(tmp_path, main_extra=True)
+    if dev_absorbs_main:
+        _git(root, "merge", "--no-ff", "-m", "dev takes main", "main")
+    _git(root, "checkout", "main")
+    _git(root, "merge", "--no-ff", "-m", "release", "dev")
+    return root
+
+
+def test_a_release_merge_whose_dev_contains_the_old_main_passes(tmp_path):
+    assert main_ancestry_violations(_release_merge(tmp_path, dev_absorbs_main=True)) == []
+
+
+def test_a_release_merge_whose_dev_lacks_a_commit_of_the_old_main_fails(tmp_path):
+    violations = main_ancestry_violations(_release_merge(tmp_path, dev_absorbs_main=False))
+    assert len(violations) == 1
+    assert "old main" in violations[0] and "not an ancestor" in violations[0]
+
+
 def test_a_repository_with_no_main_is_refused_as_unknown(tmp_path):
     _git(tmp_path, "init", "-b", "trunk")
     _commit(tmp_path, "base")
