@@ -40,8 +40,7 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
-| S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
+| R release | 09-16, 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 
 Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. D8 and D9 are ruled.
 
@@ -57,17 +56,16 @@ The curated datasets and their labels stay downstream (fact B2); jnwb receives o
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
 
-### 09-11 Install, contribution and branch instructions match what works
+### 09-16 The committed figures render the same on the ubuntu CI legs
 
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`.
-Source: a repository organisation review (T10), re-read at `5bff9be7` on 2026-10-04.
-- `CONTRIBUTING.md:44` says main is fast-forwarded from dev and the two never diverge, but the 0.2.8 release merged dev into main with merge commits (`3146c210`, `dfa5d3b3`), leaving main 2 commits off dev; dev now contains them. Check: the release steps say how main moves (fast-forward, or a merge dev then absorbs), and `scripts/release_gate.py` or a test checks that main is an ancestor of dev before a tag.
-- kaleido 1.x exports through a Chrome install that `docs/install.md` and the dev install line do not mention; a fresh clone without Chrome errors in the `vis` tests (reported as 4 errors; not reproduced here). Check: the install page names the Chrome requirement and `BROWSER_PATH`, and a fresh-clone run shows the tests pass or skip by name.
-- `README.md:52`'s development install `.[test,docs]` leaves out the `vis` extra the suite exercises; `CONTRIBUTING.md:17` clones over SSH, which needs a GitHub key, while `docs/install.md:60` uses HTTPS. Check: one development install line naming every extra the suite needs, and an HTTPS clone with SSH as the alternative.
-Accept: each check observed on a fresh clone.
-Stop: none.
+Release: required-0.2.9.
+AUTONOMY: none.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `docs/generate_figures.py`, `docs/assets/figures/*.png`, `tests/test_generated_figures_are_maintained.py`.
+Found 2026-10-05 on CI run 37266345076 (`92b827f6`): with `ttf-mscorefonts-installer` (Arial 2.82) on ubuntu, seven committed figures differ from the regenerated ones in 0.20% to 0.44% of their pixels against the 0.001% slack; the windows legs (Arial 7.06) pass. The 2026-10-04 ruling asks for a font that reproduces the Arial figures with the check unchanged; the core-fonts Arial does not.
+- Check: every leg that compares figures passes `test_the_committed_figure_is_what_the_generator_draws` with `CHANGED_FRACTION` unchanged.
+Accept: the check observed on a dev CI run.
+Stop: the font every leg draws with, or which legs compare figures, is Hamm's ruling.
 
 ### 09-09 PyPI publication from the tag push
 
@@ -83,7 +81,7 @@ Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 09-11.
+Role: actor. Skill: none. Blocked by: 09-16.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -402,6 +400,16 @@ Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omis
 - Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each a public operation by its published definition, or a ruled exclusion. Waits: new capability, not a defect.
 Accept: each check passes.
 Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
+
+### 10-16 The `vis` tests skip by name without Chrome
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `tests/test_vis.py`, `tests/conftest.py`.
+Found by 09-11 on 2026-10-05: with Chrome hidden, `tests/test_vis*.py` gives 73 passed and 2 errors in fixture setup (`ChromeNotFoundError` wrapped as `SessionBrowserFailed`): `test_exports_in_the_group_render_in_the_session_browser` and `test_canvas_save_and_seal_triple_export`.
+- Check: without Chrome each browser-backed test skips with a reason naming Chrome; with Chrome they run. Waits: CI and the documented install both provide Chrome; the error names the cause.
+Accept: the check observed with Chrome hidden and present.
+Stop: none.
 
 # 0.2.11
 
