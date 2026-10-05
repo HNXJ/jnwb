@@ -382,9 +382,8 @@ class UnitAnalyzer:
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
-        # [onset + pre, onset + post], both edges inclusive. The subtraction used to round a
-        # spike on either edge just outside the outer bin edges, where np.histogram dropped
-        # it: with onsets 0.7 s apart from 2 s, 114 of 405 at the left edge and 147 at the right.
+        # spike - onset in [pre, post], both edges inclusive, and every selected spike is
+        # counted (`onset_locked_counts`).
         trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
                                           bin_edges, 1.0, right_closed=True) / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)

@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- `spike_count_correlation` raises `ValueError` for a window of fewer than 3 bins, naming the bin count and the minimum of 3. With 2 bins every pairwise Pearson r is +1 or -1, so `mean_r` measured nothing.
+
+### Changed
+
+- `fano_factor`, `raster_psth` and `UnitAnalyzer.psth` select a spike by its time minus the onset, as `bin_spikes` does, instead of comparing it with the onset added to each window edge. The two round differently for a spike within an ulp of an edge: with onset 0.03 s, a spike at 0.3 s is exactly 0.27 s after it and is now counted in a window starting at 0.27 s, where 0.03 + 0.27 rounded above 0.3. Counts change only for such edge spikes.
+
 ## [0.2.9] - 2026-10-05
 
 ### Breaking

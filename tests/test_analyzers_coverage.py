@@ -442,9 +442,10 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
 
 
 class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
-    """The window is [onset + pre, onset + post], both edges inclusive, but spike - onset
-    rounded a spike on either edge just outside the outer bin edges and np.histogram dropped
-    it: on these onsets, 114 of 405 at the left edge and 147 of 405 at the right."""
+    """A spike is selected when spike - onset lies in [pre, post], both edges inclusive, and
+    every selected spike is counted. ``onset + pre`` rounds differently from ``spike - onset``:
+    on these onsets, 114 of the 405 spikes at ``onset - 0.1`` are below -0.1 s after their
+    onset and 147 of those at ``onset + 0.2`` are above 0.2 s, so neither is selected."""
 
     ONSETS = 2.0 + 0.7 * np.arange(405)
 
@@ -454,17 +455,19 @@ class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
 
     def test_a_spike_on_the_left_edge_counts_in_the_first_bin(self):
         spikes = self.ONSETS - 0.1
-        self.assertGreater(np.sum(spikes - self.ONSETS < -0.1), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS >= -0.1)
+        self.assertEqual(len(self.ONSETS) - inside, 114)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[0], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[0], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_on_the_right_edge_counts_in_the_last_bin(self):
         spikes = self.ONSETS + 0.2
-        self.assertGreater(np.sum(spikes - self.ONSETS > 0.2), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS <= 0.2)
+        self.assertEqual(len(self.ONSETS) - inside, 147)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[-1], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[-1], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_past_either_edge_is_not_counted(self):
         spikes = np.concatenate([self.ONSETS - 0.1 - 1e-6, self.ONSETS + 0.2 + 1e-6])

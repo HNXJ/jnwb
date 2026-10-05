@@ -11,6 +11,7 @@ import warnings
 from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
+from ._bins import onset_window, whole_bin_count
 from ._spread import is_constant
 from ._units import resolve_unit_alias
 import pandas as pd
@@ -714,7 +715,7 @@ def spike_count_correlation(
 
     Args:
         spike_times: Sequence of per-unit 1-D arrays of spike times in seconds.
-        window_s: ``(start, end)`` in seconds; the span must be whole bins.
+        window_s: ``(start, end)`` in seconds; the span must be at least 3 whole bins.
         bin_ms: Bin width in milliseconds; required.
 
     Returns:
@@ -725,7 +726,7 @@ def spike_count_correlation(
 
     Raises:
         ValueError: If `spike_times` is a bare array, a spike time is non-finite, `bin_ms` is not
-            positive and finite, or the window is not whole bins.
+            positive and finite, or the window is not whole bins or is fewer than 3 bins.
 
     References:
         Cohen, M. R., and Kohn, A. (2011). Measuring and interpreting neuronal correlations.
@@ -733,6 +734,16 @@ def spike_count_correlation(
     """
     trains = _unit_trains(spike_times, "spike_count_correlation")
     counts = _unit_counts(trains, window_s, bin_ms)
+    n_window_bins = whole_bin_count(window_s, float(bin_ms) / 1000.0, "spike_count_correlation",
+                                    "window_s", unit="s")
+    if n_window_bins < 3:
+        # INTENTIONAL BREAK (0.2.10): 2 bins returned a mean of correlations that are all +1
+        # or -1, since a Pearson r of two points is +-1 whatever the units do.
+        raise ValueError(
+            f"spike_count_correlation: window_s {tuple(window_s)} at bin_ms={bin_ms:g} gives "
+            f"{n_window_bins} bins; a Pearson r needs at least 3, because with 2 every r is "
+            "+1 or -1."
+        )
     n_units = len(trains)
     n_bins = counts.shape[1] if n_units else 0
     excluded = [i for i in range(n_units) if np.all(counts[i] == counts[i, 0])] if n_bins else list(range(n_units))
@@ -776,9 +787,9 @@ def fano_factor(
 ) -> Dict[str, Any]:
     """Fano factor per unit across trials, summarised over units (Churchland et al. 2010).
 
-    For each unit, the spike count in the fixed window ``[onset + window_s[0], onset +
-    window_s[1])`` is taken on every trial, and its across-trial variance (ddof=1, the unbiased
-    estimate, so a Poisson unit has expectation 1) is divided by its mean. `summary` chooses
+    For each unit, the spikes whose time minus the onset lies in ``[window_s[0], window_s[1])``
+    are counted on every trial, as in `bin_spikes`, and the count's across-trial variance
+    (ddof=1, the unbiased estimate, so a Poisson unit has expectation 1) is divided by its mean. `summary` chooses
     the mean or the median over units and has no default.
 
     A unit with a zero mean count has no defined Fano factor. It is excluded and reported, never
@@ -819,8 +830,8 @@ def fano_factor(
         raise ValueError(f"fano_factor: window_s start must be before its end, got {window_s}.")
     counts = np.zeros((len(trains), onsets.size))
     for i, u in enumerate(trains):
-        u = np.sort(u)
-        counts[i] = np.searchsorted(u, onsets + w1, side="left") - np.searchsorted(u, onsets + w0, side="left")
+        lo, hi = onset_window(np.sort(u), onsets, w0, w1)
+        counts[i] = hi - lo
     mean = counts.mean(axis=1) if trains else np.zeros(0)
     excluded = np.flatnonzero(mean == 0)
     per_unit = _count_fano(counts)
