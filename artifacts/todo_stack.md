@@ -15,7 +15,7 @@ checked exclusion, as far as the code at hand holds it (the rows only the lab pi
 to 10-15, ruled 2026-10-04); one skill routes the whole surface with all four outcomes; the docs
 figures follow the figure style ruled 2026-10-04.
 
-Every item here but 09-14 carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
+Every item here but 09-14 and 09-16 (`required-0.2.9`) carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.8; the version heading carries the schedule (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 09-14, the release step, carries `release-step-0.2.9`, which STEP 0a reads as the release step once
 09-14 bumps the version to 0.2.9.
@@ -262,6 +262,8 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - IA-29: `nam` cites missing scripts and calls `torch.manual_seed`; `REWARD_WINDOW_MS` is unused; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project folders. Check: a local `torch.Generator`, the leftovers removed. Waits: non-exported modules.
 - P-216 statistics part: the unscoped-delay paraphrase branch is unpinned. Check: a killing test. Waits: behaves correctly.
 - P-280 remainder: the shared note at `jnwb/statistics.py:782` says "as selected by test=", which `correlate` (it takes `method=`) emits at `:1127`; `population_trajectory` passes a short context name (`context='population_trajectory'` in `jnwb/analyzers.py`). Check: the note names the argument its caller takes, the context name is the qualified one. Waits: message wording.
+- Closure pass 2026-10-05: the `quality_metrics` docstring (`jnwb/analyzers.py:566`) says a spike at the train's end counts, but with a duration that is not a whole number of seconds it falls outside the last whole bin (spikes 0, 0.5, 1.2, 2.5 give counts 2, 1 and Fano 0.333). Check: the docstring states the whole-bin rule, or the count includes it. Waits: wording; the value follows the stated bins.
+- Closure pass 2026-10-05: the `quality_metrics` refractory comparison uses `<` with no tolerance, where `refractory_contamination` allows 1 ns; predates 0.2.9. Check: one comparison rule, called, not retyped (`AGENTS.md` 4.7). Waits: differs only for intervals within 1 ns of the period.
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
 
@@ -280,6 +282,7 @@ Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`,
 - P-367: no test pins the `raster_psth` SEM value; a ddof=0 mutant and a mutant that drops the division by the square root of the trial count both pass all 423 tests in the 11 files that call it (found 2026-10-04 at `94334cb4`). Check: a hand-computed SEM kills both. Waits: display helper, value unchanged.
 - P-332 display part: `plot_sorted_heatmap(category_labels)` is ignored. Check: used or refused. Waits: display.
 - P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: killing tests. Waits: behaves correctly.
+- Closure pass 2026-10-05: `plot_unit_waveforms(channels="peak")` takes the largest absolute deflection while `waveform_features` takes the largest max minus min, so the drawn and the reported peak channel can differ. Check: both call one peak-channel rule (`AGENTS.md` 4.7). Waits: display only; the reported features are unchanged.
 Accept: each check passes.
 Stop: none beyond the standing ones.
 
@@ -398,6 +401,7 @@ Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`,
 Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
 - D1, D9 and the lab meaning of D3 ("mirrored") are defined only in that pipeline. Check: each row cites its code once its owner gives access. Waits: study-specific rows; jnwb's measures are unchanged.
 - Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each a public operation by its published definition, or a ruled exclusion. Waits: new capability, not a defect.
+- Closure pass 2026-10-05: `refractory_contamination` says the Hill et al. (2011) derivation "is restated by Llobet et al. (2022)"; Llobet's model differs from Hill's and the sentence was not checked against the paper. Check: the sentence matches the paper, or is removed. Waits: citation wording; the computation follows Hill.
 Accept: each check passes.
 Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
 

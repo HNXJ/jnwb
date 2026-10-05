@@ -215,3 +215,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
         message = getattr(report.longrepr, "reprcrash", None)
         message = message.message.splitlines()[0] if message else ""
         terminalreporter.write_line(f"::error::{report.nodeid} - {message[:300]}")
+    # Skips, counted per test function with its first reason, so a green leg that skipped a
+    # comparison shows it.
+    skipped: dict[str, list] = {}
+    for report in terminalreporter.stats.get("skipped", []):
+        reason = report.longrepr[2] if isinstance(report.longrepr, tuple) else str(report.longrepr)
+        entry = skipped.setdefault(report.nodeid.split("[")[0], [0, reason[:200]])
+        entry[0] += 1
+    for test, (count, reason) in sorted(skipped.items(), key=lambda kv: -kv[1][0])[:10]:
+        terminalreporter.write_line(f"::notice::{count} skipped in {test}: {reason}")
