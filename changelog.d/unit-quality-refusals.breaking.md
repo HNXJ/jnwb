@@ -1,3 +1,0 @@
-- `jnwb.metadata.compare_old_new_criteria` requires `new_key` and `old_key`; their defaults named one downstream corpus's columns. It raises `ValueError` when a key occurs twice in either frame, where the merge duplicated the unit with conflicting transitions.
-- `plot_unit_waveforms` raises `KeyError` for a unit with no waveform instead of drawing an empty panel, and `ValueError` for a 2-D array with `channels=None`, whose rows may be spikes or channels: pass `channels="peak"` or `"all"` for a `(n_channels, n_samples)` template, or reshape single-channel spikes to `(n_spikes, 1, n_samples)`.
-- `assign_quality_tier` raises `ValueError` for a scalar `trial_presence_fraction` or `snr`, which used to be broadcast to every unit; pass one value per unit.

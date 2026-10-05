@@ -11,7 +11,7 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 __release_date__ = '2026-10-03'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'

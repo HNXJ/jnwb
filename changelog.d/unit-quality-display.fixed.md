@@ -1,1 +1,0 @@
-- `compare_session_quality` marks a session whose `snr_mean` or `snr_good_rate` is NaN as "unknown" instead of colouring it red as failing, and labels the pass-rate axis with `rate_threshold` instead of a fixed "SNR > 1.0". Its legend names each guide line's value instead of "Good threshold" and "50% target".
