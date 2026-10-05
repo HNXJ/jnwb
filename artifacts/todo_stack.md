@@ -36,31 +36,16 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral and laminar | 10-01, 10-02, 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
+| F spectral and laminar | 10-02, 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-05, 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 09-08, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 
-10-01 opens the cycle in F; 10-05 and 10-07 start once it is merged, and H fills that gap with
-09-08.
-
-### 10-01 Tests find module files by import, not by path
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_semantic_mutation_classes.py`, `tests/test_claim_wording.py`, `tests/test_estimator_values_are_pinned.py`, `tests/test_module_docstrings_match_their_code.py`, `tests/test_mutation_harness_validity.py`, `scripts/mutation_harness.py`.
-Measured at `fe14858d`: these files name `jnwb/spectral.py`, `jnwb/connectivity.py`,
-`jnwb/laminar.py`, `jnwb/statistics.py` or `jnwb/jrsa.py` as paths, so every split would edit them
-and the three split lanes would share files.
-- Path derivation: each target is `inspect.getsourcefile(<public object>)`. Check: moving a function to a new file changes none of these files.
-- P-305: `tests/test_semantic_mutation_classes.py` fails on any uncommitted byte change to its targets, so a mutation oracle must deselect it, and CUDA agreement tests kill device mutants only on a GPU. Check: the recipe states both in the harness docstring.
-Accept: the full suite passes and a scratch move of one function needs no edit here.
-Stop: a path is a machine-required literal of a fixture.
-Waits: no shipped behaviour changes.
+10-01 is merged, so 10-02, 10-05 and 10-07 are open.
 
 ### 10-02 `spectral` and `laminar` as packages
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: 10-01.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
 Writes: `jnwb/spectral.py`, `jnwb/spectral/**`, `jnwb/laminar.py`, `jnwb/laminar/**`, `tests/test_spectral.py`, `tests/test_laminar.py`, `tests/test_xflip.py`.
 Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a). Pure moves; the package `__init__` re-exports every name the
 old module bound, and public classes keep their old `__module__` (`artifacts/evidence/0.2.8/plan/decisions.md` D5).
@@ -121,7 +106,7 @@ Stop: a fix changes shipped values without a ruling.
 ### 10-05 `connectivity` and `jrsa` as packages
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-01.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `jnwb/connectivity.py`, `jnwb/connectivity/**`, `jnwb/jrsa.py`, `jnwb/jrsa/**`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`.
 Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a); `bin_spikes` and `as_trials` stay importable from
 `jnwb.connectivity`. Pure moves.
@@ -168,7 +153,7 @@ Stop: the window convention changes a released function's counts.
 ### 10-07 `statistics` as a package
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: 10-01.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
 Writes: `jnwb/statistics.py`, `jnwb/statistics/**`, `tests/test_statistics.py`, `artifacts/frozen_validated.json`.
 Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a); `StatisticalAnalysis` moves whole. Gate 19's two
 `jnwb/statistics.py` entries are re-pointed with unchanged hashes.
