@@ -11,7 +11,8 @@ is complete and routes every export, and the documentation menu follows how a re
 Acceptance: `AGENTS.md` §11; every export, module, docs page, example and notebook is routed or
 excluded with a checked reason; the nav matches the arrival table of `artifacts/evidence/0.2.8/plan/restructure_plan.md` (c); every
 criterion the downstream curation pipeline applies is a public operation, a caller choice or a
-checked exclusion (13-02); one skill routes the whole surface with all four outcomes; the docs
+checked exclusion, as far as the code at hand holds it (the rows only the lab pipeline holds moved
+to 10-15, ruled 2026-10-04); one skill routes the whole surface with all four outcomes; the docs
 figures follow the figure style ruled 2026-10-04 (09-13).
 
 Every item here but 09-14 carries `deferred-0.2.9`, the one deferred value `scripts/release_gate.py` accepts
@@ -39,7 +40,6 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| Q unit quality | 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
 | E references | 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
@@ -58,20 +58,6 @@ transfer from about 10% of human-screened units to the rest has already been tri
 The curated datasets and their labels stay downstream (fact B2); jnwb receives operations and
 synthetic fixtures only. A collaborator is developing the label-learning skill separately and
 brings it here when ready.
-
-### 13-02 Inventory: unit-quality criteria against what jnwb computes
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, the duration docstring in `jnwb/unit_quality.py` once 13-03 lands.
-Read-only on the rest of `jnwb/`. The jnwb rows (F1 to F12) and the provisional downstream rows (D1 to D9)
-landed 2026-10-03 at `196ceb11`, re-derived by an independent verifier; their remaining problems are
-10-09; 13-07 to 13-10 landed (`6c0b4542`, `d99cfc20`, `cb86990e`, `737a583e`). What remains needs the downstream code,
-which Hamm named on 2026-10-04: `E:/repos/jomission`, read-only.
-- D1 to D9 are read from the description recorded on 2026-10-01, not from the pipeline's code. Check: each row confirmed or corrected against the code, D3's meaning of "mirrored" settled, and D8's redefined duration stated against the published one for 13-03.
-- The 13-03 duration docstring names the downstream pipeline's redefined duration against the published trough-to-peak duration (ruling 13-01, row D8). Check: the docstring sentence cites the downstream code read for D8.
-Accept: every downstream row cites the pipeline's code.
-Stop: reading the downstream code needs access its owner has not given.
 
 ### 09-06 The interpretational pitfalls, stated once
 
@@ -133,7 +119,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -441,6 +427,17 @@ Split from the documentation-check item on 2026-10-04, which landed every other 
 - The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the gate's nav reader. Waits: no commented page exists.
 Accept: each check passes.
 Stop: the oracle needs a type that no annotation or table entry states.
+
+### 10-15 Unit-curation rows only the lab pipeline holds, and four published measures
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
+Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
+- D1, D9 and the lab meaning of D3 ("mirrored") are defined only in that pipeline. Check: each row cites its code once its owner gives access. Waits: study-specific rows; jnwb's measures are unchanged.
+- Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each a public operation by its published definition, or a ruled exclusion. Waits: new capability, not a defect.
+Accept: each check passes.
+Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
 
 # 0.2.11
 
