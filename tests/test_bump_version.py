@@ -99,8 +99,9 @@ def test_a_lower_version_and_a_bad_date_are_refused(tmp_path):
     before = _digest(root)
     low = _run(root, "0.0.1", "--date", NEW_DATE, "--dry-run")
     assert low.returncode != 0 and "lower than" in low.stderr
-    bad = _run(root, NEW_VERSION, "--date", "2031-13-40", "--dry-run")
-    assert bad.returncode != 0 and "YYYY-MM-DD" in bad.stderr
+    for date in ("2031-13-40", "20311005"):
+        bad = _run(root, NEW_VERSION, "--date", date, "--dry-run")
+        assert bad.returncode != 0 and "YYYY-MM-DD" in bad.stderr, date
     assert _digest(root) == before
 
 

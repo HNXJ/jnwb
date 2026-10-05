@@ -29,9 +29,6 @@ PROFILE = "artifacts/benchmarks/import_profile.txt"
 BREAKDOWN = "artifacts/benchmarks/import_breakdown.json"
 PROFILE_RE = re.compile(r"^- jnwb (\S+) \(\d+ public symbols\)", re.M)
 
-# Files whose `jnwb==X.Y.Z` pins gate 10 compares with the package version.
-PIN_FILES = ["README.md"]
-
 
 def read_init(root: Path = REPO_ROOT) -> tuple[str, str]:
     """(`__version__`, `__release_date__`) as written in `root`, without importing it."""
