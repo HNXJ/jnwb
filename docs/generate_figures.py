@@ -1,8 +1,8 @@
 """Generate 10 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
-truth, producing reproducible figures for docs/assets/figures/. Fonts, size tiers and the
-figure width come from docs/figure_style.py.
+truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
+line widths and the figure width come from docs/figure_style.py.
 
 Usage:
     python docs/generate_figures.py                     # rewrite docs/assets/figures/
@@ -41,14 +41,8 @@ OUT_DIR = FIGURE_DIR
 # Every figure is drawn twice on a transparent background, in the light theme as NAME.png and in
 # the dark theme as NAME.dark.png; a page shows the one matching its palette scheme through
 # Material's `#only-light` and `#only-dark`. No figure paints its own background.
-C_VIOLET = "#7048e8"
-C_GOLD = "#c3aa5f"
-C_GRAY = "#888888"
-C_RED = "#d9534f"
-C_GREEN = "#2e7d32"
-#: A neutral veil over the part of a time-frequency map that is excluded; magma holds no gray.
-C_VEIL = "#808080"
-
+# Colours, text sizes and line widths come from docs/figure_style.py; this table holds only the
+# ink each theme draws text, edges and faint marks with.
 THEMES = {
     "light": {"fg": "#2d2d2d", "edge": "#8a8a8a", "faint": "#8a8a8a", "suffix": ".png"},
     "dark": {"fg": "#e0e0e0", "edge": "#707070", "faint": "#707070", "suffix": ".dark.png"},
@@ -80,8 +74,9 @@ def _save(fig, name):
     fig.savefig(OUT_DIR / name.replace(".png", SUFFIX))
 
 
-#: One colour per area; separable under protan, deutan and tritan simulation.
-AREA_COLOURS = {"V1": "#1565c0", "V2": "#ff9800", "V3": "#00acc1"}
+AREA_COLOURS = style.AREA
+#: The depth class colours of fig01 panel B: the highlight for superficial, a series for deep.
+CLASS_COLOURS = {"Superficial": style.HIGHLIGHT, "Deep": style.SERIES[3]}
 #: The depth fig01 classifies at, passed to the classifier and drawn from the same name.
 DEPTH_THRESHOLD_UM = 1000.0
 
@@ -105,9 +100,9 @@ def fig01_addressing():
                      for ch in range(n_ch)]
 
     # Panel A: one area per block of contacts, each named beside its own dots
-    ax1.plot(np.zeros(n_ch), range(n_ch), color=C_GRAY, lw=1.5, zorder=2)
+    ax1.plot(np.zeros(n_ch), range(n_ch), color=style.NEUTRAL, lw=style.LW, zorder=2)
     ax1.scatter(np.zeros(n_ch), range(n_ch), c=[AREA_COLOURS[a] for a in mapped_areas], s=45,
-                edgecolors=C_DARK, linewidths=0.5, zorder=3)
+                edgecolors=C_DARK, linewidths=style.EDGE, zorder=3)
     ax1.set_yticks(range(0, n_ch, 4))
     ax1.set_xlim(-0.25, 1.0)
     ax1.set_xticks([])
@@ -116,24 +111,24 @@ def fig01_addressing():
         ax1.annotate(f"Channels {i}-{i + 7}: {area}", xy=(0.12, i + 3.5), va="center",
                      fontsize=style.SMALL, color=C_DARK)
     ax1.set_ylabel("Channel index")
-    ax1.set_title("A. Area per contact\n(jnwb.map_peak_channel_to_area)", pad=8)
+    style.panel_title(ax1, "A", "Area per contact\n(jnwb.map_peak_channel_to_area)")
     ax1.invert_yaxis()
 
     # Panel B: the class of each contact, keyed, with the threshold it was classified at
     z_coords = elec_df["z"].values
-    colours = [C_GOLD if c == "Superficial" else C_VIOLET for c in depth_classes]
+    colours = [CLASS_COLOURS[c] for c in depth_classes]
     ax2.barh(range(n_ch), z_coords, color=colours, edgecolor="none", height=0.7)
-    ax2.axvline(DEPTH_THRESHOLD_UM, color=C_RED, ls="--", lw=1.0)
+    ax2.axvline(DEPTH_THRESHOLD_UM, color=C_DARK, ls="--", lw=style.LW_THIN)
     ax2.set_xlim(0.0, 2800.0)
     ax2.set_yticks(range(0, n_ch, 4))
     ax2.set_xlabel("Depth z (µm)")
     ax2.set_ylabel("Channel index")
-    ax2.set_title("B. Geometric depth class\n(jnwb.classify_layer_from_depth)", pad=8)
+    style.panel_title(ax2, "B", "Geometric depth class\n(jnwb.classify_layer_from_depth)")
     ax2.invert_yaxis()
     ax2.legend(handles=[
-        Patch(color=C_GOLD, label="Superficial (z ≤ threshold)"),
-        Patch(color=C_VIOLET, label="Deep (z > threshold)"),
-        Line2D([], [], color=C_RED, ls="--", lw=1.0,
+        Patch(color=CLASS_COLOURS["Superficial"], label="Superficial (z ≤ threshold)"),
+        Patch(color=CLASS_COLOURS["Deep"], label="Deep (z > threshold)"),
+        Line2D([], [], color=C_DARK, ls="--", lw=style.LW_THIN,
                label=f"threshold = {DEPTH_THRESHOLD_UM:.0f} µm"),
     ], frameon=False, loc="upper right")
 
@@ -164,24 +159,24 @@ def fig02_spikes_psth():
         t_post = rng.uniform(0.25, 0.6, rng.poisson(0.35 * 8.0))
         spk_rel = np.sort(np.concatenate([t_base, t_resp, t_post]))
         all_spikes.extend(spk_rel + t_start)
-        ax1.vlines(spk_rel * 1000, t_idx, t_idx + 0.8, color=C_DARK, lw=0.7)
+        ax1.vlines(spk_rel * 1000, t_idx, t_idx + 0.8, color=C_DARK, lw=style.LW_THIN)
 
-    ax1.axvline(0, color=C_GRAY, ls=":", lw=1.0)
+    ax1.axvline(0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
     ax1.set_ylabel("Trial index")
-    ax1.set_title(f"A. Spike raster ({n_trials} trials)", pad=8)
+    style.panel_title(ax1, "A", f"Spike raster ({n_trials} trials)")
     ax1.set_ylim(-0.5, n_trials + 0.5)
 
     centers_ms, mean_rate, sem_rate = jnwb.raster_psth(
         np.asarray(all_spikes), trial_starts, win_ms=PSTH_WINDOW_MS, bin_ms=PSTH_BIN_MS)
 
-    ax2.plot(centers_ms, mean_rate, color=C_VIOLET, lw=1.5, label="Mean rate")
-    ax2.fill_between(centers_ms, mean_rate - sem_rate, mean_rate + sem_rate, color=C_VIOLET,
+    ax2.plot(centers_ms, mean_rate, color=style.SERIES[0], lw=style.LW, label="Mean rate")
+    ax2.fill_between(centers_ms, mean_rate - sem_rate, mean_rate + sem_rate, color=style.SERIES[0],
                      alpha=0.35, lw=0, label="±1 SEM")
-    ax2.axvline(0, color=C_GRAY, ls=":", lw=1.0)
+    ax2.axvline(0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
     ax2.set_ylim(0, float(np.max(mean_rate + sem_rate)) * 1.45)
     ax2.set_xlabel("Time relative to onset (ms)")
     ax2.set_ylabel("Firing rate (Hz)")
-    ax2.set_title(f"B. PSTH (jnwb.raster_psth, Δ = {PSTH_BIN_MS:.0f} ms, right-open bins)", pad=8)
+    style.panel_title(ax2, "B", f"PSTH (jnwb.raster_psth, Δ = {PSTH_BIN_MS:.0f} ms, right-open bins)")
     ax2.legend(frameon=False, loc="upper right", ncol=2)
 
     fig.tight_layout()
@@ -191,7 +186,7 @@ def fig02_spikes_psth():
 
 def fig03_onset():
     """Figure 3: Causal exponential smoothing and bounded onset latency fit."""
-    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.3), dpi=style.DPI)
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 4.0), dpi=style.DPI)
 
     rng = np.random.default_rng(7)
     bin_ms = 5.0
@@ -207,15 +202,15 @@ def fig03_onset():
     pred = jnwb.onset_model(t, fit["t0"], fit["tau"], fit["amplitude"], fit["baseline"])
 
     ax.scatter(t, noisy_rate, color=C_LIGHT_GRAY, s=10, label="Simulated noisy rate", zorder=2)
-    ax.plot(t, smoothed, color=C_GOLD, lw=1.2,
+    ax.plot(t, smoothed, color=style.VARIABLE["smoothed"], lw=style.LW,
             label=f"Causal filter (tau = {smooth_tau_ms:.0f} ms, no backward leakage)", zorder=3)
-    ax.plot(t, pred, color=C_VIOLET, lw=1.8,
+    ax.plot(t, pred, color=style.VARIABLE["fitted"], lw=style.LW_THICK,
             label=f"Bounded fit: t0 = {fit['t0']:.1f} ms, tau = {fit['tau']:.1f} ms "
                   f"(R² = {fit['r2']:.2f})", zorder=4)
     # The two onsets differ by line style as well as color (long dashes against dots), and each
     # is named beside its line, so neither the color nor the legend is needed to tell them apart.
-    ax.axvline(fit["t0"], color=C_VIOLET, ls=(0, (6, 3)), lw=1.2, zorder=1)
-    ax.axvline(t0_true, color=C_GREEN, ls=":", lw=1.5,
+    ax.axvline(fit["t0"], color=style.VARIABLE["fitted"], ls=(0, (6, 3)), lw=style.LW_THIN, zorder=1)
+    ax.axvline(t0_true, color=style.VARIABLE["truth"], ls=":", lw=style.LW,
                label=f"Ground truth (t0 = {t0_true:.0f} ms, tau = {tau_true:.0f} ms)", zorder=1)
     top = ax.get_xaxis_transform()
     ax.text(t0_true - 6.0, 0.97, f"true onset\n{t0_true:.0f} ms", transform=top,
@@ -227,7 +222,7 @@ def fig03_onset():
     ax.set_xlabel("Time (ms)")
     ax.set_ylabel("Firing rate (Hz)")
     ax.set_title("Causality-bounded onset latency fit (jnwb.fit_exponential_onset)", pad=8)
-    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, -0.2), ncol=2)
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0.0, -0.2), ncol=1)
 
     fig.tight_layout()
     _save(fig, "fig03_onset_fitting.png")
@@ -257,11 +252,11 @@ def fig04_spectral_tilt():
     lfp = pink + 0.8 * np.sin(2 * np.pi * FIG04_RHYTHM_HZ * t)
 
     # Panel A: Time trace
-    ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=0.8)
+    ax1.plot(t[:1000] * 1000, lfp[:1000], color=C_DARK, lw=style.LW_THIN)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title(f"A. Raw LFP time series\n(random-walk background + {FIG04_RHYTHM_HZ:.0f} Hz rhythm)",
-                  pad=8)
+    style.panel_title(ax1, "A", f"Raw LFP time series\n(random-walk background + "
+                                f"{FIG04_RHYTHM_HZ:.0f} Hz rhythm)")
 
     # Panel B: PSD + power-law fit to that same PSD. spectral_tilt fits its own Welch
     # spectrum, on a different grid, so its line cannot be drawn over this one.
@@ -276,12 +271,13 @@ def fig04_spectral_tilt():
     fitted_psd = 10.0 ** (fit.offset - fit.exponent * np.log10(f_fit))
 
     shown = freqs <= FIG04_SHOWN_HZ
-    ax2.loglog(freqs[shown], psd[shown], color=C_GRAY, lw=1.0, label="Welch PSD")
-    ax2.loglog(f_fit, fitted_psd, color=C_VIOLET, lw=1.8,
-               label=f"Power-law fit: slope = {-fit.exponent:.2f}\n(R² = {fit.r_squared:.2f})")
+    ax2.loglog(freqs[shown], psd[shown], color=style.NEUTRAL, lw=style.LW_THIN, label="Welch PSD")
+    ax2.loglog(f_fit, fitted_psd, color=style.VARIABLE["fitted"], lw=style.LW_THICK,
+               label=f"Power-law fit: slope = {style.num(-fit.exponent)}\n"
+                     f"(R² = {fit.r_squared:.2f})")
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Power spectral density (a.u.²/Hz)")
-    ax2.set_title("B. Aperiodic fit (jnwb.aperiodic_fit)", pad=8)
+    style.panel_title(ax2, "B", "Aperiodic fit (jnwb.aperiodic_fit)")
     ax2.legend(frameon=False, loc="lower left")
 
     fig.tight_layout()
@@ -311,10 +307,10 @@ def fig05_complex_tfr():
     burst_mask = (t_ms >= BURST_MS[0]) & (t_ms <= BURST_MS[1])
     sig[burst_mask] += 2.0 * np.sin(2 * np.pi * BURST_HZ * t[burst_mask])
 
-    ax1.plot(t_ms, sig, color=C_DARK, lw=0.8)
-    ax1.axvspan(*BURST_MS, color=C_GOLD, alpha=0.25, lw=0)
+    ax1.plot(t_ms, sig, color=C_DARK, lw=style.LW_THIN)
+    ax1.axvspan(*BURST_MS, color=style.HIGHLIGHT, alpha=0.4, lw=0)
     ax1.set_ylabel("LFP (a.u.)")
-    ax1.set_title("A. LFP signal with a transient oscillatory burst", pad=8)
+    style.panel_title(ax1, "A", "LFP signal with a transient oscillatory burst")
     ax1.tick_params(labelbottom=False)
 
     freqs = np.linspace(8.0, 60.0, 50)
@@ -326,16 +322,17 @@ def fig05_complex_tfr():
 
     # coi_mask is True where a coefficient is free of edge effects; the rest is veiled.
     excluded = (~tfr.coi_mask).astype(float)
-    ax2.contourf(t_ms, freqs, excluded, levels=[0.5, 1.5], colors=[C_VEIL], alpha=0.6)
-    ax2.contour(t_ms, freqs, tfr.coi_mask.astype(float), levels=[0.5], colors=[C_VIOLET],
-                linewidths=1.2, linestyles="--")
+    ax2.contourf(t_ms, freqs, excluded, levels=[0.5, 1.5], colors=[style.NEUTRAL], alpha=0.6)
+    ax2.contour(t_ms, freqs, tfr.coi_mask.astype(float), levels=[0.5], colors=[style.SERIES[2]],
+                linewidths=style.LW_THIN, linestyles="--")
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("Frequency (Hz)")
-    ax2.set_title("B. Complex Morlet TFR and cone of influence (jnwb.complex_tfr)", pad=8)
+    style.panel_title(ax2, "B", "Complex Morlet TFR and cone of influence (jnwb.complex_tfr)")
     ax2.legend(handles=[
-        Patch(color=C_GOLD, alpha=0.25, label=f"Injected {BURST_HZ:.0f} Hz burst (panel A)"),
-        Line2D([], [], color=C_VIOLET, ls="--", lw=1.2, label="Cone of influence (tfr.coi_mask)"),
-        Patch(color=C_VEIL, alpha=0.6, label="Edge-affected, excluded"),
+        Patch(color=style.HIGHLIGHT, alpha=0.4, label=f"Injected {BURST_HZ:.0f} Hz burst (panel A)"),
+        Line2D([], [], color=style.SERIES[2], ls="--", lw=style.LW_THIN,
+               label="Cone of influence (tfr.coi_mask)"),
+        Patch(color=style.NEUTRAL, alpha=0.6, label="Edge-affected, excluded"),
     ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=3)
 
     fig.tight_layout()
@@ -367,27 +364,28 @@ def fig06_aggregate_db():
     db_wrong_mean = float(np.mean(db_individual))
 
     # Panel A: Distribution of individual unit power ratios
-    ax1.hist(ratios, bins=16, color="#7986cb", edgecolor=C_DARK, lw=0.6)
-    ax1.axvline(np.mean(ratios), color=C_VIOLET, lw=1.5, label=f"Mean ratio ({np.mean(ratios):.2f})")
+    ax1.hist(ratios, bins=16, color=style.SERIES[0], edgecolor=C_DARK, lw=style.EDGE)
+    ax1.axvline(np.mean(ratios), color=style.SERIES[3], lw=style.LW,
+                label=f"Mean ratio ({np.mean(ratios):.2f})")
     ax1.set_xlabel("Power ratio (target / baseline)")
     ax1.set_ylabel("Unit count")
-    ax1.set_title("A. Per-unit power ratios", pad=8)
+    style.panel_title(ax1, "A", "Per-unit power ratios")
     ax1.legend(frameon=False, loc="upper right")
 
     # Panel B: Aggregated Decibel Estimands
     labels = ["Mean of\nratios", "Ratio of\nmeans", "Mean of dB\n(Jensen error)"]
     values = [float(db_mean_ratios), float(db_ratio_means), db_wrong_mean]
-    bars = ax2.bar(range(3), values, color=[C_VIOLET, C_GOLD, C_RED], width=0.55,
-                   edgecolor=C_DARK, lw=0.6)
+    bars = ax2.bar(range(3), values, color=[style.SERIES[0], style.SERIES[2], style.SERIES[3]], width=0.55,
+                   edgecolor=C_DARK, lw=style.EDGE)
     ax2.set_xticks(range(3))
     ax2.set_xticklabels(labels)
     for b, val in zip(bars, values):
-        ax2.annotate(f"{val:.2f} dB", (b.get_x() + b.get_width() / 2, val), xytext=(0, 3),
+        ax2.annotate(f"{style.num(val)} dB", (b.get_x() + b.get_width() / 2, val), xytext=(0, 3),
                      textcoords="offset points", ha="center", va="bottom", fontsize=style.SMALL,
                      fontweight="bold")
     ax2.set_ylim(0, max(values) * 1.2)
     ax2.set_ylabel("Aggregate (dB)")
-    ax2.set_title("B. Decibel aggregation\n(jnwb.aggregate_to_db)", pad=8)
+    style.panel_title(ax2, "B", "Decibel aggregation\n(jnwb.aggregate_to_db)")
 
     fig.tight_layout()
     _save(fig, "fig06_aggregate_to_db.png")
@@ -418,35 +416,36 @@ def fig07_decoding():
     base_acc = res["majority_baseline_accuracy"]
 
     # Panel A: Fold Accuracies vs Baseline
-    ax1.bar(range(1, len(fold_accs) + 1), fold_accs * 100, color=C_VIOLET, width=0.5,
-            edgecolor=C_DARK, lw=0.6)
-    ax1.axhline(mean_acc * 100, color=C_GOLD, ls="-", lw=1.4,
+    ax1.bar(range(1, len(fold_accs) + 1), fold_accs * 100, color=style.SERIES[0], width=0.5,
+            edgecolor=C_DARK, lw=style.EDGE)
+    ax1.axhline(mean_acc * 100, color=style.SERIES[3], ls="-", lw=style.LW,
                 label=f"Outer-CV mean ({mean_acc * 100:.1f}%)")
-    ax1.axhline(base_acc * 100, color=C_RED, ls="--", lw=1.2,
+    ax1.axhline(base_acc * 100, color=style.VARIABLE["baseline"], ls="--", lw=style.LW_THIN,
                 label=f"Majority baseline ({base_acc * 100:.1f}%)")
     ax1.set_xlabel("Outer CV fold")
     ax1.set_ylabel("Decoding accuracy (%)")
     # Accuracy cannot pass 100%, so the band above it is free for the legend.
     ax1.set_ylim(0, 135)
     ax1.set_yticks(range(0, 101, 20))
-    ax1.set_title("A. Outer-fold accuracy\n(jnwb.nested_cv_linear_svm)", pad=8)
+    style.panel_title(ax1, "A", "Outer-fold accuracy\n(jnwb.nested_cv_linear_svm)")
     ax1.legend(frameon=False, loc="upper right")
 
     # Panel B: the out-of-fold AUC and F1 the decoder returns. The result carries no decision
     # scores, so no ROC curve can be drawn from it.
     scores = [res["auc"], res["f1"]]
-    ax2.bar([0, 1], scores, color=C_VIOLET, width=0.5, edgecolor=C_DARK, lw=0.6)
+    ax2.bar([0, 1], scores, color=style.SERIES[0], width=0.5, edgecolor=C_DARK,
+            lw=style.EDGE)
     for i, value in enumerate(scores):
         ax2.annotate(f"{value:.2f}", (i, value), xytext=(0, 3), textcoords="offset points",
                      ha="center", va="bottom", fontsize=style.SMALL)
-    ax2.hlines(AUC_CHANCE, -0.4, 0.4, color=C_GRAY, ls=":", lw=1.2,
+    ax2.hlines(AUC_CHANCE, -0.4, 0.4, color=style.NEUTRAL, ls=":", lw=style.LW_THIN,
                label=f"Chance AUC ({AUC_CHANCE:.2f})")
     ax2.set_xticks([0, 1])
     ax2.set_xticklabels(["AUC", "F1"])
     ax2.set_ylim(0, 1.3)
     ax2.set_yticks(np.linspace(0.0, 1.0, 6))
     ax2.set_ylabel("Out-of-fold score")
-    ax2.set_title("B. Out-of-fold AUC and F1\n(pooled over the outer folds)", pad=8)
+    style.panel_title(ax2, "B", "Out-of-fold AUC and F1\n(pooled over the outer folds)")
     ax2.legend(frameon=False, loc="upper right")
 
     fig.tight_layout()
@@ -483,14 +482,15 @@ def fig08_permutation():
 
     ax.hist(null, bins=35, color=C_LIGHT_GRAY, edgecolor="none", density=True,
             label="Sign-flip null (labels exchanged within pairs)")
-    ax.axvline(observed, color=C_RED, lw=2.0, label=f"Observed mean difference ({observed:.3f} Hz)")
-    ax.axvline(np.percentile(null, NULL_QUANTILE), color=C_GOLD, ls="--", lw=1.2,
+    ax.axvline(observed, color=style.VARIABLE["observed"], lw=style.LW_THICK,
+               label=f"Observed mean difference ({style.num(observed, '.3f')} Hz)")
+    ax.axvline(np.percentile(null, NULL_QUANTILE), color=style.SERIES[0], ls="--", lw=style.LW_THIN,
                label=f"{NULL_QUANTILE:.0f}th percentile of the null")
     top = ax.get_ylim()[1]
     ax.set_ylim(0, top * 1.45)
     ax.annotate(f"one-sided\nMonte Carlo\np = {p_value:.4f}", xy=(observed, top * 1.2),
                 xytext=(-6, 0), textcoords="offset points", ha="right", va="center",
-                fontsize=style.SMALL, fontweight="bold", color=C_RED)
+                fontsize=style.SMALL, fontweight="bold", color=C_DARK)
 
     ax.set_xlabel("Mean paired difference (Hz)")
     ax.set_ylabel("Probability density (1/Hz)")
@@ -530,15 +530,16 @@ def fig09_directed_connectivity():
     # Panel A: Granger causality
     gc = jnwb.granger(x_filt, y_trials, order=GC_ORDER)
     bars = ax1.bar(["X → Y\n(simulated lead)", "Y → X\n(none simulated)"], [gc.x_to_y, gc.y_to_x],
-                   color=[C_VIOLET, C_GRAY], width=0.5, edgecolor=C_DARK, lw=0.6)
+                   color=[style.SERIES[0], style.NEUTRAL], width=0.5, edgecolor=C_DARK,
+                   lw=style.EDGE)
     for b_item, val, p_val in zip(bars, [gc.x_to_y, gc.y_to_x], [gc.p_x_to_y, gc.p_y_to_x]):
         p_str = "p < 0.001" if p_val < 0.001 else f"p = {p_val:.3f}"
-        ax1.annotate(f"{val:.3f}\n({p_str})", (b_item.get_x() + b_item.get_width() / 2, val),
+        ax1.annotate(f"{style.num(val, '.3f')}\n({p_str})", (b_item.get_x() + b_item.get_width() / 2, val),
                      xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
                      fontsize=style.SMALL)
     ax1.set_ylabel("Log variance ratio")
     ax1.set_ylim(0, max(gc.x_to_y, gc.y_to_x) * 1.4)
-    ax1.set_title(f"A. Bivariate Granger causality\n(jnwb.granger, order={GC_ORDER})", pad=8)
+    style.panel_title(ax1, "A", f"Bivariate Granger causality\n(jnwb.granger, order={GC_ORDER})")
 
     # Panel B: Phase Slope Index, per frequency bin, with the band the net value sums
     psi = jnwb.phase_slope_index(x_filt, y_trials, fs=fs, bands=PSI_BAND)
@@ -550,14 +551,14 @@ def fig09_directed_connectivity():
     f_lo, f_hi = psi.per_band["band"]["band_hz"]
     freqs = psi.spectrum["freqs"]
     summed = freqs[(freqs >= f_lo) & (freqs <= f_hi)]
-    ax2.axvspan(summed[0], summed[-1], color=C_GOLD, alpha=0.2, lw=0,
+    ax2.axvspan(summed[0], summed[-1], color=style.HIGHLIGHT, alpha=0.4, lw=0,
                 label=f"Summed bins ({summed[0]:.1f}–{summed[-1]:.1f} Hz)")
-    ax2.plot(psi_freqs[mask], psi_spec[mask], color=C_VIOLET, lw=1.5, marker="o", ms=3.5,
-             label=f"Net PSI = {psi.x_to_y:+.3f} (positive: X leads Y)")
-    ax2.axhline(0, color=C_GRAY, ls="--", lw=0.8)
+    ax2.plot(psi_freqs[mask], psi_spec[mask], color=style.SERIES[0], lw=style.LW, marker="o",
+             ms=3.5, label=f"Net PSI = {style.num(psi.x_to_y, '+.3f')} (positive: X leads Y)")
+    ax2.axhline(0, color=style.NEUTRAL, ls="--", lw=style.LW_THIN)
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("PSI per frequency bin (dimensionless)")
-    ax2.set_title("B. Phase slope index spectrum\n(jnwb.phase_slope_index)", pad=8)
+    style.panel_title(ax2, "B", "Phase slope index spectrum\n(jnwb.phase_slope_index)")
     ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     fig.tight_layout()
@@ -598,34 +599,37 @@ def fig10_artifact_repair():
     spacing = 1.2 * (y_hi - y_lo)
     offsets = -np.arange(n_ch) * spacing
     for ch in range(n_ch):
-        ax1.plot(t, seg[HIT_TRIAL, ch] + offsets[ch], color=C_RED, lw=0.8,
+        ax1.plot(t, seg[HIT_TRIAL, ch] + offsets[ch], color=style.VARIABLE["observed"],
+                 lw=style.LW_THIN,
                  label="Raw (contaminated), one trace per channel" if ch == 0 else None)
     ax1.set_xlabel("Time (ms)")
     ax1.set_ylabel("Channel index")
     ax1.set_yticks(offsets, [str(ch) for ch in range(n_ch)])
     # Amplitude scale: one bar of SCALE_AU rising from the last channel's baseline
     x_bar = t[-1] + 25
-    ax1.plot([x_bar, x_bar], [offsets[-1], offsets[-1] + SCALE_AU], color=C_DARK, lw=1.5)
+    ax1.plot([x_bar, x_bar], [offsets[-1], offsets[-1] + SCALE_AU], color=C_DARK, lw=style.LW)
     ax1.annotate(f"{SCALE_AU:.0f} a.u.", xy=(x_bar, offsets[-1] + SCALE_AU / 2), xytext=(4, 0),
                  textcoords="offset points", va="center", fontsize=style.SMALL, color=C_DARK)
     ax1.set_xlim(-10, t[-1] + 110)
     ax1.set_xticks(np.arange(0, t[-1] + 1, 100))
-    ax1.set_title(f"A. Injected synchronous artifact\n(trial {HIT_TRIAL}, "
-                  f"peak z = {diag['synchrony_z_max']:.0f})", pad=8)
+    style.panel_title(ax1, "A", f"Injected synchronous artifact\n(trial {HIT_TRIAL}, "
+                                f"peak z = {diag['synchrony_z_max']:.0f})")
     ax1.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
 
     # Panel B: the same channel before and after repair
-    ax2.plot(t, raw, color=C_GRAY, lw=1.2, label="Raw (contaminated), channel 0")
-    ax2.plot(t, repaired[HIT_TRIAL, 0], color=C_VIOLET, lw=1.2, label="Repaired (median substitution)")
+    ax2.plot(t, raw, color=style.VARIABLE["observed"], lw=style.LW_THIN,
+             label="Raw (contaminated), channel 0")
+    ax2.plot(t, repaired[HIT_TRIAL, 0], color=style.SERIES[0], lw=style.LW_THIN,
+             label="Repaired (median substitution)")
     # The shaded samples are the detector's output: every sample the repair changed on any channel.
     replaced = np.any(repaired[HIT_TRIAL] != seg[HIT_TRIAL], axis=0)
-    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=C_GOLD, alpha=0.2, lw=0,
-                     label=f"Samples replaced (z_thresh = {Z_THRESH:.1f})")
+    ax2.fill_between(t, y_lo, y_hi, where=replaced, step="mid", color=style.HIGHLIGHT,
+                     alpha=0.4, lw=0, label=f"Samples replaced (z_thresh = {Z_THRESH:.1f})")
     ax2.set_ylim(*y_lim)
     ax2.set_yticks(y_ticks)
     ax2.set_xlabel("Time (ms)")
     ax2.set_ylabel("LFP (a.u.)")
-    ax2.set_title("B. Repaired signal overlay\n(jnwb.repair_lfp_trials)", pad=8)
+    style.panel_title(ax2, "B", "Repaired signal overlay\n(jnwb.repair_lfp_trials)")
     ax2.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
 
     fig.tight_layout()
