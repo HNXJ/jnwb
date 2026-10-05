@@ -1650,10 +1650,11 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
                              head: Optional[str] = None) -> List[str]:
     """Why the commit being released drops a commit of ``main``; empty when it does not.
 
-    ``main`` moves by merging ``dev`` into it. At the merge commit itself, its first parent is
-    the old ``main`` and must be an ancestor of its second parent (``dev``). At any other
-    commit, ``origin/main``, else ``main``, must be an ancestor of it; with neither, the answer
-    is unknown and refused. Nothing here fetches.
+    ``main`` moves by merging ``dev`` into it. At a two-parent commit that is ``origin/main``
+    (else ``main``) or whose first parent is, the first parent (the old ``main``) must be an
+    ancestor of the second (``dev``). At any other commit, including a lane merged into ``dev``,
+    ``origin/main`` (else ``main``) must be an ancestor of it; with neither, the answer is
+    unknown and refused. Nothing here fetches.
     """
     def git(*args: str) -> subprocess.CompletedProcess:
         return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
@@ -1663,20 +1664,23 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
     words = listed.stdout.split()
     if listed.returncode != 0 or not words:
         return [f"{target[:12]} does not resolve, so whether it contains main is unknown"]
-    parents = words[1:]
-    if len(parents) == 2:
+    full, parents = words[0], words[1:]
+    ref = next((r for r in ("origin/main", "main")
+                if git("rev-parse", "--verify", "--quiet", f"{r}^{{commit}}").returncode == 0),
+               None)
+    if ref is None:
+        return ["neither origin/main nor main resolves, so whether main is an ancestor of "
+                "the commit being released is unknown"]
+    main_sha = git("rev-parse", f"{ref}^{{commit}}").stdout.strip()
+    # A merge commit is a release merge only when it is main or merges onto main; any other
+    # two-parent commit (a lane merged into dev) is read as a plain commit.
+    if len(parents) == 2 and main_sha in (full, parents[0]):
         container, contained = parents[1], parents[0]
         what = f"the first parent {contained[:12]} (the old main) of the merge {target[:12]}"
         where = f"its second parent {container[:12]}"
     else:
-        contained = next((r for r in ("origin/main", "main")
-                          if git("rev-parse", "--verify", "--quiet",
-                                 f"{r}^{{commit}}").returncode == 0), None)
-        if contained is None:
-            return ["neither origin/main nor main resolves, so whether main is an ancestor of "
-                    "the commit being released is unknown"]
-        container = target
-        what, where = contained, target[:12]
+        contained, container = ref, target
+        what, where = ref, target[:12]
     ancestry = git("merge-base", "--is-ancestor", contained, container)
     if ancestry.returncode == 0:
         return []

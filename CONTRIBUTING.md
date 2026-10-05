@@ -44,8 +44,7 @@ reaches a release.
 ## Branches
 
 `dev` is where work lands. `main` holds releases and moves by merging `dev` into it with a
-merge commit (step 3 of [Releasing](#releasing)), as it has since v0.2.4; it is never
-fast-forwarded.
+merge commit, not a fast-forward (step 3 of [Releasing](#releasing)).
 
 Branch from `dev`, and open the pull request against `dev`. Push directly to `dev` only for
 work you have run the full checks on. Never force-push either branch.

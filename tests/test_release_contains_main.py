@@ -70,6 +70,29 @@ def test_a_release_merge_whose_dev_lacks_a_commit_of_the_old_main_fails(tmp_path
     assert "old main" in violations[0] and "not an ancestor" in violations[0]
 
 
+def _lane_merge_on_dev(tmp_path: pathlib.Path, dev_absorbs_main: bool) -> pathlib.Path:
+    """A lane branch merged into ``dev`` with a merge commit; HEAD is that merge, not on main."""
+    root = _repo(tmp_path, main_extra=True)
+    if dev_absorbs_main:
+        _git(root, "merge", "--no-ff", "-m", "dev takes main", "main")
+    _git(root, "checkout", "-b", "lane", "dev~0")
+    _commit(root, "lane_work")
+    _git(root, "checkout", "dev")
+    _commit(root, "dev_after_lane_started")
+    _git(root, "merge", "--no-ff", "-m", "lane merge", "lane")
+    return root
+
+
+def test_a_lane_merge_on_dev_that_contains_main_passes(tmp_path):
+    assert main_ancestry_violations(_lane_merge_on_dev(tmp_path, dev_absorbs_main=True)) == []
+
+
+def test_a_lane_merge_on_dev_without_a_commit_of_main_fails_as_a_plain_commit(tmp_path):
+    violations = main_ancestry_violations(_lane_merge_on_dev(tmp_path, dev_absorbs_main=False))
+    assert len(violations) == 1 and "old main" not in violations[0]
+    assert violations[0].startswith("main is not an ancestor")
+
+
 def test_a_repository_with_no_main_is_refused_as_unknown(tmp_path):
     _git(tmp_path, "init", "-b", "trunk")
     _commit(tmp_path, "base")
