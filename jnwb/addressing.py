@@ -12,6 +12,7 @@ import decimal
 import logging
 import numbers
 import operator
+import warnings
 from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 import pandas as pd
 import numpy as np
@@ -153,7 +154,9 @@ def parse_probe_areas(label: str) -> tuple:
     A slash followed by a field that does not start with a letter continues the label
     before it rather than starting a new area, because atlas layer labels use a slash
     inside one name: ``VISpm2/3`` is layer 2/3 of one area, not the two areas ``VISpm2``
-    and ``3``. A slash between two names that start with letters still separates areas.
+    and ``3``. A slash followed by one lowercase letter also continues the label when the
+    label before ends in a digit and a lowercase letter, the sublayer alternation of
+    ``VISp6a/b``. A slash between two names that start with letters still separates areas.
 
     No vocabulary lives here, deliberately. Neither identity (is `DP` the same area as
     `V4`?) nor spelling (is `v3a` the same area as `V3a`?) is a question generic
@@ -179,6 +182,8 @@ def parse_probe_areas(label: str) -> tuple:
         ('VISpm2/3',)
         >>> parse_probe_areas("VISp2/3, VISp4")
         ('VISp2/3', 'VISp4')
+        >>> parse_probe_areas("VISp6a/b")
+        ('VISp6a/b',)
 
     Self-contained by design: jnwb must give identical scientific behaviour whether or not
     any project package is importable, so nothing here may depend on one being installed.
@@ -189,12 +194,19 @@ def parse_probe_areas(label: str) -> tuple:
         for piece in (p.strip() for p in part.split("/")):
             if not piece:
                 continue
-            if merged and not piece[0].isalpha():
+            if merged and (not piece[0].isalpha() or _is_sublabel_letter(merged[-1], piece)):
                 merged[-1] = f"{merged[-1]}/{piece}"
             else:
                 merged.append(piece)
         fields.extend(merged)
     return tuple(fields)
+
+
+def _is_sublabel_letter(before: str, piece: str) -> bool:
+    """Is ``piece`` one lowercase letter alternating the final letter of ``before``, as ``b``
+    does after ``6a``? Decided on the characters alone; no label is named."""
+    return (len(piece) == 1 and piece.islower() and len(before) >= 2
+            and before[-1].islower() and before[-2].isdigit())
 
 
 def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
@@ -542,6 +554,12 @@ def enrich_units_dataframe(
 
     No ``layer`` column is written. One already on ``units_df`` is returned as supplied.
 
+    ``area``, ``depth_class`` and ``group_name`` are resolved only when ``units_df`` has a
+    ``peak_channel_id`` column and ``electrodes_df`` has rows. Otherwise each of them that
+    ``units_df`` lacks is filled on every row, with None or 'Unknown'; a ``units_df`` without
+    ``peak_channel_id`` beside a non-empty ``electrodes_df`` emits a ``UserWarning`` when it
+    fills any of them.
+
     ``is_stable`` is derived from a ``quality`` column -- ``quality >= stable_threshold`` when
     it is numeric, membership in ``stable_labels`` (compared lower-cased and stripped)
     otherwise -- and is not added when ``units_df``
@@ -627,6 +645,16 @@ def enrich_units_dataframe(
         else:
             df['group_name'] = None
     else:
+        filled = [col for col in ('area', 'depth_class', 'group_name') if col not in df.columns]
+        if (filled and electrodes_df is not None and len(electrodes_df) > 0
+                and 'peak_channel_id' not in df.columns):
+            warnings.warn(
+                f"enrich_units_dataframe: units_df has no 'peak_channel_id' column, so no unit "
+                f"can be joined to the electrodes table, and the columns {filled} are filled on "
+                "every row: None for area and group_name, 'Unknown' for depth_class.",
+                UserWarning,
+                stacklevel=2,
+            )
         if 'area' not in df.columns:
             df['area'] = None
         if 'depth_class' not in df.columns:
