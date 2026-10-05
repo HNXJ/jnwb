@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -24,12 +25,13 @@ import jnwb
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# (file, the exact sentence, with the live version substituted in)
-PINNED_CLAIMS = [
-    ("README.md", "This checkout is `{version}`."),
-    ("docs/agents.md",
-     "jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v{version}/skills'"),
-]
+# `append`, never `insert(0, ...)`: see tests/test_import_profile_receipt.py.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+# (file, the exact sentence, with the live version substituted in); the list is owned by the
+# module `scripts/bump_version.py` also reads, so a bump moves what this test checks.
+from scripts.version_surfaces import PINNED_CLAIMS  # noqa: E402
 
 # Files whose version mentions are history rather than claims about this release: a changelog
 # records what past versions did, and an audit note names the version it audited.

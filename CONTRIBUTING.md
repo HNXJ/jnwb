@@ -408,13 +408,18 @@ by hand.
 Maintainers only, and only from a clean `dev` with the three pre-push checks green and
 `release_gate.py` green as well — tagging is the point at which it stops being optional.
 
-1. Bump the version in `pyproject.toml` and `jnwb/__init__.py`; write the `CHANGELOG.md`
-   entry with `python scripts/assemble_changelog.py --version X.Y.Z --date YYYY-MM-DD`, which
-   inserts the section below `[Unreleased]` and deletes the fragments it used (`--dry-run`
-   prints the section only); run `python scripts/measure_peak_memory.py --write` and commit
-   `artifacts/benchmarks/peak_memory.json` in the same commit as the version. All of this lands
-   before the closure pass, whose receipt then covers the record; `release_gate.py` refuses a
-   record that names another version.
+1. Move the version with `python scripts/bump_version.py X.Y.Z --date YYYY-MM-DD`
+   (`--dry-run` prints the changes). It rewrites `jnwb/__init__.py` (`__version__` and
+   `__release_date__`), the checkout version in `README.md`, the `SKILLS_URL` example in
+   `docs/agents.md` and the import profile, from the list in `scripts/version_surfaces.py`, and
+   refuses a version that does not parse or is lower than the current one. Write the
+   `CHANGELOG.md` entry with `python scripts/assemble_changelog.py --version X.Y.Z --date
+   YYYY-MM-DD`, which inserts the section below `[Unreleased]` and deletes the fragments it used
+   (`--dry-run` prints the section only), and commit. Then, on that clean tree, run
+   `python scripts/measure_peak_memory.py --write` and commit
+   `artifacts/benchmarks/peak_memory.json`. All of this lands before the closure pass, whose
+   receipt then covers the record; `release_gate.py` refuses a record that names another
+   version.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`
    now checks this rather than trusting you to: it resolves the run whose head SHA is the
    commit under qualification and requires every unconditional job to have concluded
