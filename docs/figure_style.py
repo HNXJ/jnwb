@@ -92,10 +92,14 @@ class FontMissing(RuntimeError):
 
 
 def register_font() -> None:
-    """Register the font files in the directory `FONT_DIR_ENV` names."""
+    """Register the font files in the directory `FONT_DIR_ENV` names, first dropping any
+    other copy of `FONT` Matplotlib found: on a tie `findfont` takes the first entry, so a
+    system copy would otherwise draw in place of the pinned file."""
     directory = os.environ.get(FONT_DIR_ENV)
     if not directory:
         return
+    manager = font_manager.fontManager
+    manager.ttflist = [entry for entry in manager.ttflist if entry.name != FONT]
     for name in FONT_FILES:
         path = Path(directory) / name
         if path.is_file():
@@ -103,15 +107,18 @@ def register_font() -> None:
 
 
 def check_font() -> None:
-    """Raise `FontMissing` unless the regular and the bold file of `FONT` are the ones Matplotlib
-    resolves, so a bold request cannot pass on the regular file."""
+    """Raise `FontMissing` unless the regular and the bold file of `FONT` in the directory
+    `FONT_DIR_ENV` names are the ones Matplotlib resolves, so neither a bold request on the
+    regular file nor another copy of the font passes."""
+    directory = os.environ.get(FONT_DIR_ENV)
+    expected = Path(directory).resolve() if directory else None
     for weight, name in zip(("normal", "bold"), FONT_FILES):
         try:
             found = font_manager.findfont(
                 font_manager.FontProperties(family=FONT, weight=weight), fallback_to_default=False)
         except ValueError:
             found = ""
-        if Path(found).name != name:
+        if Path(found).name != name or Path(found).resolve().parent != expected:
             raise FontMissing(
                 f"font {FONT!r} ({name}) is not registered: set {FONT_DIR_ENV} to the directory "
                 f"holding {', '.join(FONT_FILES)}")
