@@ -401,3 +401,17 @@ ordinary, and their epochs are partly NaN by design. A non-finite onset raises
 `time_unit` on an `EventTable` is a label, not a measurement: the interval table carries
 no extent to check it against. The check is possible only where the onsets meet the
 continuous data, which is `epoch_continuous`.
+
+---
+
+## 12. Sorter Labels Read as Ground Truth
+
+### The Mistake
+Reading a sorter's `good` label, or its quality column, as proof that a unit is a single
+neuron. A label is the sorter's output and no measure of `jnwb.unit_quality` confirms it.
+
+### The Correct Pattern
+Screen units against cut-offs you state, report a measure the input cannot support (NaN,
+`'Unknown'`) as not estimable, and leave the single-neuron claim unmade. The sixth safeguard of
+the [`jnwb-qc` skill](https://github.com/HNXJ/jnwb/blob/main/skills/jnwb-qc/SKILL.md) holds the
+rule.

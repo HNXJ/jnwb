@@ -650,6 +650,69 @@ def _():
                                "assignment_rate"}
 
 
+# The four outcomes of the unit-quality section of `jnwb-qc`, one test each.
+
+_UNIT_WAVEFORM = np.array([[0.0, 1.0, -3.0, 0.0, 0.0], [0.0, 0.5, -1.0, 0.0, 0.0]])
+
+
+def test_unit_quality_measures_execute_on_the_waveforms_and_cutoffs_at_hand():
+    features = jnwb.waveform_features(_UNIT_WAVEFORM, fs=1000.0)
+    assert features["peak_channel"] == 0 and features["amplitude"] == 4.0
+    assert features["trough_to_peak_ms"] == pytest.approx(1.0)
+    assert features["peak_trough_ratio"] == pytest.approx(1.0 / 3.0) and features["polarity"] == -1.0
+    assert jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=5.0)["is_flat"] is True
+    assert jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=1.0)["is_flat"] is False
+    blocks = [[0.0, 1.0], [1.0, 2.0], [2.0, 3.0]]
+    assert jnwb.presence_ratio([0.1, 0.2, 2.5], blocks) == pytest.approx(2.0 / 3.0)
+
+
+def test_unit_quality_measures_request_the_waveforms_fs_and_geometry_they_lack():
+    assert_states("jnwb-qc", "`fs` in Hz is required: request it", "request the geometry",
+                  "The duration and both periods are required: request them")
+    with pytest.raises(TypeError, match="fs"):
+        jnwb.waveform_features(_UNIT_WAVEFORM)
+    with pytest.raises(ValueError, match="fs"):
+        jnwb.waveform_features(_UNIT_WAVEFORM, fs=float("nan"))
+    with pytest.raises(TypeError, match="channel_positions"):
+        jnwb.spatial_derivative_sharpness(_UNIT_WAVEFORM, threshold=1.0)
+    with pytest.raises(ValueError, match="at least two channels"):
+        jnwb.spatial_derivative_sharpness(_UNIT_WAVEFORM[:1], [0.0], threshold=1.0)
+    with pytest.raises(TypeError, match="threshold"):
+        jnwb.waveform_flatness(_UNIT_WAVEFORM)
+    with pytest.raises(TypeError, match="duration_s"):
+        jnwb.refractory_contamination(np.array([0.1, 0.5]))
+
+
+def test_unit_quality_reports_what_the_input_cannot_support_as_not_estimable():
+    assert_states("jnwb-qc", "reported as not estimable, never as a plausible number")
+    assert np.isnan(jnwb.waveform_snr(np.ones((1, 5))))
+    assert np.isnan(jnwb.isi_cv(np.array([0.1, 0.2])))
+    empty = jnwb.refractory_contamination(np.array([]), duration_s=10.0, refractory_ms=2.0,
+                                          censored_ms=0.0)
+    assert np.isnan(empty["contamination"]) and empty["reason"]
+    unmeasured = pd.DataFrame({"quality": [np.nan], "snr": [2.0], "firing_rate": [5.0]})
+    assert jnwb.classify_unit_quality(unmeasured)["quality_class"].tolist() == ["Unknown"]
+
+
+def test_unit_quality_declines_a_single_neuron_claim_from_the_measures_alone():
+    text = skill_text("jnwb-qc")
+    assert_states("jnwb-qc", "Sorter labels are an input, never ground truth",
+                  "a request to call a unit a single neuron from quality measures alone is declined")
+    claims = [s for s in re.split(r"(?<=[.;])\s+", text) if "single neuron" in s]
+    assert claims and all(_NEGATION.search(s) or "declin" in s for s in claims), claims
+    # Nothing a measure returns can carry the claim: each result holds only its measures.
+    assert set(jnwb.waveform_features(_UNIT_WAVEFORM, fs=1000.0)) == {
+        "peak_channel", "amplitude", "trough_to_peak_ms", "peak_trough_ratio", "polarity"}
+    assert set(jnwb.waveform_flatness(_UNIT_WAVEFORM, threshold=1.0)) == {"amplitude", "is_flat"}
+    assert set(jnwb.refractory_contamination(np.array([]), duration_s=1.0, refractory_ms=2.0,
+                                             censored_ms=0.0)) == {
+        "contamination", "n_violations", "n_spikes", "reason"}
+    perfect = pd.DataFrame({"quality": [9.0], "snr": [9.0], "firing_rate": [9.0]})
+    classified = jnwb.classify_unit_quality(perfect)
+    assert classified["quality_class"].tolist() == ["Good"]
+    assert not [c for c in classified.columns if "single" in c.lower() or "sua" in c.lower()]
+
+
 # ------------------------------------------------------------------------------------ tests
 
 

@@ -104,11 +104,15 @@ def test_the_paradigm_rows_live_in_one_skill() -> None:
     assert not left & set(PARADIGM_ROUTES), f"still routed by jnwb-nwb-data: {left & set(PARADIGM_ROUTES)}"
 
 
-#: The rows `jnwb-qc` routes: the audits from `jnwb-nwb-data`, the plots from `jnwb-figures`, and
-#: the result records, which no skill routed before.
+#: The rows `jnwb-qc` routes: the audits and the unit-quality classes and tiers from
+#: `jnwb-nwb-data`, the plots from `jnwb-figures`, the unit-quality measures, and the result
+#: records, which no skill routed before.
 QC_ROUTES = (
-    "jnwb.audit_electrodes", "jnwb.audit_units", "jnwb.Lineage", "jnwb.Provenance", "jnwb.Result",
-    "jnwb.visual_qc",
+    "jnwb.assign_quality_tier", "jnwb.audit_electrodes", "jnwb.audit_units",
+    "jnwb.classify_unit_quality", "jnwb.enrich_units_dataframe", "jnwb.get_snr_analysis",
+    "jnwb.isi_cv", "jnwb.Lineage", "jnwb.presence_ratio", "jnwb.Provenance",
+    "jnwb.refractory_contamination", "jnwb.Result", "jnwb.spatial_derivative_sharpness",
+    "jnwb.visual_qc", "jnwb.waveform_features", "jnwb.waveform_flatness", "jnwb.waveform_snr",
 )
 
 

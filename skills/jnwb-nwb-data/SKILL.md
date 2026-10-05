@@ -1,14 +1,14 @@
 ---
 name: jnwb-nwb-data
 description: NWB inspection, event/onset extraction, path addressing, anatomical mapping,
-  unit quality classification, metadata census, and compression.
+  metadata census, and compression.
 ---
 
 # `jnwb-nwb-data` — NWB Data, Addressing & Metadata
 
 ## 1. Trigger
 Inspecting NWB files, extracting event onsets, resolving paths, mapping electrode channels to
-areas/layers, classifying unit quality, or compressing arrays.
+areas/layers, or compressing arrays.
 
 ## 2. Routing
 
@@ -61,17 +61,13 @@ hosts, and `prepare_signal_reference` describes one dataset without loading it a
 
 - `jnwb.map_peak_channel_to_area(peak_channel_id, electrodes_df)`
 - `jnwb.classify_layer_from_depth(peak_channel_id, electrodes_df)`
-- `jnwb.enrich_units_dataframe(units_df, electrodes_df, *, stable_threshold=1.0, stable_labels=("good", "sua", "single", "stable", "clean"))`: Writes the geometric depth class ('Deep' / 'Superficial' / 'Unknown') to `depth_class`; no `layer` column is written, so read `depth_class`. `get_all_units_metadata` emits it the same way. `is_stable` (pandas `"boolean"` dtype) is `quality >= stable_threshold` for numeric quality and membership in `stable_labels` for text labels (the signature's values are a convention with no cited source; a bare-string `stable_labels` raises `TypeError`; an empty one, a NaN or infinite `stable_threshold`, or a column it reads that occurs twice raises `ValueError`), `<NA>` for a unit with no usable or an infinite `quality`, and absent when no unit has one; `filter_quality=True` excludes `<NA>` units.
 - `jnwb.probe_geometry(electrodes_table, *, probe_name=None, units="um", nominal_pitch=None, pitch_tolerance=0.1, strict_linear=False)`
 - `jnwb.get_all_units_metadata(nwb_paths, filter_quality=False)`
-- `jnwb.classify_unit_quality(units_df, thresholds=None)`: Flags each unit whose metric is below its threshold; `quality_class` is `'Good'`, `'Fair'`, `'Poor'` (a `quality` or `snr` failure) or `'Unknown'` (a metric missing, not a number, or absent from the frame), and `is_valid` is True only with no flag. `thresholds=None` uses `{'quality': 1.0, 'snr': 1.0, 'firing_rate': 0.1}`, a convention with no cited source, and so marks every unit of a frame without `firing_rate` `'Unknown'`. Empty `thresholds`, a NaN or infinite threshold, or a threshold column that occurs twice raises `ValueError`.
 - `jnwb.electrode_inventory(nwb_paths)`
 - `jnwb.unit_census_report(units_df, group_by=None)`: Census of units; `group_by=None` groups by `session_id`, `area` and `depth_class`, does not read a `layer` column, and emits `UserWarning` when the frame has `layer` but no `depth_class` (which `enrich_units_dataframe` supplies). It aggregates `firing_rate`, `waveform_duration` and `snr` and counts `unit_id` (or `cluster_id`), so it takes a frame as `get_all_units_metadata` builds it; a frame without those columns raises `KeyError`.
-- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5, *, stable_threshold=1.0, stable_labels=("good", "sua", "single", "stable", "clean"))`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` / `'unknown'` from quality, trial presence and SNR, reading quality by the `is_stable` rule of `enrich_units_dataframe`. A candidate (quality at or above `stable_threshold`, or a label in `stable_labels`) is `'stable'` only when presence and SNR both strictly exceed their thresholds, and `'unstable'` otherwise, including a missing presence or SNR. A non-candidate is `'mua'` only when declared so, as code 0 or the label `'mua'`; any other value (missing, infinite, -1, 0.5, `'noise'`, `'unsorted'`, a boolean, a date or a duration) is `'unknown'`. Presence and SNR are Series aligned to `quality` by unit label in any order, extra labels ignored, except when `quality` has the index `0..n-1`, which pandas gives a filter followed by `reset_index`, `head()` and `iloc[:k]` alike; those labels may be positions rather than unit labels, so aligning could pair the wrong units, and it raises: pass presence and SNR selected the same way as `quality`. They may also be arrays of its length read by position; a label of `quality` missing from them, a repeated label, a scalar, or a masked array with a masked entry raises `ValueError`, as does a NaN or infinite cut-off or an empty `stable_labels`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
-- `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
 - `jnwb.filter_by_criteria(df, criteria, *, unknown="ignore")`: Applies a criteria dict to any table. `unknown="ignore"` silently drops a criterion naming a column that is not there -- pass `unknown="raise"` when a typo must not widen the selection.
 
-Auditing a session's unit and electrode tables is routed by `jnwb-qc`.
+Auditing a session's unit and electrode tables, and unit quality (measures, classes, tiers, SNR), are routed by `jnwb-qc`.
 
 ### Compression and storage
 
