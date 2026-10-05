@@ -453,7 +453,8 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     # cross_area_coherence: every surrogate shift, drawn from rng.
     assert rows["`cross_area_coherence`"] == "every surrogate shift"
     s = np.random.default_rng(3).normal(size=(2, 4000))
-    seen = _recorded_items(monkeypatch, "jnwb.spectral", lambda: jnwb.cross_area_coherence(
+    home = jnwb.cross_area_coherence.__module__  # where it looks `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.cross_area_coherence(
         s[0], s[1], fs=1000.0, freq_bands="canonical", n_surrogates=6, rng=11))
     shifts = np.random.default_rng(11).integers(1, 4000 - 1, size=6)
     assert [int(v) for v in seen[0]] == [int(v) for v in shifts]

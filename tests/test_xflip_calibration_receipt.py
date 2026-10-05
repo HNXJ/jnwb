@@ -45,6 +45,10 @@ def _top_level(module_name):
     """Top-level functions, classes and assigned names of a jnwb module, and the names it imports
     from other jnwb modules, read from the file itself rather than through the importer."""
     path = ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+    package = module_name.rpartition(".")[0]
+    if not path.is_file():  # a package: its names are bound in its __init__
+        path = ROOT.joinpath(*module_name.split("."), "__init__.py")
+        package = module_name
     tree = ast.parse(path.read_text(encoding="utf-8"))
     defined, imports = {}, {}
     for node in tree.body:
@@ -54,8 +58,10 @@ def _top_level(module_name):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             defined.update({t.id: node for t in targets if isinstance(t, ast.Name)})
         elif isinstance(node, ast.ImportFrom):
-            if node.level == 1:
-                origin = "jnwb" + ("." + node.module if node.module else "")
+            if node.level:
+                parts = package.split(".")
+                base = ".".join(parts[: len(parts) - node.level + 1])
+                origin = base + ("." + node.module if node.module else "")
             elif node.level == 0 and (node.module or "").split(".")[0] == "jnwb":
                 origin = node.module
             else:
@@ -72,7 +78,7 @@ def _reachable_from_xflip():
     out a second time on purpose. It follows names across jnwb modules, constants included:
     the tie rule xflip counts its surrogates with lives in `jnwb.permutation`.
     """
-    home = "jnwb.laminar"
+    home = xflip.__module__  # the file that defines xflip, not the path it is imported by
     seen, reached, queue = set(), set(), [(home, "xflip")]
     while queue:
         key = queue.pop(0)

@@ -4,6 +4,7 @@ Each test pins a contract a public function violated: returning a valid-looking 
 p = 1/(n_shuffles+1), a fundamental at the first bin) where the quantity is undefined, or
 returning a result that changed with the units of the input.
 """
+import inspect
 import warnings
 
 import numpy as np
@@ -111,8 +112,9 @@ class TestSpectralSummaries:
             raise RuntimeError("simulated CUDA failure")
 
         cpu = jnwb.harmonic_analysis(TRACE, fs=FS)
-        monkeypatch.setattr(spectral, "resolve_device", lambda *a, **k: spectral.CUDA)
-        monkeypatch.setattr(spectral, "_welch_csd_gpu", boom)
+        home = inspect.getmodule(spectral.harmonic_analysis)  # where it looks names up
+        monkeypatch.setattr(home, "resolve_device", lambda *a, **k: spectral.CUDA)
+        monkeypatch.setattr(home, "_welch_csd_gpu", boom)
         with pytest.warns(RuntimeWarning, match="simulated CUDA failure"):
             fallback = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")
         assert fallback["fundamental_freq"] == cpu["fundamental_freq"]

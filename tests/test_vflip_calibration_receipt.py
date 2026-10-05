@@ -17,7 +17,6 @@ import inspect
 import json
 import pathlib
 
-from jnwb import laminar
 from jnwb.laminar import vflip
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -45,7 +44,7 @@ def _generator():
 
 def _reachable_from_vflip():
     """The closure, recomputed here rather than taken from the generator."""
-    tree = ast.parse(inspect.getsource(laminar))
+    tree = ast.parse(inspect.getsource(inspect.getmodule(vflip)))  # the file defining vflip
     defs = {
         node.name: node
         for node in tree.body

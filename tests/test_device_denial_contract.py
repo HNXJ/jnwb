@@ -304,13 +304,14 @@ class TestTheBackendDocstringCountsItsOwnCallSites:
 
         root = pathlib.Path(backend.__file__).parent
         sites, modules = 0, set()
-        for path in sorted(root.glob("*.py")):
+        for path in sorted(root.rglob("*.py")):
             if path.name == "_backend.py":
                 continue
             found = len(re.findall(r"\bresolve_device\s*\(", path.read_text("utf-8")))
             if found:
                 sites += found
-                modules.add(path.stem)
+                # a package's files count as the one module they are imported as
+                modules.add(path.relative_to(root).parts[0].removesuffix(".py"))
         return sites, len(modules)
 
     def test_the_stated_numbers_are_the_real_ones(self):

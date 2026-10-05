@@ -24,6 +24,7 @@ Every geometry is built by handing coordinates to ``jnwb.probe_geometry``; nothi
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import math
 import re
 
@@ -405,7 +406,8 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
         def fitted(*args, **kwargs):
             raise AssertionError("the fit ran")
 
-        monkeypatch.setattr(laminar, "_unit_range", fitted)  # the fit's first step
+        # patched where each caller looks the name up
+        monkeypatch.setattr(inspect.getmodule(vflip), "_unit_range", fitted)  # the fit's first step
         freqs, psd = _synthetic_motif()
         geom = self._table(self._orders()["in_order"])
         match = r"orientation='deep_to_superficial'.*depth_axis=" + re.escape(
@@ -413,7 +415,7 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
         with pytest.raises(ValueError, match=match):
             vflip(psd, freqs, probe_geometry=geom, orientation="deep_to_superficial", **declared)
         # vflip_from_lfp refuses itself, before the PSD is computed and vflip is reached.
-        monkeypatch.setattr(laminar, "vflip", fitted)
+        monkeypatch.setattr(inspect.getmodule(laminar.vflip_from_lfp), "vflip", fitted)
         lfp = np.random.default_rng(0).standard_normal((N_CONTACTS, 2000))
         with pytest.raises(ValueError, match=match):
             jnwb.vflip_from_lfp(lfp, 1000.0, probe_geometry=geom,
