@@ -115,5 +115,6 @@ assert record.provenance.version_claim_matches_execution
 - [`docs/02_paths_addressing_metadata.md`](../../docs/02_paths_addressing_metadata.md)
 - [`docs/06_spikes_psth_and_onset_dynamics.md`](../../docs/06_spikes_psth_and_onset_dynamics.md)
 - [`docs/09_decoding_and_visual_qc.md`](../../docs/09_decoding_and_visual_qc.md)
+- [`docs/unit_quality_example.md`](../../docs/unit_quality_example.md), run from `examples/notebooks/unit_quality.ipynb`
 - [`docs/architecture.md`](../../docs/architecture.md)
 - [`docs/api.md`](../../docs/api.md)
