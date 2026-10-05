@@ -34,6 +34,21 @@ Classes follow the 13-01 ruling of `artifacts/rulings/2026-10-03.md` (published 
 caller parameters; spatial derivative sharpness and flatness with a required threshold and no
 claimed source).
 
+The code named on 2026-10-04, `E:/repos/jomission`, was read at `0d39ad5f` (`main` = `origin/main`,
+2026-09-21; clean tree) and holds none of D1 to D9. Its README describes a laminar omission
+simulation built on JaxFNE; its package (`ablations`, `analysis`, `configs`, `dynamics`, `harness`,
+`network`, `paradigm`, `qualification`, `recording`, `simulation`, `tfne`, `visualization`,
+`visualize`) reads no sorted unit, waveform or curation label. Searched, case-insensitive:
+`git grep` for `presence.ratio|kilosort|curation|mirrored|peak.channel` at `HEAD`,
+`origin/dev/sci-ei-native-state-1` and `local-recovery/atlas-suite` (hits only in plot data inside
+`results/viz/*/atlas/field.html` and one gate-threshold note in `manifests/harness/inventory.json`);
+a ripgrep of every `.py` and `.md` for `mirror|is_flat|flat_wave|presence_ratio|unit_quality|curat|kilosort|waveform`
+and for `\bsnr\b|trough|peak.channel|refractory|units_df|is_stable|quality` (hits are simulation
+code: network mirroring, simulated current waveforms, ISI CV of simulated cells); and
+`git log --all` by message (`curat|unit.?quality|waveform|mirror|spike.?sort|kilosort|SNR|presence`)
+and by diff (`-G presence_ratio|is_flat|mirrored|kilosort|peak_to_trough|trough_to_peak|unit_quality|snr`),
+whose hits are simulation commits. The rows below therefore stay as recorded.
+
 | ID | Criterion | Class | jnwb now | Maps to | Parameter that makes it the caller's choice |
 |---|---|---|---|---|---|
 | D1 | Peak-channel derivative sharpness across channels | missing-generic | nothing reads channel geometry or a multichannel template | 13-03 spatial derivative sharpness | its threshold, required, and the channel geometry |
@@ -50,6 +65,7 @@ claimed source).
 
 | Item | Why open |
 |---|---|
-| D1 to D9 | read from the recorded description only; 13-02's Stop names the owner's permission to read the code, which has not been given |
+| D1 to D9 | read from the recorded description only; the code named for them, `E:/repos/jomission` at `0d39ad5f`, holds no unit curation (section B), so where the pipeline lives needs the owner |
 | D3 | its class waits on the meaning of "mirrored" in the owner's code |
+| D8 and the 13-03 docstring | the redefined duration is not in the named code, so `waveform_features` names no redefinition yet |
 | The source of F1, F2, F3, F11 and F12 defaults | none is cited in the code, its docstrings, `skills/jnwb-nwb-data/SKILL.md`, `docs/references.md`, `docs/common_mistakes.md` or `artifacts/rulings/`; filed as P-360 and P-361 |
