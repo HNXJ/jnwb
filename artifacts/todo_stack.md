@@ -11,7 +11,7 @@ edges in them are closed.
 
 Acceptance: `AGENTS.md` §11; `jnwb.__all__` and every public signature identical to 0.2.9;
 gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
-record in `artifacts/evidence/0.2.10/`.
+record in `artifacts/evidence/0.2.10/`; one command moves every version surface (10-17).
 
 Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
@@ -36,14 +36,13 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral, laminar and identity | 10-01, 10-02, 10-03, 10-04, 10-13, 10-10, 09-04 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
-| G connectivity and similarity | 10-05, 10-06, 10-11, 10-12 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking, decoding, display | 10-09, 09-08, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
-| P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
+| F spectral and laminar | 10-01, 10-02, 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
+| G connectivity and similarity | 10-05, 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
+| H statistics, spiking and decoding | 09-08, 10-16, 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| R release surfaces | 10-17 | `scripts/bump_version.py`, `tests/test_bump_version.py`, the "Releasing" section of `CONTRIBUTING.md` |
 
 10-01 opens the cycle in F; 10-05 and 10-07 start once it is merged, and H fills that gap with
-10-09 and 09-08. Question round at the opening: the B3 choice-name lexicon and the dB-lexicon
-values 09-04 reads.
+09-08 and 10-16; R runs beside them.
 
 ### 10-01 Tests find module files by import, not by path
 
@@ -110,6 +109,16 @@ Writes: `jnwb/laminar/**`, `scripts/calibrate_vflip.py`, `scripts/calibrate_xfli
 Accept: each check passes; calibration records regenerated.
 Stop: a criterion is a scientific choice with no ruling.
 
+### 10-13 No dangling references in `jnwb/`
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: 10-03, 10-04.
+Writes: `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/spectral/**`, `jnwb/laminar/**`.
+Split from 10-08, whose write set does not reach these files.
+- P-296: dangling references in `jnwb/` (`nwb_tfr_storage_spec.md`, `artifacts/benchmarks/...`) and development-history comments. Check: none left, merged with IA-29. Waits: no behavioural effect.
+Accept: each check passes.
+Stop: a fix changes shipped values without a ruling.
+
 ### 10-05 `connectivity` and `jrsa` as packages
 
 Release: deferred-0.2.10.
@@ -144,6 +153,28 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 - P-281: `test_cuda_matches_cpu` for `jrsa` compares CPU with CPU. Check: renamed or removed. Waits: no GPU path.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
+
+### 09-08 Edges of the 0.2.8 population spiking measures
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
+Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md`.
+Source: the 0.2.8 closure review of 08-11 (2026-10-03). Its trial-based noise-correlation bullet
+moved to 14-07 in 0.2.14 on 2026-10-04.
+- `fano_factor` selects `[onset + w0, onset + w1)` by absolute sum, so `onset=0.1, window_s=(0, 0.2)` counts a spike at 0.3 s (0.1 + 0.2 = 0.30000000000000004). `bin_spikes` subtracts the onset instead and excludes it; `onset_locked_counts` sums like `fano_factor`. Check: one convention, ruled, used by both through the shared helper (`AGENTS.md` §4.7), with this case as a test. Waits: the count moves only for a spike within 1 ulp of a window edge, and `fano_factor` agrees with `onset_locked_counts`, so no release check depends on it.
+- `spike_count_correlation` with exactly 2 bins returns `mean_r` from correlations that are all ±1. Check: a minimum of 3 bins, or a stated warning, by ruling. Waits: `n_bins` is returned and Pearson r of 2 points is ±1 by definition, not a wrong value.
+Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
+Stop: the window convention changes a released function's counts.
+
+### 10-16 The `vis` tests skip by name without Chrome
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
+Writes: `tests/test_vis.py`, `tests/conftest.py`.
+Found by 09-11 on 2026-10-05: with Chrome hidden, `tests/test_vis*.py` gives 73 passed and 2 errors in fixture setup (`ChromeNotFoundError` wrapped as `SessionBrowserFailed`): `test_exports_in_the_group_render_in_the_session_browser` and `test_canvas_save_and_seal_triple_export`.
+- Check: without Chrome each browser-backed test skips with a reason naming Chrome; with Chrome they run. Waits: CI and the documented install both provide Chrome; the error names the cause.
+Accept: the check observed with Chrome hidden and present.
+Stop: none.
 
 ### 10-07 `statistics` as a package
 
@@ -194,24 +225,40 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
 
-### 10-09 Display edges
+### 10-17 One command moves every version surface
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`, `tests/test_visual_qc.py`, `tests/test_viz*.py`, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `docs/vis.md`.
-- P-244: `apply_tight_auto_axis` floors y at 0, so signed data is drawn outside the axes. Check: a floor only for non-negative data. Waits: display only, stated.
-- P-313: the stability panel coerces with `astype(bool)`, so a text flag plots every unit Stable. Check: a refusal of non-boolean flags. Waits: display only.
-- P-275: the no-default-landmark test misses a `UnaryOp` default and a body fallback. Check: both fixtures. Waits: the code has neither.
-- Vis label edges: a full label in `plot_csd`'s `colorbar_title` doubles the unit; a whitespace title; the depth hover has no unit. Check: a title naming a unit refused, the hover names `depth_unit`. Waits: visibly contradictory, never silent.
-- Vis range edges: the hierarchy hover's "%" removal is unpinned; `plot_spectrolaminar_map` draws infinities as gaps; an empty `rel_power` fails in numpy. Check: a killing assertion, infinities refused, a named error. Waits: shipped hover correct.
-- P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call, a serial run exits after a failed close, the swallowed-error mutant killed, later calls fail fast. Waits: loud. Observed 2026-10-04 under xdist too: on a loaded machine a `-n 12` run of `4be1792b` hung 17 minutes in a headless Chrome child of one worker, and after that child was killed the suite reported 0 failed, so a lost export did not reach the test that made it. Whether that can make qualifying evidence falsely pass is for the closure pass to classify.
-- P-280 ribbon: `docs/vis.md:73` and the `jnwb/vis/state_space.py:34` docstring promise a ribbon that `plot_decoding_timecourse` draws only when `ci_low` and `ci_high` are given. Check: both say so. Waits: wording.
-- P-367: no test pins the `raster_psth` SEM value; a ddof=0 mutant and a mutant that drops the division by the square root of the trial count both pass all 423 tests in the 11 files that call it (found 2026-10-04 at `94334cb4`). Check: a hand-computed SEM kills both. Waits: display helper, value unchanged.
-- P-332 display part: `plot_sorted_heatmap(category_labels)` is ignored. Check: used or refused. Waits: display.
-- P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: killing tests. Waits: behaves correctly.
-- Closure pass 2026-10-05: `plot_unit_waveforms(channels="peak")` takes the largest absolute deflection while `waveform_features` takes the largest max minus min, so the drawn and the reported peak channel can differ. Check: both call one peak-channel rule (`AGENTS.md` 4.7). Waits: display only; the reported features are unchanged.
-Accept: each check passes.
-Stop: none beyond the standing ones.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/bump_version.py`, `tests/test_bump_version.py`, the "Releasing" section of `CONTRIBUTING.md`.
+Found at the 0.2.9 release (2026-10-05): the bump moved `__version__` and left `__release_date__`, the checkout version in `README.md`, the `SKILLS_URL` example in `docs/agents.md` and the import profile at 0.2.8; 9 tests failed and a repair round followed.
+- Check: `python scripts/bump_version.py X.Y.Z --date YYYY-MM-DD` rewrites every surface the version tests read, taking the list from those tests' own source of it rather than a copy, and a test fails when a surface is left behind.
+Accept: the check passes, and step 1 of "Releasing" in `CONTRIBUTING.md` names the command.
+Stop: none.
+
+# 0.2.11
+
+Theme: interpretation, routing and documentation hold: every interpretational pitfall has a
+synthetic test, every skill points to its sources and composes with the router, displays and
+documented call shapes are checked, and the identity and scientific-choice facts are held.
+
+Acceptance: `AGENTS.md` §11; the facts 10-10 and 09-04 hold use the ruled lexicons; the router
+composes the minimal skill set for each chain 07-09 tests; each published unit measure is a public
+operation by its published definition or a ruled exclusion.
+
+Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+
+## Lanes
+
+| Lane | Items, in order | Owns |
+|---|---|---|
+| Y identity facts | 10-10, 09-04 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
+| G pitfalls and skill sources | 10-11, 10-12 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
+| D display, documentation and unit measures | 10-09, 10-14, 10-15 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
+
+Question round at the opening: the B3 choice-name lexicon (10-10) and the dB-lexicon values 09-04
+reads.
 
 ### 10-10 Identity and scientific-choice facts held
 
@@ -223,6 +270,19 @@ Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.p
 - B3 lexicon and exceptions table. Check: a planted defaulted `window=` with no cited reason is VIOLATED.
 Accept: the Identity table and B3 report no UNHELD fact.
 Stop: a declaration would change a public signature without a ruling.
+
+### 09-04 Science and Skills facts held
+
+Release: deferred-0.2.10.
+AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
+- S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
+- K1 partition with k = 3 exclusive operations per shipped domain skill. Check: a two-operation planted skill is VIOLATED.
+- Planned skills, moved from the fact stack as plan (Q14): the planned set is twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` are gated on their public APIs and neither is a required endpoint: if the router can route a capability cleanly, no skill is manufactured for it. Check: each planned skill is created only when K1 and K5 hold for it.
+Accept: the Science and Skills tables report no UNHELD fact.
+Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 10-11 One synthetic test per interpretational pitfall
 
@@ -249,40 +309,46 @@ Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`
 Accept: routing rows still match signatures; the summed skill length does not grow.
 Stop: a pointer would drop a safeguard's dimension that a routing row needs.
 
-### 10-13 No dangling references in `jnwb/`
+### 10-09 Display edges
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-03, 10-04.
-Writes: `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/spectral/**`, `jnwb/laminar/**`.
-Split from 10-08, whose write set does not reach these files.
-- P-296: dangling references in `jnwb/` (`nwb_tfr_storage_spec.md`, `artifacts/benchmarks/...`) and development-history comments. Check: none left, merged with IA-29. Waits: no behavioural effect.
+Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
+Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`, `tests/test_visual_qc.py`, `tests/test_viz*.py`, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `docs/vis.md`.
+- P-244: `apply_tight_auto_axis` floors y at 0, so signed data is drawn outside the axes. Check: a floor only for non-negative data. Waits: display only, stated.
+- P-313: the stability panel coerces with `astype(bool)`, so a text flag plots every unit Stable. Check: a refusal of non-boolean flags. Waits: display only.
+- P-275: the no-default-landmark test misses a `UnaryOp` default and a body fallback. Check: both fixtures. Waits: the code has neither.
+- Vis label edges: a full label in `plot_csd`'s `colorbar_title` doubles the unit; a whitespace title; the depth hover has no unit. Check: a title naming a unit refused, the hover names `depth_unit`. Waits: visibly contradictory, never silent.
+- Vis range edges: the hierarchy hover's "%" removal is unpinned; `plot_spectrolaminar_map` draws infinities as gaps; an empty `rel_power` fails in numpy. Check: a killing assertion, infinities refused, a named error. Waits: shipped hover correct.
+- P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call, a serial run exits after a failed close, the swallowed-error mutant killed, later calls fail fast. Waits: loud. Observed 2026-10-04 under xdist too: on a loaded machine a `-n 12` run of `4be1792b` hung 17 minutes in a headless Chrome child of one worker, and after that child was killed the suite reported 0 failed, so a lost export did not reach the test that made it. Whether that can make qualifying evidence falsely pass is for the closure pass to classify.
+- P-280 ribbon: `docs/vis.md:73` and the `jnwb/vis/state_space.py:34` docstring promise a ribbon that `plot_decoding_timecourse` draws only when `ci_low` and `ci_high` are given. Check: both say so. Waits: wording.
+- P-367: no test pins the `raster_psth` SEM value; a ddof=0 mutant and a mutant that drops the division by the square root of the trial count both pass all 423 tests in the 11 files that call it (found 2026-10-04 at `94334cb4`). Check: a hand-computed SEM kills both. Waits: display helper, value unchanged.
+- P-332 display part: `plot_sorted_heatmap(category_labels)` is ignored. Check: used or refused. Waits: display.
+- P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: killing tests. Waits: behaves correctly.
+- Closure pass 2026-10-05: `plot_unit_waveforms(channels="peak")` takes the largest absolute deflection while `waveform_features` takes the largest max minus min, so the drawn and the reported peak channel can differ. Check: both call one peak-channel rule (`AGENTS.md` 4.7). Waits: display only; the reported features are unchanged.
 Accept: each check passes.
-Stop: a fix changes shipped values without a ruling.
+Stop: none beyond the standing ones.
 
-### 09-04 Science and Skills facts held
+### 10-14 A type oracle for documented call shapes
 
 Release: deferred-0.2.10.
-AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- S8 claim classes and the text check over docs, skills, figure labels and docstrings. Check: the 0.2.7 fig09 unit, planted, is VIOLATED.
-- S1, S2, S5 and S7 scans as ruled in Q13. Check: each catches its planted case.
-- K1 partition with k = 3 exclusive operations per shipped domain skill. Check: a two-operation planted skill is VIOLATED.
-- Planned skills, moved from the fact stack as plan (Q14): the planned set is twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` are gated on their public APIs and neither is a required endpoint: if the router can route a capability cleanly, no skill is manufactured for it. Check: each planned skill is created only when K1 and K5 hold for it.
-Accept: the Science and Skills tables report no UNHELD fact.
-Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
+Split from the documentation-check item on 2026-10-04, which landed every other bullet.
+- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Ruled 2026-10-04 (Hamm): an annotation oracle over literals and page-assigned names, plus a small table of argument types for names a page never assigns. Check: the oracle fails all three. Waits: the documented calls are already corrected; the oracle guards recurrence.
+- The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the gate's nav reader. Waits: no commented page exists.
+Accept: each check passes.
+Stop: the oracle needs a type that no annotation or table entry states.
 
-### 09-08 Edges of the 0.2.8 population spiking measures
+### 10-15 Four published unit measures
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md`.
-Source: the 0.2.8 closure review of 08-11 (2026-10-03). Its trial-based noise-correlation bullet
-moved to 14-07 in 0.2.14 on 2026-10-04.
-- `fano_factor` selects `[onset + w0, onset + w1)` by absolute sum, so `onset=0.1, window_s=(0, 0.2)` counts a spike at 0.3 s (0.1 + 0.2 = 0.30000000000000004). `bin_spikes` subtracts the onset instead and excludes it; `onset_locked_counts` sums like `fano_factor`. Check: one convention, ruled, used by both through the shared helper (`AGENTS.md` §4.7), with this case as a test. Waits: the count moves only for a spike within 1 ulp of a window edge, and `fano_factor` agrees with `onset_locked_counts`, so no release check depends on it.
-- `spike_count_correlation` with exactly 2 bins returns `mean_r` from correlations that are all ±1. Check: a minimum of 3 bins, or a stated warning, by ruling. Waits: `n_bins` is returned and Pearson r of 2 points is ±1 by definition, not a wrong value.
-Accept: each bullet ruled and closed with a test that fails on the 0.2.8 code.
-Stop: the window convention changes a released function's counts.
+Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
+Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
+- Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each a public operation by its published definition, or a ruled exclusion. Waits: new capability, not a defect.
+- Closure pass 2026-10-05: `refractory_contamination` says the Hill et al. (2011) derivation "is restated by Llobet et al. (2022)"; Llobet's model differs from Hill's and the sentence was not checked against the paper. Check: the sentence matches the paper, or is removed. Waits: citation wording; the computation follows Hill.
+Accept: each check passes.
+Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
 
 ### 07-08 The router composes the minimal skill set a task needs
 
@@ -308,174 +374,6 @@ Accept: each chain runs on unequal dimensions, fails on the wrong composition an
 right one; a chain correct today records its killing mutation in its docstring.
 Stop: a chain is wrong today and its repair needs a path outside `Writes`.
 Waits: new tests of new composition.
-
-### 10-14 A type oracle for documented call shapes
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
-Split from the documentation-check item on 2026-10-04, which landed every other bullet.
-- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Ruled 2026-10-04 (Hamm): an annotation oracle over literals and page-assigned names, plus a small table of argument types for names a page never assigns. Check: the oracle fails all three. Waits: the documented calls are already corrected; the oracle guards recurrence.
-- The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the gate's nav reader. Waits: no commented page exists.
-Accept: each check passes.
-Stop: the oracle needs a type that no annotation or table entry states.
-
-### 10-15 Unit-curation rows only the lab pipeline holds, and four published measures
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
-Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
-- D1, D9 and the lab meaning of D3 ("mirrored") are defined only in that pipeline. Check: each row cites its code once its owner gives access. Waits: study-specific rows; jnwb's measures are unchanged.
-- Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each a public operation by its published definition, or a ruled exclusion. Waits: new capability, not a defect.
-- Closure pass 2026-10-05: `refractory_contamination` says the Hill et al. (2011) derivation "is restated by Llobet et al. (2022)"; Llobet's model differs from Hill's and the sentence was not checked against the paper. Check: the sentence matches the paper, or is removed. Waits: citation wording; the computation follows Hill.
-Accept: each check passes.
-Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
-
-### 10-16 The `vis` tests skip by name without Chrome
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
-Writes: `tests/test_vis.py`, `tests/conftest.py`.
-Found by 09-11 on 2026-10-05: with Chrome hidden, `tests/test_vis*.py` gives 73 passed and 2 errors in fixture setup (`ChromeNotFoundError` wrapped as `SessionBrowserFailed`): `test_exports_in_the_group_render_in_the_session_browser` and `test_canvas_save_and_seal_triple_export`.
-- Check: without Chrome each browser-backed test skips with a reason naming Chrome; with Chrome they run. Waits: CI and the documented install both provide Chrome; the error names the cause.
-Accept: the check observed with Chrome hidden and present.
-Stop: none.
-
-# 0.2.11
-
-Theme: NWB reading and writing are complete: every container `inspect` lists is readable, and the
-mutation and execution APIs ship in the shape Hamm rules.
-
-Acceptance: `AGENTS.md` §11; 07-21 and 07-22 ship only in the ruled shape; each landed writer has a
-re-read test and an ambiguity refusal.
-
-Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
-
-## Lanes
-
-| Lane | Items, in order | Owns |
-|---|---|---|
-| I reading | 11-04, 11-01 | `artifacts/evidence/0.2.11/**`, `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, their tests, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md` |
-| J files and tables | 11-02, 07-05 | `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/ontology.py`, `jnwb/paths.py`, their tests, `docs/02_paths_addressing_metadata.md`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md` |
-| K new APIs | 11-05, 07-21, 07-22, 11-03 | `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `mkdocs.yml`, new modules, their tests and pages, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
-
-Question round: the four 11-04 shapes, asked when 11-04's proposal exists.
-
-### 11-01 Every container `inspect` lists is readable
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, `tests/test_nwb_inspect.py`, `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_nwb_events.py`, `tests/test_mcp_server.py`, `tests/test_io*.py`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md`.
-- P-294: `acquisition_channel` does not resolve behavior containers under `processing/`. Check: `processing/behavior/EyeTracking` reads. Waits: loud.
-- P-314: `BehavioralEvents` cannot be read by any name; `BehavioralEpochs` and ophys unprobed. Check: one table covers every container `inspect` reports. Waits: loud; same root as P-294.
-- P-303: `inspect` of an in-memory file and the file walk unwrap different container sets. Check: one unwrap rule. Waits: known types agree.
-- P-299: `inspect` reports `packaging` `direct` for wrapped containers with nested `data_path`. Check: the right label. Waits: vocabulary only.
-- P-190: a series with `timestamps` and no constant `rate` raises `AcquisitionNotFoundError`. Check: the exception class of `artifacts/evidence/0.2.8/plan/decisions.md` D8. Waits: message true; a new class is API.
-- P-204: `ContainerTypeContradictionWarning` blames the type when only the `uV` unit is wrong (78 of 96 corpus warnings). Check: a unit-scale message distinct from a type message (D8). Waits: errs toward caution.
-- P-220: an empty `session_description` group raises `ValueError` under the waiver. Check: a missingness-table row and a named error. Waits: fails loudly.
-- P-336: no test pins the `channel_conversion` length refusal. Check: a killing test. Waits: behaves correctly.
-- P-337: the unit warning names only `conversion=`, and the `starting_time` warning points at `nwb_inspect.py`. Check: both conversions named, `stacklevel` at the caller. Waits: messages true.
-- P-216 reading part: the `/acquisition` bare-name ambiguity refusal is unpinned. Check: a killing test. Waits: behaves correctly.
-- MCP signal reference edges: the reader check does not pin the channel axis; a `channel_conversion` outside the schema is reported but ignored; an infinite rate is accepted; the sweep row omits the reference tool's handler. Check: each a test or a refusal. Waits: loud or outside the schema.
-- P-289: the MCP writes-nothing test snapshots two directories, and the no-`jnwb.testing` check misses `importlib`. Check: a whole-tree snapshot and a runtime check. Waits: no current path does either.
-- P-291: `stream_npz_array` accepts `Ellipsis` on 0-d where its docstring says `TypeError`. Check: the docstring. Waits: value right.
-Accept: each check passes.
-Stop: reading a container would need to infer its meaning.
-
-### 11-02 Compression, unit tables and addressing edges
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
-- P-283: `_timestamps_fate` does arithmetic with `None` when `rate` is absent. Check: a named refusal. Waits: loud.
-- P-298: a hard-linked timestamps array is neither collapsed nor refused. Check: links resolved by object id. Waits: receipt consistent.
-- P-324: `compress_fp32(select=)` on a SoftLink writes an independent copy. Check: stated or refused. Waits: pinned.
-- P-338: a second link can open a cast irregular timestamps array. Check: refused or recorded per link. Waits: opt-in, recorded.
-- P-344: wall time rises 2.4x from 800 to 1600 series. Check: a measurement against HDF5 per-op cost. Waits: linear op count.
-- P-348: relative soft-link resolution, the soft-linked `select=` message and CUDA constant-channel NaN are unpinned. Check: tests. Waits: observed correct.
-- P-192: `enrich_units_dataframe` without `peak_channel_id` fills Unknown silently. Check: a warning and the prerequisite on the page (06-90). Waits: Unknown, not wrong.
-- P-242: `unit_census_report` drops absent grouping columns silently. Check: a warning. Waits: documented filter.
-- P-312: `compare_old_new_criteria` mishandles nullable `is_stable`. Check: nullable handled. Waits: not exported.
-- P-322: `get_all_units_metadata(filter_quality=True)` without `quality` raises where the CHANGELOG says a warning. Check: the warning. Waits: loud.
-- `classify_layer_from_depth` reads electrode z as depth with no declared shallow end. Check: D10's ruling. Waits: stated; a ruling.
-- P-216 addressing part: `VISp6a/b` splits into a spurious area. Check: a test and a fix. Waits: no corpus here carries it.
-Accept: each check passes.
-Stop: a fix would name an area vocabulary.
-
-### 07-05 A downstream paper agent can consume jnwb
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: per skill. Blocked by: 11-02.
-Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_preflight*.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
-Ruled 2026-09-25: the paper agent lives downstream; jnwb gains only what it cannot do without.
-- a. A script scores decline accuracy from `jnwb.preflight` alone: outcome, reason and missing inputs as data.
-- b. A result names its input's sha256 and object path, through `Provenance` or `Lineage` if they can carry it; IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land here.
-- c. `CONTRIBUTING.md` states the intake: a downstream miss classified as a jnwb defect enters the problem stack as a generic row with a synthetic discriminator.
-- P-335: review the omission project's laminar curation pull request (ruled 2026-09-24) against the Boundary: composable parts, cited parameter defaults, micrometres, no project vocabulary.
-Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
-Stop: a study, paradigm or DANDI id in `jnwb/`, `skills/` or `docs/`.
-Waits: new downstream capability.
-
-### 11-05 `ContainerTypeContradictionWarning` exported
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-Ruled 2026-09-29 (D8 (a)): exported.
-- P-221: `ContainerTypeContradictionWarning` is not exported. Check: exported. Waits: changes no value.
-Accept: the name is in `jnwb.__all__`; gates 5 and 9 pass.
-Stop: none beyond the standing ones.
-
-### 07-21 A public NWB mutation API
-
-Release: deferred-0.2.10.
-AUTONOMY: none until Hamm rules the set from 08-08.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-Accept: each landed operation re-reads its output and refuses an ambiguous mapping; API,
-documentation and tests land before or with any skill.
-Stop: anything that infers condition meaning, anatomy or units.
-Waits: public API; Hamm rules the shape.
-
-### 07-22 A public execution and cache API
-
-Release: deferred-0.2.10.
-AUTONOMY: none until Hamm rules the surface from 08-08.
-Role: jnwb-developer. Skill: jnwb. Blocked by: 07-21.
-Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
-Order, per the fact stack: numerical identity (08-08), then the public abstraction, then
-performance evidence, then routing.
-Accept: a cache key includes input hash, parameters and version, with an invalidation test; no
-control changes a number.
-Stop: a control would change a number.
-Waits: public API; Hamm rules the surface.
-
-### 11-03 Design facts held
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 07-22.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- D1 delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED.
-- D2 and D3 category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED.
-Accept: the Design table reports no UNHELD fact.
-Stop: a category outside the ruled allowlists would be needed.
-
-### 11-04 Proposals for the pitfall estimators
-
-Release: deferred-0.2.10.
-AUTONOMY: none for the shape; the proposal is `max`.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-11.
-Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
-Ruled 2026-09-29: all four in scope, each shape ruled before code.
-- Nonparametric Granger by spectral factorization (Wilson), for comparison with the published values. Check: the proposal names the reference, the signature and a synthetic identity against the parametric path at the true order.
-- A time-reversed Granger control for SNR asymmetry. Check: the proposal states the decision rule and its reference.
-- Partial coherence conditioned on a third signal. Check: signature and reference.
-- A bias floor for coherence and Granger from randomly paired epochs (Vezoli et al. 2021). Check: signature, the pairing scheme and its `rng`.
-Accept: Hamm rules each shape; the implementation becomes its own item with API, docs and tests before any skill row.
-Stop: public API; Hamm rules the shape.
-Waits: public API; Hamm rules the shape.
 
 # 0.2.12
 
@@ -638,12 +536,135 @@ Stop: a check needs judgement a script cannot make; it stays a review rule inste
 
 # 0.2.13
 
-Theme: figures and tutorials, then the label-fitted screen (ruled 2026-10-04): the documentation
-shows its analyses as figures, and 13-04 waits here for the collaborator's skill and a ruling.
+Theme: NWB reading and writing are complete: every container `inspect` lists is readable, and the
+mutation and execution APIs ship in the shape Hamm rules.
+
+Acceptance: `AGENTS.md` §11; 07-21 and 07-22 ship only in the ruled shape; each landed writer has a
+re-read test and an ambiguity refusal.
+
+Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+
+## Lanes
+
+| Lane | Items, in order | Owns |
+|---|---|---|
+| I reading | 11-01 | `artifacts/evidence/0.2.11/**`, `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, their tests, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md` |
+| J files and tables | 11-02, 07-05 | `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `jnwb/ontology.py`, `jnwb/paths.py`, their tests, `docs/02_paths_addressing_metadata.md`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md` |
+| K new APIs | 11-05, 07-21, 07-22, 11-03 | `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `mkdocs.yml`, new modules, their tests and pages, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
+
+Question round at the opening: the mutation set (07-21) and the execution and cache surface
+(07-22) from 08-08's proposal.
+
+### 11-01 Every container `inspect` lists is readable
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, `tests/test_nwb_inspect.py`, `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_nwb_events.py`, `tests/test_mcp_server.py`, `tests/test_io*.py`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md`.
+- P-294: `acquisition_channel` does not resolve behavior containers under `processing/`. Check: `processing/behavior/EyeTracking` reads. Waits: loud.
+- P-314: `BehavioralEvents` cannot be read by any name; `BehavioralEpochs` and ophys unprobed. Check: one table covers every container `inspect` reports. Waits: loud; same root as P-294.
+- P-303: `inspect` of an in-memory file and the file walk unwrap different container sets. Check: one unwrap rule. Waits: known types agree.
+- P-299: `inspect` reports `packaging` `direct` for wrapped containers with nested `data_path`. Check: the right label. Waits: vocabulary only.
+- P-190: a series with `timestamps` and no constant `rate` raises `AcquisitionNotFoundError`. Check: the exception class of `artifacts/evidence/0.2.8/plan/decisions.md` D8. Waits: message true; a new class is API.
+- P-204: `ContainerTypeContradictionWarning` blames the type when only the `uV` unit is wrong (78 of 96 corpus warnings). Check: a unit-scale message distinct from a type message (D8). Waits: errs toward caution.
+- P-220: an empty `session_description` group raises `ValueError` under the waiver. Check: a missingness-table row and a named error. Waits: fails loudly.
+- P-336: no test pins the `channel_conversion` length refusal. Check: a killing test. Waits: behaves correctly.
+- P-337: the unit warning names only `conversion=`, and the `starting_time` warning points at `nwb_inspect.py`. Check: both conversions named, `stacklevel` at the caller. Waits: messages true.
+- P-216 reading part: the `/acquisition` bare-name ambiguity refusal is unpinned. Check: a killing test. Waits: behaves correctly.
+- MCP signal reference edges: the reader check does not pin the channel axis; a `channel_conversion` outside the schema is reported but ignored; an infinite rate is accepted; the sweep row omits the reference tool's handler. Check: each a test or a refusal. Waits: loud or outside the schema.
+- P-289: the MCP writes-nothing test snapshots two directories, and the no-`jnwb.testing` check misses `importlib`. Check: a whole-tree snapshot and a runtime check. Waits: no current path does either.
+- P-291: `stream_npz_array` accepts `Ellipsis` on 0-d where its docstring says `TypeError`. Check: the docstring. Waits: value right.
+Accept: each check passes.
+Stop: reading a container would need to infer its meaning.
+
+### 11-02 Compression, unit tables and addressing edges
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
+- P-283: `_timestamps_fate` does arithmetic with `None` when `rate` is absent. Check: a named refusal. Waits: loud.
+- P-298: a hard-linked timestamps array is neither collapsed nor refused. Check: links resolved by object id. Waits: receipt consistent.
+- P-324: `compress_fp32(select=)` on a SoftLink writes an independent copy. Check: stated or refused. Waits: pinned.
+- P-338: a second link can open a cast irregular timestamps array. Check: refused or recorded per link. Waits: opt-in, recorded.
+- P-344: wall time rises 2.4x from 800 to 1600 series. Check: a measurement against HDF5 per-op cost. Waits: linear op count.
+- P-348: relative soft-link resolution, the soft-linked `select=` message and CUDA constant-channel NaN are unpinned. Check: tests. Waits: observed correct.
+- P-192: `enrich_units_dataframe` without `peak_channel_id` fills Unknown silently. Check: a warning and the prerequisite on the page (06-90). Waits: Unknown, not wrong.
+- P-242: `unit_census_report` drops absent grouping columns silently. Check: a warning. Waits: documented filter.
+- P-312: `compare_old_new_criteria` mishandles nullable `is_stable`. Check: nullable handled. Waits: not exported.
+- P-322: `get_all_units_metadata(filter_quality=True)` without `quality` raises where the CHANGELOG says a warning. Check: the warning. Waits: loud.
+- `classify_layer_from_depth` reads electrode z as depth with no declared shallow end. Check: D10's ruling. Waits: stated; a ruling.
+- P-216 addressing part: `VISp6a/b` splits into a spurious area. Check: a test and a fix. Waits: no corpus here carries it.
+Accept: each check passes.
+Stop: a fix would name an area vocabulary.
+
+### 07-05 A downstream paper agent can consume jnwb
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: per skill. Blocked by: 11-02.
+Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_preflight*.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
+Ruled 2026-09-25: the paper agent lives downstream; jnwb gains only what it cannot do without.
+- a. A script scores decline accuracy from `jnwb.preflight` alone: outcome, reason and missing inputs as data.
+- b. A result names its input's sha256 and object path, through `Provenance` or `Lineage` if they can carry it; IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land here.
+- c. `CONTRIBUTING.md` states the intake: a downstream miss classified as a jnwb defect enters the problem stack as a generic row with a synthetic discriminator.
+- P-335: review the omission project's laminar curation pull request (ruled 2026-09-24) against the Boundary: composable parts, cited parameter defaults, micrometres, no project vocabulary.
+Accept: a test per outcome in (a); a round trip in (b) by path and hash; gate 6 passes.
+Stop: a study, paradigm or DANDI id in `jnwb/`, `skills/` or `docs/`.
+Waits: new downstream capability.
+
+### 11-05 `ContainerTypeContradictionWarning` exported
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
+Ruled 2026-09-29 (D8 (a)): exported.
+- P-221: `ContainerTypeContradictionWarning` is not exported. Check: exported. Waits: changes no value.
+Accept: the name is in `jnwb.__all__`; gates 5 and 9 pass.
+Stop: none beyond the standing ones.
+
+### 07-21 A public NWB mutation API
+
+Release: deferred-0.2.10.
+AUTONOMY: none until Hamm rules the set from 08-08.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
+Accept: each landed operation re-reads its output and refuses an ambiguous mapping; API,
+documentation and tests land before or with any skill.
+Stop: anything that infers condition meaning, anatomy or units.
+Waits: public API; Hamm rules the shape.
+
+### 07-22 A public execution and cache API
+
+Release: deferred-0.2.10.
+AUTONOMY: none until Hamm rules the surface from 08-08.
+Role: jnwb-developer. Skill: jnwb. Blocked by: 07-21.
+Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
+Order, per the fact stack: numerical identity (08-08), then the public abstraction, then
+performance evidence, then routing.
+Accept: a cache key includes input hash, parameters and version, with an invalidation test; no
+control changes a number.
+Stop: a control would change a number.
+Waits: public API; Hamm rules the surface.
+
+### 11-03 Design facts held
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: 07-22.
+Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
+- D1 delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED.
+- D2 and D3 category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED.
+Accept: the Design table reports no UNHELD fact.
+Stop: a category outside the ruled allowlists would be needed.
+
+# 0.2.14
+
+Theme: figures and tutorials, then the estimators and screens that wait on rulings or outside
+inputs: the documentation shows its analyses as figures; the pitfall estimators are proposed and
+land in the shapes Hamm rules; 13-04 waits for the collaborator's skill, 14-08 for access to the
+lab pipeline, and 14-07 for a user who needs it.
 
 Acceptance: `AGENTS.md` §11; every figure added follows the figure style ruled 2026-10-04, comes from
-the docs generator in light and dark, and says in its caption whether it is synthetic; 13-04 lands
-in the shape Hamm rules or is deleted.
+the docs generator in light and dark, and says in its caption whether it is synthetic; 13-04 and
+14-07 land in the shape Hamm rules or are deleted.
 
 Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
@@ -653,10 +674,11 @@ while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A figures and tutorials | 14-01, 14-02, 14-03, 14-04, 14-05 | `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py` |
-| B estimators and screen | 14-06, 13-04 | `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once lane A has merged them |
+| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once lane A has merged them |
+| T trial correlation | 14-07 | `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md` |
 
-Question round at the opening: the 11-04 shapes not yet ruled, and 13-04 against the
-collaborator's skill.
+Question round at the opening: the 11-04 shapes once its proposal exists, 13-04 against the
+collaborator's skill, and whether any user needs 14-07.
 
 ### 14-01 Spectral and laminar figures
 
@@ -729,6 +751,21 @@ and xFLIP, and tutorial 09's clock table is text only.
 Accept: the figure tests, `tests/test_open_data_example.py` and `scripts/docs_form_gate.py` pass.
 Stop: a figure would need data the repository does not carry.
 
+### 11-04 Proposals for the pitfall estimators
+
+Release: deferred-0.2.10.
+AUTONOMY: none for the shape; the proposal is `max`.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-11.
+Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
+Ruled 2026-09-29: all four in scope, each shape ruled before code.
+- Nonparametric Granger by spectral factorization (Wilson), for comparison with the published values. Check: the proposal names the reference, the signature and a synthetic identity against the parametric path at the true order.
+- A time-reversed Granger control for SNR asymmetry. Check: the proposal states the decision rule and its reference.
+- Partial coherence conditioned on a third signal. Check: signature and reference.
+- A bias floor for coherence and Granger from randomly paired epochs (Vezoli et al. 2021). Check: signature, the pairing scheme and its `rng`.
+Accept: Hamm rules each shape; the implementation becomes its own item with API, docs and tests before any skill row.
+Stop: public API; Hamm rules the shape.
+Waits: public API; Hamm rules the shape.
+
 ### 14-06 The pitfall estimators Hamm rules
 
 Release: deferred-0.2.10.
@@ -758,21 +795,15 @@ required.
 Accept: the suite and harness pass; the downstream evaluation on the curated datasets is recorded downstream, with only its summary numbers in `artifacts/evidence/0.2.9/`.
 Stop: the collaborator's skill reaches a different design; both go to Hamm.
 
-# 0.2.14
+### 14-08 Unit-curation rows only the lab pipeline holds
 
-Theme: a trial-based noise correlation, only if jaxfne or a study needs it.
-
-Acceptance: `AGENTS.md` §11; the form lands only in the shape Hamm rules, or the item is deleted
-when no user needs it.
-
-Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
-
-## Lanes
-
-| Lane | Items, in order | Owns |
-|---|---|---|
-| T trial correlation | 14-07 | `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md` |
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-qc. Blocked by: access to the lab pipeline's code.
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
+Split from 10-15 on 2026-10-05 (ruled): these rows are defined only in the lab pipeline (`yihan777/alpha_beta_mechanism@826e540`), which no one here can read.
+- D1, D9 and the lab meaning of D3 ("mirrored") are defined only in that pipeline. Check: each row cites its code once its owner gives access. Waits: study-specific rows; jnwb's measures are unchanged.
+Accept: each check passes.
+Stop: none.
 
 ### 14-07 A trial-based noise correlation, if a user needs it
 
