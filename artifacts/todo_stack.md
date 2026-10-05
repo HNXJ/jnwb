@@ -40,13 +40,12 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Q unit quality | 13-06, 09-15, 13-02 | `jnwb/addressing.py` (`enrich_units_dataframe`), `jnwb/analyzers.py` (`UnitAnalyzer.quality_metrics`), `artifacts/evidence/0.2.9/**`, `jnwb/unit_quality.py` (new), `jnwb/metadata.py` quality functions, `jnwb/visual_qc.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/testing/synth.py`, their tests, the ruled skill, `skills/jnwb/SKILL.md`, `docs/agents.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `docs/references.md`, `mkdocs.yml` |
-| D docs | 09-03 | `mkdocs.yml`, `README.md`, the pages, example and docs tests 09-01 to 09-03 name, `scripts/docs_form_gate.py`, `scripts/docs_build.py` |
 | E references | 09-05, 09-06 | `docs/references.md`, the citing docstrings in `jnwb/connectivity.py`, `jnwb/spectral.py` and `jnwb/laminar.py`, `tests/test_references_resolve.py`, then `docs/common_mistakes.md` and `docs/08_directed_connectivity_and_information.md` |
 | R release | 09-09, 09-14 | `.github/workflows/workflow.yml`, the "Releasing" section of `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`; at the release step, after every other lane has merged, `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/blocker_fixpoint_receipt.md` |
 | S style | 09-11 | `README.md`, `CONTRIBUTING.md`, `docs/install.md`, `docs/documentation_form.md`, their tests |
 | V figure style | 09-13 | `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`; `examples/tutorials/09_open_data.py` and `tests/test_figure_form.py` once lane D has merged them |
 
-Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. Lane V starts once 09-03 merges, since it edits two of its files. D8 and D9 are ruled.
+Lane Q runs first; its ruling round 13-01 closed 2026-10-03 (`artifacts/rulings/2026-10-03.md`); a lane that shares a file with Q (`docs/agents.md`, `docs/references.md`, `docs/common_mistakes.md`, `mkdocs.yml`, `skills/jnwb/SKILL.md`) edits it after Q merges. D8 and D9 are ruled.
 
 Context, recorded 2026-10-01 from a working discussion. A downstream pipeline screens sorted
 units in two stages: algorithmic screens (a peak-channel derivative-sharpness check across
@@ -94,23 +93,6 @@ route them through `jnwb-qc`. The screen and its per-session agreement table mov
 - The notebook runs under `tests/test_notebooks.py`. Check: CI green on `dev`.
 Accept: the notebook executes and the docs link resolves.
 Stop: the example would need empirical data.
-
-### 09-03 One copy of each documentation check
-
-Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/docs_form_gate.py`, `scripts/docs_build.py`, `tests/test_documentation_form.py`, `tests/test_docs_form_gate.py`, `tests/test_figure_form.py`, `tests/test_docs_user_navigation.py`, `tests/test_docs_call_shapes.py`, `tests/test_docs_smoke.py`.
-- P-282: F1, F5, N1, N2, N5 and G2 are asserted twice, and the gate imports private helpers from two test modules. Check: one copy in the gate, the tests call it, and the old F1 `#####` gap is covered once.
-- P-288: the gate leaves `docs/tutorials/*.md` outside F1, F5 and F2 and misses an indented `####`. Check: both read.
-- Nav check edges: a commented wheel flag passes; `exclude_docs` compared literally; an external nav URL ending `.md` reads dead. Check: comments dropped, gitignore matching, URLs skipped.
-- P-01: `scripts/docs_build.py` writes `site/` into the tree, and the suite creates `site/` mid-run. Check: the build writes to a temporary directory and the suite leaves no `site/`.
-- IB-56: the quickstart smoke fixture seeds its own generator, so its arrays differ from the page's. Check: the fixture executes the page's setup lines.
-- P-84: the call-shape check's code half is landed; P-167's record correction and the type oracle remain. Check: merged with P-167.
-- P-167: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly. Check: a type oracle for documented call shapes (06-110) fails each.
-- Mobile-width legibility: figure text at the 343 px mobile width was not checked (lane B verifier finding, 2026-09-29). Check: the displayed-size check of `tests/test_figure_form.py` also reads 343 px. Waits: display legibility only; no number or release check reads it.
-Accept: the gate and tests share one implementation per rule; the suite leaves the tree clean.
-Stop: merging would drop a case one copy catches.
-Waits: both copies must pass today, so nothing passes falsely.
 
 ### 09-05 Method papers on the references page
 
@@ -160,11 +142,11 @@ Stop: the `pypi` environment's approval cannot run inside the tag-push run.
 ### 09-13 Docs figures follow the ruled style
 
 Release: deferred-0.2.9.
-Role: jnwb-developer. Skill: jnwb-figures. Blocked by: 09-03.
+Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/figure_style.py`, `docs/generate_figures.py`, `docs/assets/figures/**`, `examples/quickstart_jnwb.py`, `examples/figures/**`, `examples/tutorials/09_open_data.py`, `tests/test_figure_form.py`.
 Ruled 2026-10-04 (`artifacts/rulings/2026-10-04.md`, the docs figure style): Hamm's visual style,
 with the project's checks kept as gates. This item aligns `docs/figure_style.py` and regenerates the
-existing figures; new figures are 0.2.13's. 09-03 writes `examples/tutorials/09_open_data.py`
+existing figures; new figures are 0.2.13's. 09-02 and 09-03, now landed, wrote `examples/tutorials/09_open_data.py`
 and `tests/test_figure_form.py`. The departures come from a read-only figure inventory at
 `9cf0bb0f`, spot-checked at `4474cbcc`; a bare `:N` is a line of `docs/generate_figures.py`. Not
 ruled, so left as found: `examples/quickstart_jnwb.py:281` calls `subplots_adjust`, fig05 places its
@@ -184,7 +166,7 @@ Stop: a style rule conflicts with a contrast or colour-vision gate.
 
 Release: release-step-0.2.9.
 AUTONOMY: none.
-Role: actor. Skill: none. Blocked by: 13-02, 13-06, 09-03, 09-05, 09-06, 09-11, 09-13.
+Role: actor. Skill: none. Blocked by: 13-02, 13-06, 09-05, 09-06, 09-11, 09-13.
 Writes: `CHANGELOG.md`, `changelog.d/*.md`, the `__version__` line of `jnwb/__init__.py`, `artifacts/todo_stack.md`, `artifacts/blocker_fixpoint_receipt.md`.
 The last item of 0.2.9 (`artifacts/rulings/2026-10-04.md`); Hamm tags and approves publication.
 - The changelog is assembled from `changelog.d/`. Check: `scripts/assemble_changelog.py` writes the 0.2.9 section of `CHANGELOG.md`, and every fragment is in it.
@@ -481,6 +463,17 @@ Accept: each chain runs on unequal dimensions, fails on the wrong composition an
 right one; a chain correct today records its killing mutation in its docstring.
 Stop: a chain is wrong today and its repair needs a path outside `Writes`.
 Waits: new tests of new composition.
+
+### 10-14 A type oracle for documented call shapes
+
+Release: deferred-0.2.9.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
+Split from the documentation-check item on 2026-10-04, which landed every other bullet.
+- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Options graded at review: an annotation oracle over literals and page-assigned names plus a small table of argument types for unassigned names (75), or a placeholder-type table alone, which restates the annotations (40). Check: the oracle fails all three. Waits: the documented calls are already corrected; the oracle guards recurrence.
+- The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the gate's nav reader. Waits: no commented page exists.
+Accept: each check passes.
+Stop: the oracle needs a type that no annotation or table entry states.
 
 # 0.2.11
 
