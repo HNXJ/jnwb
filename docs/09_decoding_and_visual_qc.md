@@ -129,6 +129,9 @@ fig_noise = jnwb.visual_qc.plot_noise_vs_signal(units_df)
 fig_comp = jnwb.visual_qc.compare_session_quality(sessions_comparison_df)
 ```
 
+The [Unit Quality Example](unit_quality_example.md) computes the unit-quality measures on
+synthetic units and draws their waveforms down a probe with `plot_unit_waveforms`.
+
 ---
 
 ## 3. Publication Vector Graphics Standards (`jnwb.viz`)

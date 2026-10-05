@@ -102,6 +102,7 @@ nav:
       - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
       - Directed Connectivity: 08_directed_connectivity_and_information.md
       - Decoding & Unit-Quality Plots: 09_decoding_and_visual_qc.md
+      - Unit Quality Example: unit_quality_example.md
       - Representational Similarity: 03_representational_similarity_jrsa.md
       - Plotly Figures: vis.md
 
