@@ -76,9 +76,11 @@ THEME_NEUTRAL: Dict[str, str] = {
                             "file the theme header shows under both schemes",
 }
 
-#: The figure generators, relative to the root.
+#: The sources that write a figure colour, relative to the root: the figure generators and the
+#: style module that holds the palette they draw with.
 GENERATORS: Tuple[Path, ...] = (Path("docs") / "generate_figures.py",
-                                Path("examples") / "quickstart_jnwb.py")
+                                Path("examples") / "quickstart_jnwb.py",
+                                Path("docs") / "figure_style.py")
 
 #: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
 IMAGE_LINE = re.compile(r"^!\[[^\]]*\]\((assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)

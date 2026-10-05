@@ -6,8 +6,8 @@ with `#only-light` and `#only-dark`. The page-side half of G2 (every shown figur
 every fixed colour a generator writes reads on both page backgrounds) is read once, by
 `scripts/docs_form_gate.py`; this module reads the pixels and the drawn figures.
 
-Every figure the two generators draw (`docs/generate_figures.py` and `examples/quickstart_jnwb.py`)
-is drawn here in both themes and inspected as drawn:
+Every figure the documentation generators draw (`docs/generate_figures.py` and
+`examples/quickstart_jnwb.py`) is drawn here in both themes and inspected as drawn:
 
 | Check | Holds when |
 |---|---|
@@ -25,8 +25,18 @@ is drawn here in both themes and inspected as drawn:
 | computed values | every figure calls a public `jnwb` function; no reference line sits at a bare literal |
 | captions | every `jnwb.<name>` in a title is public and named in the figure's caption |
 | fits | a fit drawn over a log-log spectrum sits on the spectrum's grid, centred on it |
+| palette | every colour drawn is a series colour, the highlight, the neutral or the theme's ink, and no generator types one |
+| colour vision | the series and highlight colours drawn stay apart under deutan, protan and tritan simulation |
+| type | every text is set in Arial first and measures 8 to 11 pt |
+| spines | no axes draws a top or right spine |
+| panel letters | each panel of a multi-panel figure carries one bold letter, outside its title |
+| line widths | every data line is 1.2 to 1.8 pt, taken from the style module |
+| minus sign | no drawn text puts an ASCII hyphen where a minus belongs |
+| variables | a legend entry for a named variable has that variable's colour, in every figure |
 
-Each check is first shown to reject a figure built to break it.
+The three generators are `docs/generate_figures.py`, `examples/quickstart_jnwb.py` and
+`examples/tutorials/09_open_data.py`, the last drawn from a synthetic result. Each check is
+first shown to reject a figure built to break it.
 """
 from __future__ import annotations
 
@@ -65,9 +75,18 @@ from matplotlib.transforms import Bbox  # noqa: E402
 import jnwb  # noqa: E402
 
 DOCS = REPO_ROOT / "docs"
-GENERATORS = [REPO_ROOT / g for g in gate.GENERATORS]
-DOC_GENERATOR, QUICKSTART = GENERATORS
 STYLE_MODULE = DOCS / "figure_style.py"
+#: Every source the gate reads for a figure colour: the generators and the style module.
+GATED = [REPO_ROOT / g for g in gate.GENERATORS]
+assert STYLE_MODULE in GATED, "the gate does not read the style module"
+GENERATORS = [g for g in GATED if g != STYLE_MODULE]
+DOC_GENERATOR, QUICKSTART = GENERATORS
+TUTORIAL = REPO_ROOT / "examples" / "tutorials" / "09_open_data.py"
+#: Every file that draws a figure for the documentation or its examples.
+SOURCES = [*GENERATORS, TUTORIAL]
+_style_spec = importlib.util.spec_from_file_location("_figure_style", STYLE_MODULE)
+STYLE = importlib.util.module_from_spec(_style_spec)
+_style_spec.loader.exec_module(STYLE)
 FIGURES = sorted((DOCS / "assets" / "figures").glob("*.png")) + sorted(
     (DOCS / "assets").glob("jnwb_quickstart*.png")
 )
@@ -80,9 +99,12 @@ MAX_DIM_INK_SHARE = 0.05
 #: What each `THEMES` key colours. A key missing here fails, so a new colour is classified.
 THEME_ROLES = {
     "fg": "text", "edge": "mark", "faint": "mark",
-    "FG": "text", "FG2": "text", "FG3": "text", "BAD": "text", "TRUTH": "text",
-    "FAINT": "mark", "ACCENT": "mark",
+    "FG": "text", "FG2": "text", "FG3": "text", "FAINT": "mark",
+    "highlight": "fill",
 }
+#: The bar each role clears against its own page: text, a mark, and a fill drawn as a window or band.
+ROLE_CONTRAST = {"text": MIN_TEXT_CONTRAST, "mark": MIN_MARK_CONTRAST,
+                 "fill": gate.MIN_FIXED_CONTRAST}
 NOT_A_COLOUR = {"suffix", "stem", "formats"}
 
 #: Widths, in CSS px, at which the built site displays a figure: a topic page at a 1440 px
@@ -105,6 +127,10 @@ DIMENSIONLESS = re.compile(r"\b(ratio|index|count|fraction|score|accuracy|fold|p
 UNIT_TOKENS = {"s", "ms", "µs", "min", "Hz", "kHz", "m", "mm", "µm", "cm", "V", "mV", "µV", "dB",
                "%", "a.u.", "rad", "deg", "°", "bits", "dimensionless", "1"}
 MAX_FIT_OFFSET_DECADES = 0.05
+#: The rcParams a tick label's text is formatted under, each read when the figure is drawn.
+TICK_TEXT_RC = ("axes.unicode_minus", "axes.formatter.use_mathtext", "axes.formatter.limits",
+                "axes.formatter.useoffset", "axes.formatter.offset_threshold",
+                "axes.formatter.min_exponent", "axes.formatter.use_locale", "text.usetex")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -129,7 +155,7 @@ def _theme_contrast_failures(source: str) -> list[str]:
             if colour is None:
                 failures.append(f"{theme}.{key}: {value!r} is not a colour")
                 continue
-            need = MIN_TEXT_CONTRAST if role == "text" else MIN_MARK_CONTRAST
+            need = ROLE_CONTRAST[role]
             ratio = _contrast(colour, PAGE[theme])
             if ratio < need:
                 failures.append(f"{theme}.{key} {value} ({role}): {ratio:.2f} < {need}")
@@ -624,6 +650,9 @@ class Drawn:
     calls: dict[str, list] = field(default_factory=dict)
     rgba: np.ndarray | None = None
     exempt: list = field(default_factory=list)
+    #: The rcParams that decide the text of a tick label, as they stood when it was drawn. A
+    #: figure drawn again outside the generator's context formats its ticks under the defaults.
+    rc: dict = field(default_factory=dict)
 
     @property
     def results(self):
@@ -637,11 +666,25 @@ def _load(path: Path, name: str):
     return module
 
 
+def _load_registered(path: Path, name: str):
+    """`_load` for a module that defines dataclasses, which look their module up by name."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
 def _finish(drawn: Drawn) -> Drawn:
     """Draw now, under the rcParams the generator set, and keep the pixels and mesh extents."""
     fig = drawn.fig
     renderer = _renderer(fig)
-    drawn.rgba = np.asarray(fig.canvas.buffer_rgba()).copy()
+    drawn.rc = {key: matplotlib.rcParams[key] for key in TICK_TEXT_RC}
+    drawn.rgba =np.asarray(fig.canvas.buffer_rgba()).copy()
     drawn.exempt = [c.get_window_extent(renderer) for ax in fig.axes for c in ax.collections
                     if isinstance(c, QuadMesh)] + [im.get_window_extent(renderer)
                                                   for ax in fig.axes for im in ax.images]
@@ -710,10 +753,35 @@ def _draw_quickstart(out_dir: Path) -> dict[str, Drawn]:
     return found
 
 
+def _tutorial_result() -> dict:
+    """A synthetic result of the shape the tutorial's `analyze` returns: four layers of a PSTH
+    and band power at five contacts, one of them below zero."""
+    t_ms = np.arange(-250.0, 750.0, 10.0)
+    onset = np.where(t_ms > 0, 1.0 - np.exp(-t_ms / 80.0), 0.0)
+    layers = {f"VISpm layer {i}": {"n_units": 6 + i, "rate_hz": 5.0 + (3.0 + 2.0 * i) * onset}
+              for i in range(4)}
+    return {"psth": {"t_ms": t_ms, "layers": layers},
+            "lfp": {"db": np.array([1.2, 0.6, -0.4, 0.3, 0.8]),
+                    "depth_um": np.array([50.0, 150.0, 250.0, 350.0, 450.0]),
+                    "location": ["VISpm", "VISpm", "VISpm", "CA1", "CA1"]}}
+
+
+def _draw_tutorial() -> dict[str, Drawn]:
+    found = {}
+    with matplotlib.rc_context():
+        matplotlib.rcdefaults()
+        tutorial = _load_registered(TUTORIAL, "_tutorial_09")
+        for theme, ink in tutorial.THEMES.items():
+            found[f"{ink['stem']}.png"] = _finish(Drawn(tutorial.draw(_tutorial_result(), theme)))
+            plt.close("all")
+    return found
+
+
 @pytest.fixture(scope="module")
 def drawn(tmp_path_factory):
     generator, found = _draw_doc_figures()
     found.update(_draw_quickstart(tmp_path_factory.mktemp("quickstart")))
+    found.update(_draw_tutorial())
     found["generator"] = generator
     return found
 
@@ -728,16 +796,25 @@ def _registry():
 
 NAMES = [n for key in _registry() for n in (key, key.replace(".png", ".dark.png"))] + [
     "jnwb_quickstart.png", "jnwb_quickstart.dark.png"]
+#: The tutorial's figure, drawn from a synthetic result. It is on no page, so the checks that
+#: judge a figure as a page shows it do not read it; the style checks do.
+TUTORIAL_NAMES = ["09_open_data.png", "09_open_data.dark.png"]
+STYLE_NAMES = NAMES + TUTORIAL_NAMES
 
 #: Figures that still fail a check, by check and figure, with what is wrong. A listed figure that
 #: starts to pass fails the suite, so the entry is removed with the repair.
 AWAITING: dict[tuple[str, str], str] = {}
 
 #: Every embed fails the mobile-width check for one reason: the shared style sets the smallest
-#: text at 7.5 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.0 px. The
-#: embeds are listed one by one so that a new embed is judged and not waved through.
-_MOBILE_TEXT_TOO_SMALL = ("smallest text renders at 5.0 px at 343 px (7.5 pt, 7.2 in figure); "
-                          "needs a figure style that holds 9 px at that width")
+#: text at 8 pt in a 7.2 in figure, and a figure scaled to 343 px renders it at 5.3 px. The ruled
+#: text range tops out at 11 pt, which renders at 7.3 px there, so the range cannot reach 9 px
+#: at that width: the figure width would have to fall below 5.8 in. The embeds are listed one
+#: by one so that a new embed is judged and not waved through.
+_MOBILE_TEXT_TOO_SMALL = (
+    f"smallest text renders at {_displayed_px(STYLE.SMALL, STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px "
+    f"at {MOBILE_WIDTH_PX} px ({STYLE.SMALL:.0f} pt, {STYLE.WIDTH:.1f} in figure); the largest "
+    f"ruled size, {STYLE.TEXT_RANGE_PT[1]:.0f} pt, renders at "
+    f"{_displayed_px(STYLE.TEXT_RANGE_PT[1], STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px")
 AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO_SMALL for embed in (
     "02_paths_addressing_metadata.md:fig01_addressing_laminar.png",
     "04_spectral_analysis_and_tfr.md:fig04_psd_spectral_tilt.png",
@@ -846,7 +923,7 @@ def test_every_embed_is_inspected():
 
 @pytest.mark.parametrize("generator", [pytest.param(g, id=g.name, marks=[pytest.mark.xfail(
     strict=True, reason=AWAITING[("theme contrast", g.name)])] if ("theme contrast", g.name) in AWAITING
-    else []) for g in GENERATORS])
+    else []) for g in GATED])
 def test_every_theme_colour_reads_on_its_own_page(generator):
     failures = _theme_contrast_failures(generator.read_text(encoding="utf-8"))
     assert not failures, f"{generator.name}: {failures}"
@@ -1310,9 +1387,14 @@ def test_the_fit_check_catches_a_fit_of_another_spectrum():
 # Content of three figures
 
 
+def _title(ax) -> str:
+    """The panel title wherever it is aligned: the left, centre and right titles, joined."""
+    return " ".join(ax.get_title(loc=loc) for loc in ("left", "center", "right")).strip()
+
+
 def _axes_titled(fig, needle):
-    matches = [ax for ax in fig.axes if needle in ax.get_title()]
-    assert len(matches) == 1, [ax.get_title() for ax in fig.axes]
+    matches = [ax for ax in fig.axes if needle in _title(ax)]
+    assert len(matches) == 1, [_title(ax) for ax in fig.axes]
     return matches[0]
 
 
@@ -1320,15 +1402,15 @@ def test_the_depth_class_panel_does_not_call_its_class_a_layer(drawn):
     # `classify_layer_from_depth` returns a geometric depth class; the function's name is the
     # only place the word may appear.
     ax = _axes_titled(drawn["fig01_addressing_laminar.png"].fig, "classify_layer_from_depth")
-    words = ax.get_title().replace("classify_layer_from_depth", "").lower()
-    assert "layer" not in words and "cortical" not in words, ax.get_title()
+    words = _title(ax).replace("classify_layer_from_depth", "").lower()
+    assert "layer" not in words and "cortical" not in words, _title(ax)
 
 
 def test_the_power_law_line_is_the_fit_of_the_spectrum_under_it(drawn):
     """The fit line is the least-squares power law of the drawn spectrum over the fit's own
     bins, those bins start above the synthetic rhythm (the fit removes no peaks), and the slope
     in its label is that fit's slope."""
-    ax = _axes_titled(drawn["fig04_psd_spectral_tilt.png"].fig, "B.")
+    ax = _axes_titled(drawn["fig04_psd_spectral_tilt.png"].fig, "aperiodic_fit")
     lines = {line.get_label().split(":")[0]: line for line in ax.get_lines()}
     psd_f, psd = (np.asarray(v, float) for v in lines["Welch PSD"].get_data())
     fit_f, fit = (np.asarray(v, float) for v in lines["Power-law fit"].get_data())
@@ -1339,7 +1421,8 @@ def test_the_power_law_line_is_the_fit_of_the_spectrum_under_it(drawn):
     slope, intercept = np.polyfit(np.log10(fit_f), np.log10(at), 1)
     offset = np.max(np.abs(np.log10(fit) - (intercept + slope * np.log10(fit_f))))
     assert offset < 1e-6, f"the fit line is {offset:.3f} decades from the drawn spectrum's fit"
-    printed = float(re.search(r"slope\s*=\s*(-?\d+\.\d+)", lines["Power-law fit"].get_label()).group(1))
+    shown = re.search(r"slope\s*=\s*([-−]?\d+\.\d+)", lines["Power-law fit"].get_label()).group(1)
+    printed = float(shown.replace(TRUE_MINUS, "-"))
     assert printed == pytest.approx(slope, abs=0.005), (printed, slope)
 
 
@@ -1396,3 +1479,464 @@ def test_the_psi_axis_carries_no_phase_slope_unit(drawn):
     ax = _axes_titled(drawn["fig09_directed_connectivity.png"].fig, "phase_slope_index")
     label = ax.get_ylabel()
     assert "rad" not in label and "Hz" not in label, label
+
+
+# ---------------------------------------------------------------------------------------------
+# The docs figure style. The checks read the drawn figure, since a
+# default that no one set (the colour cycle, the font family) draws without a literal in any
+# source; the palette and the line widths are also read in the source, so a generator cannot
+# type its own.
+
+from matplotlib.collections import Collection, LineCollection  # noqa: E402
+from matplotlib.font_manager import weight_dict  # noqa: E402
+from matplotlib.lines import Line2D  # noqa: E402
+from matplotlib.patches import Patch  # noqa: E402
+
+#: The ruled values. `figure_style.py` is the one place a figure takes them from, and this is
+#: the one place the suite spells them out.
+RULED_SERIES = ("#1565c0", "#ff9800", "#00acc1", "#e53935")
+RULED_HIGHLIGHT_DARK = "#cfb87c"
+RULED_TEXT_PT = (8.0, 11.0)
+RULED_LINE_PT = (1.2, 1.8)
+TRUE_MINUS = "−"
+#: An ASCII hyphen where a minus belongs: before a digit, and not after a character that makes it
+#: a range ("0-7") or a compound.
+ASCII_MINUS = re.compile(r"(?<![\w)\]-])-(?=\d)")
+#: Colour-vision distance (CIE76 ΔE) the drawn colours keep: among the series and highlight, and
+#: between the neutral and any of them.
+MIN_CVD_DELTA_E = 20.0
+MIN_CVD_NEUTRAL_DELTA_E = 15.0
+#: Named variables and the legend labels that name them, one pattern each.
+VARIABLE_LABELS = {
+    "observed": r"^(observed|raw)\b",
+    "truth": r"^(ground truth|true)\b",
+    "fitted": r"\bfit(ted)?\b",
+    "smoothed": r"^causal",
+    "baseline": r"^majority baseline",
+}
+WIDTH_KEYS = {"lw", "linewidth", "linewidths"}
+
+
+def _rgb_hex(colours) -> set[str]:
+    """The visible colours of anything `to_rgba_array` reads, as lower-case hex without alpha."""
+    rgba = mcolors.to_rgba_array(colours)
+    return {mcolors.to_hex(row[:3]) for row in rgba if row[3] > 0}
+
+
+def _drawn_colours(fig) -> dict[str, list[str]]:
+    """Every colour the canvas paints with, from lines, markers, patches, collections and text,
+    each with what drew it. Meshes and images are colour-mapped data and are not read."""
+    _renderer(fig)
+    found: dict[str, list[str]] = {}
+
+    def add(colours, what):
+        for colour in _rgb_hex(colours):
+            found.setdefault(colour, []).append(what)
+
+    for line in fig.findobj(Line2D):
+        if not line.get_visible():
+            continue
+        what = f"line {line.get_label()!r}"
+        if line.get_linestyle() not in ("None", "", " "):
+            add([line.get_color()], what)
+        if line.get_marker() not in (None, "None", "", " "):
+            add([line.get_markerfacecolor(), line.get_markeredgecolor()], what)
+    for patch in fig.findobj(Patch):
+        if patch.get_visible():
+            what = f"patch {patch.get_label()!r}"
+            if patch.get_fill():
+                add([patch.get_facecolor()], what)
+            if patch.get_linewidth() > 0:
+                add([patch.get_edgecolor()], what)
+    for collection in fig.findobj(Collection):
+        if collection.get_visible() and not isinstance(collection, QuadMesh):
+            what = f"collection {collection.get_label()!r}"
+            add(collection.get_facecolor(), what)
+            if np.any(np.asarray(collection.get_linewidth()) > 0):
+                add(collection.get_edgecolor(), what)
+    for text in _drawn_texts(fig):
+        add([text.get_color()], f"text {text.get_text()!r}")
+    return found
+
+
+def _ink(name: str) -> set[str]:
+    """The ink colours of the theme `name` is drawn in, read from its generator's `THEMES`."""
+    source = (DOC_GENERATOR if name.startswith("fig") else QUICKSTART if name.startswith("jnwb_")
+              else TUTORIAL).read_text(encoding="utf-8")
+    table = ast.literal_eval(_themes_node(ast.parse(source)))
+    colours = table["dark" if ".dark" in name else "light"]
+    return {mcolors.to_hex(v) for k, v in colours.items() if k not in NOT_A_COLOUR}
+
+
+def _palette_strays(fig, ink: set[str], theme: str) -> list[str]:
+    """Colours drawn that are no series, no neutral, not `theme`'s highlight and not its ink."""
+    allowed = {mcolors.to_hex(c) for c in (*STYLE.SERIES, STYLE.HIGHLIGHT[theme], STYLE.NEUTRAL)} | ink
+    return [f"{colour} by {drew[0]}" for colour, drew in sorted(_drawn_colours(fig).items())
+            if colour not in allowed]
+
+
+def _colour_literals(source: str) -> list[str]:
+    """A colour typed into a figure source outside its `THEMES` table."""
+    tree = ast.parse(source)
+    table = _themes_node(tree)
+    in_table = {id(n) for n in ast.walk(table)} if table is not None else set()
+    in_argument = {id(n) for kw in ast.walk(tree) if isinstance(kw, ast.keyword)
+                   and kw.arg in gate.COLOUR_ARGUMENTS for n in ast.walk(kw.value)}
+    return [f"line {n.lineno}: {n.value}" for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in in_table
+            and _hex(n.value, id(n) in in_argument) is not None]
+
+
+def _width_literals(source: str) -> list[str]:
+    """A line width typed into a figure source: anything but the style module's, or zero."""
+    tree = ast.parse(source)
+    modules, names = _style_aliases(tree)
+    return [f"line {kw.value.lineno}: {kw.arg}={ast.unparse(kw.value)}" for kw in ast.walk(tree)
+            if isinstance(kw, ast.keyword) and kw.arg in WIDTH_KEYS
+            and not (isinstance(kw.value, ast.Constant) and kw.value.value == 0)
+            and not _from_style(kw.value, modules, names)]
+
+
+_CVD = {  # Machado, Oliveira and Fernandes (2009), severity 1.0, applied in linear sRGB
+    "deutan": [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413],
+               [-0.011820, 0.042940, 0.968881]],
+    "protan": [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216],
+               [-0.003882, -0.048116, 1.051998]],
+    "tritan": [[1.255528, -0.076749, -0.178779], [-0.078411, 0.930809, 0.147602],
+               [0.004733, 0.691367, 0.303900]],
+}
+_XYZ = np.array([[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.0721750],
+                 [0.0193339, 0.1191920, 0.9503041]])
+_WHITE = np.array([0.95047, 1.0, 1.08883])
+
+
+def _lab(rgb: np.ndarray) -> np.ndarray:
+    xyz = _XYZ @ rgb / _WHITE
+    f = np.where(xyz > 216 / 24389, np.cbrt(xyz), (24389 / 27 * xyz + 16) / 116)
+    return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
+
+
+def _delta_e(a: str, b: str, kind: str) -> float:
+    """CIE76 distance between two colours as a viewer with the `kind` deficiency sees them."""
+    def seen(colour):
+        rgb = np.array(mcolors.to_rgb(colour))
+        lin = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+        lin = np.clip(np.array(_CVD[kind]) @ lin, 0.0, 1.0)
+        return _lab(lin)
+    return float(np.linalg.norm(seen(a) - seen(b)))
+
+
+def _cvd_failures(colours, marks=(*STYLE.SERIES, *STYLE.HIGHLIGHT.values())) -> list[str]:
+    """Pairs of the `marks` colours among `colours`, and the neutral against them, that two
+    viewers of a colour-vision deficiency cannot tell apart."""
+    colours = {mcolors.to_hex(c) for c in colours}
+    marks = sorted(colours & {mcolors.to_hex(c) for c in marks})
+    neutral = mcolors.to_hex(STYLE.NEUTRAL)
+    hits = []
+    for kind in _CVD:
+        for i, a in enumerate(marks):
+            for b in marks[i + 1:]:
+                if (d := _delta_e(a, b, kind)) < MIN_CVD_DELTA_E:
+                    hits.append(f"{a} and {b} are {d:.1f} apart under {kind}")
+            if neutral in colours and (d := _delta_e(a, neutral, kind)) < MIN_CVD_NEUTRAL_DELTA_E:
+                hits.append(f"{a} and the neutral are {d:.1f} apart under {kind}")
+    return hits
+
+
+def _text_size_failures(fig, bounds=RULED_TEXT_PT) -> list[str]:
+    _renderer(fig)
+    return [f"{t.get_text()!r} is {t.get_fontsize():g} pt" for t in _drawn_texts(fig)
+            if not bounds[0] <= t.get_fontsize() <= bounds[1]]
+
+
+def _font_failures(fig) -> list[str]:
+    _renderer(fig)
+    return [f"{t.get_text()!r} is set in {t.get_fontfamily()}" for t in _drawn_texts(fig)
+            if t.get_fontfamily()[0] != "Arial"]
+
+
+def _spine_failures(fig) -> list[str]:
+    return [f"axes {i} draws its {side} spine" for i, ax in enumerate(fig.axes)
+            for side in ("top", "right") if ax.spines[side].get_visible()]
+
+
+def _is_bold(text) -> bool:
+    weight = text.get_fontweight()
+    return (weight_dict.get(weight, 400) if isinstance(weight, str) else weight) >= 700
+
+
+def _panel_axes(fig) -> list:
+    """The axes that are panels: those that are no colorbar."""
+    bars = {m.colorbar.ax for ax in fig.axes for m in (*ax.collections, *ax.images)
+            if getattr(m, "colorbar", None) is not None}
+    return [ax for ax in fig.axes if ax not in bars and ax.get_label() != "<colorbar>"]
+
+
+def _panel_letter_failures(fig) -> list[str]:
+    """One bold capital per panel of a multi-panel figure, in order, outside every title."""
+    renderer = _renderer(fig)
+    axes = _panel_axes(fig)
+    if len(axes) < 2:
+        return []
+    letters = [t for t in _drawn_texts(fig) if re.fullmatch(r"[A-Z]", t.get_text()) and _is_bold(t)]
+    want = [chr(ord("A") + i) for i in range(len(axes))]
+    hits = []
+    if sorted(t.get_text() for t in letters) != want:
+        hits.append(f"bold letters {sorted(t.get_text() for t in letters)}, wanted {want}")
+        return hits
+    titles = {ax.get_title(loc=loc) for ax in axes for loc in ("left", "center", "right")} - {""}
+    title_texts = [t for t in fig.findobj(Text) if t.get_text() in titles and t.get_visible()]
+    for i, ax in enumerate(axes):
+        if re.match(r"[A-Z][.:)]?\s", _title(ax)):
+            hits.append(f"the title {_title(ax)!r} carries its own letter")
+        corner = ax.get_window_extent(renderer)
+        nearest = min(letters, key=lambda t: np.hypot(t.get_window_extent(renderer).x1 - corner.x0,
+                                                      t.get_window_extent(renderer).y0 - corner.y1))
+        if nearest.get_text() != want[i]:
+            hits.append(f"axes {i} is lettered {nearest.get_text()}, wanted {want[i]}")
+    for letter in letters:
+        box = letter.get_window_extent(renderer)
+        hits += [f"letter {letter.get_text()} sits inside the title {t.get_text()!r}"
+                 for t in title_texts if _area(box, t.get_window_extent(renderer)) > 0]
+    return hits
+
+
+def _line_width_failures(fig, bounds=RULED_LINE_PT) -> list[str]:
+    hits = []
+    for i, ax in enumerate(fig.axes):
+        if ax not in _panel_axes(fig):
+            continue
+        for line in ax.get_lines():
+            if line.get_visible() and line.get_linestyle() not in ("None", "", " "):
+                if not bounds[0] <= line.get_linewidth() <= bounds[1]:
+                    hits.append(f"axes {i} line {line.get_label()!r} is {line.get_linewidth():g} pt")
+        for c in ax.collections:
+            if type(c) is LineCollection:
+                for w in np.unique(np.asarray(c.get_linewidth(), float)):
+                    if not bounds[0] <= w <= bounds[1]:
+                        hits.append(f"axes {i} line collection is {w:g} pt")
+    return hits
+
+
+def _ascii_minus_failures(fig, rc=None) -> list[str]:
+    """Texts with an ASCII hyphen as a minus, the tick labels formatted under `rc`. Mathtext is
+    not read: it sets a hyphen as a minus sign, which is how a log axis writes `10^{-5}`."""
+    with matplotlib.rc_context(rc or {}):
+        _renderer(fig)
+        return [t.get_text() for t in _drawn_texts(fig)
+                if ASCII_MINUS.search(re.sub(r"\$[^$]*\$", "", t.get_text()))]
+
+
+def _legend_colour(handle) -> str | None:
+    """The colour a legend handle shows: a line's, or a patch's fill."""
+    if isinstance(handle, Line2D):
+        return mcolors.to_hex(handle.get_color())
+    if isinstance(handle, Patch):
+        return mcolors.to_hex(handle.get_facecolor() if handle.get_fill() else handle.get_edgecolor())
+    return None
+
+
+def _variable_entries(fig) -> dict[str, list[str]]:
+    """Each named variable's legend entries in `fig`, as the hex colour each is drawn in."""
+    found: dict[str, list[str]] = {name: [] for name in VARIABLE_LABELS}
+    for legend in _legends(fig):
+        for handle, text in zip(legend.legend_handles, legend.get_texts()):
+            for name, pattern in VARIABLE_LABELS.items():
+                if re.search(pattern, text.get_text().strip(), re.I) and _legend_colour(handle):
+                    found[name].append(_legend_colour(handle))
+    return found
+
+
+def _variable_failures(fig) -> list[str]:
+    return [f"{name} is {colour}, not {STYLE.VARIABLE[name]}" for name, colours in
+            _variable_entries(fig).items() for colour in colours
+            if colour != mcolors.to_hex(STYLE.VARIABLE[name])]
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_every_colour_drawn_is_a_palette_colour_or_the_ink(drawn, name):
+    strays = _palette_strays(drawn[name].fig, _ink(name), "dark" if ".dark" in name else "light")
+    assert not strays, f"{name}: {strays}"
+
+
+@pytest.mark.parametrize("source", SOURCES, ids=lambda p: p.name)
+def test_no_figure_source_types_a_colour(source):
+    hits = _colour_literals(source.read_text(encoding="utf-8"))
+    assert not hits, f"{source.name}: {hits}"
+
+
+def test_the_style_module_holds_the_ruled_palette():
+    assert tuple(STYLE.SERIES) == RULED_SERIES, STYLE.SERIES
+    assert STYLE.HIGHLIGHT["dark"] == RULED_HIGHLIGHT_DARK, STYLE.HIGHLIGHT
+    assert tuple(STYLE.TEXT_RANGE_PT) == RULED_TEXT_PT and tuple(STYLE.LINE_RANGE_PT) == RULED_LINE_PT
+    assert set(STYLE.VARIABLE) == set(VARIABLE_LABELS), "a named variable has no legend pattern"
+    assert set(STYLE.VARIABLE.values()) <= {*STYLE.SERIES, STYLE.NEUTRAL}
+    sizes = (STYLE.SMALL, STYLE.LABEL, STYLE.TITLE, STYLE.LETTER)
+    assert all(RULED_TEXT_PT[0] <= s <= RULED_TEXT_PT[1] for s in sizes), sizes
+    widths = (STYLE.LW_THIN, STYLE.LW, STYLE.LW_THICK)
+    assert all(RULED_LINE_PT[0] <= w <= RULED_LINE_PT[1] for w in widths), widths
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_the_drawn_colours_stay_apart_under_colour_vision_deficiency(drawn, name):
+    hits = _cvd_failures(_drawn_colours(drawn[name].fig))
+    assert not hits, f"{name}: {hits}"
+
+
+def test_the_palette_stays_apart_under_colour_vision_deficiency():
+    for theme, highlight in STYLE.HIGHLIGHT.items():
+        assert not _cvd_failures([*STYLE.SERIES, highlight, STYLE.NEUTRAL]), theme
+
+
+def test_the_light_highlight_is_the_dark_one_darkened_to_the_fixed_colour_bar():
+    """On the light page #cfb87c reads 1.94, under the bar for a fixed colour. The light theme
+    draws the same hue, as dark as the bar needs and no darker."""
+    import colorsys
+
+    dark, light = (colorsys.rgb_to_hls(*mcolors.to_rgb(STYLE.HIGHLIGHT[t])) for t in ("dark", "light"))
+    assert abs(dark[0] - light[0]) * 360 < 1.0, "the light highlight is another hue"
+    assert light[1] < dark[1], "the light highlight is not darker"
+    ratio = _contrast(_hex(STYLE.HIGHLIGHT["light"]), PAGE["light"])
+    assert gate.MIN_FIXED_CONTRAST <= ratio < gate.MIN_FIXED_CONTRAST + 0.05, ratio
+    assert _contrast(_hex(STYLE.HIGHLIGHT["dark"]), PAGE["light"]) < gate.MIN_FIXED_CONTRAST
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_every_text_is_set_in_arial_first(drawn, name):
+    hits = _font_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits[:5]}"
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_every_text_measures_8_to_11_pt(drawn, name):
+    hits = _text_size_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits[:5]}"
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_no_axes_draws_a_top_or_right_spine(drawn, name):
+    hits = _spine_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits}"
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_each_panel_carries_one_bold_letter_outside_its_title(drawn, name):
+    hits = _panel_letter_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits}"
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_every_data_line_is_1_2_to_1_8_pt(drawn, name):
+    hits = _line_width_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits}"
+
+
+@pytest.mark.parametrize("source", SOURCES, ids=lambda p: p.name)
+def test_no_figure_source_types_a_line_width(source):
+    hits = _width_literals(source.read_text(encoding="utf-8"))
+    assert not hits, f"{source.name}: {hits}"
+
+
+@pytest.mark.parametrize("name", STYLE_NAMES)
+def test_no_drawn_text_uses_a_hyphen_for_a_minus(drawn, name):
+    hits = _ascii_minus_failures(drawn[name].fig, drawn[name].rc)
+    assert not hits, f"{name}: {hits}"
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_a_named_variable_has_one_colour_in_every_legend(drawn, name):
+    hits = _variable_failures(drawn[name].fig)
+    assert not hits, f"{name}: {hits}"
+
+
+def test_every_named_variable_is_drawn_by_the_documentation_figures_and_the_quickstart(drawn):
+    """The variable check reads legends, so it is vacuous for a variable no legend names: each
+    one is named in a documentation figure and in the quickstart."""
+    for name, patterns in {"docs": [n for n in NAMES if n.startswith("fig")],
+                           "quickstart": ["jnwb_quickstart.png"]}.items():
+        seen = {v for n in patterns for v, colours in _variable_entries(drawn[n].fig).items() if colours}
+        assert seen == set(VARIABLE_LABELS), f"{name} names only {sorted(seen)}"
+
+
+def test_the_tutorial_figure_comes_in_light_and_dark_and_takes_its_style(drawn, tmp_path):
+    tutorial = _load_registered(TUTORIAL, "_tutorial_09_plot")
+    with matplotlib.rc_context():
+        paths = tutorial.plot(_tutorial_result(), tmp_path)
+    assert [p.name for p in paths] == ["09_open_data.dark_page1.png", "09_open_data_page1.png"]
+    import matplotlib.image as mpimg
+
+    light, dark = (mpimg.imread(tmp_path / n) for n in ("09_open_data_page1.png",
+                                                       "09_open_data.dark_page1.png"))
+    assert light.shape[2] == dark.shape[2] == 4 and not np.array_equal(light, dark)
+    assert not _style_violations(TUTORIAL.read_text(encoding="utf-8"))
+    assert not _theme_contrast_failures(TUTORIAL.read_text(encoding="utf-8"))
+    for name in TUTORIAL_NAMES:
+        item = drawn[name]
+        theme = "dark" if ".dark" in name else "light"
+        assert _dim_ink_share(item.rgba, PAGE[theme], item.exempt) <= MAX_DIM_INK_SHARE, name
+
+
+def test_the_style_checks_catch_their_cases():
+    # Each departure the ruling names, built under the plain defaults, is flagged; the same
+    # figure under the style module is not.
+    with matplotlib.rc_context():
+        matplotlib.rcdefaults()
+        fig, (a, b) = plt.subplots(1, 2)
+        a.plot([0, 1], [0, 1], color="#7048e8", lw=0.7, label="Raw")
+        b.plot([0, 1], [0, -1], lw=2.0)
+        a.set_title("A. both panels in one title")
+        a.text(0.5, 0.5, "-0.5 and 10-40 Hz", fontsize=7.0)
+        b.text(0.5, 0.2, "twelve", fontsize=12.0)
+        a.legend()
+        assert _palette_strays(fig, {"#2d2d2d"}, "light"), "a palette colour was not read"
+        assert _spine_failures(fig) == ["axes 0 draws its top spine", "axes 0 draws its right spine",
+                                        "axes 1 draws its top spine", "axes 1 draws its right spine"]
+        assert len(_line_width_failures(fig)) == 2
+        assert len(_text_size_failures(fig)) >= 2
+        assert _font_failures(fig), "a DejaVu text passed for Arial"
+        assert _panel_letter_failures(fig), "a figure with no letters passed"
+        assert _ascii_minus_failures(fig) == ["-0.5 and 10-40 Hz"]
+        assert _variable_failures(fig), "a Raw entry in a non-observed colour passed"
+        plt.close(fig)
+    with matplotlib.rc_context():
+        matplotlib.rcdefaults()
+        STYLE.apply()
+        fig, (a, b) = plt.subplots(1, 2)
+        a.plot([0, 1], [0, 1], color=STYLE.VARIABLE["observed"], lw=STYLE.LW, label="Raw")
+        b.plot([0, 1], [0, -1], lw=STYLE.LW_THICK)
+        STYLE.panel_title(a, "A", "left")
+        STYLE.panel_title(b, "B", "right")
+        a.text(0.5, 0.5, f"{STYLE.num(-0.5)} and 10-40 Hz", fontsize=STYLE.SMALL)
+        a.legend(frameon=False)
+        for failures in (_spine_failures, _line_width_failures, _text_size_failures,
+                         _font_failures, _panel_letter_failures, _ascii_minus_failures,
+                         _variable_failures):
+            assert not failures(fig), (failures.__name__, failures(fig))
+        assert not _palette_strays(fig, _rgb_hex(["#2d2d2d", "#8a8a8a"]) | {"#000000"}, "light")
+        plt.close(fig)
+        fig, ax = plt.subplots()
+        ax.axvspan(0, 1, color=STYLE.HIGHLIGHT["dark"])
+        assert _palette_strays(fig, set(), "light"), "the dark highlight passed on the light theme"
+        assert not [s for s in _palette_strays(fig, set(), "dark") if "cfb87c" in s]
+        plt.close(fig)
+    with matplotlib.rc_context({"axes.unicode_minus": False}):
+        fig, ax = plt.subplots()
+        ax.plot([-2, -1], [-2, -1])
+        _renderer(fig)
+        held = {key: matplotlib.rcParams[key] for key in TICK_TEXT_RC}
+    assert _ascii_minus_failures(fig, held), "ASCII-minus tick labels passed"
+    assert not _ascii_minus_failures(fig), "a redraw under the defaults is not the drawn figure"
+    plt.close(fig)
+    assert _colour_literals('ax.plot(x, color="#7048e8")\nax.text(0, 0, "a", color="tab:blue")\n')
+    assert not _colour_literals('THEMES = {"light": {"fg": "#2d2d2d"}}\nax.plot(x, color=style.SERIES[0])\n')
+    literal = "import figure_style as style\nax.plot(x, lw=0.7)\nax.plot(x, lw=style.LW)\nax.fill(x, lw=0)\n"
+    assert _width_literals(literal) == ["line 2: lw=0.7"]
+    assert _ascii_minus_failures_in("(-3)") and not _ascii_minus_failures_in("0-7 and well-known")
+    # The pair this check was written against: a red, a gold and a green at 13.5 to 15.1 apart.
+    old = ["#d9534f", "#c3aa5f", "#2e7d32"]
+    assert len(_cvd_failures(old, marks=old)) >= 2, "the old red, gold and green passed"
+    assert not _cvd_failures(list(STYLE.SERIES))
+
+
+def _ascii_minus_failures_in(text: str) -> list[str]:
+    return [text] if ASCII_MINUS.search(text) else []

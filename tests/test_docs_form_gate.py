@@ -126,6 +126,7 @@ def tree(tmp_path: Path) -> Path:
         (tmp_path / "docs" / "assets" / asset).write_bytes(b"\x89PNG")
     _write(tmp_path / "docs" / "generate_figures.py", GENERATOR)
     _write(tmp_path / "examples" / "quickstart_jnwb.py", GENERATOR)
+    _write(tmp_path / "docs" / "figure_style.py", GENERATOR)
     _write(tmp_path / "mkdocs.yml", MKDOCS)
     return tmp_path
 
@@ -220,6 +221,10 @@ SEEDS = {
         "figure theme independence",
         _append("docs/generate_figures.py", '\n\ndef bad(ax, x):\n    ax.plot(x, color="#000000")\n'),
         "docs/generate_figures.py"),
+    "fixed color outside the theme table of the style module": (
+        "figure theme independence",
+        _append("docs/figure_style.py", '\nHIGHLIGHT = "#cfb87c"\n'),
+        "docs/figure_style.py"),
     "three parallel facts in a paragraph": (
         "parallel facts",
         _append(PAGE_A, "\n`alpha` returns a float, `beta` returns an array, and `gamma` "
