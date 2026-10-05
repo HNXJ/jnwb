@@ -1,6 +1,6 @@
 # 04. Power Spectra & Decibels
 
-Power spectra, band power, decibel formation, spectral tilt, referencing, CSD and filtering. Coherence and Morlet TFRs are on [Coherence & TFR](coherence_and_tfr.md).
+Power spectra, band power, decibel formation, spectral tilt, referencing, CSD and filtering. Coherence and Morlet TFRs are on [Coherence & TFR](coherence_and_tfr.md). The [LFP and spectral tutorial](tutorials/04_lfp_and_spectral.md) runs the spectra, band power and decibels.
 
 ---
 

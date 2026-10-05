@@ -28,7 +28,7 @@ rather than synthesizing a value. Citations and links are in
 `jnwb.paths` resolves data roots for batch jobs from environment variables, so no absolute path
 is written into code. It does not look inside a `.nwb` file: per-file discovery (acquisitions,
 interval tables, event codes) is `jnwb.inspect` and the
-[addressing tutorial](tutorials/02_addressing_and_metadata.md).
+[NWB basics tutorial](tutorials/01_nwb_basics.md).
 
 ### Key API Functions
 

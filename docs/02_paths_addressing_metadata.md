@@ -1,6 +1,6 @@
 # 02. Addressing, Metadata & Ontology
 
-Anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology. Data roots and streaming reads are on [Reading NWB Data](reading_nwb.md).
+Anatomical addressing (channel $\to$ area, depth $\to$ depth class), unit quality audits and the query ontology. The [addressing tutorial](tutorials/02_addressing_and_metadata.md) runs the addressing, and the [laminar tutorial](tutorials/06_laminar.md) the `zflip` and `vflip` checks. Data roots and streaming reads are on [Reading NWB Data](reading_nwb.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # 03. Representational Similarity Analysis (JRSA)
 
-`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP.
+`jnwb.jrsa` runs representational similarity analysis (RSA) on any neural response tensor, such as population firing rates or multichannel LFP. The [ensembles tutorial](tutorials/07_ensembles.md) runs it beside a decoder.
 
 ---
 

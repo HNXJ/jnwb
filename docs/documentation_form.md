@@ -151,10 +151,10 @@ sentence the rule asks for:
 | Page | Words | Why the excess stands |
 |---|---|---|
 | `common_mistakes` | 2596 | twelve failure modes, each with a wrong form, a correct form and the reason; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1536 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
-| `03_representational_similarity_jrsa` | 1256 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
-| `04_spectral_analysis_and_tfr` | 1221 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
-| `06_spikes_psth_and_onset_dynamics` | 1378 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
+| `02_paths_addressing_metadata` | 1551 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls |
+| `03_representational_similarity_jrsa` | 1264 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, and the standalone RDM section says its p is not a relatedness test |
+| `04_spectral_analysis_and_tfr` | 1233 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
+| `06_spikes_psth_and_onset_dynamics` | 1388 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
 | `architecture` | 1809 | two pages merged: the module map is a 549-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 1739 | twelve error classes, each with its verbatim message, and the table of what a read returns for each on-disk state of `session_description`. The messages are pinned to the source, so they are not paraphrasable |
