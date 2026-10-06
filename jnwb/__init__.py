@@ -42,14 +42,14 @@ log = logging.getLogger(__name__)
 from .jrsa import jrsa, JRSAResult
 from .rsa import rdm, rdm_similarity
 
-# Central path resolution (2026-08-08). `jnwb.paths.describe()` reports every root
+# Central path resolution. `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
 from . import paths
 
-# Poolable TFR summary statistics (2026-08-08), per nwb_tfr_storage_spec.md Part 2/3.
+# Poolable TFR summary statistics.
 from .tfr_accumulator import TFRAccumulator, assert_mergeable
 
-# NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1.
+# NWB fp32 compression.
 from .compression import compress_fp32
 from .nwb_io import MissingRequiredNWBFieldError, SqueezedAttributeWarning, nwb_read_io, read_nwb
 from .nwb_inspect import (
@@ -167,8 +167,8 @@ from .trajectory import (
     compute_population_trajectory,
 )
 
-# Canonical label-permutation primitive for null construction (2026-08-10; see
-# jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
+# Canonical label-permutation primitive for null construction (see
+# jnwb/permutation.py's module docstring).
 from .permutation import permute_labels, build_permutation_plan
 
 # Trial-segmented artifact detection-and-substitution (see jnwb/artifact_repair.py).

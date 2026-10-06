@@ -11,7 +11,7 @@ Public entry point: :func:`compress_fp32`.
 ``select=`` is required and names the datasets to cast to float32; ``select=[]`` casts nothing
 and still chunks, compresses and compacts the file.
 
-Implements nwb_tfr_storage_spec.md Part 1 -- float32 for the datasets named in ``select=``,
+Applies float32 to the datasets named in ``select=``,
 chunking, gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
 and typically yields multi-fold size reduction on large electrophysiology sessions; run
 ``verify=True`` on your file to measure the exact ratio.
@@ -516,7 +516,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
     """The conversion itself; ``cast_paths`` is the output of :func:`_selection_of`."""
     if drop_convolved:
         print("!! --drop-convolved-spike-train forces the spec's original behavior. "
-              "No kernel parameters are recoverable for this array (checked 2026-08-08, see "
+              "No kernel parameters are recoverable for this array (see the "
               "module docstring). This is DATA LOSS, not compression. Proceeding because you "
               "asked explicitly.", file=sys.stderr)
 

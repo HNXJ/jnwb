@@ -128,8 +128,7 @@ def harmonic_analysis(
             16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
             crossover is documented rather than applied automatically: the CPU and CUDA
             Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is, which invariant 6 forbids. See
-            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
+            the answer depend on how long the trace is, which invariant 6 forbids.
 
     Returns:
         Dict with:
@@ -274,8 +273,7 @@ def spectral_tilt(
             16384 samples, crosses 1.0 near 22500, and reaches 0.07 at 4.2 M. The
             crossover is documented rather than applied automatically: the CPU and CUDA
             Welch paths do not agree bit for bit, so routing on input length would make
-            the answer depend on how long the trace is, which invariant 6 forbids. See
-            `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
+            the answer depend on how long the trace is, which invariant 6 forbids.
 
     Returns:
         Dict with:
