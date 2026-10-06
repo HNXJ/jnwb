@@ -48,21 +48,21 @@ def _first_not_below(st, onsets, w: float, *, inclusive: bool) -> np.ndarray:
     """Per onset, the first index of sorted ``st`` whose ``st - onset`` is not below ``w``.
 
     "Below" is ``< w``, or ``<= w`` with ``inclusive``. ``st - onset`` rounds monotonically in
-    ``st``, so the indices that are below form a prefix. A binary search on ``onset + w``
-    widened by a few ulps lands at or before the end of that prefix, and each step then
-    advances every onset whose current spike is still below, one spike at a time.
+    ``st``, so the indices that are below form a prefix. Binary searches on ``onset + w``
+    widened by a few ulps bracket the end of that prefix, and a bisection on ``st - onset``
+    itself, vectorised over onsets, finds it inside the bracket in ``log2`` of its width.
     """
-    n = st.size
     pad = 8 * np.finfo(float).eps * (np.abs(onsets) + abs(w))
-    idx = np.searchsorted(st, onsets + w - pad, side="left")
-    if n == 0:
-        return idx
-    while True:
-        rel = st[np.minimum(idx, n - 1)] - onsets
-        below = (idx < n) & ((rel <= w) if inclusive else (rel < w))
-        if not below.any():
-            return idx
-        idx = idx + below
+    lo = np.searchsorted(st, onsets + w - pad, side="left")
+    hi = np.searchsorted(st, onsets + w + pad, side="right")
+    while np.any(lo < hi):
+        open_ = lo < hi
+        mid = (lo + hi) // 2
+        rel = st[np.where(open_, mid, 0)] - onsets
+        below = (rel <= w) if inclusive else (rel < w)
+        lo = np.where(open_ & below, mid + 1, lo)
+        hi = np.where(open_ & ~below, mid, hi)
+    return lo
 
 
 def onset_window(st, onsets, start_s: float, stop_s: float, *, right_closed: bool = False):
@@ -74,7 +74,8 @@ def onset_window(st, onsets, start_s: float, stop_s: float, *, right_closed: boo
     window edges. The two disagree for a spike within an ulp of an edge: onset 0.03 s with a
     spike at 0.3 s is exactly 0.27 s after the onset, while ``0.03 + 0.27`` rounds above 0.3.
 
-    ``st`` is sorted float64; a NaN sorts last and is never selected.
+    ``st`` is sorted float64; a NaN sorts last and is never selected. It cannot call
+    :func:`right_open_counts`, whose frozen body masks every spike and has no closed right edge.
     """
     onsets = np.asarray(onsets, dtype=float).ravel()
     lo = _first_not_below(st, onsets, float(start_s), inclusive=False)

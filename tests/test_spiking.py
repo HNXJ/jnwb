@@ -54,6 +54,17 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(4 / 0.15)
         assert metrics["response_count"] == 12
 
+    @pytest.mark.parametrize("spike, onset, window", [
+        (0.3, 0.03, (0.27, 0.5)),   # exactly on the start: 0.3 - 0.03 == 0.27, 0.03 + 0.27 > 0.3
+        (0.06, 0.02, (0.0, 0.04)),  # 0.06 - 0.02 < 0.04, but 0.02 + 0.04 <= 0.06
+    ])
+    def test_windows_select_by_spike_minus_onset(self, spike, onset, window):
+        assert window[0] <= spike - onset < window[1]       # the case is what it is named
+        m = compute_response_metrics(np.array([spike]), np.array([onset]),
+                                     baseline_window_s=(-0.02, -0.01), response_window_s=window)
+        assert m["response_count"] == 1
+        assert m["latency"] == (spike - onset) - window[0]
+
     def test_per_trial_rates_are_returned_in_onset_order(self):
         onsets = np.array([0.0, 10.0, 20.0])
         spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1

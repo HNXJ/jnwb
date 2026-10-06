@@ -127,26 +127,21 @@ def compute_response_metrics(
     response_spikes = []
     latencies = []
 
-    # Pre-sort spike times to ensure searchsorted works correctly
-    st = np.sort(spike_times)
+    # Spike minus onset in each right-open window, by binary search on the sorted float64
+    # train (`onset_window`, the rule `bin_spikes` and `fano_factor` use).
+    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    onsets = np.asarray(epoch_onsets, dtype=float).ravel()
+    b_lo, b_hi = onset_window(st, onsets, baseline_start, baseline_stop)
+    r_lo, r_hi = onset_window(st, onsets, response_start, response_stop)
 
-    for onset in epoch_onsets:
-        # Searchsorted instead of masking: O(log N) instead of O(N)
-        # Bounded on right-open intervals [start, stop)
-        b_lo = np.searchsorted(st, onset + baseline_start, side='left')
-        b_hi = np.searchsorted(st, onset + baseline_stop, side='left')
-        baseline_count = b_hi - b_lo
-
-        r_lo = np.searchsorted(st, onset + response_start, side='left')
-        r_hi = np.searchsorted(st, onset + response_stop, side='left')
-        response_count = r_hi - r_lo
-
-        baseline_spikes.append(baseline_count)
+    for i, onset in enumerate(onsets):
+        baseline_spikes.append(b_hi[i] - b_lo[i])
+        response_count = r_hi[i] - r_lo[i]
         response_spikes.append(response_count)
 
         # Compute latency (first spike in response window)
         if response_count > 0:
-            latency = st[r_lo] - (onset + response_start)
+            latency = (st[r_lo[i]] - onset) - response_start
             latencies.append(latency)
 
     # Compute rates
