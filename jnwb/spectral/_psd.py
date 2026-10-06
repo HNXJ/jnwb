@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy import optimize, signal
-from .._dictlike import DictAccessMixin, RenamedKeyDict
+from .._dictlike import DictAccessMixin
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._common import (
     _require_band_bins,
@@ -278,11 +278,8 @@ def spectral_tilt(
 
         All three are NaN when fewer than two bins in ``freq_range`` have positive power (a
         constant or all-zero trace); ``fit_quality`` is NaN when every fitted bin has the same
-        power.
-
-        Reading the key ``exponent`` returns ``slope`` with a ``DeprecationWarning``; it is
-        removed in the next release, so that ``exponent`` means the positive decay rate
-        wherever a spectral function reports one.
+        power. There is no ``exponent`` key: an exponent is the positive decay rate
+        :func:`aperiodic_fit` reports.
 
     Raises:
         ValueError: If ``lfp_trace`` is empty or contains NaN or Inf, or ``device`` is not a
@@ -301,7 +298,8 @@ def spectral_tilt(
     lfp_trace = _flat_as_zero(_require_finite_nonempty_trace(lfp_trace, "spectral_tilt"))
     # NaN marks a slope the spectrum cannot support. These fields reported 0.0, which reads as
     # a measured flat spectrum.
-    result = RenamedKeyDict({
+    # INTENTIONAL BREAK (0.2.10): the `exponent` key, deprecated in 0.2.7 for `slope`, is gone.
+    result = {
         'slope': float('nan'),
         'offset': float('nan'),
         'fit_quality': float('nan'),
@@ -310,7 +308,7 @@ def spectral_tilt(
         # a bit-identical exponent with nothing to say they had been silently merged.
         'fitted_band_hz': (float('nan'), float('nan')),
         'n_bins_fitted': 0,
-    }, aliases={'exponent': 'slope'})
+    }
 
     # Compute power spectrum
     resolved = resolve_device(device, context="spectral_tilt", prefer="cupy", stacklevel=3)

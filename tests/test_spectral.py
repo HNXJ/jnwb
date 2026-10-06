@@ -267,19 +267,17 @@ class TestSpectralTilt:
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
         assert result["slope"] < 0
 
-    def test_the_exponent_key_is_the_slope_behind_a_deprecation_warning(self):
+    def test_the_exponent_key_is_removed(self):
         """`exponent` held the signed slope, the opposite sign of `aperiodic_fit`'s exponent.
-        `slope` carries it; `exponent` still reads it for one release, with a warning, and
-        is not a key of the dict."""
+        Deprecated in 0.2.7 for `slope`, it is gone in 0.2.10: reading it raises KeyError."""
         pink = np.cumsum(np.random.default_rng(0).standard_normal(20000))
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
-        assert "slope" in result and "exponent" not in list(result)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            slope = result["slope"]
-        with pytest.warns(DeprecationWarning, match="'exponent' is deprecated.*read 'slope'"):
-            old = result["exponent"]
-        np.testing.assert_allclose(old, slope, rtol=1e-12)
+            assert np.isfinite(result["slope"])
+            with pytest.raises(KeyError):
+                result["exponent"]
+        assert "exponent" not in result and result.get("exponent") is None
 
     def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
         """INTENTIONAL BREAK (0.2.4).
@@ -1298,14 +1296,16 @@ class TestRelativePower:
         np.testing.assert_allclose(res_scalar, [[1.0, 2.0], [4.0, 8.0]], rtol=1e-12)
         np.testing.assert_allclose(res_column, [[1.0, 2.0], [2.0, 4.0]], rtol=1e-12)
 
-    def test_a_baseline_of_fewer_dimensions_warns_that_it_will_be_refused(self):
-        """A (2,) baseline against (2, 2) power aligns with the trailing axis, dividing each
-        column, where aggregate_to_db and TFRAccumulator.add_trial refuse it. It still
-        broadcasts this release."""
+    @pytest.mark.parametrize("model", ["mean_of_ratios", "ratio_of_means", "log_ratio"])
+    def test_a_baseline_of_fewer_dimensions_is_refused(self, model):
+        """A (2,) baseline against (2, 2) power would align with the trailing axis, dividing
+        each column. Broadcast with a FutureWarning from 0.2.7, it is refused from 0.2.10,
+        as in aggregate_to_db and TFRAccumulator.add_trial."""
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        with pytest.warns(FutureWarning, match=r"baseline\[:, None\].*next release raises"):
-            res = relative_power(power, np.array([2.0, 4.0]), model="mean_of_ratios")
-        np.testing.assert_allclose(res, [[1.0, 1.0], [4.0, 4.0]], rtol=1e-12)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with pytest.raises(ValueError, match=r"baseline\[:, None\]"):
+                relative_power(power, np.array([2.0, 4.0]), model=model)
 
     def test_preservation_of_linear_scale(self):
         """Linear ratios are never converted to decibels unless model='log_ratio'."""
