@@ -760,8 +760,10 @@ def test_zflip_the_entropy_recorded_for_rng_none_reproduces_p():
     assert again.p_value == first.p_value
     assert again.surrogate_seed_entropy == first.surrogate_seed_entropy
     assert first.to_dict()["surrogate_seed_entropy"] == first.surrogate_seed_entropy
-    # Fresh draws must disagree somewhere, or equal p-values prove nothing.
-    assert len({_zflip_noise(None).p_value for _ in range(4)} | {first.p_value}) > 1
+    # Equal p-values prove nothing unless the seed moves p: two fixed seeds give
+    # different p, and fresh draws record different seeds.
+    assert _zflip_noise(0).p_value != _zflip_noise(1).p_value
+    assert _zflip_noise(None).surrogate_seed_entropy != first.surrogate_seed_entropy
 
 
 def test_zflip_an_int_seed_is_recorded_and_keeps_its_stream(monkeypatch):
