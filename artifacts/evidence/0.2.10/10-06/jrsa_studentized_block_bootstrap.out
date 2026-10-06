@@ -1,0 +1,6 @@
+n=200 l=20 studentized cover=0.9010 (se 0.0094) width=0.973 | percentile cover=0.8450 width=0.592
+n=500 l=20 studentized cover=0.9180 (se 0.0087) width=0.518 | percentile cover=0.8810 width=0.422
+n=500 l=50 studentized cover=0.9300 (se 0.0081) width=0.644 | percentile cover=0.8910 width=0.433
+n=1000 l=50 studentized cover=0.9370 (se 0.0077) width=0.403 | percentile cover=0.9130 width=0.333
+n=2000 l=50 studentized cover=0.9330 (se 0.0079) width=0.265 | percentile cover=0.9250 width=0.242
+rc=0

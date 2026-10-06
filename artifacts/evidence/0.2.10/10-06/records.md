@@ -42,6 +42,27 @@ Observed: the moving-block percentile interval undercovers at every size tried, 
 points. The code was reverted and the refusal stands; the choice of interval is returned for a
 ruling.
 
+## jrsa studentized block bootstrap coverage (IB-44, round 2): not met, not shipped
+
+Ruled 2026-10-06: a studentized block bootstrap, shipped only at near-nominal coverage.
+`calibrate_jrsa_studentized_block_bootstrap.py 1000 200:20 500:20 500:50 1000:50 2000:50` ->
+`jrsa_studentized_block_bootstrap.out`, on baseline `a1f5f70a`. The interval is written in the
+script and calls no jnwb code; the pairs are those of the round-1 table. Agent choice within the
+ruling: the standard error that studentizes each sample is the delete-one-block jackknife over
+its blocks.
+
+| n | Block | Studentized coverage (se) | Width | Percentile coverage, same replicates | Width |
+|---|---|---|---|---|---|
+| 200 | 20 | 0.901 (0.009) | 0.973 | 0.845 | 0.592 |
+| 500 | 20 | 0.918 (0.009) | 0.518 | 0.881 | 0.422 |
+| 500 | 50 | 0.930 (0.008) | 0.644 | 0.891 | 0.433 |
+| 1000 | 50 | 0.937 (0.008) | 0.403 | 0.913 | 0.333 |
+| 2000 | 50 | 0.933 (0.008) | 0.265 | 0.925 | 0.242 |
+
+Observed: studentizing closes about half of the percentile interval's shortfall. It still
+undercovers at every size, by 1.3 to 4.9 points and by at least 1.7 se, and does not reach 0.95
+by n = 2000. Not shipped: the refusal of `bootstrap > 0` without `null='iid'` stands.
+
 ## Transfer entropy excess by n under zero-lag mixing
 
 `te_excess_by_n.py <worktree> 1500 500 2000 4000 8000 16000` -> `te_excess_by_n.out`.

@@ -181,10 +181,12 @@ def transfer_entropy(
     and reports both the raw value and ``bias_corrected`` (raw minus surrogate
     mean, the "effective transfer entropy"). With ``n_surrogates=0`` there is no
     null to subtract and the ``bias_corrected_*`` keys are absent. ``bias_corrected_*``
-    sits above zero under zero-lag mixing with no directed coupling: the Miller-Madow term
-    of the data's joint table and of the surrogates' differ (see Significance). On two noisy
+    sits above zero under zero-lag mixing with no directed coupling. On two noisy
     copies of one white source (n = 2000, quantile bins 4, k = l = 1, 49 surrogates, 40
     seeds) its mean was 0.0014 bits (sd 0.0033), against 0.0001 for independent pairs.
+    The mechanism is inferred, not tested: the data's joint table occupies fewer cells than
+    a surrogate's, so the two carry different Miller-Madow terms and plug-in biases (see
+    Significance).
     It is an estimate of size; the p is the test.
 
     Significance. ``p_x_to_y``, ``p_y_to_x`` and ``p_net`` compare the plug-in TE of the
