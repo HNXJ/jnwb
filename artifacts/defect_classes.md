@@ -7,7 +7,7 @@ harness learns: a class seen twice gets a mechanical check or a rule (`artifacts
 
 | Class | Seen | Instances | Caught by | Repair | Status |
 |---|---|---|---|---|---|
-| test-narrower-than-fix: a test covers part of a repair, so a mutant of the rest survives | 1 | 08-10 Ljung-Box sums (2026-09-29) | verifier, mutant | the test compares every numeric leaf | repaired; history in P-37 |
+| test-narrower-than-fix: a test covers part of a repair, so a mutant of the rest survives | 2 | 08-10 Ljung-Box sums (2026-09-29); 10-07 source-scan coverage compared declared lists, not files read (2026-10-06) | verifier, mutant | the test compares every numeric leaf | repaired; history in P-37 |
 | rewrite-drops-obligation: a rewrite of a rule file loses a rule or its timing, and the mapping calls it kept | 2 | 08-06 D1 "before its first write", D2 "before and after a change" (2026-09-29) | verifier, old-against-new reading | restored | gate proposed: 09-07 |
 | ruling-cited-not-recorded: a file cites "Ruled <date>" for a ruling the dated rulings file lacks | 1 | 08-06 D4 (2026-09-29) | verifier | recorded in `artifacts/rulings/2026-09-29.md` | gate proposed: 09-07 |
 | second-home-contradiction: a ruling changes a rule in one file and a copy elsewhere keeps the old rule | 2 | pooling in `CONTRIBUTING.md` and `docs/01` (D3); `CONTRIBUTING.md` invariant 4 against fact S2 (2026-09-29) | verifier, lane report | 08-07 | gate proposed: 09-07 |
