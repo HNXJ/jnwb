@@ -596,3 +596,47 @@ class TestWriteRoundTrip:
         as_complex.add_trial(z_int.astype(np.complex128))
         for name in ("n", "mean", "M2", "sum_z", "sum_unit_z"):
             np.testing.assert_array_equal(getattr(as_int, name), getattr(as_complex, name))
+
+
+def _trial_mean_power():
+    acc = TFRAccumulator((2, 3, 4))
+    rng = np.random.default_rng(0)
+    for _ in range(3):
+        acc.add_trial(rng.standard_normal((2, 3, 4)) + 1j * rng.standard_normal((2, 3, 4)))
+    return acc, acc.power()
+
+
+class TestTrialMeanMarkReachesNesting:
+    """The trial-mean check read a list one level deep: `[[P[0]], [P[1]]]` and a list of
+    memoryviews passed `aggregate_to_db(how="mean_of_ratios")` (P-287)."""
+
+    @pytest.mark.parametrize("form", [
+        lambda P: [[P[0]], [P[1]]],
+        lambda P: [memoryview(P[0]), memoryview(P[1])],
+        lambda P: ([[memoryview(P[0])]], [[memoryview(P[1])]]),
+        lambda P: [[np.asarray(P)[0]], [np.asarray(P)[1]]],
+    ], ids=["nested_rows", "list_of_memoryviews", "tuple_nested_memoryviews", "nested_plain_views"])
+    def test_a_nested_form_is_refused(self, form):
+        from jnwb.spectral import aggregate_to_db
+
+        _, P = _trial_mean_power()
+        with pytest.raises(ValueError, match="needs per-trial power"):
+            aggregate_to_db(form(P), 1.0, how="mean_of_ratios")
+
+    def test_a_nested_copy_is_not_refused(self):
+        from jnwb.spectral import aggregate_to_db
+
+        _, P = _trial_mean_power()
+        copy = [[np.array(P[0], copy=True)], [np.array(P[1], copy=True)]]
+        assert np.all(np.isfinite(aggregate_to_db(copy, 1.0, how="mean_of_ratios")))
+
+
+class TestMeanIsACopy:
+    """`TFRAccumulator.mean` returns a copy, so item assignment does not write through
+    (P-347); the docstring says so."""
+
+    def test_item_assignment_does_not_write_through(self):
+        acc, before = _trial_mean_power()
+        acc.mean[...] = 0.0
+        np.testing.assert_array_equal(acc.power(), before)
+        assert "returns a copy" in " ".join(TFRAccumulator.mean.__doc__.lower().split())
