@@ -2007,11 +2007,12 @@ class TestBandPowerEstimandIsDocumented:
             np.mean(psd[mask])
         )
 
-    def test_the_value_is_a_density_not_an_integrated_power(self):
+    def test_the_value_is_independent_of_the_bandwidth(self):
         """A 2 Hz band and a 30 Hz band of white noise agree to within 20%, where their
         integrated powers differ by roughly the bandwidth ratio. That is the property the
         docstring has to state, because it is what makes two bands non-comparable as
-        powers.
+        powers. A ratio of two bands cannot see Welch's density scaling, which cancels;
+        `test_band_power_is_the_mean_psd_over_the_band` checks that.
         """
         x = self._trace()
         narrow = band_power(x, fs=1000.0, freq_range=(19.0, 21.0), normalize=False)

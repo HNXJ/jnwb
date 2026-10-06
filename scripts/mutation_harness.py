@@ -198,6 +198,34 @@ def _import_jnwb(repo: Path | None):
     return package
 
 
+def _defines_class(path: Path, class_name: str) -> bool:
+    """Whether ``path`` defines ``class_name`` at module level."""
+    import ast
+
+    tree = ast.parse(path.read_bytes().decode("utf-8"), filename=str(path))
+    return any(isinstance(node, ast.ClassDef) and node.name == class_name for node in tree.body)
+
+
+def _class_definition_file(cls: type, found: Path) -> Path:
+    """The file that defines ``cls``, which may not be the file of ``cls.__module__``.
+
+    A package that re-points ``__module__`` at itself (``jnwb.spectral``, ``jnwb.laminar``)
+    makes :func:`inspect.getsourcefile` answer its ``__init__.py``. The definition is looked
+    for in that file, then in the one module of its package that defines the name; zero or
+    several such modules refuse the class by name.
+    """
+    if _defines_class(found, cls.__name__):
+        return found
+    package_dir = found.parent
+    hits = [p for p in sorted(package_dir.rglob("*.py")) if _defines_class(p, cls.__name__)]
+    if len(hits) != 1:
+        raise MutationHarnessError(
+            f"class {cls.__name__} is defined in {len(hits)} modules of {package_dir.name}/, "
+            f"not in {found.name}, the file of its __module__ {cls.__module__!r}"
+        )
+    return hits[0].resolve()
+
+
 def source_path(name: str, anchor: str | None = None, *, repo: Path | None = None) -> str:
     """Repository-relative posix path of the file that defines ``jnwb.<name>``.
 
@@ -209,7 +237,8 @@ def source_path(name: str, anchor: str | None = None, *, repo: Path | None = Non
     object's own file that holds the anchor more than once raises too, rather than handing the
     case to some other file. The root is the directory holding the imported ``jnwb`` package
     (which must be ``repo`` when that is given), and it must be a source tree: an installed
-    copy has no ``pyproject.toml`` beside it and is refused.
+    copy has no ``pyproject.toml`` beside it and is refused. A class resolves to the module
+    that defines it, not the file its ``__module__`` names (:func:`_class_definition_file`).
     """
     import inspect
 
@@ -220,7 +249,10 @@ def source_path(name: str, anchor: str | None = None, *, repo: Path | None = Non
     repo = root
     if not (repo / "pyproject.toml").is_file():
         raise MutationHarnessError(f"jnwb is imported from {repo}, which is not a source tree")
-    found = Path(inspect.getsourcefile(getattr(package, name)) or "").resolve()
+    obj = getattr(package, name)
+    found = Path(inspect.getsourcefile(obj) or "").resolve()
+    if inspect.isclass(obj):
+        found = _class_definition_file(obj, found)
     rel = found.relative_to(repo)
     own = 0 if anchor is None else found.read_bytes().decode("utf-8").count(anchor)
     if anchor is None or own == 1:
@@ -1259,7 +1291,7 @@ def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
     copy is installed). ``repo`` is the source tree the paths are derived in."""
     return (
     MutationCase(
-        name="P-171 | density-versus-power is named by a test that measures a ratio",
+        name="P-171 | the bandwidth test, a ratio of two bands, cannot see Welch's scaling",
         path=source_path(
             "band_power", "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n", repo=repo
         ),
@@ -1269,11 +1301,11 @@ def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
         ),
         selector=(
             "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
-            "::test_the_value_is_a_density_not_an_integrated_power",
+            "::test_the_value_is_independent_of_the_bandwidth",
         ),
         must_fail=(
             "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
-            "::test_the_value_is_a_density_not_an_integrated_power",
+            "::test_the_value_is_independent_of_the_bandwidth",
         ),
         semantic_property=(
             "band_power returns a spectral density in units^2/Hz, not an integrated power in "
@@ -1283,10 +1315,10 @@ def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
         survivor_reason=(
             "P-171. The test compares narrow/wide, a *ratio* of two means, and Welch's scaling "
             "enters both sides as the same constant factor -- so it detects the bandwidth error "
-            "it is named for and not the scaling error. A P-37 proxy inside an existing test, "
-            "found by measurement. The mutation class itself is covered: "
+            "and not the scaling error. It was named for density-versus-power; it is now named "
+            "for the bandwidth property it checks. The mutation class itself is covered: "
             "tests/test_semantic_mutation_classes.py kills it via "
-            "test_band_power_is_the_mean_psd_over_the_band. The naming is what is not covered."
+            "test_band_power_is_the_mean_psd_over_the_band."
         ),
     ),
     )
