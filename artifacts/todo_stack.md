@@ -74,23 +74,14 @@ Stop: a fix changes shipped values without a ruling.
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`, `tests/test_rsa.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`.
+Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`, `tests/test_rsa.py`, `tests/test_substitution_class_sweep.py`, `tests/test_adversarial_inputs.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`.
 - P-227: the PSI jackknife leaves out a segment, not an epoch; liberal under zero-lag mixing (0.0655). Check: an epoch-level jackknife. Waits: stated with IB-97; conservative under independence.
-- P-264: with undefined bands PSI sums `net` over defined bands only. Check: the docstring says so, or undefined bands make `net` NaN. Waits: flagged by `ok_for_interpretation`.
-- P-196: no test pins `psi_freqs` or `psi_per_freq[0]`. Check: both pinned. Waits: output correct.
-- PSI segment count and conditional networks: the default `nperseg` leaves 7 segments; `directed_network` has no conditional mode. Check: a default of about 20 segments and a conditional mode, each ruled first (`artifacts/evidence/0.2.8/plan/decisions.md` D10). Waits: p valid, a warning fires.
 - IB-45: an int `rng` gives every pair the same surrogate stream. Check: one scheme for both, recorded per pair. Waits: each pair's p stays valid.
-- Directed estimator edges: `bias_corrected_*` values sit off zero under mixing; `directed_network(method="psi", jackknife=False)` returns an all-NaN `q_matrix` silently; the TE large-n excess has no pinned mechanism. Check: the docstring, a warning, a record by n. Waits: no p depends on them.
-- Tie-width test reach, directed part: the substitution probes accept any error type with no `match`; the PSI width test pins a lower bound only; TE's net width keeps the plain sum. Check: each probe matches its selector's message. Waits: all ten probes raise their own refusal today.
 - P-331 jrsa and Granger half: `jrsa` standardises detrend residue, and the Granger residual guard sees it. Check: stated tolerances. Waits: degenerate input.
-- P-256 information half: two MI functions name `spike_mutual_information` in their errors. Check: each names itself. Waits: message quality.
-- P-332 similarity part: `cka` and `rv` give 1e-33 on a constant pattern; `_phase_slope` says normal-approximation p where the code uses t; `jrsa(align='bogus')` accepted at equal lengths; `rdm` takes flat input. Check: exact values, the docstring, a refusal, a named refusal for `rdm`. Waits: degenerate or wording.
 - IB-44: a calibrated block bootstrap for the `jrsa` paired metrics replaces the refusal (ruled 2026-09-25). Check: 95 % interval coverage near 0.95 on AR(1) pairs at phi 0.9. Waits: the refusal is correct.
-- IB-48: `jrsa` accepts `device='cuda'` but never reaches the CuPy branch. Check: route it or drop the branch. Waits: records cpu truthfully.
-- IB-58: the `jrsa` row-metric `window` at the default `adim` (integrator's 0.2.8 note, graded 70). Check: windowing the observation axis by default, with a CHANGELOG entry. Waits: stated in the docstring and page.
-- `jrsa` resampling fallback: `_resample_axis` downsamples when SciPy is missing while `align` echoes the request. Check: the branch removed. Waits: SciPy is declared.
-- Generator seeds and `jrsa` axes, similarity part: the `adim` refusal's dropped-axis branch has no test. Check: a test.
-- P-281: `test_cuda_matches_cpu` for `jrsa` compares CPU with CPU. Check: renamed or removed. Waits: no GPU path.
+- Conditional `directed_network` (ruled 2026-10-06: Granger only, conditioning on all other nodes through `Z`; other methods stay pairwise and say so). Check: a conditional Granger mode recovering a chain A->B->C without a direct A->C edge. Waits: pairwise is stated.
+- Directed width clauses: the PSI width test pins a lower bound only; TE's net width keeps the plain sum. Check: stated tolerances under the P-331 round-off bound. Waits: degenerate input.
+- Verifier gaps (round 1): the merged linear/cubic `_resample_axis` branch has no value test; a valid `align='dtw'` at equal lengths is not pinned; the TE docstring states the Miller-Madow mechanism for `bias_corrected` as fact where the record says inferred. Check: a value test, a pin, the docstring matching the record. Waits: private path, optional package, wording.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
 
