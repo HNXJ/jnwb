@@ -677,6 +677,15 @@ class TestFanoFactor:
         assert onset_locked_counts(st, [onset], w0, w1, edges, 1.0, right_closed=False).sum() == 1
         assert bin_spikes(st, window_s=window, bin_size_ms=10.0, trial_starts=[onset]).sum() == 1
 
+    def test_a_closed_edge_reaches_a_spike_above_the_rounded_onset_plus_edge(self):
+        from jnwb._bins import onset_window
+        # 0.23 - 0.05 == 0.18 exactly, but 0.05 + 0.18 rounds to 0.22999999999999998, below the
+        # spike: a binary search on onset + edge alone stops before it.
+        spike, onset, w1 = 0.23, 0.05, 0.18
+        assert spike - onset == w1 and onset + w1 < spike   # the case is what it is named
+        lo, hi = onset_window(np.array([spike]), [onset], 0.0, w1, right_closed=True)
+        assert (lo[0], hi[0]) == (0, 1)
+
     @pytest.mark.parametrize("kw", [dict(summary="max"), dict(onsets_s=[1.0]), dict(window_s=(0.5, 0.5))])
     def test_refusals(self, kw):
         from jnwb.spiking import fano_factor
