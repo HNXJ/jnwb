@@ -39,13 +39,26 @@ from scipy.ndimage import gaussian_filter1d
 
 from ._dictlike import DictAccessMixin
 from ._rng import DEFAULT_SEED, RNGLike, resolve_rng
-from .laminar import VFlipResult, vflip, xflip
+from .laminar import VFlipResult, XFlipResult, vflip, xflip
+from .spectral import voltage_curvature_1d
 
 LABELS: Tuple[str, ...] = ("superficial", "input", "deep", "WM", "outside_cortex", "na")
 
 #: Bands of the spectral motif (alpha-beta deep, gamma superficial), Hz; Mendoza-Halliday 2024.
 MOTIF_BAND_LOW_HZ: Tuple[float, float] = (10.0, 19.0)
 MOTIF_BAND_HIGH_HZ: Tuple[float, float] = (75.0, 150.0)
+
+#: Default Welch segment length, samples, of every PSD here: at 500 Hz it resolves about
+#: 1 Hz, finer than the 10-19 Hz motif band is wide. A working value.
+WELCH_NPERSEG: int = 512
+
+#: Default rate, Hz, the neighbor correlations are taken at: it keeps the motif bands
+#: below Nyquist while the decimation cuts the cost. A working value.
+CORRELATION_FS_HZ: float = 100.0
+
+#: Default band, Hz, of the power criterion of bad-contact detection: the motif bands'
+#: span, so it needs ``fs`` above 300 Hz. A working value.
+POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 
 def _robust_z(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
@@ -99,9 +112,10 @@ def detect_bad_channels(
     neighbor_contacts: int = 2,
     min_neighbor_corr_z: float = -4.0,
     max_power_z: float = 5.0,
-    power_band_hz: Tuple[float, float] = (1.0, 150.0),
-    correlation_fs_hz: float = 100.0,
+    power_band_hz: Tuple[float, float] = POWER_BAND_HZ,
+    correlation_fs_hz: float = CORRELATION_FS_HZ,
     max_iterations: int = 4,
+    nperseg: int = WELCH_NPERSEG,
 ) -> Dict[str, Any]:
     """Flag contacts that decorrelate from their neighbors or have outlying power.
 
@@ -128,6 +142,7 @@ def detect_bad_channels(
         correlation_fs_hz: Target rate for the correlation, Hz; the integer decimation
             factor is ``round(fs / correlation_fs_hz)``, at least 1.
         max_iterations: Most refinement passes.
+        nperseg: Welch segment length, samples; capped at the epoch length.
 
     Returns:
         Dict with ``bad_mask`` (``(n_channels,)`` bool), ``neighbor_correlation`` (the last
@@ -150,7 +165,7 @@ def detect_bad_channels(
     if n < 3:
         raise ValueError(f"need at least 3 contacts, got {n}")
     epochs = arr if arr.ndim == 3 else arr[:, None, :]
-    freqs, psd = signal.welch(epochs, fs=fs, nperseg=min(512, epochs.shape[-1]), axis=-1)
+    freqs, psd = signal.welch(epochs, fs=fs, nperseg=min(int(nperseg), epochs.shape[-1]), axis=-1)
     psd = psd.mean(axis=1)
     sel = (freqs >= lo_hz) & (freqs <= hi_hz)
     if not sel.any():
@@ -218,15 +233,19 @@ def interpolate_channel_runs(
     return {"data": arr, "interpolated_mask": done, "unresolved_mask": unresolved}
 
 
-def _csd(erp: np.ndarray, times_ms: np.ndarray, usable: np.ndarray, sigma: float
+def _csd(erp: np.ndarray, times_ms: np.ndarray, usable: np.ndarray, sigma: float, pitch: float
          ) -> Tuple[np.ndarray, np.ndarray, float]:
-    """Smoothed, baseline-subtracted CSD of the usable contacts, its indices and baseline SD."""
+    """Smoothed, baseline-subtracted CSD of the usable contacts, its indices and baseline SD.
+
+    The end contacts are repeated once so every usable contact gets a value. The CSD is in
+    the potential per contact spacing squared, the unit the z-scores are taken in.
+    """
     base = times_ms < 0
     v = erp - erp[:, base].mean(axis=1, keepdims=True)
     idx = np.flatnonzero(usable)
     vu = gaussian_filter1d(v[idx], sigma, axis=0)
     vp = np.vstack([vu[:1], vu, vu[-1:]])
-    c = -(vp[2:] - 2 * vp[1:-1] + vp[:-2])
+    c = -voltage_curvature_1d(vp, pitch, axis=0) * (pitch * 1e-6) ** 2
     return c, idx, float(c[:, base].std() or 1.0)
 
 
@@ -304,7 +323,7 @@ def evoked_csd_sink(
            "earliest_contact": nan, "earliest_onset_ms": nan, "earliest_position_um": nan}
     if usable.sum() < int(min_contacts):
         return out
-    c, idx, base = _csd(e, t, usable, float(smooth_um) / pitch)
+    c, idx, base = _csd(e, t, usable, float(smooth_um) / pitch, pitch)
     win = (t >= sink_window_ms[0]) & (t < sink_window_ms[1])
     zc = c[:, win].min(axis=1) / base
     k = int(np.argmin(zc))
@@ -361,7 +380,9 @@ def fuse_laminar_anchors(
     - with only a motif anchor, ``"D"`` is stable with consistency at least
       ``consistency_a``, otherwise ``"F"``; with no anchor, ``"F"``.
 
-    A and B carry a laminar claim; C is a sensitivity check.
+    A and B carry a laminar claim. C and D are sensitivity checks: C because the anchor is
+    unstable or inconsistent, D because vFLIP rejected its fit and the motif crossing alone
+    places the anchor. F carries none.
 
     Args:
         vflip_um: vFLIP crossover position, um, NaN or None if rejected.
@@ -410,13 +431,16 @@ def fuse_laminar_anchors(
 
 def _band_profiles(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray,
                    low: Tuple[float, float], high: Tuple[float, float]) -> Tuple[np.ndarray, np.ndarray]:
-    """Per-band depth profiles rescaled to [0, 1] over the usable contacts; NaN elsewhere."""
-    sel = (freqs >= 1) & (freqs <= 150)
-    q, f = psd[:, sel], freqs[sel]
-    rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), 1e-30)
+    """Per-band depth profiles rescaled to [0, 1] over the usable contacts; NaN elsewhere.
+
+    Each frequency is first rescaled to [0, 1] across the usable contacts, so a band's
+    profile depends only on the bins inside it.
+    """
     out = []
     for a, b in (low, high):
-        p = rel[:, (f >= a) & (f <= b)].mean(axis=1)
+        q = psd[:, (freqs >= a) & (freqs <= b)]
+        rel = (q - q[use].min(axis=0)) / np.maximum(np.ptp(q[use], axis=0), 1e-30)
+        p = rel.mean(axis=1)
         p = (p - p[use].min()) / max(float(np.ptp(p[use])), 1e-30)
         p[~use] = np.nan
         out.append(p)
@@ -448,8 +472,9 @@ def _motif_crossings(lo: np.ndarray, hi: np.ndarray, use: np.ndarray, smooth_ch:
     return out
 
 
-def _vflip_on(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray) -> Tuple[float, VFlipResult]:
-    v = vflip(psd, freqs, bad_channel_mask=~use)
+def _vflip_on(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray, min_contacts: int
+              ) -> Tuple[float, VFlipResult]:
+    v = vflip(psd, freqs, bad_channel_mask=~use, min_channels=int(min_contacts))
     ok = bool(v.accepted and v.crossover_contact is not None)
     return (float(v.crossover_contact) if ok else float("nan")), v
 
@@ -484,9 +509,15 @@ class LaminarCurationResult(DictAccessMixin):
         vflip: The :class:`~jnwb.laminar.VFlipResult` on the pooled spectrum, or None when too
             few contacts were usable.
         xflip_distance_um, csd_distance_um: Distance of the xFLIP boundary and of the CSD
-            strongest sink from the anchor, um; NaN when absent. Reported only.
+            strongest sink from the anchor, um; NaN when absent. Reported only. The xFLIP
+            distance is NaN when ``xflip.accepted`` is False; ``xflip.rejection_reason``
+            says why.
         csd: The :func:`evoked_csd_sink` result, or None without ``erp``.
-        parameters: The thresholds the call used.
+        parameters: The arguments the call used, with ``fs``, ``rng`` (the seed, None, or
+            ``"Generator"``) and ``xflip_surrogate_seed_entropy``, which passed to
+            :func:`~jnwb.xflip` as ``rng`` reproduces its surrogates (None when none ran).
+        xflip: The :class:`~jnwb.laminar.XFlipResult`, or None when it was not computed
+            (``compute_xflip`` False, fewer than ``min_contacts`` usable or no anchor).
     """
 
     labels: np.ndarray
@@ -509,6 +540,7 @@ class LaminarCurationResult(DictAccessMixin):
     csd_distance_um: float
     csd: Optional[Dict[str, Any]]
     parameters: Dict[str, Any]
+    xflip: Optional[XFlipResult] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the result to a dict; arrays are copied."""
@@ -528,6 +560,7 @@ class LaminarCurationResult(DictAccessMixin):
             "csd_distance_um": float(self.csd_distance_um),
             "csd": None if self.csd is None else dict(self.csd),
             "parameters": dict(self.parameters),
+            "xflip": None if self.xflip is None else self.xflip.to_dict(),
         }
 
 
@@ -559,6 +592,10 @@ def curate_and_label(
     compute_xflip: bool = True,
     xflip_n_surrogates: int = 50,
     rng: RNGLike = DEFAULT_SEED,
+    max_interpolate_run: int = 3,
+    min_contacts: int = 8,
+    min_edge_contacts: int = 11,
+    nperseg: int = WELCH_NPERSEG,
     **bad_channel_kwargs: Any,
 ) -> LaminarCurationResult:
     """Curate a laminar LFP recording and label every contact by cortical compartment.
@@ -596,7 +633,9 @@ def curate_and_label(
         erp: Optional ``(n_channels, n_times)`` trial-averaged potential for the CSD.
         erp_times_ms: Times of ``erp``, ms, relative to the stimulus; required with ``erp``.
         n_windows: Consecutive blocks of epochs used for stability.
-        band_low_hz, band_high_hz: Alpha-beta and gamma bands of the motif.
+        band_low_hz, band_high_hz: Alpha-beta and gamma bands of the motif profiles, Hz:
+            the silent-end test, the motif crossing and the consistency fractions. The
+            vFLIP anchor keeps the default bands of :func:`~jnwb.vflip`.
         granular_thickness_um: Width of the ``"input"`` zone, um, as in :func:`label_layers`.
         max_superficial_um, max_deep_um: Thickness prior: distance from the anchor beyond
             which a contact is ``"na"``, um.
@@ -612,6 +651,14 @@ def curate_and_label(
         compute_xflip: Compute the xFLIP boundary for the report; False skips it.
         xflip_n_surrogates: Phase surrogates of the xFLIP null.
         rng: Seed or generator of the xFLIP surrogates.
+        max_interpolate_run: Longest run of bad contacts interpolated, as ``max_run`` of
+            :func:`interpolate_channel_runs`.
+        min_contacts: Fewest usable contacts for vFLIP (its ``min_channels``), xFLIP and the
+            CSD (its ``min_contacts``).
+        min_edge_contacts: Fewest cortex contacts the cortical-edge search needs; with fewer
+            no edge is marked.
+        nperseg: Welch segment length, samples, of every PSD here, including the power
+            criterion of :func:`detect_bad_channels`; capped at the epoch length.
         **bad_channel_kwargs: Passed to :func:`detect_bad_channels`.
 
     Returns:
@@ -619,7 +666,11 @@ def curate_and_label(
 
     Raises:
         ValueError: On invalid shapes, non-finite data, ``pitch_um``, ``n_windows`` larger
-            than the epoch count, or ``erp`` without ``erp_times_ms``.
+            than the epoch count, ``erp`` without ``erp_times_ms``, or a band
+            (``band_low_hz``, ``band_high_hz`` or the ``power_band_hz`` of
+            :func:`detect_bad_channels`, default ``(1.0, 150.0)``) that does not end below
+            ``fs / 2``; the message names the band. At ``fs`` of 300 Hz or less the default
+            bands do not fit: pass bands that do.
 
     References:
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
@@ -627,47 +678,58 @@ def curate_and_label(
         doi:10.1038/s41593-023-01554-7 -- the 10-19 Hz and 75-150 Hz bands of the motif.
         :func:`evoked_csd_sink` cites the CSD reference.
     """
+    params = {k: v for k, v in locals().items()
+              if k not in ("lfp", "erp", "erp_times_ms", "bad_channel_kwargs", "rng")}
+    params["bad_channel_kwargs"] = dict(bad_channel_kwargs)
+    params["rng"] = (int(rng) if isinstance(rng, (int, np.integer)) and not isinstance(rng, bool)
+                     else None if rng is None else type(rng).__name__)
+    params["xflip_surrogate_seed_entropy"] = None
     pitch = _check_pitch(pitch_um)
     x = _check_channels_first(lfp, "lfp", (3,))
-    n, n_ep, _ = x.shape
+    n, n_ep = x.shape[:2]
     if not (1 <= n_windows <= n_ep):
         raise ValueError(f"n_windows must be in [1, n_epochs={n_ep}], got {n_windows}")
     if erp is not None and erp_times_ms is None:
         raise ValueError("erp needs erp_times_ms")
+    nyq = float(fs) / 2.0
+    det_kwargs = {"nperseg": nperseg, **bad_channel_kwargs}
+    bands = (("band_low_hz", band_low_hz), ("band_high_hz", band_high_hz),
+             ("power_band_hz", det_kwargs.get("power_band_hz", POWER_BAND_HZ)))
+    over = [f"{name}={tuple(b)!r}" for name, b in bands if nyq > 0 and not float(b[1]) < nyq]
+    if over:
+        raise ValueError(f"{', '.join(over)} must end below fs/2 = {nyq:g} Hz; pass bands that do "
+                         f"(power_band_hz goes through bad_channel_kwargs)")
     gen = resolve_rng(rng, func_name="curate_and_label")
     ch = lambda um: um / pitch  # um -> contacts  # noqa: E731
-    params = {k: v for k, v in locals().items()
-              if k not in ("lfp", "fs", "erp", "erp_times_ms", "x", "pitch", "gen", "ch", "n", "n_ep",
-                           "bad_channel_kwargs", "rng")}
-    params["bad_channel_kwargs"] = dict(bad_channel_kwargs)
     x = x - x.mean(axis=2, keepdims=True)
     idx = np.arange(n)
     nan = float("nan")
 
     # curation
-    det = detect_bad_channels(x, fs, **bad_channel_kwargs)
+    det = detect_bad_channels(x, fs, **det_kwargs)
     bad = det["bad_mask"]
     dens = np.convolve(bad, np.ones(bad_zone_contacts) / bad_zone_contacts, "same")
     unusable = np.zeros(n, dtype=bool)
     for a, b in _runs(dens >= bad_zone_fraction):
         if b - a >= bad_zone_contacts:
             unusable[a:b] = True
-    fixed = interpolate_channel_runs(x, bad & ~unusable, blocked_mask=unusable)
+    fixed = interpolate_channel_runs(x, bad & ~unusable, max_run=max_interpolate_run, blocked_mask=unusable)
     x = fixed["data"]
     interp = fixed["interpolated_mask"]
     unusable |= fixed["unresolved_mask"]
     if erp is not None:
-        erp_c = interpolate_channel_runs(np.asarray(erp, dtype=float), interp, blocked_mask=unusable)["data"]
+        erp_c = interpolate_channel_runs(np.asarray(erp, dtype=float), interp, max_run=max_interpolate_run,
+                                         blocked_mask=unusable)["data"]
     else:
         erp_c = None
 
-    nperseg = min(512, x.shape[-1])
-    freqs, pooled = signal.welch(x, fs=fs, nperseg=nperseg, axis=-1)
+    seg = min(int(nperseg), x.shape[-1])
+    freqs, pooled = signal.welch(x, fs=fs, nperseg=seg, axis=-1)
     pooled = pooled.mean(axis=1)
     win_id = np.minimum((np.arange(n_ep) * n_windows) // n_ep, n_windows - 1)
-    win_psd = [signal.welch(x[:, win_id == k], fs=fs, nperseg=nperseg, axis=-1)[1].mean(axis=1)
+    win_psd = [signal.welch(x[:, win_id == k], fs=fs, nperseg=seg, axis=-1)[1].mean(axis=1)
                for k in range(n_windows)]
-    q = max(1, int(round(fs / bad_channel_kwargs.get("correlation_fs_hz", 100.0))))
+    q = max(1, int(round(fs / bad_channel_kwargs.get("correlation_fs_hz", CORRELATION_FS_HZ))))
     reduced = (signal.decimate(x, q, axis=-1) if q > 1 else x).reshape(n, -1)
 
     smooth_ch, lobe_ch = ch(smooth_um), max(2, int(round(ch(min_lobe_um))))
@@ -705,7 +767,7 @@ def curate_and_label(
     lo, hi = _band_profiles(pooled, freqs, use, band_low_hz, band_high_hz)
     crossings = _motif_crossings(lo, hi, use, smooth_ch, lobe_ch, min_lobe_amplitude)
 
-    c_v, v = _vflip_on(pooled, freqs, use)
+    c_v, v = _vflip_on(pooled, freqs, use, min_contacts)
     c_m, up_m = crossings[0] if crossings else (nan, None)
     have_v = np.isfinite(c_v) and v.high_peak_contact is not None
     sup_up = bool(v.high_peak_contact > v.low_peak_contact) if have_v else up_m
@@ -713,7 +775,7 @@ def curate_and_label(
 
     wv, wm = [], []
     for k in range(n_windows):
-        wv.append(_vflip_on(win_psd[k], freqs, use)[0])
+        wv.append(_vflip_on(win_psd[k], freqs, use, min_contacts)[0])
         lo_k, hi_k = _band_profiles(win_psd[k], freqs, use, band_low_hz, band_high_hz)
         ck = _motif_crossings(lo_k, hi_k, use, smooth_ch, lobe_ch, min_lobe_amplitude)
         wm.append(min((c for c, _ in ck), key=lambda c: abs(c - anchor)) if (ck and np.isfinite(anchor)) else nan)
@@ -736,7 +798,7 @@ def curate_and_label(
                 break
         edge = np.zeros(n, dtype=bool)
         ci = np.flatnonzero(cortex)
-        if len(ci) > 10:
+        if len(ci) >= min_edge_contacts:
             r = np.corrcoef(reduced[ci])
             dd = np.full(n, np.nan)
             dd[ci[:-1]] = 1 - np.diag(r, 1)
@@ -764,16 +826,17 @@ def curate_and_label(
         if (labels == "superficial").any():
             consist_s = float(np.nanmean(delta[labels == "superficial"] > 0))
 
-    xf = nan
-    if compute_xflip and use.sum() >= 8 and np.isfinite(anchor):
+    xf, xr = nan, None
+    if compute_xflip and use.sum() >= min_contacts and np.isfinite(anchor):
         xr = xflip(reduced[use], n_blocks=None, n_surrogates=int(xflip_n_surrogates), rng=gen)
+        params["xflip_surrogate_seed_entropy"] = xr.surrogate_seed_entropy
         bounds = idx[use][np.flatnonzero(np.diff(xr.labels)) + 1]
-        if len(bounds):
+        if xr.accepted and len(bounds):
             xf = float(bounds[np.argmin(np.abs(bounds - anchor))]) * pitch
     csd = None
     if erp_c is not None:
         csd = evoked_csd_sink(erp_c, np.asarray(erp_times_ms, dtype=float), pitch_um=pitch,
-                              usable_mask=use, smooth_um=smooth_um)
+                              usable_mask=use, smooth_um=smooth_um, min_contacts=min_contacts)
     fused = fuse_laminar_anchors(
         vflip_um=c_v * pitch, motif_um=c_m * pitch, xflip_um=xf,
         csd_um=nan if csd is None else csd["strongest_position_um"],
@@ -788,4 +851,5 @@ def curate_and_label(
         window_anchor_um=win * pitch, window_sd_um=fused["window_sd_um"],
         consistency_deep=consist_d, consistency_superficial=consist_s, n_crossings=len(crossings),
         crossings_um=tuple(c * pitch for c, _ in crossings), vflip=v,
-        xflip_distance_um=fused["distance_um"]["xflip"], csd_distance_um=fused["distance_um"]["csd"], csd=csd)
+        xflip_distance_um=fused["distance_um"]["xflip"], csd_distance_um=fused["distance_um"]["csd"], csd=csd,
+        xflip=xr)
