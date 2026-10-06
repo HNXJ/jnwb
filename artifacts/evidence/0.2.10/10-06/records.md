@@ -42,6 +42,24 @@ Observed: the moving-block percentile interval undercovers at every size tried, 
 points. The code was reverted and the refusal stands; the choice of interval is returned for a
 ruling.
 
+## PSI leave-one-trial-out jackknife (P-227, round 2)
+
+Ruled 2026-10-06: one trial left out from three trials on, else one segment with a warning.
+`calibrate_psi_trial_jackknife.py <worktree> 2000 3x400 5x400 10x400 30x200` ->
+`psi_trial_jackknife.out`. Band 5-100 Hz at fs 1000, default `nperseg`; 'segment' reruns the
+same data with the trial threshold raised, which is the old jackknife.
+
+| Trials x samples | Segments | Mixing, trial (se) | Mixing, segment | Independent, trial / segment | 5-sample lead, trial / segment |
+|---|---|---|---|---|---|
+| 3 x 400 | 21 | 0.049 (0.005) | 0.068 | 0.020 / 0.006 | 0.908 / 1.000 |
+| 5 x 400 | 35 | 0.059 (0.005) | 0.065 | 0.014 / 0.003 | 1.000 / 1.000 |
+| 10 x 400 | 70 | 0.059 (0.005) | 0.068 | 0.005 / 0.002 | 1.000 / 1.000 |
+| 30 x 200 | 210 | 0.040 (0.004) | 0.059 | 0.002 / 0.002 | 1.000 / 1.000 |
+
+Observed: leaving out a trial moves the mixing rate from 0.059-0.068 to 0.040-0.059, within
+2 se of 0.05 except 30 x 200 (0.040, 2.3 se below, conservative). It is less conservative on independent pairs, and
+on 3 trials, where t has 2 degrees of freedom, it detects the lead in 0.91 of pairs, not all.
+
 ## jrsa studentized block bootstrap coverage (IB-44, round 2): not met, not shipped
 
 Ruled 2026-10-06: a studentized block bootstrap, shipped only at near-nominal coverage.

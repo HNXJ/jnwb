@@ -309,6 +309,15 @@ def test_the_linear_jackknife_equals_leaving_each_segment_out():
     assert np.ptp(direct) > 0.1, "the replicates must differ, or any constant passes"
     np.testing.assert_allclose(fast, direct, rtol=1e-9, atol=1e-12)
 
+    # Leaving out a trial: 5 units of 8 consecutive segments each.
+    blocks = np.arange(n_seg).reshape(5, 8)
+    direct_trials = np.array([
+        _psi_from_spectra(np.delete(fx, b, 0), np.delete(fy, b, 0), idx) for b in blocks
+    ])
+    fast_trials = _psi_leave_one_out(fx, fy, idx, 5)
+    assert fast_trials.shape == (5,) and np.ptp(direct_trials) > 0.1
+    np.testing.assert_allclose(fast_trials, direct_trials, rtol=1e-9, atol=1e-12)
+
 
 def test_a_stored_entry_seeks_and_a_compressed_one_reads(tmp_path, monkeypatch):
     import numpy as np

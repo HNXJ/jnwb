@@ -32,6 +32,9 @@ def _welch_segments(a: np.ndarray, nperseg: int, noverlap: int) -> np.ndarray:
     return np.asarray(segs, dtype=float)
 
 
+#: Fewest trials for which the jackknife leaves out a trial rather than a segment.
+_MIN_TRIALS_FOR_TRIAL_JACKKNIFE = 3
+
 #: Fewest Welch segments the default ``nperseg`` leaves, pooled over trials, when the record
 #: allows it.
 _DEFAULT_MIN_SEGMENTS = 20
@@ -64,25 +67,34 @@ def _psi_from_spectra(
     return float(np.sum(np.imag(np.conj(c[:-1]) * c[1:])))
 
 
-def _psi_leave_one_out(fx: np.ndarray, fy: np.ndarray, idx: np.ndarray) -> np.ndarray:
-    """PSI over ``idx`` with each segment left out in turn: one replicate per segment.
+def _psi_leave_one_out(
+    fx: np.ndarray, fy: np.ndarray, idx: np.ndarray, n_units: Optional[int] = None
+) -> np.ndarray:
+    """PSI over ``idx`` with each unit left out in turn: one replicate per unit.
 
-    Replicate ``i`` is ``_psi_from_spectra`` on every segment but ``i``. Its spectra are means
-    over the remaining segments, and each such sum is a prefix sum plus a suffix sum, so all
-    ``S`` replicates cost T(S * B) over the ``B`` bins in ``idx`` instead of T(S^2 * F) for
-    recomputing each from its segments. The two sums are added rather than one segment being
-    subtracted from the total: a subtraction cancels when one segment holds most of a bin's power.
+    A unit is ``n_seg // n_units`` consecutive segments, one trial's segments when
+    ``n_units`` is the trial count; ``None`` makes each segment a unit. Replicate ``i`` is
+    ``_psi_from_spectra`` on every segment outside unit ``i``. Its spectra are means over the
+    remaining segments, and each such sum is a prefix sum plus a suffix sum over the unit
+    sums, so all ``U`` replicates cost T(S * B) over the ``B`` bins in ``idx`` instead of
+    T(U * S * B) for recomputing each from its segments. The two sums are added rather than
+    one unit being subtracted from the total: a subtraction cancels when one unit holds most
+    of a bin's power.
     """
     ax = fx[:, idx]
     ay = fy[:, idx]
     n_seg = ax.shape[0]
+    n_units = n_seg if n_units is None else int(n_units)
+    per_unit = n_seg // n_units
 
     def left_out_mean(v: np.ndarray) -> np.ndarray:
+        if per_unit > 1:
+            v = v.reshape(n_units, per_unit, -1).sum(axis=1)
         before = np.zeros_like(v)
         np.cumsum(v[:-1], axis=0, out=before[1:])
         after = np.zeros_like(v)
         after[:-1] = np.cumsum(v[:0:-1], axis=0)[::-1]
-        return (before + after) / (n_seg - 1)
+        return (before + after) / (n_seg - per_unit)
 
     sxy = left_out_mean(ax * np.conj(ay))
     sxx = left_out_mean(np.abs(ax) ** 2)
@@ -92,22 +104,35 @@ def _psi_leave_one_out(fx: np.ndarray, fy: np.ndarray, idx: np.ndarray) -> np.nd
     return np.sum(np.imag(np.conj(coh[:, :-1]) * coh[:, 1:]), axis=1)
 
 
-def _psi_round_off(n_seg: int, n_pairs: int) -> float:
-    """Largest jackknife standard deviation of PSI that rounding alone can produce.
+#: k of the PSI round-off bound ``k * n * eps * scale`` (see `_psi_round_off`).
+_PSI_ROUND_OFF_K = 4.0
 
-    A replicate sums ``n_pairs`` terms ``Im(conj(C_f) C_{f+1})`` with ``|C| <= 1``, and each
-    coherency is a ratio of means over ``n_seg - 1`` segments, so a term carries a rounding
-    error below about ``4 * n_seg * eps`` and a replicate below ``4 * n_seg * n_pairs * eps``.
-    The width doubles that bound. Replicates that agree to within it, as they do when every
-    segment is the same (a periodic signal) or when Y equals X, have no spread to scale by.
+
+def _psi_round_off(n_seg: int, n_pairs: int, n_units: int) -> float:
+    """Largest jackknife standard deviation of PSI that rounding alone can produce:
+    ``k * n * eps * scale`` with ``k = 4``, ``n = n_seg`` and
+    ``scale = n_pairs * sqrt(n_units - 1)``.
+
+    Derivation, with ``u = eps / 2`` and ``m <= n_seg`` the segments a spectrum averages. A
+    sum of ``m`` products errs by at most ``m u`` times the sum of their magnitudes, which
+    for the cross-spectrum is at most ``sqrt(S_xx S_yy)`` by Cauchy-Schwarz; so a coherency
+    ``C = S_xy / sqrt(S_xx S_yy)``, ``|C| <= 1``, errs by at most ``(2m + 4) u`` and a term
+    ``Im(conj(C_f) C_{f+1})`` by ``(4m + 11) u``. A replicate sums ``n_pairs`` terms, so it
+    errs by at most ``n_pairs (4m + 12) u <= 4 n_seg n_pairs eps`` for ``m >= 3``. Replicates
+    that are equal in exact arithmetic (identical segments, as from a periodic signal, or Y
+    equal to X) then differ by errors ``e_i`` with ``|e_i| <= b``, and the jackknife standard
+    deviation over ``U = n_units`` of them is at most ``sqrt((U - 1) / U * sum(e_i ** 2))
+    <= sqrt(U - 1) b``. A spread within that bound has nothing to scale by.
     """
-    return 8.0 * float(np.finfo(float).eps) * n_seg * max(n_pairs, 1)
+    eps = float(np.finfo(float).eps)
+    scale = max(n_pairs, 1) * np.sqrt(max(n_units - 1, 1))
+    return _PSI_ROUND_OFF_K * n_seg * eps * float(scale)
 
 
 def _warn_psi_zero_spread(name: str, sd: float, warnings_all: List[str]) -> None:
     warnings_all.append(f"band_{name}_jackknife_spread_is_round_off_z_undefined")
     warnings.warn(
-        f"phase_slope_index: the leave-one-segment-out replicates of band {name!r} agree to "
+        f"phase_slope_index: the jackknife replicates of band {name!r} agree to "
         f"rounding (sd {sd:.3g}), so z = psi / sd and its p are undefined and reported as "
         "NaN/None. The segments carry no variation to test against: identical segments, "
         "such as a periodic signal, or Y equal to X.",
@@ -152,13 +177,18 @@ def phase_slope_index(
     ``diagnostics['p_coupling_surrogate']`` and ``per_band[name]['p_surrogate']``: a
     shifted or re-paired Y removes every X-Y dependence, zero lag included, so that p
     tests coupling, not a lead. With ``jackknife=False`` there is no lead test and the
-    three p fields are None. Measured on two noisy copies of one white source (no lead;
-    band 5-100 Hz at fs 1000, runs of 1000 and 2000 seeds), P(lead p < 0.05) was 0.059 to
-    0.064, 0.063 to 0.078 and 0.057 to 0.058 at nperseg 50, 100 and 200 on one 2000-sample
-    trial and 0.070 to 0.079 on 10 trials of 400, while the surrogate p rejected in 0.15 to
-    0.17 at nperseg 100. On independent pairs
-    the lead p rejected in at most 0.003: leaving out one overlapping segment rather than
-    one epoch makes the jackknife conservative there.
+    three p fields are None.
+
+    The jackknife leaves out one trial when there are at least three trials, and one Welch
+    segment otherwise, with a ``RuntimeWarning``; ``params['jackknife_unit']`` records which.
+    Measured on two noisy copies of one white source (no lead; band 5-100 Hz at fs 1000,
+    default ``nperseg``, 2000 seeds), P(lead p < 0.05) was 0.049, 0.059, 0.059 and 0.040 on
+    3, 5 and 10 trials of 400 and 30 of 200, where leaving out a segment instead gave 0.059
+    to 0.068. On one 2000-sample trial the segment jackknife gave 0.059 to 0.064, 0.063 to
+    0.078 and 0.057 to 0.058 at nperseg 50, 100 and 200 (runs of 1000 and 2000 seeds), while
+    the surrogate p rejected in 0.15 to 0.17 at nperseg 100. On independent pairs the lead p
+    rejected in at most 0.020, and a 5-sample lead under unit noise was detected in 0.91 of
+    pairs on 3 trials of 400 and in all of them from 5 trials on.
 
     Coherency is estimated by averaging cross- and auto-spectra over Welch
     segments pooled across trials — a single-segment coherency has magnitude 1 by
@@ -185,9 +215,10 @@ def phase_slope_index(
         noverlap: segment overlap (default nperseg // 2)
         window: ``'hann'`` | ``'hamming'`` | ``'boxcar'``
         detrend: per-trial preprocessing, default ``'demean'``
-        jackknife: estimate the standard deviation of PSI by leave-one-segment-out
-            and report ``z = psi / sd``, the normalization Nolte et al. use for
-            significance. ``|z| > 2`` is the conventional threshold.
+        jackknife: estimate the standard deviation of PSI by leaving out one trial (three
+            or more trials) or one segment (fewer) and report ``z = psi / sd``, the
+            normalization Nolte et al. use for significance; the lead p is ``z`` against
+            Student t with one degree of freedom fewer than the units left out.
         n_surrogates: optional surrogate test of coupling, reported as
             ``diagnostics['p_coupling_surrogate']``; it never sets the lead p. The scheme
             is as in :func:`granger` and is recorded in ``params['surrogate_scheme']``
@@ -215,7 +246,8 @@ def phase_slope_index(
         -- PSI, eq. 3, summed over the coherency of eq. 4 with the cross-spectrum
         ``S_xy = <X Y*>`` of eq. 2; ``z`` is the normalization of eq. 6. The paper's
         jackknife leaves out one epoch, a block of several segments, at a time; this one
-        leaves out one Welch segment, and adjacent segments overlap by ``noverlap``.
+        does so from three trials on, a trial being the epoch, and below that leaves out
+        one Welch segment, adjacent segments overlapping by ``noverlap``.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='phase_slope_index')
     surrogate_rng, seed_entropy = _surrogate_rng(seed, "phase_slope_index")
@@ -269,6 +301,22 @@ def phase_slope_index(
     warnings_all: List[str] = []
     if n_seg < 8:
         warnings_all.append(f"only_{n_seg}_welch_segments_coherency_poorly_estimated")
+
+    # INTENTIONAL BREAK (0.2.10): the jackknife left out one Welch segment whatever the trial
+    # count. Overlapping segments of one trial are dependent, and under zero-lag mixing the
+    # segment jackknife rejected in 0.070 to 0.079 on 10 trials of 400. It leaves out one
+    # trial from three trials on (Nolte et al.'s epoch), and one segment below that.
+    jackknife_unit = "trial" if n_trials >= _MIN_TRIALS_FOR_TRIAL_JACKKNIFE else "segment"
+    n_units = n_trials if jackknife_unit == "trial" else n_seg
+    if jackknife and jackknife_unit == "segment":
+        warnings.warn(
+            f"phase_slope_index: {n_trials} trial(s), so the jackknife leaves out one Welch "
+            f"segment, not one trial; overlapping segments of one trial are dependent, and "
+            f"this jackknife rejected in about 0.06 at a nominal 0.05 under zero-lag mixing. "
+            f"Pass {_MIN_TRIALS_FOR_TRIAL_JACKKNIFE} or more trials to leave out trials.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # full-spectrum PSI per frequency (for the returned spectrum)
     sxy = np.mean(fx * np.conj(fy), axis=0)
@@ -325,15 +373,15 @@ def phase_slope_index(
         value = _psi_from_spectra(fx, fy, idx)
 
         sd = float("nan")
-        if jackknife and n_seg >= 3:
-            jk = _psi_leave_one_out(fx, fy, idx)
-            sd = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk - jk.mean()) ** 2)))
+        if jackknife and n_units >= 3:
+            jk = _psi_leave_one_out(fx, fy, idx, n_units)
+            sd = float(np.sqrt((n_units - 1) / n_units * np.sum((jk - jk.mean()) ** 2)))
             jk_per_band[name] = jk
-            if sd <= _psi_round_off(n_seg, idx.size - 1):
+            if sd <= _psi_round_off(n_seg, idx.size - 1, n_units):
                 _warn_psi_zero_spread(name, sd, warnings_all)
                 sd = float("nan")
         elif jackknife:
-            warnings_all.append("jackknife_needs_at_least_3_segments")
+            warnings_all.append(f"jackknife_needs_at_least_3_{jackknife_unit}s")
 
         per_band[name] = {
             "value": value,
@@ -384,11 +432,11 @@ def phase_slope_index(
         p_coupling = single.get("p_surrogate")
         if np.isfinite(single.get("z", np.nan)):
             # Student t, not a standard normal: the delete-one jackknife z is built from
-            # `n_seg` leave-one-out replicates and carries about `n_seg - 1` degrees of
+            # `n_units` leave-one-out replicates and carries about `n_units - 1` degrees of
             # freedom. The Gaussian tail reported p = 0.0 from 10 segments, and
             # overstated moderate evidence by an order of magnitude (z = 3.29 gave
             # 0.001 against 0.0094 under t(9)).
-            p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_seg - 1, 1)))
+            p_top = float(2 * stats.t.sf(abs(single["z"]), df=max(n_units - 1, 1)))
     else:
         if n_surrogates > 0 and null:
             valid = [k for k in null if np.all(np.isfinite(null[k]))]
@@ -396,15 +444,16 @@ def phase_slope_index(
                 null_tot = np.sum([null[k] for k in valid], axis=0)
                 n_pairs = sum(int(per_band[k]["n_freq_bins"]) - 1 for k in valid)
                 p_coupling = _surrogate_p(null_tot, total, "two-sided", scale=n_pairs)
-        if jackknife and n_seg >= 3 and jk_per_band:
+        if jackknife and n_units >= 3 and jk_per_band:
             jk_tot = np.sum(list(jk_per_band.values()), axis=0)
-            sd_tot = float(np.sqrt((n_seg - 1) / n_seg * np.sum((jk_tot - jk_tot.mean()) ** 2)))
+            sd_tot = float(np.sqrt((n_units - 1) / n_units
+                                   * np.sum((jk_tot - jk_tot.mean()) ** 2)))
             n_pairs = sum(int(v["n_freq_bins"]) - 1 for k, v in per_band.items() if k in jk_per_band)
-            if sd_tot <= _psi_round_off(n_seg, n_pairs):
+            if sd_tot <= _psi_round_off(n_seg, n_pairs, n_units):
                 _warn_psi_zero_spread("total", sd_tot, warnings_all)
             elif np.isfinite(sd_tot) and np.isfinite(total):
                 z_tot = float(total / sd_tot)
-                p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_seg - 1, 1)))
+                p_top = float(2 * stats.t.sf(abs(z_tot), df=max(n_units - 1, 1)))
 
     return DirectedResult(
         method="psi",
@@ -433,6 +482,7 @@ def phase_slope_index(
             "n_segments": int(n_seg),
             "bands": {k: list(v) for k, v in band_map.items()},
             "jackknife": bool(jackknife),
+            "jackknife_unit": jackknife_unit if jackknife else None,
             "n_surrogates": int(n_surrogates),
             "detrend": detrend,
             "seed": None if isinstance(seed, np.random.Generator) else seed,

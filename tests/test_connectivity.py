@@ -944,6 +944,8 @@ class TestPsiInferenceIsNotOverstated:
         x, y = self._lagged_pair()
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
+            # One trial: the segment-jackknife warning is expected and is not about bands.
+            warnings.filterwarnings("ignore", message=".*leaves out one Welch segment")
             res = phase_slope_index(
                 x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0), "gamma": (35.0, 50.0)}
             )
@@ -991,8 +993,10 @@ class TestPsiInferenceIsNotOverstated:
 
     def test_the_width_sits_between_round_off_and_a_part_in_1e9(self):
         """Y equal to aperiodic noise leaves replicates that differ by round-off alone (sd
-        3.9e-18, the largest measured, against a width of 1.7e-12); a variation of one part
+        3.9e-18, the largest measured, against a width of 4.7e-12); a variation of one part
         in 1e9 gives sd 1.1e-10 and keeps its z."""
+        from jnwb.connectivity._psi import _psi_round_off
+
         rng = np.random.default_rng(0)
         x = rng.normal(size=1024)
         with pytest.warns(RuntimeWarning, match="agree to rounding"):
@@ -1001,8 +1005,13 @@ class TestPsiInferenceIsNotOverstated:
         perturbed = x + 1e-9 * rng.normal(size=1024)
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
+            warnings.filterwarnings("ignore", message=".*leaves out one Welch segment")
             res = phase_slope_index(x, perturbed, fs=100.0, nperseg=64)
         assert np.isfinite(res.per_band["full"]["z"])
+        # Both sides of the width: above the largest measured round-off, below the spread.
+        width = _psi_round_off(31, 31, 31)
+        assert res.params["n_segments"] == 31 and res.per_band["full"]["n_freq_bins"] == 32
+        assert 1e3 * 3.9e-18 < width < res.per_band["full"]["sd"] / 10
 
     def test_a_jackknife_with_spread_keeps_its_z(self):
         """The guard sits at rounding: an ordinary lagged pair keeps a finite z and no warning."""
@@ -1182,3 +1191,52 @@ class TestDirectedEstimatorEdges:
             fn(np.array([]), np.array([0.1]), (0.0, 1.0))
         with pytest.raises(ValueError, match=rf"^{name}\b"):
             fn(np.array([0.1]), np.array([0.2]), (0.0, 1.0), bin_size_ms=3.0)
+
+
+class TestPsiJackknifeUnit:
+    """P-227, ruled 2026-10-06: the jackknife leaves out one trial from three trials on, and
+    one segment with a warning below that. Leaving out one of a trial's overlapping segments
+    rejected in 0.059 to 0.068 under zero-lag mixing on 3 to 30 trials; one trial, 0.040 to
+    0.059 (artifacts/evidence/0.2.10/10-06/records.md)."""
+
+    KW = dict(fs=1000.0, bands=(5.0, 100.0), nperseg=100)
+
+    @staticmethod
+    def _lagged(n_trials, seed=5):
+        rng = np.random.default_rng(seed)
+        x = rng.normal(size=(n_trials, 400))
+        return x, np.roll(x, 3, axis=1) + 2.0 * rng.normal(size=(n_trials, 400))
+
+    def test_three_or_more_trials_leave_out_a_trial(self):
+        """Each replicate is recomputed as the PSI of the other trials, a fresh call."""
+        x, y = self._lagged(4)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(x, y, **self.KW)
+            reps = np.array([phase_slope_index(np.delete(x, i, 0), np.delete(y, i, 0),
+                                               **self.KW).net for i in range(4)])
+        sd = np.sqrt(3 / 4 * np.sum((reps - reps.mean()) ** 2))
+        band = res.per_band["band"]
+        assert res.params["jackknife_unit"] == "trial"
+        assert band["sd"] == pytest.approx(sd, rel=1e-9)
+        assert res.p_net == pytest.approx(2 * stats.t.sf(abs(band["value"] / sd), df=3),
+                                          rel=1e-9)
+
+    def test_fewer_than_three_trials_leave_out_a_segment_and_warn(self):
+        x, y = self._lagged(2)
+        with pytest.warns(RuntimeWarning, match="leaves out one Welch segment"):
+            res = phase_slope_index(x, y, **self.KW)
+        n_seg = res.params["n_segments"]
+        assert res.params["jackknife_unit"] == "segment" and n_seg == 14
+        z = res.per_band["band"]["z"]
+        assert res.p_net == pytest.approx(2 * stats.t.sf(abs(z), df=n_seg - 1), rel=1e-12)
+
+    def test_the_round_off_bound_is_k_n_eps_scale(self):
+        """P-331: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
+        docstring of `_psi_round_off` derives."""
+        from jnwb.connectivity._psi import _psi_round_off
+
+        eps = np.finfo(float).eps
+        assert _psi_round_off(70, 9, 10) == pytest.approx(4 * 70 * eps * 9 * 3.0, rel=1e-15)
+        assert _psi_round_off(20, 5, 20) == pytest.approx(
+            4 * 20 * eps * 5 * np.sqrt(19), rel=1e-15)

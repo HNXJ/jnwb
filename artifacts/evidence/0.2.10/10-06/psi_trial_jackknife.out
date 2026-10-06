@@ -1,0 +1,28 @@
+jnwb from C:\workspace/jnwb-lanes/g-10-06\jnwb\__init__.py
+fs=1000.0 band=(5.0, 100.0) seeds 0..1999
+mixing        3x400   trial   segments=  21 P(p<0.05)=0.0490 (se 0.0048) undefined=0
+mixing        3x400   segment segments=  21 P(p<0.05)=0.0680 (se 0.0056) undefined=0
+mixing        5x400   trial   segments=  35 P(p<0.05)=0.0585 (se 0.0052) undefined=0
+mixing        5x400   segment segments=  35 P(p<0.05)=0.0645 (se 0.0055) undefined=0
+mixing       10x400   trial   segments=  70 P(p<0.05)=0.0585 (se 0.0052) undefined=0
+mixing       10x400   segment segments=  70 P(p<0.05)=0.0680 (se 0.0056) undefined=0
+mixing       30x200   trial   segments= 210 P(p<0.05)=0.0400 (se 0.0044) undefined=0
+mixing       30x200   segment segments= 210 P(p<0.05)=0.0590 (se 0.0053) undefined=0
+independent   3x400   trial   segments=  21 P(p<0.05)=0.0195 (se 0.0031) undefined=0
+independent   3x400   segment segments=  21 P(p<0.05)=0.0060 (se 0.0017) undefined=0
+independent   5x400   trial   segments=  35 P(p<0.05)=0.0135 (se 0.0026) undefined=0
+independent   5x400   segment segments=  35 P(p<0.05)=0.0030 (se 0.0012) undefined=0
+independent  10x400   trial   segments=  70 P(p<0.05)=0.0050 (se 0.0016) undefined=0
+independent  10x400   segment segments=  70 P(p<0.05)=0.0020 (se 0.0010) undefined=0
+independent  30x200   trial   segments= 210 P(p<0.05)=0.0015 (se 0.0009) undefined=0
+independent  30x200   segment segments= 210 P(p<0.05)=0.0015 (se 0.0009) undefined=0
+lead          3x400   trial   segments=  21 P(p<0.05)=0.9080 (se 0.0065) undefined=0
+lead          3x400   segment segments=  21 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead          5x400   trial   segments=  35 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead          5x400   segment segments=  35 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead         10x400   trial   segments=  70 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead         10x400   segment segments=  70 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead         30x200   trial   segments= 210 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead         30x200   segment segments= 210 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+rc=0
+exit=0
