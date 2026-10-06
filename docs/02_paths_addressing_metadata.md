@@ -71,7 +71,7 @@ res.labels                   # "superficial" | "input" | "deep" | "WM" | "outsid
 ```
 
 The grade rests on the anchor's stability across blocks of epochs and on spectral consistency; A and B
-carry a laminar claim and C is a sensitivity check. xFLIP and the evoked CSD are reported as distances
+carry a laminar claim; C and D are sensitivity checks. xFLIP and the evoked CSD are reported as distances
 to the anchor and never move it. One cortical sheet is assumed: `n_crossings` above 1 means the shaft
 may need splitting into contiguous ranges. Contacts on one shaft are not independent, so the probe
 is the unit of inference. The parts (`detect_bad_channels`, `interpolate_channel_runs`,
