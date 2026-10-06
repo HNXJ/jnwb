@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from .._dictlike import DictAccessMixin
-from .._rng import surrogate_rng
+from .._rng import recorded_rng
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
@@ -35,9 +35,9 @@ class XFlipResult(DictAccessMixin):
         boundary_drops: Optional dict mapping each interior boundary index to its
             local correlation drop (within-block neighbor correlation minus cross-boundary correlation).
         surrogate_seed_entropy: The entropy the surrogate generator was built from: the
-            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
-            back as `rng` reproduces `p_values`. None when you supplied a `Generator`, whose
-            stream position cannot be recovered, and when no surrogates were drawn.
+            seed for an int `rng`, the fresh OS entropy drawn for `rng=None`, and the child
+            seed drawn from a `Generator`. Passing it back as `rng` reproduces `p_values`.
+            None when no surrogates were drawn.
     """
 
     corr_matrix: np.ndarray
@@ -450,8 +450,9 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
-        rng: An int seed, a NumPy Generator, or None for fresh OS entropy. The entropy
-            used is returned as `surrogate_seed_entropy` for an int or None.
+        rng: An int seed, a NumPy Generator, or None for fresh OS entropy. A `Generator`
+            gives up one draw, a child seed the surrogates run on. The seed used is
+            returned as `surrogate_seed_entropy`.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
@@ -486,7 +487,7 @@ def xflip(
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
-    gen, seed_entropy = surrogate_rng(rng, "xflip")
+    gen, seed_entropy = recorded_rng(rng, "xflip")
 
     arr = np.asarray(data)
     if arr.ndim != 2:

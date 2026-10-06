@@ -1421,9 +1421,9 @@ class TestVFlipNormalizationRepair:
 
     def test_the_default_threshold_is_the_calibrated_one(self):
         """Threshold 6.0 belonged to the pre-repair score and must not come back."""
-        import json
+        from tests.test_vflip_calibration_receipt import strict_loads
 
-        raw = json.loads(
+        raw = strict_loads(
             (pathlib.Path(__file__).resolve().parents[1]
              / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
              ).read_text(encoding="utf-8")
@@ -1432,3 +1432,96 @@ class TestVFlipNormalizationRepair:
         assert raw["operating"]["selected_threshold"] == DEFAULT_MIN_SUPPORT_SCORE
         assert raw["operating"]["acceptance_available"] is True
         assert raw["operating"]["curves"][str(DEFAULT_MIN_SUPPORT_SCORE)]["fpr"] <= 0.05
+
+
+class TestVFlipEdges:
+    """The published-name statement, the support floor and the depth-axis guard."""
+
+    def test_the_docstring_says_how_vflip_differs_from_the_published_vflip(self):
+        """`vflip` keeps its name; its docstring states the procedure is not the paper's."""
+        doc = " ".join(vflip.__doc__.split())
+        for fact in ("FLIP and the frequency-variable vFLIP", "10-19 Hz and 75-150 Hz",
+                     "not a FLIP or vFLIP crossover"):
+            assert fact in doc, fact
+
+    def test_the_laminar_page_says_it_too_and_calls_each_operation(self):
+        page = " ".join((pathlib.Path(__file__).resolve().parents[1] / "docs" / "laminar.md")
+                        .read_text(encoding="utf-8").split())
+        assert "not a FLIP or vFLIP crossover" in page
+        for call in ("jnwb.vflip(", "jnwb.xflip(", "jnwb.zflip(", "jnwb.label_layers("):
+            assert call in page, call
+
+    @staticmethod
+    def _faint_motif(scale):
+        """A motif `scale` times smaller than a column that is constant across contacts."""
+        from tests.test_laminar_index_space_and_boundary import _synthetic_motif
+
+        freqs, psd = _synthetic_motif()
+        psd = psd * scale
+        psd[:, freqs < 8.0] = 1.0
+        return freqs, psd
+
+    def test_a_support_below_every_floor_is_reported_as_measured(self):
+        """P-351, P-353: the score was log(max(1e-12, metric)), so every metric below 1e-12
+        read as -27.63 and a caller threshold of -30 accepted it."""
+        freqs, psd = self._faint_motif(1e-20)
+        res = vflip(psd, freqs, min_support_score=-30.0)
+        assert res.support_score < -30.0, res.support_score
+        assert not res.accepted and res.rejection_reason == "insufficient_support"
+        assert res.crossover_contact is None
+
+    def test_no_support_at_all_is_minus_infinity(self):
+        freqs, psd = self._faint_motif(1e-20)
+        res = vflip(np.ones_like(psd), freqs, min_support_score=-1e300)
+        assert res.support_score == -np.inf
+        assert not res.accepted and res.rejection_reason is not None
+
+    @staticmethod
+    def _staggered_geometry(n=24, pitch=25.0, stagger=40.0):
+        """Depth advances along z; x alternates between the two columns of the shaft."""
+        i = np.arange(n)
+        frame = pd.DataFrame({
+            "x": np.where(i % 2 == 0, 0.0, stagger), "y": np.zeros(n), "z": pitch * i,
+            "channel_id": [f"ch_{k}" for k in i],
+        })
+        return jnwb.probe_geometry(frame, units="um")
+
+    @pytest.mark.parametrize("func", ["vflip", "label_layers"])
+    def test_a_staggered_column_is_refused_as_a_depth_axis(self, func):
+        """A declared depth axis is monotone along the shaft: `x` differs between the two
+        ends of a 24-contact staggered shaft, so the end-to-end check alone accepted it."""
+        from tests.test_laminar_index_space_and_boundary import _synthetic_motif
+
+        freqs, psd = _synthetic_motif()
+        geom = self._staggered_geometry()
+        declared = {"depth_axis": "x", "shallow_end": "min"}
+        with pytest.raises(ValueError, match="not monotone along the shaft"):
+            if func == "vflip":
+                vflip(psd, freqs, probe_geometry=geom, **declared)
+            else:
+                label_layers(vflip(psd, freqs, probe_geometry=geom), geom, **declared)
+
+    def test_a_fit_declared_on_a_staggered_column_is_refused_by_label_layers(self):
+        """The case above gives label_layers an undeclared fit, so its declaration check could
+        refuse first. Here the fit carries the same `x` declaration, so only the stagger guard
+        stands between it and labels. vflip refuses to make such a fit, so it is built by hand."""
+        import dataclasses
+
+        from tests.test_laminar_index_space_and_boundary import _synthetic_motif
+
+        freqs, psd = _synthetic_motif()
+        geom = self._staggered_geometry()
+        fit = vflip(psd, freqs, probe_geometry=geom, depth_axis="z", shallow_end="min")
+        fit_x = dataclasses.replace(fit, depth_axis="x")
+        assert (fit_x.depth_anchor, fit_x.depth_axis, fit_x.shallow_end) == (
+            "shallowest", "x", "min")
+        with pytest.raises(ValueError, match="not monotone along the shaft"):
+            label_layers(fit_x, geom, depth_axis="x", shallow_end="min")
+
+    def test_the_monotone_column_of_the_same_shaft_is_accepted(self):
+        from tests.test_laminar_index_space_and_boundary import _synthetic_motif
+
+        freqs, psd = _synthetic_motif()
+        res = vflip(psd, freqs, probe_geometry=self._staggered_geometry(),
+                    depth_axis="z", shallow_end="min")
+        assert res.accepted and res.depth_anchor == "shallowest"
