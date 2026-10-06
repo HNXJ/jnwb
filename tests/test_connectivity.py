@@ -582,6 +582,66 @@ class TestDirectedConnectivityAndNetwork:
             directed_network(signals, method="granger", order=1, n_surrogates=5,
                              rng=np.random.default_rng(1), seed=np.random.default_rng(2))
 
+    @pytest.mark.parametrize("given, parent", [({"rng": 7}, 7), ({"seed": 7}, 7), ({}, 0)])
+    def test_an_int_seed_gives_each_pair_its_own_child_seed(self, given, parent):
+        """IB-45, ruled 2026-10-06: an int seed, the default 0 included, reached every pair
+        unchanged, so every pair drew the same surrogate stream."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, **given)
+        expected = np.random.default_rng(parent).integers(0, 2**63 - 1, size=3).tolist()
+        assert list(res["pair_seeds"].values()) == expected
+        assert len(set(expected)) == 3
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert recorded == expected
+
+    def test_a_none_seed_records_the_entropy_each_pair_drew(self):
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, rng=None)
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert list(res["pair_seeds"].values()) == recorded and len(set(recorded)) == 3
+
+
+class TestConditionalDirectedNetwork:
+    """Ruled 2026-10-06: Granger conditions each pair on every other node through `Z`; the
+    other methods stay pairwise."""
+
+    @staticmethod
+    def _chain(n=3000, seed=11):
+        """A -> B -> C at one-sample lags and no direct A -> C term."""
+        rng = np.random.default_rng(seed)
+        a, b, c = rng.normal(size=(3, n))
+        for t in range(1, n):
+            b[t] += 0.8 * a[t - 1]
+            c[t] += 0.8 * b[t - 1]
+        return {"A": a, "B": b, "C": c}
+
+    def test_a_chain_has_no_direct_edge_once_conditioned(self):
+        signals = self._chain()
+        kw = dict(method="granger", order=2, fdr=False)
+        pairwise = directed_network(signals, **kw)
+        given = directed_network(signals, conditional=True, **kw)
+        a, b, c = 0, 1, 2
+        assert pairwise["p_matrix"][a, c] < 1e-10, "the indirect path must show pairwise"
+        assert given["p_matrix"][a, c] > 0.05
+        assert given["p_matrix"][a, b] < 1e-10 and given["p_matrix"][b, c] < 1e-10
+        assert given["conditional"] is True and pairwise["conditional"] is False
+        assert given["results"][("A", "C")].params["n_conditioning"] == 1
+        assert pairwise["results"][("A", "C")].params["n_conditioning"] == 0
+
+    @pytest.mark.parametrize("method", ["psi", "te", "granger_spectral"])
+    def test_other_methods_stay_pairwise(self, method):
+        with pytest.raises(ValueError, match="conditions Granger only"):
+            directed_network(self._chain(n=200), method=method, conditional=True, fs=1000.0)
+
+    def test_z_and_conditional_together_are_refused(self):
+        signals = self._chain(n=200)
+        with pytest.raises(ValueError, match="do not pass Z as well"):
+            directed_network(signals, conditional=True, Z=signals["A"], order=1)
+
 
 class TestFewTrialSurrogates:
     """Below 7 trials the surrogates circularly shift each trial instead of re-pairing

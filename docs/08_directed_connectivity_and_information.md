@@ -212,11 +212,13 @@ print("Directed matrix shape:", network["matrix"].shape)   # M[i, j]: influence 
 ```
 
 Over 6 ordered pairs a lone true edge has a Benjamini-Hochberg q of at least
-`6 / (n_surrogates + 1)`, so it needs 120 surrogates to reach 0.05.
+`6 / (n_surrogates + 1)`, so it needs 120 surrogates to reach 0.05. Each pair's seed is in
+`pair_seeds`.
 
 Each edge is fitted on its pair alone. A common driver (Z drives X and, later, Y) or an indirect
-path (X drives Z, Z drives Y) therefore appears as a direct X -> Y edge; conditioning on the
-other signal through `granger(..., Z=...)` removes that spurious edge:
+path (X drives Z, Z drives Y) therefore appears as a direct X -> Y edge;
+`granger(..., Z=...)`, or `directed_network(..., conditional=True)` for Granger, conditions on
+the other signals and removes it:
 
 ```python
 z = rng.normal(size=2000)
