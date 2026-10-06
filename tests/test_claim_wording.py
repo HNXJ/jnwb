@@ -27,7 +27,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
 from scripts.mutation_harness import source_path  # noqa: E402
-from tests._sources import source_files, unread  # noqa: E402
+from tests._sources import read_sources, unread_by  # noqa: E402
 
 TERMS = re.compile(
     r"\b(causes?|caused|causing|time[\s-]+delays?|propagation[\s-]+delays?|latenc(?:y|ies))\b",
@@ -98,10 +98,10 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
 )
 
 
-def _public_docstrings(path: Path) -> list[tuple[int, str]]:
+def _public_docstrings(path: Path, text: str) -> list[tuple[int, str]]:
     """Docstrings `help()` shows: the module's, unless it is private, and each public def's; in a
     private submodule of a package, a def is public where the package's `__init__` re-exports it."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree = ast.parse(text)
     out: list[tuple[int, str]] = []
 
     def visit(node: ast.AST, public: bool) -> None:
@@ -128,10 +128,6 @@ def _public_docstrings(path: Path) -> list[tuple[int, str]]:
     return out
 
 
-def _jnwb_modules() -> list[Path]:
-    return source_files()
-
-
 def _surface_lines() -> list[tuple[str, int, str]]:
     lines: list[tuple[str, int, str]] = []
     pages = sorted((ROOT / "docs").rglob("*.md")) + sorted((ROOT / "skills").rglob("*.md"))
@@ -140,9 +136,9 @@ def _surface_lines() -> list[tuple[str, int, str]]:
         rel = page.relative_to(ROOT).as_posix()
         for lineno, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
             lines.append((rel, lineno, line))
-    for module in _jnwb_modules():
-        rel = module.relative_to(ROOT).as_posix()
-        for start, doc in _public_docstrings(module):
+    for source in read_sources("claim-wording"):
+        rel = source.path.relative_to(ROOT).as_posix()
+        for start, doc in _public_docstrings(source.path, source.text):
             for offset, line in enumerate(doc.splitlines()):
                 lines.append((rel, start + offset, line))
     return lines
@@ -191,7 +187,8 @@ def test_every_use_on_the_public_surfaces_is_listed_and_every_listing_is_used() 
 
 
 def test_the_docstring_sweep_reads_every_file_that_defines_a_public_name() -> None:
-    assert unread(_jnwb_modules()) == []
+    _surface_lines()
+    assert unread_by("claim-wording") == []
 
 
 @pytest.mark.parametrize("sentence", [

@@ -702,17 +702,16 @@ class TestNoKeyAssertsAnUncorrectedCorrection:
         would have concealed a reintroduction in ``compare_groups`` from every assertion
         made on the wrapper's own return.
         """
-        from tests._sources import source_files, unread
+        from tests._sources import read_sources, unread_by
 
-        files = source_files("jnwb.statistics")
-        assert unread(files, "jnwb.statistics") == []
-        for path in files:
-            src = path.read_text(encoding="utf-8")
+        for source in read_sources("statistics-keys", "jnwb.statistics"):
+            src = source.text
             assert "fdr_pval_parametric" not in src, (
-                f"{path.name} still names a key no code path assigns; a reader takes "
+                f"{source.path.name} still names a key no code path assigns; a reader takes "
                 "the name for a returned value, which is what 06-44 was reported as"
             )
-            assert "fdr_pval_nonparametric" not in src, path.name
+            assert "fdr_pval_nonparametric" not in src, source.path.name
+        assert unread_by("statistics-keys", "jnwb.statistics") == []
 
 
 # ── The caller names the primary test ──────────────────────────────────
@@ -1280,4 +1279,13 @@ def test_the_source_list_follows_definitions_into_the_package_submodules():
         "_trials.py"}
     assert StatisticalAnalysis.__module__ == "jnwb.statistics"
     assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
+
+
+def test_the_source_list_covers_subpackage_all_and_optional_modules():
+    """Names exported by a subpackage's `__all__` and the optional modules are public too."""
+    from tests._sources import public_definition_files
+
+    listed = {p.relative_to(p.parents[1]).as_posix() for p in public_definition_files()}
+    assert {"testing/synth.py", "testing/nwb_fixtures.py", "mcp_server/event_tools.py",
+            "mcp_server/nwb_tools.py", "mcp_server/__main__.py", "jnwb/nam.py", "jnwb/bilinear.py"} <= listed, listed
 
