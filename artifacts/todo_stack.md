@@ -326,7 +326,7 @@ Writes: `.github/workflows/workflow.yml`, `scripts/smoke_installed.py`, `scripts
 - CI guard hardening: exit-masking forms in the pytest steps, `set +e` in Resolve, a re-upgrade after the constrained install, only `env.FLOOR_PYTHON` checked, two copies of the browser retry. Check: a test refuses each of the five. Waits: each needs a deliberate workflow edit.
 - Peak-memory reset evidence: a clear_refs write counts as a reset unobserved; the unwritable case is undocumented; the `ru_maxrss` fallback is unlabelled. Check: the write is re-read, the unwritable case has a row, the fallback has a label. Waits: every row is labelled correctly.
 - Floor coverage: 3.12.0 runs only on the Ubuntu floors leg (`.github/workflows/workflow.yml:171`). Check: the workflow runs newest dependencies on 3.12.0 and a Windows 3.12.0 leg. Waits: the known defect class reaches the Ubuntu leg.
-- One smoke definition: CI's smoke script and the release gate's installed-package script check different things. Check: one definition that both run. Waits: each exercised where it runs.
+- One smoke definition: CI's smoke script and the release gate's installed-package script check different things. Check: one definition that both run; P-352 holds the suite-run half. Waits: each exercised where it runs.
 - P-352: the release gate's smoke script runs only at step 7. Check: the suite runs it against the tree. Waits: fails closed.
 - P-353 smoke half: the smoke step keeps `PYTHONPATH` where the tutorial step strips it. Check: the smoke step strips it. Waits: asserts a `site-packages` import.
 - Release workflow edges: the smoke pass branch, export and extra checks are untested to failure; a yanked TestPyPI file passes the hash comparison; the verify job's one-wheel count is not asserted. Check: a failing test for each. Waits: each fails loudly in CI.
@@ -338,6 +338,18 @@ Writes: `.github/workflows/workflow.yml`, `scripts/smoke_installed.py`, `scripts
 Accept: each check passes; one CI run on `dev` is green.
 Stop: a hardening would refuse the current workflow.
 
+### 12-05 Process tests pruned and merged
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: 12-01.
+Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
+Ruled 2026-09-29 (D12): the list is accepted, run after the gates split. The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
+- Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers (the ruled list in this item's Writes). Check: each pruned case is shown held by a stronger test first, named in the audit. Waits: not stated.
+- P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`. Waits: not stated.
+- Apparatus bound: `artifacts/goal.md` section 10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: not stated.
+Accept: the pruned files' cases are held by the stronger tests named in the audit.
+Stop: a pruned test is the only one that kills some mutant.
+
 ### 12-04 Mutation and contract gate reach
 
 Release: deferred-0.2.10.
@@ -347,40 +359,6 @@ Writes: `scripts/mutation_harness.py`, `scripts/computational_contract_gate.py`,
 - P-266: the contract gate tracks aliases without order and accepts one correct path among several. Check: aliasing is order-aware, and a planted wrong path beside a correct one fails. Waits: switch tests hold live behaviour.
 Accept: each check passes.
 Stop: none beyond the standing ones.
-
-### 12-05 Process tests pruned and merged
-
-Release: deferred-0.2.10.
-Ruled 2026-09-29 (D12): the list is accepted, run after the gates split.
-Role: jnwb-developer. Skill: none. Blocked by: 12-01.
-Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
-The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
-- Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers (the ruled list in this item's Writes). Check: each pruned case is shown held by a stronger test first, named in the audit. Waits: not stated.
-- P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`. Waits: not stated.
-- Apparatus bound: `artifacts/goal.md` section 10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: not stated.
-Accept: the pruned files' cases are held by the stronger tests named in the audit.
-Stop: a pruned test is the only one that kills some mutant.
-
-### 12-06 No process identifiers outside the stacks
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-02, 12-03, 12-04, 12-05, 12-07, 12-08, 12-09.
-Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
-- P-284: 113 identifiers in 6 `scripts/` files and 562 in 87 test files cite item and problem ids (gate 14's `PROCESS_IDENTIFIER` at 72124e23; P-209 and IB-71 merged here). Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals. Waits: neither directory ships.
-- P-102: line endings levelled across the tree if `artifacts/evidence/0.2.8/plan/decisions.md` D3 rules it, as the last commit of the cycle, since it touches every file. Check: gate 16 passes and one byte-mode edit per convention applies. Waits: not stated.
-Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
-Stop: an id is a literal a parser fixture needs.
-
-### 12-07 Release and study-vocabulary facts held; no fact UNHELD
-
-Release: deferred-0.2.10.
-AUTONOMY: none for the study-vocabulary values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
-Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-03, 12-05, 12-08.
-Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
-- R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function. Waits: not stated.
-- B2: gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit is repaired or shown generic. Check: a planted study token in `tests/` fails. Waits: not stated.
-Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
-Stop: a workflow change would alter the ruled publication order.
 
 ### 12-08 Every routed method cites a published source
 
@@ -406,6 +384,27 @@ Source: `artifacts/defect_classes.md`; each bullet is a class seen twice, or one
 - The ledger is counted, not typed: `Seen` in `artifacts/defect_classes.md` equals its instances. Check: the gate recounts it. Waits: hand-kept today.
 Accept: each check is red on the instance its bullet names and green on the live tree; the harness counts the new gate.
 Stop: a check needs judgement a script cannot make; it stays a review rule instead.
+
+### 12-07 Release and study-vocabulary facts held; no fact UNHELD
+
+Release: deferred-0.2.10.
+AUTONOMY: none for the study-vocabulary values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
+Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-03, 12-05, 12-08.
+Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
+- R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function. Waits: not stated.
+- B2: gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit is repaired or shown generic. Check: a planted study token in `tests/` fails. Waits: not stated.
+Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
+Stop: a workflow change would alter the ruled publication order.
+
+### 12-06 No process identifiers outside the stacks
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-02, 12-03, 12-04, 12-05, 12-07, 12-08, 12-09.
+Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
+- P-284: 113 identifiers in 6 `scripts/` files and 562 in 87 test files cite item and problem ids (gate 14's `PROCESS_IDENTIFIER` at 72124e23; P-209 and IB-71 merged here). Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals. Waits: neither directory ships.
+- P-102: line endings levelled across the tree if `artifacts/evidence/0.2.8/plan/decisions.md` D3 rules it, as the last commit of the cycle, since it touches every file. Check: gate 16 passes and one byte-mode edit per convention applies. Waits: not stated.
+Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
+Stop: an id is a literal a parser fixture needs.
 
 # 0.2.13
 
@@ -544,7 +543,7 @@ Every item here carries `deferred-0.2.10`, as in 0.2.10.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A figures and tutorials | 14-01, 14-02, 14-03, 14-04, 14-05 | `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py` |
-| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/notebooks/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once lane A has merged them |
+| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/notebooks/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once 14-03 has landed |
 | T trial correlation | 14-07 | `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md` |
 
 Question round at the opening: the 11-04 shapes once its proposal exists, 13-04 against the
@@ -630,7 +629,7 @@ Stop: public API; Hamm rules the shape.
 
 Release: deferred-0.2.10.
 AUTONOMY: none until Hamm rules each shape from 11-04's proposal.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04, 14-03.
 Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `changelog.d/pitfall-estimators.added.md`.
 11-04's acceptance makes the implementation its own item, with API, docs and tests before any skill row.
 - The four estimators 11-04 proposes (`artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`) have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: public API; nothing lands before the ruling.
@@ -641,7 +640,7 @@ Stop: an estimator whose shape Hamm has not ruled.
 
 Release: deferred-0.2.10.
 AUTONOMY: none.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill.
+Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill, 14-03.
 Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
 Ruled 2026-10-03: decided later. When the collaborator's label-learning skill arrives, this
 design and theirs go to Hamm, who rules the screen into the core or deletes this item so the
