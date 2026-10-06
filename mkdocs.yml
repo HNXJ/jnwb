@@ -127,6 +127,7 @@ nav:
   - Fix a problem:
       - Common Mistakes: common_mistakes.md
       - Errors: errors.md
+      - Repairing NWB Files: repairing_nwb.md
 
   - Look up:
       - Public API: api.md
