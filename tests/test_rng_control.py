@@ -76,8 +76,10 @@ class TestNoRandomizedFunctionHidesItsSeed:
     def test_no_seed_literal_survives_in_a_function_body(self):
         """The repair is the absence of this pattern, so grep for it rather than trusting
         that the eight above are all of them."""
-        for mod in ("statistics.py", "decoding.py"):
-            src = (Path(jnwb.__file__).parent / mod).read_text(encoding="utf-8")
+        package = Path(jnwb.__file__).parent
+        for path in sorted((package / "statistics").glob("*.py")) + [package / "decoding.py"]:
+            mod = path.relative_to(package).as_posix()
+            src = path.read_text(encoding="utf-8")
             hits = re.findall(r"default_rng\((\d+)\)", src)
             assert not hits, f"{mod}: seed literal(s) {hits} still inside a body"
 

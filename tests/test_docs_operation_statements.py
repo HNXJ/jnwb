@@ -431,7 +431,8 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     assert "`jnwb._parallel.spawn_seeds`" in cell
     assert "`np.random.SeedSequence(entropy).spawn(n_permutations)`" in cell
     x = np.random.default_rng(1).normal(size=(8, 20))
-    seen = _recorded_items(monkeypatch, "jnwb.statistics", lambda: jnwb.cluster_permutation_test(
+    home = jnwb.cluster_permutation_test.__module__  # where it looks `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.cluster_permutation_test(
         x, x + 0.1, n_permutations=12, rng=np.random.default_rng(5)))
     entropy = int(np.random.default_rng(5).integers(0, 2**63 - 1))
     expected = np.random.SeedSequence(entropy).spawn(12)
