@@ -1107,3 +1107,78 @@ class TestGrangerNotTestedIsNotPassed:
         g = granger(constant, constant, order=3)
         te = transfer_entropy(constant, constant)
         assert g.diagnostics["ok_for_interpretation"] == te.diagnostics["ok_for_interpretation"] is False
+
+
+class TestDirectedEstimatorEdges:
+    """Item 10-06: the PSI segment default, its pinned spectrum, the partial-band `net`, the
+    silent all-NaN q_matrix and the mutual-information error names."""
+
+    @pytest.mark.parametrize("shape, nperseg, n_segments", [
+        ((2000,), 190, 20),       # n_times // 4 = 500 left 7 segments
+        ((10, 400), 100, 70),     # n_times // 4 already leaves 70: unchanged
+        ((100,), 16, 11),         # the 16-sample floor wins over the segment count
+    ])
+    def test_the_default_segment_count(self, shape, nperseg, n_segments):
+        """D10(c), ruled 2026-09-29: the default leaves at least about 20 segments."""
+        rng = np.random.default_rng(0)
+        res = phase_slope_index(rng.normal(size=shape), rng.normal(size=shape), fs=1000.0)
+        assert (res.params["nperseg"], res.params["n_segments"]) == (nperseg, n_segments)
+
+    def test_psi_freqs_and_the_first_term_are_pinned(self):
+        """P-196: `psi_freqs` and `psi_per_freq` were returned and never checked. The first
+        term is recomputed here from eq. 3 of Nolte et al. (2008) on the same segments."""
+        rng = np.random.default_rng(3)
+        x = rng.normal(size=640)
+        y = np.roll(x, 2) + 0.5 * rng.normal(size=640)
+        res = phase_slope_index(x, y, fs=100.0, nperseg=64)
+        np.testing.assert_array_equal(res.spectrum["psi_freqs"],
+                                      (np.arange(32) + 0.5) * 100.0 / 64)
+
+        def spectra(a):
+            a = a - a.mean()
+            seg = np.stack([a[s:s + 64] for s in range(0, 640 - 64 + 1, 32)])
+            return np.fft.rfft((seg - seg.mean(axis=1, keepdims=True)) * np.hanning(64), axis=1)
+
+        fx, fy = spectra(x), spectra(y)
+        c = np.mean(fx * np.conj(fy), axis=0) / np.sqrt(
+            np.mean(np.abs(fx) ** 2, axis=0) * np.mean(np.abs(fy) ** 2, axis=0))
+        assert res.spectrum["psi_per_freq"].shape == (32,)
+        assert res.spectrum["psi_per_freq"][0] == pytest.approx(
+            np.imag(np.conj(c[0]) * c[1]), rel=1e-12, abs=1e-15)
+        assert res.spectrum["psi_per_freq"][0] != 0.0
+
+    def test_net_sums_only_the_bands_with_a_slope(self):
+        """P-264: a band with fewer than two bins is left out of `net`, as the docstring
+        says, not counted as zero or as NaN."""
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=2000)
+        y = np.roll(x, 5) + rng.normal(size=2000)
+        res = phase_slope_index(x, y, fs=1000.0, nperseg=200,
+                                bands={"beta": (14.0, 30.0), "tiny": (20.5, 21.0)})
+        assert np.isnan(res.per_band["tiny"]["value"])
+        assert res.net == res.per_band["beta"]["value"]
+        assert res.diagnostics["ok_for_interpretation"] is False
+        assert "sums those bands alone" in " ".join(phase_slope_index.__doc__.split())
+
+    def test_fdr_with_no_p_value_warns(self):
+        """The all-NaN q_matrix of PSI with jackknife=False came back without a word."""
+        sig = np.random.default_rng(0).normal(size=(3, 1000))
+        with pytest.warns(RuntimeWarning, match="no pair returned a p-value"):
+            res = directed_network(sig, method="psi", fs=1000.0, jackknife=False)
+        assert np.all(np.isnan(res["q_matrix"]))
+        assert "fdr_requested_but_no_pair_has_a_p_value" in res["warnings"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            quiet = directed_network(sig, method="psi", fs=1000.0, jackknife=False, fdr=False)
+        assert "fdr_requested_but_no_pair_has_a_p_value" not in quiet["warnings"]
+
+    @pytest.mark.parametrize("fn", [spike_mutual_information,
+                                    binary_occupancy_mutual_information,
+                                    spike_count_mutual_information])
+    def test_each_mutual_information_function_names_itself(self, fn):
+        """P-256: the two wrappers raised under the name spike_mutual_information."""
+        name = fn.__name__
+        with pytest.raises(ValueError, match=rf"^{name} requires non-empty"):
+            fn(np.array([]), np.array([0.1]), (0.0, 1.0))
+        with pytest.raises(ValueError, match=rf"^{name}\b"):
+            fn(np.array([0.1]), np.array([0.2]), (0.0, 1.0), bin_size_ms=3.0)

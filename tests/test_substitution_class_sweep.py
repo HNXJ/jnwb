@@ -686,17 +686,6 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("spectral/_coupling.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
-    ("jrsa/_stages.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
-        "OPEN, carried deliberately: align='interpolate' or 'linear' falls back to "
-        "'downsample' when scipy is "
-        "absent while parameters['align'] echoes the request -- a substitution. Doubly latent: "
-        "scipy is a declared dependency, and jrsa() refuses x1 and x2 of different shapes in "
-        "_validate_inputs before _align_dimensions, so no axis is ever resampled. The "
-        "reachable half of the same function is repaired below "
-        "(test_an_unrecognised_align_raises_rather_than_resampling_silently).",
-    ("jrsa/_stages.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 2):
-        "OPEN, carried deliberately: the align='cubic' twin of the first site, the same "
-        "substitution under the same two latencies.",
     ("jrsa/_stages.py", "_reduce_one", "AttributeError", (), True, 1):
         "cupy.median -> cupy.percentile(50) inside _reduce_one. The 50th percentile with "
         "linear interpolation IS the median; same number, different call. The label stays "
@@ -891,8 +880,26 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         deferral, so it is driven here. If a validator is ever loosened, the corresponding
         ``else`` becomes a live substitution and this test is what says so.
         """
-        with pytest.raises((ValueError, TypeError, NotImplementedError)):
+        with pytest.raises(ValueError, match=_PROBE_REFUSAL[selector]):
             call()
+
+
+#: The refusal each probe above must raise: its own selector's name and the rejected value.
+#: Any error used to pass, so a probe that broke before reaching its validator still passed.
+_PROBE_REFUSAL = {
+    "continuous.boundary_policy": r"Unknown boundary_policy: 'bogus'",
+    "laminar.orientation": r"orientation must be one of .*got 'bogus'",
+    "spectral.model": r"model must be one of .*got 'bogus'",
+    "statistics.alternative": r"^sweep: alternative must be one of .*got 'bogus'",
+    "permutation.alternative": r"alternative must be one of .*got 'bogus'",
+    "statistics.shuffle_pvalue_paired.alt":
+        r"^shuffle_pvalue_paired: alternative must be one of .*got 'bogus'",
+    "statistics.shuffle_pvalue_unpaired.alt":
+        r"^shuffle_pvalue_unpaired: alternative must be one of .*got 'bogus'",
+    "statistics.exact_sign_flip.alt": r"alternative must be 'two-sided', .*got 'bogus'",
+    "statistics.tail": r"tail must be 'both', 'greater', or 'less'; got 'bogus'",
+    "jrsa.alternative": r"^jrsa: unrecognized alternative 'bogus'",
+}
 
 
 _SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None else float(raw)\n"

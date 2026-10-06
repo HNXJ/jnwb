@@ -109,8 +109,8 @@ print("Band summaries:", psi_res.per_band)
 `p_net` (equal to `p_x_to_y` and `p_y_to_x`) is the jackknife t test of a lead. A shifted Y
 loses every dependence on X, zero lag included, so `p_coupling_surrogate` tests coupling, not a
 lead. Under a zero-lag common source the lead p rejects at 0.06 to 0.08 for a nominal 0.05; the
-surrogate p, at up to 0.46. Set `nperseg` so the record holds tens of segments: the default
-gives 7.
+surrogate p, at up to 0.46. The default `nperseg` leaves at least 20 segments: 190 samples for
+one 2000-sample trial.
 
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
