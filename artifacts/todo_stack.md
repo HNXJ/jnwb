@@ -41,12 +41,11 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral and laminar | 10-19 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-19, 10-20, 10-21 and 10-23 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-20, 10-21, 10-23 and 10-24 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -120,22 +119,15 @@ Writes: `tests/test_notebooks.py`.
 Accept: a test with a kernel that never answers fails within the bound.
 Stop: none.
 
-### 10-19 `laminar_curation` defects found at merge
+### 10-24 `laminar_curation` test reach
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `docs/02_paths_addressing_metadata.md`, `skills/jnwb-lfp-spectral/SKILL.md`.
-Merged unreviewed on Hamm's instruction (2026-10-06, 2fee8fa2); its verification failed on these.
-- Reuse: `_csd` retypes the negative second difference that `voltage_curvature_1d` computes (`AGENTS.md` 4.7), with different edge padding. Check: `_csd` calls the public function; values on the existing fixtures unchanged or the change stated. Waits: not stated.
-- Band parameters: `band_low_hz` and `band_high_hz` never reach `vflip` (it keeps 8-30 and 50-150 Hz), and `_band_profiles` cuts at a hard-coded 150 Hz. Probe: bands (30, 40) and (100, 120) give the same anchor and crossover as the defaults. Check: both bands reach `vflip` and the profiles; a test where changing a band moves the crossover. Waits: not stated.
-- xflip distance: a distance is reported while `xr.accepted` is False. Check: NaN with the reason when not accepted; the test asserts it. Waits: not stated.
-- Recorded parameters: `rng`, the xflip `surrogate_seed_entropy` and `fs` are not recorded, and `_` (`n_samples`) leaks into them. Check: the three recorded, `_` absent. Waits: not stated.
-- Hidden thresholds: Welch `nperseg` 512 (three places), the 1-150 Hz band, `len(ci) > 10`, `use.sum() >= 8` and a duplicated 100.0 default for `correlation_fs_hz`. Check: each a named parameter or a named constant with its reason, and the docstring claim "every threshold is a parameter" true. Waits: not stated.
-- Low sampling rates: `curate_and_label` raises for `fs` <= 300 because the default `power_band_hz` reaches 150 Hz. Check: the default band clipped below Nyquist with a warning, or a refusal that names the band. Waits: loud.
-- Grade D is undefined in the claim sentence ("A/B claim, C sensitivity"). Check: D stated. Waits: wording.
-- Test reach: mutants survive on the `max_run` boundary, `sd <= stable_sd`, grade A `>=`, `n_ok >= min_ok_windows`, `strongest_z >= min_sink_z`, the motif orientation sign (no test uses the motif fallback) and the onset duration; the seed test is vacuous when both distances are NaN. Check: each mutant killed; the seed test asserts finite distances first. Waits: not stated.
-Accept: each check passes; the verifier's mutant list is killed.
-Stop: a fix changes a default without a ruling.
+Writes: `tests/test_laminar_curation.py`.
+Left by the 10-19 verification (2026-10-06); the behaviour is verified correct, so each is a test gap.
+- Surviving mutants on the new parameters: `detect_bad_channels` `nperseg`, the CSD `min_contacts`, `min_edge_contacts` (no edge-search test exists), the erp-interpolation `max_run`, the window-vFLIP `min_contacts`, the window band routing, the grade B and D `>=` boundaries, and the low-rate refusal at `fs / 2` equality. Check: each killed by a test. Waits: tests only.
+Accept: each mutant killed.
+Stop: none.
 
 ### 10-20 Closed-cycle files nothing reads are deleted
 
@@ -151,7 +143,7 @@ Stop: a file on the list has a reader the audit missed.
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08, 10-19.
+Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
