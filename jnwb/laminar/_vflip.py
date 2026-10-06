@@ -34,8 +34,7 @@ class VFlipResult(DictAccessMixin):
             comes from noisy extremes and compresses each profile toward its interior,
             pulling the crossing inward; this is attenuation, not a fixed offset. Treat a
             crossover reported near either end of the shaft as a bound rather than a point
-            estimate, and prefer a probe whose span brackets the transition. Measured in
-            `artifacts/benchmarks/vflip_calibration_0.2.4.md`.
+            estimate, and prefer a probe whose span brackets the transition.
         crossover_depth_um: Depth of the crossover along the ordered contacts in micrometers
             (um): ``crossover_contact`` times the contact spacing, measured from the first
             contact of the order the fit used -- `probe_geometry.linear_order`, whose
