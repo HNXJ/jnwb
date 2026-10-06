@@ -41,11 +41,12 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral and laminar | 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
+| F spectral and laminar | 10-13, 10-19 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05 and 10-07 are merged, and 10-06 round 1; 10-06, 10-08, 10-13 and 10-18 are open.
+10-01, 10-02, 10-03, 10-04, 10-05 and 10-07 are merged, and 10-06 round 1; 10-06, 10-08, 10-13, 10-18, 10-19, 10-20 and 10-21 are open.
 
 ### 10-13 No dangling references in `jnwb/`
 
@@ -69,6 +70,7 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 - Conditional `directed_network` (ruled 2026-10-06: Granger only, conditioning on all other nodes through `Z`; other methods stay pairwise and say so). Check: a conditional Granger mode recovering a chain A->B->C without a direct A->C edge. Waits: pairwise is stated.
 - Directed width clauses: the PSI width test pins a lower bound only; TE's net width keeps the plain sum. Check: stated tolerances under the P-331 round-off bound. Waits: degenerate input.
 - Verifier gaps (round 1): the merged linear/cubic `_resample_axis` branch has no value test; a valid `align='dtw'` at equal lengths is not pinned; the TE docstring states the Miller-Madow mechanism for `bias_corrected` as fact where the record says inferred. Check: a value test, a pin, the docstring matching the record. Waits: private path, optional package, wording.
+- `JRSAResult.summary`, `plot` and `save` are public, shown in `docs/03`, and no test executes them (reduction audit 2026-10-06). Check: one test per method on a small result. Waits: not stated.
 - P-296 dated comments: `jnwb/connectivity/__init__.py:21` and `jnwb/jrsa/_metrics.py:431` name a date. Check: each line is deleted or shown to state behaviour. Waits: no behavioural effect.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
@@ -107,6 +109,8 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - P-280 remainder: the shared note at `jnwb/statistics/_analysis.py:136` says "as selected by test=", which `correlate` (it takes `method=`) emits through the call at `:481`; `population_trajectory` passes the short context name `population_trajectory` (`jnwb/analyzers.py:869`). Check: the note names the argument its caller takes, and the context name is `UnitAnalyzer.population_trajectory`, asserted by a test. Waits: message wording.
 - Closure pass 2026-10-05: the `quality_metrics` docstring (`jnwb/analyzers.py:569`) says a spike at the train's end counts, but with a duration that is not a whole number of seconds it falls outside the last whole bin (spikes 0, 0.5, 1.2, 2.5 -> counts 2, 1; Fano 0.333). Check: the docstring states the whole-bin rule, or the count includes that spike, asserted on that input. Waits: wording; the value follows the stated bins.
 - Closure pass 2026-10-05: the `quality_metrics` refractory comparison (`jnwb/analyzers.py:628`) uses `<` with no tolerance, where `refractory_contamination` allows 1 ns (spike times 0, 0.002 + 5e-10, 1, 1.002 - 5e-10, ... at `refractory_ms=2` count one violation of the interval 2 ms - 0.5 ns); predates 0.2.9. Check: one comparison rule, called from both and not retyped (`AGENTS.md` 4.7), asserted on that input. Waits: differs only for intervals within 1 ns of the period.
+- Seed reach: `sklearn_random_state` (`jnwb/_rng.py:221`) returning 0 for any Generator survives every test (3,990 run); two Generators then give `nested_cv_linear_svm` and `build_permutation_plan` the same seed. Check: a test that two different Generators change the result. Waits: not stated.
+- `jnwb/testing/nwb_fixtures.py:1` cites an internal archive file from shipped code. Check: the citation removed. Waits: wording.
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
 
@@ -118,6 +122,47 @@ Writes: `tests/test_notebooks.py`.
 - P-368: the full suite hung 40 minutes at 99% on 2026-10-06 (13f8b7e8): three notebook kernels under two xdist workers stopped answering while other jobs loaded the machine. `tests/test_notebooks.py:44` bounds each cell (`timeout=120`) but not kernel start or shutdown, and the suite has no per-test timeout. The file alone passed in 12.5 s and the rerun passed. Check: kernel start, every cell and shutdown are bounded by named constants, and a test whose kernel never answers fails by name within their sum. Waits: a hang gives no pass; fails closed.
 Accept: a test with a kernel that never answers fails within the bound.
 Stop: none.
+
+### 10-19 `laminar_curation` defects found at merge
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: 10-13.
+Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `docs/02_paths_addressing_metadata.md`, `skills/jnwb-lfp-spectral/SKILL.md`.
+Merged unreviewed on Hamm's instruction (2026-10-06, 2fee8fa2); its verification failed on these.
+- Reuse: `_csd` retypes the negative second difference that `voltage_curvature_1d` computes (`AGENTS.md` 4.7), with different edge padding. Check: `_csd` calls the public function; values on the existing fixtures unchanged or the change stated. Waits: not stated.
+- Band parameters: `band_low_hz` and `band_high_hz` never reach `vflip` (it keeps 8-30 and 50-150 Hz), and `_band_profiles` cuts at a hard-coded 150 Hz. Probe: bands (30, 40) and (100, 120) give the same anchor and crossover as the defaults. Check: both bands reach `vflip` and the profiles; a test where changing a band moves the crossover. Waits: not stated.
+- xflip distance: a distance is reported while `xr.accepted` is False. Check: NaN with the reason when not accepted; the test asserts it. Waits: not stated.
+- Recorded parameters: `rng`, the xflip `surrogate_seed_entropy` and `fs` are not recorded, and `_` (`n_samples`) leaks into them. Check: the three recorded, `_` absent. Waits: not stated.
+- Hidden thresholds: Welch `nperseg` 512 (three places), the 1-150 Hz band, `len(ci) > 10`, `use.sum() >= 8` and a duplicated 100.0 default for `correlation_fs_hz`. Check: each a named parameter or a named constant with its reason, and the docstring claim "every threshold is a parameter" true. Waits: not stated.
+- Low sampling rates: `curate_and_label` raises for `fs` <= 300 because the default `power_band_hz` reaches 150 Hz. Check: the default band clipped below Nyquist with a warning, or a refusal that names the band. Waits: loud.
+- Grade D is undefined in the claim sentence ("A/B claim, C sensitivity"). Check: D stated. Waits: wording.
+- Test reach: mutants survive on the `max_run` boundary, `sd <= stable_sd`, grade A `>=`, `n_ok >= min_ok_windows`, `strongest_z >= min_sink_z`, the motif orientation sign (no test uses the motif fallback) and the onset duration; the seed test is vacuous when both distances are NaN. Check: each mutant killed; the seed test asserts finite distances first. Waits: not stated.
+Accept: each check passes; the verifier's mutant list is killed.
+Stop: a fix changes a default without a ruling.
+
+### 10-20 Closed-cycle files nothing reads are deleted
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`.
+Ruled 2026-10-06: closed-cycle files with no machine reader and no live citation are deleted, git holding them; the `api_proposals` files the 0.2.13 execution API cites stay.
+- The list: `artifacts/evidence/0.2.10/reduction/artifacts_class.tsv` rows with class `closed`, zero readers and zero live citations: 65 files, of which 7 are `api_proposals` and stay, so 58 files, 609 KB, 6,887 lines. Check: each re-grepped against every tracked file at the item's baseline before deletion; a file a kept file cites is deleted with the citation removed, or kept. Waits: no shipped effect.
+- `AGENTS.md` §0 says closed cycles are "kept as written". Check: the row states the ruled rule (kept until nothing reads or cites them). Waits: wording.
+Accept: the deleted set equals the re-grepped list; every gate and the suite pass.
+Stop: a file on the list has a reader the audit missed.
+
+### 10-21 Test reduction by a corrected coverage pass
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08, 10-13, 10-19.
+Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
+Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
+- Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
+- 21 test files showed zero unique lines and 48 process tests are unjudgeable by coverage (16k lines together). Check: a prune list in which each candidate carries its unique lines under ctrace and at least one mutant on its purpose, killed elsewhere; the list goes to Hamm. Waits: nothing is deleted before the ruling.
+- 92 near-duplicate test clusters (`test_clusters.txt`); about 150-250 lines net after parametrize tables. Check: the pure-duplicate clusters on the prune list with their saving. Waits: nothing is changed before the ruling.
+- `tests/test_jnwb_frozen_boundary.py:40-115` re-implements `check_frozen_boundary` (gate 1). Check: the test calls the gate's check; about 45 lines removed. Waits: the gate runs either way.
+Accept: the prune list is recorded and ruled; the boundary test calls the owner's check.
+Stop: a candidate is the only killer of some mutant.
 
 # 0.2.11
 

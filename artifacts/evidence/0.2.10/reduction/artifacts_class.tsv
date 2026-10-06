@@ -1,0 +1,138 @@
+closed	artifacts/archive/0.1.7/api_surface_disposition_0.1.7.md	1240	26	0	0		
+closed	artifacts/archive/0.1.7/capability_review_0.1.7.md	8992	166	0	0		
+closed	artifacts/archive/0.1.7/delegation_test_handoff_0.1.7.md	1788	21	0	0		
+closed	artifacts/archive/0.1.7/except_exception_inventory_0.1.7.md	1589	21	0	0		
+closed	artifacts/archive/0.1.7/independent_audit_0.1.7.md	14392	266	0	0		
+closed	artifacts/archive/0.1.7/independent_audit_0.1.7_final.md	7864	147	0	0		
+closed	artifacts/archive/0.1.7/release_recovery_0.1.7_failed.md	2781	68	0	0		
+closed	artifacts/archive/0.1.7/source_neutrality_scan_0.1.7.md	1133	33	0	0		
+closed	artifacts/archive/0.1.8/nwb_structural_authority_0.1.8.md	12835	211	1	0	jnwb/testing/nwb_fixtures.py	
+closed	artifacts/archive/0.2.2/vflip_reference_difference_table.md	13691	48	0	0		
+closed	artifacts/archive/0.2.5/alignment_review_0.2.5.md	80552	745	1	0	tests/test_findings_ledger.py	
+closed	artifacts/archive/0.2.5/planned_post_0.2.5.md	10756	177	0	0		
+closed	artifacts/archive/0.2.5/todo_stack_0.2.5.md	50441	672	0	1		artifacts/direction.md
+closed	artifacts/archive/0.2.6.1/blocker_fixpoint_receipt_0.2.6.1.md	3010	35	0	0		
+closed	artifacts/archive/0.2.6/blocker_fixpoint_receipt_0.2.6.md	2896	29	0	0		
+closed	artifacts/archive/0.2.6/todo_stack_0.2.6.md	49959	293	0	0		
+closed	artifacts/archive/0.2.7/blocker_fixpoint_receipt_0.2.7.md	2942	29	0	0		
+closed	artifacts/archive/0.2.7/todo_stack_0.2.7.md	88365	657	0	0		
+closed	artifacts/archive/0.2.8/blocker_fixpoint_receipt_0.2.8.md	2513	27	0	0		
+closed	artifacts/archive/0.2.8/todo_stack_0.2.8.md	79896	838	0	0		
+closed	artifacts/archive/0.2.9/blocker_fixpoint_receipt_0.2.9.md	2245	26	0	0		
+closed	artifacts/archive/0.2.9/todo_stack_0.2.9.md	82175	848	0	1		artifacts/todo_stack.md
+closed	artifacts/evidence/0.2.6/agents_md_duplication.md	3904	76	1	0	tests/test_agents_md_stays_a_router.py	
+closed	artifacts/evidence/0.2.6/authority_loading_order.md	20645	376	0	0		
+closed	artifacts/evidence/0.2.6/blocker_graph_0.2.6.md	21558	169	0	0		
+closed	artifacts/evidence/0.2.6/composition_subset_0.2.6.md	6189	63	3	0	tests/test_composition_aggregation_order.py;tests/test_composition_randomness.py;tests/test_semantic_mutation_classes.py	
+closed	artifacts/evidence/0.2.6/composition_subset_proposal_0.2.6.md	26583	125	0	0		
+closed	artifacts/evidence/0.2.6/compress_fp32_default_candidates.md	18861	234	0	0		
+closed	artifacts/evidence/0.2.6/compress_fp32_policy.md	22500	219	2	0	scripts/harness_gate.py;tests/test_line_endings_survive_an_edit.py	
+closed	artifacts/evidence/0.2.6/computational_order.md	104609	848	4	1	scripts/computational_contract_gate.py;scripts/measure_order.py;tests/test_computational_order_sources_agree.py;tests/test_stack_metadata_contradictions.py	artifacts/benchmarks/complexity_inventory.md
+closed	artifacts/evidence/0.2.6/findings_0.2.6.md	43158	555	1	0	tests/test_findings_ledger.py	
+closed	artifacts/evidence/0.2.6/missingness_table.md	17059	155	0	0		
+closed	artifacts/evidence/0.2.6/unconsumed_producers_0.2.6.md	5526	83	0	0		
+closed	artifacts/evidence/0.2.7/figure_eye_check.md	4172	40	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/calibrate.py	5009	133	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/mutate_m1.py	1139	29	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/pin_counts.py	1399	44	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/quickstart_psi.py	1327	33	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/records.md	5301	102	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/run_page.py	815	24	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/run_page08.py	2885	64	0	0		
+closed	artifacts/evidence/0.2.7/ib96_98/te_large_n.py	1367	33	0	0		
+closed	artifacts/evidence/0.2.7/ib99/calibrate_independent_contact.py	3141	76	0	0		
+closed	artifacts/evidence/0.2.7/ib99/discriminate.py	3692	93	0	0		
+closed	artifacts/evidence/0.2.7/ib99/list_accepted_seeds.py	1301	32	0	0		
+closed	artifacts/evidence/0.2.7/ib99/measure_ramp_width.py	2396	64	0	0		
+closed	artifacts/evidence/0.2.7/ib99/records.md	6956	131	0	0		
+closed	artifacts/evidence/0.2.7/ib99/short_record_power.py	1546	36	0	0		
+closed	artifacts/evidence/0.2.7/ib99/tie_mass.py	2612	58	0	0		
+closed	artifacts/evidence/0.2.7/package_inventory.md	22073	114	0	0		
+closed	artifacts/evidence/0.2.7/process_test_audit.md	23594	165	0	1		artifacts/todo_stack.md
+closed	artifacts/evidence/0.2.7/showcase08/calib.py	1797	45	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/classification.md	2295	13	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/figure.py	3830	79	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/probe_psi.py	2348	49	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/records.md	5969	112	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/showcase.py	10592	231	0	0		
+closed	artifacts/evidence/0.2.7/showcase08/summarize.py	989	19	0	0		
+closed	artifacts/evidence/0.2.8/agents_md_draft.md	15045	254	0	0		
+closed	artifacts/evidence/0.2.8/agents_md_mapping.md	16945	175	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/diagnose.py	1949	51	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/diagnose_blas.py	1400	37	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/execution_identity.md	18837	299	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/find_switches.py	1235	33	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/measure_identity.py	12683	277	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/nwb_mutation.md	14143	268	0	1		artifacts/rulings/2026-09-29.md
+closed	artifacts/evidence/0.2.8/api_proposals/render_identity.py	3924	86	0	0		
+closed	artifacts/evidence/0.2.8/api_proposals/stated_tolerances.py	1314	29	0	0		
+closed	artifacts/evidence/0.2.8/fact_stack_typed_draft.md	19187	204	0	0		
+closed	artifacts/evidence/0.2.8/figure_qc.md	19074	155	0	0		
+closed	artifacts/evidence/0.2.8/history_additions.md	6652	140	0	0		
+closed	artifacts/evidence/0.2.8/plan/carry_map.md	20702	274	0	1		artifacts/rulings/standing.md
+closed	artifacts/evidence/0.2.8/plan/decisions.md	7833	26	0	2		artifacts/rulings/2026-09-29.md;artifacts/todo_stack.md
+closed	artifacts/evidence/0.2.8/plan/fact_stack_proposed.md	7504	46	0	0		
+closed	artifacts/evidence/0.2.8/plan/goal_proposed.md	9060	40	0	0		
+closed	artifacts/evidence/0.2.8/plan/restructure_plan.md	12988	146	0	2		artifacts/cooperation.md;artifacts/todo_stack.md
+closed	artifacts/evidence/0.2.8/skills_audit.md	7739	88	0	0		
+closed	artifacts/evidence/0.2.8/stack/benchmark_design.md	2783	22	0	1		artifacts/rulings/standing.md
+closed	artifacts/evidence/0.2.9/09-01_claim_table.md	5747	61	0	0		
+closed	artifacts/evidence/0.2.9/closure_pass_2026-10-05.md	1251	21	0	0		
+closed	artifacts/evidence/0.2.9/references/bastos_survey.md	16032	54	0	2		artifacts/rulings/2026-09-29.md;artifacts/todo_stack.md
+closed	artifacts/evidence/0.2.9/unit_qc_inventory.md	18588	69	0	1		artifacts/todo_stack.md
+live	artifacts/agents.md	1938	32	15	13	mkdocs.yml;scripts/harness_gate.py;scripts/measure_agents_md_duplication.py;scripts/version_surfaces.py;tests/test_agents_md_stays_a_router.py;tests/test_architecture_page_reachability.py;tests/test_claim_wording.py;tests/test_docs_links.py;tests/test_harness_adversarial_gates.py;tests/test_mcp_server.py;tests/test_module_docstrings_match_their_code.py;tests/test_prose_version_claims_are_live.py;tests/test_skill_router_reach.py;tests/test_skills_are_findable_from_an_installed_copy.py;tests/test_stack_metadata_contradictions.py	AGENTS.md;CHANGELOG.md;CONTRIBUTING.md;README.md;artifacts/goal.md;artifacts/rulings/2026-09-22.md
+live	artifacts/agents/actor.md	1503	27	1	0	tests/test_harness_adversarial_gates.py	
+live	artifacts/agents/authority.md	1670	25	1	0	tests/test_role_files_point_to_one_contract.py	
+live	artifacts/agents/critic.md	1865	26	1	0	tests/test_role_files_point_to_one_contract.py	
+live	artifacts/agents/docs-harness.md	1783	26	1	0	tests/test_role_files_point_to_one_contract.py	
+live	artifacts/agents/jnwb-developer.md	4435	75	1	0	scripts/verify_lane.py	
+live	artifacts/agents/verifier.md	1811	28	2	0	tests/test_harness_adversarial_gates.py;tests/test_role_files_point_to_one_contract.py	
+live	artifacts/benchmarks/baseline_performance.json	3883	115	0	0		
+live	artifacts/benchmarks/complexity_inventory.md	6288	64	1	1	tests/test_computational_order_sources_agree.py	artifacts/rulings/2026-09-22.md
+live	artifacts/benchmarks/cuda_parity_0.2.4.md	8719	152	0	1		CHANGELOG.md
+live	artifacts/benchmarks/gpu_launch_overhead_0.2.5.md	8903	195	1	1	jnwb/spectral/_psd.py	CHANGELOG.md
+live	artifacts/benchmarks/import_breakdown.json	4954	237	4	1	scripts/benchmark_import.py;scripts/version_surfaces.py;tests/test_generated_files_are_byte_stable.py;tests/test_import_profile_receipt.py	CHANGELOG.md
+live	artifacts/benchmarks/import_profile.txt	813	16	4	1	scripts/benchmark_import.py;scripts/version_surfaces.py;tests/test_generated_files_are_byte_stable.py;tests/test_import_profile_receipt.py	CHANGELOG.md
+live	artifacts/benchmarks/peak_memory.json	1024	45	5	2	scripts/measure_peak_memory.py;scripts/release_gate.py;tests/test_generated_files_are_byte_stable.py;tests/test_import_profile_receipt.py;tests/test_release_requires_an_empty_problem_stack.py	CONTRIBUTING.md;artifacts/todo_stack.md
+live	artifacts/benchmarks/vflip_calibration_0.2.4.md	6671	137	5	1	jnwb/laminar/_vflip.py;scripts/calibrate_vflip.py;tests/test_generated_files_are_byte_stable.py;tests/test_laminar.py;tests/test_vflip_calibration_receipt.py	CHANGELOG.md
+live	artifacts/benchmarks/vflip_calibration_0.2.4_raw.json	328181	16976	4	2	scripts/calibrate_vflip.py;tests/test_generated_files_are_byte_stable.py;tests/test_laminar.py;tests/test_vflip_calibration_receipt.py	CHANGELOG.md;artifacts/benchmarks/cuda_parity_0.2.4.md
+live	artifacts/benchmarks/xflip_calibration_0.2.5.md	4912	95	2	1	scripts/calibrate_xflip.py;tests/test_xflip_calibration_receipt.py	CHANGELOG.md
+live	artifacts/benchmarks/xflip_calibration_0.2.5_raw.json	9228	405	2	0	scripts/calibrate_xflip.py;tests/test_xflip_calibration_receipt.py	
+live	artifacts/cooperation.md	9133	100	1	5	tests/test_standing_rules_name_no_cycle.py	AGENTS.md;artifacts/defect_classes.md;artifacts/rulings/2026-09-25.md;artifacts/rulings/2026-09-29.md;artifacts/rulings/standing.md
+live	artifacts/defect_classes.md	2997	18	0	3		AGENTS.md;artifacts/cooperation.md;artifacts/todo_stack.md
+live	artifacts/direction.md	6243	137	3	5	scripts/measure_agents_md_duplication.py;tests/test_harness_adversarial_gates.py;tests/test_role_files_point_to_one_contract.py	AGENTS.md;CONTRIBUTING.md;artifacts/goal.md;artifacts/rulings/2026-09-25.md;docs/documentation_form.md
+live	artifacts/evidence/0.2.10/10-06/calibrate_jrsa_block_bootstrap.py	2160	51	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/calibrate_jrsa_studentized_block_bootstrap.py	3039	73	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/calibrate_psi_default_segments.py	2537	62	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/failbefore.py	4042	90	0	0		
+live	artifacts/evidence/0.2.10/10-06/jrsa_block_bootstrap.out	523	0	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/jrsa_studentized_block_bootstrap.out	503	0	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/probe_bias.out	202	0	0	0		
+live	artifacts/evidence/0.2.10/10-06/probe_bias.py	970	21	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/psi_default_segments.out	1274	0	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/records.md	5263	95	0	0		
+live	artifacts/evidence/0.2.10/10-06/te_excess_by_n.out	777	0	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/evidence/0.2.10/10-06/te_excess_by_n.py	3546	72	0	1		artifacts/evidence/0.2.10/10-06/records.md
+live	artifacts/fact_stack.md	12776	131	9	13	scripts/build_fact_graph.py;scripts/fact_gate.py;scripts/harness_gate.py;scripts/measure_agents_md_duplication.py;tests/test_harness_adversarial_gates.py;tests/test_pointer_documents_resolve.py;tests/test_role_files_point_to_one_contract.py;tests/test_skills_validation.py;tests/test_standing_rules_name_no_cycle.py	AGENTS.md;CHANGELOG.md;CONTRIBUTING.md;artifacts/agents/authority.md;artifacts/agents/jnwb-developer.md;artifacts/cooperation.md
+live	artifacts/frozen_validated.json	2424	60	2	4	scripts/harness_gate.py;tests/test_frozen_validated.py	AGENTS.md;CONTRIBUTING.md;artifacts/goal.md;artifacts/todo_stack.md
+live	artifacts/goal.md	7229	24	8	6	scripts/harness_gate.py;scripts/measure_agents_md_duplication.py;scripts/verify_lane.py;tests/test_harness_adversarial_gates.py;tests/test_lane_verifies_its_own_baseline.py;tests/test_nwb_read_tolerance_and_visibility.py;tests/test_role_files_point_to_one_contract.py;tests/test_stack_metadata_contradictions.py	AGENTS.md;artifacts/cooperation.md;artifacts/rulings/2026-09-22.md;artifacts/rulings/2026-09-29.md;artifacts/rulings/history.md;artifacts/todo_stack.md
+live	artifacts/problem_stack.md	685	17	11	2	scripts/harness_gate.py;scripts/measure_agents_md_duplication.py;scripts/reconstruct_state.py;scripts/release_gate.py;scripts/verify_lane.py;tests/test_harness_adversarial_gates.py;tests/test_lane_verifies_its_own_baseline.py;tests/test_release_requires_an_empty_problem_stack.py;tests/test_role_files_point_to_one_contract.py;tests/test_stack_metadata_contradictions.py;tests/test_standing_rules_name_no_cycle.py	AGENTS.md;artifacts/cooperation.md
+live	artifacts/rulings/2026-09-22.md	5468	29	0	0		
+live	artifacts/rulings/2026-09-23.md	8395	31	0	0		
+live	artifacts/rulings/2026-09-24.md	2233	12	0	0		
+live	artifacts/rulings/2026-09-25.md	11055	50	0	0		
+live	artifacts/rulings/2026-09-26.md	4895	28	0	0		
+live	artifacts/rulings/2026-09-27.md	7017	40	0	0		
+live	artifacts/rulings/2026-09-28.md	8215	42	0	0		
+live	artifacts/rulings/2026-09-29.md	13886	70	1	2	tests/test_skill_symbol_coverage.py	artifacts/defect_classes.md;artifacts/rulings/standing.md
+live	artifacts/rulings/2026-10-03.md	2329	16	0	0		
+live	artifacts/rulings/2026-10-04.md	10795	50	0	0		
+live	artifacts/rulings/2026-10-05.md	2422	14	0	0		
+live	artifacts/rulings/2026-10-06.md	3276	20	0	0		
+live	artifacts/rulings/history.md	8877	184	0	5		AGENTS.md;artifacts/rulings/2026-09-26.md;artifacts/rulings/2026-09-27.md;artifacts/rulings/2026-09-29.md;artifacts/rulings/standing.md
+live	artifacts/rulings/standing.md	26479	142	0	1		artifacts/rulings/2026-09-29.md
+live	artifacts/skills/jnwb-fact-action/SKILL.md	7715	124	0	2		artifacts/rulings/2026-09-25.md;artifacts/rulings/standing.md
+live	artifacts/skills/jnwb-fact-action/agents/openai.yaml	204	5	5	4	scripts/harness_gate.py;tests/test_claim_wording.py;tests/test_harness_adversarial_gates.py;tests/test_skill_router_reach.py;tests/test_skills_validation.py	AGENTS.md;CONTRIBUTING.md;artifacts/todo_stack.md;docs/agents.md
+live	artifacts/skills/jnwb-review/SKILL.md	2967	35	0	1		artifacts/rulings/standing.md
+live	artifacts/skills/jnwb-review/agents/openai.yaml	228	5	5	4	scripts/harness_gate.py;tests/test_claim_wording.py;tests/test_harness_adversarial_gates.py;tests/test_skill_router_reach.py;tests/test_skills_validation.py	AGENTS.md;CONTRIBUTING.md;artifacts/todo_stack.md;docs/agents.md
+live	artifacts/todo_stack.md	78069	678	8	23	scripts/harness_gate.py;scripts/measure_agents_md_duplication.py;scripts/reconstruct_state.py;scripts/release_gate.py;tests/test_docs_user_navigation.py;tests/test_harness_adversarial_gates.py;tests/test_pointer_documents_resolve.py;tests/test_release_requires_an_empty_problem_stack.py	AGENTS.md;CHANGELOG.md;CONTRIBUTING.md;artifacts/agents/jnwb-developer.md;artifacts/cooperation.md;artifacts/fact_stack.md
