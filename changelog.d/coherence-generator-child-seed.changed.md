@@ -1,0 +1,1 @@
+- `cross_area_coherence(rng=<Generator>)` draws one child seed from the `Generator`, runs the surrogate shifts on it and records it in `surrogate_seed_entropy`, which was `None`; passing it back as `rng` reproduces the p-values. The same `Generator` state therefore gives different shifts and p-values than before. An `int` seed, `None` and the default are unchanged.

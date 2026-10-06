@@ -33,6 +33,13 @@ from jnwb.spectral import (
 )
 
 
+def _advanced_once(seed):
+    """The state of `default_rng(seed)` after the one child-seed draw."""
+    gen = np.random.default_rng(seed)
+    gen.integers(0, 2**63 - 1)
+    return gen.bit_generator.state
+
+
 class TestPublicImport:
     def test_importable_from_top_level_jnwb(self):
         import jnwb
@@ -855,11 +862,18 @@ class TestCrossAreaCoherenceSurrogateContract:
         assert a['band_significance'] == b['band_significance']
         assert a['surrogate_seed_entropy'] == 42, "the default seed must be recordable in a receipt"
 
-    def test_caller_supplied_rng_reports_no_seed(self):
-        """A receipt must not claim a seed jnwb did not choose."""
+    def test_a_generator_gives_a_recorded_child_seed_that_reproduces_the_null(self):
+        """A Generator was drawn from in place and recorded None, so the result alone could
+        not reproduce its p-values. It now gives up one draw, the child seed recorded."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(99), freq_bands="canonical")
-        assert out['surrogate_seed_entropy'] is None
+        gen = np.random.default_rng(99)
+        out = cross_area_coherence(x, y, fs=1000.0, rng=gen, freq_bands="canonical")
+        child = int(np.random.default_rng(99).integers(0, 2**63 - 1))
+        assert out['surrogate_seed_entropy'] == child
+        assert gen.bit_generator.state == _advanced_once(99)
+        again = cross_area_coherence(x, y, fs=1000.0, rng=child, freq_bands="canonical")
+        assert again['band_significance'] == out['band_significance']
+        assert again['surrogate_seed_entropy'] == child
 
     def test_n_surrogates_sets_the_p_value_floor(self):
         """JNWB-005: the floor used to depend on input length, undisclosed."""
@@ -2030,7 +2044,20 @@ class TestCoherenceGpuFallbackKeepsTheNull:
         from scipy import signal
 
         x, y = self._signals()
+        # Each CPU estimator call's second trace, in call order: the observed y, then each
+        # circular shift of it. Band p-values count the shifts as a set, so a fallback that
+        # used another order or set of shifts could match them and still differ here (IB-60).
+        cpu_inputs = []
+        real_coherence = signal.coherence
+
+        def recording_coherence(a, b, *args, **kwargs):
+            cpu_inputs.append(np.asarray(b).tobytes())
+            return real_coherence(a, b, *args, **kwargs)
+
+        monkeypatch.setattr(signal, "coherence", recording_coherence)
         cpu = sp.cross_area_coherence(x, y, device="cpu", **self.KW)
+        cpu_run, cpu_inputs[:] = list(cpu_inputs), []
+        assert len(cpu_run) == self.KW["n_surrogates"] + 1
         calls = {"n": 0}
 
         def flaky_gpu(a, b, fs, nperseg, noverlap=None, **_):
@@ -2049,6 +2076,7 @@ class TestCoherenceGpuFallbackKeepsTheNull:
             fell_back = sp.cross_area_coherence(x, y, device="cuda", **self.KW)
 
         assert calls["n"] == fail_after + 1
+        assert cpu_inputs == cpu_run, "the fallback's shifts differ from the CPU run's"
         assert fell_back["device_used"] == "cpu"
         assert fell_back["surrogate_seed_entropy"] == cpu["surrogate_seed_entropy"]
         assert fell_back["band_significance"] == cpu["band_significance"]
@@ -2219,3 +2247,49 @@ class TestAperiodicFitRemovePeaks:
         assert aperiodic_fit(self.FREQS, clean, (2.0, 3.5)).accepted
         res = aperiodic_fit(self.FREQS, clean, (2.0, 3.5), remove_peaks=True)
         assert not res.accepted and res.exponent is None
+
+
+def _cuda_device_count():
+    try:
+        import cupy as cp
+        return cp.cuda.runtime.getDeviceCount()
+    except Exception:
+        return 0
+
+
+class TestCoherenceWithAConstantChannel:
+    """A constant channel's mean removal leaves rounding residue, and the coherence ratio
+    turned it into a value: about 0.05 per band on the CPU and 0.0 on CUDA, with a p-value
+    beside it. Coherence with a channel that does not vary is undefined (P-331)."""
+
+    KW = dict(fs=1000.0, freq_bands="canonical", n_surrogates=20)
+
+    @pytest.mark.parametrize("device", [
+        "cpu",
+        pytest.param("cuda", marks=pytest.mark.skipif(
+            _cuda_device_count() == 0, reason="CUDA GPU not available")),
+    ])
+    @pytest.mark.parametrize("which", [0, 1])
+    def test_every_value_is_nan_on_each_device(self, device, which):
+        x = np.random.default_rng(0).standard_normal(4000)
+        pair = [x, np.full(4000, 0.3)]
+        if which:
+            pair.reverse()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = cross_area_coherence(*pair, device=device, **self.KW)
+        assert out["device_used"] == device
+        assert set(out["band_coherence"]) == set(CANONICAL_BANDS)
+        assert all(np.isnan(v) for v in out["band_coherence"].values())
+        assert all(np.isnan(v) for v in out["band_significance"].values())
+        assert np.all(np.isnan(out["coherence_spectrum"]))
+        assert np.isnan(out["peak_coherence_value"]) and np.isnan(out["peak_coherence_freq"])
+        ref = cross_area_coherence(x, x[::-1].copy(), device="cpu", **self.KW)
+        np.testing.assert_array_equal(out["frequencies"], ref["frequencies"])
+        assert out["surrogate_seed_entropy"] == 42
+
+    def test_a_varying_pair_is_unchanged(self):
+        rng = np.random.default_rng(1)
+        x, y = rng.standard_normal(4000), rng.standard_normal(4000)
+        out = cross_area_coherence(x, y, **self.KW)
+        assert all(np.isfinite(v) for v in out["band_coherence"].values())
