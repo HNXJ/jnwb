@@ -45,7 +45,7 @@ gives, for the closure pass to classify.
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-25, 10-20, 10-21, 10-23 and 10-24 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19, 10-22 and 10-25 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-20, 10-21, 10-23 and 10-24 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -57,17 +57,6 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 - `jrsa` `phase_slope` ravels to one trial, so it warns "pass 3 or more trials" on every call, which a `jrsa` caller cannot act on. Check: the warning suppressed or reworded for the `jrsa` path, with a test. Waits: a warning, no value change.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
-
-### 10-25 `JRSAResult.save` and its siblings lose data silently
-
-Release: required-0.2.10.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/jrsa/_result.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-connectivity/SKILL.md`.
-Found by the "Waits: not stated" classification (2026-10-06): shipped API behaviour can be wrong. Ruled by Hamm: round-trip every field.
-- `save(path, fmt="csv")` keeps only fields that are not arrays, so `value`, `statistic`, `p`, `q`, `ci` and `null_distribution` are left out of the file (`jnwb/jrsa/_result.py:208`); `fmt="npz"` keeps arrays only, so `metric`, `parameters` and `execution` (the seed) are dropped (`:195`). Check: every field survives in every format; npz carries the non-array fields as one JSON string, csv carries the arrays (a 2-D `value` as a matrix, scalars as field and value rows); a test per format asserts `value`, `p`, `q`, `metric` and the seed read back equal, and a file written by 0.2.9 still reads. Waits: none; required.
-- `summary`, `plot` and `save` are public, shown in `docs/03`, and no test executes them (reduction audit 2026-10-06). Check: one test per method on a small result; `plot` on a signed matrix centres its diverging colormap on 0 or states why not; the `docs/03` block that calls `summary()` runs under `tests/test_docs_call_shapes.py`. Waits: none; required.
-Accept: each check passes; a changelog fragment states the content added to each format.
-Stop: a fix removes a field or a format that 0.2.9 wrote.
 
 ### 10-08 Statistics, spiking and decoding edges
 
