@@ -18,8 +18,8 @@ is a log ratio of ML variances, and the information criteria in ``_info_criterio
 their own explicit parameter counts. This line read ``explicit N - p divisors`` while
 ``_residual_variance`` took an ``n_params`` argument it never used.
 
-Modality-agnostic directed connectivity (added 2026-08-04)
----------------------------------------------------------
+Modality-agnostic directed connectivity
+--------------------------------------
 ``granger`` / ``phase_slope_index`` / ``transfer_entropy`` all take the same
 ``(X, Y, ...)`` contract and return the same ``DirectedResult`` shape, so LFP
 traces, binned spike counts, MUAe envelopes, band-power time courses and any
