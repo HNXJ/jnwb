@@ -46,7 +46,7 @@ gives, for the closure pass to classify.
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05 and 10-07 are merged, and 10-06 round 1; 10-06, 10-08, 10-13, 10-18, 10-19, 10-20 and 10-21 are open.
+10-01, 10-02, 10-03, 10-04, 10-05 and 10-07 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-13, 10-18, 10-19, 10-20 and 10-21 are open.
 
 ### 10-13 No dangling references in `jnwb/`
 
@@ -63,15 +63,10 @@ Stop: a fix changes shipped values without a ruling.
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`, `tests/test_rsa.py`, `tests/test_substitution_class_sweep.py`, `tests/test_adversarial_inputs.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`.
-- P-227: the PSI jackknife leaves out a segment, not an epoch; liberal under zero-lag mixing (0.0655). Check: an epoch-level jackknife. Waits: stated with IB-97; conservative under independence.
-- IB-45: an int `rng` gives every pair the same surrogate stream. Check: one scheme for both, recorded per pair. Waits: each pair's p stays valid.
-- P-331 jrsa and Granger half: `jrsa` standardises detrend residue, and the Granger residual guard sees it. Check: stated tolerances. Waits: degenerate input.
-- IB-44: a calibrated block bootstrap for the `jrsa` paired metrics replaces the refusal (ruled 2026-09-25). Check: 95 % interval coverage near 0.95 on AR(1) pairs at phi 0.9. Waits: the refusal is correct.
-- Conditional `directed_network` (ruled 2026-10-06: Granger only, conditioning on all other nodes through `Z`; other methods stay pairwise and say so). Check: a conditional Granger mode recovering a chain A->B->C without a direct A->C edge. Waits: pairwise is stated.
-- Directed width clauses: the PSI width test pins a lower bound only; TE's net width keeps the plain sum. Check: stated tolerances under the P-331 round-off bound. Waits: degenerate input.
-- Verifier gaps (round 1): the merged linear/cubic `_resample_axis` branch has no value test; a valid `align='dtw'` at equal lengths is not pinned; the TE docstring states the Miller-Madow mechanism for `bias_corrected` as fact where the record says inferred. Check: a value test, a pin, the docstring matching the record. Waits: private path, optional package, wording.
 - `JRSAResult.summary`, `plot` and `save` are public, shown in `docs/03`, and no test executes them (reduction audit 2026-10-06). Check: one test per method on a small result. Waits: not stated.
-- P-296 dated comments: `jnwb/connectivity/__init__.py:21` and `jnwb/jrsa/_metrics.py:431` name a date. Check: each line is deleted or shown to state behaviour. Waits: no behavioural effect.
+- Round-2 test reach (verified 2026-10-06, 65691a49): surviving mutants M5 (conditioning on the first other node only; no test has four or more nodes), M3b (`n_seg-1` degrees of freedom in the multi-band `z_tot`), M10 (the observed round-off term dropped from the TE one-way tie width), M17 (the `gc` alias refused) and M19 (NaN slices in `zero_detrend_residue`). Check: each killed by a test. Waits: behaviour verified correct; tests only.
+- `jnwb/connectivity/_psi.py:307` states the segment jackknife rejected 0.070-0.079 on 10 trials of 400, where the default-`nperseg` record says 0.068. Check: the comment quotes the record. Waits: wording.
+- `jrsa` `phase_slope` ravels to one trial, so it warns "pass 3 or more trials" on every call, which a `jrsa` caller cannot act on. Check: the warning suppressed or reworded for the `jrsa` path, with a test. Waits: a warning, no value change.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
 
