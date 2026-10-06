@@ -1,0 +1,8 @@
+jnwb from C:\workspace/jnwb-lanes/g-10-06\jnwb\__init__.py
+bins=4 k=l=1 n_surrogates=199 pairs seeds 0..1499
+n=   500 rate=0.0340 (se 0.0047) excess=-1.391 (se 0.225) cells data=55.55 surrogates=63.99 mm_shift=+7.5448 max |rebuilt p - p|=0
+n=  2000 rate=0.0527 (se 0.0058) excess=+0.623 (se 0.216) cells data=60.36 surrogates=64.00 mm_shift=+3.5547 max |rebuilt p - p|=0
+n=  4000 rate=0.0687 (se 0.0065) excess=+1.228 (se 0.229) cells data=62.33 surrogates=64.00 mm_shift=+1.6620 max |rebuilt p - p|=0
+n=  8000 rate=0.0453 (se 0.0054) excess=+0.450 (se 0.220) cells data=63.65 surrogates=64.00 mm_shift=+0.3520 max |rebuilt p - p|=0
+n= 16000 rate=0.0353 (se 0.0048) excess=+0.062 (se 0.214) cells data=63.98 surrogates=64.00 mm_shift=+0.0167 max |rebuilt p - p|=0
+rc=0

@@ -1,0 +1,15 @@
+jnwb from C:\workspace/jnwb-lanes/g-10-06\jnwb\__init__.py
+n=2000 fs=1000.0 seeds 0..3999
+mixing      bands=(5.0, 100.0) old n//4    segments=  7 P(p<0.05)=0.0173 (se 0.0021) undefined=0
+mixing      bands=(5.0, 100.0) new default segments= 20 P(p<0.05)=0.0573 (se 0.0037) undefined=0
+mixing      bands=None         old n//4    segments=  7 P(p<0.05)=0.0080 (se 0.0014) undefined=0
+mixing      bands=None         new default segments= 20 P(p<0.05)=0.0227 (se 0.0024) undefined=0
+independent bands=(5.0, 100.0) old n//4    segments=  7 P(p<0.05)=0.0112 (se 0.0017) undefined=0
+independent bands=(5.0, 100.0) new default segments= 20 P(p<0.05)=0.0043 (se 0.0010) undefined=0
+independent bands=None         old n//4    segments=  7 P(p<0.05)=0.0115 (se 0.0017) undefined=0
+independent bands=None         new default segments= 20 P(p<0.05)=0.0063 (se 0.0012) undefined=0
+lead        bands=(5.0, 100.0) old n//4    segments=  7 P(p<0.05)=0.5920 (se 0.0078) undefined=0
+lead        bands=(5.0, 100.0) new default segments= 20 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead        bands=None         old n//4    segments=  7 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+lead        bands=None         new default segments= 20 P(p<0.05)=1.0000 (se 0.0000) undefined=0
+rc=0

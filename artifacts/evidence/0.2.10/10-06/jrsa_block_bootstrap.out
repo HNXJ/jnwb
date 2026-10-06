@@ -1,0 +1,8 @@
+jnwb from C:\workspace/jnwb-lanes/g-10-06\jnwb\__init__.py
+metric=pearson phi=0.9 bootstrap=999 pairs seeds 0..999
+n= 200 null=block block_len=20   coverage=0.8460 (se 0.0114) mean width=0.5909
+n= 500 null=block block_len=20   coverage=0.8830 (se 0.0102) mean width=0.4227
+n= 500 null=block block_len=50   coverage=0.8860 (se 0.0101) mean width=0.4324
+n=1000 null=block block_len=50   coverage=0.9130 (se 0.0089) mean width=0.3330
+n= 500 null=iid   block_len=None coverage=0.4470 (se 0.0157) mean width=0.1681
+rc=0
