@@ -134,12 +134,16 @@ Stop: a default change without a ruling.
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `jnwb/statistics/**`, `tests/test_statistics.py`, `artifacts/frozen_validated.json`.
+Writes: `jnwb/statistics.py`, `jnwb/statistics/**`, `tests/test_statistics.py`, `artifacts/frozen_validated.json`, `tests/_sources.py`, `tests/test_claim_wording.py`, `tests/test_errors_documented.py`, `tests/test_import_lazy.py`, `tests/test_axis_convention_matches_the_specification.py`.
 Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a); `StatisticalAnalysis` moves whole. Gate 19's two
 `jnwb/statistics.py` entries are re-pointed with unchanged hashes.
 - `tests/test_statistics.py:707` reads `inspect.getsource(jnwb.statistics)`, which on a package returns
 only `__init__`, so the check passes vacuously after the split. Check: it scans every module of the
 package, and a reintroduced key in a submodule fails it.
+- Class split-hides-source, seen three times (`artifacts/defect_classes.md`): each test that scans
+jnwb sources lists its files itself, and a split hides moved defs from it. Check: one helper lists
+every file that defines a public symbol; every source scan uses it, and a test fails when a scan
+reads fewer such files than the helper lists.
 Accept: `jnwb.__all__`, signatures and every lookup the old module allowed are identical; the full
 suite passes, and gate 19 passes with no hash changed.
 Stop: a move changes a function body gate 19 hashes.
