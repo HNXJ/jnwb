@@ -1283,7 +1283,7 @@ def test_importing_the_harness_imports_no_jnwb() -> None:
 def test_an_anchor_held_twice_by_the_public_objects_file_is_refused() -> None:
     """It must not fall through to another file that happens to hold it once."""
     anchor = "    lfp_matrix: np.ndarray,\n"
-    own = REPO_ROOT / source_path("band_power")
+    own = REPO_ROOT / source_path("voltage_curvature_1d")
     assert own.read_bytes().decode("utf-8").count(anchor) > 1, "the fixture no longer repeats"
     with pytest.raises(MutationHarnessError, match="occurs"):
-        source_path("band_power", anchor)
+        source_path("voltage_curvature_1d", anchor)

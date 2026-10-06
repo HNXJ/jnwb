@@ -61,7 +61,8 @@ def test_the_sweep_reads_the_working_tree_and_not_an_installed_copy():
     if here not in PACKAGE_ROOT.parents:
         pytest.skip(f"qualifying {PACKAGE_ROOT}, not this checkout")
     for module in ("addressing", "continuous", "laminar", "spectral", "statistics"):
-        assert (PACKAGE_ROOT / f"{module}.py").is_file(), f"the sweep has no {module}.py to read"
+        assert (PACKAGE_ROOT / f"{module}.py").is_file() or (
+            PACKAGE_ROOT / module / "__init__.py").is_file(), f"the sweep has no {module} to read"
 
 
 # ===========================================================================
@@ -651,10 +652,10 @@ ACCEPTED_CHAIN_ELSE = {
      ("greater", "less"), 1):
         "_count_at_least_as_extreme checks alternative against _TAILS and raises; the else "
         "is the 'two-sided' branch.",
-    ("laminar.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
+    ("laminar/_vflip.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
-    ("spectral.py", "relative_power", "CHAIN_ELSE", "model",
+    ("spectral/_decibels.py", "relative_power", "CHAIN_ELSE", "model",
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
@@ -674,15 +675,15 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("trajectory.py", "compute_population_trajectory", "Exception",
      ("S_np", "V_np", "proj_np"), False, 1):
         "Same GPU -> NumPy SVD fallback, same announcement.",
-    ("spectral.py", "harmonic_analysis", "Exception", ("frequencies", "pxx"), False, 1):
+    ("spectral/_psd.py", "harmonic_analysis", "Exception", ("frequencies", "pxx"), False, 1):
         "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
         "warn_device_fallback; the handler rebinds device = CPU, so the device follows the "
         "value. Same estimator on another device, not a different one.",
-    ("spectral.py", "spectral_tilt", "Exception", ("frequencies", "pxx"), False, 1):
+    ("spectral/_psd.py", "spectral_tilt", "Exception", ("frequencies", "pxx"), False, 1):
         "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
         "warn_device_fallback; the handler rebinds resolved = CPU, so the device follows the "
         "value.",
-    ("spectral.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
+    ("spectral/_coupling.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
     ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
@@ -708,7 +709,7 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("jrsa.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
-    ("laminar.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
+    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
         "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
         "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
         "channel pair yields exactly -1.0, a plausible and wrong number. Nearly unreachable "
@@ -794,11 +795,11 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
         "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
         "Absence.",
-    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
+    ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
         "The 'fixed' fit. Returns AperiodicFitResult(accepted=False) with every estimate None "
         "-- the declared refusal shape, which is what a non-identifiable fit is supposed to "
         "emit.",
-    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 2):
+    ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 2):
         "The 'knee' fit. The same refusal shape, with mode='knee'.",
 }
 

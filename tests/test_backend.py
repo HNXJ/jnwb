@@ -152,24 +152,30 @@ class TestCallSitesAreRouted:
         offenders = []
         checked = 0
         for name in self.ROUTED_MODULES:
-            tree = ast.parse((root / f"{name}.py").read_text(encoding="utf-8"))
-            for node in tree.body:
-                for lineno, mod in imports_a_gpu_library(
-                    ast.Module(body=[node], type_ignores=[])
-                ):
-                    if isinstance(node, (ast.Import, ast.ImportFrom)):
-                        offenders.append(f"{name}.py:{lineno}: module-level {mod}")
-            for fn in ast.walk(tree):
-                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                found = list(imports_a_gpu_library(fn))
-                if not found:
-                    continue
-                checked += 1
-                if fn.name.endswith("_gpu") or resolves_capability(fn):
-                    continue
-                for lineno, mod in found:
-                    offenders.append(f"{name}.py:{lineno}: {fn.name} imports {mod}")
+            # a module, or every file of a package
+            single = root / f"{name}.py"
+            paths = [single] if single.is_file() else sorted((root / name).glob("*.py"))
+            assert paths, f"jnwb.{name} has no source file under {root}"
+            for path in paths:
+                where = path.relative_to(root).as_posix()
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                for node in tree.body:
+                    for lineno, mod in imports_a_gpu_library(
+                        ast.Module(body=[node], type_ignores=[])
+                    ):
+                        if isinstance(node, (ast.Import, ast.ImportFrom)):
+                            offenders.append(f"{where}:{lineno}: module-level {mod}")
+                for fn in ast.walk(tree):
+                    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    found = list(imports_a_gpu_library(fn))
+                    if not found:
+                        continue
+                    checked += 1
+                    if fn.name.endswith("_gpu") or resolves_capability(fn):
+                        continue
+                    for lineno, mod in found:
+                        offenders.append(f"{where}:{lineno}: {fn.name} imports {mod}")
 
         assert checked, "no routed module imports a GPU library; this test checks nothing"
         assert offenders == [], (

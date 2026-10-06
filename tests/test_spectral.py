@@ -3,6 +3,7 @@ cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 
+import inspect
 import warnings
 
 import jnwb
@@ -903,7 +904,9 @@ class TestCrossAreaCoherenceSurrogateContract:
     def test_cuda_failure_falls_back_wholesale_and_warns(self, monkeypatch):
         """A GPU failure must not yield a null that mixes two estimators."""
         import jnwb._backend as backend
-        import jnwb.spectral as spectral_module
+
+        # patched where cross_area_coherence looks the name up
+        spectral_module = inspect.getmodule(cross_area_coherence)
 
         def always_fails(*args, **kwargs):
             raise RuntimeError("simulated GPU out-of-memory")
@@ -2039,8 +2042,9 @@ class TestCoherenceGpuFallbackKeepsTheNull:
             _, pxy = signal.csd(a, b, fs=fs, nperseg=nperseg, noverlap=noverlap)
             return f, pxx, pyy, pxy
 
-        monkeypatch.setattr(sp, "resolve_device", lambda *a, **k: sp.CUDA)
-        monkeypatch.setattr(sp, "_welch_csd_gpu", flaky_gpu)
+        coupling = inspect.getmodule(sp.cross_area_coherence)
+        monkeypatch.setattr(coupling, "resolve_device", lambda *a, **k: sp.CUDA)
+        monkeypatch.setattr(coupling, "_welch_csd_gpu", flaky_gpu)
         with pytest.warns(Warning):
             fell_back = sp.cross_area_coherence(x, y, device="cuda", **self.KW)
 
@@ -2098,7 +2102,7 @@ class TestDecibelSitesShareOneConversion:
             calls.append(np.shape(ratio))
             return shared(ratio)
 
-        monkeypatch.setattr(sp, "_ratio_to_db", recording)
+        monkeypatch.setattr(inspect.getmodule(sp.band_power), "_ratio_to_db", recording)
         sp.relative_power(np.full((2, 3), 2.0), np.ones((2, 3)), model="log_ratio")
         assert calls == [(2, 3)], "relative_power(model='log_ratio') bypassed to_db"
         x, base = self._traces()
