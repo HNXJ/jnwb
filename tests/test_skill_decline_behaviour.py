@@ -219,7 +219,8 @@ def _():
 @case("jnwb-connectivity", "failure")
 def _():
     x, y = _directed_pair()
-    res = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(19.5, 20.5))
+    # One 10.6 Hz bin (21.3 Hz) at the default nperseg of 94 for 1000 samples.
+    res = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(20.0, 22.0))
     band = res.per_band["band"]
     assert band["n_freq_bins"] == 1 and np.isnan(band["value"])
     assert res.diagnostics["ok_for_interpretation"] is False
@@ -741,10 +742,13 @@ def test_outcome(key, request):
 
 def _psi_with_no_slope():
     x, y = _directed_pair()
-    res = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(19.5, 20.5))
+    # (20, 22) holds one bin at the default nperseg of 94; (10, 45) holds four.
+    res = jnwb.phase_slope_index(x, y, fs=1000.0, bands=(20.0, 22.0))
+    assert res.per_band["band"]["n_freq_bins"] == 1
     # A band that has a slope still counts when another band has none.
-    mixed = jnwb.phase_slope_index(x, y, fs=1000.0, bands={"a": (19.5, 20.5), "beta": (13.0, 30.0)})
-    assert np.isfinite(mixed.net) and mixed.net == mixed.per_band["beta"]["value"]
+    mixed = jnwb.phase_slope_index(x, y, fs=1000.0, bands={"a": (20.0, 22.0), "broad": (10.0, 45.0)})
+    assert mixed.per_band["broad"]["n_freq_bins"] == 4
+    assert np.isfinite(mixed.net) and mixed.net == mixed.per_band["broad"]["value"]
     values = {"net": res.net, "x_to_y": res.x_to_y, "y_to_x": res.y_to_x}
     return values, {"ok_for_interpretation": res.diagnostics["ok_for_interpretation"]}
 

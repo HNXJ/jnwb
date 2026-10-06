@@ -185,9 +185,9 @@ Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or ver
 
 ```python
 # TRAP (receipt: 2000 samples at 1 kHz, seed=42, n_surrogates=50): a 20 Hz sinusoid
-# with 10 ms delay in a 19–21 Hz band gives net PSI = nan and band z = nan (one 2 Hz bin
-# at the default nperseg of 500). The same delay on 15–30 Hz broadband noise gives
-# net ≈ 0.93 and band z ≈ 9.8.
+# with 10 ms delay in an 18–24 Hz band gives net PSI = nan and band z = nan
+# (one 5.26 Hz bin at the default nperseg of 190). The same delay on 15–30 Hz broadband noise gives
+# net ≈ 0.64 and band z ≈ 7.9.
 ```
 
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
@@ -205,7 +205,7 @@ t = np.arange(2000) / fs
 x = np.sin(2 * np.pi * 20 * t)
 y = np.roll(x, int(0.01 * fs))  # 10 ms delay
 
-psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
+psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(18.0, 24.0), n_surrogates=50, rng=0)
 
 noise_x = rng.normal(size=2000)
 noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
@@ -213,7 +213,7 @@ psi_broad = jnwb.phase_slope_index(
     noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
 )
 
-print("Narrow band net:", psi_narrow.net)          # nan: 19-21 Hz holds one bin, no slope
+print("Narrow band net:", psi_narrow.net)          # nan: 18-24 Hz holds one bin, no slope
 print("Broad band net:", psi_broad.net)            # >> 0 for broadband noise + delay
 print("Broad band z:", psi_broad.per_band["band"]["z"])
 # Directional association only — not perturbational causality.

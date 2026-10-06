@@ -303,12 +303,15 @@ class TestJrsaWindowIsSamplesAndSaysSo:
     A caller following the docstring got silence in both directions: on a 6-sample aligned
     axis `(-500, 500)` clamped to `(0, 6)` -- the whole axis, the unwindowed answer -- and
     `(10, 30)` clamped to an empty slice and returned a NaN statistic.
+
+    Since 0.2.10 a row metric's `window` applies to its observation axis, axis 0, by
+    default, so the 6-sample axis here is the 6 observations of a (6, 40) input.
     """
 
     @staticmethod
     def _xy():
         rng = np.random.default_rng(0)
-        return rng.normal(size=(40, 6)), rng.normal(size=(40, 6))
+        return rng.normal(size=(6, 40)), rng.normal(size=(6, 40))
 
     def test_a_window_that_selects_nothing_raises(self):
         x1, x2 = self._xy()
