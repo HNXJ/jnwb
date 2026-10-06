@@ -72,7 +72,10 @@ def test_narrowband_psi_really_does_report_nothing() -> None:
 
     assert np.isnan(narrow.net), f"narrowband PSI is not degenerate here: {narrow.net}"
     assert np.isnan(narrow.per_band["band"]["z"])
-    assert namespace["fs"] / narrow.params["nperseg"] == 2.0
+    # One bin is the claim: no slope from one bin, where an empty band would be another case.
+    assert narrow.per_band["band"]["n_freq_bins"] == 1
+    assert narrow.params["nperseg"] == 190
+    bin_hz = f"{namespace['fs'] / narrow.params['nperseg']:.2f} Hz bin"
     assert len(namespace["t"]) == 2000
 
     stated_net = re.search(r"net ≈ (\d+\.\d+)", seven)
@@ -89,10 +92,12 @@ def test_narrowband_psi_really_does_report_nothing() -> None:
     assert "frequency bins" in section, (
         "the PSI verification instruction does not require a band with several bins"
     )
-    psi_row = next(line for line in section.splitlines() if "(19.0, 21.0)" in line)
+    psi_row = next(line for line in section.splitlines() if "(18.0, 24.0)" in line)
     for page, text in (("skill", psi_row), ("section 7", seven)):
         assert "2000 samples at 1 kHz" in text, f"the {page} does not state the length"
-        assert "2 Hz bin" in text, f"the {page} does not state the bin width"
+        assert bin_hz in text, f"the {page} does not state the bin width {bin_hz!r}"
+        assert "nperseg` of 190" in text or "nperseg of 190" in text, (
+            f"the {page} does not state the default nperseg")
         assert "net = nan" in text or "net PSI = nan" in text, f"the {page} misquotes narrow"
         assert f"net ≈ {net_text}" in text, f"the {page} misquotes the broadband net"
 

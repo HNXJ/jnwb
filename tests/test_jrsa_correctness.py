@@ -1213,6 +1213,34 @@ class TestSimilarityEdges:
         assert np.isfinite(float(oa.jrsa(a, b, metric="pearson", align="none",
                                          stats=False).value))
 
+    @pytest.mark.parametrize("align, power", [("linear", 1), ("interpolate", 1), ("cubic", 3)])
+    def test_an_interpolation_reproduces_a_polynomial_of_its_degree(self, align, power):
+        """Linear interpolation is exact on a line and a cubic spline on a cubic, so the
+        longer input resampled to the shorter grid equals the polynomial on that grid."""
+        from jnwb.jrsa._stages import _resample_axis
+
+        t10, t7 = np.linspace(0.0, 1.0, 10), np.linspace(0.0, 1.0, 7)
+        x1, x2 = np.stack([t10 ** power, 2.0 - t10 ** power]), np.zeros((2, 7))
+        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+        np.testing.assert_allclose(out1, np.stack([t7 ** power, 2.0 - t7 ** power]),
+                                   rtol=0, atol=1e-12)
+        assert out2 is x2
+
+    @pytest.mark.parametrize("installed", [False, True])
+    def test_dtw_at_equal_lengths_raises_rather_than_running(self, monkeypatch, installed):
+        """Equal lengths need no resampling, so a dtw request could pass as aligned. It
+        raises: ImportError naming the optional package when absent, NotImplementedError
+        when present."""
+        import sys
+        import types
+
+        monkeypatch.setitem(sys.modules, "dtw", types.ModuleType("dtw") if installed else None)
+        rng = np.random.default_rng(0)
+        a, b = rng.normal(size=30), rng.normal(size=30)
+        expected = NotImplementedError if installed else ImportError
+        with pytest.raises(expected, match="align='dtw'"):
+            oa.jrsa(a, b, metric="pearson", align="dtw", stats=False)
+
     @pytest.mark.parametrize("align", ["linear", "interpolate", "cubic"])
     def test_an_interpolation_without_scipy_raises(self, monkeypatch, align):
         """It fell back to 'downsample' while `parameters['align']` echoed the request."""
