@@ -172,8 +172,8 @@ def test_zflip_a_constant_contact_leaves_the_shaft_without_a_delay():
     assert jnwb.zflip(data, **kwargs).accepted
     data[4] = 1.0
     res = jnwb.zflip(data, **kwargs)
-    # A constant contact skips the surrogates, so no pair has its null either.
-    assert not res.adjacent_identifiable.any()
+    # The pairs the constant contact touches have no wPLI and no null; the others draw theirs.
+    assert res.adjacent_identifiable.tolist() == [True, True, True, False, False]
     assert "Contact(s) [4] constant" in res.rejection_reason
     assert not res.delay_identifiable
     assert np.isnan(res.tau_per_channel_s)
@@ -721,14 +721,68 @@ def test_zflip_the_entropy_recorded_for_rng_none_reproduces_p():
     assert len({_zflip_noise(None).p_value for _ in range(4)} | {first.p_value}) > 1
 
 
-def test_zflip_an_int_seed_is_recorded_as_given_and_draws_the_same_stream():
+def test_zflip_an_int_seed_is_recorded_and_keeps_its_stream(monkeypatch):
+    """An int seed draws `default_rng(seed)`, the stream a Generator consumed in place drew
+    before the child seed."""
+    import jnwb._rng
+    from jnwb.laminar import _zflip
+
     res = _zflip_noise(123)
     assert res.surrogate_seed_entropy == 123
+    monkeypatch.setattr(_zflip, "recorded_rng", jnwb._rng.surrogate_rng)
     assert res.p_value == _zflip_noise(np.random.default_rng(123)).p_value
 
 
-def test_zflip_a_generator_and_an_untested_fit_record_none():
-    assert _zflip_noise(np.random.default_rng(1)).surrogate_seed_entropy is None
+def test_zflip_a_generator_records_the_child_seed_that_reproduces_p():
+    """A `Generator` recorded None; one child draw now seeds the surrogates and is recorded."""
+    first = _zflip_noise(np.random.default_rng(1))
+    assert isinstance(first.surrogate_seed_entropy, int)
+    assert _zflip_noise(first.surrogate_seed_entropy).p_value == first.p_value
+    assert first.surrogate_seed_entropy == int(
+        np.random.default_rng(1).integers(0, 2**63 - 1))
+
+
+def _delayed_copies(n_contacts, tau_s=1e-3, fs=1000.0, n=4000):
+    """One broadband signal on every contact, delayed by `tau_s` more at each."""
+    spectrum = np.fft.rfft(np.random.default_rng(0).normal(size=n))
+    f = np.fft.rfftfreq(n, 1.0 / fs)
+    return np.array([np.fft.irfft(spectrum * np.exp(-2j * np.pi * f * k * tau_s), n=n)
+                     for k in range(n_contacts)])
+
+
+def test_zflip_pairs_a_flat_contact_does_not_touch_draw_their_own_nulls():
+    """A flat contact skipped the surrogates for the whole shaft, so pairs it does not
+    touch were refused for want of a null they could have drawn."""
+    lfp = np.vstack([_delayed_copies(4), np.full((1, 4000), 3.0)])
+    res = jnwb.zflip(lfp, 1000.0, orientation="superficial_to_deep", n_surrogates=30, rng=0)
+    assert res.adjacent_identifiable.tolist() == [True, True, True, False]
+    assert np.allclose(res.adjacent_delays_s[:3], 1e-3, rtol=0.05)
+    assert np.isnan(res.adjacent_delays_s[3]) and np.isnan(res.p_value)
+    assert not res.accepted and res.surrogate_seed_entropy == 0
+
+
+def test_zflip_a_zero_delay_gradient_has_no_direction_and_no_velocity(monkeypatch):
+    """No input is known to reach the zero-gradient guard, so the spatial fit is patched to
+    return a zero slope on a recording whose every pair is identifiable."""
+    from jnwb.laminar import _zflip
+
+    real = _zflip.stats.linregress
+
+    def spatial_slope_zero(x, y):
+        res = real(x, y)
+        if np.array_equal(x, np.arange(len(x), dtype=float)):
+            return type("Fit", (), {"slope": 0.0, "rvalue": 1.0})()
+        return res
+
+    monkeypatch.setattr(_zflip.stats, "linregress", spatial_slope_zero)
+    res = jnwb.zflip(_delayed_copies(4), 1000.0, orientation="superficial_to_deep",
+                     pitch_um=50.0, n_surrogates=30, rng=0)
+    assert res.adjacent_identifiable.all()
+    assert res.directionality == "unidentifiable" and res.apparent_velocity_m_s is None
+    assert "zero to round-off" in res.rejection_reason
+
+
+def test_zflip_an_untested_fit_records_none():
     assert _zflip_noise(3, n_surrogates=0).surrogate_seed_entropy is None
 
 

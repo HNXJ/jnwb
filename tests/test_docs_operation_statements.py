@@ -676,8 +676,12 @@ def test_the_zflip_row_lists_only_raises_the_code_has():
     # Identical channels have zero imaginary coherency; no raise follows from it.
     same = np.tile(_zflip_input(1), (4, 1))
     jnwb.zflip(same, **ZFLIP_OK)
-    narrow = jnwb.zflip(_zflip_input(), **{**ZFLIP_OK, "freq_range": (15.0, 15.5)})
+    # With surrogates, so the rejection is the bin count's and not the missing null's: at
+    # n_surrogates=0 every fit is rejected whatever freq_range holds.
+    narrow = jnwb.zflip(_zflip_input(), **{**ZFLIP_OK, "freq_range": (15.0, 15.5),
+                                           "n_surrogates": 20})
     assert narrow.accepted is False
+    assert "Insufficient frequency bins" in narrow.rejection_reason
 
 
 @pytest.mark.parametrize("case", sorted(ZFLIP_RAISES))

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 import numpy as np
 from .._dictlike import DictAccessMixin
-from .._rng import Default, RNGLike, resolve_seed_alias, surrogate_rng
+from .._rng import Default, RNGLike, recorded_rng, resolve_seed_alias
 from scipy import signal, stats
 from .._spread import is_constant
 from ..permutation import _count_at_least_as_extreme
@@ -75,9 +75,9 @@ class ZFlipResult(DictAccessMixin):
         orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
             superficial) or ``'deep_to_superficial'`` (row 0 deep).
         surrogate_seed_entropy: The entropy the surrogate generator was built from: the
-            seed for an int `rng`, and the fresh OS entropy drawn for `rng=None`. Passing it
-            back as `rng` reproduces `p_value`. None when you supplied a `Generator`, whose
-            stream position cannot be recovered, and when no surrogates were drawn.
+            seed for an int `rng`, the fresh OS entropy drawn for `rng=None`, and the child
+            seed drawn from a `Generator`. Passing it back as `rng` reproduces `p_value`.
+            None when no surrogates were drawn.
     """
 
     adjacent_wpli: np.ndarray
@@ -197,8 +197,9 @@ def zflip(
          independent signals often reach wPLI 0.15. Each pair is tested at `alpha`
          without a multiplicity correction; every pair must pass, so the shaft is accepted
          only when the least coupled pair passes. A pair without its null is not
-         identifiable: with `n_surrogates=0`, or a constant or linear-in-time contact
-         (which skips the surrogates), no pair is, and no delay is reported. With few
+         identifiable: with `n_surrogates=0` no pair is, and no delay is reported. A
+         constant or linear-in-time contact has no wPLI, so its two pairs draw no null and
+         are not identifiable; every other pair draws its own. With few
          in-band bins a surrogate can match a wPLI of 1.0: at the default band, 256
          samples leave 3 bins and about 10% of surrogates tie 1.0, so no pair passes; 512
          samples (5 bins) tie in 0.4-0.8% of surrogates for a broadband wave and about 4%
@@ -263,8 +264,9 @@ def zflip(
         alpha: Significance threshold in (0, 1) for rejecting the independent-phase null
             (default 0.05).
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy, for surrogate
-            evaluation (``seed`` is the old spelling and still works). The entropy used is
-            returned as `surrogate_seed_entropy` for an int or None.
+            evaluation (``seed`` is the old spelling and still works). A `Generator` gives
+            up one draw, a child seed the surrogates run on. The seed used is returned as
+            `surrogate_seed_entropy`.
 
     Returns:
         :class:`ZFlipResult` container with full diagnostic fields and acceptance flag.
@@ -285,7 +287,7 @@ def zflip(
         phase lag index of each adjacent contact pair, as in :func:`jnwb.wpli`.
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
-    gen, seed_entropy = surrogate_rng(seed, "zflip")
+    gen, seed_entropy = recorded_rng(seed, "zflip")
     if orientation not in _ZFLIP_ORIENTATIONS:
         raise ValueError(
             f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
@@ -427,7 +429,11 @@ def zflip(
     # pairs carried the mean past its test, and the depth fit took the outlier.
     p_val = float("nan")
     pair_p = np.full(n_channels - 1, np.nan)
-    surrogates_run = n_surrogates > 0 and not flat_contacts
+    # A pair with a flat contact has no wPLI to test, and the mean over pairs is then NaN, so
+    # neither draws a null; every other pair still draws its own.
+    tested_pairs = [i for i in range(n_channels - 1)
+                    if i not in flat_contacts and i + 1 not in flat_contacts]
+    surrogates_run = n_surrogates > 0 and bool(tested_pairs)
     if surrogates_run:
         exceed_count = 0
         pair_exceed = np.zeros(n_channels - 1, dtype=int)
@@ -438,7 +444,7 @@ def zflip(
                 axis=-1, detrend="linear",
             )
             surr_adj_wpli = np.zeros(n_channels - 1, dtype=float)
-            for i in range(n_channels - 1):
+            for i in tested_pairs:
                 w_s, _ = _wpli_from_cross_spectra(np.conj(Z_surr[i]) * Z_surr[i + 1])
                 surr_adj_wpli[i] = float(np.mean(w_s[mask]))
                 pair_exceed[i] += _count_at_least_as_extreme(
@@ -447,11 +453,12 @@ def zflip(
             exceed_count += _count_at_least_as_extreme(
                 [np.mean(surr_adj_wpli)], mean_wpli_val, "greater"
             )
-        p_val = float((1 + exceed_count) / (1 + n_surrogates))
-        pair_p = (1 + pair_exceed) / (1 + n_surrogates)
+        if not flat_contacts:
+            p_val = float((1 + exceed_count) / (1 + n_surrogates))
+        pair_p[tested_pairs] = (1 + pair_exceed[tested_pairs]) / (1 + n_surrogates)
     uncoupled_pairs = [(i, i + 1) for i in range(n_channels - 1) if pair_p[i] > alpha]
     # No pair is identifiable without its null: a pair whose surrogates were not drawn
-    # (n_surrogates=0, or a flat contact anywhere, which skips them) has a NaN p and fails.
+    # (n_surrogates=0, or a flat contact in the pair) has a NaN p and fails.
     adj_identifiable &= pair_p <= alpha
 
     # Every adjacent pair must be identifiable. The cumulative delay sums all pairs, so a
@@ -481,7 +488,9 @@ def zflip(
             # tau_per_channel > 0: the lower-index contact leads, so the wave runs in row
             # order, which is the anatomical direction the caller named for row order. A
             # gradient within round-off of zero, relative to the largest delay the fit can
-            # represent, has no sign: identical contacts leave phase residue near 1e-21 s.
+            # represent, has no sign and no velocity. No input is known to reach this: a pair
+            # whose phase lag is below the wPLI zero-lag tolerance has wPLI 0 and fails its
+            # pair test first, so the branch is a backstop against a zero division.
             zero_width = 8.0 * np.finfo(float).eps * max_tau_unambiguous
             if abs(tau_per_channel) > zero_width:
                 row_order_leads = tau_per_channel > 0
@@ -516,10 +525,10 @@ def zflip(
     if flat_contacts:
         if constant_contacts:
             reasons.append(f"Contact(s) {constant_contacts} constant: adjacent wPLI and delay "
-                           "undefined, surrogate test not performed")
+                           "undefined, mean wPLI not tested")
         if ramp_contacts:
             reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
-                           "wPLI and delay undefined, surrogate test not performed")
+                           "wPLI and delay undefined, mean wPLI not tested")
     elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
                        "to establish a delay, so no adjacent pair is identifiable")
