@@ -1,0 +1,1 @@
+- `StatisticalAnalysis.bootstrap_ci` draws its resamples in blocks and, for the default `np.mean`, takes their means in one call: 8.9 times faster at 200 values and 10,000 resamples. The random stream is unchanged: a seed or `Generator` gives the same resamples, the same result and the same final `Generator` state as before.

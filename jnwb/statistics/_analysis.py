@@ -45,6 +45,9 @@ _TEST_CHOICES = ("both", "parametric", "nonparametric")
 
 _CORRELATION_METHODS = ("both", "pearson", "spearman")
 
+#: Values drawn per `bootstrap_ci` block: 2**22 float64 values, 32 MiB.
+_BOOTSTRAP_BLOCK_ELEMENTS = 1 << 22
+
 
 def _resolve_test_choice(test: str, func_name: str) -> Tuple[bool, bool]:
     """Map a ``test=`` argument to ``(run_parametric, run_nonparametric)``.
@@ -109,12 +112,14 @@ class StatisticalAnalysis:
     def _uncorrected_flags(
         param_p: Optional[float] = None,
         nonparam_p: Optional[float] = None,
+        selector: str = "test",
     ) -> Dict:
         """Single-comparison unadjusted significance flags; not family-wise FDR.
 
         A test that was not run contributes no flag, so ``n_tests`` is the number of tests
         actually performed rather than the number the function is capable of performing.
-        That is the number a pre-registered family budget is spent against.
+        That is the number a pre-registered family budget is spent against. ``selector`` is
+        the caller's argument that chose the test, named in the note.
         """
         flags: Dict = {}
         if param_p is not None:
@@ -133,7 +138,7 @@ class StatisticalAnalysis:
                 (
                     "Parametric and nonparametric tests are dual exploratory reports. "
                     if dual
-                    else "One test was performed, as selected by test=. "
+                    else f"One test was performed, as selected by {selector}=. "
                 )
                 + "Use StatisticalAnalysis.fdr_correct(p_values) across a hypothesis family."
             ),
@@ -205,7 +210,10 @@ class StatisticalAnalysis:
         ``significant_*`` flag is False. An effect size whose SD is zero or undefined is NaN.
         Constant groups at different values, or paired groups whose differences are one
         non-zero constant, have no spread: the t-test's ``statistic`` is -inf or +inf and its
-        ``pval`` 0.0. Constancy is tested by exact equality, so 0.3 and 0.5 behave alike.
+        ``pval`` 0.0. Constancy is tested by exact equality, so 0.3 and 0.5 behave alike, and
+        paired differences constant only up to round-off (``[1.1, 2.1, 3.1, 4.1]`` against
+        ``[1, 2, 3, 4]``) give a finite, huge ``statistic`` (about 9e14) and a ``pval``
+        near 0.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"`` or
@@ -347,7 +355,10 @@ class StatisticalAnalysis:
         ANOVA, or identical constant groups -- reports its ``statistic`` and ``pval`` as NaN,
         and its ``significant_*`` flag is False; an ANOVA with no estimate reports
         ``df_between`` and ``df_within`` as float NaN, and ``group_sizes`` keeps the counts.
-        ``eta_squared`` is NaN when the data have no variance.
+        ``eta_squared`` is NaN when a group is empty or the data have no variance. It is 1.0
+        when every group is constant and the groups differ, including one observation per
+        group: all the variance then lies between groups, although the ANOVA, with no
+        within-group degrees of freedom, has no statistic or p-value.
 
         Args:
             test: Which test to perform -- ``"both"`` (default), ``"parametric"``
@@ -481,6 +492,7 @@ class StatisticalAnalysis:
             StatisticalAnalysis._uncorrected_flags(
                 result["parametric"]["pval"] if run_pearson else None,
                 result["non_parametric"]["pval"] if run_spearman else None,
+                selector="method",
             )
         )
         return result
@@ -508,12 +520,19 @@ class StatisticalAnalysis:
         t_crit = stats.t.ppf((1 + ci) / 2, len(data) - 1)
         parametric_ci = (mean - t_crit * sem, mean + t_crit * sem)
 
-        bootstrap_stats = []
-        for _ in range(n_bootstrap):
-            resample = rng.choice(data, size=len(data), replace=True)
-            bootstrap_stats.append(statistic_func(resample))
-
-        bootstrap_stats = np.array(bootstrap_stats)
+        # Resamples are drawn a block of rows per call. One call for r rows draws the same
+        # numbers as r calls of one row, so a seed gives the resamples the per-row loop gave.
+        n = len(data)
+        rows_per_block = max(1, _BOOTSTRAP_BLOCK_ELEMENTS // max(n, 1))
+        blocks = []
+        for start in range(0, n_bootstrap, rows_per_block):
+            rows = min(rows_per_block, n_bootstrap - start)
+            resamples = rng.choice(data, size=(rows, n), replace=True)
+            if statistic_func is np.mean:
+                blocks.append(np.mean(resamples, axis=1))
+            else:
+                blocks.append(np.array([statistic_func(r) for r in resamples]))
+        bootstrap_stats = np.concatenate(blocks) if blocks else np.array([])
         alpha = (1 - ci) / 2
         bootstrap_ci = (
             np.percentile(bootstrap_stats, alpha * 100),
@@ -555,6 +574,10 @@ class StatisticalAnalysis:
         the comparison is over time or frequency. Grouping arguments are deliberately not
         accepted here; ``permute_labels`` already implements the schemes.
 
+        Non-finite samples are dropped with a warning. ``pval`` and every statistic are NaN,
+        and ``significant`` False, when either sample keeps fewer than two values or the
+        pooled values are not finite once centred on their mean (a sum that overflows).
+
         ``rng`` defaults to the seed this function used to hide in its body; pass ``None``
         for fresh entropy, or a ``Generator`` to keep one stream across calls.
         """
@@ -575,10 +598,14 @@ class StatisticalAnalysis:
                 RuntimeWarning,
                 stacklevel=2,
             )
-        if len(x) < 2 or len(y) < 2:
-            # Every comparison against a NaN observed difference was False, so the
-            # exceedance count was 0 and the p-value came out at its floor, 1/(B+1):
-            # two all-NaN groups reported pval 0.0002 and significant=True.
+        combined = np.concatenate([x, y])
+        if len(x) >= 2 and len(y) >= 2:
+            with np.errstate(over="ignore", invalid="ignore"):
+                combined = combined - np.mean(combined)  # see _tie_tolerance
+        # Every comparison against a NaN observed difference was False, so the exceedance
+        # count was 0 and the p-value came out at its floor, 1/(B+1): two all-NaN groups,
+        # or finite values whose sum overflows, reported significant=True.
+        if len(x) < 2 or len(y) < 2 or not np.all(np.isfinite(combined)):
             return {
                 "observed_difference": float("nan"),
                 "pval": float("nan"),
@@ -589,8 +616,6 @@ class StatisticalAnalysis:
                 "n_y": len(y),
             }
 
-        combined = np.concatenate([x, y])
-        combined = combined - np.mean(combined)  # see _tie_tolerance
         n_x = len(x)
         obs_diff = np.mean(combined[:n_x]) - np.mean(combined[n_x:])
 
@@ -732,7 +757,9 @@ class StatisticalAnalysis:
         Returns:
             Dict with all exploratory_compare keys plus:
                 ``hypothesis``, ``alpha``, ``q_parametric``, ``q_nonparametric``,
-                ``confirmed_parametric``, ``confirmed_nonparametric``, ``api``.
+                ``confirmed_parametric``, ``confirmed_nonparametric``, ``api``, and
+                ``correction: "bh"``, the Benjamini-Hochberg step that produced ``q_*``
+                (the ``pval`` keys stay raw).
             A test whose ``pval`` is NaN has a NaN q-value and is not confirmed.
         """
         if not isinstance(hypothesis, str) or not hypothesis.strip():
@@ -767,6 +794,8 @@ class StatisticalAnalysis:
                 "confirmed_parametric": float(q_vals[0]) < alpha,
                 "confirmed_nonparametric": float(q_vals[1]) < alpha,
                 "api": "confirmatory",
+                # The correction that produced q_*; the raw pval keys stay uncorrected.
+                "correction": "bh",
             }
         )
         return result
