@@ -2146,3 +2146,76 @@ class TestDecibelSitesShareOneConversion:
             band_power(x, fs=self.FS, freq_range=self.BAND, baseline=flat)
         with pytest.raises(ValueError, match="must be finite"):
             band_power(np.r_[np.inf, x[1:]], fs=self.FS, freq_range=self.BAND, baseline=base)
+
+
+class TestConstantTraceSpectrumIsZero:
+    """A constant trace left rounding residue (1e-33 to 1e-23) in both PSD estimators, a
+    spectrum with power where the detrended trace has none."""
+
+    @staticmethod
+    def _rows():
+        rng = np.random.default_rng(5)
+        rows = rng.standard_normal((3, 2000))
+        rows[1] = 0.3  # 0.3 is inexact in binary, so its mean-removal leaves residue
+        return rows
+
+    def test_welch_constant_channel_is_exactly_zero_and_others_unchanged(self):
+        from scipy import signal
+
+        rows = self._rows()
+        _, psd = compute_psd(rows, 1000.0, axis=-1)
+        assert np.all(psd[1] == 0.0)
+        _, ref = signal.welch(rows[[0, 2]], fs=1000.0, nperseg=1000, axis=-1)
+        assert psd[[0, 2]].tobytes() == ref.tobytes()
+        _, time_major = compute_psd(rows.T, 1000.0, axis=0)
+        assert np.all(time_major[:, 1] == 0.0)
+
+    def test_multitaper_constant_channel_is_exactly_zero_and_others_unchanged(self):
+        rows = self._rows()
+        _, psd = compute_multitaper_psd(rows, 1000.0)
+        assert np.all(psd[1] == 0.0)
+        for k in (0, 2):
+            assert psd[k].tobytes() == compute_multitaper_psd(rows[k], 1000.0)[1].tobytes()
+
+    def test_multitaper_infinite_constant_stays_nan(self):
+        _, psd = compute_multitaper_psd(np.full(64, np.inf), 1000.0)
+        assert np.all(np.isnan(psd))
+
+
+class TestAperiodicFitRemovePeaks:
+    """`aperiodic_fit` fitted every bin, so a 10 Hz peak moved a 1/f^2 exponent to about
+    2.16. `remove_peaks=True` is the reference implementation's robust aperiodic fit."""
+
+    FREQS = np.arange(1.0, 120.0, 0.5)
+
+    def _spectra(self):
+        noise = np.exp(np.random.default_rng(0).normal(0.0, 0.05, self.FREQS.size))
+        clean = 10 ** (1.0 - 2.0 * np.log10(self.FREQS)) * noise
+        peak = 1.0 + 3.0 * np.exp(-0.5 * ((self.FREQS - 10.0) / 1.5) ** 2)
+        return clean, clean * peak
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_a_peak_biases_the_default_and_not_the_robust_fit(self, mode):
+        clean, peaked = self._spectra()
+        default = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode)
+        robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, remove_peaks=True)
+        assert default.exponent - 2.0 > 0.15, default
+        assert abs(robust.exponent - 2.0) < 0.03 if mode == "fixed" else robust.exponent < 2.2
+        assert robust.accepted and robust.mode == mode
+        on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, remove_peaks=True)
+        assert abs(on_clean.exponent - 2.0) < 0.01, on_clean
+
+    def test_the_default_is_unchanged_and_the_flag_is_keyword_only(self):
+        _, peaked = self._spectra()
+        assert (aperiodic_fit(self.FREQS, peaked, (2.0, 40.0)).to_dict()
+                == aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), remove_peaks=False).to_dict())
+        sig = inspect.signature(aperiodic_fit).parameters["remove_peaks"]
+        assert sig.kind is inspect.Parameter.KEYWORD_ONLY and sig.default is False
+
+    def test_fewer_than_four_kept_bins_reject_the_fit(self):
+        """Four bins with noise: least-squares residuals sum to 0, so at least one lies above
+        the first fit and is dropped, leaving three; a rejected fit, not a fabricated one."""
+        clean, _ = self._spectra()
+        assert aperiodic_fit(self.FREQS, clean, (2.0, 3.5)).accepted
+        res = aperiodic_fit(self.FREQS, clean, (2.0, 3.5), remove_peaks=True)
+        assert not res.accepted and res.exponent is None

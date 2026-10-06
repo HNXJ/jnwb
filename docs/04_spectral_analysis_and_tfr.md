@@ -167,7 +167,7 @@ is evidence of current entering there, not of which structure supplied it.
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
 falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.aperiodic_fit` recovering the
 log-log slope, near -2, from the `jnwb.compute_psd` spectrum drawn under it, over 15-90 Hz
-because the fit removes no peaks.
+because the fit removes no peaks unless called with `remove_peaks=True`.
 
 **Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
 -exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`

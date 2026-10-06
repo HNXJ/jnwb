@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy import optimize, signal
 from .._dictlike import DictAccessMixin
+from .._spread import is_constant as _is_constant
 from .._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._common import (
     _require_band_bins,
@@ -27,6 +28,10 @@ _TILT_DC_FLOOR_HZ = 0.5
 #: through a handful of points rather than an estimate.
 _MIN_TILT_BINS = 6
 
+#: Percentile of the clipped residual at or below which `aperiodic_fit(remove_peaks=True)`
+#: keeps a bin for its second fit: FOOOF 1.1.0's `_ap_percentile_thresh`, in percent.
+_ROBUST_AP_PERCENTILE = 0.025
+
 
 def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Optional[int] = None):
     """Welch power spectral density of a plain LFP array.
@@ -45,7 +50,7 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Opti
             frequency resolution is ``fs / nperseg``.
 
     Returns:
-        (freqs, psd) tuple.
+        (freqs, psd) tuple. A trace constant along ``axis`` has an exactly zero PSD.
 
     Raises:
         ValueError: If ``lfp_data`` is empty or non-finite, ``fs`` is not positive and
@@ -87,6 +92,10 @@ def compute_psd(lfp_data: np.ndarray, fs: float, axis: int = 0, *, nperseg: Opti
             f"compute_psd: nperseg must be from 2 to the {n_times} samples along axis {axis}, "
             f"got {nperseg}. scipy would shorten a longer segment to the trace without saying so."
         )
+    # Welch removes each segment's mean, which for a constant trace leaves rounding residue
+    # (about 1e-33) rather than 0; a trace constant along `axis` is replaced by the zeros its
+    # detrended spectrum is, as `_flat_as_zero` does for a whole trace.
+    arr = np.where(_is_constant(arr, axis=axis, keepdims=True), 0.0, arr)
     freqs, psd = signal.welch(arr, fs=fs, nperseg=int(nperseg), axis=axis)
     return freqs, psd
 
@@ -426,6 +435,8 @@ def aperiodic_fit(
     psd: np.ndarray,
     freq_range: Tuple[float, float],
     mode: str = "fixed",
+    *,
+    remove_peaks: bool = False,
 ) -> Union[AperiodicFitResult, List[Any]]:
     """
     Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.
@@ -456,6 +467,14 @@ def aperiodic_fit(
         freq_range: Tuple `(f_min, f_max)` in Hz defining the fitting range (inclusive).
             Must satisfy `0 < f_min < f_max`.
         mode: Model type, either `'fixed'` (k = 0) or `'knee'` (k > 0). Default is `'fixed'`.
+        remove_peaks: False (default) fits every bin in `freq_range`. True fits twice, as the
+            robust aperiodic fit of the reference implementation (FOOOF 1.1.0
+            `FOOOF._robust_ap_fit`): the second fit keeps only the bins whose residual
+            above the first fit, clipped at 0, is at or below its 0.025th percentile, so
+            bins a peak lifts above the first fit are dropped. It does not fit Gaussian
+            peaks, so it is not the paper's final aperiodic estimate, which is refitted
+            after the peaks are subtracted. `r_squared` is then over the kept bins, and
+            the fit is rejected when fewer than 4 are kept.
 
     Returns:
         :class:`AperiodicFitResult` dataclass for 1D input, or nested list/array of results
@@ -471,9 +490,9 @@ def aperiodic_fit(
         aperiodic components. Nature Neuroscience. doi:10.1038/s41593-020-00744-x
         -- the aperiodic component of Methods eq. 3; `'fixed'` is its k = 0 case. The
         paper's algorithm fits the aperiodic component after detecting and removing
-        periodic peaks. This function fits it to every bin in `freq_range` and removes
-        nothing, so an oscillatory peak inside the range steepens or flattens the fitted
-        exponent; choose a range without peaks.
+        periodic peaks. By default this function fits it to every bin in `freq_range` and
+        removes nothing, so an oscillatory peak inside the range steepens or flattens the
+        fitted exponent; choose a range without peaks, or pass `remove_peaks=True`.
     """
     if mode not in ("fixed", "knee"):
         raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
@@ -525,83 +544,81 @@ def aperiodic_fit(
     log_freqs = np.log10(fit_freqs)
     range_tuple = (f_min, f_max)
 
-    def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:
-        fit_psd = p_1d[mask]
-        log_power = np.log10(fit_psd)
+    # Knee mode: L(f) = b - log10(k + f^chi)
+    def _knee_model(f, b_param, chi_param, k_param):
+        return b_param - np.log10(k_param + f ** chi_param)
+
+    def _fit(f_sel, log_f_sel, log_power, p0=None):
+        """``(offset, exponent, knee, r_squared, fitted)`` of `mode` on the given bins.
+
+        Raises when the optimiser fails. ``p0`` seeds the knee fit; ``None`` is the linear
+        initialisation.
+        """
         ss_tot = float(np.sum((log_power - np.mean(log_power)) ** 2))
-
         if mode == "fixed":
-            try:
-                coeffs = np.polyfit(log_freqs, log_power, 1)
-                chi = float(-coeffs[0])
-                b = float(coeffs[1])
-                fitted = b - chi * log_freqs
-                ss_res = float(np.sum((log_power - fitted) ** 2))
-                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
-                return AperiodicFitResult(
-                    offset=b,
-                    exponent=chi,
-                    knee=None,
-                    r_squared=r2,
-                    freq_range=range_tuple,
-                    mode="fixed",
-                    accepted=True,
-                )
-            except Exception:
-                return AperiodicFitResult(
-                    offset=None,
-                    exponent=None,
-                    knee=None,
-                    r_squared=None,
-                    freq_range=range_tuple,
-                    mode="fixed",
-                    accepted=False,
-                )
+            coeffs = np.polyfit(log_f_sel, log_power, 1)
+            chi = float(-coeffs[0])
+            b = float(coeffs[1])
+            k = None
+            fitted = b - chi * log_f_sel
         else:
-            # Knee mode: L(f) = b - log10(k + f^chi)
-            def _knee_model(f, b_param, chi_param, k_param):
-                return b_param - np.log10(k_param + f ** chi_param)
-
-            try:
+            if p0 is None:
                 # Linear initialization
-                coeffs_init = np.polyfit(log_freqs, log_power, 1)
+                coeffs_init = np.polyfit(log_f_sel, log_power, 1)
                 chi_init = max(0.01, float(-coeffs_init[0]))
                 b_init = float(coeffs_init[1])
                 p0 = [b_init, chi_init, 1.0]
-                bounds = ((-np.inf, 0.0, 0.0), (np.inf, np.inf, np.inf))
-                popt, _ = optimize.curve_fit(
-                    _knee_model,
-                    fit_freqs,
-                    log_power,
-                    p0=p0,
-                    bounds=bounds,
-                    maxfev=5000,
+            bounds = ((-np.inf, 0.0, 0.0), (np.inf, np.inf, np.inf))
+            popt, _ = optimize.curve_fit(
+                _knee_model,
+                f_sel,
+                log_power,
+                p0=p0,
+                bounds=bounds,
+                maxfev=5000,
+            )
+            b = float(popt[0])
+            chi = float(popt[1])
+            k = float(popt[2])
+            fitted = _knee_model(f_sel, b, chi, k)
+        ss_res = float(np.sum((log_power - fitted) ** 2))
+        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+        return b, chi, k, r2, fitted
+
+    def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:
+        log_power = np.log10(p_1d[mask])
+        try:
+            b, chi, k, r2, fitted = _fit(fit_freqs, log_freqs, log_power)
+            if remove_peaks:
+                # FOOOF 1.1.0 `_robust_ap_fit`: residual above the first fit, clipped at 0,
+                # and the bins at or below its `_ap_percentile_thresh` (0.025) percentile.
+                flat = np.maximum(log_power - fitted, 0.0)
+                keep = flat <= np.percentile(flat, _ROBUST_AP_PERCENTILE)
+                if int(np.sum(keep)) < 4:
+                    raise ValueError("fewer than 4 bins remain after removing peaks")
+                seed = None if mode == "fixed" else [b, chi, k]
+                b, chi, k, r2, _ = _fit(
+                    fit_freqs[keep], log_freqs[keep], log_power[keep], p0=seed
                 )
-                b_opt = float(popt[0])
-                chi_opt = float(popt[1])
-                k_opt = float(popt[2])
-                fitted = _knee_model(fit_freqs, b_opt, chi_opt, k_opt)
-                ss_res = float(np.sum((log_power - fitted) ** 2))
-                r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
-                return AperiodicFitResult(
-                    offset=b_opt,
-                    exponent=chi_opt,
-                    knee=k_opt,
-                    r_squared=r2,
-                    freq_range=range_tuple,
-                    mode="knee",
-                    accepted=True,
-                )
-            except Exception:
-                return AperiodicFitResult(
-                    offset=None,
-                    exponent=None,
-                    knee=None,
-                    r_squared=None,
-                    freq_range=range_tuple,
-                    mode="knee",
-                    accepted=False,
-                )
+        except Exception:
+            return AperiodicFitResult(
+                offset=None,
+                exponent=None,
+                knee=None,
+                r_squared=None,
+                freq_range=range_tuple,
+                mode=mode,
+                accepted=False,
+            )
+        return AperiodicFitResult(
+            offset=b,
+            exponent=chi,
+            knee=k,
+            r_squared=r2,
+            freq_range=range_tuple,
+            mode=mode,
+            accepted=True,
+        )
 
     if psd_arr.ndim == 1:
         return _fit_single_1d(psd_arr)
@@ -742,6 +759,7 @@ def compute_multitaper_psd(
         (freqs, psd) tuple:
             freqs: 1D array of frequency bin centers in Hz (from 0 to fs / 2).
             psd: Power spectral density array with `axis` corresponding to frequencies.
+                A finite trace constant along `axis` has an exactly zero PSD.
 
     Raises:
         ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains NaNs.
@@ -773,9 +791,12 @@ def compute_multitaper_psd(
 
     tapers = dpss(n_samples, NW=nw, Kmax=k_tapers, sym=False)  # shape: (K, N)
 
-    # Detrend data by subtracting mean along time axis
+    # Detrend data by subtracting mean along time axis. A trace constant along `axis` is
+    # exactly 0 after it; the subtraction alone leaves rounding residue (about 1e-32). An
+    # infinite constant is not finite after it, and keeps its NaN.
     arr_mean = np.mean(arr, axis=axis, keepdims=True)
-    detrended = arr - arr_mean
+    flat = _is_constant(arr, axis=axis, keepdims=True) & np.isfinite(arr_mean)
+    detrended = np.where(flat, 0.0, arr - arr_mean)
 
     # Bring evaluated axis to last position
     detrended = np.moveaxis(detrended, axis, -1)
