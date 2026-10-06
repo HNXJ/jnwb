@@ -1,1 +1,1 @@
-- A z-scored slice that holds inf or -inf and is not constant is NaN throughout wherever jnwb z-scores (connectivity `detrend="zscore"`, `jrsa` standardisation, GPU PCA scaling) and an inf reaches that step: `[1, inf, 2]` gave `[-inf, nan, -inf]`, its NaN standard deviation having been replaced by 1.
+- A z-scored slice that holds inf or -inf and is not constant is NaN throughout at the z-score step, wherever an inf reaches it (visibly `jrsa(standardize=True)`): `[1, inf, 2]` gave `[-inf, nan, -inf]`, its NaN standard deviation having been replaced by 1.
