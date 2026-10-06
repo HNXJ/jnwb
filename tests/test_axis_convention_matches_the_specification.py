@@ -209,7 +209,7 @@ class TestNoFaceChainsTheTwoConventions:
         p.relative_to(REPO_ROOT).as_posix()
         for p in list(REPO_ROOT.glob("skills/*/SKILL.md"))
         + list(REPO_ROOT.glob("examples/**/*.py"))
-        + list(REPO_ROOT.glob("jnwb/*.py"))))
+        + list(REPO_ROOT.glob("jnwb/**/*.py"))))
     def test_it_carries_no_cross_convention_hop(self, rel: str):
         path = REPO_ROOT / rel
         text = path.read_text(encoding="utf-8")

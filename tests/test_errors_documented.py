@@ -208,7 +208,7 @@ class TestTheMessagesOnThePageAreTheRealOnes:
     def _source_text():
         source_dir = DOCS.parent / "jnwb"
         return "\n".join(p.read_text(encoding="utf-8")
-                         for p in sorted(source_dir.glob("*.py")))
+                         for p in sorted(source_dir.rglob("*.py")))
 
     @pytest.mark.parametrize("fragment", QUOTED)
     def test_each_quoted_fragment_is_in_the_source(self, fragment):

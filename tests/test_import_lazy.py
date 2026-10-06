@@ -218,10 +218,13 @@ class TestWhatImportingJnwbActuallyCosts:
         import re
 
         importers = []
-        for path in sorted((REPO_ROOT / "jnwb").glob("*.py")):
+        package = REPO_ROOT / "jnwb"
+        for path in sorted(package.rglob("*.py")):
             head = path.read_text(encoding="utf-8", errors="replace")
-            if re.search(r"^(from scipy|import scipy)", head, re.MULTILINE):
-                importers.append(path.stem)
+            name = path.relative_to(package).parts[0].removesuffix(".py")
+            if (re.search(r"^(from scipy|import scipy)", head, re.MULTILINE)
+                    and name not in importers):
+                importers.append(name)
 
         init = (REPO_ROOT / "jnwb" / "__init__.py").read_text(encoding="utf-8")
         eager_importers = [m for m in importers
