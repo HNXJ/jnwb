@@ -1314,3 +1314,28 @@ def test_a_class_defined_in_no_module_of_its_package_is_refused_by_name(tmp_path
     (tmp_path / "_d.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
     with pytest.raises(MutationHarnessError, match="class Thing is defined in 2 modules"):
         _class_definition_file(Thing, tmp_path / "__init__.py")
+
+
+def test_an_installed_copy_resolves_only_when_the_run_names_it(tmp_path, monkeypatch) -> None:
+    """The installed-wheel leg sets JNWB_EXPECTED_PACKAGE_ROOT to the copy under test; without
+    it, or naming another root, a copy with no pyproject.toml beside it is refused."""
+    import importlib.util
+
+    site = tmp_path / "site"
+    (site / "jnwb").mkdir(parents=True)
+    (site / "jnwb" / "__init__.py").write_text("def probe():\n    return 1\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("jnwb", site / "jnwb" / "__init__.py")
+    installed = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(installed)
+    monkeypatch.setitem(sys.modules, "jnwb", installed)
+    monkeypatch.delenv("JNWB_EXPECTED_PACKAGE_ROOT", raising=False)
+    with pytest.raises(MutationHarnessError, match="not a source tree"):
+        source_path("probe")
+    monkeypatch.setenv("JNWB_EXPECTED_PACKAGE_ROOT", str(tmp_path / "elsewhere"))
+    with pytest.raises(MutationHarnessError, match="not a source tree"):
+        source_path("probe")
+    with pytest.raises(MutationHarnessError, match="not from"):
+        source_path("probe", repo=REPO_ROOT)
+    monkeypatch.setenv("JNWB_EXPECTED_PACKAGE_ROOT", str(site))
+    assert source_path("probe") == "jnwb/__init__.py"
+    assert source_path("probe", repo=REPO_ROOT) == "jnwb/__init__.py"

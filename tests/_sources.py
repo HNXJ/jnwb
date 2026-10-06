@@ -114,7 +114,7 @@ def _top_level_class_files(cls: type) -> List[Path]:
     candidates = (sorted(module_file.parent.rglob("*.py")) if module_file.name == "__init__.py"
                   else [module_file])
     name = cls.__qualname__.split(".")[0]
-    return [path for path in candidates
+    return [_in_checkout(path) for path in candidates
             if any(isinstance(node, ast.ClassDef) and node.name == name
                    for node in ast.parse(path.read_text(encoding="utf-8")).body)]
 
@@ -136,7 +136,7 @@ def _defining_file(obj: object) -> Optional[Path]:
     path = Path(code.co_filename)
     if not path.is_file():
         return None
-    path = path.resolve()
+    path = _in_checkout(path.resolve())
     return path if path.is_relative_to(PACKAGE) else None
 
 
@@ -153,12 +153,33 @@ def _static_public_names(path: Path) -> Set[str]:
 
 
 @functools.lru_cache(maxsize=None)
-def _public_definitions() -> Dict[Path, frozenset]:
+def _imported_package() -> Path:
+    """The directory of the imported jnwb: this checkout's, or an installed copy that
+    `JNWB_EXPECTED_PACKAGE_ROOT` names, whose files map to the same paths here."""
     import jnwb
 
     imported_from = Path(jnwb.__file__).resolve().parent
-    if imported_from != PACKAGE:
+    expected = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    if imported_from != PACKAGE and (expected is None
+                                     or Path(expected).resolve() != imported_from.parent):
         raise AssertionError(f"jnwb was imported from {imported_from}, not {PACKAGE}")
+    return imported_from
+
+
+def _in_checkout(path: Path) -> Path:
+    """`path` under the imported package, as the same path under this checkout's."""
+    imported = _imported_package()
+    if imported == PACKAGE or not path.is_relative_to(imported):
+        return path
+    mapped = PACKAGE / path.relative_to(imported)
+    if not mapped.is_file():
+        raise AssertionError(f"the installed {path} has no counterpart {mapped} in this checkout")
+    return mapped
+
+
+@functools.lru_cache(maxsize=None)
+def _public_definitions() -> Dict[Path, frozenset]:
+    _imported_package()
     reached: Dict[Path, Set[str]] = {}
 
     def add(label: str, obj: object) -> None:
