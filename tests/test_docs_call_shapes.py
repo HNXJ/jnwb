@@ -355,12 +355,16 @@ def _spec_table_rows():
 
 
 def _module_union(module):
-    """Every parameter name of every callable the module itself defines."""
+    """Every parameter name of every callable the module itself defines, counting a package's
+    private submodules (``jnwb.connectivity._granger``) as the package."""
     names = set()
     for attr, obj in vars(module).items():
         if attr.startswith("_") or not callable(obj):
             continue
-        if getattr(obj, "__module__", None) != module.__name__:
+        home = getattr(obj, "__module__", None) or ""
+        private_part = (home.startswith(module.__name__ + "._")
+                        and home.count(".") == module.__name__.count(".") + 1)
+        if home != module.__name__ and not private_part:
             continue
         try:
             names |= set(inspect.signature(obj).parameters)

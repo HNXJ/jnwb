@@ -445,7 +445,10 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     # jrsa: one integer seed per permutation.
     assert rows["`jrsa`"] == "one integer seed per permutation"
     j = np.random.default_rng(2).normal(size=(6, 5, 30))
-    seen = _recorded_items(monkeypatch, "jnwb.jrsa", lambda: jnwb.jrsa(
+    from jnwb.jrsa import _permutation_test
+
+    home = _permutation_test.__module__  # where the permutations look `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.jrsa(
         j, j[::-1], metric="pearson", permutations=15, rng=0))
     assert len(seen) == 1 and len(seen[0]) == 15
     assert all(isinstance(s, (int, np.integer)) for s in seen[0]), seen[0][:3]

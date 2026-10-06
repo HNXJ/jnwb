@@ -36,9 +36,9 @@ from scripts.mutation_harness import source_path  # noqa: E402
 
 HARNESS_GATE = REPO_ROOT / "scripts" / "harness_gate.py"
 VERSION_HOOK = REPO_ROOT / "scripts" / "mkdocs_version_hook.py"
-#: The module docstring is read from the file that defines `granger`; the helper whose body
-#: it describes is read from the file that holds it, which need not be the same one.
-CONNECTIVITY = REPO_ROOT / source_path("granger")
+#: The module docstring is the one `help(jnwb.connectivity)` shows, which is the package's;
+#: the helper whose body it describes is read from the file that holds it.
+CONNECTIVITY = REPO_ROOT / "jnwb" / "connectivity" / "__init__.py"
 RESIDUAL_VARIANCE = REPO_ROOT / source_path("granger", "def _residual_variance(")
 ARTIFACT_DETECTION = REPO_ROOT / "jnwb" / "artifact_detection.py"
 TFR_ACCUMULATOR = REPO_ROOT / "jnwb" / "tfr_accumulator.py"
