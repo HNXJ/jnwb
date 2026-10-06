@@ -81,9 +81,9 @@ names: the last axis for the paired metrics (`"pearson"`, `"spearman"`, `"kendal
 `"mutual_information"`, `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`,
 `"phase_slope"`), so put time last, and axis 0, the observations, for `"rsa"`, `"cka"`, `"rv"`,
 `"hsic"`, `"distance_correlation"` and `"procrustes"`. A non-default `adim` that does not name
-that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. At the
-default `adim=-1` the axis-0 metrics window the features; `adim=0` windows the observations. A
-lag of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
+that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. Without
+`adim`, `window` cuts that axis too; `adim=-1` makes the axis-0 metrics window features. A lag
+of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
 count.
 
 | `null=` | Resampling | Valid when |

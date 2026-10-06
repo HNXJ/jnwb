@@ -136,7 +136,9 @@ def directed_network(
         dict with ``matrix`` (``M[i, j]`` = influence of node i on node j;
         diagonal NaN), ``p_matrix``, ``q_matrix`` (NaN when ``fdr=False`` or no
         p-values), ``labels``, ``results`` (the full DirectedResult per ordered
-        pair), ``method``, and ``warnings``.
+        pair), ``method``, and ``warnings``. With ``fdr=True`` and no pair returning a
+        p-value (PSI with ``jackknife=False``, TE with ``n_surrogates=0``) a
+        ``RuntimeWarning`` says so and ``warnings`` records it.
 
     References:
         Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
@@ -216,6 +218,17 @@ def directed_network(
         if finite.any():
             q_matrix[finite] = stats.false_discovery_control(
                 p_matrix[finite], method=fdr_method
+            )
+        else:
+            # An estimator run without its test (PSI with jackknife=False, TE with
+            # n_surrogates=0) returns no p, and the all-NaN q_matrix read as "nothing passed".
+            warnings_all.append("fdr_requested_but_no_pair_has_a_p_value")
+            warnings.warn(
+                f"directed_network(method={method!r}): fdr=True, but no pair returned a "
+                "p-value, so q_matrix is all NaN. The estimator ran without its test; enable "
+                "it (jackknife=True for PSI, n_surrogates > 0 for TE) or pass fdr=False.",
+                RuntimeWarning,
+                stacklevel=2,
             )
 
     return {

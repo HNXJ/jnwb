@@ -60,22 +60,31 @@ def spike_mutual_information(
     Returns:
         mi: Mutual Information in bits
     """
+    return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms, estimator,
+                     time_window, "spike_mutual_information")
+
+
+def _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms, estimator, time_window,
+              func_name: str) -> float:
+    """The body of the three MI functions; ``func_name`` is the public one called, so each
+    error names the function the caller used."""
     time_window_s = resolve_unit_alias(
         time_window_s, time_window,
         canonical_name="time_window_s", alias_name="time_window",
-        func_name="spike_mutual_information",
+        func_name=func_name,
     )
     if estimator not in ("binary_occupancy", "spike_count"):
         raise ValueError(
-            f"Unknown estimator={estimator!r}; use 'binary_occupancy' or 'spike_count'"
+            f"{func_name}: unknown estimator={estimator!r}; use 'binary_occupancy' or "
+            "'spike_count'"
         )
 
     if len(spike_times1) == 0 or len(spike_times2) == 0:
         raise ValueError(
-            "spike_mutual_information requires non-empty spike_times1 and spike_times2"
+            f"{func_name} requires non-empty spike_times1 and spike_times2"
         )
 
-    whole_bin_count(time_window_s, bin_size_ms / 1000.0, "spike_mutual_information",
+    whole_bin_count(time_window_s, bin_size_ms / 1000.0, func_name,
                     "time_window_s", unit="s")
     hist1 = bin_spikes(spike_times1, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
     hist2 = bin_spikes(spike_times2, window_s=time_window_s, bin_size_ms=bin_size_ms)[0]
@@ -99,14 +108,8 @@ def binary_occupancy_mutual_information(
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
     """Explicit alias for binary occupancy MI. `time_window_s` is in seconds."""
-    return spike_mutual_information(
-        spike_times1,
-        spike_times2,
-        time_window_s,
-        bin_size_ms=bin_size_ms,
-        estimator="binary_occupancy",
-        time_window=time_window,
-    )
+    return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
+                     "binary_occupancy", time_window, "binary_occupancy_mutual_information")
 
 
 def spike_count_mutual_information(
@@ -118,11 +121,5 @@ def spike_count_mutual_information(
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
     """Discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
-    return spike_mutual_information(
-        spike_times1,
-        spike_times2,
-        time_window_s,
-        bin_size_ms=bin_size_ms,
-        estimator="spike_count",
-        time_window=time_window,
-    )
+    return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
+                     "spike_count", time_window, "spike_count_mutual_information")

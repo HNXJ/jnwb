@@ -108,7 +108,7 @@ def jrsa(
     x1,
     x2=None,
     # tensor semantics
-    adim=-1,
+    adim=Default(-1),
     labels=None,
     align="auto",
     align_mode="fraction",
@@ -157,7 +157,8 @@ def jrsa(
         Second tensor.  None → within-x1 analysis.
     adim : int | tuple | str | tuple[str]
         Aligned dimension(s). Default -1. It steers alignment, `reduction` (axes named
-        here) and `window`. Nothing downstream follows it: the paired metrics pair samples
+        here) and `window`; leaving it out differs from passing -1 only in the axis `window`
+        applies to (see `window`). Nothing downstream follows it: the paired metrics pair samples
         and resample the last axis, the observation-axis metrics resample axis 0 (see
         `null`), and `lag` shifts the axis the metric treats as observations, comparing the
         overlap only. So an `adim` other than the default that does not name that axis
@@ -167,7 +168,8 @@ def jrsa(
         Semantic axis names, e.g. ["area", "channel", "trial", "time"].
     align : str
         Alignment algorithm: auto | none | downsample | upsample |
-        interpolate | nearest | linear | cubic | dtw.
+        interpolate | nearest | linear | cubic | dtw. Any other value raises ValueError,
+        also when the lengths already agree and nothing is resampled.
     align_mode : str
         Correspondence rule: fraction | sample | timestamp | index.
     reduction : dict or None
@@ -209,11 +211,12 @@ def jrsa(
         integer width centred on the axis. This is not a time -- `jrsa` takes no sampling
         rate and cannot convert one. The docstring used to read "e.g. (-500, 500) ms",
         which on a 6-sample axis clamped to the whole axis and returned the unwindowed
-        answer with no warning. For rsa, cka, rv, hsic, distance_correlation and procrustes
-        at the default ``adim=-1`` the aligned axis is the last, the features, while `lag`
-        and the null act on axis 0, the observations: ``jrsa(x, y, metric='cka',
-        window=(0, 20))`` on (200, 40) input keeps 20 of the 40 features and all 200
-        observations. To window the observations, pass ``adim=0``.
+        answer with no warning. When `adim` is not passed, `window` applies to the
+        observations, the axis `lag` and the null act on: the last axis for the paired
+        metrics, and axis 0 for rsa, cka, rv, hsic, distance_correlation and procrustes, so ``jrsa(x, y, metric='cka',
+        window=(0, 20))`` on (200, 40) input keeps 20 of the 200 observations and all 40
+        features. A passed `adim` names the axis instead: ``adim=-1`` windows the features
+        of those six metrics, as the default did before this release.
     sliding : bool
         Only ``False`` is supported. ``True`` raises NotImplementedError: it used to be
         accepted and ignored. For a sliding-window analysis, call ``jrsa`` once per
@@ -406,6 +409,18 @@ def jrsa(
             "where `window` is in sample indices along the aligned axis."
         )
 
+    # Whether `adim` was passed decides the axis `window` applies to (see `window`).
+    adim_given = not isinstance(adim, Default)
+    if not adim_given:
+        adim = adim.value
+    # `_align_dimensions` resamples only an axis whose lengths differ, so an unknown `align`
+    # on equal lengths reached no check and ran while `parameters['align']` echoed it.
+    if align not in ALIGN_MODES + ("none", "dtw"):
+        raise ValueError(
+            f"jrsa: unrecognized align {align!r}. Valid options: "
+            f"{list(ALIGN_MODES + ('none', 'dtw'))}."
+        )
+
     # The tail applies to the parametric p as well as the permutation one, so it is checked
     # here rather than only where a permutation null is formed.
     _require_alternative(alternative)
@@ -473,6 +488,11 @@ def jrsa(
             x1, x2, window_axes = _drop_reduced_observation_axis(
                 x1, x2, axis_map, reduction, window, metric
             )
+    if not adim_given and str(metric).lower() in _OBSERVATION_AXIS_0_METRICS:
+        # INTENTIONAL BREAK (0.2.10): at the default `adim`, `window` cut the last axis,
+        # the features of these metrics, while `lag` and the null acted on the
+        # observations; it now cuts the observations.
+        window_axes = {"observations": 0}
     x1, x2 = _apply_preprocessing(x1, x2, normalize, standardize, detrend)
     x1, x2, windows = _make_windows(x1, x2, window_axes, window, sliding)
     # --- dispatch metric ------------------------------------------------------

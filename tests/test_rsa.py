@@ -155,3 +155,16 @@ def test_jrsa_delegation_parity():
 
     # With no permutations there is no valid null to prefer, so the parametric p stands.
     assert np.isclose(jnwb.jrsa(x1, x2, metric="rsa", permutations=0).p, p)
+
+
+@pytest.mark.parametrize("value", [0.1, 0.3])
+def test_a_flat_condition_is_refused_by_name_whatever_its_value(value):
+    """P-332: a flat 0.1 row centred to rounding residue, so its correlation distances came
+    out finite (all 0.0 for an all-flat input), while a flat 0.3 row gave NaN and the
+    refusal."""
+    X = np.random.default_rng(0).normal(size=(4, 3))
+    X[2] = value
+    with pytest.raises(ValueError, match=r"condition\(s\) \[2\] are constant across features"):
+        jnwb.rdm(X)
+    assert np.all(np.isfinite(jnwb.rdm(X, metric="euclidean")))
+    assert np.isnan(float(jnwb.jrsa(X, X[::-1].copy(), metric="rsa", stats=False).value))

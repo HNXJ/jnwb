@@ -62,33 +62,6 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1,
                       scheme="iid", block_len=None, **kwargs):
     """Permutation null of x2 against x1 along ``axis`` under ``scheme`` (see `_null_index`);
     returns the null distribution."""
-    is_cp = False
-    try:
-        import cupy as cp
-        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
-            is_cp = True
-    except ImportError:
-        pass
-
-    if is_cp:
-        import cupy as cp
-        null = []
-        x2_work = x2 if x2 is not None else x1
-        n = x2_work.shape[axis]
-        _check_null_axis(n, scheme, block_len)
-        seeds = rng.integers(0, 2**31 - 1, size=n_perm)
-        for seed in seeds:
-            local_rng = np.random.default_rng(int(seed))
-            idx = cp.asarray(_null_index(local_rng, n, scheme, block_len))
-            x2_perm = cp.take(x2_work, idx, axis=axis)
-            v, *_ = metric_fn(x1, x2_perm, axis=axis, **kwargs)
-            if hasattr(v, "get"):
-                v_mean = float(cp.mean(v))
-            else:
-                v_mean = float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
-            null.append(v_mean)
-        return np.asarray(null)
-
     x2_work = x2 if x2 is not None else x1
     n = x2_work.shape[axis]
     _check_null_axis(n, scheme, block_len)
@@ -177,40 +150,11 @@ def _p_from_null(value, null_dist, alternative):
 
 
 def _bootstrap(x1, x2, metric_fn, n_boot, rng, axis=-1, n_jobs=1, **kwargs):
-    """Percentile bootstrap; returns (lower, upper) CI array, optimized for GPU if needed."""
-    is_cp = False
-    try:
-        import cupy as cp
-        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
-            is_cp = True
-    except ImportError:
-        pass
-
-    if is_cp:
-        import cupy as cp
-        boot_vals = []
-        x2_work = x2 if x2 is not None else x1
-        n = x1.shape[axis]
-        seeds = rng.integers(0, 2**31 - 1, size=n_boot)
-        for seed in seeds:
-            local_rng = np.random.default_rng(int(seed))
-            idx = cp.asarray(local_rng.integers(0, n, size=n))
-            x1_b = cp.take(x1, idx, axis=axis)
-            x2_b = cp.take(x2_work, idx, axis=axis)
-            v, *_ = metric_fn(x1_b, x2_b, axis=axis, **kwargs)
-            if hasattr(v, "get"):
-                v_mean = float(cp.mean(v))
-            else:
-                v_mean = float(np.mean(v)) if isinstance(v, np.ndarray) else float(v)
-            boot_vals.append(v_mean)
-        boot_arr = cp.array(boot_vals)
-        ci = cp.percentile(boot_arr, [2.5, 97.5])
-        return ci.get()
-
+    """Percentile bootstrap of single samples; returns the (lower, upper) 95% interval."""
     x2_work = x2 if x2 is not None else x1
     n = x1.shape[axis]
     seeds = rng.integers(0, 2**31 - 1, size=n_boot)
-    
+
     def _run_single_boot(seed):
         local_rng = np.random.default_rng(seed)
         idx = local_rng.integers(0, n, size=n)

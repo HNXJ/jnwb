@@ -32,6 +32,25 @@ def _welch_segments(a: np.ndarray, nperseg: int, noverlap: int) -> np.ndarray:
     return np.asarray(segs, dtype=float)
 
 
+#: Fewest Welch segments the default ``nperseg`` leaves, pooled over trials, when the record
+#: allows it.
+_DEFAULT_MIN_SEGMENTS = 20
+
+
+# INTENTIONAL BREAK (0.2.10): the default was ``n_times // 4`` alone, which leaves 7 segments
+# on one trial, so the coherency and the jackknife were estimated from 7.
+def _default_nperseg(n_trials: int, n_times: int) -> int:
+    """``n_times // 4`` clipped to ``[16, n_times]``, shortened until the record holds
+    ``_DEFAULT_MIN_SEGMENTS`` segments at half overlap, and never below 16 samples."""
+    def n_segments(length: int) -> int:
+        return n_trials * ((n_times - length) // (length - length // 2) + 1)
+
+    length = int(np.clip(n_times // 4, 16, n_times))
+    while length > 16 and n_segments(length) < _DEFAULT_MIN_SEGMENTS:
+        length -= 1
+    return length
+
+
 def _psi_from_spectra(
     fx: np.ndarray, fy: np.ndarray, idx: np.ndarray, weights: Optional[np.ndarray] = None
 ) -> float:
@@ -158,8 +177,11 @@ def phase_slope_index(
         bands: ``None`` for one estimate over the whole spectrum except DC
             (``df``..``fs/2``); ``'canonical'`` for :data:`CANONICAL_BANDS`; a ``(fmin, fmax)``
             tuple; or a ``{name: (fmin, fmax)}`` dict
-        nperseg: Welch segment length in samples (default: n_times // 4, clipped
-            to [16, n_times]). Frequency resolution is ``fs / nperseg``.
+        nperseg: Welch segment length in samples. The default is n_times // 4, clipped
+            to [16, n_times] and shortened until the trials hold at least 20 segments
+            at the default overlap, but not below 16 samples: one trial of 2000 samples
+            gets 190 (20 segments), 10 trials of 400 keep 100 (70 segments). Frequency
+            resolution is ``fs / nperseg``.
         noverlap: segment overlap (default nperseg // 2)
         window: ``'hann'`` | ``'hamming'`` | ``'boxcar'``
         detrend: per-trial preprocessing, default ``'demean'``
@@ -178,7 +200,10 @@ def phase_slope_index(
         ``x_to_y`` is the summed PSI over the whole requested range with
         ``y_to_x = -x_to_y``; ``net == x_to_y``. When no band holds the two frequency bins a
         slope needs, ``x_to_y``, ``y_to_x`` and ``net`` are NaN and
-        ``diagnostics['ok_for_interpretation']`` is False. When the jackknife replicates
+        ``diagnostics['ok_for_interpretation']`` is False. When only some bands hold two
+        bins, ``net`` sums those bands alone and the others are left out of it, not counted
+        as zero; ``ok_for_interpretation`` is False and ``per_band`` shows which were
+        dropped. When the jackknife replicates
         agree to rounding (identical segments, as from a periodic signal, or Y equal to X),
         ``sd`` and ``z`` are NaN, the lead p is None, a ``RuntimeWarning`` says why and
         ``ok_for_interpretation`` is False. A surrogate p counts every draw within
@@ -203,7 +228,7 @@ def phase_slope_index(
     n_trials, n_times = x.shape
 
     if nperseg is None:
-        nperseg = int(np.clip(n_times // 4, 16, n_times))
+        nperseg = _default_nperseg(n_trials, n_times)
     nperseg = int(min(nperseg, n_times))
     if nperseg < 8:
         raise ValueError(f"nperseg={nperseg} too small for a usable spectrum")
