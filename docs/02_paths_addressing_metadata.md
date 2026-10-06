@@ -61,7 +61,7 @@ channel is not on the labelled shaft is `"na"` too.
 
 `curate_and_label` runs bad-contact detection, short-run interpolation and a graded spectrolaminar
 anchor on epoched LFP, then labels every contact. Widths are in micrometers, so it needs the
-pitch; the defaults are working values from 25 and 40 um probes, and each is a parameter.
+pitch; the defaults are working values from 25 and 40 um probes, and each is a parameter; vFLIP keeps its own bands.
 
 ```python
 # lfp: (n_channels, n_epochs, n_samples) in recording order; erp: (n_channels, n_times)
@@ -71,7 +71,7 @@ res.labels                   # "superficial" | "input" | "deep" | "WM" | "outsid
 ```
 
 The grade rests on the anchor's stability across blocks of epochs and on spectral consistency; A and B
-carry a laminar claim and C is a sensitivity check. xFLIP and the evoked CSD are reported as distances
+carry a laminar claim; C and D are sensitivity checks. xFLIP and the evoked CSD are reported as distances
 to the anchor and never move it. One cortical sheet is assumed: `n_crossings` above 1 means the shaft
 may need splitting into contiguous ranges. Contacts on one shaft are not independent, so the probe
 is the unit of inference. The parts (`detect_bad_channels`, `interpolate_channel_runs`,

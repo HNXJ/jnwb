@@ -32,6 +32,17 @@ def synth(n=48, n_ep=40, n_s=1000, cross=24.0, sup_up=True, seed=0):
     return x + 0.05 * gaussian_filter1d(rng.standard_normal(shape), 1.0, axis=0)
 
 
+def blocked(n=32, n_ep=8, amp=2.0, seed=0):
+    """``synth`` plus one independent 2-6 Hz source per half of the shaft: two correlation blocks."""
+    x = synth(n=n, n_ep=n_ep, seed=seed)
+    sos = signal.butter(4, [2, 6], btype="band", fs=FS, output="sos")
+    s = signal.sosfiltfilt(sos, np.random.default_rng(seed + 100).standard_normal((2, n_ep, x.shape[-1])),
+                           axis=-1)
+    x[: n // 2] += amp * s[0] / s.std()
+    x[n // 2:] += amp * s[1] / s.std()
+    return x
+
+
 def word(result):
     return "".join(MARK[s] for s in result.labels)
 
@@ -94,6 +105,12 @@ class TestInterpolateChannelRuns:
         assert np.allclose(out["data"], np.arange(10.0)[:, None])
         assert out["interpolated_mask"].sum() == 2 and not out["unresolved_mask"].any()
 
+    def test_a_run_of_exactly_max_run_is_interpolated(self):
+        bad = np.zeros(10, bool)
+        bad[3:6] = True
+        out = jnwb.interpolate_channel_runs(np.arange(10.0), bad, max_run=3)
+        assert out["interpolated_mask"][3:6].all() and np.allclose(out["data"], np.arange(10.0))
+
     def test_long_edge_and_blocked_runs_stay_unresolved(self):
         data = np.arange(12.0)
         bad = np.zeros(12, bool)
@@ -144,6 +161,33 @@ class TestEvokedCsdSink:
         assert a["strongest_contact"] == b["strongest_contact"]
         assert c["strongest_position_um"] == c["strongest_contact"] * 2 * PITCH
 
+    def test_a_sink_at_exactly_min_sink_z_is_reported(self):
+        erp, t = _sink_erp()
+        z = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)["strongest_z"]
+        assert jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, min_sink_z=z)["strongest_contact"] == 20
+
+    def test_a_dip_shorter_than_the_onset_duration_is_no_onset(self):
+        erp, t = _sink_erp()
+        onset = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)["earliest_onset_ms"]
+        erp[8, t == onset] -= 50.0      # one 2 ms sample at the sink's onset, far deeper than it
+        out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, onset_min_duration_ms=5.0)
+        assert abs(out["earliest_contact"] - 20) <= 2
+        brief = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, onset_min_duration_ms=2.0)
+        assert abs(brief["earliest_contact"] - 8) <= 1 and brief["earliest_onset_ms"] == onset
+
+    def test_the_csd_is_the_public_voltage_curvature(self, monkeypatch):
+        import jnwb.laminar_curation as lc
+        calls = []
+
+        def spy(*args, **kwargs):
+            calls.append(1)
+            return jnwb.voltage_curvature_1d(*args, **kwargs)
+
+        erp, t = _sink_erp()
+        before = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)
+        monkeypatch.setattr(lc, "voltage_curvature_1d", spy)
+        assert jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH) == before and calls
+
     def test_too_few_usable_contacts_gives_nan(self):
         erp, t = _sink_erp()
         mask = np.zeros(erp.shape[0], bool)
@@ -174,6 +218,14 @@ class TestFuseLaminarAnchors:
     ])
     def test_grade_table(self, kwargs, grade):
         assert jnwb.fuse_laminar_anchors(**kwargs)["grade"] == grade
+
+    def test_each_threshold_admits_its_boundary_value(self):
+        # SD exactly stable_sd_um, exactly min_ok_windows windows, consistency exactly consistency_a
+        out = jnwb.fuse_laminar_anchors(vflip_um=600.0, window_um=np.array([525.0, 675.0, np.nan, 600.0]),
+                                        consistency_deep=0.75, consistency_superficial=0.9,
+                                        stable_sd_um=float(np.nanstd([525.0, 675.0, 600.0])),
+                                        min_ok_windows=3, consistency_a=0.75)
+        assert out["n_windows_ok"] == 3 and out["stable"] and out["grade"] == "A"
 
     def test_xflip_and_csd_are_reported_and_never_move_the_anchor(self):
         base = dict(vflip_um=600.0, window_um=self.WIN, consistency_deep=0.9, consistency_superficial=0.9)
@@ -235,14 +287,84 @@ class TestCurateAndLabel:
         r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
         assert set(r.labels[-8:-2]) == {"outside_cortex"}                # the last two are end artifacts
 
-    def test_the_csd_and_xflip_are_reported_only(self, clean):
-        x, r = clean
+    def test_the_csd_and_xflip_are_reported_only(self):
+        x = blocked()
         erp, t = _sink_erp(n=x.shape[0], at=5)
+        r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
         full = jnwb.curate_and_label(x, FS, pitch_um=PITCH, erp=erp, erp_times_ms=t,
-                                     xflip_n_surrogates=20)
+                                     xflip_n_surrogates=20, rng=1)
+        assert full.xflip.accepted and np.isfinite(full.xflip_distance_um)
         assert full.anchor_um == r.anchor_um and np.array_equal(full.labels, r.labels)
         assert full.csd is not None and np.isfinite(full.csd_distance_um)
-        assert np.isfinite(full.xflip_distance_um)
+
+    def test_a_rejected_xflip_reports_no_distance_and_says_why(self, clean):
+        x, _ = clean                                   # smooth correlations: no block structure
+        r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_surrogates=20)
+        assert r.xflip is not None and not r.xflip.accepted and r.xflip.rejection_reason
+        assert np.isnan(r.xflip_distance_um) and r.to_dict()["xflip"]["accepted"] is False
+
+    def test_the_motif_crossing_anchors_when_vflip_rejects(self, clean, monkeypatch):
+        import dataclasses
+        import jnwb.laminar_curation as lc
+        orig = lc._vflip_on
+
+        def rejected(*args):
+            _, v = orig(*args)
+            return float("nan"), dataclasses.replace(v, accepted=False, crossover_contact=None)
+
+        monkeypatch.setattr(lc, "_vflip_on", rejected)
+        x, _ = clean
+        fwd = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
+        rev = jnwb.curate_and_label(x[::-1].copy(), FS, pitch_um=PITCH, compute_xflip=False)
+        assert fwd.anchor_source == rev.anchor_source == "motif" and fwd.grade == rev.grade == "D"
+        assert fwd.superficial_at_high_index is True and rev.superficial_at_high_index is False
+        assert abs(fwd.anchor_um - 24 * PITCH) <= 4 * PITCH
+        assert fwd.labels[5] == "deep" and fwd.labels[-5] == "superficial"
+
+    def test_the_bands_reach_the_motif_profiles(self, clean):
+        x, r = clean
+        assert len(r.crossings_um) == 1 and r.consistency_deep == 1.0
+        moved = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, band_high_hz=(20.0, 40.0))
+        assert moved.crossings_um == () and moved.consistency_deep < 0.75
+
+    def test_a_band_above_150_hz_is_used_whole(self):
+        import jnwb.laminar_curation as lc
+        freqs = np.arange(0.0, 251.0)
+        psd = np.ones((10, freqs.size))
+        psd[:, freqs > 150] = np.arange(10.0)[:, None] + 1.0   # depth gradient only above 150 Hz
+        _, hi = lc._band_profiles(psd, freqs, np.ones(10, bool), (10.0, 19.0), (160.0, 240.0))
+        assert np.allclose(hi, np.arange(10.0) / 9.0)
+
+    def test_the_call_is_recorded(self):
+        x = blocked()
+        r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_surrogates=20, rng=1)
+        p = r.parameters
+        assert "_" not in p and p["fs"] == FS and p["rng"] == 1 and p["nperseg"] == 512
+        assert r.xflip.surrogate_seed_entropy is not None
+        assert p["xflip_surrogate_seed_entropy"] == r.xflip.surrogate_seed_entropy
+        assert jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False,
+                                     rng=np.random.default_rng(0)).parameters["rng"] == "Generator"
+
+    def test_a_low_sampling_rate_is_refused_naming_the_band(self):
+        x = synth(n=24, n_ep=4)
+        with pytest.raises(ValueError, match=r"band_high_hz=\(75\.0, 150\.0\).*power_band_hz=\(1\.0, 150\.0\)"):
+            jnwb.curate_and_label(x, 250.0, pitch_um=PITCH, compute_xflip=False)
+        with pytest.raises(ValueError, match=r"^power_band_hz"):
+            jnwb.curate_and_label(x, 250.0, pitch_um=PITCH, compute_xflip=False,
+                                  band_low_hz=(10.0, 19.0), band_high_hz=(75.0, 120.0))
+
+    def test_the_named_thresholds_reach_their_consumers(self, clean):
+        x, r = clean
+        assert jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, nperseg=256
+                                     ).vflip.support_score != r.vflip.support_score
+        few = jnwb.curate_and_label(x, FS, pitch_um=PITCH, min_contacts=x.shape[0] + 1)
+        assert not few.vflip.accepted and few.xflip is None
+        dead = x.copy()
+        dead[20:24] = np.random.default_rng(9).standard_normal(dead[20:24].shape) * x.std()
+        short = jnwb.curate_and_label(dead, FS, pitch_um=PITCH, compute_xflip=False)
+        long = jnwb.curate_and_label(dead, FS, pitch_um=PITCH, compute_xflip=False, max_interpolate_run=4)
+        assert short.bad_mask[20:24].all() and short.unusable_mask[20:24].all()
+        assert long.interpolated_mask[20:24].all()
 
     def test_the_result_reads_like_a_dict_and_round_trips(self, clean):
         _, r = clean
@@ -258,11 +380,13 @@ class TestCurateAndLabel:
         assert np.array_equal(np.random.get_state()[1], state)
 
     def test_the_xflip_surrogates_follow_the_seed(self):
-        x = synth(n=32, n_ep=8)
+        x = blocked()
         a = jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_surrogates=20, rng=1)
         b = jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_surrogates=20, rng=1)
-        assert (a.xflip_distance_um == b.xflip_distance_um) or (np.isnan(a.xflip_distance_um)
-                                                                 and np.isnan(b.xflip_distance_um))
+        c = jnwb.curate_and_label(x, FS, pitch_um=PITCH, xflip_n_surrogates=20, rng=2)
+        assert np.isfinite(a.xflip_distance_um) and a.xflip_distance_um == b.xflip_distance_um
+        assert a.xflip.p_values == b.xflip.p_values
+        assert a.xflip.surrogate_seed_entropy != c.xflip.surrogate_seed_entropy
 
     def test_refusals(self):
         x = synth(n=24, n_ep=4)
