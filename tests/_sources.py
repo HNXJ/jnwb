@@ -13,6 +13,8 @@ statically: its `__all__` literal, else its top-level public defs.
 
 Limit: a scan that takes `.text` and then discards it on its content (`if "x" in text:
 continue`) is recorded as having read the file. Only a filter applied before `.text` shows.
+The axis-hop scan in `test_axis_convention_matches_the_specification.py` runs one parametrized
+test per file, so it checks its declared file list only: a skip inside that test's body passes.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import ast
 import functools
 import importlib
 import inspect
+import os
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional, Set
@@ -57,25 +60,32 @@ class Source:
 
     @property
     def text(self) -> str:
-        _RECORDED[self._label].add(self.path.resolve())
+        _RECORDED[_key(self._label)].add(self.path.resolve())
         return self.path.read_text(encoding="utf-8")
 
 
-_RECORDED: Dict[str, Set[Path]] = {}
+# Keyed by (label, the running test), so a coverage test sees only the scan it ran itself: a
+# record left by another test with the same label cannot stand in for a scan that was dropped.
+_RECORDED: Dict[tuple, Set[Path]] = {}
+
+
+def _key(label: str) -> tuple:
+    return label, os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
 
 
 def read_sources(label: str, within: str = "jnwb") -> Iterator[Source]:
     """The files of `within` for the scan named `label`; starts that scan's record afresh."""
-    _RECORDED[label] = set()
+    _RECORDED[_key(label)] = set()
     for path in source_files(within):
         yield Source(path, label)
 
 
 def unread_by(label: str, within: str = "jnwb") -> List[str]:
-    """The files `public_definition_files(within)` lists whose text scan `label` did not take."""
-    if label not in _RECORDED:
-        raise AssertionError(f"no scan named {label!r} has read through read_sources")
-    return unread(_RECORDED[label], within)
+    """The files `public_definition_files(within)` lists whose text scan `label` did not take
+    in the running test."""
+    if _key(label) not in _RECORDED:
+        raise AssertionError(f"no scan named {label!r} has read through read_sources in this test")
+    return unread(_RECORDED[_key(label)], within)
 
 
 def _module_name(path: Path) -> str:
