@@ -187,11 +187,11 @@ All 184 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.RaggedIndexRepair | class | *Outcome of ``repair_ragged_index``. ``written`` is False for a dry run.* |
+| jnwb.RaggedIndexRepair | class | *Outcome of ``repair_ragged_index``. ``written`` is False for a dry run and True only after the written index was re-read, checked and moved into place; ``output_path`` is the file that holds it (``None`` for a dry run).* |
 | jnwb.RaggedIndexRepairRefused | class | *``repair_ragged_index`` found a condition under which it must not write.* |
 | jnwb.RaggedIndexReport | class | *All ragged columns of one table. ``unlisted_ragged_columns`` are datasets that have a ``<name>_index`` partner but are absent from the table's ``colnames`` attribute, which makes pynwb hide them. ``ok`` is every column ``ok`` and no unlisted column.* |
 | jnwb.check_ragged_indices | function | `(path: 'str | Path', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None) -> 'RaggedIndexReport'`<br>*Check every ``<column>_index`` of one table of an NWB file, without writing.* |
-| jnwb.repair_ragged_index | function | `(path: 'str | Path', column: 'str', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None, dry_run: 'bool' = True, backup_path: 'str | Path | None' = None) -> 'RaggedIndexRepair'`<br>*Correct one ragged index that carries the multi-probe offset defect.* |
+| jnwb.repair_ragged_index | function | `(path: 'str | Path', column: 'str', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None, dry_run: 'bool' = True, output_path: 'str | Path | None' = None, in_place: 'bool' = False, backup_path: 'str | Path | None' = None) -> 'RaggedIndexRepair'`<br>*Correct one ragged index that carries the multi-probe offset defect.* |
 
 ## Module: jnwb.nwb_io
 
