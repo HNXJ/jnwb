@@ -160,3 +160,23 @@ def test_cupy_pearson_of_a_constant_is_nan_as_on_the_cpu():
         a = np.full(100, c)
         assert np.isnan(float(jr._pearson(a, b)[0]))
         assert np.isnan(float(jr._pearson(cp.asarray(a), cp.asarray(b))[0]))
+
+
+def test_is_constant_skips_nan_only_when_asked():
+    """The zscore of this array is the same with and without ``ignore_nan`` reaching
+    ``is_constant``, so only a direct assertion pins the flag."""
+    from jnwb._spread import is_constant
+
+    a = np.array([[0.3, np.nan, 0.3], [1.0, np.nan, 3.0]])
+    np.testing.assert_array_equal(is_constant(a, axis=1, ignore_nan=True), [True, False])
+    np.testing.assert_array_equal(is_constant(a, axis=1), [False, False])
+
+
+def test_zscore_of_a_slice_holding_inf_is_all_nan():
+    """Its std is NaN; read as "not above 0" it was replaced by 1, leaving -inf beside NaN."""
+    from jnwb._spread import zscore
+
+    z = zscore(np.array([1.0, np.inf, 2.0]), axis=0)
+    assert np.isnan(z).all(), z
+    np.testing.assert_array_equal(zscore(np.array([1.0, 2.0, 3.0]), axis=0),
+                                  np.array([-1.0, 0.0, 1.0]) / np.std([1.0, 2.0, 3.0]))
