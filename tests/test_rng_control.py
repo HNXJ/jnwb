@@ -229,6 +229,22 @@ class TestNestedCvPartitionIsControllable:
         res = nested_cv_linear_svm(X, y, n_splits=3, rng=np.random.default_rng(4))
         assert np.isfinite(res["accuracy"])
 
+    def test_two_generators_give_different_folds(self, decodable):
+        """A Generator is turned into an int seed for scikit-learn; a conversion that
+        ignored the Generator would give every one the same folds."""
+        X, y = decodable
+        folds = {tuple(np.round(nested_cv_linear_svm(
+            X, y, n_splits=3, rng=np.random.default_rng(s))["fold_accuracies"], 10))
+                 for s in (0, 1, 2, 3, 7, 42)}
+        assert len(folds) > 1, "the partition does not respond to the Generator"
+
+    def test_two_generators_give_different_permutation_plans(self):
+        labels, groups = [0, 1] * 8, [0] * 8 + [1] * 8
+        a, b = (jnwb.build_permutation_plan(labels, groups, n_permutations=3,
+                                            rng=np.random.default_rng(s)) for s in (1, 2))
+        assert a["seed"] != b["seed"]
+        assert list(a["draw_manifest"]["label_digest"]) != list(b["draw_manifest"]["label_digest"])
+
     def test_rng_is_a_parameter_at_all(self):
         """The signature was `(X, labels, n_splits)`."""
         assert "rng" in inspect.signature(nested_cv_linear_svm).parameters
