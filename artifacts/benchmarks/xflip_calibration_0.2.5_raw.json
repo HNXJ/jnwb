@@ -1,5 +1,5 @@
 {
-  "estimator_sha256": "593c9d4c83fc4443cfafbf76843f760b120cf63f2c70a6ef1f774fddf38bfce1",
+  "estimator_sha256": "fc4e247d8e9a4f8b95e29cd7bfc21546409e12e42c98d51e28f91f7087b60eb1",
   "estimator_functions": [
     "XFlipResult",
     "_compute_contrast",
@@ -12,6 +12,7 @@
     "_unrestricted_partition",
     "jnwb._dictlike.DictAccessMixin",
     "jnwb._rng.RNGLike",
+    "jnwb._rng.recorded_rng",
     "jnwb._rng.resolve_rng",
     "jnwb._rng.surrogate_rng",
     "jnwb.permutation._TAILS",
@@ -394,11 +395,11 @@
     ]
   },
   "environment": {
-    "jnwb": "0.2.6.1",
+    "jnwb": "0.2.9",
     "python": "3.14.3",
     "numpy": "2.4.6",
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26200-SP0"
   },
-  "elapsed_s": 425.1
+  "elapsed_s": 363.3
 }

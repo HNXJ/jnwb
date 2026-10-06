@@ -22,6 +22,7 @@ import pathlib
 
 from jnwb import laminar
 from jnwb.laminar import xflip
+from tests.test_vflip_calibration_receipt import _with_prose_edited
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RAW = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5_raw.json"
@@ -131,6 +132,29 @@ def test_the_receipt_covers_every_helper_xflip_reaches():
     )
     for name, source in _generator().estimator_sources():
         assert source.strip(), f"{name} hashed as empty source"
+
+
+def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):
+    """P-285: the receipt hashed comments, so a comment edit read as a changed estimator."""
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+    assert "  # edited" in _with_prose_edited(real(inspect.getmodule(xflip)))
+
+    monkeypatch.setattr(inspect, "getsource", lambda obj: _with_prose_edited(real(obj)))
+    assert generator.estimator_sha256() == before, (
+        "editing only docstrings and comments changed the receipt hash"
+    )
+
+
+def test_a_code_edit_changes_the_receipt(monkeypatch):
+    """The hash rule must not strip code: the tie width in `jnwb.permutation` is code."""
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+    monkeypatch.setattr(inspect, "getsource",
+                        lambda obj: real(obj).replace("_TIE_RTOL = ", "_TIE_RTOL = 2 * "))
+    assert generator.estimator_sha256() != before
 
 
 def test_the_operating_point_is_the_shipped_default_where_it_claims_to_be():

@@ -3,9 +3,10 @@
     python scripts/calibrate_vflip.py [--n-seeds 30] [--n-jobs -1]
 
 Writes ``artifacts/benchmarks/vflip_calibration_0.2.4.md`` and ``vflip_calibration_0.2.4_raw.json``.
-The JSON records a SHA-256 over ``vflip`` and every module-level function in
-``jnwb.laminar`` it can reach; ``tests/test_vflip_calibration_receipt.py`` fails when any
-of them changes without this script being rerun.
+The JSON records a SHA-256 over the code of ``vflip_from_lfp``, which every trial below runs,
+and every top-level function, class and constant it reaches in any jnwb module, ``vflip``
+included, with docstrings and comments removed; ``tests/test_vflip_calibration_receipt.py``
+fails when that code changes without this script being rerun.
 
 Every recording is synthetic, built by ``jnwb.testing`` generators and passed end to end
 through ``vflip_from_lfp`` with default arguments, so each number below traces to a seeded
@@ -37,8 +38,6 @@ Discretization of the null:
 from __future__ import annotations
 
 import argparse
-import ast
-import hashlib
 import inspect
 import json
 import pathlib
@@ -56,6 +55,7 @@ import jnwb  # noqa: E402
 from jnwb._parallel import parallel_map  # noqa: E402
 from jnwb.laminar import vflip, vflip_from_lfp  # noqa: E402
 from jnwb.testing import synth_ar_noise, synth_laminar_motif, synth_white_noise  # noqa: E402
+from scripts import calibrate_xflip as _xflip_receipt  # noqa: E402
 
 FS = 1000.0
 N_SAMPLES = 5000
@@ -84,52 +84,21 @@ OUT_DIR = ROOT / "artifacts" / "benchmarks"
 
 
 def estimator_sources() -> list[tuple[str, str]]:
-    """`vflip` and every module-level function in `jnwb.laminar` it can reach.
+    """`vflip_from_lfp` and everything it reaches in any jnwb module, as code only.
 
     Hashing `vflip` alone certified less than the receipt claims. `vflip` delegates the
     band normalization to `_unit_range`, whose source the hash never saw, so a
     line-count-preserving defect there left the receipt reading "current" and
-    `tests/test_vflip_calibration_receipt.py` passing 4 of 4.
-
-    The set is resolved from the call graph rather than listed, so a helper introduced
-    later is covered without anyone remembering to add it. Names are sorted, so the hash
-    does not depend on the order the graph is walked.
+    `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The walk then stopped at the
+    module boundary, so the device resolution in `jnwb._backend` was unhashed, and it
+    hashed docstrings, so a docstring edit made the receipt stale. The walk and the hash
+    rule are `scripts/calibrate_xflip.py`'s, so both receipts follow one rule.
     """
-    module = sys.modules[vflip.__module__]
-    tree = ast.parse(inspect.getsource(module))
-    defs = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-
-    def called_names(node):
-        return {
-            getattr(call.func, "id", None) or getattr(call.func, "attr", None)
-            for call in ast.walk(node)
-            if isinstance(call, ast.Call)
-        }
-
-    reached: set[str] = set()
-    stack = [vflip.__name__]
-    while stack:
-        name = stack.pop()
-        if name in reached or name not in defs:
-            continue
-        reached.add(name)
-        stack.extend(n for n in called_names(defs[name]) if n)
-
-    return [(name, inspect.getsource(getattr(module, name))) for name in sorted(reached)]
+    return _xflip_receipt.estimator_sources(vflip_from_lfp)
 
 
 def estimator_sha256() -> str:
-    digest = hashlib.sha256()
-    for name, source in estimator_sources():
-        digest.update(name.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(source.encode("utf-8"))
-        digest.update(b"\0")
-    return digest.hexdigest()
+    return _xflip_receipt.estimator_sha256(vflip_from_lfp)
 
 
 def _off_centre(n_channels: int) -> float:
@@ -470,6 +439,7 @@ def run(n_seeds: int, n_jobs: int) -> dict:
 
     return {
         "estimator_sha256": estimator_sha256(),
+        "estimator_functions": [name for name, _ in estimator_sources()],
         "default_min_support_score": DEFAULT_TAU,
         "n_seeds": n_seeds,
         "n_samples": N_SAMPLES,
