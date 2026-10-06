@@ -254,7 +254,7 @@ def test_the_nav_is_parsed_at_all():
 # ------------------------------------------------------------------------ Length
 
 _NUMBER_WORDS = {w: n for n, w in enumerate(
-    "zero one two three four five six seven eight nine ten eleven twelve".split())}
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen".split())}
 _KIND_ROW = re.compile(r"^\| (.+?) \| (\d+) words \| (.+?) \|$", re.M)
 _EXCESS_ROW = re.compile(r"^\| `(\w+)` \| (\d+) \|", re.M)
 _PAGE_RANGE = re.compile(r"`(\d\d)`–`(\d\d)`")

@@ -11,12 +11,7 @@ References:
     potential power across the primate cortex. Nature Neuroscience.
     doi:10.1038/s41593-023-01554-7 -- the motif `vflip` tests for: gamma relative power
     peaks superficially, alpha-beta deep, and their crossover marks layer 4.
-    `vflip` is not the paper's FLIP or its frequency-variable vFLIP, which share the name.
-    The paper divides each frequency by the power of the channel with the highest power,
-    uses 10-19 Hz and 75-150 Hz, and fits linear regressions over the channel range that
-    maximizes a goodness of fit; vFLIP also searches over band pairs. `vflip` normalizes
-    by the range across contacts, uses fixed default bands and scores the fit by its
-    support score Omega, so its crossover is not a FLIP or vFLIP crossover.
+    `vflip` is not the paper's FLIP or vFLIP; its docstring says how it differs.
 """
 
 from __future__ import annotations

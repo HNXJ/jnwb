@@ -1,0 +1,1 @@
+- A Laminar Depth page calls `vflip`, `label_layers`, `xflip` and `zflip` once each on synthetic data, and states how `vflip` differs from the published FLIP and vFLIP whose name it shares; the `vflip` docstring states it too.

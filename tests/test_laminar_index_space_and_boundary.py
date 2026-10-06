@@ -350,7 +350,8 @@ class TestADeclaredDepthAxisAnchorsTheFrameAtTheShallowEnd:
     @pytest.mark.parametrize("layout, depth_axis, shallow_end", [
         ("rising", "z", "max"),     # the wrong end of the right axis
         ("falling", "z", "min"),
-        ("staggered", "z", "max"),  # the stagger column: its largest value is at the deep end
+        # The stagger column is not declarable: it is not monotone along the shaft, and
+        # `tests/test_laminar.py::TestVFlipEdges` holds that it raises.
     ])
     @pytest.mark.parametrize("order_name", ["in_order", "reversed", "permuted"])
     def test_a_declaration_the_motif_contradicts_rejects_the_fit(
