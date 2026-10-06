@@ -172,6 +172,20 @@ def test_plot_leaves_a_one_signed_matrix_autoscaled():
         plt.close(fig)
 
 
+def test_plot_centres_on_the_larger_magnitude_when_the_negative_side_is_larger():
+    fig = JRSAResult(value=np.array([[-0.9, 0.1], [0.0, 0.05]])).plot()
+    try:
+        assert _clim(fig) == (-0.9, 0.9)
+    finally:
+        plt.close(fig)
+
+
+def test_json_writes_numpy_integers_as_numbers(tmp_path):
+    path = tmp_path / "np_int.json"
+    JRSAResult(value=np.array([1.0]), parameters={"a": np.int64(7), "b": np.int32(3)}).save(str(path), fmt="json")
+    assert json.loads(path.read_text())["parameters"] == {"a": 7, "b": 3}
+
+
 def test_plot_kwargs_win_over_the_centring(matrix_result):
     fig = matrix_result.plot(vmin=-0.5, vmax=2.0, cmap="viridis")
     try:
