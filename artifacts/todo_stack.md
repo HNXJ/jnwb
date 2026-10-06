@@ -9,7 +9,9 @@ unchanged.
 Theme: oversized modules become small packages behind the same public API, and the scientific
 edges in them are closed.
 
-Acceptance: `AGENTS.md` §11; `jnwb.__all__` and every public signature identical to 0.2.9;
+Acceptance: `AGENTS.md` §11; no public symbol or parameter of 0.2.9 removed or renamed, and any
+addition (a symbol, an optional parameter whose default keeps 0.2.9 results, an annotation
+correction) announced in a changelog fragment (ruled 2026-10-06);
 gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
 record in `artifacts/evidence/0.2.10/`.
 
@@ -67,6 +69,7 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 - Conditional `directed_network` (ruled 2026-10-06: Granger only, conditioning on all other nodes through `Z`; other methods stay pairwise and say so). Check: a conditional Granger mode recovering a chain A->B->C without a direct A->C edge. Waits: pairwise is stated.
 - Directed width clauses: the PSI width test pins a lower bound only; TE's net width keeps the plain sum. Check: stated tolerances under the P-331 round-off bound. Waits: degenerate input.
 - Verifier gaps (round 1): the merged linear/cubic `_resample_axis` branch has no value test; a valid `align='dtw'` at equal lengths is not pinned; the TE docstring states the Miller-Madow mechanism for `bias_corrected` as fact where the record says inferred. Check: a value test, a pin, the docstring matching the record. Waits: private path, optional package, wording.
+- P-296 dated comments: `jnwb/connectivity/__init__.py:21` and `jnwb/jrsa/_metrics.py:431` name a date. Check: each line is deleted or shown to state behaviour. Waits: no behavioural effect.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
 
