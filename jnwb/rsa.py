@@ -15,6 +15,7 @@ from scipy.spatial.distance import pdist, squareform
 from scipy import stats
 
 from ._backend import CUDA, resolve_device, warn_no_gpu_path
+from ._spread import is_constant
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +40,15 @@ def _condensed_distances(X: np.ndarray, metric: str) -> np.ndarray:
         raise ValueError("rdm input array contains non-finite values (NaN or Inf).")
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        return pdist(arr, metric=metric)
+        v = pdist(arr, metric=metric)
+    if metric == "correlation":
+        # A constant row's mean is not its value in floating point, so pdist centred it to
+        # rounding residue: a flat 0.1 input returned an all-zero RDM where 0.3 gave NaN.
+        flat = is_constant(arr, axis=1)
+        if flat.any():
+            i, j = np.triu_indices(n_conditions, k=1)
+            v[flat[i] | flat[j]] = np.nan
+    return v
 
 
 def rdm(
@@ -105,9 +114,13 @@ def rdm(
         n_conditions = int(np.asarray(X).shape[0])
         rows_i, rows_j = np.triu_indices(n_conditions, k=1)
         pairs = list(zip(rows_i[undefined].tolist(), rows_j[undefined].tolist()))
+        flat = np.flatnonzero(is_constant(np.asarray(X, dtype=np.float64).reshape(
+            n_conditions, -1), axis=1)).tolist()
         raise ValueError(
             f"rdm: the {metric!r} distance is undefined for {len(pairs)} condition pair(s), "
-            f"e.g. {pairs[:5]}. Correlation distance is undefined for a zero-variance row "
+            f"e.g. {pairs[:5]}"
+            + (f"; condition(s) {flat[:10]} are constant across features" if flat else "")
+            + ". Correlation distance is undefined for a zero-variance row "
             "and cosine distance for a zero-norm row. Remove those conditions or choose a "
             "metric defined for them."
         )

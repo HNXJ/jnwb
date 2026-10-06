@@ -8,42 +8,10 @@ from .._spread import is_constant
 from ._backends import _ensure_np
 
 
+# INTENTIONAL BREAK (0.2.10): the CuPy branches of _pearson, _spearman, _cosine,
+# `_permutation_test` and `_bootstrap` are removed. `_to_backend` converts every input to a
+# NumPy array before any metric runs, so no call reached them.
 def _pearson(x1, x2, axis=-1, **kwargs):
-    # Check if inputs are CuPy arrays
-    try:
-        import cupy as cp
-        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
-            a = x1.ravel() if x1.ndim > 1 else x1
-            y2 = x2 if x2 is not None else x1
-            b = y2.ravel() if y2.ndim > 1 else y2
-            if len(a) != len(b):
-                raise ValueError(
-                    f"_pearson: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
-                )
-            n = len(a)
-            # CuPy correlation calculation
-            a_mean = cp.mean(a)
-            b_mean = cp.mean(b)
-            a_std = cp.std(a)
-            b_std = cp.std(b)
-            # NaN for a constant vector, as on the CPU path, decided by exact equality: cp.std
-            # of 100 values of 2.7 is 4.4e-16. The absolute cutoff and offset an earlier
-            # version used reported 0.0 there and shrank r at small amplitude.
-            if is_constant(a, xp=cp) or is_constant(b, xp=cp):
-                r = cp.array(cp.nan)
-            else:
-                r = cp.mean((a - a_mean) * (b - b_mean)) / (a_std * b_std)
-            df = n - 2
-            t = r * cp.sqrt(df) / cp.sqrt(1 - r ** 2 + 1e-12)
-            
-            # Parametric p-value calculated on CPU/GPU boundary
-            t_cpu = float(t.get()) if hasattr(t, "get") else float(t)
-            from scipy.stats import t as sp_t
-            p_val = 2 * sp_t.sf(abs(t_cpu), df)
-            return r, t, cp.abs(r), np.float64(p_val), float(df)
-    except ImportError:
-        pass
-
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
@@ -64,43 +32,6 @@ def _pearson(x1, x2, axis=-1, **kwargs):
 
 
 def _spearman(x1, x2, axis=-1, **kwargs):
-    # For spearman rank, we rank-transform on CuPy then run Pearson
-    try:
-        import cupy as cp
-        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
-            a = x1.ravel() if x1.ndim > 1 else x1
-            y2 = x2 if x2 is not None else x1
-            b = y2.ravel() if y2.ndim > 1 else y2
-            if len(a) != len(b):
-                raise ValueError(
-                    f"_spearman: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
-                )
-            # Average ranks for ties, as scipy.stats.spearmanr does on the CPU path. The double
-            # argsort this replaces broke ties by position, so tied data gave a different rho on
-            # the GPU and a constant vector got distinct ranks instead of an undefined result.
-            from scipy.stats import rankdata
-            a_rank = cp.asarray(rankdata(cp.asnumpy(a)))
-            b_rank = cp.asarray(rankdata(cp.asnumpy(b)))
-            n = len(a)
-            a_mean = cp.mean(a_rank)
-            b_mean = cp.mean(b_rank)
-            a_std = cp.std(a_rank)
-            b_std = cp.std(b_rank)
-            if float(a_std) == 0.0 or float(b_std) == 0.0:
-                rho = cp.array(cp.nan)
-            else:
-                rho = cp.mean((a_rank - a_mean) * (b_rank - b_mean)) / (a_std * b_std)
-            df = n - 2
-            t = rho * cp.sqrt(df) / cp.sqrt(1 - rho ** 2 + 1e-12)
-            
-            # Parametric p-value calculated on CPU/GPU boundary
-            t_cpu = float(t.get()) if hasattr(t, "get") else float(t)
-            from scipy.stats import t as sp_t
-            p_val = 2 * sp_t.sf(abs(t_cpu), df)
-            return rho, t, cp.abs(rho), np.float64(p_val), float(df)
-    except ImportError:
-        pass
-
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.reshape(-1) if x1.ndim > 1 else x1
     b = x2.reshape(-1) if x2.ndim > 1 else x2
@@ -134,22 +65,6 @@ def _kendall(x1, x2, axis=-1, **kwargs):
 
 
 def _cosine(x1, x2, axis=-1, **kwargs):
-    try:
-        import cupy as cp
-        if isinstance(x1, cp.ndarray) or (x2 is not None and isinstance(x2, cp.ndarray)):
-            a = x1.ravel()
-            y2 = x2 if x2 is not None else x1
-            b = y2.ravel()
-            if len(a) != len(b):
-                raise ValueError(
-                    f"_cosine: vector length mismatch (len(x1)={len(a)}, len(x2)={len(b)})"
-                )
-            na, nb = float(cp.linalg.norm(a)), float(cp.linalg.norm(b))
-            sim = cp.dot(a / na, b / nb) if na > 0 and nb > 0 else cp.array(cp.nan)
-            return sim, sim, cp.abs(sim), None, None
-    except ImportError:
-        pass
-
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     a = x1.ravel()
     b = x2.ravel()
@@ -182,6 +97,17 @@ def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
 
+def _centred_columns(X):
+    """``X`` minus its column means, with every constant column exactly 0.
+
+    The mean of a constant column is not its value in floating point, so the subtraction left
+    rounding residue, and the scale-free ratio of `_cka` and `_rv` turned it into about 1e-33
+    for a constant pattern, where the value is undefined (NaN).
+    """
+    return np.where(is_constant(X, axis=0, keepdims=True), 0.0,
+                    X - np.mean(X, axis=0, keepdims=True))
+
+
 def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     """Centered Kernel Alignment optimized for linear complexity O(md^2) when d << m."""
     # The linear-kernel identity below is what makes this O(m*d1*d2) rather than O(m^3);
@@ -206,9 +132,9 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     # Then centered Gram matrix is X_c @ X_c.T.
     # Its trace/dot product is equivalent to trace((X_c @ X_c.T) @ (Y_c @ Y_c.T))
     # which can be computed as ||X_c.T @ Y_c||_F^2, which is O(m * d1 * d2) instead of O(m^3).
-    X_c = X - np.mean(X, axis=0, keepdims=True)
-    Y_c = Y - np.mean(Y, axis=0, keepdims=True)
-    
+    X_c = _centred_columns(X)
+    Y_c = _centred_columns(Y)
+
     # Calculate trace of Kx_c @ Ky_c which is ||X_c.T @ Y_c||_F^2
     # CKA is invariant to scaling either input, so normalise first. The ratio used to carry a
     # 1e-12 offset under a quantity that scales as amplitude^8, which drove CKA toward 0 for
@@ -246,8 +172,8 @@ def _rv(x1, x2, axis=-1, **kwargs):
     # two representations sharing an offset look identical: two independent Gaussian
     # samples shifted by +50 returned RV = 1.0000, and independent zero-mean samples
     # returned 0.16 where the centred value is the small-sample floor.
-    X = X - X.mean(axis=0, keepdims=True)
-    Y = Y - Y.mean(axis=0, keepdims=True)
+    X = _centred_columns(X)
+    Y = _centred_columns(Y)
 
     # RV is invariant to scaling either input; normalise first (see _cka).
     nx, ny = np.linalg.norm(X), np.linalg.norm(Y)
@@ -515,9 +441,9 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
 
     Returns:
         (psi, jackknife_z, |psi|, p, None) — ``psi`` keeps its physical scale;
-        ``statistic`` is now the jackknife z rather than a copy of ``psi``, and
-        ``p`` is the two-sided normal-approximation p-value on that z (previously
-        both were ``None``).
+        ``statistic`` is the jackknife z rather than a copy of ``psi``, and ``p`` is
+        the lead p of :func:`jnwb.phase_slope_index`: two-sided, from a Student t
+        with ``n_segments - 1`` degrees of freedom on that z, not a normal tail.
     """
     # PSI delegates to jnwb.connectivity's segmented estimator.
     from ..connectivity import phase_slope_index as _psi_impl

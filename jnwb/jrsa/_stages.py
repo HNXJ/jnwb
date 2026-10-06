@@ -180,24 +180,25 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
         if n2 < target:
             idx = xp2.round(xp2.linspace(0, n2 - 1, target)).astype(int)
             x2 = xp2.take(x2, idx, axis=axis)
-    elif align in ("interpolate", "linear"):
-        try:
-            from scipy.interpolate import interp1d
-            def _interp(arr, n_src, n_tgt, ax):
-                xp = _get_xp(arr)
-                is_gpu = (xp.__name__ == "cupy")
-                arr_cpu = arr.get() if is_gpu else arr
-                xold = np.linspace(0, 1, n_src)
-                xnew = np.linspace(0, 1, n_tgt)
-                f = interp1d(xold, arr_cpu, axis=ax, kind="linear", fill_value="extrapolate")
-                res = f(xnew)
-                return xp.asarray(res) if is_gpu else res
-            if n1 != target:
-                x1 = _interp(x1, n1, target, axis)
-            if n2 != target:
-                x2 = _interp(x2, n2, target, axis)
-        except ImportError:
-            x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
+    elif align in ("interpolate", "linear", "cubic"):
+        # SciPy is a declared dependency. A missing one used to fall back to 'downsample'
+        # while `parameters['align']` echoed the interpolation requested; it now raises.
+        from scipy.interpolate import interp1d
+        kind = "cubic" if align == "cubic" else "linear"
+
+        def _interp(arr, n_src, n_tgt, ax):
+            xp = _get_xp(arr)
+            is_gpu = (xp.__name__ == "cupy")
+            arr_cpu = arr.get() if is_gpu else arr
+            xold = np.linspace(0, 1, n_src)
+            xnew = np.linspace(0, 1, n_tgt)
+            f = interp1d(xold, arr_cpu, axis=ax, kind=kind, fill_value="extrapolate")
+            res = f(xnew)
+            return xp.asarray(res) if is_gpu else res
+        if n1 != target:
+            x1 = _interp(x1, n1, target, axis)
+        if n2 != target:
+            x2 = _interp(x2, n2, target, axis)
     elif align == "nearest":
         if n1 > target:
             idx = xp1.round(xp1.linspace(0, n1 - 1, target)).astype(int)
@@ -205,24 +206,6 @@ def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
         if n2 > target:
             idx = xp2.round(xp2.linspace(0, n2 - 1, target)).astype(int)
             x2 = xp2.take(x2, idx, axis=axis)
-    elif align == "cubic":
-        try:
-            from scipy.interpolate import interp1d
-            def _interp_cubic(arr, n_src, n_tgt, ax):
-                xp = _get_xp(arr)
-                is_gpu = (xp.__name__ == "cupy")
-                arr_cpu = arr.get() if is_gpu else arr
-                xold = np.linspace(0, 1, n_src)
-                xnew = np.linspace(0, 1, n_tgt)
-                f = interp1d(xold, arr_cpu, axis=ax, kind="cubic", fill_value="extrapolate")
-                res = f(xnew)
-                return xp.asarray(res) if is_gpu else res
-            if n1 != target:
-                x1 = _interp_cubic(x1, n1, target, axis)
-            if n2 != target:
-                x2 = _interp_cubic(x2, n2, target, axis)
-        except ImportError:
-            x1, x2 = _resample_axis(x1, x2, axis, n1, n2, "downsample", align_mode)
     else:
         # The chain used to end here with no `else`, so an unrecognised `align` returned both
         # arrays untouched while `_align_dimensions` still appended the axis to `aligned_axes`
