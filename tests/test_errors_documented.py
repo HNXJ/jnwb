@@ -35,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+from tests._sources import read_sources, unread_by  # noqa: E402
 from tests.test_docs_user_navigation import (  # noqa: E402
     declared_off_the_nav,
     excluded_from_the_site,
@@ -206,9 +207,11 @@ class TestTheMessagesOnThePageAreTheRealOnes:
 
     @staticmethod
     def _source_text():
-        source_dir = DOCS.parent / "jnwb"
-        return "\n".join(p.read_text(encoding="utf-8")
-                         for p in sorted(source_dir.rglob("*.py")))
+        return "\n".join(source.text for source in read_sources("error-messages"))
+
+    def test_the_source_read_is_every_file_that_defines_a_public_name(self):
+        self._source_text()
+        assert unread_by("error-messages") == []
 
     @pytest.mark.parametrize("fragment", QUOTED)
     def test_each_quoted_fragment_is_in_the_source(self, fragment):

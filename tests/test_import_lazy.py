@@ -211,20 +211,36 @@ class TestWhatImportingJnwbActuallyCosts:
             f"the eager surface shrank to {sorted(eager)}; docs/install.md still "
             f"describes scipy, pandas and pynwb as eagerly loaded")
 
+    @staticmethod
+    def _scipy_importers():
+        """Top-level jnwb modules (a package counts once) that import scipy at module scope."""
+        import re
+
+        from tests._sources import read_sources
+
+        importers = []
+        package = REPO_ROOT / "jnwb"
+        for source in read_sources("scipy-importers"):
+            head = source.text
+            name = source.path.relative_to(package).parts[0].removesuffix(".py")
+            if (re.search(r"^(from scipy|import scipy)", head, re.MULTILINE)
+                    and name not in importers):
+                importers.append(name)
+        return importers
+
+    def test_the_scipy_importer_scan_reads_every_file_that_defines_a_public_name(self):
+        from tests._sources import unread_by
+
+        self._scipy_importers()
+        assert unread_by("scipy-importers") == []
+
     def test_deferring_one_module_cannot_remove_a_shared_dependency(self):
         """The mechanism behind the item's failure, stated as an executable fact: more
         than one eagerly imported module imports scipy at module scope, so no single
         deferral removes it."""
         import re
 
-        importers = []
-        package = REPO_ROOT / "jnwb"
-        for path in sorted(package.rglob("*.py")):
-            head = path.read_text(encoding="utf-8", errors="replace")
-            name = path.relative_to(package).parts[0].removesuffix(".py")
-            if (re.search(r"^(from scipy|import scipy)", head, re.MULTILINE)
-                    and name not in importers):
-                importers.append(name)
+        importers = self._scipy_importers()
 
         init = (REPO_ROOT / "jnwb" / "__init__.py").read_text(encoding="utf-8")
         eager_importers = [m for m in importers

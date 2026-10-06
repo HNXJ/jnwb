@@ -702,16 +702,16 @@ class TestNoKeyAssertsAnUncorrectedCorrection:
         would have concealed a reintroduction in ``compare_groups`` from every assertion
         made on the wrapper's own return.
         """
-        import inspect
+        from tests._sources import read_sources, unread_by
 
-        import jnwb.statistics as statistics_module
-
-        src = inspect.getsource(statistics_module)
-        assert "fdr_pval_parametric" not in src, (
-            "jnwb/statistics.py still names a key no code path assigns; a reader takes "
-            "the name for a returned value, which is what 06-44 was reported as"
-        )
-        assert "fdr_pval_nonparametric" not in src
+        for source in read_sources("statistics-keys", "jnwb.statistics"):
+            src = source.text
+            assert "fdr_pval_parametric" not in src, (
+                f"{source.path.name} still names a key no code path assigns; a reader takes "
+                "the name for a returned value, which is what 06-44 was reported as"
+            )
+            assert "fdr_pval_nonparametric" not in src, source.path.name
+        assert unread_by("statistics-keys", "jnwb.statistics") == []
 
 
 # ── The caller names the primary test ──────────────────────────────────
@@ -1267,4 +1267,25 @@ def test_a_finite_difference_too_large_to_represent_keeps_its_sign(paired):
     par = StatisticalAnalysis.compare_groups(np.full(6, 1e308), np.full(6, -1e308),
                                              paired=paired)["parametric"]
     assert par["statistic"] == np.inf and par["pval"] == 0.0, par
+
+
+def test_the_source_list_follows_definitions_into_the_package_submodules():
+    """A source scan of `jnwb.statistics` must read the submodules that define its names. The
+    class keeps `jnwb.statistics` as `__module__`, so it is located by its definition."""
+    from tests._sources import _defining_file, public_definition_files
+
+    assert {p.name for p in public_definition_files("jnwb.statistics")} == {
+        "_analysis.py", "_cluster.py", "_firing.py", "_regression.py", "_tests.py",
+        "_trials.py"}
+    assert StatisticalAnalysis.__module__ == "jnwb.statistics"
+    assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
+
+
+def test_the_source_list_covers_subpackage_all_and_optional_modules():
+    """Names exported by a subpackage's `__all__` and the optional modules are public too."""
+    from tests._sources import public_definition_files
+
+    listed = {p.relative_to(p.parents[1]).as_posix() for p in public_definition_files()}
+    assert {"testing/synth.py", "testing/nwb_fixtures.py", "mcp_server/event_tools.py",
+            "mcp_server/nwb_tools.py", "mcp_server/__main__.py", "jnwb/nam.py", "jnwb/bilinear.py"} <= listed, listed
 

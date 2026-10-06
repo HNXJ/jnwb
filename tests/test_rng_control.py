@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import inspect
 import re
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -76,10 +75,14 @@ class TestNoRandomizedFunctionHidesItsSeed:
     def test_no_seed_literal_survives_in_a_function_body(self):
         """The repair is the absence of this pattern, so grep for it rather than trusting
         that the eight above are all of them."""
-        for mod in ("statistics.py", "decoding.py"):
-            src = (Path(jnwb.__file__).parent / mod).read_text(encoding="utf-8")
-            hits = re.findall(r"default_rng\((\d+)\)", src)
-            assert not hits, f"{mod}: seed literal(s) {hits} still inside a body"
+        from tests._sources import read_sources, unread_by
+
+        for within in ("jnwb.statistics", "jnwb.decoding"):
+            label = f"seed-literals {within}"
+            for source in read_sources(label, within):
+                hits = re.findall(r"default_rng\((\d+)\)", source.text)
+                assert not hits, f"{source.path.name}: seed literal(s) {hits} still inside a body"
+            assert unread_by(label, within) == []
 
     def test_the_named_constant_is_the_seed_that_was_hiding(self):
         assert DEFAULT_SEED == 42
