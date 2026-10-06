@@ -829,18 +829,35 @@ class TestXFlipRecordsItsSeed:
                  for _ in range(4)}
         assert len(draws) > 1
 
-    def test_an_int_seed_is_recorded_as_given_and_draws_the_same_stream(self):
+    def test_an_int_seed_is_recorded_and_keeps_its_stream(self, monkeypatch):
+        """An int seed draws `default_rng(seed)`, the stream a Generator consumed in place
+        drew before the child seed."""
+        import jnwb._rng
+        from jnwb.laminar import _xflip
+
         data = self._data()
         res = xflip(data, n_surrogates=40, rng=123)
         assert res.surrogate_seed_entropy == 123
+        monkeypatch.setattr(_xflip, "recorded_rng", jnwb._rng.surrogate_rng)
         assert res.p_values == xflip(data, n_surrogates=40,
                                      rng=np.random.default_rng(123)).p_values
 
-    def test_a_generator_and_an_untested_partition_record_none(self):
+    def test_a_generator_records_the_child_seed_that_reproduces_p(self):
+        """A `Generator` recorded None, so its p-values could not be reproduced from the
+        result; one child draw now seeds the surrogates and is recorded."""
         data = self._data()
-        assert xflip(data, n_surrogates=10,
-                     rng=np.random.default_rng(1)).surrogate_seed_entropy is None
-        assert xflip(data, n_surrogates=0, rng=3).surrogate_seed_entropy is None
+        caller = np.random.default_rng(1)
+        first = xflip(data, n_surrogates=40, rng=caller)
+        assert isinstance(first.surrogate_seed_entropy, int)
+        assert xflip(data, n_surrogates=40,
+                     rng=first.surrogate_seed_entropy).p_values == first.p_values
+        # The caller's stream advanced by exactly the one child draw.
+        replay = np.random.default_rng(1)
+        assert int(replay.integers(0, 2**63 - 1)) == first.surrogate_seed_entropy
+        assert caller.random() == replay.random()
+
+    def test_an_untested_partition_records_none(self):
+        assert xflip(self._data(), n_surrogates=0, rng=3).surrogate_seed_entropy is None
 
     @pytest.mark.parametrize("bad", [2.7, True])
     def test_a_float_or_bool_seed_is_refused(self, bad):

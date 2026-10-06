@@ -1,0 +1,1 @@
+- `vflip`, `vflip_from_lfp` and `label_layers` raise `ValueError` when the declared `depth_axis` is not monotone along the shaft, as the lateral column of a staggered shaft is not. Only the two end contacts were compared, so on a staggered shaft with an even number of contacts the lateral column was accepted as depth.

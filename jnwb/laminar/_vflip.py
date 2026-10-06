@@ -51,7 +51,10 @@ class VFlipResult(DictAccessMixin):
             z falls with depth it falls as ``crossover_depth_um`` rises. None if rejected,
             if no `probe_geometry` was given, or if z does not vary along the shaft.
         support_score: Support metric Omega evaluating contrast magnitude, peak separation,
-            and transition sharpness. Returned for both accepted and rejected fits.
+            and transition sharpness, as the natural logarithm of their density-normalized
+            product. Returned for both accepted and rejected fits; ``-inf`` when that
+            product is zero or too few channels are valid, so no finite
+            `min_support_score` accepts such a fit.
         profile: 1D array of shape (n_channels,) containing the spectrolaminar difference
             profile Delta(c) along the ordered contacts, built from the two band depth
             profiles after each is rescaled to [0, 1]. Its zero crossing is the reported
@@ -212,6 +215,14 @@ def _depth_anchored_order(
             f"{func_name}: {depth_axis!r} does not change between the two ends of the shaft "
             f"({first} and {last} um), so it cannot say which end is shallow"
         )
+    # Depth is monotone along the shaft; a column that rises and falls along it, as the
+    # lateral column of a staggered shaft does, is not depth.
+    steps = np.diff(positions[np.asarray(order), column])
+    if not np.all(np.isfinite(steps)) or (np.any(steps > 1e-6) and np.any(steps < -1e-6)):
+        raise ValueError(
+            f"{func_name}: {depth_axis!r} is not monotone along the shaft, as the lateral "
+            "column of a staggered shaft is not, so it is not a depth axis"
+        )
     shallow_first = first < last if shallow_end == "min" else first > last
     return (np.asarray(order) if shallow_first else np.asarray(order)[::-1]), "shallowest"
 
@@ -257,6 +268,13 @@ def vflip(
     Evaluates the canonical spectrolaminar motif (Mendoza-Halliday et al. 2024), where
     supragranular (superficial) layers exhibit predominant high-frequency (gamma) power
     and infragranular (deep) layers exhibit predominant low-frequency (alpha/beta) power.
+
+    `vflip` shares its name with the FLIP and the frequency-variable vFLIP of that paper,
+    not their procedure. The paper divides each frequency by the power of the channel with
+    the highest power, uses 10-19 Hz and 75-150 Hz, and fits linear regressions over the
+    channel range that maximizes a goodness of fit; vFLIP also searches over band pairs.
+    `vflip` normalizes by the range across contacts, uses fixed default bands and scores the
+    fit by its support score Omega, so its crossover is not a FLIP or vFLIP crossover.
 
     Mathematical Estimator:
         1. Expresses power as relative power per frequency across contacts along the
@@ -320,7 +338,9 @@ def vflip(
             is never modified. ``"x"``, ``"y"`` and ``"z"`` name columns 0, 1 and 2 of
             `contact_positions`, so ``"z"`` is the table's ``rel_z`` when it has no
             ``x``/``y``/``z`` columns. The axis is refused when its values at the two end
-            contacts of the shaft are within 1e-6 um of each other.
+            contacts of the shaft are within 1e-6 um of each other, or when it is not
+            monotone along the shaft (steps of 1e-6 um or less count as level), as the
+            lateral column of a staggered shaft is not.
         shallow_end: Which end of `depth_axis` is shallow: ``"min"`` or ``"max"``. jnwb
             does not infer it, because coordinate conventions differ between files. A
             motif that places the deep layers at the declared shallow end rejects the fit
@@ -341,7 +361,8 @@ def vflip(
             (the depth would then not be in the frame :func:`label_layers` measures),
             ``orientation="deep_to_superficial"`` comes with a depth declaration, or the
             depth declaration is incomplete, names an unknown axis or end, comes without a
-            `probe_geometry`, or names an axis that does not change along the shaft.
+            `probe_geometry`, or names an axis that does not change along the shaft or is
+            not monotone along it.
     """
     # 1. Parameter validation
     if not np.isfinite(min_support_score):
@@ -663,7 +684,9 @@ def vflip(
     sep_metric = float(max(1, peak_sep))
 
     metric = (p_dist * band_dist * max(1e-4, contrast) * sep_metric) / density_scale
-    support_score = float(np.log(max(1e-12, metric)))
+    # No floor: a floor reported every metric below it as one finite score, which a caller
+    # threshold under that score accepted. A metric of zero has no support at all.
+    support_score = float(np.log(metric)) if metric > 0 else -np.inf
 
     # 9. Acceptance determination
     accepted = True
@@ -800,8 +823,8 @@ def vflip_from_lfp(
         Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field
         potential power across the primate cortex. Nature Neuroscience.
         doi:10.1038/s41593-023-01554-7 -- the spectrolaminar motif :func:`vflip` tests for;
-        the :mod:`jnwb.laminar` module docstring says how its estimator differs from the
-        paper's FLIP and vFLIP.
+        the :func:`vflip` docstring says how its estimator differs from the paper's FLIP
+        and vFLIP.
         Bastos, A. M., et al. (2018). Laminar recordings in frontal cortex suggest distinct
         layers for maintenance and control of working memory. PNAS.
         doi:10.1073/pnas.1710323115 -- Results, "Gamma Power Peaks in Superficial Layers

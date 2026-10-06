@@ -172,8 +172,8 @@ def test_zflip_a_constant_contact_leaves_the_shaft_without_a_delay():
     assert jnwb.zflip(data, **kwargs).accepted
     data[4] = 1.0
     res = jnwb.zflip(data, **kwargs)
-    # A constant contact skips the surrogates, so no pair has its null either.
-    assert not res.adjacent_identifiable.any()
+    # The pairs the constant contact touches have no wPLI and no null; the others draw theirs.
+    assert res.adjacent_identifiable.tolist() == [True, True, True, False, False]
     assert "Contact(s) [4] constant" in res.rejection_reason
     assert not res.delay_identifiable
     assert np.isnan(res.tau_per_channel_s)
@@ -401,17 +401,60 @@ def test_zflip_a_contact_that_is_an_exact_ramp_is_refused_like_a_constant_one():
 
 
 def test_zflip_a_cumsum_built_ramp_is_refused_as_linear_in_time():
-    """A ramp built by cumulative summation is refused although its round-off is not exact.
-
-    Its residual measures about 73 eps of its magnitude, above what an exact ramp leaves
-    (at most 1.5) and inside the 1000-eps width. A width narrowed towards exact ramps keeps
-    it as a contact and measures its residue.
-    """
+    """A ramp built by cumulative summation is refused although its round-off is not exact."""
     rows = _unit_sd_lagged_rows(8000, 11)
     rows[4] = 3.0 + np.cumsum(np.full(8000, 0.1))
     res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
     assert np.isnan(res.adjacent_wpli[3]) and not res.adjacent_identifiable[3]
     assert "Contact(s) [4] linear in time to round-off" in res.rejection_reason
+
+
+def test_zflip_a_long_cumsum_ramp_is_refused_as_linear_in_time():
+    """At 1e5 samples a cumulative-sum ramp left a line-fit residual of about 3400 eps,
+    beyond the old 1000-eps width, so it was measured as a contact. Its second difference
+    stays at the round-off of single samples."""
+    rows = np.random.default_rng(0).normal(size=(5, 100_000))
+    rows[2] = 3.0 + np.cumsum(np.full(100_000, 1e-3))
+    res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    assert "Contact(s) [2] linear in time to round-off" in res.rejection_reason
+
+
+@pytest.mark.parametrize("n", [16, 1000, 100_000])
+def test_the_ramp_rule_flags_every_ramp_construction(n):
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    ramps = np.array([3.0 + np.cumsum(np.full(n, 1e-3)), -1e6 + 7.0 * np.arange(n),
+                      np.linspace(1e11, 1e11 + 5.0 * n, n)])
+    assert _linear_to_roundoff(ramps).all()
+
+
+def test_the_ramp_rule_flags_the_worst_ramps_measured():
+    """The ramps above reach only 0.58 eps, so a threshold anywhere above that passed them.
+    These are the worst constructions measured: a short linspace at 1.0 eps, a long cumsum at
+    0.86, and a ramp at the bottom of a binade moved by -1, 0 or +1 ulp per sample at 2.2."""
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    base = 1.0 + 1e-12 * np.arange(10_000)
+    steps = np.random.default_rng(0).integers(-1, 2, size=base.size)
+    rows = [np.linspace(1.0, 1.0 + 1.6e-5, 16),
+            1.0 + np.cumsum(np.full(100_000, 1e-9)),
+            base + steps * np.spacing(base)]
+    eps = np.finfo(float).eps
+    measured = [np.sqrt(np.mean(np.diff(r, 2) ** 2)) / (eps * np.max(np.abs(r))) for r in rows]
+    assert measured[0] > 0.99 and measured[1] > 0.8 and measured[2] > 2.1, measured
+    for row in rows:
+        assert _linear_to_roundoff(row[None])[0]
+
+
+def test_the_ramp_rule_keeps_a_signal_with_real_curvature():
+    """A unit 15 Hz sine on an offset of 1e12 has a second difference of about 28 eps of its
+    magnitude: kept at the threshold of 4, flagged by a threshold of 30 or more. A parabola
+    is curved everywhere and is kept at any threshold near it."""
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    t = np.arange(8000) / 1000.0
+    rows = np.array([1e12 + np.sin(2 * np.pi * 15.0 * t), (t - 4.0) ** 2])
+    assert _linear_to_roundoff(rows).tolist() == [False, False]
 
 
 def test_zflip_a_signal_on_a_large_offset_is_not_refused_as_linear_in_time():
@@ -721,14 +764,68 @@ def test_zflip_the_entropy_recorded_for_rng_none_reproduces_p():
     assert len({_zflip_noise(None).p_value for _ in range(4)} | {first.p_value}) > 1
 
 
-def test_zflip_an_int_seed_is_recorded_as_given_and_draws_the_same_stream():
+def test_zflip_an_int_seed_is_recorded_and_keeps_its_stream(monkeypatch):
+    """An int seed draws `default_rng(seed)`, the stream a Generator consumed in place drew
+    before the child seed."""
+    import jnwb._rng
+    from jnwb.laminar import _zflip
+
     res = _zflip_noise(123)
     assert res.surrogate_seed_entropy == 123
+    monkeypatch.setattr(_zflip, "recorded_rng", jnwb._rng.surrogate_rng)
     assert res.p_value == _zflip_noise(np.random.default_rng(123)).p_value
 
 
-def test_zflip_a_generator_and_an_untested_fit_record_none():
-    assert _zflip_noise(np.random.default_rng(1)).surrogate_seed_entropy is None
+def test_zflip_a_generator_records_the_child_seed_that_reproduces_p():
+    """A `Generator` recorded None; one child draw now seeds the surrogates and is recorded."""
+    first = _zflip_noise(np.random.default_rng(1))
+    assert isinstance(first.surrogate_seed_entropy, int)
+    assert _zflip_noise(first.surrogate_seed_entropy).p_value == first.p_value
+    assert first.surrogate_seed_entropy == int(
+        np.random.default_rng(1).integers(0, 2**63 - 1))
+
+
+def _delayed_copies(n_contacts, tau_s=1e-3, fs=1000.0, n=4000):
+    """One broadband signal on every contact, delayed by `tau_s` more at each."""
+    spectrum = np.fft.rfft(np.random.default_rng(0).normal(size=n))
+    f = np.fft.rfftfreq(n, 1.0 / fs)
+    return np.array([np.fft.irfft(spectrum * np.exp(-2j * np.pi * f * k * tau_s), n=n)
+                     for k in range(n_contacts)])
+
+
+def test_zflip_pairs_a_flat_contact_does_not_touch_draw_their_own_nulls():
+    """A flat contact skipped the surrogates for the whole shaft, so pairs it does not
+    touch were refused for want of a null they could have drawn."""
+    lfp = np.vstack([_delayed_copies(4), np.full((1, 4000), 3.0)])
+    res = jnwb.zflip(lfp, 1000.0, orientation="superficial_to_deep", n_surrogates=30, rng=0)
+    assert res.adjacent_identifiable.tolist() == [True, True, True, False]
+    assert np.allclose(res.adjacent_delays_s[:3], 1e-3, rtol=0.05)
+    assert np.isnan(res.adjacent_delays_s[3]) and np.isnan(res.p_value)
+    assert not res.accepted and res.surrogate_seed_entropy == 0
+
+
+def test_zflip_a_zero_delay_gradient_has_no_direction_and_no_velocity(monkeypatch):
+    """No input is known to reach the zero-gradient guard, so the spatial fit is patched to
+    return a zero slope on a recording whose every pair is identifiable."""
+    from jnwb.laminar import _zflip
+
+    real = _zflip.stats.linregress
+
+    def spatial_slope_zero(x, y):
+        res = real(x, y)
+        if np.array_equal(x, np.arange(len(x), dtype=float)):
+            return type("Fit", (), {"slope": 0.0, "rvalue": 1.0})()
+        return res
+
+    monkeypatch.setattr(_zflip.stats, "linregress", spatial_slope_zero)
+    res = jnwb.zflip(_delayed_copies(4), 1000.0, orientation="superficial_to_deep",
+                     pitch_um=50.0, n_surrogates=30, rng=0)
+    assert res.adjacent_identifiable.all()
+    assert res.directionality == "unidentifiable" and res.apparent_velocity_m_s is None
+    assert "zero to round-off" in res.rejection_reason
+
+
+def test_zflip_an_untested_fit_records_none():
     assert _zflip_noise(3, n_surrogates=0).surrogate_seed_entropy is None
 
 

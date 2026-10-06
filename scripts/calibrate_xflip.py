@@ -3,10 +3,11 @@
     python scripts/calibrate_xflip.py [--n-seeds 30] [--n-surrogates 200]
 
 Writes ``artifacts/benchmarks/xflip_calibration_0.2.5.md`` and
-``xflip_calibration_0.2.5_raw.json``. The JSON records a SHA-256 over ``xflip`` and every
-module-level function in ``jnwb.laminar`` it can reach, so
-``tests/test_xflip_calibration_receipt.py`` fails when the estimator changes without this
-script being rerun.
+``xflip_calibration_0.2.5_raw.json``. The JSON records a SHA-256 over the code of ``xflip``
+and every top-level function, class and constant it can reach in any jnwb module, with
+docstrings and comments removed, so ``tests/test_xflip_calibration_receipt.py`` fails when
+the estimator's code changes without this script being rerun, and a docstring or comment
+edit leaves the receipt current.
 
 This replaces ``xflip_calibration_0.2.3.md``, which was produced under 0.2.3 with no
 generator and could not be regenerated. Two changes had already invalidated it: 0.2.4 made
@@ -37,10 +38,9 @@ Automatic block count (the surrogate test alone can reject):
     ``contiguous`` paths: the fraction of seeds with omnibus p at or below ``alpha``.
     Seeds run in worker processes; each seed's result does not depend on the worker count.
 
-The closure hashed here is recomputed rather than imported from
-``scripts/calibrate_vflip.py``. The same walk is written a third time in
-``tests/test_xflip_calibration_receipt.py``, deliberately: that copy is the oracle the
-generator is checked against, and an oracle that imports the thing it checks certifies
+The walk and the hash rule here are the ones ``scripts/calibrate_vflip.py`` imports. The
+walk is written a second time in each receipt test, deliberately: that copy is the oracle
+the generator is checked against, and an oracle that imports the thing it checks certifies
 nothing.
 """
 
@@ -52,12 +52,14 @@ import hashlib
 import importlib
 import importlib.util
 import inspect
+import io
 import json
 import os
 import pathlib
 import platform
 import sys
 import time
+import tokenize
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -107,21 +109,82 @@ def _module_table(modname: str):
     return source, nodes, imported
 
 
-def estimator_sources() -> list[tuple[str, str]]:
-    """`xflip` and every top-level function, class and constant it can reach, in any jnwb module.
+def code_only(source: str) -> str:
+    """``source`` with its docstrings, comments and blank lines removed.
+
+    A docstring is any statement that is a bare string; a comment is a tokenizer comment.
+    Both are cut from the text by position, so what remains is the source as written,
+    on every interpreter, rather than a re-rendering of its syntax tree. Trailing spaces
+    and blank lines are dropped only outside string literals: the lines a multi-line string
+    literal runs through are kept byte for byte, since their spaces and blank lines are the
+    string's value.
+    """
+    lines = source.splitlines()
+
+    def char_col(lineno: int, byte_col: int) -> int:
+        # ast reports columns in UTF-8 bytes, the tokenizer in characters.
+        return len(lines[lineno - 1].encode("utf-8")[:byte_col].decode("utf-8"))
+
+    docstrings = [
+        (node.lineno, char_col(node.lineno, node.col_offset),
+         node.end_lineno, char_col(node.end_lineno, node.end_col_offset))
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    ]
+    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    cuts = docstrings + [(*tok.start, *tok.end) for tok in tokens
+                         if tok.type == tokenize.COMMENT]
+
+    def in_docstring(pos) -> bool:
+        return any((a, b) <= pos < (c, d) for a, b, c, d in docstrings)
+
+    # Multi-line string literals, docstrings excepted: plain strings are one token; f- and
+    # t-strings run from a START token to the matching END token.
+    opening = {getattr(tokenize, n, None) for n in ("FSTRING_START", "TSTRING_START")} - {None}
+    closing = {getattr(tokenize, n, None) for n in ("FSTRING_END", "TSTRING_END")} - {None}
+    literals, open_at = [], []
+    for tok in tokens:
+        if tok.type == tokenize.STRING:
+            literals.append((tok.start, tok.end))
+        elif tok.type in opening:
+            open_at.append(tok.start)
+        elif tok.type in closing:
+            literals.append((open_at.pop(), tok.end))
+    # Every row the literal runs through to its end is protected; the row it closes on is
+    # not blank, and anything after the closing quote is outside it.
+    protected = [False] * len(lines)
+    for start, end in literals:
+        if end[0] > start[0] and not in_docstring(start):
+            for row in range(start[0] - 1, end[0] - 1):
+                protected[row] = True
+
+    rows = list(zip(lines, protected))
+    for first, start, last, end in sorted(cuts, reverse=True):
+        merged = rows[first - 1][0][:start] + rows[last - 1][0][end:]
+        rows[first - 1:last] = [(merged, rows[first - 1][1] or rows[last - 1][1])]
+    return "\n".join(text if keep else text.rstrip()
+                     for text, keep in rows if keep or text.strip())
+
+
+def estimator_sources(root=None) -> list[tuple[str, str]]:
+    """``root`` (default `xflip`) and every top-level function, class and constant it can
+    reach, in any jnwb module, each as :func:`code_only` of its source.
 
     Resolved from the call graph rather than listed, so a helper introduced later is
     covered without anyone remembering to add it, and sorted, so the digest does not
     depend on the order the graph is walked. A name reached in a function body is followed
     to its definition in the same module, or through a ``from .module import name`` to the
     module that defines it, so the tie rule in ``jnwb.permutation`` and its width constant
-    are hashed with the estimator that calls them. Names in ``jnwb.laminar`` are bare;
-    names elsewhere carry their module.
+    are hashed with the estimator that calls them. Names in the module defining ``root``
+    are bare; names elsewhere carry their module. A definition's decorators are part of
+    its code.
     """
-    home = xflip.__module__
+    root = xflip if root is None else root
+    home = root.__module__
     tables: dict = {}
     reached: dict[tuple[str, str], str] = {}
-    stack = [(home, xflip.__name__)]
+    stack = [(home, root.__name__)]
     while stack:
         modname, name = stack.pop()
         if (modname, name) in reached:
@@ -135,7 +198,9 @@ def estimator_sources() -> list[tuple[str, str]]:
         if name not in nodes:
             continue
         node = nodes[name]
-        reached[(modname, name)] = ast.get_source_segment(source, node)
+        first = min([node.lineno] + [d.lineno for d in getattr(node, "decorator_list", [])])
+        reached[(modname, name)] = code_only(
+            "\n".join(source.splitlines()[first - 1:node.end_lineno]))
         for sub in ast.walk(node):
             if isinstance(sub, ast.Name):
                 stack.append((modname, sub.id))
@@ -146,9 +211,9 @@ def estimator_sources() -> list[tuple[str, str]]:
     return sorted(named.items())
 
 
-def estimator_sha256() -> str:
+def estimator_sha256(root=None) -> str:
     digest = hashlib.sha256()
-    for name, source in estimator_sources():
+    for name, source in estimator_sources(root):
         digest.update(name.encode("utf-8"))
         digest.update(b"\0")
         digest.update(source.encode("utf-8"))
