@@ -221,6 +221,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", f"{MARK}: reads this repository's git data; skipped where there is no .git"
     )
+    if getattr(config.option, "numprocesses", None) and "PYTEST_XDIST_WORKER" not in os.environ:
+        # The xdist controller imports a reported warning's module on one receiving thread per
+        # worker; two first imports of scipy.stats racing there deadlock and take a worker down.
+        import scipy.stats  # noqa: F401
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

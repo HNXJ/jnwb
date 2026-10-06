@@ -98,7 +98,8 @@ ALLOWED: tuple[tuple[str, str, str], ...] = (
 
 
 def _public_docstrings(path: Path) -> list[tuple[int, str]]:
-    """Docstrings `help()` shows: the module's, unless it is private, and each public def's."""
+    """Docstrings `help()` shows: the module's, unless it is private, and each public def's; in a
+    private submodule of a package, a def is public where the package's `__init__` re-exports it."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out: list[tuple[int, str]] = []
 
@@ -110,7 +111,19 @@ def _public_docstrings(path: Path) -> list[tuple[int, str]]:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 visit(child, public and not child.name.startswith("_"))
 
-    visit(tree, not path.name.startswith("_") or path.name == "__init__.py")
+    if not path.name.startswith("_") or path.name == "__init__.py":
+        visit(tree, True)
+        return out
+    # A private submodule of a package: its defs are public where the package re-exports them.
+    init = path.with_name("__init__.py")
+    exported: set[str] = set()
+    if init.is_file():
+        for node in ast.walk(ast.parse(init.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and node.level == 1 and node.module == path.stem:
+                exported.update(alias.name for alias in node.names)
+    for child in ast.iter_child_nodes(tree):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            visit(child, child.name in exported and not child.name.startswith("_"))
     return out
 
 
