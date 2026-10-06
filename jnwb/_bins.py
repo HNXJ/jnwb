@@ -116,18 +116,38 @@ def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
     ``window`` and ``bin_width`` are in the same ``unit``, which the message names. A partial
     last bin holds less than ``bin_width`` of data, so its count is short and a rate divided by
     the full width reads low; a window stretched or shrunk to whole bins has no bin of the
-    stated width. The error names the nearest valid windows with the same start.
+    stated width. The error names the nearest valid windows with the same start, and refuses
+    a window whose end is not after its start, naming which.
     """
     start, end = float(window[0]), float(window[1])
     width = float(bin_width)
+    if not (np.isfinite(start) and np.isfinite(end) and end > start):
+        what = ("must have finite ends" if not (np.isfinite(start) and np.isfinite(end))
+                else "is reversed: its end precedes its start" if end < start
+                else "is empty: its end equals its start")
+        raise ValueError(f"{func_name}: {param}=({start:.10g}, {end:.10g}) {what}. "
+                         "Give (start, end) with finite ends and end > start.")
     n = (end - start) / width
     n_whole = int(round(n))
     if abs(n - n_whole) > _count_tolerance(start, end, width) or n_whole < 1:
         nearest = [(start, start + k * width) for k in (int(np.floor(n)), int(np.ceil(n))) if k >= 1]
+        p = _distinguishing_digits([start, end] + [b for _, b in nearest])
         raise ValueError(
-            f"{func_name}: {param}=({start:.10g}, {end:.10g}) spans {end - start:.10g} {unit}, "
+            f"{func_name}: {param}=({start:.{p}g}, {end:.{p}g}) spans {end - start:.10g} {unit}, "
             f"which is {n:g} bins of {width:g} {unit}, so the last bin would be partial. Use "
-            + " or ".join(f"{param}=({a:.10g}, {b:.10g})" for a, b in nearest)
+            + " or ".join(f"{param}=({a:.{p}g}, {b:.{p}g})" for a, b in nearest)
             + ", or a bin width that divides the span."
         )
     return n_whole
+
+
+def _distinguishing_digits(values) -> int:
+    """The fewest significant digits, ten or more, that print distinct ``values`` apart.
+
+    Windows far from zero differ past the tenth digit: at 3e12 ms a refused window and the
+    two suggested in its place all print as ``(3e+12, 3e+12)`` with ten.
+    """
+    for p in range(10, 17):
+        if len({f"{v:.{p}g}" for v in values}) == len(set(values)):
+            return p
+    return 17

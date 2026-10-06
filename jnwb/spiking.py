@@ -214,10 +214,11 @@ def classify_response_significance(
     ``N = 0``. Conditioning on the counts makes it exact for any pair of window lengths and
     keeps it valid when the rate varies from trial to trial. It assumes Poisson firing
     within a trial; bursting or refractoriness inside a window breaks that assumption.
-    Bursting makes the p-value too small: with no effect, 5 Hz firing in bursts of four
-    spikes over 200 trials puts about 30% of units below p = 0.05, because the test counts
-    each spike of a burst as an independent event. The p-value falls as trials accumulate
-    at a fixed effect.
+    Bursting makes the p-value too small, because the test counts each spike of a burst as
+    an independent event. With no effect, 5 Hz firing in bursts of four spikes over 200
+    trials and the default windows puts about 30% of units below p = 0.05 when the spikes
+    of a burst are 4 ms apart, and about 19% when they are 50 ms apart. The p-value falls
+    as trials accumulate at a fixed effect.
 
     ``response_zscore`` is the effect size: a response is significant when
     ``|response_zscore| >= zscore_threshold`` and ``p < alpha``. Among significant
@@ -462,8 +463,8 @@ def phase_locking_index(
         # z == 0 is a measured zero resultant, whose p-value is exactly 1.
         result['rayleigh_pvalue'] = 1.0
 
-        # P-value approximation for Rayleigh test
-        # For large n, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n) - (24*z - 132*z^2 + 76*z^3 - 9*z^4) / (288*n^2))
+        # P-value approximation for Rayleigh test: the large-n series truncated after its
+        # first-order term, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n)).
         if z > 0:
             pval = np.exp(-z) * (1 + (2*z - z**2) / (4*len(spike_phases)))
             # The series expansion goes negative for large z, and a negative p-value
