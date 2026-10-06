@@ -13,6 +13,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from ._units import resolve_unit_alias
+from .unit_quality import _positive_finite
 
 DEFAULT_TAU_MS = 30.0
 
@@ -55,7 +56,9 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
+    Raises ValueError if ``tau_ms`` is not finite and positive.
     """
+    tau_ms = _positive_finite(tau_ms, "tau_ms", "causal_exp_smooth")
     rate = np.asarray(rate, dtype=float)
     if rate.size == 0:
         return np.empty(0, dtype=float)
@@ -94,8 +97,8 @@ def fit_exponential_onset(
 ) -> dict:
     """Grid-search-over-t0, then bounded nonlinear least-squares fit of ``onset_model``.
 
-    2026-08-15 revision: a joint 4-parameter fit (t0, tau, amplitude, baseline optimized
-    together) turned out to be non-identifiable on real PSTHs -- for a smooth, gradually
+    Why a grid: a joint 4-parameter fit (t0, tau, amplitude, baseline optimized
+    together) is non-identifiable on real PSTHs -- for a smooth, gradually
     ramping rise (as opposed to the clean single-population step-like rises used in this
     module's original synthetic self-test), an early t0 paired with a large tau reproduces
     almost the same curve as a true later t0 with small tau, so the joint optimizer routinely
@@ -249,7 +252,7 @@ if __name__ == "__main__":
         {"t0_true": 150.0, "tau_true": 40.0, "amp_true": 15.0, "baseline_true": 8.0, "n_trials": 40},
         {"t0_true": 40.0, "tau_true": 15.0, "amp_true": 50.0, "baseline_true": 3.0, "n_trials": 80},
         {"t0_true": 300.0, "tau_true": 60.0, "amp_true": 10.0, "baseline_true": 6.0, "n_trials": 30},
-        # Broad/gradual rise, large tau -- the exact failure mode found on real PSTHs 2026-08-15:
+        # Broad/gradual rise, large tau -- the failure mode seen on real PSTHs:
         # a joint (t0,tau) fit could reproduce this curve almost as well with t0 near 0 and a
         # larger tau, so this case specifically stress-tests the t0-grid-search fix rather than
         # the original identifiability-friendly small-tau cases above. tau_true=120 sits near
