@@ -28,7 +28,7 @@ _TILT_DC_FLOOR_HZ = 0.5
 #: through a handful of points rather than an estimate.
 _MIN_TILT_BINS = 6
 
-#: Percentile of the clipped residual at or below which `aperiodic_fit(remove_peaks=True)`
+#: Percentile of the clipped residual at or below which `aperiodic_fit(robust=True)`
 #: keeps a bin for its second fit: FOOOF 1.1.0's `_ap_percentile_thresh`, in percent.
 _ROBUST_AP_PERCENTILE = 0.025
 
@@ -436,7 +436,7 @@ def aperiodic_fit(
     freq_range: Tuple[float, float],
     mode: str = "fixed",
     *,
-    remove_peaks: bool = False,
+    robust: bool = False,
 ) -> Union[AperiodicFitResult, List[Any]]:
     """
     Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.
@@ -467,14 +467,14 @@ def aperiodic_fit(
         freq_range: Tuple `(f_min, f_max)` in Hz defining the fitting range (inclusive).
             Must satisfy `0 < f_min < f_max`.
         mode: Model type, either `'fixed'` (k = 0) or `'knee'` (k > 0). Default is `'fixed'`.
-        remove_peaks: False (default) fits every bin in `freq_range`. True fits twice, as the
-            robust aperiodic fit of the reference implementation (FOOOF 1.1.0
-            `FOOOF._robust_ap_fit`): the second fit keeps only the bins whose residual
+        robust: False (default) fits every bin in `freq_range`. True is the robust
+            aperiodic fit of the reference implementation, `FOOOF._robust_ap_fit` (fooof
+            1.1.0; Donoghue et al. 2020): fit once, then refit only the bins whose residual
             above the first fit, clipped at 0, is at or below its 0.025th percentile, so
-            bins a peak lifts above the first fit are dropped. It does not fit Gaussian
-            peaks, so it is not the paper's final aperiodic estimate, which is refitted
-            after the peaks are subtracted. `r_squared` is then over the kept bins, and
-            the fit is rejected when fewer than 4 are kept.
+            bins a peak lifts above the first fit are left out. It detects and subtracts no
+            peak: it is the initial aperiodic fit of that algorithm, not the final one,
+            which is refitted after Gaussian peaks are subtracted. `r_squared` is then over
+            the kept bins, and the fit is rejected when fewer than 4 are kept.
 
     Returns:
         :class:`AperiodicFitResult` dataclass for 1D input, or nested list/array of results
@@ -492,7 +492,10 @@ def aperiodic_fit(
         paper's algorithm fits the aperiodic component after detecting and removing
         periodic peaks. By default this function fits it to every bin in `freq_range` and
         removes nothing, so an oscillatory peak inside the range steepens or flattens the
-        fitted exponent; choose a range without peaks, or pass `remove_peaks=True`.
+        fitted exponent; choose a range without peaks, or pass `robust=True`, which
+        lessens the bias without removing the peak.
+        FOOOF (fooof-tools.github.io/fooof), `FOOOF._robust_ap_fit` -- the reference for
+        `robust=True`, including its 0.025 percentile threshold (`_ap_percentile_thresh`).
     """
     if mode not in ("fixed", "knee"):
         raise ValueError(f"Invalid mode '{mode}'. Must be 'fixed' or 'knee'.")
@@ -589,13 +592,13 @@ def aperiodic_fit(
         log_power = np.log10(p_1d[mask])
         try:
             b, chi, k, r2, fitted = _fit(fit_freqs, log_freqs, log_power)
-            if remove_peaks:
+            if robust:
                 # FOOOF 1.1.0 `_robust_ap_fit`: residual above the first fit, clipped at 0,
                 # and the bins at or below its `_ap_percentile_thresh` (0.025) percentile.
                 flat = np.maximum(log_power - fitted, 0.0)
                 keep = flat <= np.percentile(flat, _ROBUST_AP_PERCENTILE)
                 if int(np.sum(keep)) < 4:
-                    raise ValueError("fewer than 4 bins remain after removing peaks")
+                    raise ValueError("fewer than 4 bins remain for the robust refit")
                 seed = None if mode == "fixed" else [b, chi, k]
                 b, chi, k, r2, _ = _fit(
                     fit_freqs[keep], log_freqs[keep], log_power[keep], p0=seed

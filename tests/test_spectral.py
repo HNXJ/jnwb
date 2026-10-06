@@ -2211,9 +2211,9 @@ class TestConstantTraceSpectrumIsZero:
         assert np.all(np.isnan(psd))
 
 
-class TestAperiodicFitRemovePeaks:
+class TestAperiodicFitRobust:
     """`aperiodic_fit` fitted every bin, so a 10 Hz peak moved a 1/f^2 exponent to about
-    2.16. `remove_peaks=True` is the reference implementation's robust aperiodic fit."""
+    2.16. `robust=True` is FOOOF's robust aperiodic fit (`_robust_ap_fit`)."""
 
     FREQS = np.arange(1.0, 120.0, 0.5)
 
@@ -2227,18 +2227,18 @@ class TestAperiodicFitRemovePeaks:
     def test_a_peak_biases_the_default_and_not_the_robust_fit(self, mode):
         clean, peaked = self._spectra()
         default = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode)
-        robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, remove_peaks=True)
+        robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, robust=True)
         assert default.exponent - 2.0 > 0.15, default
         assert abs(robust.exponent - 2.0) < 0.03 if mode == "fixed" else robust.exponent < 2.2
         assert robust.accepted and robust.mode == mode
-        on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, remove_peaks=True)
+        on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, robust=True)
         assert abs(on_clean.exponent - 2.0) < 0.01, on_clean
 
     def test_the_default_is_unchanged_and_the_flag_is_keyword_only(self):
         _, peaked = self._spectra()
         assert (aperiodic_fit(self.FREQS, peaked, (2.0, 40.0)).to_dict()
-                == aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), remove_peaks=False).to_dict())
-        sig = inspect.signature(aperiodic_fit).parameters["remove_peaks"]
+                == aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), robust=False).to_dict())
+        sig = inspect.signature(aperiodic_fit).parameters["robust"]
         assert sig.kind is inspect.Parameter.KEYWORD_ONLY and sig.default is False
 
     def test_fewer_than_four_kept_bins_reject_the_fit(self):
@@ -2246,8 +2246,22 @@ class TestAperiodicFitRemovePeaks:
         the first fit and is dropped, leaving three; a rejected fit, not a fabricated one."""
         clean, _ = self._spectra()
         assert aperiodic_fit(self.FREQS, clean, (2.0, 3.5)).accepted
-        res = aperiodic_fit(self.FREQS, clean, (2.0, 3.5), remove_peaks=True)
+        res = aperiodic_fit(self.FREQS, clean, (2.0, 3.5), robust=True)
         assert not res.accepted and res.exponent is None
+
+    def test_only_the_bins_at_the_threshold_percentile_are_refitted(self):
+        """Residuals that are mostly positive, so the percentile decides the kept set. Every
+        8th bin lies on a parallel line 0.5 decades lower; the first fit passes between, so
+        only those bins sit below it and clip to 0. The 0.025th percentile keeps them alone
+        and the refit lands on their line (offset 0.5); a 50th or 75th percentile also keeps
+        bins of the upper line and raises the offset."""
+        log_f = np.log10(self.FREQS)
+        offset = np.where(np.arange(self.FREQS.size) % 8 == 0, 0.5, 1.0)
+        psd = 10 ** (offset - 2.0 * log_f)
+        res = aperiodic_fit(self.FREQS, psd, (2.0, 40.0), robust=True)
+        assert res.accepted
+        assert res.offset == pytest.approx(0.5, abs=1e-9)
+        assert res.exponent == pytest.approx(2.0, abs=1e-9)
 
 
 def _cuda_device_count():
