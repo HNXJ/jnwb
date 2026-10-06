@@ -41,23 +41,13 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral and laminar | 10-13, 10-19 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
+| F spectral and laminar | 10-19 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 | N NWB integrity | 10-22 | `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `docs/repairing_nwb.md`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md` |
 
-10-01, 10-02, 10-03, 10-04, 10-05 and 10-07 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-13, 10-18, 10-19, 10-20, 10-21 and 10-22 are open.
-
-### 10-13 No dangling references in `jnwb/`
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/spectral/**`, `jnwb/laminar/**`.
-Split from 10-08, whose write set does not reach these files.
-- P-296: `jnwb/` cites files the package does not ship (`nwb_tfr_storage_spec.md` at `jnwb/compression.py:14` and `jnwb/__init__.py:49,52`; `artifacts/benchmarks/...` at `jnwb/laminar/_vflip.py:38` and `jnwb/spectral/_psd.py:132,278`) and carries dated development-history comments in 14 places (`jnwb/__init__.py:15`, `__release_date__`, is data and stays). Owners: 10-13 holds `jnwb/__init__.py:45,49,52,155` and `jnwb/compression.py:519`; 10-08 holds `jnwb/artifact_repair.py:286,445`, `jnwb/onset_fitting.py:97,252` and `jnwb/statistics/__init__.py:21`; 10-09 holds `jnwb/visual_qc.py:13`; 11-02 holds `jnwb/addressing.py:683`; 10-06 owns `jnwb/connectivity/__init__.py:21` and `jnwb/jrsa/_metrics.py:431`, which its frozen block cannot list, so the integrator adds them there. Check: `grep -rnE 'nwb_tfr_storage_spec|artifacts/' jnwb` finds nothing, and in 10-13's two files each dated line is deleted or shown to state behaviour. The same defect in `nam.py`, `artifact_repair.py` and `paths.py` is IA-29's (10-08). Waits: no behavioural effect.
-Accept: each check passes.
-Stop: a fix changes shipped values without a ruling.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07 and 10-13 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-19, 10-20, 10-21 and 10-22 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -139,7 +129,7 @@ Stop: a repair rule is a scientific or format choice the NWB/HDMF specification 
 ### 10-19 `laminar_curation` defects found at merge
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: 10-13.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
 Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `docs/02_paths_addressing_metadata.md`, `skills/jnwb-lfp-spectral/SKILL.md`.
 Merged unreviewed on Hamm's instruction (2026-10-06, 2fee8fa2); its verification failed on these.
 - Reuse: `_csd` retypes the negative second difference that `voltage_curvature_1d` computes (`AGENTS.md` 4.7), with different edge padding. Check: `_csd` calls the public function; values on the existing fixtures unchanged or the change stated. Waits: not stated.
@@ -167,7 +157,7 @@ Stop: a file on the list has a reader the audit missed.
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08, 10-13, 10-19.
+Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08, 10-19.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
