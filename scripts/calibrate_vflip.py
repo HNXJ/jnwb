@@ -656,6 +656,16 @@ def _strict_json(value):
     return value
 
 
+def write_raw(data, path) -> None:
+    """Write ``data`` as strict JSON: -inf becomes null (the record's "null_score_means"), and
+    any other non-finite number raises rather than being written as a bare token. LF endings:
+    see scripts/generate_api_md.py."""
+    pathlib.Path(path).write_text(
+        json.dumps(_strict_json(data), indent=1, allow_nan=False), encoding="utf-8",
+        newline="\n",
+    )
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--n-seeds", type=int, default=30)
@@ -665,13 +675,8 @@ def main(argv=None) -> int:
 
     data = run(args.n_seeds, args.n_jobs)
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    # newline="\n" on both: see scripts/generate_api_md.py. Strict JSON: a support score of
-    # -inf is written as null (its meaning is the record's "null_score_means"), and any other
-    # non-finite number raises here rather than being written as a bare token.
-    (args.out_dir / "vflip_calibration_0.2.4_raw.json").write_text(
-        json.dumps(_strict_json(data), indent=1, allow_nan=False), encoding="utf-8",
-        newline="\n",
-    )
+    write_raw(data, args.out_dir / "vflip_calibration_0.2.4_raw.json")
+    # newline="\n": see scripts/generate_api_md.py.
     (args.out_dir / "vflip_calibration_0.2.4.md").write_text(
         render(data), encoding="utf-8", newline="\n"
     )

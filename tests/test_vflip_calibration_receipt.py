@@ -65,6 +65,18 @@ def _generator():
     return module
 
 
+def test_the_generator_writes_minus_infinity_as_null_and_refuses_nan(tmp_path):
+    """The committed record passing a strict parse says nothing about the next one written;
+    this drives the writer itself."""
+    path = tmp_path / "raw.json"
+    _generator().write_raw({"min_score": float("-inf"), "scores": [1.5, float("-inf")]}, path)
+    text = path.read_text(encoding="utf-8")
+    assert "Infinity" not in text
+    assert strict_loads(text) == {"min_score": None, "scores": [1.5, None]}
+    with pytest.raises(ValueError):
+        _generator().write_raw({"scores": [float("nan")]}, tmp_path / "nan.json")
+
+
 def _top_level(module_name):
     """Top-level definitions of a jnwb module, and the names it imports from other jnwb
     modules, read from the file itself rather than through the importer."""
