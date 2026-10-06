@@ -125,6 +125,8 @@ def test_empty_row_keeps_the_index_monotonic(tmp_path):
     _write(p, [3, 3, 9, 10, 15, 17])
     (c,) = check_ragged_indices(p).columns
     assert c.monotonic and c.ok
+    (c,) = check_ragged_indices(p, probe_starts=STARTS).columns
+    assert c.offset_bug == "absent" and c.ok
 
 
 def test_negative_index_is_not_ok(tmp_path):
