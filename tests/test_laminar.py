@@ -1421,9 +1421,9 @@ class TestVFlipNormalizationRepair:
 
     def test_the_default_threshold_is_the_calibrated_one(self):
         """Threshold 6.0 belonged to the pre-repair score and must not come back."""
-        import json
+        from tests.test_vflip_calibration_receipt import strict_loads
 
-        raw = json.loads(
+        raw = strict_loads(
             (pathlib.Path(__file__).resolve().parents[1]
              / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
              ).read_text(encoding="utf-8")
@@ -1500,6 +1500,23 @@ class TestVFlipEdges:
                 vflip(psd, freqs, probe_geometry=geom, **declared)
             else:
                 label_layers(vflip(psd, freqs, probe_geometry=geom), geom, **declared)
+
+    def test_a_fit_declared_on_a_staggered_column_is_refused_by_label_layers(self):
+        """The case above gives label_layers an undeclared fit, so its declaration check could
+        refuse first. Here the fit carries the same `x` declaration, so only the stagger guard
+        stands between it and labels. vflip refuses to make such a fit, so it is built by hand."""
+        import dataclasses
+
+        from tests.test_laminar_index_space_and_boundary import _synthetic_motif
+
+        freqs, psd = _synthetic_motif()
+        geom = self._staggered_geometry()
+        fit = vflip(psd, freqs, probe_geometry=geom, depth_axis="z", shallow_end="min")
+        fit_x = dataclasses.replace(fit, depth_axis="x")
+        assert (fit_x.depth_anchor, fit_x.depth_axis, fit_x.shallow_end) == (
+            "shallowest", "x", "min")
+        with pytest.raises(ValueError, match="not monotone along the shaft"):
+            label_layers(fit_x, geom, depth_axis="x", shallow_end="min")
 
     def test_the_monotone_column_of_the_same_shaft_is_accepted(self):
         from tests.test_laminar_index_space_and_boundary import _synthetic_motif

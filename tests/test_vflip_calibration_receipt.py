@@ -29,8 +29,26 @@ RAW = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
 REPORT = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4.md"
 
 
+def _refuse_constant(token):
+    raise ValueError(f"{token} is not JSON; the record must be strict")
+
+
+def strict_loads(text):
+    """``json.loads`` that refuses NaN, Infinity and -Infinity tokens."""
+    return json.loads(text, parse_constant=_refuse_constant)
+
+
 def _raw():
-    return json.loads(RAW.read_text(encoding="utf-8"))
+    return strict_loads(RAW.read_text(encoding="utf-8"))
+
+
+def test_the_raw_record_is_strict_json_and_states_what_null_means():
+    """It held 44 bare -Infinity tokens, which a strict parser rejects."""
+    raw = _raw()
+    assert "null in scores or min_score = support floor, no finite score" in raw["null_score_means"]
+    min_scores = [cell["min_score"] for by_val in raw["families"].values()
+                  for cell in by_val.values()]
+    assert None in min_scores, "no floor score left to encode; the null convention is untested"
 
 
 def test_receipt_and_generator_exist():

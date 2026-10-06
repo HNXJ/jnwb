@@ -441,6 +441,7 @@ def run(n_seeds: int, n_jobs: int) -> dict:
         "estimator_sha256": estimator_sha256(),
         "estimator_functions": [name for name, _ in estimator_sources()],
         "default_min_support_score": DEFAULT_TAU,
+        "null_score_means": NULL_SCORE_MEANS,
         "n_seeds": n_seeds,
         "n_samples": N_SAMPLES,
         "fs": FS,
@@ -637,6 +638,24 @@ def render(data: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: What a null score in the raw record means; written into the record itself.
+NULL_SCORE_MEANS = (
+    "null in scores or min_score = support floor, no finite score (support_score is -inf); "
+    "null elsewhere = nothing to measure (no crossover, no ground truth, or an empty set)"
+)
+
+
+def _strict_json(value):
+    """``value`` with every -inf replaced by None, so the record is strict JSON."""
+    if isinstance(value, dict):
+        return {k: _strict_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_strict_json(v) for v in value]
+    if isinstance(value, float) and value == float("-inf"):
+        return None
+    return value
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--n-seeds", type=int, default=30)
@@ -646,9 +665,12 @@ def main(argv=None) -> int:
 
     data = run(args.n_seeds, args.n_jobs)
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    # newline="\n" on both: see scripts/generate_api_md.py.
+    # newline="\n" on both: see scripts/generate_api_md.py. Strict JSON: a support score of
+    # -inf is written as null (its meaning is the record's "null_score_means"), and any other
+    # non-finite number raises here rather than being written as a bare token.
     (args.out_dir / "vflip_calibration_0.2.4_raw.json").write_text(
-        json.dumps(data, indent=1), encoding="utf-8", newline="\n"
+        json.dumps(_strict_json(data), indent=1, allow_nan=False), encoding="utf-8",
+        newline="\n",
     )
     (args.out_dir / "vflip_calibration_0.2.4.md").write_text(
         render(data), encoding="utf-8", newline="\n"
