@@ -38,9 +38,9 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 |---|---|---|
 | F spectral and laminar | 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking and decoding | 10-07, 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 
-10-01, 10-02, 10-03 and 10-05 are merged, so 10-04, 10-06 and 10-07 are open.
+10-01, 10-02, 10-03, 10-05 and 10-07 are merged, so 10-04, 10-06, 10-08 and 10-18 are open.
 
 ### 10-04 Laminar edges and a laminar page
 
@@ -94,29 +94,10 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
 
-### 10-07 `statistics` as a package
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: none.
-Writes: `jnwb/statistics.py`, `jnwb/statistics/**`, `tests/test_statistics.py`, `artifacts/frozen_validated.json`, `tests/_sources.py`, `tests/test_claim_wording.py`, `tests/test_errors_documented.py`, `tests/test_import_lazy.py`, `tests/test_axis_convention_matches_the_specification.py`.
-Split per `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a); `StatisticalAnalysis` moves whole. Gate 19's two
-`jnwb/statistics.py` entries are re-pointed with unchanged hashes.
-- `tests/test_statistics.py:707` reads `inspect.getsource(jnwb.statistics)`, which on a package returns
-only `__init__`, so the check passes vacuously after the split. Check: it scans every module of the
-package, and a reintroduced key in a submodule fails it.
-- Class split-hides-source, seen three times (`artifacts/defect_classes.md`): each test that scans
-jnwb sources lists its files itself, and a split hides moved defs from it. Check: one helper lists
-every file that defines a public symbol; every source scan uses it, and a test fails when a scan
-reads fewer such files than the helper lists.
-Accept: `jnwb.__all__`, signatures and every lookup the old module allowed are identical; the full
-suite passes, and gate 19 passes with no hash changed.
-Stop: a move changes a function body gate 19 hashes.
-Waits: layout only.
-
 ### 10-08 Statistics, spiking and decoding edges
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: per finding. Blocked by: 10-07.
+Role: jnwb-developer. Skill: per finding. Blocked by: none.
 Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/testing/**`, `tests/test_statistics.py`, `tests/test_permutation.py`, `tests/test_spiking*.py`, `tests/test_analyzers*.py`, `tests/test_trajectory*.py`, `tests/test_bilinear*.py`, `tests/test_rng*.py`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`.
 - P-265: one value per group gives NaN ANOVA beside `eta_squared` 1.0. Check: NaN or a stated reason. Waits: no p or flag passes.
 - P-297: the `compare_multiple_groups` docstring omits NaN `eta_squared` for an empty group. Check: stated. Waits: loud NaN.
