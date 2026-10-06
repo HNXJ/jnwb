@@ -6,7 +6,7 @@ import logging
 import warnings
 from typing import Optional, Sequence, Tuple
 import numpy as np
-from .._spread import zscore
+from .._spread import zero_detrend_residue, zscore
 from .._units import resolve_unit_alias
 from .._bins import bin_edges, right_open_counts, whole_bin_count
 
@@ -110,7 +110,8 @@ def _detrend_trials(a: np.ndarray, mode: Optional[str]) -> np.ndarray:
         t = np.linspace(-1.0, 1.0, n)
         design = np.column_stack([np.ones(n), t])
         beta = np.linalg.lstsq(design, a.T, rcond=None)[0]
-        return a - (design @ beta).T
+        # A trial that is a straight line is exactly 0, not its fit's round-off.
+        return zero_detrend_residue(a - (design @ beta).T, a, axis=1)
     raise ValueError(f"Unknown detrend={mode!r}; use None|'demean'|'zscore'|'linear'")
 
 

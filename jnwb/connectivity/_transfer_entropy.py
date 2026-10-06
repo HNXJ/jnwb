@@ -99,6 +99,27 @@ def _entropy_bits(codes: np.ndarray, bias_correction: Optional[str]) -> float:
     return h
 
 
+#: k of the plug-in TE round-off bound ``k * n * eps * scale`` (see `_te_round_off`).
+_TE_ROUND_OFF_K = 4.0
+
+
+def _te_round_off(entropies: Tuple[float, ...], cells: Tuple[int, ...]) -> float:
+    """Largest rounding error of a plug-in TE formed from ``entropies`` (bits) over ``cells``
+    occupied cells: ``k * n * eps * scale`` with ``k = 4``, ``n = sum(cells)`` and
+    ``scale = max(1, sum(entropies))``.
+
+    TE cancels four entropies of up to ``log2(cells)`` bits each towards a value near zero,
+    so its round-off follows the entropies, not its own size. Derivation, with ``u = eps / 2``:
+    a term ``p log2 p``, ``p = count / N``, errs by at most ``3 u |p log2 p| + 1.45 u p``
+    (the rounding of ``p``, of the log and of the product); summing ``K`` terms adds at most
+    ``K u H``; so an entropy over ``K`` cells errs by at most ``(K + 3) u H + 1.45 u``. Adding
+    the four costs ``3 u S`` more, ``S`` their sum. With ``n = sum(K) >= 4`` the total is at
+    most ``u (n + 12) max(1, S) <= 2 n eps max(1, S)``, and ``k = 4`` doubles that.
+    """
+    eps = float(np.finfo(float).eps)
+    return _TE_ROUND_OFF_K * float(sum(cells)) * eps * max(1.0, float(sum(entropies)))
+
+
 def _te_one_direction(
     src_q: np.ndarray,
     tgt_q: np.ndarray,
@@ -106,7 +127,8 @@ def _te_one_direction(
     l: int,
     delay: int,
     bias_correction: Optional[str],
-) -> Tuple[float, float, int, int]:
+    return_round_off: bool = False,
+) -> Tuple[float, ...]:
     """
     TE(source -> target) in bits from pre-discretized integer series.
 
@@ -114,7 +136,8 @@ def _te_one_direction(
 
     Returns ``(te, te_plugin, n_samples, n_joint)``: ``te`` carries ``bias_correction``,
     ``te_plugin`` is the uncorrected sum of the same four entropies, and ``n_joint`` is the
-    number of occupied (Y_t, Y_hist, X_hist) cells.
+    number of occupied (Y_t, Y_hist, X_hist) cells. ``return_round_off`` appends the
+    round-off bound of ``te_plugin`` (`_te_round_off`).
     """
     n_trials, n_times = tgt_q.shape
     start = max(k, delay + l - 1)
@@ -150,6 +173,9 @@ def _te_one_direction(
             (h_ab + (k_ab - 1) / mm) + (h_bc + (k_bc - 1) / mm)
             - (h_b + (k_b - 1) / mm) - (h_abc + (k_abc - 1) / mm)
         )
+    if return_round_off:
+        bound = _te_round_off((h_ab, h_bc, h_b, h_abc), (k_ab, k_bc, k_b, k_abc))
+        return te, te_plugin, a.size, int(k_abc), bound
     return te, te_plugin, a.size, int(k_abc)
 
 
@@ -284,8 +310,10 @@ def transfer_entropy(
     xq = _discretize(x, bins, estimator)
     yq = _discretize(y, bins, estimator)
 
-    te_xy, plug_xy, n_used, n_joint_xy = _te_one_direction(xq, yq, k, l, delay, bias_correction)
-    te_yx, plug_yx, _, n_joint_yx = _te_one_direction(yq, xq, k, l, delay, bias_correction)
+    te_xy, plug_xy, n_used, n_joint_xy, ro_xy = _te_one_direction(
+        xq, yq, k, l, delay, bias_correction, return_round_off=True)
+    te_yx, plug_yx, _, n_joint_yx, ro_yx = _te_one_direction(
+        yq, xq, k, l, delay, bias_correction, return_round_off=True)
 
     p_xy = p_yx = p_net = None
     eff_xy, eff_yx = te_xy, te_yx
@@ -296,15 +324,17 @@ def transfer_entropy(
         null_yx = np.empty(int(n_surrogates))
         plug_null_xy = np.empty(int(n_surrogates))
         plug_null_yx = np.empty(int(n_surrogates))
+        ro_null_xy = np.empty(int(n_surrogates))
+        ro_null_yx = np.empty(int(n_surrogates))
         for i in range(int(n_surrogates)):
-            null_xy[i], plug_null_xy[i] = _te_one_direction(
+            null_xy[i], plug_null_xy[i], _, _, ro_null_xy[i] = _te_one_direction(
                 _surrogate_source(xq, surrogate_rng).astype(np.int64),
-                yq, k, l, delay, bias_correction,
-            )[:2]
-            null_yx[i], plug_null_yx[i] = _te_one_direction(
+                yq, k, l, delay, bias_correction, return_round_off=True,
+            )
+            null_yx[i], plug_null_yx[i], _, _, ro_null_yx[i] = _te_one_direction(
                 _surrogate_source(yq, surrogate_rng).astype(np.int64),
-                xq, k, l, delay, bias_correction,
-            )[:2]
+                xq, k, l, delay, bias_correction, return_round_off=True,
+            )
         # INTENTIONAL BREAK (0.2.7): the test compares plug-in values, observed and
         # surrogate alike. The surrogate removes any zero-lag X-Y dependence, so it occupies
         # more (Y_t, Y_hist, X_hist) cells than the observed table. The net Miller-Madow term,
@@ -313,11 +343,17 @@ def transfer_entropy(
         # unrelated to directed flow. With X = s + 0.5 e1, Y = s + 0.5 e2 and s white, P(p < 0.05) was
         # 0.11 at bins 4 and 0.37 at bins 8 (n = 2000). The correction stays on the
         # reported estimate.
-        p_xy = _surrogate_p(plug_null_xy, plug_xy, "greater")
-        p_yx = _surrogate_p(plug_null_yx, plug_yx, "greater")
+        # A tie is a draw within the round-off of the observed value plus that of the
+        # draw, each bounded through its four entropies (`_te_round_off`). The net width was
+        # 100 eps (|TE_xy| + |TE_yx|), the size of the result rather than of the entropies
+        # it cancels.
+        p_xy = _surrogate_p(plug_null_xy, plug_xy, "greater",
+                            atol=ro_xy + float(ro_null_xy.max()))
+        p_yx = _surrogate_p(plug_null_yx, plug_yx, "greater",
+                            atol=ro_yx + float(ro_null_yx.max()))
         p_net = _surrogate_p(
             plug_null_xy - plug_null_yx, plug_xy - plug_yx, "two-sided",
-            scale=abs(plug_xy) + abs(plug_yx),
+            atol=ro_xy + ro_yx + float((ro_null_xy + ro_null_yx).max()),
         )
         eff_xy = te_xy - float(null_xy.mean())
         eff_yx = te_yx - float(null_yx.mean())

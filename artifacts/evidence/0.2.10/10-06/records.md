@@ -111,3 +111,20 @@ liberal), which decays as 1/N.
 `probe_bias.py` (40 seeds, n 2000, 49 surrogates; output quoted in the `transfer_entropy`
 docstring): TE `bias_corrected_x_to_y` mean 0.0014 bits (sd 0.0033) under mixing, 0.0001
 independent; Granger 0.00015 and 0.00009.
+
+## Round-off bounds (P-331, round 2)
+
+Each bound is `k * n * eps * scale` with `k = 4`, derived in the docstring that defines it:
+`_psi_round_off` (n segments, scale bin pairs times sqrt(units - 1)), `zero_detrend_residue`
+in `jnwb/_spread.py` (n slice length, scale max|original|; derived `(1.25 n + 2) eps m <=
+2 n eps m`, measured worst `1.91 n eps m` at n = 3) and `_te_round_off` (n occupied cells,
+scale max(1, sum of the four entropies)). Granger's residual-variance guard stays an exact
+zero test; the detrend now hands it exact zeros.
+
+Observed before the change: a detrended line left a residue of 5e-15 and 3e-11; `granger`
+on it returned y_to_x 0.0027 with no degenerate warning; `jrsa(pearson, detrend=True,
+standardize=True)` on a line against noise returned -0.026. After: residue 0, Granger NaN
+with the degenerate warning, jrsa NaN. The six tests in `TestRoundOffBounds` and the jrsa
+line test fail on the pre-change sources; 13 of 13 mutants killed, each file
+restored by hash. The PSI pins used `pytest.approx(rel=1e-15)`, whose default `abs=1e-12`
+exceeds the bounds and accepted any k; they now pass `abs=0`.

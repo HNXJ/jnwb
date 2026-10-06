@@ -1226,6 +1226,18 @@ class TestSimilarityEdges:
                                    rtol=0, atol=1e-12)
         assert out2 is x2
 
+    def test_a_detrended_straight_line_is_constant_not_standardized_round_off(self):
+        """P-331: the detrend residue of a line (about 1e-14) was standardized to unit
+        variance, and pearson against noise returned -0.026 instead of NaN."""
+        line = 2.0 + 0.37 * np.arange(200.0)
+        noise = np.random.default_rng(0).normal(size=200)
+        res = oa.jrsa(line, noise, metric="pearson", detrend=True, standardize=True,
+                      stats=False)
+        assert np.isnan(float(res.value))
+        kept = oa.jrsa(line + 1e-6 * noise, noise, metric="pearson", detrend=True,
+                       standardize=True, stats=False)
+        assert float(kept.value) == pytest.approx(1.0, abs=1e-6)
+
     @pytest.mark.parametrize("installed", [False, True])
     def test_dtw_at_equal_lengths_raises_rather_than_running(self, monkeypatch, installed):
         """Equal lengths need no resampling, so a dtw request could pass as aligned. It

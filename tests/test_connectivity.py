@@ -1297,6 +1297,86 @@ class TestPsiJackknifeUnit:
         from jnwb.connectivity._psi import _psi_round_off
 
         eps = np.finfo(float).eps
-        assert _psi_round_off(70, 9, 10) == pytest.approx(4 * 70 * eps * 9 * 3.0, rel=1e-15)
+        # abs=0: approx's default abs of 1e-12 exceeds these bounds and accepted any k.
+        assert _psi_round_off(70, 9, 10) == pytest.approx(
+            4 * 70 * eps * 9 * 3.0, rel=1e-15, abs=0)
         assert _psi_round_off(20, 5, 20) == pytest.approx(
-            4 * 20 * eps * 5 * np.sqrt(19), rel=1e-15)
+            4 * 20 * eps * 5 * np.sqrt(19), rel=1e-15, abs=0)
+
+
+class TestRoundOffBounds:
+    """P-331 (ruled 2026-10-06): width and constant checks use a round-off bound
+    k * n * eps * scale, with k stated and derived where the bound is defined."""
+
+    def test_a_linearly_detrended_line_is_exactly_zero_and_noise_survives(self):
+        """The residue of a fitted line was 5e-15 and 3e-11 on these two trials."""
+        from jnwb.connectivity._trials import _detrend_trials
+
+        t = np.arange(1000.0)
+        line = np.stack([3.7 + 0.013 * t, -2e5 + 41.0 * t])
+        np.testing.assert_array_equal(_detrend_trials(line, "linear"), 0.0)
+        noisy = line + 1e-6 * np.random.default_rng(0).normal(size=line.shape)
+        assert np.all(np.std(_detrend_trials(noisy, "linear"), axis=1) > 5e-7)
+
+    def test_granger_on_a_detrended_line_is_degenerate_not_a_number(self):
+        """The residue passed the exact zero-variance guard: y_to_x was 0.0027 with no
+        degenerate warning on a pure line."""
+        x = 5.0 + 0.01 * np.arange(500.0)
+        y = np.random.default_rng(0).normal(size=500)
+        res = granger(x, y, order=2, detrend="linear")
+        assert np.isnan(res.y_to_x)
+        assert "degenerate_residual_variance_var_not_identifiable" in res.diagnostics["warnings"]
+
+    def test_the_detrend_bound_is_k_n_eps_scale_with_k_4(self):
+        from jnwb._spread import DETREND_ROUND_OFF_K, zero_detrend_residue
+
+        assert DETREND_ROUND_OFF_K == 4.0
+        original = np.array([[2.0, -8.0, 1.0, 0.5]])
+        bound = 4.0 * 4 * np.finfo(float).eps * 8.0
+        at = np.array([[bound, -bound, 0.0, 0.5 * bound]])
+        np.testing.assert_array_equal(zero_detrend_residue(at, original, axis=1), 0.0)
+        over = at * 1.01
+        np.testing.assert_array_equal(zero_detrend_residue(over, original, axis=1), over)
+
+    def test_the_te_bound_is_k_n_eps_scale_with_k_4(self):
+        from jnwb.connectivity._transfer_entropy import _te_round_off
+
+        eps = np.finfo(float).eps
+        assert _te_round_off((1.0, 2.0, 0.5, 2.5), (4, 16, 4, 64)) == pytest.approx(
+            4 * 88 * eps * 6.0, rel=1e-15, abs=0)
+        assert _te_round_off((0.1, 0.1, 0.05, 0.1), (2, 2, 2, 2)) == pytest.approx(
+            4 * 8 * eps * 1.0, rel=1e-15, abs=0)
+
+    def test_the_te_net_tie_width_follows_the_entropies(self, monkeypatch):
+        """The net width was 100 eps (|TE_xy| + |TE_yx|), the size of a value near zero, not
+        of the four entropies of about two bits each it cancels."""
+        import jnwb.connectivity._transfer_entropy as te_mod
+
+        seen = []
+        real = te_mod._surrogate_p
+
+        def record(null, observed, alternative, scale=0.0, atol=0.0):
+            seen.append((alternative, scale, atol))
+            return real(null, observed, alternative, scale=scale, atol=atol)
+
+        monkeypatch.setattr(te_mod, "_surrogate_p", record)
+        rng = np.random.default_rng(2)
+        x, y = rng.normal(size=600), rng.normal(size=600)
+        res = transfer_entropy(x, y, n_surrogates=9, rng=0)
+        xq = te_mod._discretize(x[None], 4, "quantile")
+        yq = te_mod._discretize(y[None], 4, "quantile")
+        ro_xy = te_mod._te_one_direction(xq, yq, 1, 1, 1, "mm", return_round_off=True)[4]
+        ro_yx = te_mod._te_one_direction(yq, xq, 1, 1, 1, "mm", return_round_off=True)[4]
+        net = [atol for alternative, _, atol in seen if alternative == "two-sided"]
+        assert len(net) == 1 and res.p_net is not None
+        one_way = [atol for alternative, _, atol in seen if alternative == "greater"]
+        assert len(one_way) == 2 and one_way[0] > ro_xy and one_way[1] > ro_yx
+        plain = 100 * np.finfo(float).eps * (abs(res.x_to_y) + abs(res.y_to_x))
+        assert net[0] > ro_xy + ro_yx > 100 * plain
+
+    def test_a_caller_tie_width_reaches_the_count(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([0.0])
+        assert _surrogate_p(null, 1e-13, "greater") == 0.5
+        assert _surrogate_p(null, 1e-13, "greater", atol=2e-13) == 1.0
