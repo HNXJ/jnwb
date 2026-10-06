@@ -19,14 +19,18 @@ import importlib.util
 import inspect
 import json
 import pathlib
+import sys
 
 import pytest
 
 from jnwb import laminar
 from jnwb.laminar import xflip
-from tests.test_vflip_calibration_receipt import _with_prose_edited
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+from tests.test_vflip_calibration_receipt import _with_prose_edited  # noqa: E402
+
 RAW = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5_raw.json"
 REPORT = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5.md"
 
