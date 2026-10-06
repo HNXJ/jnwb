@@ -106,13 +106,11 @@ print("coupling p:", psi_res.diagnostics["p_coupling_surrogate"])
 print("Band summaries:", psi_res.per_band)
 ```
 
-`p_net` (equal to `p_x_to_y` and `p_y_to_x`) is the jackknife t test of a lead. A shifted Y
-loses every dependence on X, zero lag included, so `p_coupling_surrogate` tests coupling, not a
-lead. The jackknife leaves out one trial from three trials on, and one Welch segment, with a
-warning, below that. Under a zero-lag common source the lead p rejects at 0.04 to 0.06 for a
-nominal 0.05 with three or more trials and at 0.06 to 0.08 leaving out segments; the surrogate
-p, at up to 0.46. The default `nperseg` leaves at least 20 segments: 190 samples for
-one 2000-sample trial.
+`p_net`, equal to `p_x_to_y` and `p_y_to_x`, is the jackknife t test of a lead;
+`p_coupling_surrogate` tests coupling, zero lag included. The jackknife leaves out one trial, or
+with fewer than three trials one segment and warns. Under a zero-lag common source the lead p
+rejects at 0.04 to 0.06 for a nominal 0.05, and 0.06 to 0.08 leaving out segments; the
+surrogate p, up to 0.46. The default `nperseg` leaves at least 20 segments.
 
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.png#only-light)
 ![Directed Connectivity and Phase Slope Index](assets/figures/fig09_directed_connectivity.dark.png#only-dark)
@@ -157,7 +155,7 @@ coupling, test significant in both directions. Use `"quantile"`.
 X's past information about Y's present beyond Y's noisy past, and TE, like Granger, rejects. The
 surrogate p compares plug-in values; `bias_correction` changes only the estimate. At 4 bins and
 `k = l = 1` a white common source is rejected at 0.025 to 0.06 for a nominal 0.05 (n = 500 to
-8000), reaching about 0.06 near n = 4000 to 8000 and decaying at larger n. The p is conservative at large state spaces: at 8 bins or `k = l = 2`, none of 1000 pairs
+8000). The p is conservative at large state spaces: at 8 bins or `k = l = 2`, none of 1000 pairs
 rejected.
 
 ---
