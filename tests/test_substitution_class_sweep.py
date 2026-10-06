@@ -626,7 +626,7 @@ def test_the_sweep_reaches_the_whole_package():
     """A scan over an empty file list is a live zero that means nothing."""
     modules = list(PACKAGE_ROOT.rglob("*.py"))
     assert len(modules) > 30, f"only {len(modules)} modules scanned"
-    assert (PACKAGE_ROOT / "jrsa.py") in modules
+    assert (PACKAGE_ROOT / "jrsa" / "_stages.py") in modules
 
 
 # Reviewed, one row per surviving site, keyed without line numbers. A new site fails the test
@@ -686,7 +686,7 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("spectral/_coupling.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
-    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
+    ("jrsa/_stages.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
         "OPEN, carried deliberately: align='interpolate' or 'linear' falls back to "
         "'downsample' when scipy is "
         "absent while parameters['align'] echoes the request -- a substitution. Doubly latent: "
@@ -694,19 +694,19 @@ ACCEPTED_HANDLER_RECOVERY = {
         "_validate_inputs before _align_dimensions, so no axis is ever resampled. The "
         "reachable half of the same function is repaired below "
         "(test_an_unrecognised_align_raises_rather_than_resampling_silently).",
-    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 2):
+    ("jrsa/_stages.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 2):
         "OPEN, carried deliberately: the align='cubic' twin of the first site, the same "
         "substitution under the same two latencies.",
-    ("jrsa.py", "_reduce_one", "AttributeError", (), True, 1):
+    ("jrsa/_stages.py", "_reduce_one", "AttributeError", (), True, 1):
         "cupy.median -> cupy.percentile(50) inside _reduce_one. The 50th percentile with "
         "linear interpolation IS the median; same number, different call. The label stays "
         "true.",
-    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr_cpu",), False, 1):
+    ("jrsa/_stages.py", "_apply_preprocessing._prep", "ImportError", ("arr_cpu",), False, 1):
         "scipy.signal.detrend(type='linear') -> degree-1 polyfit subtraction. Both are the "
         "least-squares linear detrend; scipy's own implementation is the same normal equations.",
-    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr",), False, 1):
+    ("jrsa/_stages.py", "_apply_preprocessing._prep", "ImportError", ("arr",), False, 1):
         "Same detrend equivalence on the non-GPU path.",
-    ("jrsa.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
+    ("jrsa/_backends.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
     ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
@@ -756,17 +756,17 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
-    ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
+    ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
         "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
         "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "
         "missing statsmodels is imported outside the handler and raises.",
     ("io.py", "_stored_seek_is_reliable", "Exception", (), True, 1):
         "Returns False when its zipfile probe raises, so a stored entry is read forward, the "
         "path that needs no seek. Same bytes either way; only time differs.",
-    ("jrsa.py", "_granger", "ImportError", (), True, 1):
+    ("jrsa/_metrics.py", "_granger", "ImportError", (), True, 1):
         "statsmodels absent -> warns and returns NaN for Granger causality. It declines "
         "rather than substituting another estimator, which is 06-15's repair in this module.",
-    ("jrsa.py", "_result_plot", "ImportError", (), True, 1):
+    ("jrsa/_result.py", "_result_plot", "ImportError", (), True, 1):
         "matplotlib absent -> warns and returns None instead of a figure. Absence.",
     ("mcp_server/event_tools.py", "get_event_codes_and_timings",
      "IntervalTableNotFoundError", (), True, 1):
@@ -952,7 +952,7 @@ class TestASiteIsReviewedAtItsOwnSite:
         for module, anchor, scanner, accepted in (
                 ("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, scan_recovering_handlers,
                  ACCEPTED_HANDLER_RECOVERY),
-                ("connectivity.py", _ADF_BODY, scan_recovering_handlers,
+                ("connectivity/_granger.py", _ADF_BODY, scan_recovering_handlers,
                  ACCEPTED_HANDLER_RECOVERY),
                 ("nam.py", _NAM_GUARD, scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY),
                 ("permutation.py", _TIE_COUNT_BODY, scan_selector_chain_fallthrough,
@@ -976,9 +976,9 @@ class TestASiteIsReviewedAtItsOwnSite:
     def test_a_value_planted_before_a_reviewed_nan_is_named(self):
         planted = ("    try:\n        float(series[0])\n    except _ADF_NUMERICAL_FAILURES:\n"
                    "        return 0.5\n")
-        result = _plant_before("connectivity.py", _ADF_BODY, planted,
+        result = _plant_before("connectivity/_granger.py", _ADF_BODY, planted,
                                scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
-        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES",
+        _assert_names_both(result, ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES",
                                     (), True))
 
     def test_a_module_guard_planted_before_a_reviewed_one_is_named(self):

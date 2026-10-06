@@ -16,6 +16,7 @@ enumerates every C(n_a + n_b, n_a) label assignment directly.
 from __future__ import annotations
 
 import itertools
+import sys
 
 import numpy as np
 import pytest
@@ -410,7 +411,9 @@ class TestEveryNullCountsTheDrawsThatReproduceTheObservedStatistic:
                 return observed[first]
             return observed[first] - shortfall[first]
 
-        monkeypatch.setattr(connectivity, "_psi_from_spectra", statistic)
+        # patched where phase_slope_index looks the name up
+        monkeypatch.setattr(sys.modules[connectivity.phase_slope_index.__module__],
+                            "_psi_from_spectra", statistic)
         res = connectivity.phase_slope_index(x, y, fs=100.0, n_surrogates=50, rng=0,
                                              bands=bands, jackknife=False)
         pairs = {name: band["n_freq_bins"] - 1 for name, band in res.per_band.items()}

@@ -5,6 +5,7 @@ may live in downstream project test suites that call the same jnwb functions.
 """
 from __future__ import annotations
 
+import inspect
 import warnings
 
 import numpy as np
@@ -640,7 +641,8 @@ class TestFewTrialSurrogates:
             seen.append((a.copy(), out))
             return out
 
-        monkeypatch.setattr(conn, "_surrogate_source", spy)
+        # patched where granger looks the name up
+        monkeypatch.setattr(inspect.getmodule(conn.granger), "_surrogate_source", spy)
         g = np.random.default_rng(n_trials)
         x, y = g.normal(size=(n_trials, 60)), g.normal(size=(n_trials, 60))
         granger(x, y, order=1, n_surrogates=3, rng=0)

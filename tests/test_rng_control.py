@@ -283,7 +283,9 @@ class TestDirectedEstimatorsHonourRng:
         import jnwb._rng
         import jnwb.connectivity
 
-        monkeypatch.setattr(jnwb.connectivity, "_surrogate_rng", jnwb._rng.surrogate_rng)
+        # patched where the estimator looks the name up
+        monkeypatch.setattr(inspect.getmodule(getattr(jnwb, name)), "_surrogate_rng",
+                            jnwb._rng.surrogate_rng)
         assert _null_of(res) == _null_of(DIRECTED[name](np.random.default_rng(0)))
 
     def test_a_generator_records_the_child_seed_that_reproduces_p(self, name):
