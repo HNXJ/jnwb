@@ -1,0 +1,2 @@
+- A hand-built `ComplexTFR` raises `ValueError` for a `device` other than `'cpu'`, `'cuda'` or `'metal'`; any string was accepted as the record of what computed `z`. `complex_tfr` always set a valid one.
+- `aggregate_to_db(how="mean_of_ratios")` refuses `TFRAccumulator` trial-mean power at any depth of list or tuple nesting and inside a memoryview held in a list, such as `[[P[0]], [P[1]]]`; it looked one level deep.

@@ -117,9 +117,8 @@ The model names are in `jnwb.RELATIVE_POWER_MODELS`. The returned estimand is th
 one; nothing converts silently between linear and decibel.
 
 `baseline` is a scalar or has `power`'s number of dimensions; a per-frequency baseline against
-`(n_freqs, n_times)` power is `baseline[:, None]`. A baseline with fewer dimensions aligns with
-the trailing axes and is broadcast with a `FutureWarning`; the next release raises
-`ValueError`, as `aggregate_to_db` does.
+`(n_freqs, n_times)` power is `baseline[:, None]`. A baseline with fewer dimensions raises
+`ValueError`, as in `aggregate_to_db`.
 
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.png#only-light)
 ![Power Ratio Aggregation and Log-Last Rule](assets/figures/fig06_aggregate_to_db.dark.png#only-dark)
@@ -168,12 +167,11 @@ is evidence of current entering there, not of which structure supplied it.
 Panel A of that figure is a synthetic trace built as a random-walk background, whose spectrum
 falls as 1/f squared, plus a 10 Hz rhythm, and panel B is `jnwb.aperiodic_fit` recovering the
 log-log slope, near -2, from the `jnwb.compute_psd` spectrum drawn under it, over 15-90 Hz
-because the fit removes no peaks.
+because the fit removes no peaks; `robust=True` lessens a peak's bias without removing it.
 
 **Two signs for one spectrum.** The aperiodic exponent is positive, as in FOOOF: slope =
 -exponent. `aperiodic_fit` returns that exponent, near +2 for this trace. `spectral_tilt`
-returns the slope, near -2, under the key `slope`; `exponent` reads it with a
-`DeprecationWarning` until the next release.
+returns the slope, near -2, under the key `slope`.
 
 ### Digital Filtering (`bandpass_filter`, `notch_filter`)
 

@@ -81,8 +81,10 @@ def _is_trial_averaged(obj) -> bool:
     if isinstance(obj, (_TrialAveragedPower, _TrialAveragedList)):
         return True
     if isinstance(obj, (list, tuple)):
+        # Every level of nesting, and buffer-protocol items: `[[P[0]], [P[1]]]` and a list
+        # of memoryviews were read one level deep and passed.
         return any(
-            isinstance(item, (np.ndarray, _TrialAveragedList)) and _is_trial_averaged(item)
+            isinstance(item, (np.ndarray, list, tuple, memoryview)) and _is_trial_averaged(item)
             for item in obj
         )
     if not isinstance(obj, np.ndarray):

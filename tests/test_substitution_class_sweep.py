@@ -796,11 +796,10 @@ ACCEPTED_HANDLER_RECOVERY = {
         "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
         "Absence.",
     ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
-        "The 'fixed' fit. Returns AperiodicFitResult(accepted=False) with every estimate None "
-        "-- the declared refusal shape, which is what a non-identifiable fit is supposed to "
-        "emit.",
-    ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 2):
-        "The 'knee' fit. The same refusal shape, with mode='knee'.",
+        "The one handler around both modes' fits and the robust refit (it was one handler "
+        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None and "
+        "the requested mode -- the declared refusal shape, which is what a non-identifiable "
+        "fit, or a robust refit left with fewer than 4 bins, is supposed to emit.",
 }
 
 

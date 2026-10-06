@@ -1287,3 +1287,30 @@ def test_an_anchor_held_twice_by_the_public_objects_file_is_refused() -> None:
     assert own.read_bytes().decode("utf-8").count(anchor) > 1, "the fixture no longer repeats"
     with pytest.raises(MutationHarnessError, match="occurs"):
         source_path("voltage_curvature_1d", anchor)
+
+
+@pytest.mark.parametrize("name, defining", [
+    ("VFlipResult", "jnwb/laminar/_vflip.py"),
+    ("XFlipResult", "jnwb/laminar/_xflip.py"),
+    ("AperiodicFitResult", "jnwb/spectral/_psd.py"),
+    ("ComplexTFR", "jnwb/tfr.py"),
+])
+def test_a_class_resolves_to_the_file_that_defines_it(name, defining) -> None:
+    """A package that re-points a class's ``__module__`` at itself made the class resolve to
+    the package ``__init__.py``, which does not define it."""
+    assert source_path(name) == defining
+
+
+def test_a_class_defined_in_no_module_of_its_package_is_refused_by_name(tmp_path: Path) -> None:
+    from scripts.mutation_harness import _class_definition_file
+
+    (tmp_path / "__init__.py").write_text("from ._a import Thing\n", encoding="utf-8")
+    (tmp_path / "_a.py").write_text("Thing = object\n", encoding="utf-8")
+    (tmp_path / "_b.py").write_text("class Other:\n    pass\n", encoding="utf-8")
+    Thing = type("Thing", (), {"__module__": "fake"})
+    with pytest.raises(MutationHarnessError, match="class Thing is defined in 0 modules"):
+        _class_definition_file(Thing, tmp_path / "__init__.py")
+    (tmp_path / "_c.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
+    (tmp_path / "_d.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
+    with pytest.raises(MutationHarnessError, match="class Thing is defined in 2 modules"):
+        _class_definition_file(Thing, tmp_path / "__init__.py")

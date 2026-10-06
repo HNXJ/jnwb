@@ -41,7 +41,8 @@ class ComplexTFR:
         fs: Sampling rate in Hz.
         n_cycles: 1D array of wavelet cycles per frequency bin.
         normalization: Normalization scheme applied ('amplitude' or 'energy').
-        device: 'cpu', 'cuda' or 'metal', whichever computed `z`.
+        device: 'cpu', 'cuda' or 'metal', whichever computed `z`; any other value raises
+            ValueError.
     """
 
     z: np.ndarray
@@ -52,6 +53,14 @@ class ComplexTFR:
     n_cycles: np.ndarray
     normalization: str
     device: str = CPU
+
+    def __post_init__(self) -> None:
+        # `device` records what computed `z`; any string was accepted, so a hand-built
+        # container could carry a device no path of this package has.
+        if not isinstance(self.device, str) or self.device not in (CPU, CUDA, METAL):
+            raise ValueError(
+                f"ComplexTFR.device must be one of {(CPU, CUDA, METAL)}; got {self.device!r}."
+            )
 
     @property
     def power(self) -> np.ndarray:

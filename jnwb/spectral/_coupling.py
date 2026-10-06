@@ -6,7 +6,7 @@ import numpy as np
 from scipy import signal
 from .._backend import CUDA, resolve_device, warn_device_fallback
 from .._parallel import parallel_map
-from .._rng import DEFAULT_SEED, RNGLike, surrogate_rng
+from .._rng import DEFAULT_SEED, RNGLike, recorded_rng
 from ..permutation import _count_at_least_as_extreme
 from .._spread import is_constant as _is_constant
 from ._common import _require_band_bins, CANONICAL_BANDS, _resolve_fs
@@ -197,7 +197,11 @@ def cross_area_coherence(
              ``default_rng(42)`` and ``default_rng(SeedSequence(42))`` are the same
              stream -- but an explicit ``rng=None`` now means what it means everywhere
              else in this package and in NumPy: fresh entropy per call, where it
-             previously returned seed 42's surrogates.
+             previously returned seed 42's surrogates. A ``Generator`` gives up one
+             draw, a child seed the surrogates run on and ``surrogate_seed_entropy``
+             records. INTENTIONAL BREAK (0.2.10): a ``Generator`` was drawn from in
+             place and recorded ``None``, so the result alone could not reproduce its
+             p-values; the same ``Generator`` state now gives different shifts.
         n_surrogates: Number of circular-shift surrogates per band (default 50).
                       Sets the resolution of the test: with the (count + 1) / (n + 1)
                       estimator the smallest attainable p-value is
@@ -245,10 +249,15 @@ def cross_area_coherence(
           1 / (n_surrogates_used + 1). A p-value at the floor means "not resolvable
           with this many surrogates".
         - surrogate_seed_entropy: The entropy the surrogate generator was built from --
-          42 for a bare call, the seed you passed for an int `rng`, and the fresh OS
-          entropy actually drawn for `rng=None`, which is what makes that draw
-          reproducible after the fact. None only when you supplied a `Generator`, whose
-          stream position this function cannot recover; record your own seed in that case.
+          42 for a bare call, the seed you passed for an int `rng`, the fresh OS
+          entropy actually drawn for `rng=None`, and the child seed drawn from a
+          `Generator`. Passing it back as `rng` reproduces the surrogates.
+
+        When either trace is constant (every sample equal, all-zero included),
+        `coherence_spectrum`, every `band_coherence` and `band_significance` entry and
+        `peak_coherence_value` are NaN, and `peak_coherence_freq` is NaN: coherence with a
+        channel that does not vary is undefined. The test is exact equality; a trace that
+        varies only at rounding level is estimated, and its value is set by that residue.
 
     Example:
         >>> coh = cross_area_coherence(v1_lfp, pfc_lfp, fs=1000.0, freq_bands='canonical')
@@ -285,9 +294,8 @@ def cross_area_coherence(
     # uniform and the floor it implies is reported. Pass n_surrogates=10 for the old
     # cost.
     # The seed is in the signature, not here: `inspect.signature` reports the stream a
-    # bare call draws. The entropy is what `surrogate_seed_entropy` reports -- including
-    # for `rng=None`, so the caller can reproduce a fresh-entropy run.
-    rng, seed_entropy = surrogate_rng(rng, "cross_area_coherence")
+    # bare call draws. It is resolved after the device (below), so an invalid device leaves
+    # a caller's Generator untouched.
 
     result = {
         'coherence_spectrum': np.array([]),
@@ -302,7 +310,7 @@ def cross_area_coherence(
         'n_segments_used': 0,
         'n_surrogates_used': int(n_surrogates),
         'p_value_floor': 1.0 / (int(n_surrogates) + 1),
-        'surrogate_seed_entropy': seed_entropy,
+        'surrogate_seed_entropy': None,
     }
 
     lfp_area1 = np.asarray(lfp_area1)
@@ -442,6 +450,7 @@ def cross_area_coherence(
     # work and recomputes everything, observed value included, on the CPU, so the
     # returned values share one estimator, named in `device_used`.
     device_used = resolve_device(device, context='cross_area_coherence', prefer='cupy')
+    rng, result['surrogate_seed_entropy'] = recorded_rng(rng, "cross_area_coherence")
 
     # The shifts are drawn once, after the device resolves (an invalid device leaves a
     # caller's generator untouched) and before any device attempt. Drawn inside
@@ -453,6 +462,23 @@ def cross_area_coherence(
         if low_val < high_val
         else np.zeros(int(n_surrogates), dtype=int)
     )
+    if _is_constant(lfp_area1) or _is_constant(lfp_area2):
+        # Mean removal leaves rounding residue in a constant trace's segments, and the
+        # ratio turned it into a coherence (about 0.05 on the CPU, 0.0 on CUDA).
+        frequencies = np.fft.rfftfreq(nperseg, 1.0 / fs)
+        result.update(
+            frequencies=frequencies,
+            coherence_spectrum=np.full(len(frequencies), np.nan),
+            peak_coherence_freq=float('nan'),
+            peak_coherence_value=float('nan'),
+        )
+        for band_name, (fmin, fmax) in freq_bands.items():
+            if np.any((frequencies >= fmin) & (frequencies <= fmax)):
+                result['band_coherence'][band_name] = float('nan')
+                result['band_significance'][band_name] = float('nan')
+        result['device_used'] = device_used
+        return result
+
     # CPU workers are pointless once the estimator is on the GPU: each process would
     # build its own CUDA context, competing for the same device.
     device_requested_cuda = device_used == CUDA
@@ -658,6 +684,9 @@ def wpli(
         estimate does not depend on the amplitude units of `x` and `y`. When `x` or `y` is
         constant, all-zero included, ``wpli``, ``wpli_debiased_sq`` and every entry of
         ``wpli_spectrum`` are NaN: phase lag with a channel that does not vary is undefined.
+        Constant means every sample equal. A channel that varies only at rounding level, one
+        ulp from constant, is estimated from that residue, and the CPU and CUDA paths can
+        return different values for it: device parity is undefined below working precision.
 
     Raises:
         ValueError: If `x` and `y` are empty, differ in length, contain NaN or Inf,

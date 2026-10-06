@@ -1,0 +1,1 @@
+- **`spectral_tilt`'s key `exponent` (breaking).** Deprecated in 0.2.7, it returned the signed log-log slope, the opposite sign of `aperiodic_fit`'s `exponent`. Reading it raises `KeyError`; read `slope`, negative for a 1/f decay.

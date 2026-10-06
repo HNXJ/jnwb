@@ -1,6 +1,5 @@
 """Decibel formation: ratio to dB, aggregation before the logarithm, relative and band power."""
 
-import warnings
 from typing import Optional, Tuple, Union
 import numpy as np
 from scipy import signal
@@ -252,8 +251,7 @@ def relative_power(
             Must be finite, strictly non-negative, and contain non-zero values where division occurs.
             A scalar or an array with ``power``'s number of dimensions; a per-frequency baseline
             against ``(n_freqs, n_times)`` power is ``baseline[:, None]``. A baseline with fewer
-            dimensions aligns with ``power``'s trailing axes: it is broadcast with a
-            ``FutureWarning`` this release and raises ``ValueError`` in the next.
+            dimensions raises ``ValueError``, since numpy would align it with the trailing axes.
         model: Estimand model, strictly one of ``"mean_of_ratios"``, ``"ratio_of_means"``, or ``"log_ratio"``.
             Default is ``"mean_of_ratios"``.
         axis: Axis or tuple of axes to reduce along when using ``"mean_of_ratios"`` or ``"ratio_of_means"``.
@@ -272,7 +270,7 @@ def relative_power(
     Raises:
         ValueError: If ``model`` is unrecognized; if any input is empty; if ``power`` or ``baseline``
             contains negative or non-finite (NaN/Inf) values; if ``baseline`` contains zeros causing
-            division by zero; if the ratio or its mean overflows to inf (a baseline small enough that the ratio overflows); if the summed baseline or summed power overflows under ``"ratio_of_means"``; if shapes cannot broadcast; or if ``axis`` is provided with ``model="log_ratio"``.
+            division by zero; if the ratio or its mean overflows to inf (a baseline small enough that the ratio overflows); if the summed baseline or summed power overflows under ``"ratio_of_means"``; if shapes cannot broadcast; if ``baseline`` is neither a scalar nor of ``power``'s number of dimensions; or if ``axis`` is provided with ``model="log_ratio"``.
 
     Examples:
         >>> import numpy as np
@@ -322,16 +320,11 @@ def relative_power(
             f"baseline shape {b_arr.shape} cannot broadcast to power shape {p_arr.shape}."
         ) from e
 
-    from ..tfr_accumulator import _baseline_ndim_problem
+    from ..tfr_accumulator import _refuse_baseline_ndim
 
-    problem = _baseline_ndim_problem(b_arr.ndim, p_arr.ndim, "power")
-    if problem is not None:
-        warnings.warn(
-            f"relative_power: {problem} It is broadcast this release, as before; the next "
-            "release raises ValueError, as aggregate_to_db and TFRAccumulator.add_trial do.",
-            FutureWarning,
-            stacklevel=2,
-        )
+    # INTENTIONAL BREAK (0.2.10): 0.2.7 to 0.2.9 broadcast such a baseline along the trailing
+    # axes with a FutureWarning; it is refused, as in aggregate_to_db and add_trial.
+    _refuse_baseline_ndim(b_arr.ndim, p_arr.ndim, "power")
 
     if np.any(b_broadcast == 0):
         raise ValueError("baseline contains zero values resulting in division by zero.")
