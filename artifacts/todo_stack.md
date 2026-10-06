@@ -45,9 +45,8 @@ gives, for the closure pass to classify.
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
-| N NWB integrity | 10-22 | `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `docs/repairing_nwb.md`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07 and 10-13 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-19, 10-20, 10-21 and 10-22 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-19, 10-20, 10-21 and 10-23 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -100,6 +99,18 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
 
+### 10-23 `nwb_integrity` residue
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `docs/repairing_nwb.md`.
+Left by the 10-22 verification (2026-10-06); shipped behaviour is unchanged by each.
+- The output-must-not-exist check at the new-file path is not atomic: a file created between the check and `os.replace` is overwritten. Check: the new file is created exclusively, or the window is stated. Waits: a race on a path the caller chose, no value change.
+- `dry_run=True` with `in_place=True` and no `backup_path` raises the refusal; a dry run writes nothing. Check: a dry run ignores the missing backup, or the refusal says why. Waits: wording.
+- `docs/repairing_nwb.md` says nwbinspector reports none of the ragged-index values: a claim about a third-party tool with no receipt (`AGENTS.md` 4.1). Check: removed, or traced to a run. Waits: wording.
+Accept: each check passes.
+Stop: none.
+
 ### 10-18 A stalled notebook kernel fails the suite instead of hanging it
 
 Release: deferred-0.2.10.
@@ -108,23 +119,6 @@ Writes: `tests/test_notebooks.py`.
 - P-368: the full suite hung 40 minutes at 99% on 2026-10-06 (13f8b7e8): three notebook kernels under two xdist workers stopped answering while other jobs loaded the machine. `tests/test_notebooks.py:44` bounds each cell (`timeout=120`) but not kernel start or shutdown, and the suite has no per-test timeout. The file alone passed in 12.5 s and the rerun passed. Check: kernel start, every cell and shutdown are bounded by named constants, and a test whose kernel never answers fails by name within their sum. Waits: a hang gives no pass; fails closed.
 Accept: a test with a kernel that never answers fails within the bound.
 Stop: none.
-
-### 10-22 `nwb_integrity` repair guards
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `docs/repairing_nwb.md`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md`.
-Merged from HNXJ/jnwb#26 on Hamm's instruction (2026-10-06, 4358979a); its verification failed on these. The read-only check passed (hash, mtime and size unchanged on a read-only file).
-- In-place only: the repair rewrites the input; the "backup" is an `.npz` of one index, not the file. Check: the repair writes a new file by default and rewrites in place only on an explicit flag (`AGENTS.md` §8, preserve originals). Waits: not stated.
-- Not atomic, not verified: a write interrupted at `jnwb/nwb_integrity.py:276-278` left the index `[3 5 9 8 13 5]`, neither old nor new, and a retry refuses it as inconsistent; a wrong write still returned `written=True`. Check: the new index is written to a copy, re-read and checked before it replaces anything, and an injected failure leaves the input byte-identical. Waits: not stated.
-- Backup guard: `np.savez` appends `.npz`, so `backup_path="bk"` overwrote an existing `bk.npz` past the exists-guard (line 273); a read-only target leaves a stale backup. Check: the guard tests the path written; no backup is left when the write is refused. Waits: not stated.
-- Empty table: a valid empty table reports `ok=False`, since the end check needs n > 0 (line 179), and `tests/test_nwb_integrity.py:133` pins it. Check: an empty index over empty data is `ok=True`. Waits: not stated.
-- Lower bound: a negative first index (`[-3, 5, ..., 17]`) passes `ok=True`. Check: indices are at least 0. Waits: not stated.
-- Errors: only `RaggedIndexRepairRefused` has a `docs/errors.md` row; the `KeyError`, `ValueError` and `OSError` paths and the refusal messages are not listed. Check: each raised error and message documented and pinned. Waits: loud.
-- `docs/repairing_nwb.md` states corpus observations (channel ids, waveform rows, "two of three columns") with no receipt (`AGENTS.md` §4.1). Check: removed, or each traced to a computation. Waits: wording.
-- Test reach: mutants M2 (strict monotonic), M14 (the check opening `r+`) and M15 (the `data_len == iinfo.max` boundary) survive. Check: each killed. Waits: tests only.
-Accept: each check passes; an interrupted repair leaves the input byte-identical.
-Stop: a repair rule is a scientific or format choice the NWB/HDMF specification leaves open.
 
 ### 10-19 `laminar_curation` defects found at merge
 
