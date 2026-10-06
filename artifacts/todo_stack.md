@@ -71,7 +71,7 @@ Stop: a default change without a ruling.
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
-Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/testing/**`, `tests/test_statistics.py`, `tests/test_permutation.py`, `tests/test_spiking*.py`, `tests/test_analyzers*.py`, `tests/test_trajectory*.py`, `tests/test_bilinear*.py`, `tests/test_rng*.py`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`.
+Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/_backend.py`, `jnwb/testing/**`, `tests/test_statistics.py`, `tests/test_permutation.py`, `tests/test_spiking*.py`, `tests/test_analyzers*.py`, `tests/test_trajectory*.py`, `tests/test_decoding.py`, `tests/test_zero_spread.py`, `tests/test_rng*.py`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`.
 - P-265: one value per group gives NaN ANOVA beside `eta_squared` 1.0. Check: NaN or a stated reason. Waits: no p or flag passes.
 - P-297: the `compare_multiple_groups` docstring omits NaN `eta_squared` for an empty group. Check: stated. Waits: loud NaN.
 - P-321: `confirmatory_compare` returns `correction: "none"` beside BH q values. Check: the key names what it describes. Waits: q named separately.
@@ -79,15 +79,13 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - P-346: the sign-flip tie tolerance over-counts at 1e11 dynamic range, and no test pins its size. Check: a test pins 8 eps. Waits: conservative.
 - P-350: `permutation_test` reports significant at the floor with NaN difference beyond 1.8e308. Check: NaN on non-finite centred values. Waits: no physical input.
 - P-333: no test catches `is_constant(ignore_nan=True)` regressing. Check: a NaN case in a row with spread. Waits: verified correct.
-- P-334: `_spread.zscore` on inf returns `[-inf, -inf, nan]`. Check: NaN. Waits: non-finite input only.
-- P-246: `paired_fire_prob_test(rng=<int>)` raises `AttributeError`. Check: a checked `TypeError`. Waits: loud.
+- P-334: `_spread.zscore` on `[1, inf, 2]` returns `[-inf, nan, -inf]`. Check: NaN. Waits: non-finite input only.
 - P-255: `causal_exp_smooth(tau_ms=0)` returns NaN with a warning. Check: a refusal. Waits: loud NaN.
 - P-256 permutation half: `build_permutation_plan(labels, None)` raises a bare `TypeError`. Check: it names `groups`. Waits: message quality.
 - P-231: the Rayleigh comment quotes the second-order formula. Check: aligned. Waits: code correct.
-- Deprecations to complete: the `autocorrelogram` refractory verdict values (`jnwb/analyzers.py`) are removed, and trajectory `explained_variance` carries the per-component values (`jnwb/trajectory.py`), as their 0.2.7 warnings say. Check: both land with a CHANGELOG entry. Waits: ruled to land one release after the warning, as the spectral one in 10-03.
-- P-315: `_whole_bin_count` prints "Use , or ..." for a reversed window, and its tolerance near 3e7 bins was not rechecked. Check: the message and a test. Waits: loud on unrealistic input.
+- Deprecation to complete: trajectory `explained_variance` carries the per-component values (`jnwb/trajectory.py:131`), as its `FutureWarning` says. Check: it lands with a CHANGELOG entry. Waits: ruled to land one release after the warning, as the spectral one in 10-03.
+- P-315: `whole_bin_count` (`jnwb/_bins.py:112`) prints "Use , or ..." for a reversed window, and its tolerance near 3e7 bins was not rechecked. Check: the message and a test. Waits: loud on unrealistic input.
 - P-320: the whole-bin refusal prints refused and suggested windows alike at large times. Check: enough digits. Waits: error path only.
-- P-319: the refractory-key test accepts any number of warnings. Check: exactly one. Waits: one in 60 of 60.
 - P-292: after `cupy.linalg`, `compute_population_trajectory(device='cuda')` warns the wrong cause. Check: the message names the DLL conflict. Waits: `device_used` correct.
 - P-323: `compute_population_trajectory` omits `device_used` for an empty area. Check: always present. Waits: nothing computed.
 - P-343: float32 PCA with a near-degenerate top pair differs across devices. Check: parity below working precision declared undefined. Waits: below working precision.
@@ -99,8 +97,8 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - IA-28: `bilinear` tests check a length only. Check: value-pinning tests with IA-19. Waits: goes with IA-19.
 - IA-29: `nam` cites missing scripts and calls `torch.manual_seed`; `REWARD_WINDOW_MS` is unused; `artifact_repair` cites two missing scripts; `layer_masks_path` hardcodes project folders. Check: a local `torch.Generator`, the leftovers removed. Waits: non-exported modules.
 - P-216 statistics part: the unscoped-delay paraphrase branch is unpinned. Check: a killing test. Waits: behaves correctly.
-- P-280 remainder: the shared note at `jnwb/statistics.py:782` says "as selected by test=", which `correlate` (it takes `method=`) emits at `:1127`; `population_trajectory` passes a short context name (`context='population_trajectory'` in `jnwb/analyzers.py`). Check: the note names the argument its caller takes, the context name is the qualified one. Waits: message wording.
-- Closure pass 2026-10-05: the `quality_metrics` docstring (`jnwb/analyzers.py:566`) says a spike at the train's end counts, but with a duration that is not a whole number of seconds it falls outside the last whole bin (spikes 0, 0.5, 1.2, 2.5 give counts 2, 1 and Fano 0.333). Check: the docstring states the whole-bin rule, or the count includes it. Waits: wording; the value follows the stated bins.
+- P-280 remainder: the shared note at `jnwb/statistics/_analysis.py:136` says "as selected by test=", which `correlate` (it takes `method=`) emits through the call at `jnwb/statistics/_analysis.py:481`; `population_trajectory` passes a short context name (`context='population_trajectory'` in `jnwb/analyzers.py`). Check: the note names the argument its caller takes, the context name is the qualified one. Waits: message wording.
+- Closure pass 2026-10-05: the `quality_metrics` docstring (`jnwb/analyzers.py:569`) says a spike at the train's end counts, but with a duration that is not a whole number of seconds it falls outside the last whole bin (spikes 0, 0.5, 1.2, 2.5 give counts 2, 1 and Fano 0.333). Check: the docstring states the whole-bin rule, or the count includes it. Waits: wording; the value follows the stated bins.
 - Closure pass 2026-10-05: the `quality_metrics` refractory comparison uses `<` with no tolerance, where `refractory_contamination` allows 1 ns; predates 0.2.9. Check: one comparison rule, called, not retyped (`AGENTS.md` 4.7). Waits: differs only for intervals within 1 ns of the period.
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
@@ -365,7 +363,7 @@ Role: jnwb-developer. Skill: none. Blocked by: 12-01.
 Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
 The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
 - Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers. Check: each pruned case is shown held by a stronger test first.
-- P-290: the ruled test taxonomy (`CONTRIBUTING.md:154`) is enforced by nothing. Check: each kept process test named under one category in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`.
+- P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test named under one category in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`.
 - Apparatus bound: `artifacts/goal.md` §10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks.
 Accept: the pruned files' cases are held by the stronger tests named in the audit.
 Stop: a pruned test is the only one that kills some mutant.
@@ -375,7 +373,7 @@ Stop: a pruned test is the only one that kills some mutant.
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-02, 12-03, 12-04, 12-05, 12-07, 12-08, 12-09.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
-- P-284: 134 identifiers in 7 `scripts/` files and 641 in 98 test files cite item and problem ids (P-209 and IB-71 merged here). Check: each removed or rewritten as a plain reason, then gate 14 extended to both folders with an allowlist for machine-required literals.
+- P-284: 113 identifiers in 6 `scripts/` files and 562 in 87 test files cite item and problem ids (P-209 and IB-71 merged here). Check: each removed or rewritten as a plain reason, then gate 14 extended to both folders with an allowlist for machine-required literals.
 - P-102: line endings levelled across the tree if `artifacts/evidence/0.2.8/plan/decisions.md` D3 rules it, as the last commit of the cycle, since it touches every file. Check: gate 16 passes and one byte-mode edit per convention applies.
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 Stop: an id is a literal a parser fixture needs.
@@ -484,7 +482,7 @@ Stop: a fix would name an area vocabulary.
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: per skill. Blocked by: 11-02.
-Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_preflight*.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
+Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 Ruled 2026-09-25: the paper agent lives downstream; jnwb gains only what it cannot do without.
 - a. A script scores decline accuracy from `jnwb.preflight` alone: outcome, reason and missing inputs as data.
 - b. A result names its input's sha256 and object path, through `Provenance` or `Lineage` if they can carry it; IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land here.
@@ -557,7 +555,7 @@ while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md
 | Lane | Items, in order | Owns |
 |---|---|---|
 | A figures and tutorials | 14-01, 14-02, 14-03, 14-04, 14-05 | `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/05_artifact_detection_and_repair.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py` |
-| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once lane A has merged them |
+| B estimators and screens | 11-04, 14-06, 13-04, 14-08 | `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `jnwb/connectivity/**`, `jnwb/unit_quality.py`, their tests, `docs/references.md`, `docs/09_decoding_and_visual_qc.md`, `examples/notebooks/unit_quality.ipynb`; `docs/08_directed_connectivity_and_information.md` and `docs/common_mistakes.md` once lane A has merged them |
 | T trial correlation | 14-07 | `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md` |
 
 Question round at the opening: the 11-04 shapes once its proposal exists, 13-04 against the
@@ -665,7 +663,7 @@ Stop: an estimator whose shape Hamm has not ruled.
 Release: deferred-0.2.10.
 AUTONOMY: none.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
+Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
 Ruled 2026-10-03: decided later. When the collaborator's label-learning skill arrives, this
 design and theirs go to Hamm, who rules the screen into the core or deletes this item so the
 downstream skill composes 13-03's measures. Features are 13-03's measures
