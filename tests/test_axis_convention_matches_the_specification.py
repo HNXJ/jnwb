@@ -18,15 +18,19 @@ from __future__ import annotations
 import ast
 import inspect
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 import jnwb
-from tests._sources import source_files, unread
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+from tests._sources import source_files, unread  # noqa: E402
+
 SPEC = REPO_ROOT / "docs" / "10_operation_specifications.md"
 
 TIME_AXIS_NAMES = {"n_times", "n_samples", "n_t", "n_timepoints", "n_time"}
