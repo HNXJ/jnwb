@@ -42,7 +42,7 @@ def zscore(a: Any, axis: int, *, ignore_nan: bool = False, xp: Any = np) -> Any:
     """``(a - mean) / std`` along ``axis`` (population std), with each constant slice exactly 0.
 
     NaN stays NaN. A slice that varies but whose std underflows to 0 is centred and left
-    unscaled.
+    unscaled. A slice holding inf or -inf and not constant has a NaN std and is all NaN.
     """
     mean_fn, std_fn = (xp.nanmean, xp.nanstd) if ignore_nan else (xp.mean, xp.std)
     with warnings.catch_warnings():
@@ -50,7 +50,7 @@ def zscore(a: Any, axis: int, *, ignore_nan: bool = False, xp: Any = np) -> Any:
         mean = mean_fn(a, axis=axis, keepdims=True)
         sd = std_fn(a, axis=axis, keepdims=True)
     constant = is_constant(a, axis=axis, keepdims=True, ignore_nan=ignore_nan, xp=xp)
-    z = (a - mean) / xp.where(sd > 0, sd, 1.0)
+    z = (a - mean) / xp.where(sd == 0, 1.0, sd)   # a NaN std stays NaN
     return xp.where(constant, a * 0, z)
 
 
