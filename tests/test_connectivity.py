@@ -582,6 +582,66 @@ class TestDirectedConnectivityAndNetwork:
             directed_network(signals, method="granger", order=1, n_surrogates=5,
                              rng=np.random.default_rng(1), seed=np.random.default_rng(2))
 
+    @pytest.mark.parametrize("given, parent", [({"rng": 7}, 7), ({"seed": 7}, 7), ({}, 0)])
+    def test_an_int_seed_gives_each_pair_its_own_child_seed(self, given, parent):
+        """IB-45, ruled 2026-10-06: an int seed, the default 0 included, reached every pair
+        unchanged, so every pair drew the same surrogate stream."""
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, **given)
+        expected = np.random.default_rng(parent).integers(0, 2**63 - 1, size=3).tolist()
+        assert list(res["pair_seeds"].values()) == expected
+        assert len(set(expected)) == 3
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert recorded == expected
+
+    def test_a_none_seed_records_the_entropy_each_pair_drew(self):
+        rng = np.random.default_rng(8)
+        signals = {k: rng.standard_normal((3, 120)) for k in "ABC"}
+        res = directed_network(signals, method="granger", order=1, n_surrogates=5,
+                               fdr=False, rng=None)
+        recorded = [r.params["surrogate_seed_entropy"] for r in res["results"].values()]
+        assert list(res["pair_seeds"].values()) == recorded and len(set(recorded)) == 3
+
+
+class TestConditionalDirectedNetwork:
+    """Ruled 2026-10-06: Granger conditions each pair on every other node through `Z`; the
+    other methods stay pairwise."""
+
+    @staticmethod
+    def _chain(n=3000, seed=11):
+        """A -> B -> C at one-sample lags and no direct A -> C term."""
+        rng = np.random.default_rng(seed)
+        a, b, c = rng.normal(size=(3, n))
+        for t in range(1, n):
+            b[t] += 0.8 * a[t - 1]
+            c[t] += 0.8 * b[t - 1]
+        return {"A": a, "B": b, "C": c}
+
+    def test_a_chain_has_no_direct_edge_once_conditioned(self):
+        signals = self._chain()
+        kw = dict(method="granger", order=2, fdr=False)
+        pairwise = directed_network(signals, **kw)
+        given = directed_network(signals, conditional=True, **kw)
+        a, b, c = 0, 1, 2
+        assert pairwise["p_matrix"][a, c] < 1e-10, "the indirect path must show pairwise"
+        assert given["p_matrix"][a, c] > 0.05
+        assert given["p_matrix"][a, b] < 1e-10 and given["p_matrix"][b, c] < 1e-10
+        assert given["conditional"] is True and pairwise["conditional"] is False
+        assert given["results"][("A", "C")].params["n_conditioning"] == 1
+        assert pairwise["results"][("A", "C")].params["n_conditioning"] == 0
+
+    @pytest.mark.parametrize("method", ["psi", "te", "granger_spectral"])
+    def test_other_methods_stay_pairwise(self, method):
+        with pytest.raises(ValueError, match="conditions Granger only"):
+            directed_network(self._chain(n=200), method=method, conditional=True, fs=1000.0)
+
+    def test_z_and_conditional_together_are_refused(self):
+        signals = self._chain(n=200)
+        with pytest.raises(ValueError, match="do not pass Z as well"):
+            directed_network(signals, conditional=True, Z=signals["A"], order=1)
+
 
 class TestFewTrialSurrogates:
     """Below 7 trials the surrogates circularly shift each trial instead of re-pairing
@@ -944,6 +1004,8 @@ class TestPsiInferenceIsNotOverstated:
         x, y = self._lagged_pair()
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
+            # One trial: the segment-jackknife warning is expected and is not about bands.
+            warnings.filterwarnings("ignore", message=".*leaves out one Welch segment")
             res = phase_slope_index(
                 x, y, fs=1000.0, nperseg=1024, bands={"beta": (14.0, 30.0), "gamma": (35.0, 50.0)}
             )
@@ -991,8 +1053,10 @@ class TestPsiInferenceIsNotOverstated:
 
     def test_the_width_sits_between_round_off_and_a_part_in_1e9(self):
         """Y equal to aperiodic noise leaves replicates that differ by round-off alone (sd
-        3.9e-18, the largest measured, against a width of 1.7e-12); a variation of one part
+        3.9e-18, the largest measured, against a width of 4.7e-12); a variation of one part
         in 1e9 gives sd 1.1e-10 and keeps its z."""
+        from jnwb.connectivity._psi import _psi_round_off
+
         rng = np.random.default_rng(0)
         x = rng.normal(size=1024)
         with pytest.warns(RuntimeWarning, match="agree to rounding"):
@@ -1001,8 +1065,13 @@ class TestPsiInferenceIsNotOverstated:
         perturbed = x + 1e-9 * rng.normal(size=1024)
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
+            warnings.filterwarnings("ignore", message=".*leaves out one Welch segment")
             res = phase_slope_index(x, perturbed, fs=100.0, nperseg=64)
         assert np.isfinite(res.per_band["full"]["z"])
+        # Both sides of the width: above the largest measured round-off, below the spread.
+        width = _psi_round_off(31, 31, 31)
+        assert res.params["n_segments"] == 31 and res.per_band["full"]["n_freq_bins"] == 32
+        assert 1e3 * 3.9e-18 < width < res.per_band["full"]["sd"] / 10
 
     def test_a_jackknife_with_spread_keeps_its_z(self):
         """The guard sits at rounding: an ordinary lagged pair keeps a finite z and no warning."""
@@ -1182,3 +1251,132 @@ class TestDirectedEstimatorEdges:
             fn(np.array([]), np.array([0.1]), (0.0, 1.0))
         with pytest.raises(ValueError, match=rf"^{name}\b"):
             fn(np.array([0.1]), np.array([0.2]), (0.0, 1.0), bin_size_ms=3.0)
+
+
+class TestPsiJackknifeUnit:
+    """P-227, ruled 2026-10-06: the jackknife leaves out one trial from three trials on, and
+    one segment with a warning below that. Leaving out one of a trial's overlapping segments
+    rejected in 0.059 to 0.068 under zero-lag mixing on 3 to 30 trials; one trial, 0.040 to
+    0.059 (artifacts/evidence/0.2.10/10-06/records.md)."""
+
+    KW = dict(fs=1000.0, bands=(5.0, 100.0), nperseg=100)
+
+    @staticmethod
+    def _lagged(n_trials, seed=5):
+        rng = np.random.default_rng(seed)
+        x = rng.normal(size=(n_trials, 400))
+        return x, np.roll(x, 3, axis=1) + 2.0 * rng.normal(size=(n_trials, 400))
+
+    def test_three_or_more_trials_leave_out_a_trial(self):
+        """Each replicate is recomputed as the PSI of the other trials, a fresh call."""
+        x, y = self._lagged(4)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            res = phase_slope_index(x, y, **self.KW)
+            reps = np.array([phase_slope_index(np.delete(x, i, 0), np.delete(y, i, 0),
+                                               **self.KW).net for i in range(4)])
+        sd = np.sqrt(3 / 4 * np.sum((reps - reps.mean()) ** 2))
+        band = res.per_band["band"]
+        assert res.params["jackknife_unit"] == "trial"
+        assert band["sd"] == pytest.approx(sd, rel=1e-9)
+        assert res.p_net == pytest.approx(2 * stats.t.sf(abs(band["value"] / sd), df=3),
+                                          rel=1e-9)
+
+    def test_fewer_than_three_trials_leave_out_a_segment_and_warn(self):
+        x, y = self._lagged(2)
+        with pytest.warns(RuntimeWarning, match="leaves out one Welch segment"):
+            res = phase_slope_index(x, y, **self.KW)
+        n_seg = res.params["n_segments"]
+        assert res.params["jackknife_unit"] == "segment" and n_seg == 14
+        z = res.per_band["band"]["z"]
+        assert res.p_net == pytest.approx(2 * stats.t.sf(abs(z), df=n_seg - 1), rel=1e-12)
+
+    def test_the_round_off_bound_is_k_n_eps_scale(self):
+        """P-331: k = 4, n the segments, scale the bin pairs times sqrt(units - 1), as the
+        docstring of `_psi_round_off` derives."""
+        from jnwb.connectivity._psi import _psi_round_off
+
+        eps = np.finfo(float).eps
+        # abs=0: approx's default abs of 1e-12 exceeds these bounds and accepted any k.
+        assert _psi_round_off(70, 9, 10) == pytest.approx(
+            4 * 70 * eps * 9 * 3.0, rel=1e-15, abs=0)
+        assert _psi_round_off(20, 5, 20) == pytest.approx(
+            4 * 20 * eps * 5 * np.sqrt(19), rel=1e-15, abs=0)
+
+
+class TestRoundOffBounds:
+    """P-331 (ruled 2026-10-06): width and constant checks use a round-off bound
+    k * n * eps * scale, with k stated and derived where the bound is defined."""
+
+    def test_a_linearly_detrended_line_is_exactly_zero_and_noise_survives(self):
+        """The residue of a fitted line was 5e-15 and 3e-11 on these two trials."""
+        from jnwb.connectivity._trials import _detrend_trials
+
+        t = np.arange(1000.0)
+        line = np.stack([3.7 + 0.013 * t, -2e5 + 41.0 * t])
+        np.testing.assert_array_equal(_detrend_trials(line, "linear"), 0.0)
+        noisy = line + 1e-6 * np.random.default_rng(0).normal(size=line.shape)
+        assert np.all(np.std(_detrend_trials(noisy, "linear"), axis=1) > 5e-7)
+
+    def test_granger_on_a_detrended_line_is_degenerate_not_a_number(self):
+        """The residue passed the exact zero-variance guard: y_to_x was 0.0027 with no
+        degenerate warning on a pure line."""
+        x = 5.0 + 0.01 * np.arange(500.0)
+        y = np.random.default_rng(0).normal(size=500)
+        res = granger(x, y, order=2, detrend="linear")
+        assert np.isnan(res.y_to_x)
+        assert "degenerate_residual_variance_var_not_identifiable" in res.diagnostics["warnings"]
+
+    def test_the_detrend_bound_is_k_n_eps_scale_with_k_4(self):
+        from jnwb._spread import DETREND_ROUND_OFF_K, zero_detrend_residue
+
+        assert DETREND_ROUND_OFF_K == 4.0
+        original = np.array([[2.0, -8.0, 1.0, 0.5]])
+        bound = 4.0 * 4 * np.finfo(float).eps * 8.0
+        at = np.array([[bound, -bound, 0.0, 0.5 * bound]])
+        np.testing.assert_array_equal(zero_detrend_residue(at, original, axis=1), 0.0)
+        over = at * 1.01
+        np.testing.assert_array_equal(zero_detrend_residue(over, original, axis=1), over)
+
+    def test_the_te_bound_is_k_n_eps_scale_with_k_4(self):
+        from jnwb.connectivity._transfer_entropy import _te_round_off
+
+        eps = np.finfo(float).eps
+        assert _te_round_off((1.0, 2.0, 0.5, 2.5), (4, 16, 4, 64)) == pytest.approx(
+            4 * 88 * eps * 6.0, rel=1e-15, abs=0)
+        assert _te_round_off((0.1, 0.1, 0.05, 0.1), (2, 2, 2, 2)) == pytest.approx(
+            4 * 8 * eps * 1.0, rel=1e-15, abs=0)
+
+    def test_the_te_net_tie_width_follows_the_entropies(self, monkeypatch):
+        """The net width was 100 eps (|TE_xy| + |TE_yx|), the size of a value near zero, not
+        of the four entropies of about two bits each it cancels."""
+        import jnwb.connectivity._transfer_entropy as te_mod
+
+        seen = []
+        real = te_mod._surrogate_p
+
+        def record(null, observed, alternative, scale=0.0, atol=0.0):
+            seen.append((alternative, scale, atol))
+            return real(null, observed, alternative, scale=scale, atol=atol)
+
+        monkeypatch.setattr(te_mod, "_surrogate_p", record)
+        rng = np.random.default_rng(2)
+        x, y = rng.normal(size=600), rng.normal(size=600)
+        res = transfer_entropy(x, y, n_surrogates=9, rng=0)
+        xq = te_mod._discretize(x[None], 4, "quantile")
+        yq = te_mod._discretize(y[None], 4, "quantile")
+        ro_xy = te_mod._te_one_direction(xq, yq, 1, 1, 1, "mm", return_round_off=True)[4]
+        ro_yx = te_mod._te_one_direction(yq, xq, 1, 1, 1, "mm", return_round_off=True)[4]
+        net = [atol for alternative, _, atol in seen if alternative == "two-sided"]
+        assert len(net) == 1 and res.p_net is not None
+        one_way = [atol for alternative, _, atol in seen if alternative == "greater"]
+        assert len(one_way) == 2 and one_way[0] > ro_xy and one_way[1] > ro_yx
+        plain = 100 * np.finfo(float).eps * (abs(res.x_to_y) + abs(res.y_to_x))
+        assert net[0] > ro_xy + ro_yx > 100 * plain
+
+    def test_a_caller_tie_width_reaches_the_count(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([0.0])
+        assert _surrogate_p(null, 1e-13, "greater") == 0.5
+        assert _surrogate_p(null, 1e-13, "greater", atol=2e-13) == 1.0

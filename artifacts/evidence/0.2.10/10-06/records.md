@@ -42,6 +42,24 @@ Observed: the moving-block percentile interval undercovers at every size tried, 
 points. The code was reverted and the refusal stands; the choice of interval is returned for a
 ruling.
 
+## PSI leave-one-trial-out jackknife (P-227, round 2)
+
+Ruled 2026-10-06: one trial left out from three trials on, else one segment with a warning.
+`calibrate_psi_trial_jackknife.py <worktree> 2000 3x400 5x400 10x400 30x200` ->
+`psi_trial_jackknife.out`. Band 5-100 Hz at fs 1000, default `nperseg`; 'segment' reruns the
+same data with the trial threshold raised, which is the old jackknife.
+
+| Trials x samples | Segments | Mixing, trial (se) | Mixing, segment | Independent, trial / segment | 5-sample lead, trial / segment |
+|---|---|---|---|---|---|
+| 3 x 400 | 21 | 0.049 (0.005) | 0.068 | 0.020 / 0.006 | 0.908 / 1.000 |
+| 5 x 400 | 35 | 0.059 (0.005) | 0.065 | 0.014 / 0.003 | 1.000 / 1.000 |
+| 10 x 400 | 70 | 0.059 (0.005) | 0.068 | 0.005 / 0.002 | 1.000 / 1.000 |
+| 30 x 200 | 210 | 0.040 (0.004) | 0.059 | 0.002 / 0.002 | 1.000 / 1.000 |
+
+Observed: leaving out a trial moves the mixing rate from 0.059-0.068 to 0.040-0.059, within
+2 se of 0.05 except 30 x 200 (0.040, 2.3 se below, conservative). It is less conservative on independent pairs, and
+on 3 trials, where t has 2 degrees of freedom, it detects the lead in 0.91 of pairs, not all.
+
 ## jrsa studentized block bootstrap coverage (IB-44, round 2): not met, not shipped
 
 Ruled 2026-10-06: a studentized block bootstrap, shipped only at near-nominal coverage.
@@ -93,3 +111,20 @@ liberal), which decays as 1/N.
 `probe_bias.py` (40 seeds, n 2000, 49 surrogates; output quoted in the `transfer_entropy`
 docstring): TE `bias_corrected_x_to_y` mean 0.0014 bits (sd 0.0033) under mixing, 0.0001
 independent; Granger 0.00015 and 0.00009.
+
+## Round-off bounds (P-331, round 2)
+
+Each bound is `k * n * eps * scale` with `k = 4`, derived in the docstring that defines it:
+`_psi_round_off` (n segments, scale bin pairs times sqrt(units - 1)), `zero_detrend_residue`
+in `jnwb/_spread.py` (n slice length, scale max|original|; derived `(1.25 n + 2) eps m <=
+2 n eps m`, measured worst `1.91 n eps m` at n = 3) and `_te_round_off` (n occupied cells,
+scale max(1, sum of the four entropies)). Granger's residual-variance guard stays an exact
+zero test; the detrend now hands it exact zeros.
+
+Observed before the change: a detrended line left a residue of 5e-15 and 3e-11; `granger`
+on it returned y_to_x 0.0027 with no degenerate warning; `jrsa(pearson, detrend=True,
+standardize=True)` on a line against noise returned -0.026. After: residue 0, Granger NaN
+with the degenerate warning, jrsa NaN. The six tests in `TestRoundOffBounds` and the jrsa
+line test fail on the pre-change sources; 13 of 13 mutants killed, each file
+restored by hash. The PSI pins used `pytest.approx(rel=1e-15)`, whose default `abs=1e-12`
+exceeds the bounds and accepted any k; they now pass `abs=0`.

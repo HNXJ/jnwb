@@ -5,7 +5,7 @@ from __future__ import annotations
 import numbers
 import warnings
 import numpy as np
-from .._spread import zscore
+from .._spread import zero_detrend_residue, zscore
 from ._backends import _get_xp, _to_backend
 from ._metrics import _OBSERVATION_AXIS_0_METRICS
 
@@ -357,6 +357,7 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
         xp = _get_xp(arr)
         is_gpu = (xp.__name__ == "cupy")
         if detrend:
+            original = arr
             if is_gpu:
                 arr_cpu = arr.get()
                 try:
@@ -371,6 +372,9 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
                     arr = sp_detrend(arr, axis=-1)
                 except ImportError:
                     arr = arr - np.polyval(np.polyfit(np.arange(arr.shape[-1]), arr.T, 1), np.arange(arr.shape[-1]))
+            # A row that is a straight line is exactly 0, not round-off that `standardize`
+            # would scale to unit variance.
+            arr = zero_detrend_residue(arr, original, axis=-1, xp=xp)
         if standardize:
             # A constant row is exactly 0, decided by exact equality; the 1e-12 offset an
             # earlier version used biased the scale of small-amplitude rows.

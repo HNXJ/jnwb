@@ -428,10 +428,10 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
     """
     Phase Slope Index (PSI), delegated to :func:`jnwb.connectivity.phase_slope_index`.
 
-    Superseded implementation (pre-2026-08-04) took a single ``rfft`` of the whole
-    ravelled record. A one-segment coherency has magnitude identically 1 at every
-    frequency, so its phase-slope sum is unweighted by coherence and is not PSI in
-    the sense of Nolte et al. (2008). Coherency must be averaged over segments.
+    It does not take one ``rfft`` of the whole ravelled record: a one-segment coherency
+    has magnitude identically 1 at every frequency, so its phase-slope sum is unweighted
+    by coherence and is not PSI in the sense of Nolte et al. (2008). The delegate
+    averages the coherency over Welch segments.
 
     Args:
         fs: sampling rate in Hz. When omitted, ``fs=2.0`` is used so frequencies

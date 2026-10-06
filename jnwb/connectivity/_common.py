@@ -190,7 +190,7 @@ def _surrogate_source(a: np.ndarray, rng: np.random.Generator) -> np.ndarray:
 
 
 def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
-                 scale: float = 0.0) -> float:
+                 scale: float = 0.0, atol: float = 0.0) -> float:
     """``(1 + k) / (B + 1)`` over the ``B`` draws of ``null``, ``k`` counting draws at least as
     extreme as ``observed`` with round-off ties included (see ``_count_at_least_as_extreme``).
     Identical trials make every trial permutation reproduce the observed statistic, summed
@@ -202,6 +202,9 @@ def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
     ``log(var_r / var_f)`` cancels inside the log, so its scale is 1 (``max(1, |a|) +
     max(1, |b|)`` for the net). A PSI sums one term
     ``Im(conj(C_f) C_{f+1})`` of size at most 1 per bin pair, so its scale is the pair count.
+    ``atol`` is a tie width the caller derived itself, as transfer entropy does from its
+    entropies; the wider of the two applies.
     """
-    k = _count_at_least_as_extreme(null, observed, alternative, atol=_TIE_RTOL * scale)
+    k = _count_at_least_as_extreme(null, observed, alternative,
+                                   atol=max(float(atol), _TIE_RTOL * scale))
     return float((1 + k) / (len(null) + 1))
