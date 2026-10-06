@@ -549,6 +549,22 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                 self.assertTrue(np.isnan(res['fano_factor']))
                 self.assertIsNone(res['is_good_single_unit'])
 
+    def test_the_fano_windows_are_whole_seconds_and_drop_a_partial_tail(self):
+        """The docstring's input: spikes 0, 0.5, 1.2, 2.5 s give windows [0, 1) and [1, 2]
+        with counts 2 and 1; the spike at 2.5 s lies past the last whole second."""
+        res = UnitAnalyzer.quality_metrics(np.array([0.0, 0.5, 1.2, 2.5]), 300.0, 5.0)
+        self.assertAlmostEqual(res['fano_factor'], np.var([2, 1], ddof=1) / 1.5, places=14)
+
+    def test_the_refractory_rule_is_refractory_contamination_s(self):
+        """An interval within 1 ns of refractory_ms counts as equal to it, as in
+        jnwb.refractory_contamination; it was a violation here."""
+        from jnwb.unit_quality import refractory_contamination
+        st = np.array([0.0, 0.002 + 5e-10, 1.0, 1.002 - 5e-10, 2.0, 2.0015])
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0, refractory_ms=2.0)
+        rc = refractory_contamination(st, duration_s=2.0015, refractory_ms=2.0, censored_ms=0.0)
+        self.assertEqual(rc['n_violations'], 1)                       # only the 1.5 ms interval
+        self.assertAlmostEqual(res['refr_violations_pct'], 100.0 * 1 / 5)
+
     def test_each_cut_off_is_an_argument(self):
         regular = np.arange(0.0, 10.0, 0.003)             # 3 ms intervals, Fano near 0
         self.assertTrue(UnitAnalyzer.quality_metrics(regular, 300.0, 5.0)['is_good_single_unit'])

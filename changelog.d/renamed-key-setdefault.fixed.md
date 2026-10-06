@@ -1,0 +1,1 @@
+- `setdefault` on a result dict with a renamed key reads the current key: `setdefault('old', 99)` on a dict holding `new` returns the value of `new` with the `DeprecationWarning` that reading `old` gives, and inserts nothing. It returned 99 and inserted a key `old` beside `new`.

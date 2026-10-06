@@ -148,3 +148,15 @@ def test_the_shim_is_read_only():
 
     assert not hasattr(DictAccessMixin, "__setitem__")
     assert not hasattr(DictAccessMixin, "__iter__")
+
+
+def test_setdefault_of_an_old_name_reads_the_current_key_and_inserts_nothing():
+    # It inserted a key 'old' beside 'new' and returned the default.
+    from jnwb._dictlike import RenamedKeyDict
+
+    d = RenamedKeyDict({"new": 1}, aliases={"old": "new"})
+    with pytest.warns(DeprecationWarning, match="'old' is deprecated"):
+        assert d.setdefault("old", 99) == 1
+    assert dict(d) == {"new": 1}
+    assert d.setdefault("new", 99) == 1
+    assert d.setdefault("other", 7) == 7 and dict(d) == {"new": 1, "other": 7}
