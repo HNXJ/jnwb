@@ -36,35 +36,11 @@ needed. A bullet reads `ID: defect. Check: what closes it.` Bullets in a deferre
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| F spectral and laminar | 10-03, 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
+| F spectral and laminar | 10-04, 10-13 | the shared tests that hard-code module paths, `scripts/mutation_harness.py`, `jnwb/spectral*`, `jnwb/tfr*`, `jnwb/laminar*`, their tests, the calibration scripts, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/laminar.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/compression.py` |
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking and decoding | 10-07, 10-08 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| H statistics, spiking and decoding | 10-07, 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 
-10-01, 10-02 and 10-05 are merged, so 10-03, 10-04, 10-06 and 10-07 are open.
-
-### 10-03 Spectral edges
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `jnwb/spectral/**`, `jnwb/tfr.py`, `jnwb/tfr_accumulator.py`, `tests/test_spectral.py`, `tests/test_tfr*.py`, `tests/test_gpu*.py`, `skills/jnwb-lfp-spectral/SKILL.md`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `scripts/mutation_harness.py`, `tests/test_mutation_harness_validity.py`.
-- P-203: `relative_power(model="log_ratio")` retypes `10*log10`. Check: it calls `to_db`. Waits: same formula.
-- P-230: `aperiodic_fit` fits without removing peaks (graded keep, 2026-09-25). Check: an opt-in `remove_peaks=`, default unchanged. Waits: documented.
-- P-340: `compute_psd` and `compute_multitaper_psd` return 1e-33 residue for a constant trace. Check: exact zero or the residue documented. Waits: no positivity guard to mislead.
-- P-349 device half: CPU and CUDA `wpli` differ for a channel one ulp from constant. Check: parity below working precision declared undefined. Waits: one-ulp edge.
-- P-331 coherence half: the coherence residual-variance guard sees detrend residue. Check: a stated tolerance. Waits: degenerate input.
-- P-171: the density test's name promises what `test_band_power_is_the_mean_psd_over_the_band` catches. Check: rename. Waits: name only.
-- IB-60: the coherence GPU-fallback test compares only p and spectrum. Check: the shift list equals the CPU run's. Waits: the numbers invariant 6 protects are equal.
-- P-257: `ComplexTFR(device=...)` accepts any string. Check: a checked device. Waits: only a hand-built `ComplexTFR`.
-- P-347: `TFRAccumulator.mean` returns a copy. Check: the docstring and a test. Waits: stated; no user.
-- P-287: the trial-mean view check reads one level deep. Check: nested lists and memoryviews refused or copied under the ruled limit. Waits: copies under the ruled limit.
-- Deprecations to complete: `spectral_tilt`'s `exponent` key is removed, and `relative_power` raises `ValueError` for a lower-dimension baseline. Check: both land with a CHANGELOG entry. Waits: ruled to land one release after the warning.
-- Generator seeds and `jrsa` axes, spectral part: `cross_area_coherence` records no seed for a `Generator`. Check: a child seed recorded.
-- `scripts/mutation_harness.py` `source_path` resolves a result class (`VFlipResult`, `AperiodicFitResult`)
-to the package `__init__.py`, because the class keeps its old `__module__`. Check: a class resolves to
-the file that defines it, or is refused by name. Waits: no caller names a class.
-- `docs/04` carries release-transitional clauses. Check: the clauses cut. Waits: direction right everywhere.
-Accept: each check passes and the suite is green.
-Stop: a change moves a documented value without a ruling.
+10-01, 10-02, 10-03 and 10-05 are merged, so 10-04, 10-06 and 10-07 are open.
 
 ### 10-04 Laminar edges and a laminar page
 
@@ -87,7 +63,7 @@ Stop: a criterion is a scientific choice with no ruling.
 ### 10-13 No dangling references in `jnwb/`
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-03, 10-04.
+Role: jnwb-developer. Skill: none. Blocked by: 10-04.
 Writes: `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/spectral/**`, `jnwb/laminar/**`.
 Split from 10-08, whose write set does not reach these files.
 - P-296: dangling references in `jnwb/` (`nwb_tfr_storage_spec.md`, `artifacts/benchmarks/...`) and development-history comments. Check: none left, merged with IA-29. Waits: no behavioural effect.
@@ -175,6 +151,19 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
 
+### 10-18 A stalled notebook kernel fails the suite instead of hanging it
+
+Release: deferred-0.2.10.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_notebooks.py`.
+- P-368: the full suite hung 40 minutes at 99% on 2026-10-06 (13f8b7e8): three notebook kernels under
+two xdist workers stopped answering while other jobs loaded the machine. `tests/test_notebooks.py` bounds
+each cell (`timeout=120`) but not kernel start or shutdown, and the suite has no per-test timeout. The
+file alone passed in 12.5 s and the rerun passed. Check: kernel start, every cell and shutdown are
+bounded, so a kernel that never answers fails the test by name within a stated time.
+Accept: a test with a kernel that never answers fails within the bound.
+Stop: none.
+
 # 0.2.11
 
 Theme: interpretation, routing and documentation hold: every interpretational pitfall has a
@@ -242,7 +231,7 @@ Stop: a test would need a threshold no reference fixes.
 ### 10-12 Skills point to their sources
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: per skill. Blocked by: 10-03, 10-06.
+Role: jnwb-developer. Skill: per skill. Blocked by: 10-06.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - Each connectivity and spectral safeguard names its `docs/references.md` row instead of restating the method. Check: the line test finds no restated definition. Waits: pointers only.
 - A request to compare with published nonparametric Granger values meets the estimator difference, as a decline or a qualification. Check: a decline-behaviour case. Waits: skill text only.
