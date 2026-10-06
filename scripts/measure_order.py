@@ -112,6 +112,30 @@ def _spiking(n_bins: int, which: str) -> Callable[[], object]:
                                             min_duration_ms=3.0)
 
 
+def _curation(which: str, n: int) -> Callable[[], object]:
+    import jnwb
+
+    rng = np.random.default_rng(0)
+    if which == "detect":
+        data = rng.standard_normal((16, 1, n))
+        return lambda: jnwb.detect_bad_channels(data, 500.0)
+    if which == "interpolate":
+        data = rng.standard_normal((n, 64))
+        bad = np.zeros(n, dtype=bool)
+        bad[2::5] = True
+        return lambda: jnwb.interpolate_channel_runs(data, bad)
+    if which == "csd":
+        erp = rng.standard_normal((n, 200))
+        times = np.arange(200, dtype=float) - 50.0
+        return lambda: jnwb.evoked_csd_sink(erp, times, pitch_um=25.0)
+    if which == "fuse":
+        windows = rng.normal(600.0, 20.0, n)
+        return lambda: jnwb.fuse_laminar_anchors(vflip_um=600.0, window_um=windows,
+                                                 consistency_deep=0.9, consistency_superficial=0.9)
+    lfp = rng.standard_normal((16, n, 500))
+    return lambda: jnwb.curate_and_label(lfp, 500.0, pitch_um=25.0, compute_xflip=False)
+
+
 def _fano(n_trials: int) -> Callable[[], object]:
     import jnwb
 
@@ -162,6 +186,31 @@ SPECS: Dict[str, Spec] = {
         "n_trials", (1_000, 10_000, 100_000, 1_000_000),
         "8 units, 5 uniform spikes per unit per 1 s trial, window (0, 0.5) s, summary='mean'",
         lambda n, _tmp: _fano(n),
+    ),
+    "detect_bad_channels[n_samples]": Spec(
+        "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),
+        "16 contacts, 1 epoch, white noise, fs=500 Hz, defaults",
+        lambda n, _tmp: _curation("detect", n),
+    ),
+    "interpolate_channel_runs[n_channels]": Spec(
+        "n_channels", (1_000, 10_000, 100_000, 1_000_000),
+        "64 trailing samples, every fifth contact bad (runs of 1), max_run=3",
+        lambda n, _tmp: _curation("interpolate", n),
+    ),
+    "evoked_csd_sink[n_channels]": Spec(
+        "n_channels", (100, 1_000, 10_000, 100_000),
+        "200 time samples at 1 ms, white-noise potential, pitch_um=25, defaults",
+        lambda n, _tmp: _curation("csd", n),
+    ),
+    "fuse_laminar_anchors[n_windows]": Spec(
+        "n_windows", (1_000, 10_000, 100_000, 1_000_000),
+        "vflip_um=600, windows N(600, 20), both consistencies 0.9, defaults",
+        lambda n, _tmp: _curation("fuse", n),
+    ),
+    "curate_and_label[n_epochs]": Spec(
+        "n_epochs", (8, 32, 128, 512),
+        "16 contacts, 500 samples per epoch, white noise (grade F), fs=500 Hz, compute_xflip=False",
+        lambda n, _tmp: _curation("curate", n),
     ),
 }
 

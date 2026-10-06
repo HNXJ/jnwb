@@ -189,6 +189,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `spectral` | Multi-taper spectral analysis, coherence, CSD, and PLV | `compute_psd`, `compute_multitaper_psd`, `band_power`, `spectral_tilt`, `voltage_curvature_1d`, `current_source_density_1d`, `harmonic_analysis`, `imaginary_coherency`, `cross_area_coherence`, `bipolar_reference`, `laplacian_reference`, `to_db`, `CANONICAL_BANDS` |
 | `tfr` | Complex Morlet time-frequency representation | `complex_tfr`, `morlet_wavelet`, `ComplexTFR` |
 | `laminar` | Depth profiles along a probe shaft from spectra, correlation blocks and phase gradients, and layer labels from an accepted profile | `vflip`, `vflip_from_lfp`, `xflip`, `zflip`, `label_layers`, `VFlipResult`, `XFlipResult`, `ZFlipResult` |
+| `laminar_curation` | Bad contacts, interpolation, evoked CSD sink and graded layer labels for a laminar LFP recording | `detect_bad_channels`, `interpolate_channel_runs`, `evoked_csd_sink`, `fuse_laminar_anchors`, `curate_and_label`, `LaminarCurationResult` |
 | `tfr_accumulator` | Streaming trial-wise TFR accumulation | `TFRAccumulator`, `assert_mergeable` |
 | `compression` | NWB on-disk fp32 conversion (`compress_fp32` path I/O) | `compress_fp32` |
 | `analyzers` | High-level session analyzers | `TFRAnalyzer`, `UnitAnalyzer`, `PopulationAnalyzer` |

@@ -57,6 +57,26 @@ enriched_units["layer"] = enriched_units["peak_channel_id"].map(layers).fillna("
 `"na"` when the profile is rejected (`vflip_result.accepted` is `False`), and a unit whose peak
 channel is not on the labelled shaft is `"na"` too.
 
+### Curated Layer Labels (`curate_and_label`)
+
+`curate_and_label` runs bad-contact detection, short-run interpolation and a graded spectrolaminar
+anchor on epoched LFP, then labels every contact. Widths are in micrometers, so it needs the
+pitch; the defaults are working values from 25 and 40 um probes, and each is a parameter.
+
+```python
+# lfp: (n_channels, n_epochs, n_samples) in recording order; erp: (n_channels, n_times)
+res = jnwb.curate_and_label(lfp, fs, pitch_um=25.0, erp=erp, erp_times_ms=t_ms)
+res.grade, res.anchor_um     # "A".."D" or "F"; position from the first contact, um
+res.labels                   # "superficial" | "input" | "deep" | "WM" | "outside_cortex" | "na"
+```
+
+The grade rests on the anchor's stability across blocks of epochs and on spectral consistency; A and B
+carry a laminar claim and C is a sensitivity check. xFLIP and the evoked CSD are reported as distances
+to the anchor and never move it. One cortical sheet is assumed: `n_crossings` above 1 means the shaft
+may need splitting into contiguous ranges. Contacts on one shaft are not independent, so the probe
+is the unit of inference. The parts (`detect_bad_channels`, `interpolate_channel_runs`,
+`evoked_csd_sink`, `fuse_laminar_anchors`) are public.
+
 ### Probe Geometry Extraction (`probe_geometry`, `ProbeGeometry`)
 
 Extracts contact spacing, linear ordering, orientation, and layout properties from NWB electrode tables or 3D coordinate arrays with explicit units:
