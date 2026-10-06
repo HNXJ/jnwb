@@ -237,17 +237,21 @@ def source_path(name: str, anchor: str | None = None, *, repo: Path | None = Non
     object's own file that holds the anchor more than once raises too, rather than handing the
     case to some other file. The root is the directory holding the imported ``jnwb`` package
     (which must be ``repo`` when that is given), and it must be a source tree: an installed
-    copy has no ``pyproject.toml`` beside it and is refused. A class resolves to the module
-    that defines it, not the file its ``__module__`` names (:func:`_class_definition_file`).
+    copy has no ``pyproject.toml`` beside it and is refused, unless ``JNWB_EXPECTED_PACKAGE_ROOT``
+    names its root: a deliberate run against an installed copy, whose ``jnwb/...`` paths are the
+    checkout's. A class resolves to the module that defines it, not the file its ``__module__``
+    names (:func:`_class_definition_file`).
     """
     import inspect
 
     package = _import_jnwb(repo)
     root = Path(inspect.getsourcefile(package) or "").resolve().parent.parent
-    if repo is not None and root != Path(repo).resolve():
+    expected = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    deliberate = expected is not None and Path(expected).resolve() == root
+    if repo is not None and root != Path(repo).resolve() and not deliberate:
         raise MutationHarnessError(f"jnwb is imported from {root}, not from {repo}")
     repo = root
-    if not (repo / "pyproject.toml").is_file():
+    if not (repo / "pyproject.toml").is_file() and not deliberate:
         raise MutationHarnessError(f"jnwb is imported from {repo}, which is not a source tree")
     obj = getattr(package, name)
     found = Path(inspect.getsourcefile(obj) or "").resolve()
