@@ -20,6 +20,8 @@ import inspect
 import json
 import pathlib
 
+import pytest
+
 from jnwb import laminar
 from jnwb.laminar import xflip
 from tests.test_vflip_calibration_receipt import _with_prose_edited
@@ -132,6 +134,29 @@ def test_the_receipt_covers_every_helper_xflip_reaches():
     )
     for name, source in _generator().estimator_sources():
         assert source.strip(), f"{name} hashed as empty source"
+
+
+@pytest.mark.parametrize("edited", ["a\n\n    b", "a  \n    b", "a\n    b  "])
+def test_an_edit_inside_a_multi_line_string_literal_changes_the_receipt(monkeypatch, edited):
+    """The hash rule dropped blank lines and trailing spaces everywhere, inside string
+    literals too, so editing a literal's blank line left the receipt current."""
+    generator = _generator()
+    real = inspect.getsource
+    anchor = '    gen, seed_entropy = recorded_rng(rng, "xflip")\n'
+
+    def with_literal(body):
+        def source(obj):
+            text = real(obj)
+            if obj is not inspect.getmodule(xflip):
+                return text
+            assert text.count(anchor) == 1
+            return text.replace(anchor, f'    _literal = """{body}"""\n' + anchor)
+        return source
+
+    monkeypatch.setattr(inspect, "getsource", with_literal("a\n    b"))
+    plain = generator.estimator_sha256()
+    monkeypatch.setattr(inspect, "getsource", with_literal(edited))
+    assert generator.estimator_sha256() != plain
 
 
 def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):

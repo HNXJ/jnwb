@@ -114,7 +114,10 @@ def code_only(source: str) -> str:
 
     A docstring is any statement that is a bare string; a comment is a tokenizer comment.
     Both are cut from the text by position, so what remains is the source as written,
-    on every interpreter, rather than a re-rendering of its syntax tree.
+    on every interpreter, rather than a re-rendering of its syntax tree. Trailing spaces
+    and blank lines are dropped only outside string literals: the lines a multi-line string
+    literal runs through are kept byte for byte, since their spaces and blank lines are the
+    string's value.
     """
     lines = source.splitlines()
 
@@ -122,19 +125,46 @@ def code_only(source: str) -> str:
         # ast reports columns in UTF-8 bytes, the tokenizer in characters.
         return len(lines[lineno - 1].encode("utf-8")[:byte_col].decode("utf-8"))
 
-    cuts = [
+    docstrings = [
         (node.lineno, char_col(node.lineno, node.col_offset),
          node.end_lineno, char_col(node.end_lineno, node.end_col_offset))
         for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
         and isinstance(node.value.value, str)
     ]
-    cuts += [(*tok.start, *tok.end)
-             for tok in tokenize.generate_tokens(io.StringIO(source).readline)
-             if tok.type == tokenize.COMMENT]
+    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    cuts = docstrings + [(*tok.start, *tok.end) for tok in tokens
+                         if tok.type == tokenize.COMMENT]
+
+    def in_docstring(pos) -> bool:
+        return any((a, b) <= pos < (c, d) for a, b, c, d in docstrings)
+
+    # Multi-line string literals, docstrings excepted: plain strings are one token; f- and
+    # t-strings run from a START token to the matching END token.
+    opening = {getattr(tokenize, n, None) for n in ("FSTRING_START", "TSTRING_START")} - {None}
+    closing = {getattr(tokenize, n, None) for n in ("FSTRING_END", "TSTRING_END")} - {None}
+    literals, open_at = [], []
+    for tok in tokens:
+        if tok.type == tokenize.STRING:
+            literals.append((tok.start, tok.end))
+        elif tok.type in opening:
+            open_at.append(tok.start)
+        elif tok.type in closing:
+            literals.append((open_at.pop(), tok.end))
+    # Every row the literal runs through to its end is protected; the row it closes on is
+    # not blank, and anything after the closing quote is outside it.
+    protected = [False] * len(lines)
+    for start, end in literals:
+        if end[0] > start[0] and not in_docstring(start):
+            for row in range(start[0] - 1, end[0] - 1):
+                protected[row] = True
+
+    rows = list(zip(lines, protected))
     for first, start, last, end in sorted(cuts, reverse=True):
-        lines[first - 1:last] = [lines[first - 1][:start] + lines[last - 1][end:]]
-    return "\n".join(line.rstrip() for line in lines if line.strip())
+        merged = rows[first - 1][0][:start] + rows[last - 1][0][end:]
+        rows[first - 1:last] = [(merged, rows[first - 1][1] or rows[last - 1][1])]
+    return "\n".join(text if keep else text.rstrip()
+                     for text, keep in rows if keep or text.strip())
 
 
 def estimator_sources(root=None) -> list[tuple[str, str]]:
