@@ -45,19 +45,29 @@ gives, for the closure pass to classify.
 | H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-20, 10-21, 10-23 and 10-24 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19 and 10-22 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-25, 10-20, 10-21, 10-23 and 10-24 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`, `tests/test_rsa.py`, `tests/test_substitution_class_sweep.py`, `tests/test_adversarial_inputs.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`.
-- `JRSAResult.summary`, `plot` and `save` are public, shown in `docs/03`, and no test executes them (reduction audit 2026-10-06). Check: one test per method on a small result. Waits: not stated.
 - Round-2 test reach (verified 2026-10-06, 65691a49): surviving mutants M5 (conditioning on the first other node only; no test has four or more nodes), M3b (`n_seg-1` degrees of freedom in the multi-band `z_tot`), M10 (the observed round-off term dropped from the TE one-way tie width), M17 (the `gc` alias refused) and M19 (NaN slices in `zero_detrend_residue`). Check: each killed by a test. Waits: behaviour verified correct; tests only.
 - `jnwb/connectivity/_psi.py:307` states the segment jackknife rejected 0.070-0.079 on 10 trials of 400, where the default-`nperseg` record says 0.068. Check: the comment quotes the record. Waits: wording.
 - `jrsa` `phase_slope` ravels to one trial, so it warns "pass 3 or more trials" on every call, which a `jrsa` caller cannot act on. Check: the warning suppressed or reworded for the `jrsa` path, with a test. Waits: a warning, no value change.
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
+
+### 10-25 `JRSAResult.save` and its siblings lose data silently
+
+Release: required-0.2.10.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `jnwb/jrsa/_result.py`, `tests/test_jrsa*.py`, `docs/03_representational_similarity_jrsa.md`, `skills/jnwb-connectivity/SKILL.md`.
+Found by the "Waits: not stated" classification (2026-10-06): shipped API behaviour can be wrong. Ruled by Hamm: round-trip every field.
+- `save(path, fmt="csv")` keeps only fields that are not arrays, so `value`, `statistic`, `p`, `q`, `ci` and `null_distribution` are left out of the file (`jnwb/jrsa/_result.py:208`); `fmt="npz"` keeps arrays only, so `metric`, `parameters` and `execution` (the seed) are dropped (`:195`). Check: every field survives in every format; npz carries the non-array fields as one JSON string, csv carries the arrays (a 2-D `value` as a matrix, scalars as field and value rows); a test per format asserts `value`, `p`, `q`, `metric` and the seed read back equal, and a file written by 0.2.9 still reads. Waits: none; required.
+- `summary`, `plot` and `save` are public, shown in `docs/03`, and no test executes them (reduction audit 2026-10-06). Check: one test per method on a small result; `plot` on a signed matrix centres its diverging colormap on 0 or states why not; the `docs/03` block that calls `summary()` runs under `tests/test_docs_call_shapes.py`. Waits: none; required.
+Accept: each check passes; a changelog fragment states the content added to each format.
+Stop: a fix removes a field or a format that 0.2.9 wrote.
 
 ### 10-08 Statistics, spiking and decoding edges
 
@@ -93,7 +103,7 @@ Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/on
 - P-280 remainder: the shared note at `jnwb/statistics/_analysis.py:136` says "as selected by test=", which `correlate` (it takes `method=`) emits through the call at `:481`; `population_trajectory` passes the short context name `population_trajectory` (`jnwb/analyzers.py:869`). Check: the note names the argument its caller takes, and the context name is `UnitAnalyzer.population_trajectory`, asserted by a test. Waits: message wording.
 - Closure pass 2026-10-05: the `quality_metrics` docstring (`jnwb/analyzers.py:569`) says a spike at the train's end counts, but with a duration that is not a whole number of seconds it falls outside the last whole bin (spikes 0, 0.5, 1.2, 2.5 -> counts 2, 1; Fano 0.333). Check: the docstring states the whole-bin rule, or the count includes that spike, asserted on that input. Waits: wording; the value follows the stated bins.
 - Closure pass 2026-10-05: the `quality_metrics` refractory comparison (`jnwb/analyzers.py:628`) uses `<` with no tolerance, where `refractory_contamination` allows 1 ns (spike times 0, 0.002 + 5e-10, 1, 1.002 - 5e-10, ... at `refractory_ms=2` count one violation of the interval 2 ms - 0.5 ns); predates 0.2.9. Check: one comparison rule, called from both and not retyped (`AGENTS.md` 4.7), asserted on that input. Waits: differs only for intervals within 1 ns of the period.
-- Seed reach: `sklearn_random_state` (`jnwb/_rng.py:221`) returning 0 for any Generator survives every test (3,990 run); two Generators then give `nested_cv_linear_svm` and `build_permutation_plan` the same seed. Check: a test that two different Generators change the result. Waits: not stated.
+- Seed reach: `sklearn_random_state` (`jnwb/_rng.py:221`) returning 0 for any Generator survives every test (3,990 run); two Generators then give `nested_cv_linear_svm` and `build_permutation_plan` the same seed. Check: a test that two different Generators change the result. Waits: correct now; tests only.
 - `jnwb/testing/nwb_fixtures.py:1` cites an internal archive file from shipped code. Check: the citation removed. Waits: wording.
 Accept: each check passes; values that move carry a CHANGELOG entry.
 Stop: a fix changes shipped values without a ruling.
@@ -183,8 +193,8 @@ Release: deferred-0.2.10.
 AUTONOMY: none for the B3 lexicon values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`, `artifacts/fact_stack.md`.
-- I1: declared signature types for every numeric public operation, and type-checked composition edges (`jnwb/_declarations.py`). Check: a planted spikes-to-LFP-only edge is reported VIOLATED by `tests/test_fact_gate.py`. Waits: not stated.
-- B3: the lexicon and exceptions table. Check: a planted public function with a defaulted `window=` and no cited reason in the table is VIOLATED by `tests/test_fact_gate.py`. Waits: not stated.
+- I1: declared signature types for every numeric public operation, and type-checked composition edges (`jnwb/_declarations.py`). Check: a planted spikes-to-LFP-only edge is reported VIOLATED by `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
+- B3: the lexicon and exceptions table. Check: a planted public function with a defaulted `window=` and no cited reason in the table is VIOLATED by `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
 Accept: the Identity table and B3 report no UNHELD fact.
 Stop: a declaration would change a public signature without a ruling.
 
@@ -194,10 +204,10 @@ Release: deferred-0.2.10.
 AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- S8: claim classes and the text check over docs, skills, figure labels and docstrings. Check: `scripts/fact_gate.py` reports the 0.2.7 fig09 unit, planted, as VIOLATED. Waits: not stated.
-- S1, S2, S5 and S7: the scans as ruled in Q13. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: not stated.
-- K1: the partition with k = 3 exclusive operations per shipped domain skill. Check: a planted two-operation skill is VIOLATED. Waits: not stated.
-- Planned skills (moved from the fact stack as plan, Q14): twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` wait on their public APIs and neither is a required endpoint: a capability the router routes cleanly gets no skill. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: not stated.
+- S8: claim classes and the text check over docs, skills, figure labels and docstrings. Check: `scripts/fact_gate.py` reports the 0.2.7 fig09 unit, planted, as VIOLATED. Waits: fact reports UNHELD; nothing public claims it.
+- S1, S2, S5 and S7: the scans as ruled in Q13. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
+- K1: the partition with k = 3 exclusive operations per shipped domain skill. Check: a planted two-operation skill is VIOLATED. Waits: skill-partition check; no shipped behaviour.
+- Planned skills (moved from the fact stack as plan, Q14): twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` wait on their public APIs and neither is a required endpoint: a capability the router routes cleanly gets no skill. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: plan for future skills; no shipped behaviour.
 Accept: the Science and Skills tables report no UNHELD fact.
 Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
@@ -380,9 +390,9 @@ Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01.
 Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
 Ruled 2026-09-29 (D12): the list is accepted, run after the gates split. The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
-- Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers (the ruled list in this item's Writes). Check: each pruned case is shown held by a stronger test first, named in the audit. Waits: not stated.
-- P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`. Waits: not stated.
-- Apparatus bound: `artifacts/goal.md` section 10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: not stated.
+- Process tests to prune or merge: 4 files to prune, 4 to merge, and four weaker checks a stronger test covers (the ruled list in this item's Writes). Check: each pruned case is shown held by a stronger test first, named in the audit. Waits: keeping tests cannot make evidence falsely pass.
+- P-290: the ruled test taxonomy ("Testing rule", `CONTRIBUTING.md:191`) is enforced by nothing. Check: each kept process test is named under one probe class in the prune record; a taxonomy change goes to 12-06, which owns `CONTRIBUTING.md`. Waits: contributor rule only; nothing ships.
+- Apparatus bound: `artifacts/goal.md` section 10 has no check. Check: `scripts/reconstruct_state.py` records the line counts of `scripts/` and the process tests, so growth is visible per release; a refusal is a new item's to add if Hamm asks. Waits: goal states it is unchecked; growth only.
 Accept: the pruned files' cases are held by the stronger tests named in the audit.
 Stop: a pruned test is the only one that kills some mutant.
 
@@ -402,7 +412,7 @@ Release: deferred-0.2.10.
 AUTONOMY: none for the fact row; the graph edges are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- The fact graph gains reference nodes and DOI-to-function edges read from `docs/references.md` (`scripts/build_fact_graph.py`). Check: a planted row with no function is reported. Waits: not stated.
+- The fact graph gains reference nodes and DOI-to-function edges read from `docs/references.md` (`scripts/build_fact_graph.py`). Check: a planted row with no function is reported. Waits: graph tooling; the fact row awaits Hamm.
 - A proposed Science fact, every routed method cites a published source, held by `tests/test_references_resolve.py`. Check: Hamm approves the row and the fact gate reports it HELD. Waits: lands only on Hamm's approval.
 Accept: the fact gate reports the row HELD, or it waits with Hamm's reason.
 Stop: the fact stack is Hamm's; the row lands only on approval.
@@ -427,8 +437,8 @@ Release: deferred-0.2.10.
 AUTONOMY: none for the study-vocabulary values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-03, 12-05, 12-08.
 Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
-- R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function. Waits: not stated.
-- B2: gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit is repaired or shown generic. Check: a planted study token in `tests/` fails. Waits: not stated.
+- R2: a verify-pypi job after publish-pypi (fresh install from PyPI, sha256 equal to the tag run's artifact, `pip check`, the installed smoke test). Check: a planted hash mismatch fails the job's check function. Waits: the upload step checks sha256 against the verified TestPyPI copy.
+- B2: gate 6 scans all of `jnwb/`, `docs/`, `skills/` and `tests/`; each hit is repaired or shown generic. Check: a planted study token in `tests/` fails. Waits: `tests/` is not in the wheel; shipped surfaces are scanned.
 Accept: `scripts/fact_gate.py` prints UNHELD 0 and VIOLATED 0.
 Stop: a workflow change would alter the ruled publication order.
 
@@ -438,7 +448,7 @@ Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-02, 12-03, 12-04, 12-05, 12-07, 12-08, 12-09.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
 - P-284: 113 identifiers in 6 `scripts/` files and 562 in 87 test files cite item and problem ids (gate 14's `PROCESS_IDENTIFIER` at 72124e23; P-209 and IB-71 merged here). Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals. Waits: neither directory ships.
-- P-102: line endings levelled across the tree if `artifacts/evidence/0.2.8/plan/decisions.md` D3 rules it, as the last commit of the cycle, since it touches every file. Check: gate 16 passes and one byte-mode edit per convention applies. Waits: not stated.
+- P-102: line endings levelled across the tree if `artifacts/evidence/0.2.8/plan/decisions.md` D3 rules it, as the last commit of the cycle, since it touches every file. Check: gate 16 passes and one byte-mode edit per convention applies. Waits: waits on the D3 ruling; bytes only.
 Accept: gate 14 passes on `scripts/` and `tests/`; the suite passes.
 Stop: an id is a literal a parser fixture needs.
 
@@ -557,8 +567,8 @@ Waits: public API; Hamm rules the surface.
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- D1: delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED. Waits: not stated.
-- D2 and D3: category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED. Waits: not stated.
+- D1: delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED. Waits: fact reports UNHELD; nothing public claims it.
+- D2 and D3: category tags on every operation with NWB or cache side effects, landing with 07-21 and 07-22. Check: an untagged planted writer is VIOLATED. Waits: metadata tags; waits on 07-21 and 07-22.
 Accept: the Design table reports no UNHELD fact.
 Stop: a category outside the ruled allowlists would be needed.
 
