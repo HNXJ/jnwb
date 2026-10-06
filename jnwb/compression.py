@@ -11,7 +11,7 @@ Public entry point: :func:`compress_fp32`.
 ``select=`` is required and names the datasets to cast to float32; ``select=[]`` casts nothing
 and still chunks, compresses and compacts the file.
 
-Implements float32 for the datasets named in ``select=``,
+Applies float32 to the datasets named in ``select=``,
 chunking, gzip1+shuffle everywhere, regular `timestamps` arrays collapsed to `starting_time`+`rate` --
 and typically yields multi-fold size reduction on large electrophysiology sessions; run
 ``verify=True`` on your file to measure the exact ratio.
