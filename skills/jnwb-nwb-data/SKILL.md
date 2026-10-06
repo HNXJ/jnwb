@@ -36,6 +36,9 @@ areas/layers, or compressing arrays.
   `pynwb.NWBHDF5IO`.
 - `jnwb.as_trials(X, time_axis=-1, name="X", allow_ragged=True)`: Normalizes any supported container to a `(n_trials, n_times)` float array. Use it before any operation that documents that shape, rather than reshaping by hand.
 
+- `jnwb.check_ragged_indices(path, *, table="units", probe_starts=None, probe_column=None)`: Read-only integrity check of every `<column>_index` of one table, returning a `RaggedIndexReport` with one `RaggedIndexCheck` per column: `monotonic`, `ends_at_data_len`, `length_fits`, and `offset_bug` (the multi-probe offset defect). The defect test needs `probe_starts` or `probe_column`; without one `offset_bug` is `"not_tested"`. Writes nothing.
+- `jnwb.repair_ragged_index(path, column, *, table="units", probe_starts=None, probe_column=None, dry_run=True, backup_path=None)`: Rewrites one index in place only when `check_ragged_indices` reports `"detected"`; otherwise raises `RaggedIndexRepairRefused`. Dry run unless `dry_run=False`, which needs `backup_path`. Run it on a copy. See [Repairing NWB files](../../docs/repairing_nwb.md).
+
 Choosing an interval table, event rows, epochs around events, recording structure and what a
 condition code means are routed by `jnwb-paradigm`.
 

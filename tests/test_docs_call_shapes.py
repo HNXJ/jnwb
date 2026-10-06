@@ -84,6 +84,7 @@ COVERED_PAGES = frozenset({
     "docs/quickstart.md",
     "docs/reading_nwb.md",
     "docs/recipes.md",
+    "docs/repairing_nwb.md",
     "docs/vis.md",
 })
 

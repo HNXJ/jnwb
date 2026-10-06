@@ -34,6 +34,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "metadata": "public",
     "nwb_inspect": "public",
     "nwb_events": "public",
+    "nwb_integrity": "public",
     "onset_fitting": "public",
     "ontology": "public",
     "paths": "public",

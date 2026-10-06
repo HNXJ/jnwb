@@ -75,6 +75,13 @@ from .nwb_events import (
     events,
     resolve_interval_table,
 )
+from .nwb_integrity import (
+    RaggedIndexRepair,
+    RaggedIndexReport,
+    RaggedIndexRepairRefused,
+    check_ragged_indices,
+    repair_ragged_index,
+)
 from .continuous import epoch_continuous
 from .addressing import (
     map_peak_channel_to_area,
@@ -290,6 +297,11 @@ __all__ = [
     'IntervalTableNotFoundError',
     'ColumnNotFoundError',
     'InvalidOnsetValueError',
+    'check_ragged_indices',
+    'repair_ragged_index',
+    'RaggedIndexReport',
+    'RaggedIndexRepair',
+    'RaggedIndexRepairRefused',
     'epoch_continuous',
 
     # Addressing
