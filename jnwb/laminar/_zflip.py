@@ -33,8 +33,8 @@ class ZFlipResult(DictAccessMixin):
             ``adjacent_*`` field, a contact is constant only when every sample of the whole
             record equals every other, compared exactly; a contact of tiny but nonzero
             amplitude is measured. A contact that is a straight line in time over the whole
-            record, to within round-off (rms residual of its least-squares line at most
-            1000 eps of its largest magnitude), is refused the same way, because the
+            record, to within round-off (rms second difference at most 4 eps of its
+            largest magnitude), is refused the same way, because the
             segments' linear detrend leaves only round-off of it.
         adjacent_delays_s: 1D array of shape (n_channels - 1,) of pairwise delay
             estimates Delta tau in seconds between adjacent contacts (contact i to i+1).
@@ -121,23 +121,19 @@ class ZFlipResult(DictAccessMixin):
 
 _ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
 
-# A row counts as linear in time when the rms residual of its least-squares line is at most
-# this many eps of its largest magnitude. Exact ramps measured at most 1.5 (n 1e3 to 1e5,
-# slope and offset 1e-6 to 1e6). A ramp built by cumulative summation carries round-off
-# that grows with its length: at most about 30 at n=1000, 250 at n=8000 and 830 at
-# n=32000, and up to 3400 at n=1e5, where such a ramp is measured rather than refused. A
-# unit-SD signal measured 4.5e4 on an offset of 1e11 and 4.5e3 on 1e12.
-_LINEAR_ROUNDOFF_EPS = 1000.0
+# A row counts as linear in time when the rms of its second difference is at most this many
+# eps of its largest magnitude. The second difference of a ramp is the round-off of single
+# samples, so it does not grow with length, as the residual of a fitted line does (a
+# cumulative-sum ramp left that residual at 3400 eps at n=1e5). Measured over 756 ramps
+# (exact, cumulative-sum and linspace; n 16 to 1e5; slope 1e-9 to 1e9; offset 0 to 1e11),
+# the largest was 1.0, so 4 leaves a factor of 4. A unit-SD signal stays above it up to an
+# offset of about 7e12 for a 15 Hz sine (2.9 at 1e13) and about 2.8e14 for white noise.
+_LINEAR_ROUNDOFF_EPS = 4.0
 
 
 def _linear_to_roundoff(rows: np.ndarray) -> np.ndarray:
     """True for each row of ``rows`` (2D, time last) that is a straight line to round-off."""
-    t = np.arange(rows.shape[-1], dtype=float)
-    t -= t.mean()
-    centred = rows - rows.mean(axis=-1, keepdims=True)
-    slope = centred @ t / (t @ t)
-    resid = centred - slope[:, None] * t
-    rms = np.sqrt(np.mean(resid ** 2, axis=-1))
+    rms = np.sqrt(np.mean(np.diff(rows, 2, axis=-1) ** 2, axis=-1))
     scale = np.max(np.abs(rows), axis=-1)
     return rms <= _LINEAR_ROUNDOFF_EPS * np.finfo(float).eps * scale
 

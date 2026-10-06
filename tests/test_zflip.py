@@ -401,17 +401,42 @@ def test_zflip_a_contact_that_is_an_exact_ramp_is_refused_like_a_constant_one():
 
 
 def test_zflip_a_cumsum_built_ramp_is_refused_as_linear_in_time():
-    """A ramp built by cumulative summation is refused although its round-off is not exact.
-
-    Its residual measures about 73 eps of its magnitude, above what an exact ramp leaves
-    (at most 1.5) and inside the 1000-eps width. A width narrowed towards exact ramps keeps
-    it as a contact and measures its residue.
-    """
+    """A ramp built by cumulative summation is refused although its round-off is not exact."""
     rows = _unit_sd_lagged_rows(8000, 11)
     rows[4] = 3.0 + np.cumsum(np.full(8000, 0.1))
     res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
     assert np.isnan(res.adjacent_wpli[3]) and not res.adjacent_identifiable[3]
     assert "Contact(s) [4] linear in time to round-off" in res.rejection_reason
+
+
+def test_zflip_a_long_cumsum_ramp_is_refused_as_linear_in_time():
+    """At 1e5 samples a cumulative-sum ramp left a line-fit residual of about 3400 eps,
+    beyond the old 1000-eps width, so it was measured as a contact. Its second difference
+    stays at the round-off of single samples."""
+    rows = np.random.default_rng(0).normal(size=(5, 100_000))
+    rows[2] = 3.0 + np.cumsum(np.full(100_000, 1e-3))
+    res = jnwb.zflip(rows, fs=1000.0, orientation="superficial_to_deep", n_surrogates=0)
+    assert "Contact(s) [2] linear in time to round-off" in res.rejection_reason
+
+
+@pytest.mark.parametrize("n", [16, 1000, 100_000])
+def test_the_ramp_rule_flags_every_ramp_construction(n):
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    ramps = np.array([3.0 + np.cumsum(np.full(n, 1e-3)), -1e6 + 7.0 * np.arange(n),
+                      np.linspace(1e11, 1e11 + 5.0 * n, n)])
+    assert _linear_to_roundoff(ramps).all()
+
+
+def test_the_ramp_rule_keeps_a_signal_with_real_curvature():
+    """A unit 15 Hz sine on an offset of 1e12 has a second difference of about 28 eps of its
+    magnitude: kept at the threshold of 4, flagged by a threshold of 30 or more. A parabola
+    is curved everywhere and is kept at any threshold near it."""
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    t = np.arange(8000) / 1000.0
+    rows = np.array([1e12 + np.sin(2 * np.pi * 15.0 * t), (t - 4.0) ** 2])
+    assert _linear_to_roundoff(rows).tolist() == [False, False]
 
 
 def test_zflip_a_signal_on_a_large_offset_is_not_refused_as_linear_in_time():
