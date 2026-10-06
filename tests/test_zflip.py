@@ -428,6 +428,24 @@ def test_the_ramp_rule_flags_every_ramp_construction(n):
     assert _linear_to_roundoff(ramps).all()
 
 
+def test_the_ramp_rule_flags_the_worst_ramps_measured():
+    """The ramps above reach only 0.58 eps, so a threshold anywhere above that passed them.
+    These are the worst constructions measured: a short linspace at 1.0 eps, a long cumsum at
+    0.86, and a ramp at the bottom of a binade moved by -1, 0 or +1 ulp per sample at 2.2."""
+    from jnwb.laminar._zflip import _linear_to_roundoff
+
+    base = 1.0 + 1e-12 * np.arange(10_000)
+    steps = np.random.default_rng(0).integers(-1, 2, size=base.size)
+    rows = [np.linspace(1.0, 1.0 + 1.6e-5, 16),
+            1.0 + np.cumsum(np.full(100_000, 1e-9)),
+            base + steps * np.spacing(base)]
+    eps = np.finfo(float).eps
+    measured = [np.sqrt(np.mean(np.diff(r, 2) ** 2)) / (eps * np.max(np.abs(r))) for r in rows]
+    assert measured[0] > 0.99 and measured[1] > 0.8 and measured[2] > 2.1, measured
+    for row in rows:
+        assert _linear_to_roundoff(row[None])[0]
+
+
 def test_the_ramp_rule_keeps_a_signal_with_real_curvature():
     """A unit 15 Hz sine on an offset of 1e12 has a second difference of about 28 eps of its
     magnitude: kept at the threshold of 4, flagged by a threshold of 30 or more. A parabola

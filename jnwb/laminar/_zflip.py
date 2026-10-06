@@ -126,8 +126,10 @@ _ZFLIP_ORIENTATIONS = ("superficial_to_deep", "deep_to_superficial")
 # samples, so it does not grow with length, as the residual of a fitted line does (a
 # cumulative-sum ramp left that residual at 3400 eps at n=1e5). Measured over 756 ramps
 # (exact, cumulative-sum and linspace; n 16 to 1e5; slope 1e-9 to 1e9; offset 0 to 1e11),
-# the largest was 1.0, so 4 leaves a factor of 4. A unit-SD signal stays above it up to an
-# offset of about 7e12 for a 15 Hz sine (2.9 at 1e13) and about 2.8e14 for white noise.
+# the largest was 1.0; a ramp moved by -1, 0 or +1 ulp per sample reaches 2.2 at the bottom of
+# a binade, so 4 leaves a factor of 1.8 over that. A unit-SD signal stays above it up to an
+# offset of about 7e12 for a 15 Hz sine (2.9 at 1e13) and about 2.8e15 for white noise
+# (sqrt(6)/(4 eps)).
 _LINEAR_ROUNDOFF_EPS = 4.0
 
 
