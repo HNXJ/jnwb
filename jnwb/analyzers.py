@@ -14,7 +14,7 @@ import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import bins_within, onset_locked_counts, whole_bin_count
+from ._bins import bins_within, onset_locked_counts, onset_window, whole_bin_count
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
 import pandas as pd
@@ -331,12 +331,16 @@ class UnitAnalyzer:
         """
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
+        # spike - onset in [pre, post], both edges inclusive (`onset_window`); each trial keeps
+        # its spikes in input order.
+        spike_times = np.asarray(spike_times)
+        order = np.argsort(np.asarray(spike_times, dtype=float), axis=None, kind='stable')
+        st = np.asarray(spike_times, dtype=float).ravel()[order]
+        lo, hi = onset_window(st, trial_onsets, win_sec[0], win_sec[1], right_closed=True)
         for trial_idx, onset in enumerate(trial_onsets):
-            mask = ((spike_times >= onset + win_sec[0]) &
-                    (spike_times <= onset + win_sec[1]))
             raster_data.append({
                 'trial':       trial_idx,
-                'spike_times': spike_times[mask] - onset,
+                'spike_times': spike_times.ravel()[np.sort(order[lo[trial_idx]:hi[trial_idx]])] - onset,
             })
 
         return {
@@ -382,9 +386,8 @@ class UnitAnalyzer:
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
-        # [onset + pre, onset + post], both edges inclusive. The subtraction used to round a
-        # spike on either edge just outside the outer bin edges, where np.histogram dropped
-        # it: with onsets 0.7 s apart from 2 s, 114 of 405 at the left edge and 147 at the right.
+        # spike - onset in [pre, post], both edges inclusive, and every selected spike is
+        # counted (`onset_locked_counts`).
         trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
                                           bin_edges, 1.0, right_closed=True) / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)

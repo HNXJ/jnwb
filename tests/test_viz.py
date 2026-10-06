@@ -153,12 +153,16 @@ class TestRasterPsth:
         np.testing.assert_array_equal(mean, [4.0, 0.0, 0.0])
 
     def test_a_spike_selected_at_the_window_start_is_counted_despite_ms_rounding(self):
-        """1.9 s is selected for onset 2.0 s and window start -100 ms, but (1.9 - 2.0) * 1000
-        is -100.00000000000009, below the first edge, and the histogram dropped it."""
-        onset = 2.0
-        spike = onset + (-100.0) / 1000.0
-        assert (spike - onset) * 1000.0 < -100.0  # the fixture carries the rounding
-        _, mean, _ = raster_psth(np.array([spike]), np.array([onset]), (-100.0, 100.0), 10.0)
-        expected = np.zeros(20)
+        """1.001 s is exactly 1.001 s after onset 0, so it is selected for a window starting at
+        1001 ms, but 1.001 * 1000 is 1000.9999999999999, below the first edge, and the
+        histogram dropped it. A spike whose time minus the onset is below the start is not
+        selected: 1.9 s is -0.10000000000000009 s from onset 2.0 s."""
+        spike, onset = 1.001, 0.0
+        assert spike - onset == 1.001 and (spike - onset) * 1000.0 < 1001.0  # the fixture rounds
+        _, mean, _ = raster_psth(np.array([spike]), np.array([onset]), (1001.0, 1101.0), 10.0)
+        expected = np.zeros(10)
         expected[0] = 100.0  # one spike in a 10 ms bin over one trial
         np.testing.assert_array_equal(mean, expected)
+        assert 1.9 - 2.0 < -0.1
+        _, mean, _ = raster_psth(np.array([1.9]), np.array([2.0]), (-100.0, 100.0), 10.0)
+        np.testing.assert_array_equal(mean, np.zeros(20))

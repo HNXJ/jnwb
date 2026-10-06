@@ -442,9 +442,10 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
 
 
 class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
-    """The window is [onset + pre, onset + post], both edges inclusive, but spike - onset
-    rounded a spike on either edge just outside the outer bin edges and np.histogram dropped
-    it: on these onsets, 114 of 405 at the left edge and 147 of 405 at the right."""
+    """A spike is selected when spike - onset lies in [pre, post], both edges inclusive, and
+    every selected spike is counted. ``onset + pre`` rounds differently from ``spike - onset``:
+    on these onsets, 114 of the 405 spikes at ``onset - 0.1`` are below -0.1 s after their
+    onset and 147 of those at ``onset + 0.2`` are above 0.2 s, so neither is selected."""
 
     ONSETS = 2.0 + 0.7 * np.arange(405)
 
@@ -454,21 +455,44 @@ class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
 
     def test_a_spike_on_the_left_edge_counts_in_the_first_bin(self):
         spikes = self.ONSETS - 0.1
-        self.assertGreater(np.sum(spikes - self.ONSETS < -0.1), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS >= -0.1)
+        self.assertEqual(len(self.ONSETS) - inside, 114)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[0], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[0], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_on_the_right_edge_counts_in_the_last_bin(self):
         spikes = self.ONSETS + 0.2
-        self.assertGreater(np.sum(spikes - self.ONSETS > 0.2), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS <= 0.2)
+        self.assertEqual(len(self.ONSETS) - inside, 147)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[-1], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[-1], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_past_either_edge_is_not_counted(self):
         spikes = np.concatenate([self.ONSETS - 0.1 - 1e-6, self.ONSETS + 0.2 + 1e-6])
         self.assertEqual(self._counts(spikes).sum(), 0)
+
+    def test_a_spike_exactly_on_the_right_edge_is_counted(self):
+        # Exact in binary: 1.5 - 1.0 == 0.5, the window end, which the closed edge includes.
+        self.assertEqual(1.5 - 1.0, 0.5)
+        res = UnitAnalyzer.psth(np.array([1.5]), np.array([1.0]), bin_size_ms=250,
+                                window_ms=(-250, 500))
+        np.testing.assert_array_equal(np.rint(res['psth'] * 0.25), [0, 0, 1])
+
+
+class TestRasterSelectsBySpikeMinusOnset(unittest.TestCase):
+    """``UnitAnalyzer.raster`` keeps a spike when spike - onset lies in [pre, post]."""
+
+    def test_both_edges_are_inclusive_in_relative_time(self):
+        # 0.3 - 0.03 == 0.27 exactly, while 0.03 + 0.27 rounds above 0.3; 1.5 - 1.0 == 0.5.
+        self.assertEqual(0.3 - 0.03, 0.27)
+        self.assertGreater(0.03 + 0.27, 0.3)
+        r = UnitAnalyzer.raster(np.array([0.3, 0.29]), np.array([0.03]), window_ms=(270, 500))
+        np.testing.assert_array_equal(r['raster'][0]['spike_times'], [0.3 - 0.03])
+        r = UnitAnalyzer.raster(np.array([1.5, 1.0]), np.array([1.0]), window_ms=(-250, 500))
+        np.testing.assert_array_equal(r['raster'][0]['spike_times'], [0.5, 0.0])
+        self.assertEqual(r['n_spikes'], 2)
 
 
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):

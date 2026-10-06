@@ -54,6 +54,17 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(4 / 0.15)
         assert metrics["response_count"] == 12
 
+    @pytest.mark.parametrize("spike, onset, window", [
+        (0.3, 0.03, (0.27, 0.5)),   # exactly on the start: 0.3 - 0.03 == 0.27, 0.03 + 0.27 > 0.3
+        (0.06, 0.02, (0.0, 0.04)),  # 0.06 - 0.02 < 0.04, but 0.02 + 0.04 <= 0.06
+    ])
+    def test_windows_select_by_spike_minus_onset(self, spike, onset, window):
+        assert window[0] <= spike - onset < window[1]       # the case is what it is named
+        m = compute_response_metrics(np.array([spike]), np.array([onset]),
+                                     baseline_window_s=(-0.02, -0.01), response_window_s=window)
+        assert m["response_count"] == 1
+        assert m["latency"] == (spike - onset) - window[0]
+
     def test_per_trial_rates_are_returned_in_onset_order(self):
         onsets = np.array([0.0, 10.0, 20.0])
         spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1
@@ -597,6 +608,16 @@ class TestSpikeCountCorrelation:
         res = spike_count_correlation((u for u in units), (0.0, 2.0), bin_ms=500.0)
         assert res["n_units"] == 2
 
+    def test_fewer_than_three_bins_is_refused(self):
+        from jnwb.spiking import spike_count_correlation
+        units = [np.array([0.1, 0.2, 0.7]), np.array([0.3, 0.6, 0.9])]
+        # With 2 bins every Pearson r is +1 or -1, so a mean of them measures nothing.
+        with pytest.raises(ValueError, match=r"gives 2 bins.*at least 3"):
+            spike_count_correlation(units, (0.0, 1.0), bin_ms=500.0)
+        with pytest.raises(ValueError, match=r"gives 2 bins.*at least 3"):
+            spike_count_correlation([], (0.0, 1.0), bin_ms=500.0)
+        assert spike_count_correlation(units, (0.0, 0.9), bin_ms=300.0)["n_bins"] == 3
+
 
 class TestFanoFactor:
     ONSETS = np.arange(200) * 2.0
@@ -633,6 +654,37 @@ class TestFanoFactor:
         from jnwb.spiking import fano_factor
         res = fano_factor([np.array([0.0, 0.5, 2.0, 2.5])], [0.0, 2.0], (0.0, 0.5), summary="mean")
         np.testing.assert_array_equal(res["counts"], [[1, 1]])
+
+    # (spike, onset, window): the spike minus the onset is in the window, though adding the
+    # onset to an edge rounds the other way for the last two.
+    EDGE_CASES = [
+        (0.3, 0.1, (0.0, 0.2)),     # 0.3 - 0.1 = 0.19999999999999998 < 0.2
+        (0.3, 0.03, (0.27, 0.5)),   # exactly on w0: 0.3 - 0.03 == 0.27, but 0.03 + 0.27 > 0.3
+        (0.06, 0.02, (0.0, 0.04)),  # 0.06 - 0.02 < 0.04, but 0.02 + 0.04 <= 0.06
+    ]
+
+    @pytest.mark.parametrize("spike, onset, window", EDGE_CASES)
+    def test_every_onset_window_selects_by_spike_minus_onset(self, spike, onset, window):
+        from jnwb._bins import onset_locked_counts
+        from jnwb.connectivity import bin_spikes
+        from jnwb.spiking import fano_factor
+        w0, w1 = window
+        assert w0 <= spike - onset < w1                     # the case is what it is named
+        st = np.array([spike])
+        fano = fano_factor([st], [onset, onset], window, summary="mean")["counts"]
+        np.testing.assert_array_equal(fano, [[1, 1]])
+        edges = np.array([w0, w1])
+        assert onset_locked_counts(st, [onset], w0, w1, edges, 1.0, right_closed=False).sum() == 1
+        assert bin_spikes(st, window_s=window, bin_size_ms=10.0, trial_starts=[onset]).sum() == 1
+
+    def test_a_closed_edge_reaches_a_spike_above_the_rounded_onset_plus_edge(self):
+        from jnwb._bins import onset_window
+        # 0.23 - 0.05 == 0.18 exactly, but 0.05 + 0.18 rounds to 0.22999999999999998, below the
+        # spike: a binary search on onset + edge alone stops before it.
+        spike, onset, w1 = 0.23, 0.05, 0.18
+        assert spike - onset == w1 and onset + w1 < spike   # the case is what it is named
+        lo, hi = onset_window(np.array([spike]), [onset], 0.0, w1, right_closed=True)
+        assert (lo[0], hi[0]) == (0, 1)
 
     @pytest.mark.parametrize("kw", [dict(summary="max"), dict(onsets_s=[1.0]), dict(window_s=(0.5, 0.5))])
     def test_refusals(self, kw):
