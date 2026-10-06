@@ -30,7 +30,7 @@
       ]
     },
     {
-      "file": "jnwb/statistics.py",
+      "file": "jnwb/statistics/_analysis.py",
       "qualname": "fdr_correct",
       "sha256": "f19550790305d710642dcff74b6deb87c33f64c0379fffd8c265e68ab15a1ce8",
       "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
@@ -39,7 +39,7 @@
       ]
     },
     {
-      "file": "jnwb/statistics.py",
+      "file": "jnwb/statistics/_analysis.py",
       "qualname": "StatisticalAnalysis.fdr_correct",
       "sha256": "9f5c14513c3f1db01163f0314c537ee1c2b4eafafaecd08d9177825ea9962650",
       "verified_at": "0fe48f7a914a991158ebf4a6f7901db10fa117e6",
