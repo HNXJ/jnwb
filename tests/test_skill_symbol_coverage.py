@@ -44,6 +44,7 @@ ERRORS = [
     "MissingRequiredNWBFieldError",
     "NWBEventError",
     "NWBInspectError",
+    "RaggedIndexRepairRefused",
     "SqueezedAttributeWarning",
     "UnitNotFoundError",
 ]
@@ -72,6 +73,8 @@ RETURNED_BY = {
     "JRSAResult": ["jrsa"],
     "LaminarCurationResult": ["curate_and_label"],
     "Preflight": ["preflight"],
+    "RaggedIndexReport": ["check_ragged_indices"],
+    "RaggedIndexRepair": ["repair_ragged_index"],
     "ProbeGeometry": ["probe_geometry"],
     "VFlipResult": ["vflip", "vflip_from_lfp"],
     "XFlipResult": ["xflip"],

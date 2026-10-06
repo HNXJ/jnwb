@@ -22,6 +22,7 @@ The messages below are the real ones, taken from a file written with plain pynwb
 | `ColumnNotFoundError` | `events`, `event_onsets` | `code_column=` one of the listed columns |
 | `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
 | `MissingRequiredNWBFieldError` | any read | Repair the file, or waive the field with `read_nwb(path, allow_missing=(exc.field_name,))` |
+| `RaggedIndexRepairRefused` | `repair_ragged_index` | Nothing is written. Read the message and the `check_ragged_indices` flags; see [Repairing NWB files](repairing_nwb.md) |
 
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
 directly. The rest of this page is why each refusal exists, which the table cannot carry.
