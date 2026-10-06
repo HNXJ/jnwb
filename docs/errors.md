@@ -22,7 +22,7 @@ The messages below are the real ones, taken from a file written with plain pynwb
 | `ColumnNotFoundError` | `events`, `event_onsets` | `code_column=` one of the listed columns |
 | `InvalidOnsetValueError` | `events`, `event_onsets`, `epoch_continuous` | Drop or repair the row the message names |
 | `MissingRequiredNWBFieldError` | any read | Repair the file, or waive the field with `read_nwb(path, allow_missing=(exc.field_name,))` |
-| `RaggedIndexRepairRefused` | `repair_ragged_index` | Nothing is written. Read the message and the `check_ragged_indices` flags; see [Repairing NWB files](repairing_nwb.md) |
+| `RaggedIndexRepairRefused` | `repair_ragged_index` | Nothing is written or replaced. Act on the message; see [Repairing a ragged index](#repairing-a-ragged-index-raggedindexrepairrefused) |
 
 `NWBInspectError` and `NWBEventError` are the two base classes; they are never raised
 directly. The rest of this page is why each refusal exists, which the table cannot carry.
@@ -218,6 +218,30 @@ Four rows collapse information the file holds, and the returned object cannot re
   a field holding only NULs is indistinguishable from an empty one.
 - **A one-element array reads as its element.** pynwb flattens it on every read, with or without
   jnwb, and it is indistinguishable from a scalar holding the same string.
+
+## Repairing a ragged index: `RaggedIndexRepairRefused`
+
+See [Repairing NWB files](repairing_nwb.md). Every failure leaves the input byte-identical and no
+copy or backup behind. The first five also come from `check_ragged_indices`.
+
+| Message contains | Type | The fix |
+|---|---|---|
+| `no table group` | `KeyError` | `table=` the table's HDF5 path |
+| `is not a column of the table` | `KeyError` | `probe_column=` a column of it |
+| `values for N rows` | `ValueError` | One `probe_column` value per row |
+| `beginning at 0` | `ValueError` | Increasing `probe_starts` from 0 |
+| `not both` | `ValueError` | Pass one segmentation |
+| `has no ragged column` | refused | A name in `report.columns` |
+| `is not the known offset defect (status ...)` | refused | Segment for `not_tested`; `inconsistent` is other damage |
+| `does not fit` | refused | None; widen the dtype |
+| `dry_run=False needs output_path or in_place=True` | refused | Name a destination |
+| `output_path and in_place=True exclude each other` | refused | Pass one |
+| `in_place=True needs backup_path` | refused | A new `backup_path` |
+| `backup_path applies only with in_place=True` | refused | Drop it |
+| `output_path ... exists`, `backup_path ... exists` | refused | A new path |
+| `is not writable` | refused | Use `output_path=` |
+| `did not verify; nothing was replaced` | refused | Report it |
+| Any other `OSError` | `OSError` | Close the file elsewhere, free disk |
 
 ## Warnings, not errors
 

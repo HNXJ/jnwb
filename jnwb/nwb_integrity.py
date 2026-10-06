@@ -2,19 +2,26 @@
 
 An NWB table stores a ragged column (``spike_times``, ``waveform_mean``, ...) as a flat data
 array plus an integer ``<column>_index`` array holding, per row, the END offset of that row's
-slice (exclusive, 0-based, cumulative over the whole table). A correct index is non-decreasing,
-its last element equals the first-axis length of the data, and its dtype can hold that length.
+slice (exclusive, 0-based, cumulative over the whole table), so row ``i`` is
+``data[index[i-1]:index[i]]`` with ``index[-1]`` read as 0 for the first row (HDMF
+``VectorIndex``). A correct index is therefore non-negative and non-decreasing, its last element
+equals the first-axis length of the data (an empty index requires empty data), and its dtype can
+hold that length.
 
 Known writer defect (observed in files written by one MATLAB-based multi-probe writer):
 when units are appended probe by probe, the index of every probe after the first is offset by
 the FIRST element of the existing index instead of its last element (the running total). The
 flat data are complete and in row order; only the index is wrong, so those rows slice into
-earlier probes' data. ``check_ragged_indices`` detects it; ``repair_ragged_index`` rewrites the
-one index in place under the refusal rules stated on that function.
+earlier probes' data. ``check_ragged_indices`` detects it; ``repair_ragged_index`` writes the
+corrected index to a new file, or in place on request, under the refusal rules stated on that
+function.
 """
 
 from __future__ import annotations
 
+import os
+import shutil
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Sequence
@@ -36,10 +43,11 @@ class RaggedIndexRepairRefused(ValueError):
 class RaggedIndexCheck:
     """Status of one ``<column>_index`` array. Every flag is a plain observation.
 
-    ``monotonic`` is non-decreasing; ``ends_at_data_len`` is ``index[-1] == len(data)``;
-    ``length_fits`` is that ``len(data)`` is representable in ``index_type``;
-    ``offset_bug`` is described by ``OffsetBug``. ``corrected_index`` is the index a repair
-    would write, ``None`` unless ``offset_bug == "detected"``.
+    ``monotonic`` is non-decreasing; ``ends_at_data_len`` is ``index[-1] == len(data)``, or
+    ``len(data) == 0`` for an empty index; ``length_fits`` is that ``len(data)`` is
+    representable in ``index_type``; ``offset_bug`` is described by ``OffsetBug``;
+    ``nonnegative`` is ``index[0] >= 0`` (True for an empty index). ``corrected_index`` is the
+    index a repair would write, ``None`` unless ``offset_bug == "detected"``.
     """
 
     column: str
@@ -51,11 +59,12 @@ class RaggedIndexCheck:
     length_fits: bool
     offset_bug: OffsetBug
     corrected_index: np.ndarray | None = None
+    nonnegative: bool = True
 
     @property
     def ok(self) -> bool:
-        return (self.monotonic and self.ends_at_data_len and self.length_fits
-                and self.offset_bug in ("absent", "not_tested"))
+        return (self.monotonic and self.nonnegative and self.ends_at_data_len
+                and self.length_fits and self.offset_bug in ("absent", "not_tested"))
 
 
 @dataclass(frozen=True)
@@ -77,13 +86,16 @@ class RaggedIndexReport:
 
 @dataclass(frozen=True)
 class RaggedIndexRepair:
-    """Outcome of ``repair_ragged_index``. ``written`` is False for a dry run."""
+    """Outcome of ``repair_ragged_index``. ``written`` is False for a dry run and True only
+    after the written index was re-read, checked and moved into place; ``output_path`` is the
+    file that holds it (``None`` for a dry run)."""
 
     column: str
     written: bool
     rows_changed: int
     old_index: np.ndarray
     new_index: np.ndarray
+    output_path: str | None = None
 
 
 def _decode(x) -> str:
@@ -130,8 +142,9 @@ def _classify(old: np.ndarray, data_len: int, starts: np.ndarray | None):
     if starts is None:
         return "not_tested", None
     old64 = old.astype(np.int64)
-    # Correct layout: segment boundaries need no special case, ends are a plain running total.
-    if np.all(np.diff(old64) >= 0) and old64.size and old64[-1] == data_len:
+    # Correct layout: segment boundaries need no special case, ends are a plain running total
+    # from 0, so every row length (including the first) is non-negative.
+    if old64.size and np.all(np.diff(old64, prepend=0) >= 0) and old64[-1] == data_len:
         return "absent", None
     new = _corrected_from_buggy(old64, starts)
     if new is None or new[-1] != data_len or starts.size < 2:
@@ -176,7 +189,8 @@ def _check_group(g: h5py.Group, starts_arg, probe_column) -> tuple[RaggedIndexCh
         checks.append(RaggedIndexCheck(
             key[:-6], n, data_len, str(idx.dtype),
             bool(np.all(np.diff(old.astype(np.int64)) >= 0)),
-            bool(n > 0 and int(old[-1]) == data_len), fits, bug, new))
+            bool((int(old[-1]) if n else 0) == data_len), fits, bug, new,
+            nonnegative=bool(n == 0 or int(old[0]) >= 0)))
     return tuple(checks)
 
 
@@ -228,27 +242,57 @@ def check_ragged_indices(path: str | Path, *, table: str = "units",
 def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
                         probe_starts: Sequence[int] | None = None,
                         probe_column: str | None = None, dry_run: bool = True,
+                        output_path: str | Path | None = None, in_place: bool = False,
                         backup_path: str | Path | None = None) -> RaggedIndexRepair:
     """Correct one ragged index that carries the multi-probe offset defect.
 
     Defaults to a dry run, which returns the planned change and writes nothing. With
-    ``dry_run=False`` the file is opened ``r+`` and only ``<column>_index`` is overwritten, with
-    the same dtype and shape.
+    ``dry_run=False`` the input is copied, only ``<column>_index`` of the copy is overwritten
+    (same dtype and shape), and the copy is re-read and checked before it is moved, with
+    ``os.replace``, to ``output_path`` (a new file; the input is left as it was) or, with
+    ``in_place=True``, over the input. A failure at any step leaves the input byte-identical
+    and removes the copy and any backup this call wrote.
+
+    Parameters
+    ----------
+    output_path : str or Path, optional
+        The repaired file to create. It must not exist.
+    in_place : bool
+        Replace the input instead. Needs ``backup_path`` and a writable input.
+    backup_path : str or Path, optional
+        With ``in_place=True`` only: receives the old index as ``.npz`` (key ``old_index``) at
+        exactly this path, which must not exist.
 
     Raises
     ------
     RaggedIndexRepairRefused
-        Before any write, when: no segmentation is given; the column's ``offset_bug`` is not
-        ``"detected"`` (so the old index is not exactly the defect's formula); the corrected
-        index does not end at the data length; the corrected values do not fit the index dtype;
-        ``dry_run=False`` without ``backup_path``; or ``backup_path`` already exists.
+        Before any write, when: the table has no such ragged column; the column's
+        ``offset_bug`` is not ``"detected"`` (so the old index is not exactly the defect's
+        formula); the corrected values do not fit the index dtype; ``dry_run=False`` without
+        ``output_path`` or ``in_place=True``, or with both; ``in_place=True`` without
+        ``backup_path``; ``backup_path`` without ``in_place=True``; ``output_path`` or
+        ``backup_path`` exists; or the input is not writable under ``in_place=True``. After the
+        write to the copy and before anything is replaced, when the re-read index is not the
+        corrected index or does not pass ``check_ragged_indices``.
+    KeyError, ValueError
+        As ``check_ragged_indices``.
+    OSError
+        From h5py or the file system, after the copy and backup are removed.
 
     Notes
     -----
-    ``backup_path`` receives the old index as an ``.npz`` (key ``old_index``) before the write;
-    restoring is ``ds[...] = np.load(backup_path)["old_index"]``. Other columns, the data and
-    the attributes are never touched.
+    Restoring an in-place repair is ``ds[...] = np.load(backup_path)["old_index"]``. Other
+    columns, the data and the attributes are never touched.
     """
+    if not dry_run and output_path is None and not in_place:
+        raise RaggedIndexRepairRefused("dry_run=False needs output_path or in_place=True")
+    if output_path is not None and in_place:
+        raise RaggedIndexRepairRefused("output_path and in_place=True exclude each other")
+    if in_place and backup_path is None:
+        raise RaggedIndexRepairRefused("in_place=True needs backup_path")
+    if backup_path is not None and not in_place:
+        raise RaggedIndexRepairRefused("backup_path applies only with in_place=True")
+    path = Path(path)
     report = check_ragged_indices(path, table=table, probe_starts=probe_starts,
                                   probe_column=probe_column)
     check = next((c for c in report.columns if c.column == column), None)
@@ -259,22 +303,59 @@ def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
             f"{column}_index is not the known offset defect (status {check.offset_bug!r}); "
             "refusing to write")
     new = check.corrected_index
-    if int(new[-1]) != check.data_len:
-        raise RaggedIndexRepairRefused("corrected index does not end at the data length")
     if not check.length_fits:
         raise RaggedIndexRepairRefused(f"data length {check.data_len} does not fit "
                                        f"{check.index_type}")
+    dest = path if in_place else (Path(output_path) if output_path is not None else None)
+    backup = Path(backup_path) if backup_path is not None else None
+    if output_path is not None and dest.exists():
+        raise RaggedIndexRepairRefused(f"output_path {dest} exists; not overwriting it")
+    if backup is not None and backup.exists():
+        raise RaggedIndexRepairRefused(f"backup_path {backup} exists; not overwriting it")
+    if in_place and not os.access(path, os.W_OK):
+        raise RaggedIndexRepairRefused(f"{path} is not writable; in-place repair refused")
     with h5py.File(path, "r") as f:
         old = f[f"{table}/{column}_index"][()]
-    if not dry_run:
-        if backup_path is None:
-            raise RaggedIndexRepairRefused("dry_run=False needs backup_path")
-        backup = Path(backup_path)
-        if backup.exists():
-            raise RaggedIndexRepairRefused(f"{backup} exists; not overwriting a backup")
-        np.savez(backup, old_index=old)
-        with h5py.File(path, "r+") as f:
+    rows_changed = int(np.count_nonzero(old.astype(np.int64) != new))
+    if dry_run:
+        return RaggedIndexRepair(column, False, rows_changed, old, new.astype(old.dtype))
+    _write_verified(path, dest, backup, old, new, table=table, column=column,
+                    probe_starts=probe_starts, probe_column=probe_column)
+    return RaggedIndexRepair(column, True, rows_changed, old, new.astype(old.dtype), str(dest))
+
+
+def _write_verified(src: Path, dest: Path, backup: Path | None, old: np.ndarray,
+                    new: np.ndarray, *, table: str, column: str, probe_starts,
+                    probe_column) -> None:
+    """Copy ``src``, write ``new`` into the copy's index, verify the copy by re-reading it, then
+    ``os.replace`` it onto ``dest``. On any failure nothing but the copy and the backup this
+    call created is touched, and both are removed."""
+    tmp = dest.parent / f".{dest.name}.{uuid.uuid4().hex[:12]}.tmp"
+    wrote_backup = False
+    try:
+        shutil.copyfile(src, tmp)
+        with h5py.File(tmp, "r+") as f:
             ds = f[f"{table}/{column}_index"]
             ds[...] = new.astype(ds.dtype)
-    return RaggedIndexRepair(column, not dry_run, int(np.count_nonzero(old.astype(np.int64) != new)),
-                             old, new.astype(old.dtype))
+        with h5py.File(tmp, "r") as f:
+            written = f[f"{table}/{column}_index"][()]
+        recheck = next(c for c in check_ragged_indices(
+            tmp, table=table, probe_starts=probe_starts, probe_column=probe_column).columns
+            if c.column == column)
+        if not (recheck.ok and np.array_equal(written.astype(np.int64), new)):
+            raise RaggedIndexRepairRefused(
+                f"the written {column}_index did not verify (status {recheck.offset_bug!r}, "
+                f"ok={recheck.ok}); nothing was replaced")
+        if dest == src:
+            shutil.copymode(src, tmp)
+        if backup is not None:
+            with open(backup, "xb") as fh:
+                wrote_backup = True
+                np.savez(fh, old_index=old)
+        os.replace(tmp, dest)
+    except BaseException:
+        if wrote_backup:
+            backup.unlink(missing_ok=True)
+        raise
+    finally:
+        tmp.unlink(missing_ok=True)
