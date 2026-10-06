@@ -211,6 +211,17 @@ class TestWhatImportingJnwbActuallyCosts:
             f"the eager surface shrank to {sorted(eager)}; docs/install.md still "
             f"describes scipy, pandas and pynwb as eagerly loaded")
 
+    @staticmethod
+    def _package_files():
+        from tests._sources import source_files
+
+        return source_files()
+
+    def test_the_scipy_importer_scan_reads_every_file_that_defines_a_public_name(self):
+        from tests._sources import unread
+
+        assert unread(self._package_files()) == []
+
     def test_deferring_one_module_cannot_remove_a_shared_dependency(self):
         """The mechanism behind the item's failure, stated as an executable fact: more
         than one eagerly imported module imports scipy at module scope, so no single
@@ -219,7 +230,7 @@ class TestWhatImportingJnwbActuallyCosts:
 
         importers = []
         package = REPO_ROOT / "jnwb"
-        for path in sorted(package.rglob("*.py")):
+        for path in self._package_files():
             head = path.read_text(encoding="utf-8", errors="replace")
             name = path.relative_to(package).parts[0].removesuffix(".py")
             if (re.search(r"^(from scipy|import scipy)", head, re.MULTILINE)

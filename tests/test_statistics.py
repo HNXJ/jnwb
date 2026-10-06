@@ -702,16 +702,17 @@ class TestNoKeyAssertsAnUncorrectedCorrection:
         would have concealed a reintroduction in ``compare_groups`` from every assertion
         made on the wrapper's own return.
         """
-        import inspect
+        from tests._sources import source_files, unread
 
-        import jnwb.statistics as statistics_module
-
-        src = inspect.getsource(statistics_module)
-        assert "fdr_pval_parametric" not in src, (
-            "jnwb/statistics.py still names a key no code path assigns; a reader takes "
-            "the name for a returned value, which is what 06-44 was reported as"
-        )
-        assert "fdr_pval_nonparametric" not in src
+        files = source_files("jnwb.statistics")
+        assert unread(files, "jnwb.statistics") == []
+        for path in files:
+            src = path.read_text(encoding="utf-8")
+            assert "fdr_pval_parametric" not in src, (
+                f"{path.name} still names a key no code path assigns; a reader takes "
+                "the name for a returned value, which is what 06-44 was reported as"
+            )
+            assert "fdr_pval_nonparametric" not in src, path.name
 
 
 # ── The caller names the primary test ──────────────────────────────────
@@ -1267,4 +1268,16 @@ def test_a_finite_difference_too_large_to_represent_keeps_its_sign(paired):
     par = StatisticalAnalysis.compare_groups(np.full(6, 1e308), np.full(6, -1e308),
                                              paired=paired)["parametric"]
     assert par["statistic"] == np.inf and par["pval"] == 0.0, par
+
+
+def test_the_source_list_follows_definitions_into_the_package_submodules():
+    """A source scan of `jnwb.statistics` must read the submodules that define its names. The
+    class keeps `jnwb.statistics` as `__module__`, so it is located by its definition."""
+    from tests._sources import _defining_file, public_definition_files
+
+    assert {p.name for p in public_definition_files("jnwb.statistics")} == {
+        "_analysis.py", "_cluster.py", "_firing.py", "_regression.py", "_tests.py",
+        "_trials.py"}
+    assert StatisticalAnalysis.__module__ == "jnwb.statistics"
+    assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
 

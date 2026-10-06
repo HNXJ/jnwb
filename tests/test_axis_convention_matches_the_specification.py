@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 
 import jnwb
+from tests._sources import source_files, unread
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SPEC = REPO_ROOT / "docs" / "10_operation_specifications.md"
@@ -204,12 +205,18 @@ class TestTheCompositionSweepFindsWhatItIsFor:
             "import jnwb\nf, p = jnwb.compute_psd(raw, fs=1000.0)\n") == []
 
 
+HOP_SCAN_FILES = sorted(
+    p.relative_to(REPO_ROOT).as_posix()
+    for p in list(REPO_ROOT.glob("skills/*/SKILL.md"))
+    + list(REPO_ROOT.glob("examples/**/*.py"))
+    + source_files())
+
+
 class TestNoFaceChainsTheTwoConventions:
-    @pytest.mark.parametrize("rel", sorted(
-        p.relative_to(REPO_ROOT).as_posix()
-        for p in list(REPO_ROOT.glob("skills/*/SKILL.md"))
-        + list(REPO_ROOT.glob("examples/**/*.py"))
-        + list(REPO_ROOT.glob("jnwb/**/*.py"))))
+    def test_the_scan_reads_every_file_that_defines_a_public_name(self):
+        assert unread(REPO_ROOT / rel for rel in HOP_SCAN_FILES) == []
+
+    @pytest.mark.parametrize("rel", HOP_SCAN_FILES)
     def test_it_carries_no_cross_convention_hop(self, rel: str):
         path = REPO_ROOT / rel
         text = path.read_text(encoding="utf-8")
