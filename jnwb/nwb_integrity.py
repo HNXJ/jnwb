@@ -256,9 +256,12 @@ def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
     Parameters
     ----------
     output_path : str or Path, optional
-        The repaired file to create. It must not exist.
+        The repaired file to create. It must not exist; the name is claimed exclusively just
+        before the verified copy is moved onto it, so a file that appears meanwhile is refused,
+        not overwritten.
     in_place : bool
-        Replace the input instead. Needs ``backup_path`` and a writable input.
+        Replace the input instead. Needs ``backup_path`` and a writable input; a dry run needs
+        neither and ignores ``backup_path``.
     backup_path : str or Path, optional
         With ``in_place=True`` only: receives the old index as ``.npz`` (key ``old_index``) at
         exactly this path, which must not exist.
@@ -288,7 +291,7 @@ def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
         raise RaggedIndexRepairRefused("dry_run=False needs output_path or in_place=True")
     if output_path is not None and in_place:
         raise RaggedIndexRepairRefused("output_path and in_place=True exclude each other")
-    if in_place and backup_path is None:
+    if in_place and backup_path is None and not dry_run:
         raise RaggedIndexRepairRefused("in_place=True needs backup_path")
     if backup_path is not None and not in_place:
         raise RaggedIndexRepairRefused("backup_path applies only with in_place=True")
@@ -310,7 +313,7 @@ def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
     backup = Path(backup_path) if backup_path is not None else None
     if output_path is not None and dest.exists():
         raise RaggedIndexRepairRefused(f"output_path {dest} exists; not overwriting it")
-    if backup is not None and backup.exists():
+    if backup is not None and not dry_run and backup.exists():
         raise RaggedIndexRepairRefused(f"backup_path {backup} exists; not overwriting it")
     if in_place and not os.access(path, os.W_OK):
         raise RaggedIndexRepairRefused(f"{path} is not writable; in-place repair refused")
@@ -332,6 +335,7 @@ def _write_verified(src: Path, dest: Path, backup: Path | None, old: np.ndarray,
     call created is touched, and both are removed."""
     tmp = dest.parent / f".{dest.name}.{uuid.uuid4().hex[:12]}.tmp"
     wrote_backup = False
+    claimed = False
     try:
         shutil.copyfile(src, tmp)
         with h5py.File(tmp, "r+") as f:
@@ -352,10 +356,19 @@ def _write_verified(src: Path, dest: Path, backup: Path | None, old: np.ndarray,
             with open(backup, "xb") as fh:
                 wrote_backup = True
                 np.savez(fh, old_index=old)
+        if dest != src:
+            try:
+                with open(dest, "xb"):
+                    claimed = True
+            except FileExistsError:
+                raise RaggedIndexRepairRefused(
+                    f"output_path {dest} exists; not overwriting it") from None
         os.replace(tmp, dest)
     except BaseException:
         if wrote_backup:
             backup.unlink(missing_ok=True)
+        if claimed:
+            dest.unlink(missing_ok=True)
         raise
     finally:
         tmp.unlink(missing_ok=True)

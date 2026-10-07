@@ -456,3 +456,57 @@ def test_every_pinned_message_is_on_the_errors_page():
     text = page.replace("`", "")
     missing = [f for f in fragments if not re.search(f, text)]
     assert not missing, missing
+
+
+def test_an_output_created_after_the_check_is_not_overwritten(tmp_path, monkeypatch):
+    p = tmp_path / "r.nwb"
+    _write(p, _buggy(LENGTHS, STARTS))
+    before = p.read_bytes()
+    out = tmp_path / "r_repaired.nwb"
+    real_copy = jnwb.nwb_integrity.shutil.copyfile
+
+    def copy_then_race(src, dst):
+        real_copy(src, dst)
+        out.write_bytes(b"someone else's file")
+
+    monkeypatch.setattr("jnwb.nwb_integrity.shutil.copyfile", copy_then_race)
+    with pytest.raises(RaggedIndexRepairRefused, match="output_path .* exists"):
+        repair_ragged_index(p, "spike_times", probe_starts=STARTS, dry_run=False,
+                            output_path=out)
+    assert out.read_bytes() == b"someone else's file" and p.read_bytes() == before
+    assert sorted(os.listdir(tmp_path)) == ["r.nwb", "r_repaired.nwb"]
+
+
+def test_a_failed_replace_to_a_new_file_leaves_no_output(tmp_path, monkeypatch):
+    p = tmp_path / "s.nwb"
+    _write(p, _buggy(LENGTHS, STARTS))
+
+    def fail(src, dst):
+        raise OSError("injected replace failure")
+
+    monkeypatch.setattr("jnwb.nwb_integrity.os.replace", fail)
+    with pytest.raises(OSError, match="injected replace"):
+        repair_ragged_index(p, "spike_times", probe_starts=STARTS, dry_run=False,
+                            output_path=tmp_path / "s_repaired.nwb")
+    assert sorted(os.listdir(tmp_path)) == ["s.nwb"]
+
+
+def test_a_dry_run_in_place_needs_no_backup_path(tmp_path):
+    p = tmp_path / "d.nwb"
+    _write(p, _buggy(LENGTHS, STARTS))
+    before = p.read_bytes()
+    r = repair_ragged_index(p, "spike_times", probe_starts=STARTS, in_place=True)
+    assert r.written is False and p.read_bytes() == before
+    np.testing.assert_array_equal(r.new_index, CORRECT)
+    (tmp_path / "bk.npz").write_bytes(b"x")
+    r = repair_ragged_index(p, "spike_times", probe_starts=STARTS, in_place=True,
+                            backup_path=tmp_path / "bk.npz")
+    assert r.written is False and (tmp_path / "bk.npz").read_bytes() == b"x"
+    assert sorted(os.listdir(tmp_path)) == ["bk.npz", "d.nwb"]
+
+
+def test_the_repair_page_makes_no_claim_about_what_a_third_party_tool_reports():
+    page = (DOCS / "repairing_nwb.md").read_text(encoding="utf-8")
+    lines = [ln for ln in page.splitlines() if "nwbinspector" in ln.lower()]
+    assert lines and not [ln for ln in lines if re.search(r"\bnone\b|\bnot\b|\bcannot\b", ln)]
+    assert "the previous one cannot" not in page and "do not." not in page
