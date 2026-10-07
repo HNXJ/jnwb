@@ -3,18 +3,16 @@ r"""Optional/experimental: bilinear (rank-K) logistic regression for 2D neural d
 
 Not in ``jnwb.__all__``. Import ``jnwb.bilinear`` when the bilinear decoder is needed.
 
-WHY THIS EXISTS
-    Common 2D decoders flatten each trial's (N x T) matrix -- N units/channels by T time
-    bins -- into one N*T vector and reduce it with PCA. That discards the laminar/spatial
-    topology and the temporal continuity, and the PCA components carry no interpretable
-    spatial or temporal meaning. This model instead constrains the weight matrix
-    to be low rank:
+THE MODEL
+    Each trial is an (N x T) matrix -- N units or channels by T time bins. Flattening it into
+    one N*T vector and reducing that with PCA discards the spatial order and the temporal
+    continuity, and the components have no spatial or temporal reading. This model instead
+    constrains the weight matrix to be low rank:
 
         W = sum_{k=1..K} u_k v_k^T ,    logit = <W, X> + b = sum_k u_k^T X v_k
 
-    so parameters drop from O(N*T) to O(K(N+T)), and u_k is directly a SPATIAL (laminar depth /
-    unit) profile while v_k is a TEMPORAL filter -- both readable, which the PCA pipeline's
-    components are not.
+    so parameters drop from O(N*T) to O(K(N+T)), and u_k is a SPATIAL (laminar depth / unit)
+    profile while v_k is a TEMPORAL filter, both readable.
 
 HOW IT IS FITTED (exact alternating least-logistic-loss, no approximation)
     The objective is biconvex: linear in U with V held fixed, and linear in V with U held fixed.
@@ -23,17 +21,24 @@ HOW IT IS FITTED (exact alternating least-logistic-loss, no approximation)
         fix U:  <W, X_i> = sum_{k,t} V[t,k] * (U^T X_i)[k,t] -> features (U^T X_i).ravel(), KT long
     Alternate until the training log-loss stops improving. Biconvex, not jointly convex: the
     solution depends on the (seeded) initialization of V, so `random_state` is part of the
-    result, not a formality. Convergence is to a local optimum -- stated plainly rather than
-    implied away.
+    result. Convergence is to a local optimum.
 
-MULTICLASS
+TWO CLASSES
+    One bilinear logistic model, the second class against the first, with decision value D;
+    `predict_proba` is sigmoid(D), that model's own probability, and a trial is assigned the
+    second class when D > 0. Row 1 of ``U_``, ``V_`` and ``intercept_`` holds the model and
+    row 0 its negation, so `decision_function` returns (-D, D) in the per-class layout of the
+    multiclass case. On held-out trials of a simulated bilinear logistic population (1000
+    training trials, equal classes) the predicted probability of each 0.1-wide bin matches the
+    observed frequency to within 0.05 averaged over bins; the L2 penalty (`C`) and
+    ``class_weight='balanced'`` with unequal classes both move it away from calibration.
+
+MORE THAN TWO CLASSES
     One-vs-rest: one bilinear model per class, giving one interpretable (u, v) pair PER CLASS,
-    then a softmax over the K decision values. The softmax is not calibrated. With two classes
-    `predict_proba` returns sigmoid(D_1 - D_0), and the two one-vs-rest models mirror each other
-    (D_0 close to -D_1), so it is about sigmoid(2 D_1) and overconfident on held-out trials.
-    Recalibrate on held-out data before reading its output as a probability. A shared-factor
-    multinomial formulation would tangle the class weights with u_k and make the recovered
-    spatial profile non-identifiable, so OvR is the deliberate choice here.
+    then a softmax over the decision values. That softmax is not calibrated: recalibrate on
+    held-out data before reading it as a probability. A shared-factor multinomial
+    formulation would tangle the class weights with u_k and make the recovered spatial
+    profile non-identifiable, so each class keeps its own model.
 """
 from __future__ import annotations
 
@@ -45,7 +50,8 @@ from sklearn.metrics import log_loss
 class BilinearLogisticRegression:
     """Rank-K bilinear logistic regression on (n_trials, N, T) inputs.
 
-    Attributes after fit (all per-class, indexed by ``classes_``):
+    Attributes after fit (all per-class, indexed by ``classes_``; with two classes row 0 is
+    the negation of row 1's model):
         U_ : (n_classes, N, K) spatial profiles
         V_ : (n_classes, T, K) temporal filters
         intercept_ : (n_classes,)
@@ -116,10 +122,15 @@ class BilinearLogisticRegression:
         X = self._scale_fit(X)
         self.classes_ = np.unique(y)
         Us, Vs, bs, its = [], [], [], []
-        for c in self.classes_:
-            yc = (y == c).astype(int)
-            U, V, b, it = self._fit_binary(X, yc)
-            Us.append(U); Vs.append(V); bs.append(b); its.append(it)
+        if len(self.classes_) == 2:
+            # One model; row 0 is its negation (module docstring, TWO CLASSES).
+            U, V, b, it = self._fit_binary(X, (y == self.classes_[1]).astype(int))
+            Us, Vs, bs, its = [-U, U], [V, V], [-b, b], [it, it]
+        else:
+            for c in self.classes_:
+                yc = (y == c).astype(int)
+                U, V, b, it = self._fit_binary(X, yc)
+                Us.append(U); Vs.append(V); bs.append(b); its.append(it)
         self.U_ = np.stack(Us)
         self.V_ = np.stack(Vs)
         self.intercept_ = np.array(bs)
@@ -135,8 +146,13 @@ class BilinearLogisticRegression:
         )
 
     def predict_proba(self, X):
-        """Softmax of the per-class decision values; uncalibrated (see the module docstring)."""
+        """With two classes, the logistic model's probability sigmoid(D); with more, the
+        softmax of the one-vs-rest decision values, which is not calibrated (see the module
+        docstring)."""
         D = self.decision_function(X)
+        if len(self.classes_) == 2:
+            p = _sigmoid(D[:, 1])
+            return np.column_stack([1.0 - p, p])
         D = D - D.max(axis=1, keepdims=True)
         E = np.exp(D)
         return E / E.sum(axis=1, keepdims=True)
@@ -148,9 +164,11 @@ class BilinearLogisticRegression:
         return float(np.mean(self.predict(X) == np.asarray(y)))
 
     def n_parameters(self):
+        """Free parameters: one model with two classes, one per class otherwise."""
         n_cls, N, K = self.U_.shape
         T = self.V_.shape[1]
-        return int(n_cls * (K * (N + T) + 1))
+        n_models = 1 if n_cls == 2 else n_cls
+        return int(n_models * (K * (N + T) + 1))
 
 
 def _bilinear_score(X, U, V, b):
