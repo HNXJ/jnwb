@@ -121,6 +121,17 @@ class TestStatusNeverAssertsSomethingFalse:
         res = nested_cv_linear_svm(X, labels, n_splits=3)
         assert res["status"] == "insufficient_trials_for_cv"
 
+    def test_a_singleton_class_among_three_reports_too_few_trials_before_the_class_count(
+            self, separable):
+        """Too few trials is checked before the two-class refusal, with three classes too."""
+        X, base = separable
+        labels = base.copy()
+        labels[0] = 2                         # classes 0, 1, 2 with 19, 20 and 1 trials
+        assert sorted(np.unique(labels, return_counts=True)[1]) == [1, 19, 20]
+        res = nested_cv_linear_svm(X, labels, n_splits=3)
+        assert res["status"] == "insufficient_trials_for_cv"
+        assert np.isnan(res["accuracy"])
+
     def test_one_class_is_its_own_status_not_a_trial_count_claim(self, separable):
         """40 trials of one class is not "insufficient trials"; it is one class."""
         X, _ = separable

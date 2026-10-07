@@ -5,6 +5,7 @@ with warnings, precedence resolution, and path composition.
 """
 from __future__ import annotations
 
+import sys
 import warnings
 import pytest
 from pathlib import Path
@@ -133,6 +134,9 @@ class TestOutputsAndArtifacts:
 
     @pytest.mark.parametrize("subdir, named", [
         ("", "empty"),
+        (".", "empty"),
+        pytest.param("C:x", "absolute", marks=pytest.mark.skipif(
+            sys.platform != "win32", reason="a drive-relative path roots only on Windows")),
         (str(Path.cwd()), "absolute"),
         ("/masks", "absolute"),
         ("../masks", "'..'"),

@@ -239,7 +239,8 @@ def _kept_components(
         ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
         The variances are per component, as scikit-learn's PCA names them, and
         ``explained_total`` is the kept components' share together. With no total variance
-        there is no ratio and no variance, so all three are NaN. A requested component
+        there is no ratio, no variance and no component, so all three and ``Vt`` are NaN.
+        A requested component
         beyond ``n_kept`` does not exist -- too few features or samples -- so its column of
         ``projection``, its row of ``Vt`` and its variances are NaN; zero would read as a
         component measured to be zero.
@@ -259,6 +260,10 @@ def _kept_components(
         explained_variance = np.full(n_kept, np.nan, dtype=dtype)
         explained_variance_ratio = np.full(n_kept, np.nan, dtype=dtype)
         explained_total = float('nan')
+        # Intentional change of a returned value: the SVD of all-zero data returns the
+        # identity as Vt, which no computation on the data produced; it is NaN like the
+        # variances. The projection, computed from the data, is left as it is.
+        Vt = np.full_like(Vt, np.nan)
 
     missing = n_components - n_kept
     if missing > 0:
