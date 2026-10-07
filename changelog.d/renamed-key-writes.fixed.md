@@ -1,0 +1,1 @@
+- Writes to a result dict with a renamed key follow the old name to the current key, with the `DeprecationWarning` that reading the old name gives: `d['old'] = v` and `d.update({'old': v})` set `new`, where they inserted a key `old` beside it, and `d.pop('old')` removes and returns `new`, where it raised `KeyError`.

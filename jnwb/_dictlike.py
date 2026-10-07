@@ -31,7 +31,9 @@ class RenamedKeyDict(dict):
     iteration, ``len``, ``keys()`` and equality see the current names only, so a caller
     that copies the dict gets the current shape. Reading an old name with ``[]`` or
     ``get`` returns the current key's value and emits a ``DeprecationWarning``; ``in``
-    answers True for it, so an existing membership check keeps its branch.
+    answers True for it, so an existing membership check keeps its branch. ``[]=``,
+    ``update``, ``setdefault`` and ``pop`` follow an old name to its current key with the
+    same warning, so no write puts an old name beside its current one.
 
     ``changing`` maps a present key whose meaning changes in the next release to the
     message that says how. Reading it with ``[]`` or ``get`` returns its current value
@@ -50,6 +52,20 @@ class RenamedKeyDict(dict):
         self._aliases = aliases
         self._changing = changing
 
+    def _current(self, key: object, verb: str, stacklevel: int) -> object:
+        """``key``, or for an old name its current one with a ``DeprecationWarning``;
+        ``stacklevel`` counts the calling method's frame as 1."""
+        if dict.__contains__(self, key) or not (isinstance(key, str) and key in self._aliases):
+            return key
+        new = self._aliases[key]
+        warnings.warn(
+            f"result key {key!r} is deprecated and will be removed in the next release; "
+            f"{verb} {new!r}.",
+            DeprecationWarning,
+            stacklevel=stacklevel + 1,
+        )
+        return new
+
     def _read(self, key: object, stacklevel: int) -> Any:
         """The value for ``key``, warning as the key requires; ``stacklevel`` counts this frame."""
         if dict.__contains__(self, key):
@@ -57,14 +73,7 @@ class RenamedKeyDict(dict):
                 warnings.warn(self._changing[key], FutureWarning, stacklevel=stacklevel)
             return dict.__getitem__(self, key)
         if isinstance(key, str) and key in self._aliases:
-            new = self._aliases[key]
-            warnings.warn(
-                f"result key {key!r} is deprecated and will be removed in the next release; "
-                f"read {new!r}.",
-                DeprecationWarning,
-                stacklevel=stacklevel,
-            )
-            return dict.__getitem__(self, new)
+            return dict.__getitem__(self, self._current(key, "read", stacklevel))
         raise KeyError(key)
 
     def __getitem__(self, key: object) -> Any:
@@ -82,6 +91,19 @@ class RenamedKeyDict(dict):
         if self.__contains__(key):
             return self._read(key, stacklevel=3)
         return dict.setdefault(self, key, default)
+
+    def __setitem__(self, key: object, value: Any) -> None:
+        """An old name writes the current key, with the ``DeprecationWarning`` a read gives."""
+        dict.__setitem__(self, self._current(key, "write", 2), value)
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """As ``dict.update``, each old name writing its current key as ``[]=`` does."""
+        for key, value in dict(*args, **kwargs).items():
+            dict.__setitem__(self, self._current(key, "write", 2), value)
+
+    def pop(self, key: object, *default: Any) -> Any:
+        """As ``dict.pop``; an old name removes and returns the current key, warning."""
+        return dict.pop(self, self._current(key, "read", 2), *default)
 
     def __contains__(self, key: object) -> bool:
         return dict.__contains__(self, key) or (isinstance(key, str) and key in self._aliases)

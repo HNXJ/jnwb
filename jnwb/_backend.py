@@ -84,14 +84,13 @@ _LOAD_FAILURES: dict = {}
 def _probe(backend: str, probe) -> bool:
     """Run ``probe``, recording an ``OSError`` it raises under ``backend``."""
     try:
-        result = bool(probe())
+        available = bool(probe())
     except OSError as exc:
         _LOAD_FAILURES[backend] = exc
         return False
     except (ImportError, RuntimeError, AttributeError):
-        result = False
-    _LOAD_FAILURES.pop(backend, None)
-    return result
+        return False
+    return available
 
 
 def _cupy_device_count():
@@ -251,8 +250,9 @@ def resolve_device(
     if gpu_available(prefer=prefer):
         return CUDA
 
-    probed = {"cupy": ("CuPy",), "torch": ("PyTorch",)}.get(prefer, ("CuPy", "PyTorch"))
-    failed = [(name, _LOAD_FAILURES[name]) for name in probed if name in _LOAD_FAILURES]
+    backend = {"cupy": "CuPy", "torch": "PyTorch"}.get(prefer, "CuPy or PyTorch")
+    failed = [(name, _LOAD_FAILURES[name]) for name in ("CuPy", "PyTorch")
+              if name in backend and name in _LOAD_FAILURES]
     if failed:
         causes = "; ".join(f"{name} could not load its libraries ({type(exc).__name__}: {exc})"
                            for name, exc in failed)
@@ -269,7 +269,7 @@ def resolve_device(
 
     warnings.warn(
         f"{context}: device='cuda' was requested but no usable CUDA device was found "
-        f"via {' or '.join(probed)}; running on CPU. CPU and GPU paths may disagree numerically.",
+        f"via {backend}; running on CPU. CPU and GPU paths may disagree numerically.",
         RuntimeWarning,
         stacklevel=stacklevel,
     )

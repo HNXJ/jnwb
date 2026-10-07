@@ -713,12 +713,11 @@ ACCEPTED_HANDLER_RECOVERY = {
     # A returned *absence* is the opposite of this class, not an instance of it: NaN, None,
     # False, an error dict and an `accepted=False` result all decline to answer. The class
     # needs a plausible answer filed under the request's name.
-    ("_backend.py", "cupy_available", "(ImportError, OSError, RuntimeError, AttributeError)",
-     (), True, 1):
-        "Returns False when CuPy will not import or count devices. A declared absence.",
-    ("_backend.py", "torch_cuda_available",
-     "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
-        "Returns False when torch will not import or report CUDA. A declared absence.",
+    ("_backend.py", "_probe", "OSError", (), True, 1):
+        "Returns False when CuPy or torch cannot load its libraries, and records the error so "
+        "the denial warning names it. A declared absence.",
+    ("_backend.py", "_probe", "(ImportError, RuntimeError, AttributeError)", (), True, 1):
+        "Returns False when CuPy or torch will not import or report CUDA. A declared absence.",
     ("_backend.py", "jax_metal_available",
      "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
         "Returns False when JAX exposes no Metal device. A declared absence.",
