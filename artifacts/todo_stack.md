@@ -41,25 +41,14 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| H statistics, spiking and decoding | 10-28 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25, 10-26 and 10-27 are merged; 10-21 and 10-28 are open.
-
-### 10-28 Projection of a constant `X` in `population_trajectory`
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `jnwb/trajectory.py`, `tests/test_analyzers_coverage.py`.
-Left by the 10-26 verification (2026-10-07).
-- A constant `X` keeps a zero projection while the components and variances are NaN. Check: Hamm rules zeros or NaN. Waits: documented behaviour. AUTONOMY: none.
-Accept: the check passes.
-Stop: a fix changes a shipped value without a ruling.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25, 10-26, 10-27 and 10-28 are merged; 10-21 is open.
 
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-28.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
