@@ -15,8 +15,9 @@ correction) announced in a changelog fragment (ruled 2026-10-06);
 gate 19 entries re-pointed with unchanged hashes; each estimator change carries a calibration
 record in `artifacts/evidence/0.2.10/`.
 
-Every item here carries `deferred-0.2.10`, the deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.9 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+The version is 0.2.10 (bumped 2026-10-07). This section holds no item; every later item carries
+`deferred-0.2.11`, the one deferred value `scripts/release_gate.py` accepts while the declared
+version is 0.2.10 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -54,7 +55,7 @@ Acceptance: `AGENTS.md` §11; the facts 10-10 and 09-04 hold use the ruled lexic
 composes the minimal skill set for each chain 07-09 tests; each published unit measure is a public
 operation by its published definition or a ruled exclusion.
 
-Every item here carries `deferred-0.2.10`, as in 0.2.10.
+Every item here carries `deferred-0.2.11`, as stated under 0.2.10.
 
 ## Lanes
 
@@ -70,7 +71,7 @@ reads.
 
 ### 10-10 Identity and scientific-choice facts held
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none for the B3 lexicon values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`, `artifacts/fact_stack.md`.
@@ -81,7 +82,7 @@ Stop: a declaration would change a public signature without a ruling.
 
 ### 09-04 Science and Skills facts held
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
@@ -94,7 +95,7 @@ Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 10-11 One synthetic test per interpretational pitfall
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
@@ -108,7 +109,7 @@ Stop: a test would need a threshold no reference fixes.
 
 ### 10-12 Skills point to their sources
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - Each connectivity and spectral safeguard restates its method instead of naming its `docs/references.md` row. Check: the line test in `tests/test_skills_validation.py` finds no restated definition. Waits: pointers only.
@@ -119,7 +120,7 @@ Stop: a pointer would drop a safeguard's dimension that a routing row needs.
 
 ### 10-09 Display edges
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
 Writes: `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `tests/test_vis*.py`, `tests/test_visual_qc.py`, `tests/test_viz*.py`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `docs/vis.md`.
 - P-244: `apply_tight_auto_axis` floors y at 0 (`jnwb/viz.py:46`), so data with minimum -5 is drawn outside the axes. Check: the floor applies only to non-negative data, and a test asserts `ylim[0] <= -5` for that case. Waits: display only, stated.
@@ -139,7 +140,7 @@ Stop: none beyond the standing ones.
 
 ### 10-14 A type oracle for documented call shapes
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
 Split from the documentation-check item on 2026-10-04, which landed every other bullet.
@@ -150,7 +151,7 @@ Stop: the oracle needs a type that no annotation or table entry states.
 
 ### 10-15 Four published unit measures
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
 Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
@@ -161,7 +162,7 @@ Stop: a new public operation, or a definition with more than one published form,
 
 ### 07-08 The router composes the minimal skill set a task needs
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb. Blocked by: none.
 Writes: `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`.
 - 07-08: router section 2 maps each task phrase to one skill, so a multi-skill task reaches the first match. Check: a table of tasks and required skill sets passes in `tests/test_skill_router_reach.py`, with plotting supplied arrays reaching figures and QC, and a band comparison between conditions reaching paradigm, NWB data, spectral, statistics, figures and QC. Waits: router feature; no shipped behaviour changes.
@@ -170,7 +171,7 @@ Stop: a task needs a skill outside the fact stack's planned set.
 
 ### 07-09 Composition tests over the chains the router sequences
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per chain. Blocked by: 07-08.
 Writes: `tests/test_composition_*.py`.
 - 07-09: no test composes two skills' operations in router order where each call is right and the order, an identifier or a substituted signal class is wrong. Check: the band-comparison task as one chain (the minimal base) in `tests/test_composition_*.py`; each chain runs on unequal dimensions, fails on the wrong composition and passes on the right one, and a chain correct today records its killing mutation in its docstring. Waits: new tests of new composition.
@@ -186,7 +187,7 @@ Acceptance: `AGENTS.md` §11; `scripts/` and the process tests are shorter than 
 every gate still reported; no item or problem id outside `artifacts/` except machine-required
 literals.
 
-Every item here carries `deferred-0.2.10`, as in 0.2.10.
+Every item here carries `deferred-0.2.11`, as in 0.2.11.
 
 ## Lanes
 
@@ -202,7 +203,7 @@ the 12-08 row wording.
 
 ### 12-09 One stack parser
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/stack_parse.py`, `scripts/stack_edit.py`, `scripts/harness_gate.py`, `tests/test_stack_metadata_contradictions.py`, `tests/test_stack_edit.py`.
 - P-232: gates 15 and 17 read only `###` items while STEP 0a reads any depth. Check: one parser in `scripts/stack_parse.py`, imported by gates 15 and 17 and STEP 0a; a fixture with a `####` item is read by all three. Waits: the gates can only under-read.
@@ -213,7 +214,7 @@ Stop: the parser changes gate 15's or 17's verdict on any fixture.
 
 ### 12-01 Gates in their own modules
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-09.
 Writes: `scripts/harness_gate.py`, `scripts/gates/**`, `tests/test_harness_adversarial_gates.py`, `tests/test_every_gate_runs.py`, `tests/test_gate*.py`, `tests/test_gates_reject_the_trees_they_passed.py`.
 Plan: `artifacts/evidence/0.2.8/plan/restructure_plan.md` (a), scripts row.
@@ -233,7 +234,7 @@ Stop: a split changes a gate's verdict on any fixture.
 
 ### 12-02 The release gate reads the shared parser
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-09.
 Writes: `scripts/release_gate.py`, `tests/test_release_requires_an_empty_problem_stack.py`, `tests/test_release_body_gate.py`, `tests/test_release_recovery_gates.py`, `tests/test_release_version_is_unpublished.py`, `tests/test_generation_closure_is_declared.py`.
 - P-300: the STEP 0a message truncates item titles. Check: the message holds the whole title, asserted on a title longer than today's cut. Waits: wording only.
@@ -246,7 +247,7 @@ Stop: the shared parser reads an item STEP 0a did not, or the reverse, on the li
 
 ### 12-03 CI and release workflow
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-02.
 Writes: `.github/workflows/workflow.yml`, `scripts/smoke_installed.py`, `scripts/measure_peak_memory.py`, `CONTRIBUTING.md`, `tests/test_workflow_release_policy.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_import_provenance.py`, `tests/test_distribution_manifest_inspection.py`, `tests/test_dependency_floors_are_installable.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_test_imports_survive_the_wheel_leg.py`.
 - RP-7: no threshold on peak memory beside wall time in the suite step. Check: the workflow holds a threshold set from the recorded measurements (`artifacts/benchmarks/peak_memory.json`), and a test reads it. Waits: needs the 0.2.7 measurements first.
@@ -267,7 +268,7 @@ Stop: a hardening would refuse the current workflow.
 
 ### 12-05 Process tests pruned and merged
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01.
 Writes: `artifacts/evidence/0.2.12/process_tests/**`, `tests/test_findings_ledger.py`, `tests/test_single_agent_instruction_file.py`, `tests/test_standing_rules_name_no_cycle.py`, `tests/test_agents_md_stays_a_router.py`, `scripts/measure_agents_md_duplication.py`, `tests/test_release_recovery_gates.py`, `tests/test_jrsa.py`, `tests/test_api_md_is_interpreter_independent.py`, `tests/test_workflow_release_policy.py`, `tests/test_state_reconstruction.py`, `tests/test_state_basis_is_checked.py`, `tests/test_xflip_calibration_receipt.py`, `tests/test_vflip_calibration_receipt.py`, `tests/test_test_imports_survive_the_wheel_leg.py`, `tests/test_the_suite_can_qualify_an_installed_copy.py`, `tests/test_errors_documented.py`, `tests/test_readme_smoke.py`, `scripts/reconstruct_state.py`.
 Ruled 2026-09-29 (D12): the list is accepted, run after the gates split. The files are the ruled list, resolved against `artifacts/evidence/0.2.7/process_test_audit.md`.
@@ -279,7 +280,7 @@ Stop: a pruned test is the only one that kills some mutant.
 
 ### 12-04 Mutation and contract gate reach
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/mutation_harness.py`, `scripts/computational_contract_gate.py`, `tests/test_mutation_harness_validity.py`, `tests/test_computational_contract_gate.py`, `tests/test_substitution_class_sweep.py`.
 - P-238: `collect_selector` drops node ids containing a space. Check: such an id is selectable, asserted by a test. Waits: fails closed.
@@ -289,7 +290,7 @@ Stop: none beyond the standing ones.
 
 ### 12-08 Every routed method cites a published source
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none for the fact row; the graph edges are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/build_fact_graph.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
@@ -300,7 +301,7 @@ Stop: the fact stack is Hamm's; the row lands only on approval.
 
 ### 09-07 Checks for the defect classes review keeps finding
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/learning_gate.py`, `scripts/reconstruct_state.py`, `scripts/harness_gate.py`, `tests/test_learning_gate.py`, `tests/test_state_reconstruction.py`, `artifacts/defect_classes.md`.
 Source: `artifacts/defect_classes.md`; each bullet is a class seen twice, or one whose check is cheap.
@@ -314,7 +315,7 @@ Stop: a check needs judgement a script cannot make; it stays a review rule inste
 
 ### 12-07 Release and study-vocabulary facts held; no fact UNHELD
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none for the study-vocabulary values; holder cells under the standing authorization of 2026-09-29; the rest is `max`.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-03, 12-05, 12-08.
 Writes: `.github/workflows/workflow.yml`, `scripts/harness_gate.py`, `scripts/gates/**`, `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `tests/test_harness_gate_study_tokens.py`, `artifacts/fact_stack.md`.
@@ -325,7 +326,7 @@ Stop: a workflow change would alter the ruled publication order.
 
 ### 12-06 No process identifiers outside the stacks
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 12-01, 12-02, 12-03, 12-04, 12-05, 12-07, 12-08, 12-09.
 Writes: `scripts/*.py`, `tests/**/*.py`, `.github/workflows/workflow.yml`, `CONTRIBUTING.md`.
 - P-284: 113 identifiers in 6 `scripts/` files and 562 in 87 test files cite item and problem ids (gate 14's `PROCESS_IDENTIFIER` at 72124e23; P-209 and IB-71 merged here). Check: each is removed or rewritten as a plain reason, then gate 14 reads both folders with an allowlist for machine-required literals. Waits: neither directory ships.
@@ -341,7 +342,7 @@ mutation and execution APIs ship in the shape Hamm rules.
 Acceptance: `AGENTS.md` §11; 07-21 and 07-22 ship only in the ruled shape; each landed writer has a
 re-read test and an ambiguity refusal.
 
-Every item here carries `deferred-0.2.10`, as in 0.2.10.
+Every item here carries `deferred-0.2.11`, as in 0.2.11.
 
 ## Lanes
 
@@ -356,7 +357,7 @@ Question round at the opening: the mutation set (07-21) and the execution and ca
 
 ### 11-01 Every container `inspect` lists is readable
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.py`, `jnwb/mcp_server/**`, `tests/test_nwb_inspect.py`, `tests/test_nwb_read_tolerance_and_visibility.py`, `tests/test_nwb_events.py`, `tests/test_mcp_server.py`, `tests/test_io*.py`, `docs/errors.md`, `skills/jnwb-nwb-data/SKILL.md`.
 - P-294: `acquisition_channel` does not resolve behavior containers under `processing/`. Check: it reads `processing/behavior/EyeTracking` of a planted file. Waits: loud.
@@ -377,28 +378,21 @@ Stop: reading a container would need to infer its meaning.
 
 ### 11-02 Compression, unit tables and addressing edges
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
 - P-296 dated comments: `jnwb/addressing.py:683` names a date. Check: the line is deleted or shown to state behaviour. Waits: no behavioural effect.
-- P-283: `_timestamps_fate` does arithmetic with `None` when `rate` is absent. Check: a named refusal, asserted by a test. Waits: loud.
-- P-298: a hard-linked timestamps array is neither collapsed nor refused. Check: links are resolved by object id, and a planted hard link is collapsed or refused. Waits: receipt consistent.
-- P-324: `compress_fp32(select=)` on a SoftLink writes an independent copy. Check: the docstring says so or the call refuses, asserted by a test. Waits: pinned.
-- P-338: a second link can open a cast irregular timestamps array. Check: refused or recorded per link, asserted by a test. Waits: opt-in, recorded.
 - P-344: wall time rises 2.4x from 800 to 1600 series. Check: a measurement against HDF5 per-op cost accounts for the ratio, or the cause is found. Waits: linear op count.
-- P-348: relative soft-link resolution, the soft-linked `select=` message and CUDA constant-channel NaN are unpinned. Check: a test fails when each is dropped. Waits: observed correct.
-- P-192: `enrich_units_dataframe` without `peak_channel_id` fills Unknown silently. Check: a warning, and the prerequisite stated on the page (06-90). Waits: Unknown, not wrong.
-- P-242: `unit_census_report` drops absent grouping columns silently. Check: a warning, asserted by a test. Waits: documented filter.
-- P-312: `compare_old_new_criteria` mishandles nullable `is_stable`. Check: a nullable `is_stable` column is handled, asserted by a test. Waits: not exported.
-- P-322: `get_all_units_metadata(filter_quality=True)` without `quality` raises where the CHANGELOG says a warning. Check: the call warns, asserted by a test. Waits: loud.
+- P-348: CUDA constant-channel NaN is unpinned. Check: a test fails when it is dropped. Waits: observed correct.
+- `compress_fp32(select=...)` on an irregular `timestamps` array that no other link opens, inside a group a top-level soft link opens, casts it under its own name only: the two names then read float32 and float64 values. Check: refused by name, with a test. Waits: 0.2.9 behaves the same; the docstring states the refusal only for an array another link also opens.
+- P-192 page part: `docs/02_paths_addressing_metadata.md` does not state that `enrich_units_dataframe` needs `peak_channel_id` to resolve `area` and `depth_class`; the call now warns and its docstring states it. Check: the page states the prerequisite (06-90). Waits: the call warns.
 - `classify_layer_from_depth` reads electrode z as depth with no declared shallow end. Check: D10's ruling is applied and stated. Waits: stated; a ruling.
-- P-216 addressing part: `VISp6a/b` splits into a spurious area. Check: a test of the split and a fix. Waits: no corpus here carries it.
 Accept: each check passes.
 Stop: a fix would name an area vocabulary.
 
 ### 07-05 A downstream paper agent can consume jnwb
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per skill. Blocked by: 11-02.
 Writes: `jnwb/ontology.py`, `jnwb/paths.py`, `tests/test_ontology.py`, `tests/test_paths.py`, `tests/test_paths_identity.py`, `skills/jnwb/SKILL.md`, `CONTRIBUTING.md`.
 Ruled 2026-09-25: the paper agent lives downstream; jnwb gains only what it cannot do without.
@@ -411,7 +405,7 @@ Stop: a study, paradigm or DANDI id in `jnwb/`, `skills/` or `docs/`.
 
 ### 11-05 `ContainerTypeContradictionWarning` exported
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
 Ruled 2026-09-29 (D8 (a)): exported.
@@ -421,7 +415,7 @@ Stop: none beyond the standing ones.
 
 ### 07-21 A public NWB mutation API
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none until Hamm rules the set from 08-08.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/nwb_write.py`, `tests/test_nwb_write.py`, `docs/writing_nwb.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
@@ -432,7 +426,7 @@ Waits: public API; Hamm rules the shape.
 
 ### 07-22 A public execution and cache API
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none until Hamm rules the surface from 08-08.
 Role: jnwb-developer. Skill: jnwb. Blocked by: 07-21.
 Writes: `jnwb/execution.py`, `tests/test_execution_api.py`, `docs/execution.md`, `mkdocs.yml`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`.
@@ -445,7 +439,7 @@ Waits: public API; Hamm rules the surface.
 
 ### 11-03 Design facts held
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: 07-22.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - D1: delegation edges for every public callable and each Analyzer method. Check: a planted two-step convenience is VIOLATED. Waits: fact reports UNHELD; nothing public claims it.
@@ -464,7 +458,7 @@ Acceptance: `AGENTS.md` §11; every figure added follows the figure style ruled 
 the docs generator in light and dark, and says in its caption whether it is synthetic; 13-04 and
 14-07 land in the shape Hamm rules or are deleted.
 
-Every item here carries `deferred-0.2.10`, as in 0.2.10.
+Every item here carries `deferred-0.2.11`, as in 0.2.11.
 
 ## Lanes
 
@@ -479,7 +473,7 @@ collaborator's skill, and whether any user needs 14-07.
 
 ### 14-01 Spectral and laminar figures
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/04_spectral_analysis_and_tfr.md`, `docs/coherence_and_tfr.md`, `docs/tutorials/06_laminar.md`.
 Source: the "Top 10" list of the figure inventory of 2026-10-04, a read-only survey at `9cf0bb0f`,
@@ -494,7 +488,7 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 
 ### 14-02 Spiking figures
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/common_mistakes.md`.
 Source: as 14-01.
@@ -505,7 +499,7 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 
 ### 14-03 Inference and directed-connectivity figures
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/07_statistical_inference_and_nulls.md`, `docs/08_directed_connectivity_and_information.md`, `docs/common_mistakes.md`.
 Source: as 14-01.
@@ -516,7 +510,7 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 
 ### 14-04 Similarity and artifact figures
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/03_representational_similarity_jrsa.md`, `docs/05_artifact_detection_and_repair.md`.
 Source: as 14-01.
@@ -527,7 +521,7 @@ Stop: a figure would need a function outside `jnwb.__all__`.
 
 ### 14-05 Tutorial figures through the docs generator
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-figures. Blocked by: none.
 Writes: `docs/generate_figures.py`, `docs/assets/figures/**`, `docs/tutorials/*.md`, `examples/tutorials/09_open_data.py`, `tests/test_synthetic_figures_are_labelled.py`.
 Ruled 2026-10-04: tutorial pages 00 to 09 get figures through the docs generator. Per the figure
@@ -541,7 +535,7 @@ Stop: a figure would need data the repository does not carry.
 
 ### 11-04 Proposals for the pitfall estimators
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none for the shape; the proposal is `max`.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-11.
 Writes: `artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`.
@@ -555,7 +549,7 @@ Stop: public API; Hamm rules the shape.
 
 ### 14-06 The pitfall estimators Hamm rules
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none until Hamm rules each shape from 11-04's proposal.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04, 14-03.
 Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `changelog.d/pitfall-estimators.added.md`.
@@ -566,7 +560,7 @@ Stop: an estimator whose shape Hamm has not ruled.
 
 ### 13-04 A screen fitted to caller-supplied curation labels
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 AUTONOMY: none.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill, 14-03.
 Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
@@ -584,7 +578,7 @@ Stop: the collaborator's skill reaches a different design; both go to Hamm.
 
 ### 14-08 Unit-curation rows only the lab pipeline holds
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-qc. Blocked by: access to the lab pipeline's code.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
 Split from 10-15 on 2026-10-05 (ruled): these rows are defined only in the lab pipeline (`yihan777/alpha_beta_mechanism@826e540`), which no one here can read.
@@ -594,7 +588,7 @@ Stop: none.
 
 ### 14-07 A trial-based noise correlation, if a user needs it
 
-Release: deferred-0.2.10.
+Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
 Writes: `jnwb/spiking.py`, `tests/test_spiking.py`, `skills/jnwb-spiking/SKILL.md`.
 Source: 09-08's conditional bullet, moved whole on 2026-10-04; 09-08 has since landed.

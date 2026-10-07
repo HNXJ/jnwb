@@ -870,8 +870,8 @@ def compress_fp32(
             array that another link also opens, which is kept at its source dtype; an irregular
             one that a cast would leave reading differently under another name, which is one
             named through a soft-link alias, with a second hard link, or opened by a top-level
-            soft link directly or through a group (naming all its names at once is refused as
-            well, since a cast would end the link); or a scalar dataset. A hard or soft link to
+            soft link directly or through a group when another link also opens it (naming all
+            its names at once is refused as well, since a cast would end the link); or a scalar dataset. A hard or soft link to
             either of the first two is refused
             like its target. Also raised when a regular ``timestamps`` array sits beside a
             ``starting_time`` that has no ``rate`` attribute. Every one of these refusals
