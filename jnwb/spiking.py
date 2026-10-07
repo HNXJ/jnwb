@@ -217,7 +217,7 @@ def classify_response_significance(
     Bursting makes the p-value too small, because the test counts each spike of a burst as
     an independent event. With no effect, 5 Hz firing in bursts of four spikes over 200
     trials and the default windows puts about 30% of units below p = 0.05 when the spikes
-    of a burst are 4 ms apart, and about 19% when they are 50 ms apart. The p-value falls
+    of a burst are 4 ms apart, and about 18% when they are 50 ms apart. The p-value falls
     as trials accumulate at a fixed effect.
 
     ``response_zscore`` is the effect size: a response is significant when
