@@ -743,6 +743,32 @@ class TestWholeBinCount:
         ends = [float(s.split(", ")[1]) for s in shown]
         assert ends == [3e12 + 25.0, 3e12 + 20.0, 3e12 + 30.0]
 
+    @pytest.mark.parametrize("width", [0.0, -10.0, np.nan, np.inf])
+    def test_a_bin_width_that_is_not_finite_and_positive_is_named(self, width):
+        # 0 raised a bare ZeroDivisionError and NaN "cannot convert float NaN to integer".
+        from jnwb._bins import whole_bin_count
+        with pytest.raises(ValueError, match=r"^f: bin_width=\S+ must be finite and positive"):
+            whole_bin_count((0.0, 100.0), width, "f")
+
+    def test_the_bin_width_refusal_uses_the_callers_parameter_name(self):
+        import pandas as pd
+        from jnwb import UnitAnalyzer, build_time_resolved_matrix
+
+        with pytest.raises(ValueError, match=r"UnitAnalyzer\.psth: bin_size_ms=0 must be"):
+            UnitAnalyzer.psth(np.array([0.1]), np.array([0.0]), window_ms=(0.0, 100.0),
+                              bin_size_ms=0.0)
+
+        class _Session:
+            def get_units(self, quality=None, area=None):
+                return pd.DataFrame({"area": ["V1"]})
+
+            def get_spike_times(self, unit):
+                return np.array([0.1])
+
+        with pytest.raises(ValueError, match=r"build_time_resolved_matrix: bin_size_ms=0 must be"):
+            build_time_resolved_matrix(_Session(), "V1", pd.DataFrame({"start_time": [0.0]}),
+                                       time_window_ms=(0.0, 100.0), bin_size_ms=0.0)
+
 
 class TestNetworkBurstIndex:
     def _raster(self, rng):

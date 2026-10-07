@@ -75,6 +75,37 @@ METAL = "metal"
 DEFAULT_SUPPORTS = (CPU, CUDA)
 
 
+#: The ``OSError`` each backend's last probe raised, by backend name. An ``OSError`` there is
+#: a shared library that failed to load, which on a machine with a GPU is usually a clash
+#: with a CUDA library another package loaded first in the same process.
+_LOAD_FAILURES: dict = {}
+
+
+def _probe(backend: str, probe) -> bool:
+    """Run ``probe``, recording an ``OSError`` it raises under ``backend``."""
+    try:
+        result = bool(probe())
+    except OSError as exc:
+        _LOAD_FAILURES[backend] = exc
+        return False
+    except (ImportError, RuntimeError, AttributeError):
+        result = False
+    _LOAD_FAILURES.pop(backend, None)
+    return result
+
+
+def _cupy_device_count():
+    import cupy as cp
+
+    return cp.cuda.runtime.getDeviceCount() > 0
+
+
+def _torch_cuda():
+    import torch
+
+    return torch.cuda.is_available()
+
+
 def cupy_available() -> bool:
     """True if CuPy imports and reports a usable CUDA device.
 
@@ -82,22 +113,12 @@ def cupy_available() -> bool:
     present, failing only at the first allocation. Sites probing by import claimed a GPU
     on machines that had none.
     """
-    try:
-        import cupy as cp
-
-        return cp.cuda.runtime.getDeviceCount() > 0
-    except (ImportError, OSError, RuntimeError, AttributeError):
-        return False
+    return _probe("CuPy", _cupy_device_count)
 
 
 def torch_cuda_available() -> bool:
     """True if PyTorch imports and reports a CUDA device."""
-    try:
-        import torch
-
-        return bool(torch.cuda.is_available())
-    except (ImportError, OSError, RuntimeError, AttributeError):
-        return False
+    return _probe("PyTorch", _torch_cuda)
 
 
 def gpu_available(prefer: Optional[str] = None) -> bool:
@@ -225,13 +246,30 @@ def resolve_device(
             return CPU
         return METAL
 
+    # Only this probe's failures may name the cause, not an earlier call's.
+    _LOAD_FAILURES.clear()
     if gpu_available(prefer=prefer):
         return CUDA
 
-    backend = {"cupy": "CuPy", "torch": "PyTorch"}.get(prefer, "CuPy or PyTorch")
+    probed = {"cupy": ("CuPy",), "torch": ("PyTorch",)}.get(prefer, ("CuPy", "PyTorch"))
+    failed = [(name, _LOAD_FAILURES[name]) for name in probed if name in _LOAD_FAILURES]
+    if failed:
+        causes = "; ".join(f"{name} could not load its libraries ({type(exc).__name__}: {exc})"
+                           for name, exc in failed)
+        module = {"CuPy": "cupy", "PyTorch": "torch"}[failed[0][0]]
+        warnings.warn(
+            f"{context}: device='cuda' was requested but {causes}. A CUDA library that "
+            f"another package loaded earlier in this process (CuPy, for example) can conflict "
+            f"with them, a DLL conflict on Windows: import {module} first, or run in a "
+            f"separate process. Running on CPU. CPU and GPU paths may disagree numerically.",
+            RuntimeWarning,
+            stacklevel=stacklevel,
+        )
+        return CPU
+
     warnings.warn(
         f"{context}: device='cuda' was requested but no usable CUDA device was found "
-        f"via {backend}; running on CPU. CPU and GPU paths may disagree numerically.",
+        f"via {' or '.join(probed)}; running on CPU. CPU and GPU paths may disagree numerically.",
         RuntimeWarning,
         stacklevel=stacklevel,
     )

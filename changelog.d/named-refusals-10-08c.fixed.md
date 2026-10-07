@@ -1,0 +1,5 @@
+- `fit_exponential_onset` refuses a constant `rate` by name. Every onset time fits a flat trace equally well, and it returned the upper `t0` bound, an amplitude of 1e-6 and `r2` NaN as a fit. It also names `t_ms` and `rate` when they are not 1-D of one length, where SciPy and NumPy raised about `f0` or broadcasting.
+- `PopulationAnalyzer.population_trajectory` refuses an `X` that is not 2-D by name; a 1-D `X` raised NumPy's `LinAlgError`. Its device warnings name `PopulationAnalyzer.population_trajectory` rather than `population_trajectory`.
+- `UnitAnalyzer.psth` and `build_time_resolved_matrix` refuse a `bin_size_ms` of 0, below 0 or not finite by name; 0 raised `ZeroDivisionError`.
+- `compute_population_trajectory` reports `device_used` (`'cpu'`) for an area with no units, as it does for every other result.
+- When PyTorch or CuPy fails to load its libraries, a `device='cuda'` request warns with the loader's error and names the likely cause, a CUDA library another package loaded first in the process (a DLL conflict on Windows). It said no usable CUDA device was found.

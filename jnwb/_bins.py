@@ -110,17 +110,20 @@ def onset_locked_counts(spike_times, onsets, start_s, stop_s, edges, scale: floa
 
 
 def whole_bin_count(window, bin_width, func_name: str, param: str = "win_ms",
-                    unit: str = "ms") -> int:
+                    unit: str = "ms", width_param: str = "bin_width") -> int:
     """Number of ``bin_width`` bins spanning ``window``, refusing a span that is not whole bins.
 
     ``window`` and ``bin_width`` are in the same ``unit``, which the message names. A partial
     last bin holds less than ``bin_width`` of data, so its count is short and a rate divided by
     the full width reads low; a window stretched or shrunk to whole bins has no bin of the
     stated width. The error names the nearest valid windows with the same start, and refuses
-    a window whose end is not after its start, naming which.
+    a window whose end is not after its start, naming which. A width that is not finite and
+    positive is refused under the caller's name for it, ``width_param``.
     """
     start, end = float(window[0]), float(window[1])
     width = float(bin_width)
+    if not (np.isfinite(width) and width > 0):
+        raise ValueError(f"{func_name}: {width_param}={width:g} must be finite and positive.")
     if not (np.isfinite(start) and np.isfinite(end) and end > start):
         what = ("must have finite ends" if not (np.isfinite(start) and np.isfinite(end))
                 else "is reversed: its end precedes its start" if end < start
