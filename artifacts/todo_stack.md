@@ -42,40 +42,24 @@ gives, for the closure pass to classify.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | H statistics, spiking and decoding | 10-28 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
-| F laminar curation | 10-27 | `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py` |
 | R reduction | 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25 and 10-26 are merged; 10-21, 10-27 and 10-28 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25, 10-26 and 10-27 are merged; 10-21 and 10-28 are open.
 
-### 10-28 `_is_loader_error` test reach and the constant-`X` projection
+### 10-28 Projection of a constant `X` in `population_trajectory`
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_backend.py`.
-Left by the 10-26 verification (2026-10-07); the behaviour is verified correct.
-- Surviving mutants in `jnwb/_backend.py`: winerror 193, the text markers `image not found` and `library not loaded`, `loader[0]` to `loader[-1]` (no two-loader test). Check: each killed by a test. Waits: tests only.
-- `population_trajectory` on a constant `X` keeps a zero projection while the components are NaN. Check: Hamm rules zeros or NaN. Waits: documented behaviour. AUTONOMY: none.
-Accept: each check passes.
-Stop: none.
-
-### 10-27 `laminar_curation` surviving mutants after 10-24
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `tests/test_laminar_curation.py`.
-Left by the 10-24 verification (2026-10-07); the behaviour is verified correct, so each is a test gap.
-- `curate_and_label` stops passing `nperseg` to `detect_bad_channels` (`jnwb/laminar_curation.py:695`); the docstring and docs/10 say it does.
-- The CSD `min_contacts` at plus or minus one (`:839`, the test bound is n+1) and `evoked_csd_sink` `<` to `<=` (`:324`).
-- The windows use the pooled PSD instead of their own, for the motif and the vFLIP estimates (`:778`, `:779`), which fakes stability.
-- The refusal no longer checks `band_low_hz` (`:696`).
-Check: each killed by a test. Waits: tests only.
-Accept: each mutant killed.
-Stop: none.
+Writes: `jnwb/trajectory.py`, `tests/test_analyzers_coverage.py`.
+Left by the 10-26 verification (2026-10-07).
+- A constant `X` keeps a zero projection while the components and variances are NaN. Check: Hamm rules zeros or NaN. Waits: documented behaviour. AUTONOMY: none.
+Accept: the check passes.
+Stop: a fix changes a shipped value without a ruling.
 
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-27, 10-28.
+Role: jnwb-developer. Skill: none. Blocked by: 10-28.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
