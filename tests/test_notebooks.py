@@ -25,9 +25,12 @@ def test_there_is_a_notebook_to_run():
 
 
 # Seconds. The bounds sum to the longest a notebook may hold the suite.
-KERNEL_START_TIMEOUT_S = 60  # a started kernel answers its first request well inside this
-CELL_TIMEOUT_S = 120  # per cell; the slowest notebook cell runs in a few seconds
+KERNEL_START_TIMEOUT_S = 180  # a kernel under 24 busy processes needed over 60 s to answer
+CELL_TIMEOUT_S = 300  # per cell; the first import cell took 120 s under 24 busy processes
 KERNEL_SHUTDOWN_TIMEOUT_S = 15  # graceful stop, then the manager kills the process
+
+
+_LAST_RUN = {}  # the manager and budget of the latest _execute, for the tests below
 
 
 def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
@@ -64,6 +67,7 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     # Backstop for a stall the bounds above do not reach: the run goes to a worker thread, and a
     # kernel that outlives the summed bounds is killed and fails this test by name.
     budget = KERNEL_START_TIMEOUT_S + CELL_TIMEOUT_S * len(nb.cells) + KERNEL_SHUTDOWN_TIMEOUT_S
+    _LAST_RUN.update(km=km, budget=budget)
     outcome = {}
 
     def run():
@@ -76,7 +80,10 @@ def _execute(path, tmp_path, monkeypatch, kernel_argv=None):
     worker.start()
     worker.join(budget)
     # A failed start leaves nbclient's exit hook behind, which then asserts on a dead manager.
-    atexit.unregister(client._cleanup_kernel)
+    # The hook is a private attribute of nbclient 0.11; without it there is nothing to remove.
+    hook = getattr(client, "_cleanup_kernel", None)
+    if hook is not None:
+        atexit.unregister(hook)
     if worker.is_alive():
         try:
             km.provisioner.process.kill()
@@ -106,8 +113,10 @@ def test_unit_quality_notebook_reaches_each_outcome(tmp_path, monkeypatch):
     assert "Declined" in text
 
 
-def _stalled_notebook(tmp_path):
-    nb = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell("import time; time.sleep(1000)")])
+def _stalled_notebook(tmp_path, cells=1):
+    nb = nbformat.v4.new_notebook(
+        cells=[nbformat.v4.new_code_cell("import time; time.sleep(1000)") for _ in range(cells)]
+    )
     path = tmp_path / "stalled.ipynb"
     nbformat.write(nb, path)
     return path
@@ -121,32 +130,83 @@ def _shrink_bounds(monkeypatch, start, cell, shutdown):
 
 
 def test_stalled_cell_fails_within_the_cell_bound(tmp_path, monkeypatch):
-    _shrink_bounds(monkeypatch, start=20, cell=3, shutdown=2)
+    # The start bound is generous because a loaded machine starts a real kernel slowly; the
+    # stalled cell sleeps 1000 s, so any bound far under that still shows the cell bound works.
+    _shrink_bounds(monkeypatch, start=120, cell=3, shutdown=2)
     path = _stalled_notebook(tmp_path)
     began = time.monotonic()
     with pytest.raises(nbclient.exceptions.CellTimeoutError, match="timed out"):
         _execute(path, tmp_path, monkeypatch)
-    assert time.monotonic() - began < 3 + 2 + 5
+    assert time.monotonic() - began < 120 + 3 + 2 + 30
 
 
-def test_run_that_outlives_the_bounds_fails_by_name(tmp_path, monkeypatch):
-    _shrink_bounds(monkeypatch, start=1, cell=1, shutdown=1)
-    monkeypatch.setattr(nbclient.NotebookClient, "execute", lambda self, **kw: time.sleep(60))
-    path = _stalled_notebook(tmp_path)
-    began = time.monotonic()
-    with pytest.raises(pytest.fail.Exception, match="stalled.ipynb: kernel did not finish within 3 s"):
-        _execute(path, tmp_path, monkeypatch)
-    assert time.monotonic() - began < 3 + 5
+def _silent_kernel_argv(tmp_path):
+    """A kernel process that never answers and ignores the stop request."""
+    stub = tmp_path / "silent_kernel.py"
+    stub.write_text("import time\ntime.sleep(10_000)\n")
+    return [sys.executable, str(stub), "{connection_file}"]
 
 
 def test_kernel_that_never_starts_fails_within_the_start_bound(tmp_path, monkeypatch):
     _shrink_bounds(monkeypatch, start=4, cell=60, shutdown=1)
-    stub = tmp_path / "silent_kernel.py"
-    stub.write_text("import time\ntime.sleep(10_000)\n")
     path = _stalled_notebook(tmp_path)
     began = time.monotonic()
     with pytest.raises(RuntimeError, match="Kernel didn't respond"):
-        _execute(path, tmp_path, monkeypatch, kernel_argv=[sys.executable, str(stub), "{connection_file}"])
-    # The silent kernel ignores the stop request, so the shutdown bound is what ends it.
-    assert time.monotonic() - began < 4 + 1 + 2
+        _execute(path, tmp_path, monkeypatch, kernel_argv=_silent_kernel_argv(tmp_path))
+    # Under nbclient's own 60 s default, so a dropped start bound shows.
+    assert time.monotonic() - began < 30
+    assert _LAST_RUN["km"].shutdown_wait_time == 1
+
+
+def test_bounds_stay_finite_and_small():
+    bounds = (KERNEL_START_TIMEOUT_S, CELL_TIMEOUT_S, KERNEL_SHUTDOWN_TIMEOUT_S)
+    assert all(0 < b for b in bounds)
+    assert sum(bounds) <= 600  # one cell; each further cell adds CELL_TIMEOUT_S
+
+
+def test_run_that_outlives_the_bounds_fails_by_name_and_counts_every_cell(tmp_path, monkeypatch):
+    _shrink_bounds(monkeypatch, start=1, cell=1, shutdown=1)
+    monkeypatch.setattr(nbclient.NotebookClient, "execute", lambda self, **kw: time.sleep(60))
+    path = _stalled_notebook(tmp_path, cells=3)
+    began = time.monotonic()
+    # 1 start + 3 cells of 1 + 1 shutdown
+    with pytest.raises(pytest.fail.Exception, match="stalled.ipynb: kernel did not finish within 5 s"):
+        _execute(path, tmp_path, monkeypatch)
+    assert time.monotonic() - began < 5 + 15
+
+
+def test_run_that_outlives_the_bounds_kills_its_kernel(tmp_path, monkeypatch):
+    # The kernel process starts, then the client never finishes starting; start 15 s covers a
+    # slow spawn on a loaded machine before the join gives up.
+    _shrink_bounds(monkeypatch, start=15, cell=1, shutdown=1)
+
+    async def never(self):
+        import asyncio
+
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(nbclient.NotebookClient, "async_start_new_kernel_client", never)
+    path = _stalled_notebook(tmp_path)
+    try:
+        with pytest.raises(pytest.fail.Exception, match="kernel did not finish"):
+            _execute(path, tmp_path, monkeypatch, kernel_argv=_silent_kernel_argv(tmp_path))
+        process = _LAST_RUN["km"].provisioner.process
+        assert process.wait(timeout=10) is not None  # raises TimeoutExpired if still running
+    finally:
+        provisioner = getattr(_LAST_RUN["km"], "provisioner", None)
+        if provisioner is not None and provisioner.process.poll() is None:
+            provisioner.process.kill()
+
+
+def test_exit_hook_is_not_left_registered(tmp_path, monkeypatch):
+    registered, removed = [], []
+    real_register, real_unregister = atexit.register, atexit.unregister
+    monkeypatch.setattr(atexit, "register", lambda f, *a, **k: (registered.append(f), real_register(f, *a, **k))[1])
+    monkeypatch.setattr(atexit, "unregister", lambda f: (removed.append(f), real_unregister(f))[1])
+    _shrink_bounds(monkeypatch, start=4, cell=60, shutdown=1)
+    path = _stalled_notebook(tmp_path)
+    with pytest.raises(RuntimeError):
+        _execute(path, tmp_path, monkeypatch, kernel_argv=_silent_kernel_argv(tmp_path))
+    own = [f for f in registered if getattr(f, "__self__", None).__class__ is nbclient.NotebookClient]
+    assert all(f in removed for f in own)
 
