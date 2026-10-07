@@ -76,6 +76,13 @@ class RenamedKeyDict(dict):
         except KeyError:
             return default
 
+    def setdefault(self, key: object, default: Any = None) -> Any:
+        """As ``dict.setdefault``, except that an old name returns the current key's value,
+        warning as ``[]`` does, and inserts nothing: it is present under its current name."""
+        if self.__contains__(key):
+            return self._read(key, stacklevel=3)
+        return dict.setdefault(self, key, default)
+
     def __contains__(self, key: object) -> bool:
         return dict.__contains__(self, key) or (isinstance(key, str) and key in self._aliases)
 

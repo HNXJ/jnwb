@@ -186,8 +186,14 @@ def build_permutation_plan(
         ``n_permutations``, and ``group_composition_preserved`` (always True).
 
     Raises:
-        TypeError: If ``rng`` is not an int, a Generator or None.
+        TypeError: If ``rng`` is not an int, a Generator or None, or ``groups`` is None.
     """
+    if groups is None:
+        raise TypeError(
+            "build_permutation_plan: groups is required, one group id per label; the plan "
+            "permutes labels within groups. Give every label the same id to permute across "
+            "all of them."
+        )
     seed = resolve_seed_alias(rng, seed, alias_name='seed',
                               func_name='build_permutation_plan')
     # The manifest names every draw by an integer seed, so a Generator or None is turned

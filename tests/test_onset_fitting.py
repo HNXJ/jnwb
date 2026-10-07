@@ -59,6 +59,12 @@ class TestCausalExpSmooth:
         assert np.allclose(smoothed[:50], 0.0, atol=1e-9)
         assert smoothed[50] > 0.0
 
+    @pytest.mark.parametrize("tau_ms", [0, -5.0, np.nan, np.inf])
+    def test_a_tau_that_is_not_finite_and_positive_is_refused_by_name(self, tau_ms):
+        # tau_ms=0 divided by zero and returned ten NaN with only a RuntimeWarning.
+        with pytest.raises(ValueError, match="causal_exp_smooth: tau_ms must be a finite positive"):
+            causal_exp_smooth(np.ones(10), 1.0, tau_ms=tau_ms)
+
 
 class TestOnsetModel:
     def test_flat_before_t0(self):

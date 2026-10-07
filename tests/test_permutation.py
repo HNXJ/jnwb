@@ -144,6 +144,11 @@ class TestBuildPermutationPlan:
         with pytest.raises(ValueError, match="positive"):
             build_permutation_plan([0, 1], [0, 0], n_permutations=0, seed=0)
 
+    def test_groups_none_is_refused_by_name(self):
+        # It raised a bare "'NoneType' object is not iterable".
+        with pytest.raises(TypeError, match="build_permutation_plan: groups is required"):
+            build_permutation_plan([0, 1, 0, 1], None, n_permutations=3, rng=0)
+
     def test_draw_manifest_has_one_row_per_permutation(self):
         plan = build_permutation_plan(
             [0, 0, 1, 1, 0, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1], n_permutations=5, seed=1

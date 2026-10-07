@@ -17,8 +17,6 @@ API Layers
 **General Comparisons** (``compare_groups``, ``compare_multiple_groups``, ``correlate``):
     Core comparison routines returning both parametric and non-parametric statistics
     with explicit multiple_comparison status.
-
-Revised: 2026-07-26 — Exploratory / Confirmatory API split
 """
 
 from __future__ import annotations

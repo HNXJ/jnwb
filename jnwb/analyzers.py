@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
 from .spiking import _count_fano
-from .unit_quality import isi_cv
+from .unit_quality import isi_cv, refractory_contamination
 from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
@@ -565,9 +565,12 @@ class UnitAnalyzer:
         windows from the first spike, by the rule of :func:`jnwb.fano_factor`: the unbiased
         (``ddof=1``) variance. Up to 0.2.8 it was the population variance (``ddof=0``),
         ``(n - 1) / n`` of this over ``n`` windows, half at two windows. The variance rule is
-        shared and the windowing is not: here the windows are ``[t0 + k, t0 + k + 1)`` from
-        the first spike ``t0`` with the last one closed, so a spike at the train's end counts,
-        where the trial windows of :func:`jnwb.fano_factor` are right-open.
+        shared and the windowing is not: here the windows are the whole seconds
+        ``[t0 + k, t0 + k + 1)`` from the first spike ``t0``, ``k < floor(t_last - t0)``,
+        with the last one closed, where the trial windows of :func:`jnwb.fano_factor`
+        are right-open. Spikes after the last whole second are not counted, so the train's
+        last spike counts only when its span is a whole number of seconds: spikes at 0,
+        0.5, 1.2 and 2.5 s give counts 2 and 1 and a Fano factor of 1/3.
 
         ``cv_isi`` is :func:`jnwb.isi_cv`, with the unbiased (``ddof=1``) standard deviation
         of the intervals. Up to 0.2.8 it used ``ddof=0`` and read lower by
@@ -584,7 +587,8 @@ class UnitAnalyzer:
             waveform_duration_us: Trough-to-peak duration (µs)
             firing_rate: Mean firing rate (Hz)
             refractory_ms: An inter-spike interval shorter than this, in ms, is a
-                refractory violation.
+                refractory violation, by the rule of :func:`jnwb.refractory_contamination`:
+                an interval within 1 ns of it counts as equal to it.
             max_violation_pct: The verdict needs a violation rate, in percent of
                 intervals, below this.
             max_fano: The verdict needs a Fano factor below this.
@@ -625,7 +629,9 @@ class UnitAnalyzer:
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 
-        refr_violations    = int((isis_ms < refractory_ms).sum())
+        refr_violations = refractory_contamination(
+            spike_times, duration_s=float(spike_times[-1] - spike_times[0]) if isis.size else 0.0,
+            refractory_ms=refractory_ms, censored_ms=0.0)["n_violations"]
         refr_violation_pct = 100.0 * refr_violations / len(isis) if len(isis) > 0 else np.nan
 
         # Fano factor via histogram (vectorized); a variance needs two windows.

@@ -1,4 +1,4 @@
-"""Deterministic synthetic NWB builders aligned with nwb_structural_authority_0.1.8.md.
+"""Deterministic synthetic NWB builders.
 
 Fixture structure (interval tables, acquisition packaging, column names) is separate from
 synthetic numerical content (signals, spikes, onset times). All values are analytically known.
@@ -17,7 +17,7 @@ from dateutil.tz import tzutc
 from pynwb import NWBFile, NWBHDF5IO
 from pynwb.epoch import TimeIntervals
 
-from .._rng import resolve_rng
+from .._rng import RNGLike, resolve_rng
 
 # Neutral interval table names (not project-specific omission/RF/flash names).
 TASK_TABLE = "test_synth_task"
@@ -47,7 +47,7 @@ class SynthNWBBuildOptions:
     n_channels: int = DEFAULT_N_CHANNELS
     fs_hz: float = DEFAULT_FS_HZ
     n_events_per_table: int = DEFAULT_N_EVENTS
-    seed: int = DEFAULT_SEED
+    seed: RNGLike = DEFAULT_SEED
 
 
 @dataclass(frozen=True)
@@ -110,7 +110,7 @@ def _synthetic_lfp(
     n_samples: int,
     n_channels: int,
     fs_hz: float,
-    seed: int,
+    seed: RNGLike,
 ) -> np.ndarray:
     rng = resolve_rng(seed, func_name="build_synth_nwb", name="SynthNWBBuildOptions.seed")
     t = np.arange(n_samples, dtype=np.float64) / fs_hz

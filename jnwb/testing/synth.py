@@ -16,7 +16,7 @@ import pandas as pd
 from scipy import signal
 
 from ..addressing import ProbeGeometry, probe_geometry
-from .._rng import resolve_rng
+from .._rng import RNGLike, resolve_rng
 
 
 @dataclass(frozen=True)
@@ -538,7 +538,7 @@ def build_canonical_tutorial_nwb(
     fs: float = 1000.0,
     duration_s: float = 10.0,
     n_trials: int = 20,
-    seed: int = 42,
+    seed: RNGLike = 42,
 ) -> Tuple[Any, Dict[str, Any]]:
     """Build a comprehensive, self-contained synthetic NWB file for executable tutorials.
 
