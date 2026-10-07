@@ -781,7 +781,7 @@ class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
 
     def test_a_population_with_no_variance_has_no_components(self):
         # The SVD of all-zero data returns the identity as Vt; no computation on the data
-        # produced it. The projection is the data's (zero) deviation and stays.
+        # produced it. A projection on components that do not exist is NaN as well.
         for dtype in (np.float64, np.float32):
             res = PopulationAnalyzer.population_trajectory(
                 np.full((20, 5), 3.0, dtype=dtype), n_components=3)
@@ -790,7 +790,29 @@ class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
             self.assertTrue(np.all(np.isnan(res['components'])))
             for key in ('explained_variance', 'explained_variance_ratio'):
                 self.assertTrue(np.all(np.isnan(res[key])))
-            np.testing.assert_array_equal(res['projection'], np.zeros((20, 3), dtype))
+            self.assertEqual(res['projection'].shape, (20, 3))
+            self.assertEqual(res['projection'].dtype, dtype)
+            self.assertTrue(np.all(np.isnan(res['projection'])))
+
+    def test_a_population_with_variance_is_unchanged_by_the_no_variance_rule(self):
+        # The NaN projection applies only without variance: with variance the result is the
+        # one the helper gives without the switch, bit for bit, in both dtypes.
+        from jnwb.trajectory import _kept_components
+        for dtype in (np.float64, np.float32):
+            X = (np.random.default_rng(3).standard_normal((30, 4)) * [2.0, 1.0, 0.5, 0.0]
+                 ).astype(dtype)
+            Xc = X - np.mean(X, axis=0)
+            _, s, vt = np.linalg.svd(Xc, full_matrices=False)
+            assert np.sum(s ** 2) > 0, "fixture must have variance"
+            vt = vt[:3]
+            ref = _kept_components(s, vt, Xc @ vt.T, 30, 3)
+            res = PopulationAnalyzer.population_trajectory(X, n_components=3)
+            assert np.all(np.isfinite(res['projection'])), "fixture must project finitely"
+            for got, want in zip((res['projection'], res['components'],
+                                  res['explained_variance'], res['explained_variance_ratio']),
+                                 ref[:4]):
+                self.assertEqual(got.dtype, want.dtype)
+                np.testing.assert_array_equal(got, want)
 
     def test_a_population_with_variance_keeps_its_components(self):
         X = np.random.default_rng(7).standard_normal((40, 5)) * [3.0, 2.0, 1.5, 1.0, 0.5]

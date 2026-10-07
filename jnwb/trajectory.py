@@ -224,7 +224,8 @@ def compute_population_trajectory(
 
 
 def _kept_components(
-    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int
+    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int,
+    nan_projection_without_variance: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Pin signs, name the variances and pad to ``n_components``, from one SVD.
 
@@ -234,6 +235,9 @@ def _kept_components(
         projection: the data projected on them, ``(n_samples, n_kept)``.
         n_samples: rows of the decomposed data.
         n_components: components requested; ``n_kept`` may be fewer.
+        nan_projection_without_variance: with no total variance, make ``projection`` NaN
+            too. ``PopulationAnalyzer.population_trajectory`` sets it; without it the
+            projection, computed from the data, is left as it is.
 
     Returns:
         ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
@@ -262,8 +266,12 @@ def _kept_components(
         explained_total = float('nan')
         # Intentional change of a returned value: the SVD of all-zero data returns the
         # identity as Vt, which no computation on the data produced; it is NaN like the
-        # variances. The projection, computed from the data, is left as it is.
+        # variances.
         Vt = np.full_like(Vt, np.nan)
+        if nan_projection_without_variance:
+            # Intentional change of a returned value: a projection on
+            # components that do not exist is NaN, like the components; it was zero.
+            projection = np.full_like(projection, np.nan)
 
     missing = n_components - n_kept
     if missing > 0:

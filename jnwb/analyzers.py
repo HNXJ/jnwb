@@ -854,8 +854,8 @@ class PopulationAnalyzer:
 
             As in :func:`jnwb.compute_population_trajectory`, a component beyond
             ``min(n_time_bins, n_units)`` does not exist, so its projection column,
-            component row and variances are NaN, and with no total variance both variance
-            arrays and every component are NaN. Its note on components whose singular values nearly coincide,
+            component row and variances are NaN, and with no total variance (every unit
+            constant) the projection, both variance arrays and every component are NaN. Its note on components whose singular values nearly coincide,
             whose agreement between devices is undefined, applies here too, and float32
             input is decomposed in float32.
 
@@ -875,7 +875,8 @@ class PopulationAnalyzer:
         def _result(s: np.ndarray, vt: np.ndarray, device_used: str) -> Dict[str, np.ndarray]:
             vt = vt[:n_components, :]
             projection, vt, explained_variance, explained_variance_ratio, _ = _kept_components(
-                s, vt, X_centered @ vt.T, n_samples, n_components)
+                s, vt, X_centered @ vt.T, n_samples, n_components,
+                nan_projection_without_variance=True)
             return {
                 'projection': projection,
                 'components': vt,
