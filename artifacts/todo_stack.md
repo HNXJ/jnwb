@@ -69,6 +69,16 @@ Every item here carries `deferred-0.2.11`, as stated under 0.2.10.
 Question round at the opening: the B3 choice-name lexicon (10-10) and the dB-lexicon values 09-04
 reads.
 
+### 10-29 The PSI round-off width change is in the changelog
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `changelog.d/psi-roundoff-width.changed.md`.
+Left by the 0.2.10 closure pass (2026-10-07); shipped values change only when the jackknife spread is at rounding level.
+- The PSI round-off width changed from `8 n eps P` to `4 n eps P sqrt(U-1)` (commit `c62fa430`) and the 0.2.10 section does not say so. Check: a changelog entry names the change and its effect on the NaN decision. Waits: it decides NaN against finite z only at rounding-level spread.
+Accept: the entry is in the changelog.
+Stop: none.
+
 ### 10-10 Identity and scientific-choice facts held
 
 Release: deferred-0.2.11.
