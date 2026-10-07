@@ -18,7 +18,7 @@
     the NWB Inspector best-practice checks (optional dependency).
 ``dandi``
     ``dandi validate`` through its Python API (optional dependency): DANDI's own NWB metadata
-    requirements. The DANDI run includes its own pynwb and NWB Inspector passes.
+    requirements.
 
 A layer whose dependency is not installed is reported ``"skipped"`` with the reason; it is never
 counted as a pass. ``NWBValidationReport.dandi_ready`` is True only when the ``dandi`` layer
@@ -41,8 +41,7 @@ LayerStatus = Literal["pass", "fail", "skipped"]
 #: Every layer name, in the order ``validate_nwb`` runs them.
 LAYERS: tuple[str, ...] = ("read", "pynwb_schema", "pynwb_core", "integrity", "nwbinspector", "dandi")
 
-#: DANDI reports this when a file is validated outside a dandiset directory; it says nothing
-#: about the file, so it is ignored by default.
+#: DANDI result ids ignored by default.
 DEFAULT_DANDI_IGNORE: tuple[str, ...] = ("DANDI.NO_DANDISET_FOUND",)
 
 _DANDI_FAIL = ("ERROR", "CRITICAL")
@@ -163,7 +162,8 @@ def _layer_integrity(path: Path, cap: int) -> ValidationLayer:
             rep = check_ragged_indices(path)
             for c in rep.columns:
                 if not c.ok:
-                    msgs.append(f"units/{c.column}_index: monotonic={c.monotonic} ends_at_data_len={c.ends_at_data_len} "
+                    msgs.append(f"units/{c.column}_index: monotonic={c.monotonic} nonnegative={c.nonnegative} "
+                                f"ends_at_data_len={c.ends_at_data_len} "
                                 f"length_fits={c.length_fits} offset_bug={c.offset_bug}")
             msgs.extend(f"units/{c}: ragged column missing from colnames" for c in rep.unlisted_ragged_columns)
     except Exception as exc:

@@ -102,13 +102,11 @@ report.dandi_ready   # read, both pynwb schema layers and the dandi layer ran an
 | `read` | the file opens through `jnwb.read_nwb` | it cannot be read |
 | `pynwb_schema` | `pynwb.validate` against the namespaces cached in the file | any schema error |
 | `pynwb_core` | `pynwb.validate` against the core namespace of the installed pynwb, the newest schema that release knows | any schema error |
-| `integrity` | ragged `<column>_index` arrays of `units` (`check_ragged_indices`) and electrode regions outside the electrodes table | an index is not monotonic or does not end at the data length, or a region leaves the table |
+| `integrity` | ragged `<column>_index` arrays of `units` (`check_ragged_indices`) and electrode regions outside the electrodes table | `check_ragged_indices` reports a column not `ok`, or a region leaves the table |
 | `nwbinspector` | NWB Inspector best-practice checks | a CRITICAL or ERROR finding; best-practice findings are counted as warnings |
-| `dandi` | `dandi validate` through its Python API (it also runs its own pynwb and Inspector passes) | an ERROR or CRITICAL result; `DANDI.NO_DANDISET_FOUND` is ignored by default |
+| `dandi` | `dandi validate` through its Python API | an ERROR or CRITICAL result; `DANDI.NO_DANDISET_FOUND` is ignored by default |
 
-A skipped layer is never a pass: `dandi_ready` is False unless the `dandi` layer ran. Read the best-practice
-warnings anyway: `check_time_intervals_stop_after_start` and `check_electrical_series_unscaled_data`
-point at real defects in the data.
+A skipped layer is never a pass: `dandi_ready` is False unless the `dandi` layer ran.
 
 ## Keep repaired outputs frozen
 

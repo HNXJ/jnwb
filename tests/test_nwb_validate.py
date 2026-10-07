@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import h5py
 import numpy as np
@@ -100,6 +101,34 @@ def test_ragged_index_defect_fails_the_integrity_layer(tmp_path):
     lay = rep.layer("integrity")
     assert lay.status == "fail" and "spike_times_index" in lay.messages[0]
     assert not rep.ok
+
+
+def test_integrity_layer_reports_what_check_ragged_indices_reports(tmp_path, monkeypatch):
+    # the layer delegates the index rules to check_ragged_indices instead of restating them
+    p = tmp_path / "ok.nwb"
+    _make_nwb(p)
+    calls = []
+    bad = SimpleNamespace(column="spike_times", ok=False, monotonic=True, nonnegative=True,
+                          ends_at_data_len=True, length_fits=True, offset_bug="detected")
+
+    def fake(path, **kw):
+        calls.append(path)
+        return SimpleNamespace(columns=(bad,), unlisted_ragged_columns=())
+
+    monkeypatch.setattr(jnwb.nwb_integrity, "check_ragged_indices", fake)
+    lay = validate_nwb(p, layers=("integrity",)).layer("integrity")
+    assert calls, "check_ragged_indices was not called"
+    assert lay.status == "fail" and "offset_bug=detected" in lay.messages[0]
+
+
+def test_missing_nwbinspector_skips_its_layer_and_is_not_a_pass(tmp_path, monkeypatch):
+    p = tmp_path / "ok.nwb"
+    _make_nwb(p)
+    monkeypatch.setitem(sys.modules, "nwbinspector", None)  # import nwbinspector -> ImportError
+    rep = validate_nwb(p, layers=("read", "nwbinspector"))
+    lay = rep.layer("nwbinspector")
+    assert lay.status == "skipped" and "not installed" in lay.detail
+    assert not rep.complete
 
 
 def test_electrode_region_outside_table_fails_the_integrity_layer(tmp_path):
