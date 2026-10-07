@@ -41,22 +41,8 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| R reduction | 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25, 10-26, 10-27 and 10-28 are merged; 10-21 is open.
-
-### 10-21 Test reduction by a corrected coverage pass
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
-Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
-- Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
-- 21 test files showed zero unique lines and 48 process tests are unjudgeable by coverage (16k lines together). Check: a prune list in which each candidate carries its unique lines under ctrace and at least one mutant on its purpose, killed elsewhere; the list goes to Hamm. Waits: nothing is deleted before the ruling.
-- 92 near-duplicate test clusters (`test_clusters.txt`); about 150-250 lines net after parametrize tables. Check: the pure-duplicate clusters on the prune list with their saving. Waits: nothing is changed before the ruling.
-- `tests/test_jnwb_frozen_boundary.py:40-115` re-implements `check_frozen_boundary` (gate 1). Check: the test calls the gate's check; about 45 lines removed. Waits: the gate runs either way.
-Accept: the prune list is recorded and ruled; the boundary test calls the owner's check.
-Stop: a candidate is the only killer of some mutant.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-20, 10-22, 10-23, 10-24, 10-25, 10-26, 10-21, 10-27 and 10-28 are merged; none is open.
 
 # 0.2.11
 

@@ -264,3 +264,9 @@ reaches the `NON_LAZY_IMPORT` branch. 176 to 137 lines, 6 to 5 tests.
 Of the 75529 lines and 7170 tests in `tests/`, that is about 2.4% of lines and 0.9% of tests.
 The other 64 zero-unique files (14381 lines, 1017 tests) stay until a mutant on each one's
 purpose is run.
+
+## 7. Ruling and outcome
+
+Ruled by Hamm 2026-10-07: delete `test_composition_randomness` and `test_composition_failure_propagation` only.
+
+Not executed. `tests/test_semantic_mutation_classes.py` (lines 329-352 and 390-396) names both files as the selectors that must kill five semantic mutation classes, among them the surrogate p-value substitution, the ignored generator and the zero-filled truncated epoch. That reader was not in the audit's reader count, and the item's stop condition applies: a candidate is the sole named killer of a mutation class. Both stay. Nothing in `tests/` was deleted by this item.
