@@ -41,22 +41,10 @@ gives, for the closure pass to classify.
 
 | Lane | Items, in order | Owns |
 |---|---|---|
-| G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | H statistics, spiking and decoding | 10-26 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-08, 10-13, 10-18, 10-19, 10-22 and 10-25 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
-
-### 10-06 Directed and similarity estimator edges
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_connectivity.py`, `tests/test_jrsa*.py`, `tests/test_rsa.py`, `tests/test_substitution_class_sweep.py`, `tests/test_adversarial_inputs.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md`.
-- Round-2 test reach (verified 2026-10-06, 65691a49): surviving mutants M5 (conditioning on the first other node only; no test has four or more nodes), M3b (`n_seg-1` degrees of freedom in the multi-band `z_tot`), M10 (the observed round-off term dropped from the TE one-way tie width), M17 (the `gc` alias refused) and M19 (NaN slices in `zero_detrend_residue`). Check: each killed by a test. Waits: behaviour verified correct; tests only.
-- `jnwb/connectivity/_psi.py:307` states the segment jackknife rejected 0.070-0.079 on 10 trials of 400, where the default-`nperseg` record says 0.068. Check: the comment quotes the record. Waits: wording.
-- `jrsa` `phase_slope` ravels to one trial, so it warns "pass 3 or more trials" on every call, which a `jrsa` caller cannot act on. Check: the warning suppressed or reworded for the `jrsa` path, with a test. Waits: a warning, no value change.
-Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
-Stop: a default change without a ruling.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-22 and 10-25 are merged; 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
 
 ### 10-26 Residue of 10-08 (decoding, aliases, paths)
 
@@ -109,7 +97,7 @@ Stop: a file on the list has a reader the audit missed.
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-26.
+Role: jnwb-developer. Skill: none. Blocked by: 10-23, 10-24, 10-26.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
@@ -170,7 +158,7 @@ Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 ### 10-11 One synthetic test per interpretational pitfall
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 10-06.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Common reference: a shared reference inflates coherence and Granger. Check: a test asserts both inflated against the same pair after `bipolar_reference`, with a stated ground truth and an explicit `rng`. Waits: tests only; records present behaviour.
@@ -184,7 +172,7 @@ Stop: a test would need a threshold no reference fixes.
 ### 10-12 Skills point to their sources
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: per skill. Blocked by: 10-06.
+Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - Each connectivity and spectral safeguard restates its method instead of naming its `docs/references.md` row. Check: the line test in `tests/test_skills_validation.py` finds no restated definition. Waits: pointers only.
 - P-216 statistics part: the unscoped-delay paraphrase branch of `TestCausalFilterDelayIsScopedToAThresholdCrossing` (`tests/test_skills_validation.py`, lane G's file) is unpinned. Check: a test fails when that branch is removed. Waits: behaves correctly.
