@@ -250,6 +250,53 @@ def test_a_population_with_no_variance_has_no_explained_variance_ratio():
         assert np.all(np.isnan(res[key]))
 
 
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_a_constant_population_has_a_nan_trajectory(dtype, monkeypatch):
+    """A projection on components that do not exist is NaN, as in
+    `PopulationAnalyzer.population_trajectory`; it was zero. 0.3 has a nonzero computed std."""
+    import jnwb.trajectory as traj
+    for c in (0.0, 0.3):
+        X = np.full((4, 3, 5), c, dtype=dtype)
+        monkeypatch.setattr(traj, "build_time_resolved_matrix",
+                            lambda *a, _X=X, **k: (_X, [0, 1, 2], np.arange(5.0)))
+        res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+        assert res['trajectory'].shape == (4, 2, 5)
+        assert res['trajectory'].dtype == dtype
+        assert np.all(np.isnan(res['trajectory']))
+        for key in ('explained_variance', 'explained_variance_per_component',
+                    'explained_variance_ratio'):
+            assert np.all(np.isnan(res[key]))
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_a_population_with_variance_keeps_its_trajectory(dtype, monkeypatch):
+    """The NaN rule applies only without variance: with variance the trajectory is the one
+    the decomposition gave before the rule, bit for bit."""
+    import jnwb.trajectory as traj
+    from jnwb._spread import zscore
+    X = np.random.default_rng(0).poisson(5.0, size=(4, 3, 5)).astype(dtype)
+    monkeypatch.setattr(traj, "build_time_resolved_matrix",
+                        lambda *a, **k: (X, [0, 1, 2], np.arange(5.0)))
+    res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+    Z = zscore(X.transpose(0, 2, 1).reshape(20, 3), axis=0)
+    _, S, Vt = np.linalg.svd(Z, full_matrices=False)
+    assert np.sum(S ** 2) > 0, "fixture must have variance"
+    proj, *_ = traj._kept_components(S, Vt[:2], Z @ Vt[:2].T, 20, 2)
+    want = proj.reshape(4, 5, 2).transpose(0, 2, 1)
+    assert np.all(np.isfinite(want)), "fixture must project finitely"
+    assert res['trajectory'].dtype == want.dtype
+    np.testing.assert_array_equal(res['trajectory'], want)
+
+
+def test_kept_components_leaves_the_projection_by_default():
+    """Without the switch the helper returns the projection it was given, even with no
+    variance; NaN is each caller's choice."""
+    from jnwb.trajectory import _kept_components
+    proj = np.zeros((6, 2))
+    out, *_ = _kept_components(np.zeros(3), np.eye(3)[:2], proj, 6, 2)
+    np.testing.assert_array_equal(out, proj)
+
+
 class TestPopulationTrajectoryEstimandDivergence:
     """Discriminating tests between covariance PCA (centering only) and correlation PCA (standardization)."""
 

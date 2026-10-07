@@ -135,9 +135,10 @@ def compute_population_trajectory(
         - device_used: 'cpu' or 'cuda', the device that performed the SVD; 'cpu' when there
           is no population and nothing was decomposed
 
-        The variance arrays are NaN for a component that could not be estimated (fewer
-        units or samples than ``n_components``), and wholly NaN when there is no variance
-        to decompose or no population.
+        The variance arrays and the trajectory are NaN for a component that could not be
+        estimated (fewer units or samples than ``n_components``), and wholly NaN when the
+        z-scored data have exactly zero total variance or there is no population. Z-scoring
+        takes a constant unit to exactly zero, so a population of constant units has none.
 
         Components whose singular values differ by less than the working precision are not
         determined by the data: any rotation within their plane fits it equally well, so
@@ -206,8 +207,12 @@ def compute_population_trajectory(
     else:
         proj_np, V_np, S_np = _svd_numpy()
 
+    # Intentional change of a returned value: with exactly zero total variance the
+    # trajectory is NaN, like the variances and as in PopulationAnalyzer.population_trajectory;
+    # it was zero.
     proj_np, _, explained_variance, explained_variance_ratio, _ = (
-        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components))
+        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components,
+                         nan_projection_without_variance=True))
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
@@ -224,7 +229,8 @@ def compute_population_trajectory(
 
 
 def _kept_components(
-    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int
+    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int,
+    nan_projection_without_variance: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Pin signs, name the variances and pad to ``n_components``, from one SVD.
 
@@ -234,6 +240,9 @@ def _kept_components(
         projection: the data projected on them, ``(n_samples, n_kept)``.
         n_samples: rows of the decomposed data.
         n_components: components requested; ``n_kept`` may be fewer.
+        nan_projection_without_variance: with exactly zero total variance, make
+            ``projection`` NaN too. Both public callers set it; without it the projection,
+            computed from the data, is left as it is.
 
     Returns:
         ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
@@ -262,8 +271,12 @@ def _kept_components(
         explained_total = float('nan')
         # Intentional change of a returned value: the SVD of all-zero data returns the
         # identity as Vt, which no computation on the data produced; it is NaN like the
-        # variances. The projection, computed from the data, is left as it is.
+        # variances.
         Vt = np.full_like(Vt, np.nan)
+        if nan_projection_without_variance:
+            # Intentional change of a returned value: a projection on
+            # components that do not exist is NaN, like the components; it was zero.
+            projection = np.full_like(projection, np.nan)
 
     missing = n_components - n_kept
     if missing > 0:
