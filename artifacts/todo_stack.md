@@ -44,7 +44,7 @@ gives, for the closure pass to classify.
 | H statistics, spiking and decoding | 10-26 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-22 and 10-25 are merged; 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-06, 10-07, 10-08, 10-13, 10-18, 10-19, 10-22, 10-23 and 10-25 are merged; 10-20, 10-21, 10-24 and 10-26 are open.
 
 ### 10-26 Residue of 10-08 (decoding, aliases, paths)
 
@@ -60,18 +60,6 @@ Left by the 10-08 verification (2026-10-06, d6d6d8b5); shipped values are unchan
 - `population_trajectory` on a constant `X` keeps NaN variances, as documented, but its components are the identity matrix, a value no computation produced. Check: Hamm rules NaN components or the documented identity. Waits: documented behaviour. AUTONOMY: none.
 Accept: each check passes.
 Stop: a fix changes a shipped value without a ruling.
-
-### 10-23 `nwb_integrity` residue
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `docs/repairing_nwb.md`.
-Left by the 10-22 verification (2026-10-06); shipped behaviour is unchanged by each.
-- The output-must-not-exist check at the new-file path is not atomic: a file created between the check and `os.replace` is overwritten. Check: the new file is created exclusively, or the window is stated. Waits: a race on a path the caller chose, no value change.
-- `dry_run=True` with `in_place=True` and no `backup_path` raises the refusal; a dry run writes nothing. Check: a dry run ignores the missing backup, or the refusal says why. Waits: wording.
-- `docs/repairing_nwb.md` says nwbinspector reports none of the ragged-index values: a claim about a third-party tool with no receipt (`AGENTS.md` 4.1). Check: removed, or traced to a run. Waits: wording.
-Accept: each check passes.
-Stop: none.
 
 ### 10-24 `laminar_curation` test reach
 
@@ -97,7 +85,7 @@ Stop: a file on the list has a reader the audit missed.
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-23, 10-24, 10-26.
+Role: jnwb-developer. Skill: none. Blocked by: 10-24, 10-26.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
