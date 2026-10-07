@@ -788,6 +788,27 @@ ACCEPTED_HANDLER_RECOVERY = {
         "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None and "
         "the requested mode -- the declared refusal shape, which is what a non-identifiable "
         "fit, or a robust refit left with fewer than 4 bins, is supposed to emit.",
+    ("nwb_validate.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
+        "A distribution that is not installed reports None in the versions table; absence, "
+        "not a plausible substitute.",
+    ("nwb_validate.py", "_layer_read", "Exception", (), True, 1):
+        "The failure is the finding: the layer returns status 'fail' carrying the exception "
+        "type and text, filed under its own layer name. Nothing is substituted for the result.",
+    ("nwb_validate.py", "_layer_pynwb", "Exception", (), True, 1):
+        "Same: a validator that raises is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_layer_inspector", "ImportError", (), True, 1):
+        "A missing optional dependency is reported as status 'skipped' with the install hint; "
+        "a skipped layer never counts as a pass (dandi_ready needs the layer to have run).",
+    ("nwb_validate.py", "_layer_inspector", "Exception", (), True, 1):
+        "A raising checker is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_layer_dandi", "ImportError", (), True, 1):
+        "Missing dandi is reported as status 'skipped', never a pass; dandi_ready stays False.",
+    ("nwb_validate.py", "_layer_dandi", "Exception", (), True, 1):
+        "A raising validator is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_dandi_validate", "ImportError", (), True, 1):
+        "Tries dandi.validate.validate, then dandi.validate._core.validate: the same function "
+        "under the module path an older release exposes it at. Neither found is reported by "
+        "the caller as 'skipped'.",
 }
 
 
