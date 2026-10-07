@@ -72,6 +72,7 @@ RETURNED_BY = {
                        "directed_connectivity"],
     "JRSAResult": ["jrsa"],
     "LaminarCurationResult": ["curate_and_label"],
+    "NWBValidationReport": ["validate_nwb"],
     "Preflight": ["preflight"],
     "RaggedIndexReport": ["check_ragged_indices"],
     "RaggedIndexRepair": ["repair_ragged_index"],

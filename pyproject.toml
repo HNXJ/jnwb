@@ -52,6 +52,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# jnwb.validate_nwb: the NWB Inspector and DANDI layers; without them those layers are reported skipped.
+validate = [
+    "nwbinspector>=0.6",
+    "dandi>=0.70",
+]
 mcp = [
     "mcp<2.0",
 ]
@@ -86,7 +91,7 @@ docs = [
     "pymdown-extensions>=11.0.1",
 ]
 all = [
-    "jnwb[mcp,torch,gpu,vis,test,docs]",
+    "jnwb[mcp,torch,gpu,vis,validate,test,docs]",
 ]
 
 [project.urls]

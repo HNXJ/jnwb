@@ -155,7 +155,7 @@ sentence the rule asks for:
 | `03_representational_similarity_jrsa` | 1341 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
 | `04_spectral_analysis_and_tfr` | 1217 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
 | `06_spikes_psth_and_onset_dynamics` | 1371 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
-| `architecture` | 1857 | two pages merged: the module map is a 597-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `architecture` | 1878 | two pages merged: the module map is a 618-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 2018 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 
