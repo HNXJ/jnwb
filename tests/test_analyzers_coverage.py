@@ -733,7 +733,7 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                         self.assertEqual(res['device_used'], 'cpu')
                         runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
                         self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
-                        # P-280: the denial names the method the caller invoked.
+                        # The denial names the method the caller invoked, not a short name.
                         self.assertTrue(all(str(item.message).startswith(
                             "PopulationAnalyzer.population_trajectory: ")
                             for item in runtime_warnings), [str(i.message) for i in runtime_warnings])
@@ -748,7 +748,7 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                 PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
 
     def test_input_that_is_not_two_dimensional_is_refused_by_name(self):
-        # P-332: a 1-D X raised numpy's LinAlgError and a 3-D one a broadcasting error.
+        # A 1-D X raised numpy's LinAlgError and a 3-D one a broadcasting error.
         for X in (np.arange(10.0), np.ones((4, 3, 2))):
             with self.assertRaisesRegex(ValueError,
                                         r"population_trajectory: X must be 2-D .*got shape"):

@@ -204,7 +204,7 @@ def test_compute_population_trajectory_empty():
                 'explained_variance_per_component'):
         assert res[key].shape == (2,) and np.all(np.isnan(res[key]))
     assert res['unit_ids'] == []
-    # P-323: every return names its device; nothing was decomposed, so on no GPU.
+    # Every return names its device; nothing was decomposed, so on no GPU.
     assert res['device_used'] == 'cpu'
     # The bins themselves were requested, not estimated, so they stay real.
     assert np.all(np.isfinite(res['bin_centers']))
@@ -305,7 +305,7 @@ class TestComputePopulationTrajectoryDeviceFallback:
         assert np.all((res['explained_variance_ratio'] >= 0.0) & (res['explained_variance_ratio'] <= 1.0))
 
     def test_a_library_that_fails_to_load_is_named_as_the_cause(self, monkeypatch):
-        """P-292: after CuPy loaded its CUDA libraries, `import torch` raised the Windows
+        """After CuPy loaded its CUDA libraries, `import torch` raised the Windows
         loader's OSError and the warning said no CUDA device was found. The probe's import
         is made to raise that error here."""
         import sys

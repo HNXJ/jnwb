@@ -555,7 +555,7 @@ def _calibration_error(p, y, min_count=30):
 
 
 def test_two_class_bilinear_probability_is_calibrated_on_held_out_trials():
-    """IA-19: two classes were two mirrored one-vs-rest models under a softmax, about
+    """Two classes were two mirrored one-vs-rest models under a softmax, about
     sigmoid(2 D), which predicted 0.85 where 0.65 was observed. One model's own sigmoid(D)
     agrees with the observed frequency within 0.05, count-weighted over 0.1-wide bins
     (0.021 here); the softmax missed by 0.12 to 0.14 on such populations. The simulation (seed 11) is not one
@@ -571,7 +571,7 @@ def test_two_class_bilinear_probability_is_calibrated_on_held_out_trials():
 
 
 def test_two_class_bilinear_values_are_one_logistic_model():
-    """IA-28: predicted values, not a length. Every output is computed here from the fitted
+    """Predicted values, not a length. Every output is computed here from the fitted
     factors, independently of the class's own methods."""
     import jnwb.bilinear as bilinear
 

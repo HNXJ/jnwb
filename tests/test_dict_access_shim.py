@@ -180,7 +180,7 @@ def _one_deprecation_at_this_line(caught, line):
 def test_every_write_follows_an_old_name_and_warns_at_the_callers_line(write):
     """`d['old'] = v` and `update({'old': v})` inserted `old` beside `new`, and `pop('old')`
     raised KeyError. Each now acts on `new`, warning at the caller's line as a read does;
-    the setdefault case holds its `stacklevel` (mutant M6c survived without it)."""
+    the setdefault case is the only test of its `stacklevel`."""
     import warnings
 
     calls = {"setitem": lambda: d.__setitem__("old", 2), "update": lambda: d.update({"old": 2}),

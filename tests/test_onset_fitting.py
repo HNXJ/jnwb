@@ -124,7 +124,7 @@ class TestFitExponentialOnset:
 
     @pytest.mark.parametrize("value", [0.0, 0.1, 1e6])
     def test_a_flat_rate_is_refused_by_name(self, value):
-        """P-332: a constant rate fitted the upper t0 bound with amplitude 1e-6 and r2 NaN,
+        """A constant rate fitted the upper t0 bound with amplitude 1e-6 and r2 NaN,
         returned as an onset."""
         t = np.arange(0.0, 200.0, 5.0)
         with pytest.raises(ValueError, match=r"fit_exponential_onset: rate is constant"):

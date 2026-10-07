@@ -124,7 +124,7 @@ class TestOutputsAndArtifacts:
         assert paths.layer_masks_path() == Path.cwd() / "outputs" / "publication_visual_review" / "area_layer_tfr" / "layer_masks.json"
 
     def test_layer_masks_path_takes_a_subdir_of_the_outputs_directory(self, monkeypatch, tmp_path):
-        """IA-29 (ruled 2026-10-06): the folder was hardcoded to one corpus's layout."""
+        """The folder was hardcoded to one corpus's layout; that layout stays the default."""
         monkeypatch.setenv(paths.ENV_OUTPUTS_DIR, str(tmp_path))
         assert paths.layer_masks_path("masks") == tmp_path / "masks" / "layer_masks.json"
         assert paths.layer_masks_path(subdir=Path("a", "b")) == tmp_path / "a" / "b" / "layer_masks.json"
