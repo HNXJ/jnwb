@@ -1,1 +1,0 @@
-- `spike_count_correlation` raises `ValueError` for a window of fewer than 3 bins, naming the bin count and the minimum of 3. With 2 bins every pairwise Pearson r is +1 or -1, so `mean_r` measured nothing; there is no old behaviour to keep, so widen `window_s` or narrow `bin_ms` to reach 3 bins.

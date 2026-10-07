@@ -1,4 +1,0 @@
-- `jrsa(metric='cka')` and `metric='rv'` return NaN for a constant pattern, where rounding residue gave about 1e-33.
-- `rdm` refuses a constant condition under the correlation distance whatever its value and names it; a constant row of 0.1 gave finite distances where 0.3 raised. `jrsa(metric='rsa')` returns NaN there.
-- `jrsa(align=...)` raises for an unrecognized value when the lengths already agree; it ran unchecked. An interpolating `align` raises `ImportError` without SciPy instead of downsampling under the requested label.
-- `binary_occupancy_mutual_information` and `spike_count_mutual_information` name themselves in their errors, which named `spike_mutual_information`.

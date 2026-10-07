@@ -1,1 +1,0 @@
-- `StatisticalAnalysis.confirmatory_compare` returns `correction: "bh"`, the Benjamini-Hochberg step that produced `q_parametric` and `q_nonparametric`; it returned `"none"` beside those q-values. The `pval` keys stay raw, and the `exploratory_*` results keep `correction: "none"`.

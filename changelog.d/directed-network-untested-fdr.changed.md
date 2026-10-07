@@ -1,1 +1,0 @@
-- `directed_network(fdr=True)` warns when no pair returned a p-value (PSI with `jackknife=False`, TE with `n_surrogates=0`) and records `fdr_requested_but_no_pair_has_a_p_value` in `warnings`; the all-NaN `q_matrix` came back silently.

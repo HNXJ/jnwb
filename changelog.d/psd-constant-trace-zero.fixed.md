@@ -1,1 +1,0 @@
-- `compute_psd` and `compute_multitaper_psd` return an exactly zero PSD for a trace constant along the time axis, where mean removal left rounding residue (about 1e-33 to 1e-23). Every other trace's PSD is unchanged to the bit.

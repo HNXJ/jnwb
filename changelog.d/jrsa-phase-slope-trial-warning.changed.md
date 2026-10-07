@@ -1,1 +1,0 @@
-- `jrsa(..., metric='phase_slope')` no longer warns "pass 3 or more trials" on every call. The metric ravels its input to one series, so a caller had no trials to add; `phase_slope_index` called directly still warns. No value changes.

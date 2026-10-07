@@ -1,4 +1,0 @@
-- `causal_exp_smooth` raises `ValueError` naming `tau_ms` when it is not finite and positive. `tau_ms=0` returned an all-NaN trace with a `RuntimeWarning`.
-- `build_permutation_plan` with `groups=None` raises a `TypeError` that names `groups`, where it raised `'NoneType' object is not iterable`.
-- `UnitAnalyzer.psth` refuses a reversed or empty `window_ms` with a message saying which; a reversed window read "Use , or a bin width that divides the span". The refusal of a window that is not a whole number of bins prints windows with every digit they need, so a refused window at 3e12 ms and its suggested replacements no longer print alike.
-- `jnwb.nam.train_nam` leaves torch's global random state as it found it; it seeded it with `seed`. The trained model is unchanged for the same `seed`.

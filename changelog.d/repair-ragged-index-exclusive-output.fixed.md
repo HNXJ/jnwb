@@ -1,1 +1,0 @@
-- `repair_ragged_index` claims a new `output_path` exclusively before moving the verified copy onto it, so a file created there after the existence check is refused instead of overwritten; a dry run with `in_place=True` no longer needs or checks `backup_path`.

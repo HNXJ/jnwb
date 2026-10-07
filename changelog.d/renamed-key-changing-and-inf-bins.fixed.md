@@ -1,1 +1,0 @@
-- `RenamedKeyDict.setdefault` on a key that is changing now emits the `FutureWarning` that `get` and `[]` emit, and `whole_bin_count` with an infinite window bound raises `ValueError` where it raised `OverflowError`.

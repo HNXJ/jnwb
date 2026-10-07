@@ -1,1 +1,0 @@
-- `jrsa(window=...)` without `adim` now cuts the observations of `rsa`, `cka`, `rv`, `hsic`, `distance_correlation` and `procrustes` (axis 0, the axis `lag` and the null act on) instead of their features (the last axis). Results of such calls change. Pass `adim=-1` to window the features as before; the paired metrics are unchanged.

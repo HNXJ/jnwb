@@ -1,1 +1,0 @@
-- `jnwb.artifact_repair.REWARD_WINDOW_MS`, a module constant outside `jnwb.__all__` that no function read: `repair_lfp_trials` takes the window as `exclude_window_ms` (or `reward_window_ms`), which defaults to `None`. Pass `exclude_window_ms=(4000.0, 4300.0)` for the window it held.

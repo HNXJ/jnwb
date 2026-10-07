@@ -1,2 +1,0 @@
-- `StatisticalAnalysis.permutation_test` returns `pval` NaN and `significant` False when the pooled samples are not finite once centred on their mean, as when their sum overflows. `x = [1e308, 1.7e308, 1e308]` against `y = [-1e308, -1.7e308, -1.5e308]` returned `significant` True at the p floor, `1 / (n_permutations + 1)` (0.005 at 199 permutations, about 0.0002 at the default 5000), beside a NaN `observed_difference`.
-- The one-test note in `multiple_comparison` of `StatisticalAnalysis.correlate` names `method=`, the argument `correlate` takes; it said `test=`.

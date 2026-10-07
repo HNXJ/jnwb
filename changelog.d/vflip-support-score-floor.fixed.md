@@ -1,1 +1,0 @@
-- `vflip` reports `support_score` as the logarithm of its support metric without a floor, and `-inf` when the metric is zero. It was `log(max(1e-12, metric))`, so every metric below `1e-12` read as -27.63, and a caller `min_support_score` at or below that accepted a fit with no support. The default threshold, 3.75, rejected those fits before and after.

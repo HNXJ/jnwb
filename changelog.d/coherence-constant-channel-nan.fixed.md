@@ -1,1 +1,0 @@
-- `cross_area_coherence` returns NaN for the coherence spectrum, every band coherence and p-value, and the peak, when either trace is constant. Mean removal left rounding residue that the ratio turned into a coherence: about 0.05 per band on the CPU and 0.0 on CUDA, each with a p-value.
