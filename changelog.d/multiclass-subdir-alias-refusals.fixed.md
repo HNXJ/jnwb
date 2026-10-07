@@ -1,0 +1,4 @@
+- `nested_cv_linear_svm` refuses more than two classes in `labels` by name; scikit-learn raised an error naming `multi_class`, an argument it does not take, after every fold had been fitted.
+- `layer_masks_path` refuses an empty, absolute or `..`-containing `subdir`; the last two resolved outside the outputs directory.
+- A renamed result key written with `d |= {old: value}` writes the current key with a `DeprecationWarning`, as `update` does, and `pop` of a renamed key whose current key is gone returns the default or raises `KeyError` for the key asked for.
+- The CPU fallback warning for `device="cuda"` gives the library-conflict advice only for a library that failed to load; another `OSError`, such as a `PermissionError`, is reported without it.

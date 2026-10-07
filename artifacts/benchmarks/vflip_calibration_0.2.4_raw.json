@@ -1,5 +1,5 @@
 {
- "estimator_sha256": "94f46768deb68e8f9770a7a2e7c9066fb280af58ef57c452f4be6eab6bf37c0d",
+ "estimator_sha256": "b2502142dab9870c181a3f7c4e02d6cf7f7fed54e5608f482fb677fd2812a06a",
  "estimator_functions": [
   "CANONICAL_VFLIP_BANDS",
   "VFlipResult",
@@ -13,9 +13,12 @@
   "jnwb._backend.CUDA",
   "jnwb._backend.DEFAULT_SUPPORTS",
   "jnwb._backend.METAL",
+  "jnwb._backend._LOADER_TEXT",
+  "jnwb._backend._LOADER_WINERRORS",
   "jnwb._backend._LOAD_FAILURES",
   "jnwb._backend._cupy_device_count",
   "jnwb._backend._is_64_bit",
+  "jnwb._backend._is_loader_error",
   "jnwb._backend._probe",
   "jnwb._backend._torch_cuda",
   "jnwb._backend.cupy_available",

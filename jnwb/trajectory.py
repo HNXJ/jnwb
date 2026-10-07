@@ -144,7 +144,8 @@ def compute_population_trajectory(
         CPU and CUDA can return different components there, and agreement between devices
         is undefined. Above that gap the rounding error of a component grows as the
         precision divided by the gap: in float32 (``PopulationAnalyzer.population_trajectory``
-        keeps it), a relative gap of 1.5e-5 moved a loading by 0.009 between CPU and CUDA.
+        keeps it), a relative gap of 1.5e-5 moved a loading by up to 0.009 (median 0.003)
+        between CPU and CUDA over ten random 500 x 20 matrices, and a gap of 1e-3 by up to 1e-4.
         The decomposition here is in float64.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(

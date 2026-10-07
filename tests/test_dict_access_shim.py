@@ -213,6 +213,31 @@ def test_the_subscript_write_warns_at_the_line_that_wrote():
     assert dict(d) == {"new": 3}
 
 
+def test_the_in_place_union_follows_an_old_name_and_warns_at_its_line():
+    # `d |= {'old': v}` went through dict.__ior__, inserting 'old' beside 'new' unwarned.
+    import inspect
+    import warnings
+
+    d = _renamed()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = inspect.currentframe().f_lineno + 1
+        d |= {"old": 4, "other": 5}
+    _one_deprecation_at_this_line(caught, line)
+    assert dict(d) == {"new": 4, "other": 5}
+
+
+def test_pop_of_an_old_name_whose_current_key_is_gone_is_a_miss():
+    # It raised KeyError('new'), naming a key the caller never asked for.
+    d = _renamed()
+    del d["new"]
+    with pytest.warns(DeprecationWarning):
+        assert d.pop("old", "dflt") == "dflt"
+    with pytest.warns(DeprecationWarning), pytest.raises(KeyError) as info:
+        d.pop("old")
+    assert info.value.args == ("old",)
+
+
 def test_writes_of_current_and_unknown_keys_are_a_dicts():
     import warnings
 

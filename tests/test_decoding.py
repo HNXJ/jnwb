@@ -85,6 +85,15 @@ class TestNestedCvLinearSvm:
                     "f1", "auc", "majority_baseline_accuracy"):
             assert key in result
 
+    def test_three_classes_are_refused_by_the_argument_that_holds_them(self):
+        # scikit-learn's roc_auc_score raised "multi_class must be in ('ovo', 'ovr')",
+        # an argument this function does not take, after every fold had been fitted.
+        X = np.random.default_rng(2).standard_normal((30, 3))
+        labels = np.repeat(["a", "b", "c"], 10)
+        with pytest.raises(ValueError, match=r"labels has 3 classes") as info:
+            nested_cv_linear_svm(X, labels, n_splits=3)
+        assert "multi_class" not in str(info.value)
+
 
 def _rng_probe_data():
     g = np.random.default_rng(0)
