@@ -465,10 +465,16 @@ def _phase_slope(x1, x2, axis=-1, fs=None, nperseg=None, noverlap=None,
                 RuntimeWarning,
                 stacklevel=2,
             )
-    res = _psi_impl(
-        a, b, fs=fs, bands=bands, nperseg=nperseg,
-        noverlap=noverlap, jackknife=jackknife,
-    )
+    # The input is one ravelled series, so the delegate's "pass 3 or more trials" warning is
+    # raised on every call and a jrsa caller has no trials to add. Only that message is dropped.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=r"phase_slope_index: 1 trial\(s\)", category=RuntimeWarning
+        )
+        res = _psi_impl(
+            a, b, fs=fs, bands=bands, nperseg=nperseg,
+            noverlap=noverlap, jackknife=jackknife,
+        )
     band = next(iter(res.per_band.values()))
     z = band.get("z", np.nan)
     p = res.p_x_to_y

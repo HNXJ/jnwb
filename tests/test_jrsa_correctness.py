@@ -1029,6 +1029,20 @@ class TestDirectedMetricsStateTheDirectionTheyMeasure:
             warnings.simplefilter("ignore", RuntimeWarning)
             assert float(oa.jrsa(lead, lag, metric="phase_slope", stats=False).value) > 0
 
+    def test_phase_slope_does_not_ask_a_jrsa_caller_for_trials(self):
+        """The metric ravels to one series, so the delegate's "pass 3 or more trials" warning
+        fired on every call, and on every permutation, with nothing a caller could add. The
+        direct estimator keeps the warning and the value is the same either way."""
+        lead, lag = self._lead_lag()
+        kw = dict(fs=100.0, bands=(5.0, 20.0), nperseg=64)
+        with warnings.catch_warnings(record=True) as seen:
+            warnings.simplefilter("always")
+            res = oa.jrsa(lead, lag, metric="phase_slope", stats=False, **kw)
+        assert [str(w.message) for w in seen if "trial" in str(w.message)] == []
+        with pytest.warns(RuntimeWarning, match="pass 3 or more trials|Pass 3 or more trials"):
+            direct = oa.phase_slope_index(lead, lag, **kw)
+        assert float(res.value) == float(direct.x_to_y)
+
     def test_the_docstring_says_so(self):
         doc = " ".join(oa.jrsa.__doc__.split())
         assert ("``granger_ssr_ftest`` and ``transfer_entropy_histogram_nats`` measure "

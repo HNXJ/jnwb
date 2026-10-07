@@ -1380,3 +1380,85 @@ class TestRoundOffBounds:
         null = np.array([0.0])
         assert _surrogate_p(null, 1e-13, "greater") == 0.5
         assert _surrogate_p(null, 1e-13, "greater", atol=2e-13) == 1.0
+
+    def test_the_te_one_way_tie_width_is_observed_plus_draw_round_off(self, monkeypatch):
+        """With every round-off bound pinned to 1.0 the one-way width is 2.0 (observed plus
+        the draws' largest) and the net width 4.0; dropping the observed term gave 1.0 and
+        2.0, a width that still exceeded the observed bound on real data."""
+        import jnwb.connectivity._transfer_entropy as te_mod
+
+        seen = []
+        real = te_mod._surrogate_p
+
+        def record(null, observed, alternative, scale=0.0, atol=0.0):
+            seen.append((alternative, atol))
+            return real(null, observed, alternative, scale=scale, atol=atol)
+
+        monkeypatch.setattr(te_mod, "_surrogate_p", record)
+        monkeypatch.setattr(te_mod, "_te_round_off", lambda entropies, cells: 1.0)
+        rng = np.random.default_rng(2)
+        transfer_entropy(rng.normal(size=600), rng.normal(size=600), n_surrogates=9, rng=0)
+        assert [a for alt, a in seen if alt == "greater"] == [2.0, 2.0]
+        assert [a for alt, a in seen if alt == "two-sided"] == [4.0]
+
+    @pytest.mark.parametrize("residue_has_nan", [True, False])
+    def test_a_nan_slice_is_left_as_it_is_and_a_clean_one_is_zeroed(self, residue_has_nan):
+        """The max of a slice holding a NaN is NaN, so no bound admits it: its finite
+        round-off-sized entries stay, where a NaN-skipping max zeroed them."""
+        from jnwb._spread import zero_detrend_residue
+
+        original = np.array([[1.0, 2.0, np.nan, 4.0], [1.0, 2.0, 3.0, 4.0],
+                             [1.0, 2.0, 3.0, 4.0]])
+        tiny = np.tile([1e-20, 2e-20, 3e-20, 4e-20], (3, 1))
+        if residue_has_nan:
+            tiny[0, 2] = np.nan
+        tiny[2, 1] = np.nan      # finite original, NaN residue
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = zero_detrend_residue(tiny, original, axis=1)
+        np.testing.assert_array_equal(out[0], tiny[0])
+        np.testing.assert_array_equal(out[1], 0.0)
+        np.testing.assert_array_equal(out[2], tiny[2])
+
+
+class TestEstimatorEdgesRound2:
+    """Round-2 reach of 10-06: each assertion is on the quantity a one-line mutant moves."""
+
+    def test_conditioning_uses_every_other_node_not_the_first(self):
+        """Four nodes, pair (A, D): the others are X then B. A -> B -> D has no direct
+        A -> D edge; conditioning on X alone left it at p < 1e-10."""
+        rng = np.random.default_rng(3)
+        n = 3000
+        a, x, b, d = rng.normal(size=(4, n))
+        for t in range(1, n):
+            b[t] += 0.8 * a[t - 1]
+            d[t] += 0.8 * b[t - 1]
+        res = directed_network({"A": a, "X": x, "B": b, "D": d}, method="granger", order=2,
+                               fdr=False, conditional=True)
+        assert res["results"][("A", "D")].params["n_conditioning"] == 2
+        assert res["p_matrix"][0, 3] > 0.05
+        assert res["p_matrix"][0, 2] < 1e-10 and res["p_matrix"][2, 3] < 1e-10
+
+    def test_multiband_total_p_uses_trial_degrees_of_freedom(self):
+        """Leaving out a trial, the total's t has trials - 1 degrees of freedom, not the
+        segment count minus one."""
+        kw = dict(fs=1000.0, nperseg=100,
+                  bands={"lo": (5.0, 30.0), "hi": (40.0, 100.0)})
+        rng = np.random.default_rng(5)
+        x = rng.normal(size=(4, 400))
+        y = np.roll(x, 3, axis=1) + 2.0 * rng.normal(size=(4, 400))
+        res = phase_slope_index(x, y, **kw)
+        reps = np.array([phase_slope_index(np.delete(x, i, 0), np.delete(y, i, 0), **kw).net
+                         for i in range(4)])
+        sd = np.sqrt(3 / 4 * np.sum((reps - reps.mean()) ** 2))
+        assert res.params["jackknife_unit"] == "trial" and res.params["n_segments"] != 4
+        assert res.p_net == pytest.approx(2 * stats.t.sf(abs(res.net / sd), df=3), rel=1e-9)
+
+    def test_the_gc_alias_is_granger(self):
+        rng = np.random.default_rng(1)
+        x, y = rng.normal(size=(2, 400))
+        a = directed_connectivity(x, y, method="gc", order=2)
+        b = directed_connectivity(x, y, method="granger", order=2)
+        assert (a.method, a.x_to_y, a.y_to_x) == (b.method, b.x_to_y, b.y_to_x)
+        net = directed_network({"x": x, "y": y}, method="gc", order=2, fdr=False)
+        assert net["matrix"][0, 1] == b.x_to_y
