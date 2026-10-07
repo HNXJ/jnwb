@@ -114,7 +114,7 @@ notebook clients), inferred and not read:
 | `tests/test_generated_figures_are_maintained.py` | 231 | 25 | 47.08 | runs a child process |
 | `tests/test_git_checkout_mark.py` | 46 | 4 | 0.08 | in process |
 | `tests/test_gitignore_excludes_cache_by_path.py` | 222 | 19 | 5.5 | runs a child process |
-| `tests/test_jnwb_frozen_boundary.py` | 176 | 6 | 9.5 | runs a child process |
+| `tests/test_jnwb_frozen_boundary.py` | 176 (baseline; 137 after the rewrite) | 6 (5) | 9.5 | runs a child process; after the rewrite it is the only file covering the `NON_LAZY_IMPORT` lines of `harness_gate.py`, so it is not zero-unique and not a candidate |
 | `tests/test_no_unreferenced_symbols.py` | 127 | 3 | 2.45 | in process |
 | `tests/test_notebooks.py` | 213 | 10 | 63.22 | runs a child process |
 | `tests/test_pointer_documents_resolve.py` | 232 | 18 | 0.38 | runs a child process |
@@ -259,7 +259,7 @@ reaches the `NON_LAZY_IMPORT` branch. 176 to 137 lines, 6 to 5 tests.
 | Delete the three candidates | 1254 | 65 | 137 (about 11 s wall at `-n 12`) |
 | Parametrise the 92 clusters | about 487 gross | 0 | about 0 |
 | Boundary rewrite (done) | 39 | 1 | under 1 |
-| Total | about 1780 | 66 | about 138 |
+| Total | about 1770 (the 487 cluster lines include 10 lines inside two files proposed for deletion) | 66 | about 138 |
 
 Of the 75529 lines and 7170 tests in `tests/`, that is about 2.4% of lines and 0.9% of tests.
 The other 64 zero-unique files (14381 lines, 1017 tests) stay until a mutant on each one's
