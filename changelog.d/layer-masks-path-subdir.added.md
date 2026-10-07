@@ -1,0 +1,1 @@
+- `jnwb.paths.layer_masks_path(subdir=...)`: the folder under the outputs directory that holds `layer_masks.json`. The default, `publication_visual_review/area_layer_tfr`, is the path it always returned.

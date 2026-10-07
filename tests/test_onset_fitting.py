@@ -113,14 +113,31 @@ class TestFitExponentialOnset:
         assert fit["t0"] >= 0.0
 
     def test_rejects_too_few_time_points(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="at least 4 time points"):
             fit_exponential_onset(np.array([0.0, 1.0, 2.0]), np.array([1.0, 2.0, 3.0]))
 
     def test_rejects_empty_t0_bounds(self):
         t = np.linspace(0, 100, 20)
-        rate = np.ones(20)
-        with pytest.raises(ValueError):
+        rate = np.linspace(1.0, 2.0, 20)   # a rise, so only the bounds can be refused
+        with pytest.raises(ValueError, match=r"t0 bounds are empty: \[50.0, 50.0\]"):
             fit_exponential_onset(t, rate, t0_bounds=(50.0, 50.0))
+
+    @pytest.mark.parametrize("value", [0.0, 0.1, 1e6])
+    def test_a_flat_rate_is_refused_by_name(self, value):
+        """A constant rate fitted the upper t0 bound with amplitude 1e-6 and r2 NaN,
+        returned as an onset."""
+        t = np.arange(0.0, 200.0, 5.0)
+        with pytest.raises(ValueError, match=r"fit_exponential_onset: rate is constant"):
+            fit_exponential_onset(t, np.full(t.size, value))
+
+    @pytest.mark.parametrize("t, rate", [
+        (np.arange(40.0), np.arange(40.0)[:, None]),
+        (np.arange(40.0)[None, :], np.arange(40.0)),
+        (np.arange(40.0), np.arange(39.0)),
+    ], ids=["2-D rate", "2-D t_ms", "lengths differ"])
+    def test_inputs_of_another_shape_are_refused_by_name(self, t, rate):
+        with pytest.raises(ValueError, match=r"t_ms and rate must be 1-D and of one length"):
+            fit_exponential_onset(t, rate)
 
     def test_a_window_ending_before_the_default_lower_bound_names_the_default(self):
         t = np.linspace(-200.0, -10.0, 50)

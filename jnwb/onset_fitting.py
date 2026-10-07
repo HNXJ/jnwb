@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
+from ._spread import is_constant
 from ._units import resolve_unit_alias
 from .unit_quality import _positive_finite
 
@@ -129,6 +130,10 @@ def fit_exponential_onset(
     is the correct behavior when a class genuinely does not respond in a given area).
 
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
+
+    Raises:
+        ValueError: If ``t_ms`` and ``rate`` are not 1-D of one length, or ``rate`` is
+            constant: a flat trace has no onset, and every ``t0`` fits it equally well.
     """
     t0_bounds_unset = t0_bounds_ms is None and t0_bounds is None
     t0_bounds_ms = resolve_unit_alias(
@@ -154,8 +159,20 @@ def fit_exponential_onset(
 
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
+    if t_ms.ndim != 1 or rate.shape != t_ms.shape:
+        raise ValueError(
+            f"fit_exponential_onset: t_ms and rate must be 1-D and of one length, got shapes "
+            f"{t_ms.shape} and {rate.shape}."
+        )
     if t_ms.size < 4:
         raise ValueError(f"need at least 4 time points to fit, got {t_ms.size}")
+    if is_constant(rate):
+        # Every onset time fits a flat trace equally well: the fit returned the upper t0
+        # bound, with an amplitude at its 1e-6 floor and r2 NaN, as though it were measured.
+        raise ValueError(
+            f"fit_exponential_onset: rate is constant ({rate[0]:g} throughout), so it has no "
+            "rise and no onset time to fit."
+        )
 
     if baseline_window_ms is not None:
         bmask = (t_ms >= baseline_window_ms[0]) & (t_ms < baseline_window_ms[1])

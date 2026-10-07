@@ -537,20 +537,90 @@ class TestNestedCvGroups:
             nested_cv_linear_svm(X, labels, 5, 42, np.arange(len(labels)) % 4)
 
 
-def test_two_class_bilinear_probability_is_the_documented_uncalibrated_logistic():
-    """`jnwb.bilinear` documents two-class `predict_proba` as sigmoid(D_1 - D_0) of mirrored
-    one-vs-rest scores, about sigmoid(2 D_1), and says it is not calibrated."""
+def _bilinear_population(rng, n, gain, N=6, T=8, u=None, v=None):
+    """Trials drawn from a rank-1 bilinear logistic model: P(y=1 | X) = sigmoid(gain u'Xv / sqrt(NT))."""
+    u = rng.normal(size=N) if u is None else u
+    v = rng.normal(size=T) if v is None else v
+    X = rng.normal(size=(n, N, T))
+    p = 1.0 / (1.0 + np.exp(-gain * np.einsum("int,n,t->i", X, u, v) / np.sqrt(N * T)))
+    return X, (rng.random(n) < p).astype(int), p, u, v
+
+
+def _calibration_error(p, y, min_count=30):
+    """Mean over 0.1-wide bins of |mean predicted - observed frequency|, weighted by count."""
+    bins = np.minimum((p * 10).astype(int), 9)
+    rows = [(np.sum(bins == b), p[bins == b].mean(), y[bins == b].mean())
+            for b in range(10) if np.sum(bins == b) >= min_count]
+    return sum(n * abs(pred - obs) for n, pred, obs in rows) / sum(n for n, _, _ in rows)
+
+
+def test_two_class_bilinear_probability_is_calibrated_on_held_out_trials():
+    """Two classes were two mirrored one-vs-rest models under a softmax, about
+    sigmoid(2 D), which predicted 0.85 where 0.65 was observed. One model's own sigmoid(D)
+    agrees with the observed frequency within 0.05, count-weighted over 0.1-wide bins
+    (0.021 here); the softmax missed by 0.085 here and by 0.12 to 0.14 on three others. The simulation (seed 11) is not one
+    of those the tolerance was measured on (seeds 0 to 2)."""
     import jnwb.bilinear as bilinear
 
-    rng = np.random.default_rng(0)
-    y = rng.integers(0, 2, 200)
-    X = rng.normal(size=(200, 4, 6))
-    X += 0.3 * (2 * y - 1)[:, None, None] * np.outer(rng.normal(size=4), rng.normal(size=6))
+    rng = np.random.default_rng(11)
+    X, y, _, u, v = _bilinear_population(rng, 1000, gain=2.0)
+    X_test, y_test, _, _, _ = _bilinear_population(rng, 20000, gain=2.0, u=u, v=v)
     model = bilinear.BilinearLogisticRegression(rank=1, random_state=0).fit(X, y)
-    D = model.decision_function(X)
-    np.testing.assert_allclose(model.predict_proba(X)[:, 1], 1 / (1 + np.exp(D[:, 0] - D[:, 1])),
+    p = model.predict_proba(X_test)[:, 1]
+    assert _calibration_error(p, y_test) < 0.05, _calibration_error(p, y_test)
+
+
+def test_two_class_bilinear_values_are_one_logistic_model():
+    """Predicted values, not a length. Every output is computed here from the fitted
+    factors, independently of the class's own methods."""
+    import jnwb.bilinear as bilinear
+
+    rng = np.random.default_rng(5)
+    X, y, _, u, v = _bilinear_population(rng, 600, gain=6.0)
+    labels = np.array(["first", "second"])[y]
+    model = bilinear.BilinearLogisticRegression(rank=1, random_state=0).fit(X, labels)
+    X_new, _, p_true, _, _ = _bilinear_population(rng, 400, gain=6.0, u=u, v=v)
+
+    Z = (X_new - model.mean_) / model.std_
+    D = np.einsum("int,nk,tk->i", Z, model.U_[1], model.V_[1]) + model.intercept_[1]
+    p = 1.0 / (1.0 + np.exp(-D))
+    np.testing.assert_allclose(model.predict_proba(X_new), np.column_stack([1 - p, p]),
                                rtol=0, atol=1e-12)
-    np.testing.assert_allclose(D[:, 0], -D[:, 1], rtol=0, atol=1e-3 * np.abs(D).max())
-    doc = bilinear.__doc__ + bilinear.BilinearLogisticRegression.predict_proba.__doc__
-    assert "not calibrated" in doc and "uncalibrated" in doc
-    assert "for calibrated probabilities" not in doc
+    np.testing.assert_allclose(model.decision_function(X_new), np.column_stack([-D, D]),
+                               rtol=0, atol=1e-9)
+    assert np.array_equal(model.predict(X_new), np.where(D > 0, "second", "first"))
+    np.testing.assert_array_equal(model.U_[0], -model.U_[1])
+    np.testing.assert_array_equal(model.V_[0], model.V_[1])
+    assert model.intercept_[0] == -model.intercept_[1]
+    assert model.n_parameters() == 1 * (6 + 8) + 1
+    # The factors recover the generating profile and filter, up to their shared sign.
+    cos = lambda a, b: abs(a @ b) / np.linalg.norm(a) / np.linalg.norm(b)  # noqa: E731
+    assert cos(model.U_[1][:, 0], u) > 0.9
+    assert cos(model.V_[1][:, 0], v) > 0.9
+    # And the predicted probabilities track the generating ones.
+    assert np.corrcoef(p, p_true)[0, 1] > 0.9
+
+
+def test_multiclass_bilinear_values_are_the_one_vs_rest_softmax():
+    import jnwb.bilinear as bilinear
+
+    rng = np.random.default_rng(6)
+    y = np.repeat(np.arange(3), 80)
+    X = rng.normal(size=(y.size, 5, 7))
+    patterns = [np.outer(rng.normal(size=5), rng.normal(size=7)) for _ in range(3)]
+    for c in range(3):
+        X[y == c] += 0.8 * patterns[c]
+    model = bilinear.BilinearLogisticRegression(rank=1, random_state=0).fit(X, y)
+    X_new = rng.normal(size=(300, 5, 7))
+    y_new = rng.integers(0, 3, 300)
+    X_new += 0.8 * np.stack(patterns)[y_new]
+
+    Z = (X_new - model.mean_) / model.std_
+    D = np.stack([np.einsum("int,nk,tk->i", Z, model.U_[c], model.V_[c]) + model.intercept_[c]
+                  for c in range(3)], axis=1)
+    E = np.exp(D - D.max(axis=1, keepdims=True))
+    np.testing.assert_allclose(model.predict_proba(X_new), E / E.sum(axis=1, keepdims=True),
+                               rtol=0, atol=1e-12)
+    assert np.array_equal(model.predict(X_new), np.argmax(D, axis=1))
+    assert model.n_parameters() == 3 * (5 + 7 + 1)
+    assert np.mean(model.predict(X_new) == y_new) > 0.8

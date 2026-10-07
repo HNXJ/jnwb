@@ -123,6 +123,14 @@ class TestOutputsAndArtifacts:
         assert paths.artifacts_dir() == Path.cwd() / "artifacts"
         assert paths.layer_masks_path() == Path.cwd() / "outputs" / "publication_visual_review" / "area_layer_tfr" / "layer_masks.json"
 
+    def test_layer_masks_path_takes_a_subdir_of_the_outputs_directory(self, monkeypatch, tmp_path):
+        """The folder was hardcoded to one corpus's layout; that layout stays the default."""
+        monkeypatch.setenv(paths.ENV_OUTPUTS_DIR, str(tmp_path))
+        assert paths.layer_masks_path("masks") == tmp_path / "masks" / "layer_masks.json"
+        assert paths.layer_masks_path(subdir=Path("a", "b")) == tmp_path / "a" / "b" / "layer_masks.json"
+        assert (paths.layer_masks_path()
+                == tmp_path / "publication_visual_review" / "area_layer_tfr" / "layer_masks.json")
+
     def test_outputs_and_artifacts_independent_of_package_install_location(self, monkeypatch, tmp_path):
         """Simulate jnwb installed under site-packages and verify outputs/artifacts resolve to consumer cwd."""
         simulated_site_packages = tmp_path / "site-packages" / "jnwb"

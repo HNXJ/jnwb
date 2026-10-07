@@ -9,18 +9,17 @@ Each unit/channel i gets its OWN sub-network h_i seeing ONLY that unit's tempora
 so its scalar contribution to the decision is unambiguous -- which a standard network, mixing all
 inputs in its first layer, cannot give.
 
-IMPLEMENTATION NOTE (identical math, not an approximation)
-    The reference implementation loops `for i in range(N): subnets[i](x[:, i])`, which is N
-    separate small GPU kernels per forward pass and is dominated by launch overhead. This
-    implements the same N independent sub-networks as GROUPED operations:
+IMPLEMENTATION
+    The N sub-networks run as grouped operations rather than a loop over units, which would
+    launch N small GPU kernels per forward pass. The arithmetic is the same:
         - a grouped Conv1d (groups=N) = N independent temporal convolutions
         - two einsum layers against per-unit weight tensors = N independent MLPs
     No weights are shared across units.
 
 ATTRIBUTION
-    S_i = std over trials of unit i's contribution. High S_i = that unit's output swings with
-    the class, i.e. it is driving the decision. S_i ~ 0 = contributes nothing. For the 3-way
-    (A/B/R) case S_i is the mean over classes of the per-class trial-wise std.
+    S_i = std over trials of unit i's contribution, averaged over classes. High S_i = that
+    unit's output swings with the class, i.e. it is driving the decision. S_i ~ 0 =
+    contributes nothing.
 """
 from __future__ import annotations
 

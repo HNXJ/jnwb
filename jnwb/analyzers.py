@@ -381,7 +381,8 @@ class UnitAnalyzer:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
                 ``bin_size_ms``; the message names the nearest valid windows.
         """
-        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
+        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
+                                   width_param="bin_size_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
@@ -854,8 +855,19 @@ class PopulationAnalyzer:
             As in :func:`jnwb.compute_population_trajectory`, a component beyond
             ``min(n_time_bins, n_units)`` does not exist, so its projection column,
             component row and variances are NaN, and with no total variance both variance
-            arrays are NaN.
+            arrays are NaN. Its note on components whose singular values nearly coincide,
+            whose agreement between devices is undefined, applies here too, and float32
+            input is decomposed in float32.
+
+        Raises:
+            ValueError: If ``X`` is not 2-D.
         """
+        X = np.asarray(X)
+        if X.ndim != 2:
+            raise ValueError(
+                f"PopulationAnalyzer.population_trajectory: X must be 2-D "
+                f"(n_time_bins, n_units), got shape {X.shape}. A single unit is X[:, None]."
+            )
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
@@ -872,7 +884,8 @@ class PopulationAnalyzer:
                 'device_used': device_used,
             }
 
-        if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
+        if resolve_device(device, context='PopulationAnalyzer.population_trajectory',
+                          prefer=None) == CUDA:
             last_exc = None
             try:
                 import cupy as cp
@@ -895,7 +908,7 @@ class PopulationAnalyzer:
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
 
             if last_exc is not None:
-                warn_device_fallback("population_trajectory", last_exc)
+                warn_device_fallback("PopulationAnalyzer.population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         return _result(s, vt, CPU)
