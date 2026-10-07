@@ -255,9 +255,10 @@ def nested_cv_linear_svm(
             "majority_baseline_accuracy": float("nan"),
             "seed": None,
         }
-    if len(classes) > 2:
+    if len(classes) > 2 and not (classes.dtype.kind in "fc" and np.isnan(classes).any()):
         # F1 and ROC-AUC below are binary; scikit-learn's own error named an argument
-        # this function does not take.
+        # this function does not take. A NaN label is not a class: scikit-learn's NaN
+        # message is the one that names it.
         raise ValueError(
             f"nested_cv_linear_svm: labels has {len(classes)} classes "
             f"({classes.tolist()}); it decodes two."
