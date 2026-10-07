@@ -102,10 +102,7 @@ FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
 # expires when the version reaches it, or the record of a change the next release carries,
 # which needs no declaration once that release is live.
 SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {}
-SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
-    # cross_area_coherence: a Generator now gives one recorded child seed.
-    ("jnwb/spectral/_coupling.py", "INTENTIONAL BREAK (0.2.10)"): "0.2.10",
-}
+SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {}
 
 # A version after a comparison operator is a dependency requirement, not a jnwb release.
 _REQUIREMENT = re.compile(r"(?:[<>=!~]=?)\s*$")

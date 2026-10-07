@@ -19,10 +19,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts import harness_gate
-from scripts.harness_gate import check_frozen_boundary
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts import harness_gate  # noqa: E402
+from scripts.harness_gate import check_frozen_boundary  # noqa: E402
 JNWB_DIR = REPO_ROOT / "jnwb"
 TESTS_DIR = REPO_ROOT / "tests"
 
