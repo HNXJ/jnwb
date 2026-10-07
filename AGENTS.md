@@ -27,7 +27,7 @@ internal by construction and lists the ones it leaves out.
 | `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules |
 | `artifacts/cooperation.md` | How concurrent agents share the repository |
 | `artifacts/defect_classes.md` | Defect classes review has found, counted; a class seen twice gets a check |
-| `artifacts/evidence/`, `artifacts/archive/` | Per-version working evidence; closed cycles, kept as written |
+| `artifacts/evidence/`, `artifacts/archive/` | Per-version working evidence; closed cycles stay only while a file reads or cites them |
 | `artifacts/benchmarks/` | Performance baseline and import profile (`python scripts/benchmark_import.py --write`) |
 | `docs/` | User docs; `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources |
 | `examples/` | `quickstart_jnwb.py`; notebooks that `tests/test_notebooks.py` executes |
