@@ -398,3 +398,131 @@ class TestCurateAndLabel:
             jnwb.curate_and_label(x, FS, pitch_um=PITCH, erp=np.zeros((24, 10)))
         with pytest.raises(ValueError, match="dimensions"):
             jnwb.curate_and_label(x[0], FS, pitch_um=PITCH)
+
+
+def _synth_in_bands(low, high, n=48, n_ep=40, n_s=1000, cross=24.0, seed=0):
+    """``synth`` with the alpha-beta source in ``low`` Hz and the gamma source in ``high`` Hz."""
+    rng = np.random.default_rng(seed)
+    sup = 1 / (1 + np.exp(-(np.arange(n) - cross) / 3.0))
+    shape = (n, n_ep, n_s)
+    x = ((0.15 + 0.85 * (1 - sup))[:, None, None] * _band(rng, shape, *low)
+         + (0.15 + 0.85 * sup)[:, None, None] * 0.6 * _band(rng, shape, *high))
+    return x + 0.05 * gaussian_filter1d(rng.standard_normal(shape), 1.0, axis=0)
+
+
+def _edge_shaft(n=100, block=6, seed=5):
+    """``synth`` whose top ``block`` contacts share one independent 2-6 Hz source: a decorrelation
+    jump between the shaft and its superficial end."""
+    x = synth(n=n, n_ep=8, cross=n // 2 - 2.0)
+    sos = signal.butter(4, [2, 6], btype="band", fs=FS, output="sos")
+    s = signal.sosfiltfilt(sos, np.random.default_rng(seed).standard_normal((8, x.shape[-1])), axis=-1)
+    x[-block:] += 3.0 * s / s.std()
+    return x
+
+
+class TestParametersReachTheirConsumers:
+    def test_nperseg_reaches_the_power_criterion_welch(self):
+        x = synth(n=24, n_ep=4)
+        out = jnwb.detect_bad_channels(x, FS, nperseg=128)
+        f, p = signal.welch(x, fs=FS, nperseg=128, axis=-1)
+        sel = (f >= 1.0) & (f <= 150.0)
+        expected = np.log10(p.mean(axis=1)[:, sel].mean(axis=1))
+        assert np.allclose(out["log_power"], expected, rtol=1e-12)
+        assert not np.allclose(out["log_power"], jnwb.detect_bad_channels(x, FS)["log_power"], rtol=1e-6)
+
+    @pytest.mark.parametrize("high, refused", [(249.9, False), (250.0, True), (250.1, True)])
+    def test_detect_bad_channels_refuses_a_band_ending_at_nyquist(self, high, refused):
+        x = synth(n=24, n_ep=4)
+        if refused:
+            with pytest.raises(ValueError, match="power_band_hz must satisfy"):
+                jnwb.detect_bad_channels(x, FS, power_band_hz=(1.0, high))
+        else:
+            assert jnwb.detect_bad_channels(x, FS, power_band_hz=(1.0, high))["bad_mask"].shape == (24,)
+
+    @pytest.mark.parametrize("high, refused", [(124.9, False), (125.0, True), (125.1, True)])
+    def test_a_motif_band_ending_at_nyquist_is_refused(self, high, refused):
+        x = synth(n=24, n_ep=4)
+        kw = dict(pitch_um=PITCH, compute_xflip=False, band_low_hz=(10.0, 19.0), power_band_hz=(1.0, 100.0))
+        if refused:
+            with pytest.raises(ValueError, match=rf"^band_high_hz=\(75\.0, {high}\) must end below fs/2"):
+                jnwb.curate_and_label(x, 250.0, band_high_hz=(75.0, high), **kw)
+        else:
+            assert jnwb.curate_and_label(x, 250.0, band_high_hz=(75.0, high), **kw).labels.shape == (24,)
+
+    @pytest.mark.parametrize("high, refused", [(124.9, False), (125.0, True), (125.1, True)])
+    def test_a_power_band_ending_at_nyquist_is_refused(self, high, refused):
+        x = synth(n=24, n_ep=4)
+        kw = dict(pitch_um=PITCH, compute_xflip=False, band_high_hz=(75.0, 120.0), power_band_hz=(1.0, high))
+        if refused:
+            with pytest.raises(ValueError, match=rf"^power_band_hz=\(1\.0, {high}\) must end below fs/2"):
+                jnwb.curate_and_label(x, 250.0, **kw)
+        else:
+            assert jnwb.curate_and_label(x, 250.0, **kw).labels.shape == (24,)
+
+    def test_min_contacts_reaches_the_csd(self):
+        x = blocked()
+        erp, t = _sink_erp(n=x.shape[0], at=5)
+        kw = dict(pitch_um=PITCH, compute_xflip=False, erp=erp, erp_times_ms=t)
+        assert np.isfinite(jnwb.curate_and_label(x, FS, **kw).csd["strongest_contact"])
+        few = jnwb.curate_and_label(x, FS, min_contacts=x.shape[0] + 1, **kw)
+        assert all(np.isnan(v) for v in few.csd.values()) and np.isnan(few.csd_distance_um)
+
+    def test_min_contacts_reaches_every_vflip_call(self, monkeypatch):
+        import jnwb.laminar_curation as lc
+        seen = []
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs["min_channels"])
+            return jnwb.vflip(*args, **kwargs)
+
+        monkeypatch.setattr(lc, "vflip", spy)
+        jnwb.curate_and_label(synth(n=24, n_ep=8), FS, pitch_um=PITCH, compute_xflip=False,
+                              n_windows=4, min_contacts=6)
+        assert seen == [6] * 5                      # the pooled spectrum and each of 4 windows
+
+    def test_max_interpolate_run_reaches_the_erp(self):
+        x = synth()
+        x[20:24] = np.random.default_rng(9).standard_normal(x[20:24].shape) * x.std()
+        erp, t = _sink_erp(n=x.shape[0], at=5)
+        erp[20:24] -= 50.0 * np.exp(-0.5 * ((t - 60.0) / 15.0) ** 2)   # a far deeper sink on the dead contacts
+        r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, erp=erp, erp_times_ms=t,
+                                  max_interpolate_run=4)
+        assert r.interpolated_mask[20:24].all()
+        assert abs(r.csd["strongest_contact"] - 5) <= 2
+
+    def test_min_edge_contacts_gates_the_edge_search(self):
+        x = _edge_shaft()
+        found = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, min_edge_contacts=98)
+        assert (~found.unusable_mask).sum() == 98 and "WM" not in found.labels   # the cortex it counts
+        assert set(found.labels[-6:]) == {"outside_cortex"} and found.labels[70] == "superficial"
+        none = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, min_edge_contacts=99)
+        assert "outside_cortex" not in none.labels and set(none.labels[-6:-2]) == {"superficial"}
+
+    def test_the_window_bands_reach_the_window_motif_profiles(self, monkeypatch):
+        import dataclasses
+        import jnwb.laminar_curation as lc
+        orig = lc._vflip_on
+
+        def rejected(*args):
+            _, v = orig(*args)
+            return float("nan"), dataclasses.replace(v, accepted=False, crossover_contact=None)
+
+        monkeypatch.setattr(lc, "_vflip_on", rejected)
+        x = _synth_in_bands((25, 35), (200, 240))
+        r = jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False,
+                                  band_low_hz=(25.0, 35.0), band_high_hz=(200.0, 240.0))
+        assert r.anchor_source == "motif" and abs(r.anchor_um / PITCH - 24) <= 1
+        assert np.all(np.abs(r.window_anchor_um / PITCH - 24) <= 1)    # every window sits on the planted crossing
+
+
+class TestGradeBoundaries:
+    WIN = np.array([600.0, 610.0, 590.0, 605.0])
+
+    @pytest.mark.parametrize("source, cmin, grade", [
+        ("vflip_um", 0.6, "B"), ("vflip_um", 0.6 - 1e-9, "C"),
+        ("motif_um", 0.75, "D"), ("motif_um", 0.75 - 1e-9, "F"),
+    ])
+    def test_the_consistency_boundary_of_grades_b_and_d(self, source, cmin, grade):
+        out = jnwb.fuse_laminar_anchors(**{source: 600.0}, window_um=self.WIN,
+                                        consistency_deep=0.95, consistency_superficial=cmin)
+        assert out["stable"] and out["consistency"] == cmin and out["grade"] == grade
