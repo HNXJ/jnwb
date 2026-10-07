@@ -128,7 +128,7 @@ def compute_population_trajectory(
           along each component, ``S**2 / (n_samples - 1)`` with
           ``n_samples = n_trials * n_bins``; scikit-learn's ``explained_variance_``
         - explained_variance: the same values as ``explained_variance_per_component``,
-          scikit-learn's name for them; until 0.2.10 it was the kept components' summed
+          scikit-learn's name for them; it was once the kept components' summed
           fraction, which is ``np.nansum(explained_variance_ratio)``
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
