@@ -91,10 +91,8 @@ nwbinspector session.nwb
 dandi validate --ignore DANDI.NO_DANDISET_FOUND session.nwb
 ```
 
-- The pynwb read proves the file opens, not that an index is right.
 - `nwbinspector` reports best-practice violations.
-- `dandi validate` checks schema and DANDI requirements; without a Dandiset the
-  `DANDI.NO_DANDISET_FOUND` finding is expected and ignored.
+- `dandi validate` checks schema and DANDI requirements.
 - `jnwb.check_ragged_indices` checks the ragged-index values.
 
 ## Keep repaired outputs frozen

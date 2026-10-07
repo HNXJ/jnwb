@@ -491,6 +491,21 @@ def test_a_failed_replace_to_a_new_file_leaves_no_output(tmp_path, monkeypatch):
     assert sorted(os.listdir(tmp_path)) == ["s.nwb"]
 
 
+def test_an_interrupt_during_replace_leaves_no_output_and_the_input_intact(tmp_path, monkeypatch):
+    p = tmp_path / "k.nwb"
+    _write(p, _buggy(LENGTHS, STARTS))
+    before = p.read_bytes()
+
+    def interrupt(src, dst):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("jnwb.nwb_integrity.os.replace", interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        repair_ragged_index(p, "spike_times", probe_starts=STARTS, dry_run=False,
+                            output_path=tmp_path / "k_repaired.nwb")
+    assert sorted(os.listdir(tmp_path)) == ["k.nwb"] and p.read_bytes() == before
+
+
 def test_a_dry_run_in_place_needs_no_backup_path(tmp_path):
     p = tmp_path / "d.nwb"
     _write(p, _buggy(LENGTHS, STARTS))

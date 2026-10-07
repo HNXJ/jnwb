@@ -274,7 +274,7 @@ def repair_ragged_index(path: str | Path, column: str, *, table: str = "units",
         formula); the corrected values do not fit the index dtype; ``dry_run=False`` without
         ``output_path`` or ``in_place=True``, or with both; ``in_place=True`` without
         ``backup_path``; ``backup_path`` without ``in_place=True``; ``output_path`` or
-        ``backup_path`` exists; or the input is not writable under ``in_place=True``. After the
+        ``backup_path`` exists (a dry run skips the two backup checks); or the input is not writable under ``in_place=True``. After the
         write to the copy and before anything is replaced, when the re-read index is not the
         corrected index or does not pass ``check_ragged_indices``.
     KeyError, ValueError
