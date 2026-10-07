@@ -246,7 +246,7 @@ def layer_masks_path(subdir: str | os.PathLike = "publication_visual_review/area
             with another layout passes its own.
 
     Raises:
-        ValueError: If ``subdir`` is empty, absolute or rooted (``'/x'``, ``'C:x'``), or has
+        ValueError: If ``subdir`` is empty, absolute or rooted (``'/x'``, and on Windows ``'C:x'``), or has
             a ``'..'`` component; each resolves to the outputs directory itself or outside it.
     """
     parts = Path(subdir)
