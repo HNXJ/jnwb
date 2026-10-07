@@ -42,10 +42,10 @@ gives, for the closure pass to classify.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking and decoding | 10-08, 10-18 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| H statistics, spiking and decoding | 10-18, 10-26 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-13, 10-19, 10-22 and 10-25 are merged, 10-08 packets A and B, and 10-06 rounds 1 and 2; 10-06's residue, 10-08, 10-18, 10-20, 10-21, 10-23 and 10-24 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-08, 10-13, 10-19, 10-22 and 10-25 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-18, 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -58,26 +58,20 @@ Writes: `jnwb/connectivity/**`, `jnwb/jrsa/**`, `jnwb/rsa.py`, `tests/test_conne
 Accept: each check passes; calibration records in `artifacts/evidence/0.2.10/`.
 Stop: a default change without a ruling.
 
-### 10-08 Statistics, spiking and decoding edges
+### 10-26 Residue of 10-08 (decoding, aliases, paths)
 
 Release: deferred-0.2.10.
 Role: jnwb-developer. Skill: per finding. Blocked by: none.
-P-216 statistics part is in 10-12 (it edits `tests/test_skills_validation.py`, lane G's file); P-292's edit to `jnwb/_backend.py`, outside every lane's Owns, is routed through the integrator.
-Writes: `jnwb/statistics/**`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/testing/**`, `tests/test_statistics.py`, `tests/test_permutation.py`, `tests/test_spiking*.py`, `tests/test_analyzers*.py`, `tests/test_onset_fitting.py`, `tests/test_trajectory*.py`, `tests/test_decoding.py`, `tests/test_zero_spread.py`, `tests/test_rng*.py`, `skills/jnwb-statistics/SKILL.md`, `skills/jnwb-spiking/SKILL.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md`.
-- Deprecation to complete: trajectory `explained_variance` (`jnwb/trajectory.py:131`) is the kept components' summed fraction and warns (`FutureWarning`) that it will carry the per-component values. Check: the key carries the values of `explained_variance_per_component`, the warning is gone, and the packet reports the CHANGELOG text. Waits: ruled to land one release after the warning, as the spectral one in 10-03.
-- P-292: after `cupy.linalg` is imported, `compute_population_trajectory(device='cuda')` warns the wrong cause. Check: the warning names the DLL conflict, asserted by a test that makes the backend probe raise the loader error. Waits: `device_used` correct.
-- P-323: `compute_population_trajectory` for an area with no units returns a result without `device_used` (`jnwb/trajectory.py:155`; the other return, `:206`, sets it). Check: `device_used` is present in every return, asserted in `tests/test_trajectory.py`. Waits: nothing computed.
-- P-343: float32 PCA whose top two singular values differ by less than float32 working precision gives different components on CPU and CUDA. Check: the `compute_population_trajectory` docstring declares parity undefined below that gap, and no test asserts parity there. Waits: below working precision.
-- P-332 remainder: a flat input to `fit_exponential_onset` and to `population_trajectory`, and the `UnitAnalyzer` multi-class error, have no named refusal; `nam.py` and `bilinear.py` carry project-history text. Check: each of the three refusals names its argument and is asserted by a test, and `jnwb/nam.py` and `jnwb/bilinear.py` hold no project-history text. Waits: loud or wording.
-- IA-19: two-class `bilinear` `predict_proba` is overconfident (0.856 predicted, 0.582 observed); `tests/test_decoding.py:540` pins it as the documented uncalibrated logistic. Check: one model for two classes, and a calibration test asserting predicted and observed frequency agree within a stated tolerance replaces that pin. Waits: experimental and outside `__all__`.
-- IA-28: the `bilinear` tests in `tests/test_decoding.py` check a length only. Check: value-pinning tests land with IA-19, each asserting predicted values. Waits: goes with IA-19.
-- IA-29 remainder: `layer_masks_path` (`jnwb/paths.py:240`) hardcodes `publication_visual_review/area_layer_tfr` and its exact path is pinned at `tests/test_paths.py:124`; `nam.py` seeds Dropout through the global torch generator inside `fork_rng` (Dropout takes no generator), and its docstring now says so. Check: a `subdir` argument of `layer_masks_path` whose default is today's folder, documented as a corpus convention and tested with a non-default value, results at the default unchanged (ruled 2026-10-06); a test that `train_nam` is reproducible whatever the caller's global torch state. Waits: non-exported module.
-- P-280 remainder: `population_trajectory` passes the short context name `population_trajectory` (`jnwb/analyzers.py:869`). Check: the context name is `UnitAnalyzer.population_trajectory`, asserted by a test. Waits: message wording.
-- `whole_bin_count` with `bin_width` 0 raises a bare `ZeroDivisionError`. Check: a refusal naming `bin_width`, asserted by a test. Waits: loud error.
-- Test reach (verified 2026-10-06, b38e9910): surviving mutants M7b (`train_nam` default-generator seeding removed; `tests/test_nam.py` fixes the global state equal across runs) and M6c (the `RenamedKeyDict.setdefault` warning `stacklevel`); the walk in `tests/test_rng_parameters_by_use.py` skips four resolver calls whose first argument is not a parameter name (`directed_network` twice, `jrsa`, `resample_onsets`). Check: each killed or walked. Waits: tests only.
-- `RenamedKeyDict.update({'old': ...})` and `d['old'] = ...` still insert a key beside an alias, and `pop('old')` raises `KeyError`. Check: each follows the alias as `setdefault` now does, with a test. Waits: deprecated alias path.
-Accept: each check passes; values that move carry a CHANGELOG entry.
-Stop: a fix changes shipped values without a ruling.
+Writes: `jnwb/decoding.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/_backend.py`, `jnwb/trajectory.py`, their tests.
+Left by the 10-08 verification (2026-10-06, d6d6d8b5); shipped values are unchanged by each.
+- P-332 multi-class: `nested_cv_linear_svm` with three classes raises scikit-learn's "multi_class must be in ('ovo', 'ovr')". Check: a refusal naming the argument, asserted by a test. Waits: loud error.
+- `layer_masks_path(subdir=...)` accepts an absolute path, `..` and `''`, and the first two escape the outputs directory its docstring says it is relative to. Check: each refused by name, with a test. Waits: caller-supplied path.
+- `RenamedKeyDict`: `d |= {'old': 1}` inserts `old` beside `new` with no warning, and `pop('old')` with `new` already removed raises `KeyError('new')`. Check: each follows the alias, with a test. Waits: deprecated alias path.
+- The `compute_population_trajectory` device warning gives the "DLL conflict, import cupy first" advice for a non-DLL `OSError` (a `PermissionError` on `libcuda.so`), though the exception text is shown. Check: the advice only for a loader error, with a test. Waits: wording.
+- The trajectory docstring figure "relative gap 1.5e-5 moved a loading by 0.009" between CPU and CUDA (`jnwb/trajectory.py`) was not reproduced by the verifier. Check: the figure reproduced by a probe kept in the evidence, or removed. Waits: wording.
+- `population_trajectory` on a constant `X` keeps NaN variances, as documented, but its components are the identity matrix, a value no computation produced. Check: Hamm rules NaN components or the documented identity. Waits: documented behaviour. AUTONOMY: none.
+Accept: each check passes.
+Stop: a fix changes a shipped value without a ruling.
 
 ### 10-23 `nwb_integrity` residue
 
@@ -124,7 +118,7 @@ Stop: a file on the list has a reader the audit missed.
 ### 10-21 Test reduction by a corrected coverage pass
 
 Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-08.
+Role: jnwb-developer. Skill: none. Blocked by: 10-06, 10-26.
 Writes: `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py`.
 Ruled 2026-10-06: one full coverage pass with `COVERAGE_CORE=ctrace`, and the prune list goes to Hamm before any deletion (ruled 2026-09-27).
 - Per-test contexts under the default coverage core of Python 3.14 record only the first test per line per worker, so the first audit's per-test counts are unreliable (`ctxprobe`, reproduced twice). Check: the pass runs under `COVERAGE_CORE=ctrace`, its log and per-file unique-line counts recorded here. Waits: measurement only.
