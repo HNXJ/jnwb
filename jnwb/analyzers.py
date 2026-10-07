@@ -854,9 +854,10 @@ class PopulationAnalyzer:
 
             As in :func:`jnwb.compute_population_trajectory`, a component beyond
             ``min(n_time_bins, n_units)`` does not exist, so its projection column,
-            component row and variances are NaN, and with no total variance (every unit
-            constant) the projection, both variance arrays and every component are NaN. Its note on components whose singular values nearly coincide,
-            whose agreement between devices is undefined, applies here too, and float32
+            component row and variances are NaN, and with exactly zero total variance the
+            projection, both variance arrays and every component are NaN. Centring a constant
+            unit can leave rounding residue (a constant 0.1 does), which is variance here.
+            Its note on components whose singular values nearly coincide, whose agreement between devices is undefined, applies here too, and float32
             input is decomposed in float32.
 
         Raises:
