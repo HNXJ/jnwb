@@ -71,6 +71,7 @@ RETURNED_BY = {
     "DirectedResult": ["granger", "granger_spectral", "phase_slope_index", "transfer_entropy",
                        "directed_connectivity"],
     "JRSAResult": ["jrsa"],
+    "NWBValidationReport": ["validate_nwb"],
     "Preflight": ["preflight"],
     "RaggedIndexReport": ["check_ragged_indices"],
     "RaggedIndexRepair": ["repair_ragged_index"],

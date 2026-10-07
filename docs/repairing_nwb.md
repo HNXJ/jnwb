@@ -93,19 +93,32 @@ A cast is irreversible and changes `data_dtype` in `jnwb.inspect`; record it wit
 
 ## Validate the result
 
-Run the stack in this order; each layer catches what the previous one cannot.
+One call runs the whole stack and says whether the file is ready for DANDI:
 
-```bash
-python -c "import pynwb; pynwb.NWBHDF5IO('session.nwb', 'r').read()"
-nwbinspector session.nwb
-dandi validate --ignore DANDI.NO_DANDISET_FOUND session.nwb
+```python
+import jnwb
+
+report = jnwb.validate_nwb("session.nwb")
+print(report.summary())
+report.ok            # no layer that ran failed
+report.complete      # no layer skipped (a missing optional dependency skips its layer)
+report.dandi_ready   # read, both pynwb schema layers and the dandi layer ran and passed
 ```
 
-- The pynwb read proves the file opens, not that an index is right.
-- `nwbinspector` reports best-practice violations; none concerns ragged-index values.
-- `dandi validate` checks schema and DANDI requirements; without a Dandiset the
-  `DANDI.NO_DANDISET_FOUND` finding is expected and ignored.
-- `jnwb.check_ragged_indices` covers the index values the three tools above do not.
+`pip install jnwb[validate]` adds the two optional layers' dependencies. The layers, in order:
+
+| Layer | What it checks | Fails when |
+|---|---|---|
+| `read` | the file opens through `jnwb.read_nwb` | it cannot be read |
+| `pynwb_schema` | `pynwb.validate` against the namespaces cached in the file | any schema error |
+| `pynwb_core` | `pynwb.validate` against the core namespace of the installed pynwb, the newest schema that release knows | any schema error |
+| `integrity` | ragged `<column>_index` arrays of `units` (`check_ragged_indices`) and electrode regions outside the electrodes table | an index is not monotonic or does not end at the data length, or a region leaves the table |
+| `nwbinspector` | NWB Inspector best-practice checks | a CRITICAL or ERROR finding; best-practice findings are counted as warnings |
+| `dandi` | `dandi validate` through its Python API (it also runs its own pynwb and Inspector passes) | an ERROR or CRITICAL result; `DANDI.NO_DANDISET_FOUND` is ignored by default |
+
+A skipped layer is never a pass: `dandi_ready` is False unless the `dandi` layer ran. Read the best-practice
+warnings anyway: `check_time_intervals_stop_after_start` and `check_electrical_series_unscaled_data`
+point at real defects in the data.
 
 ## Keep repaired outputs frozen
 

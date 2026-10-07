@@ -176,6 +176,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `paths` | Data root discovery & volume remap management | `paths` |
 | `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
 | `nwb_integrity` | Read-only ragged-index checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused` |
+| `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
 | `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning` |
 | `continuous` | Epoching a continuous signal around event onsets | `epoch_continuous` |

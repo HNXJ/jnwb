@@ -82,6 +82,7 @@ from .nwb_integrity import (
     check_ragged_indices,
     repair_ragged_index,
 )
+from .nwb_validate import NWBValidationReport, validate_nwb
 from .continuous import epoch_continuous
 from .addressing import (
     map_peak_channel_to_area,
@@ -302,6 +303,8 @@ __all__ = [
     'RaggedIndexReport',
     'RaggedIndexRepair',
     'RaggedIndexRepairRefused',
+    'validate_nwb',
+    'NWBValidationReport',
     'epoch_continuous',
 
     # Addressing

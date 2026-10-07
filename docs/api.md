@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 178 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 180 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -190,6 +190,13 @@ All 178 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
 | jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
 | jnwb.read_nwb | function | `(path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Any'`<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
+
+## Module: jnwb.nwb_validate
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.NWBValidationReport | class | *All layers of one file, plus the versions that produced them.* |
+| jnwb.validate_nwb | function | `(path: 'str | Path', *, layers: 'Sequence[str] | None' = None, dandi_ignore: 'Sequence[str]' = ('DANDI.NO_DANDISET_FOUND',), max_messages: 'int' = 50) -> 'NWBValidationReport'`<br>*Validate one NWB file and report every layer. Read-only; nothing is written.* |
 
 ## Module: jnwb.onset_fitting
 
