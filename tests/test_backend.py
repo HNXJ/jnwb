@@ -97,13 +97,17 @@ def _oserror(message, winerror=None):
 class TestLoaderErrorClassification:
     @pytest.mark.parametrize("exc", [
         _oserror("opaque", winerror=126),
+        _oserror("opaque", winerror=193),
         _oserror("opaque", winerror=1114),
         _oserror("DLL load failed while importing _core"),
         _oserror("libtorch_cuda.so: undefined symbol: cudaGetDriverEntryPoint"),
         _oserror("libcudart.so.12: cannot open shared object file"),
         _oserror('Error loading "cusparse64_12.dll" or one of its dependencies.'),
-    ], ids=["winerror-126", "winerror-1114", "dll-load-failed", "undefined-symbol",
-            "cannot-open-shared-object", "error-loading"])
+        _oserror("dlopen(libcudart.dylib, 6): image not found"),
+        _oserror("dlopen(libcudart.dylib, 6): Library not loaded: @rpath/libcudart.12.dylib"),
+    ], ids=["winerror-126", "winerror-193", "winerror-1114", "dll-load-failed",
+            "undefined-symbol", "cannot-open-shared-object", "error-loading", "image-not-found",
+            "library-not-loaded"])
     def test_a_library_that_failed_to_load_is_a_loader_error(self, exc):
         from jnwb._backend import _is_loader_error
         assert _is_loader_error(exc)
@@ -132,6 +136,27 @@ class TestLoaderErrorClassification:
         assert "CuPy raised PermissionError: [Errno 13] Permission denied" in messages[0]
         assert "PyTorch could not load its libraries (OSError: opaque)" in messages[0]
         assert "import torch first" in messages[0] and "import cupy first" not in messages[0]
+
+
+    def test_two_loader_failures_advise_for_the_first_backend(self, monkeypatch):
+        import jnwb._backend as backend
+
+        def cupy_unloadable():
+            raise _oserror("opaque", winerror=126)
+
+        def torch_unloadable():
+            raise _oserror("opaque", winerror=127)
+
+        monkeypatch.setattr(backend, "_cupy_device_count", cupy_unloadable)
+        monkeypatch.setattr(backend, "_torch_cuda", torch_unloadable)
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert backend.resolve_device("cuda", context="t") == CPU
+        messages = [str(w.message) for w in record if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "CuPy could not load its libraries" in messages[0]
+        assert "PyTorch could not load its libraries" in messages[0]
+        assert "import cupy first" in messages[0] and "import torch first" not in messages[0]
 
 
 class TestFallbackWarning:

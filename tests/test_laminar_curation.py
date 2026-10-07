@@ -195,6 +195,15 @@ class TestEvokedCsdSink:
         out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask)
         assert all(np.isnan(v) for v in out.values())
 
+    def test_exactly_min_contacts_usable_is_enough(self):
+        erp, t = _sink_erp()
+        mask = np.zeros(erp.shape[0], bool)
+        mask[12:28] = True
+        out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=16)
+        assert abs(out["strongest_contact"] - 20) <= 1
+        short = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=17)
+        assert all(np.isnan(v) for v in short.values())
+
     def test_refuses_no_baseline_and_bad_pitch(self):
         erp, t = _sink_erp()
         with pytest.raises(ValueError, match="before 0"):
@@ -450,6 +459,16 @@ class TestParametersReachTheirConsumers:
             assert jnwb.curate_and_label(x, 250.0, band_high_hz=(75.0, high), **kw).labels.shape == (24,)
 
     @pytest.mark.parametrize("high, refused", [(124.9, False), (125.0, True), (125.1, True)])
+    def test_a_low_motif_band_ending_at_nyquist_is_refused(self, high, refused):
+        x = synth(n=24, n_ep=4)
+        kw = dict(pitch_um=PITCH, compute_xflip=False, band_high_hz=(75.0, 120.0), power_band_hz=(1.0, 100.0))
+        if refused:
+            with pytest.raises(ValueError, match=rf"^band_low_hz=\(10\.0, {high}\) must end below fs/2"):
+                jnwb.curate_and_label(x, 250.0, band_low_hz=(10.0, high), **kw)
+        else:
+            assert jnwb.curate_and_label(x, 250.0, band_low_hz=(10.0, high), **kw).labels.shape == (24,)
+
+    @pytest.mark.parametrize("high, refused", [(124.9, False), (125.0, True), (125.1, True)])
     def test_a_power_band_ending_at_nyquist_is_refused(self, high, refused):
         x = synth(n=24, n_ep=4)
         kw = dict(pitch_um=PITCH, compute_xflip=False, band_high_hz=(75.0, 120.0), power_band_hz=(1.0, high))
@@ -466,6 +485,31 @@ class TestParametersReachTheirConsumers:
         assert np.isfinite(jnwb.curate_and_label(x, FS, **kw).csd["strongest_contact"])
         few = jnwb.curate_and_label(x, FS, min_contacts=x.shape[0] + 1, **kw)
         assert all(np.isnan(v) for v in few.csd.values()) and np.isnan(few.csd_distance_um)
+
+    def test_curate_and_label_passes_nperseg_to_the_bad_channel_detector(self, monkeypatch):
+        import jnwb.laminar_curation as lc
+        seen = []
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs.get("nperseg"))
+            return jnwb.detect_bad_channels(*args, **kwargs)
+
+        monkeypatch.setattr(lc, "detect_bad_channels", spy)
+        x = synth(n=24, n_ep=4)
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False, nperseg=128)
+        jnwb.curate_and_label(x, FS, pitch_um=PITCH, compute_xflip=False)
+        assert seen == [128, 512]
+
+    def test_the_csd_contact_count_boundary_is_exact(self):
+        x = blocked()
+        erp, t = _sink_erp(n=x.shape[0], at=5)
+        kw = dict(pitch_um=PITCH, compute_xflip=False, erp=erp, erp_times_ms=t)
+        k = int((~jnwb.curate_and_label(x, FS, **kw).unusable_mask).sum())
+        assert 0 < k <= x.shape[0]
+        at = jnwb.curate_and_label(x, FS, min_contacts=k, **kw)
+        assert np.isfinite(at.csd["strongest_contact"])
+        over = jnwb.curate_and_label(x, FS, min_contacts=k + 1, **kw)
+        assert all(np.isnan(v) for v in over.csd.values())
 
     def test_min_contacts_reaches_every_vflip_call(self, monkeypatch):
         import jnwb.laminar_curation as lc
@@ -513,6 +557,36 @@ class TestParametersReachTheirConsumers:
                                   band_low_hz=(25.0, 35.0), band_high_hz=(200.0, 240.0))
         assert r.anchor_source == "motif" and abs(r.anchor_um / PITCH - 24) <= 1
         assert np.all(np.abs(r.window_anchor_um / PITCH - 24) <= 1)    # every window sits on the planted crossing
+
+
+class TestWindowsUseTheirOwnSpectra:
+    """Two halves of the recording with the crossing planted at 18 and at 30 contacts."""
+
+    @staticmethod
+    def _two_halves():
+        return np.concatenate([synth(n=48, n_ep=20, cross=18.0, seed=0),
+                               synth(n=48, n_ep=20, cross=30.0, seed=1)], axis=1)
+
+    def test_each_window_has_its_own_vflip_anchor(self):
+        r = jnwb.curate_and_label(self._two_halves(), FS, pitch_um=PITCH, compute_xflip=False, n_windows=2)
+        assert r.anchor_source == "vflip"
+        assert abs(r.window_anchor_um[0] / PITCH - 18) <= 2
+        assert abs(r.window_anchor_um[1] / PITCH - 30) <= 2
+
+    def test_each_window_has_its_own_motif_anchor(self, monkeypatch):
+        import dataclasses
+        import jnwb.laminar_curation as lc
+        orig = lc._vflip_on
+
+        def rejected(*args):
+            _, v = orig(*args)
+            return float("nan"), dataclasses.replace(v, accepted=False, crossover_contact=None)
+
+        monkeypatch.setattr(lc, "_vflip_on", rejected)
+        r = jnwb.curate_and_label(self._two_halves(), FS, pitch_um=PITCH, compute_xflip=False, n_windows=2)
+        assert r.anchor_source == "motif"
+        assert abs(r.window_anchor_um[0] / PITCH - 18) <= 2
+        assert abs(r.window_anchor_um[1] / PITCH - 30) <= 2
 
 
 class TestGradeBoundaries:
