@@ -37,3 +37,20 @@ def test_the_seed_still_reproduces_training_and_a_different_seed_changes_it():
     (a, wa), (b, wb), (c, wc) = _train(0), _train(0), _train(1)
     assert a == b and all(torch.equal(x, y) for x, y in zip(wa, wb))
     assert not all(torch.equal(x, y) for x, y in zip(wa, wc))
+
+
+def test_the_seed_reproduces_training_whatever_the_callers_global_state():
+    """`_train` sets the global state equal before each run, so it cannot see whether
+    dropout draws from `seed` or from whatever the caller left in torch's global generator.
+    Here the same initial weights are trained from two different global states."""
+    torch.manual_seed(123)
+    initial = LaminarNAM(3, 8, n_classes=3).state_dict()
+    runs = []
+    for global_seed in (1, 2):
+        model = LaminarNAM(3, 8, n_classes=3)
+        model.load_state_dict(initial)
+        torch.manual_seed(global_seed)
+        out = train_nam(model, *_data(), max_epochs=5, patience=5, seed=0)
+        runs.append((out, [p.detach().clone() for p in model.parameters()]))
+    (a, wa), (b, wb) = runs
+    assert a == b and all(torch.equal(x, y) for x, y in zip(wa, wb))

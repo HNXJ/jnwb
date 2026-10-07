@@ -237,9 +237,15 @@ def artifacts_dir(*parts: str, override: str | os.PathLike | None = None) -> Pat
     return root.joinpath(*parts)
 
 
-def layer_masks_path() -> Path:
-    """Canonical layer-mask JSON location under the outputs tree."""
-    return outputs_dir("publication_visual_review", "area_layer_tfr", "layer_masks.json")
+def layer_masks_path(subdir: str | os.PathLike = "publication_visual_review/area_layer_tfr") -> Path:
+    """``layer_masks.json`` in ``subdir`` of the outputs directory (:func:`outputs_dir`).
+
+    Args:
+        subdir: The folder under the outputs directory, relative to it. The default is one
+            corpus's convention, kept so existing callers resolve the same file; a project
+            with another layout passes its own.
+    """
+    return outputs_dir(subdir, "layer_masks.json")
 
 
 def resolve_nwb_path(prefix: str, nwb_dir_override: str | os.PathLike | None = None) -> Path:
