@@ -150,6 +150,7 @@ def _silent_kernel_argv(tmp_path):
 def test_kernel_that_never_starts_fails_within_the_start_bound(tmp_path, monkeypatch):
     _shrink_bounds(monkeypatch, start=4, cell=60, shutdown=1)
     path = _stalled_notebook(tmp_path)
+    import jupyter_client.manager  # noqa: F401  the cold import stays out of the timed window
     began = time.monotonic()
     with pytest.raises(RuntimeError, match="Kernel didn't respond"):
         _execute(path, tmp_path, monkeypatch, kernel_argv=_silent_kernel_argv(tmp_path))
