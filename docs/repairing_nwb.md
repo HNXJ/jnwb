@@ -52,7 +52,9 @@ r = jnwb.repair_ragged_index("session.nwb", "spike_times", probe_starts=[0, 40, 
 The input is copied, only `<column>_index` of the copy is rewritten (same dtype and shape), and
 the copy is re-read and checked before it is moved into place, so `r.written` is True only for a
 verified file. `in_place=True` with a `backup_path` replaces the input instead, by the same
-verified copy and an atomic `os.replace`; the backup holds the old index. A failure at any step
+verified copy and an atomic `os.replace`; the backup holds the old index. A new `output_path` is
+claimed exclusively just before the move, so a file that appears there meanwhile is refused. A
+dry run writes nothing and ignores `backup_path`. A failure at any step
 leaves the input byte-identical. The refusal is the useful behavior: a file that is wrong in a
 different way stays unchanged and reported.
 
@@ -81,7 +83,7 @@ exactly the named datasets and verifies the result. A cast is irreversible and c
 
 ## Validate the result
 
-Run the stack in this order; each layer catches what the previous one cannot.
+Run the stack in this order.
 
 ```bash
 python -c "import pynwb; pynwb.NWBHDF5IO('session.nwb', 'r').read()"
@@ -89,11 +91,9 @@ nwbinspector session.nwb
 dandi validate --ignore DANDI.NO_DANDISET_FOUND session.nwb
 ```
 
-- The pynwb read proves the file opens, not that an index is right.
-- `nwbinspector` reports best-practice violations; none concerns ragged-index values.
-- `dandi validate` checks schema and DANDI requirements; without a Dandiset the
-  `DANDI.NO_DANDISET_FOUND` finding is expected and ignored.
-- `jnwb.check_ragged_indices` covers the index values the three tools above do not.
+- `nwbinspector` reports best-practice violations.
+- `dandi validate` checks schema and DANDI requirements.
+- `jnwb.check_ragged_indices` checks the ragged-index values.
 
 ## Keep repaired outputs frozen
 

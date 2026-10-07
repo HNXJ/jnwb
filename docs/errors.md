@@ -238,7 +238,7 @@ copy or backup behind. The first five also come from `check_ragged_indices`.
 | `output_path and in_place=True exclude each other` | refused | Pass one |
 | `in_place=True needs backup_path` | refused | A new `backup_path` |
 | `backup_path applies only with in_place=True` | refused | Drop it |
-| `output_path ... exists`, `backup_path ... exists` | refused | A new path |
+| `output_path ... exists`, `backup_path ... exists` | refused | A new path; delete a zero-byte `output_path` that an interrupted run left |
 | `is not writable` | refused | Use `output_path=` |
 | `did not verify; nothing was replaced` | refused | Report it |
 | Any other `OSError` | `OSError` | Close the file elsewhere, free disk |
