@@ -8,8 +8,7 @@
     ``pynwb.validate`` against the namespaces cached inside the file.
 ``pynwb_core``
     ``pynwb.validate`` against the core namespace of the installed pynwb, i.e. the newest schema
-    the installed release knows. A file written long ago can pass its own cached schema and
-    fail the current one.
+    the installed release knows.
 ``integrity``
     ragged ``<column>_index`` arrays of the units table (``check_ragged_indices``) and electrode
     regions that point outside the electrodes table. A region may repeat a row (one column per
