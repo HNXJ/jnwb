@@ -302,9 +302,10 @@ def phase_slope_index(
     if n_seg < 8:
         warnings_all.append(f"only_{n_seg}_welch_segments_coherency_poorly_estimated")
 
-    # INTENTIONAL BREAK (0.2.10): the jackknife left out one Welch segment whatever the trial
+    # INTENTIONAL BREAK: the jackknife left out one Welch segment whatever the trial
     # count. Overlapping segments of one trial are dependent, and under zero-lag mixing the
-    # segment jackknife rejected in 0.070 to 0.079 on 10 trials of 400. It leaves out one
+    # segment jackknife rejected in 0.068 on 10 trials of 400 at the default nperseg (70
+    # segments; 2000 seeds, se 0.006). It leaves out one
     # trial from three trials on (Nolte et al.'s epoch), and one segment below that.
     jackknife_unit = "trial" if n_trials >= _MIN_TRIALS_FOR_TRIAL_JACKKNIFE else "segment"
     n_units = n_trials if jackknife_unit == "trial" else n_seg
