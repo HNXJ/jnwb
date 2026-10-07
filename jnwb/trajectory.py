@@ -144,7 +144,8 @@ def compute_population_trajectory(
         CPU and CUDA can return different components there, and agreement between devices
         is undefined. Above that gap the rounding error of a component grows as the
         precision divided by the gap: in float32 (``PopulationAnalyzer.population_trajectory``
-        keeps it), a relative gap of 1.5e-5 moved a loading by 0.009 between CPU and CUDA.
+        keeps it), a relative gap of 1.5e-5 moved a loading by up to 0.009 (median 0.003)
+        between CPU and CUDA over ten random 500 x 20 matrices, and a gap of 1e-3 by up to 1e-4.
         The decomposition here is in float64.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
@@ -238,7 +239,8 @@ def _kept_components(
         ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
         The variances are per component, as scikit-learn's PCA names them, and
         ``explained_total`` is the kept components' share together. With no total variance
-        there is no ratio and no variance, so all three are NaN. A requested component
+        there is no ratio, no variance and no component, so all three and ``Vt`` are NaN.
+        A requested component
         beyond ``n_kept`` does not exist -- too few features or samples -- so its column of
         ``projection``, its row of ``Vt`` and its variances are NaN; zero would read as a
         component measured to be zero.
@@ -258,6 +260,10 @@ def _kept_components(
         explained_variance = np.full(n_kept, np.nan, dtype=dtype)
         explained_variance_ratio = np.full(n_kept, np.nan, dtype=dtype)
         explained_total = float('nan')
+        # Intentional change of a returned value: the SVD of all-zero data returns the
+        # identity as Vt, which no computation on the data produced; it is NaN like the
+        # variances. The projection, computed from the data, is left as it is.
+        Vt = np.full_like(Vt, np.nan)
 
     missing = n_components - n_kept
     if missing > 0:

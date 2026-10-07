@@ -32,7 +32,7 @@ class RenamedKeyDict(dict):
     that copies the dict gets the current shape. Reading an old name with ``[]`` or
     ``get`` returns the current key's value and emits a ``DeprecationWarning``; ``in``
     answers True for it, so an existing membership check keeps its branch. ``[]=``,
-    ``update``, ``setdefault`` and ``pop`` follow an old name to its current key with the
+    ``update``, ``|=``, ``setdefault`` and ``pop`` follow an old name to its current key with the
     same warning, so no write puts an old name beside its current one.
 
     ``changing`` maps a present key whose meaning changes in the next release to the
@@ -101,9 +101,19 @@ class RenamedKeyDict(dict):
         for key, value in dict(*args, **kwargs).items():
             dict.__setitem__(self, self._current(key, "write", 2), value)
 
+    def __ior__(self, other: Any) -> "RenamedKeyDict":
+        """``d |= other`` as :meth:`update`; ``dict.__ior__`` would bypass it."""
+        for key, value in dict(other).items():
+            dict.__setitem__(self, self._current(key, "write", 2), value)
+        return self
+
     def pop(self, key: object, *default: Any) -> Any:
-        """As ``dict.pop``; an old name removes and returns the current key, warning."""
-        return dict.pop(self, self._current(key, "read", 2), *default)
+        """As ``dict.pop``; an old name removes and returns the current key, warning. An old
+        name whose current key is gone is a missing key: ``default``, else ``KeyError(key)``."""
+        current = self._current(key, "read", 2)
+        if dict.__contains__(self, current):
+            return dict.pop(self, current, *default)
+        return dict.pop(self, key, *default)
 
     def __contains__(self, key: object) -> bool:
         return dict.__contains__(self, key) or (isinstance(key, str) and key in self._aliases)

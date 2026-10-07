@@ -779,6 +779,34 @@ class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(res['explained_variance'])))
         self.assertEqual(res['explained_variance_ratio'].shape, (2,))
 
+    def test_a_population_with_no_variance_has_no_components(self):
+        # The SVD of all-zero data returns the identity as Vt; no computation on the data
+        # produced it. The projection is the data's (zero) deviation and stays.
+        for dtype in (np.float64, np.float32):
+            res = PopulationAnalyzer.population_trajectory(
+                np.full((20, 5), 3.0, dtype=dtype), n_components=3)
+            self.assertEqual(res['components'].shape, (3, 5))
+            self.assertEqual(res['components'].dtype, dtype)
+            self.assertTrue(np.all(np.isnan(res['components'])))
+            for key in ('explained_variance', 'explained_variance_ratio'):
+                self.assertTrue(np.all(np.isnan(res[key])))
+            np.testing.assert_array_equal(res['projection'], np.zeros((20, 3), dtype))
+
+    def test_a_population_with_variance_keeps_its_components(self):
+        X = np.random.default_rng(7).standard_normal((40, 5)) * [3.0, 2.0, 1.5, 1.0, 0.5]
+        assert np.var(X, axis=0).min() > 0, "fixture must vary in every unit"
+        res = PopulationAnalyzer.population_trajectory(X, n_components=3)
+        Xc = X - X.mean(axis=0)
+        _, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+        Vt = Vt[:3]
+        pivot = np.argmax(np.abs(Vt), axis=1)
+        Vt = Vt * np.sign(Vt[np.arange(3), pivot])[:, None]
+        np.testing.assert_allclose(res['components'], Vt, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(res['projection'], Xc @ Vt.T, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(res['explained_variance'], S[:3] ** 2 / 39, rtol=1e-12)
+        np.testing.assert_allclose(res['explained_variance_ratio'],
+                                   S[:3] ** 2 / np.sum(S ** 2), rtol=1e-12)
+
 
 class TestTFRAnalyzerCompareConditions(unittest.TestCase):
     """One t-test per location is a family; the count that answers "which differ" is corrected."""

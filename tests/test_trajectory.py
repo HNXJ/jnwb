@@ -335,4 +335,28 @@ class TestComputePopulationTrajectoryDeviceFallback:
         assert "no usable CUDA device" not in messages[0]
         assert res['device_used'] == 'cpu'
 
+    def test_a_non_loader_oserror_is_shown_without_the_conflict_advice(self, monkeypatch):
+        """A PermissionError on the library got the DLL-conflict advice too."""
+        import sys
+
+        class _DeniedTorch:
+            def find_spec(self, name, path=None, target=None):
+                if name == "torch":
+                    raise PermissionError(13, "Permission denied", "libcuda.so")
+                return None
+
+        monkeypatch.delitem(sys.modules, "torch", raising=False)
+        monkeypatch.setattr(sys, "meta_path", [_DeniedTorch(), *sys.meta_path])
+        session = MockSession()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                                time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                                n_components=2, device="cuda")
+        messages = [str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "PyTorch raised PermissionError: [Errno 13] Permission denied: 'libcuda.so'" in messages[0]
+        assert "DLL conflict" not in messages[0] and "import torch first" not in messages[0]
+        assert res['device_used'] == 'cpu'
+
 

@@ -244,7 +244,21 @@ def layer_masks_path(subdir: str | os.PathLike = "publication_visual_review/area
         subdir: The folder under the outputs directory, relative to it. The default is one
             corpus's convention, kept so existing callers resolve the same file; a project
             with another layout passes its own.
+
+    Raises:
+        ValueError: If ``subdir`` is empty, absolute or rooted (``'/x'``, and on Windows ``'C:x'``), or has
+            a ``'..'`` component; each resolves to the outputs directory itself or outside it.
     """
+    parts = Path(subdir)
+    if not parts.parts:
+        raise ValueError(f"layer_masks_path: subdir {subdir!r} is empty; name a folder "
+                         f"under the outputs directory.")
+    if parts.anchor:
+        raise ValueError(f"layer_masks_path: subdir {subdir!r} is absolute; it is relative "
+                         f"to the outputs directory.")
+    if ".." in parts.parts:
+        raise ValueError(f"layer_masks_path: subdir {subdir!r} has a '..' component, which "
+                         f"leaves the outputs directory.")
     return outputs_dir(subdir, "layer_masks.json")
 
 

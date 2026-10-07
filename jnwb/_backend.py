@@ -75,9 +75,10 @@ METAL = "metal"
 DEFAULT_SUPPORTS = (CPU, CUDA)
 
 
-#: The ``OSError`` each backend's last probe raised, by backend name. An ``OSError`` there is
-#: a shared library that failed to load, which on a machine with a GPU is usually a clash
-#: with a CUDA library another package loaded first in the same process.
+#: The ``OSError`` each backend's last probe raised, by backend name. One that
+#: :func:`_is_loader_error` accepts is a shared library that failed to load, which on a
+#: machine with a GPU is usually a clash with a CUDA library another package loaded first
+#: in the same process.
 _LOAD_FAILURES: dict = {}
 
 
@@ -91,6 +92,20 @@ def _probe(backend: str, probe) -> bool:
     except (ImportError, RuntimeError, AttributeError):
         return False
     return available
+
+
+#: Windows loader codes: module not found, procedure not found, bad image, DLL init failed.
+_LOADER_WINERRORS = (126, 127, 193, 1114)
+_LOADER_TEXT = ("dll load failed", "error loading", "cannot open shared object",
+                "undefined symbol", "image not found", "library not loaded")
+
+
+def _is_loader_error(exc: OSError) -> bool:
+    """Whether ``exc`` is a shared library failing to load, rather than any other ``OSError``."""
+    if getattr(exc, "winerror", None) in _LOADER_WINERRORS:
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _LOADER_TEXT)
 
 
 def _cupy_device_count():
@@ -254,14 +269,22 @@ def resolve_device(
     failed = [(name, _LOAD_FAILURES[name]) for name in ("CuPy", "PyTorch")
               if name in backend and name in _LOAD_FAILURES]
     if failed:
-        causes = "; ".join(f"{name} could not load its libraries ({type(exc).__name__}: {exc})"
-                           for name, exc in failed)
-        module = {"CuPy": "cupy", "PyTorch": "torch"}[failed[0][0]]
+        # The conflict advice is for a loader error only; a PermissionError on the
+        # library, say, is a different fault and its text is the whole message.
+        loader = [name for name, exc in failed if _is_loader_error(exc)]
+        causes = "; ".join(
+            f"{name} could not load its libraries ({type(exc).__name__}: {exc})"
+            if name in loader else f"{name} raised {type(exc).__name__}: {exc}"
+            for name, exc in failed)
+        advice = ""
+        if loader:
+            module = {"CuPy": "cupy", "PyTorch": "torch"}[loader[0]]
+            advice = (f" A CUDA library that another package loaded earlier in this process "
+                      f"(CuPy, for example) can conflict with them, a DLL conflict on Windows: "
+                      f"import {module} first, or run in a separate process.")
         warnings.warn(
-            f"{context}: device='cuda' was requested but {causes}. A CUDA library that "
-            f"another package loaded earlier in this process (CuPy, for example) can conflict "
-            f"with them, a DLL conflict on Windows: import {module} first, or run in a "
-            f"separate process. Running on CPU. CPU and GPU paths may disagree numerically.",
+            f"{context}: device='cuda' was requested but {causes}.{advice} Running on CPU. "
+            f"CPU and GPU paths may disagree numerically.",
             RuntimeWarning,
             stacklevel=stacklevel,
         )

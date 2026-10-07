@@ -1,0 +1,1 @@
+- `PopulationAnalyzer.population_trajectory` on data with no variance (every unit constant) returns NaN `components`, as it already returned NaN variances. It returned the identity matrix, which the decomposition of all-zero data yields and no property of the data determines. `projection` stays zero, and results for data with variance are unchanged.
