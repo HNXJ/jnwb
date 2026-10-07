@@ -305,7 +305,7 @@ def phase_slope_index(
     # INTENTIONAL BREAK: the jackknife left out one Welch segment whatever the trial
     # count. Overlapping segments of one trial are dependent, and under zero-lag mixing the
     # segment jackknife rejected in 0.068 on 10 trials of 400 at the default nperseg (70
-    # segments; calibration record psi_trial_jackknife.out, 2000 seeds, se 0.006). It leaves out one
+    # segments; 2000 seeds, se 0.006). It leaves out one
     # trial from three trials on (Nolte et al.'s epoch), and one segment below that.
     jackknife_unit = "trial" if n_trials >= _MIN_TRIALS_FOR_TRIAL_JACKKNIFE else "segment"
     n_units = n_trials if jackknife_unit == "trial" else n_seg

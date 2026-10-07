@@ -1043,6 +1043,12 @@ class TestDirectedMetricsStateTheDirectionTheyMeasure:
             direct = oa.phase_slope_index(lead, lag, **kw)
         assert float(res.value) == float(direct.x_to_y)
 
+    def test_phase_slope_keeps_every_other_warning_for_a_jrsa_caller(self):
+        lead, _ = self._lead_lag()
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            oa.jrsa(lead, np.zeros_like(lead), metric="phase_slope", stats=False, fs=100.0,
+                    bands=(5.0, 20.0), nperseg=64)
+
     def test_the_docstring_says_so(self):
         doc = " ".join(oa.jrsa.__doc__.split())
         assert ("``granger_ssr_ftest`` and ``transfer_entropy_histogram_nats`` measure "

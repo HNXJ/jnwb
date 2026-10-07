@@ -1462,3 +1462,7 @@ class TestEstimatorEdgesRound2:
         assert (a.method, a.x_to_y, a.y_to_x) == (b.method, b.x_to_y, b.y_to_x)
         net = directed_network({"x": x, "y": y}, method="gc", order=2, fdr=False)
         assert net["matrix"][0, 1] == b.x_to_y
+        z = rng.normal(size=400)
+        cond = directed_network({"x": x, "y": y, "z": z}, method="gc", order=2, fdr=False,
+                                conditional=True)
+        assert cond["matrix"].shape == (3, 3)
