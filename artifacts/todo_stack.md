@@ -42,10 +42,10 @@ gives, for the closure pass to classify.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | G connectivity and similarity | 10-06 | `jnwb/connectivity*`, `jnwb/jrsa*`, `jnwb/rsa.py`, their tests, `tests/test_substitution_class_sweep.py`, `tests/test_connectivity_pitfalls.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md` once 10-03 is merged, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| H statistics, spiking and decoding | 10-18, 10-26 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
+| H statistics, spiking and decoding | 10-26 | `jnwb/statistics*`, `jnwb/permutation.py`, `jnwb/spiking.py`, `jnwb/onset_fitting.py`, `jnwb/analyzers.py`, `jnwb/trajectory.py`, `jnwb/gpu_pca.py`, `jnwb/bilinear.py`, `jnwb/nam.py`, `jnwb/artifact_repair.py`, `jnwb/_spread.py`, `jnwb/_bins.py`, `jnwb/_dictlike.py`, `jnwb/paths.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/testing/**`, `artifacts/frozen_validated.json`, their tests, the statistics, spiking, landmark-viz and figures skills, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/07_statistical_inference_and_nulls.md` |
 | R reduction | 10-20, 10-21 | `AGENTS.md`, `artifacts/archive/**`, `artifacts/evidence/0.2.6/**`, `artifacts/evidence/0.2.7/**`, `artifacts/evidence/0.2.8/**`, `artifacts/evidence/0.2.9/**`, `artifacts/evidence/0.2.10/reduction/**`, `tests/test_jnwb_frozen_boundary.py` |
 
-10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-08, 10-13, 10-19, 10-22 and 10-25 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-18, 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
+10-01, 10-02, 10-03, 10-04, 10-05, 10-07, 10-08, 10-13, 10-18, 10-19, 10-22 and 10-25 are merged, and 10-06 rounds 1 and 2; 10-06's residue, 10-20, 10-21, 10-23, 10-24 and 10-26 are open.
 
 ### 10-06 Directed and similarity estimator edges
 
@@ -83,15 +83,6 @@ Left by the 10-22 verification (2026-10-06); shipped behaviour is unchanged by e
 - `dry_run=True` with `in_place=True` and no `backup_path` raises the refusal; a dry run writes nothing. Check: a dry run ignores the missing backup, or the refusal says why. Waits: wording.
 - `docs/repairing_nwb.md` says nwbinspector reports none of the ragged-index values: a claim about a third-party tool with no receipt (`AGENTS.md` 4.1). Check: removed, or traced to a run. Waits: wording.
 Accept: each check passes.
-Stop: none.
-
-### 10-18 A stalled notebook kernel fails the suite instead of hanging it
-
-Release: deferred-0.2.10.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_notebooks.py`.
-- P-368: the full suite hung 40 minutes at 99% on 2026-10-06 (13f8b7e8): three notebook kernels under two xdist workers stopped answering while other jobs loaded the machine. `tests/test_notebooks.py:44` bounds each cell (`timeout=120`) but not kernel start or shutdown, and the suite has no per-test timeout. The file alone passed in 12.5 s and the rerun passed. Check: kernel start, every cell and shutdown are bounded by named constants, and a test whose kernel never answers fails by name within their sum. Waits: a hang gives no pass; fails closed.
-Accept: a test with a kernel that never answers fails within the bound.
 Stop: none.
 
 ### 10-24 `laminar_curation` test reach
