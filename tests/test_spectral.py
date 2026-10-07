@@ -3,6 +3,7 @@ cross-area coherence, 1/f tilt, imaginary coherency, re-referencing).
 """
 from __future__ import annotations
 
+import inspect
 import warnings
 
 import jnwb
@@ -30,6 +31,13 @@ from jnwb.spectral import (
     voltage_curvature_1d,
     current_source_density_1d,
 )
+
+
+def _advanced_once(seed):
+    """The state of `default_rng(seed)` after the one child-seed draw."""
+    gen = np.random.default_rng(seed)
+    gen.integers(0, 2**63 - 1)
+    return gen.bit_generator.state
 
 
 class TestPublicImport:
@@ -266,19 +274,17 @@ class TestSpectralTilt:
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
         assert result["slope"] < 0
 
-    def test_the_exponent_key_is_the_slope_behind_a_deprecation_warning(self):
+    def test_the_exponent_key_is_removed(self):
         """`exponent` held the signed slope, the opposite sign of `aperiodic_fit`'s exponent.
-        `slope` carries it; `exponent` still reads it for one release, with a warning, and
-        is not a key of the dict."""
+        Deprecated in 0.2.7 for `slope`, it is gone in 0.2.10: reading it raises KeyError."""
         pink = np.cumsum(np.random.default_rng(0).standard_normal(20000))
         result = spectral_tilt(pink, sampling_rate=1000.0, freq_range=(1.0, 100.0))
-        assert "slope" in result and "exponent" not in list(result)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            slope = result["slope"]
-        with pytest.warns(DeprecationWarning, match="'exponent' is deprecated.*read 'slope'"):
-            old = result["exponent"]
-        np.testing.assert_allclose(old, slope, rtol=1e-12)
+            assert np.isfinite(result["slope"])
+            with pytest.raises(KeyError):
+                result["exponent"]
+        assert "exponent" not in result and result.get("exponent") is None
 
     def test_flat_zero_signal_has_undefined_tilt_without_warning(self):
         """INTENTIONAL BREAK (0.2.4).
@@ -856,11 +862,18 @@ class TestCrossAreaCoherenceSurrogateContract:
         assert a['band_significance'] == b['band_significance']
         assert a['surrogate_seed_entropy'] == 42, "the default seed must be recordable in a receipt"
 
-    def test_caller_supplied_rng_reports_no_seed(self):
-        """A receipt must not claim a seed jnwb did not choose."""
+    def test_a_generator_gives_a_recorded_child_seed_that_reproduces_the_null(self):
+        """A Generator was drawn from in place and recorded None, so the result alone could
+        not reproduce its p-values. It now gives up one draw, the child seed recorded."""
         x, y = self._signals()
-        out = cross_area_coherence(x, y, fs=1000.0, rng=np.random.default_rng(99), freq_bands="canonical")
-        assert out['surrogate_seed_entropy'] is None
+        gen = np.random.default_rng(99)
+        out = cross_area_coherence(x, y, fs=1000.0, rng=gen, freq_bands="canonical")
+        child = int(np.random.default_rng(99).integers(0, 2**63 - 1))
+        assert out['surrogate_seed_entropy'] == child
+        assert gen.bit_generator.state == _advanced_once(99)
+        again = cross_area_coherence(x, y, fs=1000.0, rng=child, freq_bands="canonical")
+        assert again['band_significance'] == out['band_significance']
+        assert again['surrogate_seed_entropy'] == child
 
     def test_n_surrogates_sets_the_p_value_floor(self):
         """JNWB-005: the floor used to depend on input length, undisclosed."""
@@ -903,7 +916,9 @@ class TestCrossAreaCoherenceSurrogateContract:
     def test_cuda_failure_falls_back_wholesale_and_warns(self, monkeypatch):
         """A GPU failure must not yield a null that mixes two estimators."""
         import jnwb._backend as backend
-        import jnwb.spectral as spectral_module
+
+        # patched where cross_area_coherence looks the name up
+        spectral_module = inspect.getmodule(cross_area_coherence)
 
         def always_fails(*args, **kwargs):
             raise RuntimeError("simulated GPU out-of-memory")
@@ -1295,14 +1310,16 @@ class TestRelativePower:
         np.testing.assert_allclose(res_scalar, [[1.0, 2.0], [4.0, 8.0]], rtol=1e-12)
         np.testing.assert_allclose(res_column, [[1.0, 2.0], [2.0, 4.0]], rtol=1e-12)
 
-    def test_a_baseline_of_fewer_dimensions_warns_that_it_will_be_refused(self):
-        """A (2,) baseline against (2, 2) power aligns with the trailing axis, dividing each
-        column, where aggregate_to_db and TFRAccumulator.add_trial refuse it. It still
-        broadcasts this release."""
+    @pytest.mark.parametrize("model", ["mean_of_ratios", "ratio_of_means", "log_ratio"])
+    def test_a_baseline_of_fewer_dimensions_is_refused(self, model):
+        """A (2,) baseline against (2, 2) power would align with the trailing axis, dividing
+        each column. Broadcast with a FutureWarning from 0.2.7, it is refused from 0.2.10,
+        as in aggregate_to_db and TFRAccumulator.add_trial."""
         power = np.array([[2.0, 4.0], [8.0, 16.0]])
-        with pytest.warns(FutureWarning, match=r"baseline\[:, None\].*next release raises"):
-            res = relative_power(power, np.array([2.0, 4.0]), model="mean_of_ratios")
-        np.testing.assert_allclose(res, [[1.0, 1.0], [4.0, 4.0]], rtol=1e-12)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with pytest.raises(ValueError, match=r"baseline\[:, None\]"):
+                relative_power(power, np.array([2.0, 4.0]), model=model)
 
     def test_preservation_of_linear_scale(self):
         """Linear ratios are never converted to decibels unless model='log_ratio'."""
@@ -1990,11 +2007,12 @@ class TestBandPowerEstimandIsDocumented:
             np.mean(psd[mask])
         )
 
-    def test_the_value_is_a_density_not_an_integrated_power(self):
+    def test_the_value_is_independent_of_the_bandwidth(self):
         """A 2 Hz band and a 30 Hz band of white noise agree to within 20%, where their
         integrated powers differ by roughly the bandwidth ratio. That is the property the
         docstring has to state, because it is what makes two bands non-comparable as
-        powers.
+        powers. A ratio of two bands cannot see Welch's density scaling, which cancels;
+        `test_band_power_is_the_mean_psd_over_the_band` checks that.
         """
         x = self._trace()
         narrow = band_power(x, fs=1000.0, freq_range=(19.0, 21.0), normalize=False)
@@ -2027,7 +2045,20 @@ class TestCoherenceGpuFallbackKeepsTheNull:
         from scipy import signal
 
         x, y = self._signals()
+        # Each CPU estimator call's second trace, in call order: the observed y, then each
+        # circular shift of it. Band p-values count the shifts as a set, so a fallback that
+        # used another order or set of shifts could match them and still differ here (IB-60).
+        cpu_inputs = []
+        real_coherence = signal.coherence
+
+        def recording_coherence(a, b, *args, **kwargs):
+            cpu_inputs.append(np.asarray(b).tobytes())
+            return real_coherence(a, b, *args, **kwargs)
+
+        monkeypatch.setattr(signal, "coherence", recording_coherence)
         cpu = sp.cross_area_coherence(x, y, device="cpu", **self.KW)
+        cpu_run, cpu_inputs[:] = list(cpu_inputs), []
+        assert len(cpu_run) == self.KW["n_surrogates"] + 1
         calls = {"n": 0}
 
         def flaky_gpu(a, b, fs, nperseg, noverlap=None, **_):
@@ -2039,12 +2070,14 @@ class TestCoherenceGpuFallbackKeepsTheNull:
             _, pxy = signal.csd(a, b, fs=fs, nperseg=nperseg, noverlap=noverlap)
             return f, pxx, pyy, pxy
 
-        monkeypatch.setattr(sp, "resolve_device", lambda *a, **k: sp.CUDA)
-        monkeypatch.setattr(sp, "_welch_csd_gpu", flaky_gpu)
+        coupling = inspect.getmodule(sp.cross_area_coherence)
+        monkeypatch.setattr(coupling, "resolve_device", lambda *a, **k: sp.CUDA)
+        monkeypatch.setattr(coupling, "_welch_csd_gpu", flaky_gpu)
         with pytest.warns(Warning):
             fell_back = sp.cross_area_coherence(x, y, device="cuda", **self.KW)
 
         assert calls["n"] == fail_after + 1
+        assert cpu_inputs == cpu_run, "the fallback's shifts differ from the CPU run's"
         assert fell_back["device_used"] == "cpu"
         assert fell_back["surrogate_seed_entropy"] == cpu["surrogate_seed_entropy"]
         assert fell_back["band_significance"] == cpu["band_significance"]
@@ -2098,7 +2131,7 @@ class TestDecibelSitesShareOneConversion:
             calls.append(np.shape(ratio))
             return shared(ratio)
 
-        monkeypatch.setattr(sp, "_ratio_to_db", recording)
+        monkeypatch.setattr(inspect.getmodule(sp.band_power), "_ratio_to_db", recording)
         sp.relative_power(np.full((2, 3), 2.0), np.ones((2, 3)), model="log_ratio")
         assert calls == [(2, 3)], "relative_power(model='log_ratio') bypassed to_db"
         x, base = self._traces()
@@ -2142,3 +2175,136 @@ class TestDecibelSitesShareOneConversion:
             band_power(x, fs=self.FS, freq_range=self.BAND, baseline=flat)
         with pytest.raises(ValueError, match="must be finite"):
             band_power(np.r_[np.inf, x[1:]], fs=self.FS, freq_range=self.BAND, baseline=base)
+
+
+class TestConstantTraceSpectrumIsZero:
+    """A constant trace left rounding residue (1e-33 to 1e-23) in both PSD estimators, a
+    spectrum with power where the detrended trace has none."""
+
+    @staticmethod
+    def _rows():
+        rng = np.random.default_rng(5)
+        rows = rng.standard_normal((3, 2000))
+        rows[1] = 0.3  # 0.3 is inexact in binary, so its mean-removal leaves residue
+        return rows
+
+    def test_welch_constant_channel_is_exactly_zero_and_others_unchanged(self):
+        from scipy import signal
+
+        rows = self._rows()
+        _, psd = compute_psd(rows, 1000.0, axis=-1)
+        assert np.all(psd[1] == 0.0)
+        _, ref = signal.welch(rows[[0, 2]], fs=1000.0, nperseg=1000, axis=-1)
+        assert psd[[0, 2]].tobytes() == ref.tobytes()
+        _, time_major = compute_psd(rows.T, 1000.0, axis=0)
+        assert np.all(time_major[:, 1] == 0.0)
+
+    def test_multitaper_constant_channel_is_exactly_zero_and_others_unchanged(self):
+        rows = self._rows()
+        _, psd = compute_multitaper_psd(rows, 1000.0)
+        assert np.all(psd[1] == 0.0)
+        for k in (0, 2):
+            assert psd[k].tobytes() == compute_multitaper_psd(rows[k], 1000.0)[1].tobytes()
+
+    def test_multitaper_infinite_constant_stays_nan(self):
+        _, psd = compute_multitaper_psd(np.full(64, np.inf), 1000.0)
+        assert np.all(np.isnan(psd))
+
+
+class TestAperiodicFitRobust:
+    """`aperiodic_fit` fitted every bin, so a 10 Hz peak moved a 1/f^2 exponent to about
+    2.16. `robust=True` is FOOOF's robust aperiodic fit (`_robust_ap_fit`)."""
+
+    FREQS = np.arange(1.0, 120.0, 0.5)
+
+    def _spectra(self):
+        noise = np.exp(np.random.default_rng(0).normal(0.0, 0.05, self.FREQS.size))
+        clean = 10 ** (1.0 - 2.0 * np.log10(self.FREQS)) * noise
+        peak = 1.0 + 3.0 * np.exp(-0.5 * ((self.FREQS - 10.0) / 1.5) ** 2)
+        return clean, clean * peak
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_a_peak_biases_the_default_and_not_the_robust_fit(self, mode):
+        clean, peaked = self._spectra()
+        default = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode)
+        robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, robust=True)
+        assert default.exponent - 2.0 > 0.15, default
+        assert abs(robust.exponent - 2.0) < 0.03 if mode == "fixed" else robust.exponent < 2.2
+        assert robust.accepted and robust.mode == mode
+        on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, robust=True)
+        assert abs(on_clean.exponent - 2.0) < 0.01, on_clean
+
+    def test_the_default_is_unchanged_and_the_flag_is_keyword_only(self):
+        _, peaked = self._spectra()
+        assert (aperiodic_fit(self.FREQS, peaked, (2.0, 40.0)).to_dict()
+                == aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), robust=False).to_dict())
+        sig = inspect.signature(aperiodic_fit).parameters["robust"]
+        assert sig.kind is inspect.Parameter.KEYWORD_ONLY and sig.default is False
+
+    def test_fewer_than_four_kept_bins_reject_the_fit(self):
+        """Four bins with noise: least-squares residuals sum to 0, so at least one lies above
+        the first fit and is dropped, leaving three; a rejected fit, not a fabricated one."""
+        clean, _ = self._spectra()
+        assert aperiodic_fit(self.FREQS, clean, (2.0, 3.5)).accepted
+        res = aperiodic_fit(self.FREQS, clean, (2.0, 3.5), robust=True)
+        assert not res.accepted and res.exponent is None
+
+    def test_only_the_bins_at_the_threshold_percentile_are_refitted(self):
+        """Residuals that are mostly positive, so the percentile decides the kept set. Every
+        8th bin lies on a parallel line 0.5 decades lower; the first fit passes between, so
+        only those bins sit below it and clip to 0. The 0.025th percentile keeps them alone
+        and the refit lands on their line (offset 0.5); a 50th or 75th percentile also keeps
+        bins of the upper line and raises the offset."""
+        log_f = np.log10(self.FREQS)
+        offset = np.where(np.arange(self.FREQS.size) % 8 == 0, 0.5, 1.0)
+        psd = 10 ** (offset - 2.0 * log_f)
+        res = aperiodic_fit(self.FREQS, psd, (2.0, 40.0), robust=True)
+        assert res.accepted
+        assert res.offset == pytest.approx(0.5, abs=1e-9)
+        assert res.exponent == pytest.approx(2.0, abs=1e-9)
+
+
+def _cuda_device_count():
+    try:
+        import cupy as cp
+        return cp.cuda.runtime.getDeviceCount()
+    except Exception:
+        return 0
+
+
+class TestCoherenceWithAConstantChannel:
+    """A constant channel's mean removal leaves rounding residue, and the coherence ratio
+    turned it into a value: about 0.05 per band on the CPU and 0.0 on CUDA, with a p-value
+    beside it. Coherence with a channel that does not vary is undefined (P-331)."""
+
+    KW = dict(fs=1000.0, freq_bands="canonical", n_surrogates=20)
+
+    @pytest.mark.parametrize("device", [
+        "cpu",
+        pytest.param("cuda", marks=pytest.mark.skipif(
+            _cuda_device_count() == 0, reason="CUDA GPU not available")),
+    ])
+    @pytest.mark.parametrize("which", [0, 1])
+    def test_every_value_is_nan_on_each_device(self, device, which):
+        x = np.random.default_rng(0).standard_normal(4000)
+        pair = [x, np.full(4000, 0.3)]
+        if which:
+            pair.reverse()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = cross_area_coherence(*pair, device=device, **self.KW)
+        assert out["device_used"] == device
+        assert set(out["band_coherence"]) == set(CANONICAL_BANDS)
+        assert all(np.isnan(v) for v in out["band_coherence"].values())
+        assert all(np.isnan(v) for v in out["band_significance"].values())
+        assert np.all(np.isnan(out["coherence_spectrum"]))
+        assert np.isnan(out["peak_coherence_value"]) and np.isnan(out["peak_coherence_freq"])
+        ref = cross_area_coherence(x, x[::-1].copy(), device="cpu", **self.KW)
+        np.testing.assert_array_equal(out["frequencies"], ref["frequencies"])
+        assert out["surrogate_seed_entropy"] == 42
+
+    def test_a_varying_pair_is_unchanged(self):
+        rng = np.random.default_rng(1)
+        x, y = rng.standard_normal(4000), rng.standard_normal(4000)
+        out = cross_area_coherence(x, y, **self.KW)
+        assert all(np.isfinite(v) for v in out["band_coherence"].values())

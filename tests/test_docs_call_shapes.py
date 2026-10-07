@@ -80,9 +80,11 @@ COVERED_PAGES = frozenset({
     "docs/common_mistakes.md",
     "docs/errors.md",
     "docs/index.md",
+    "docs/laminar.md",
     "docs/quickstart.md",
     "docs/reading_nwb.md",
     "docs/recipes.md",
+    "docs/repairing_nwb.md",
     "docs/vis.md",
 })
 
@@ -97,8 +99,8 @@ FORM_IMPORTED_ATTR = "<alias>.<name>(...) where the block imports <alias> from j
 #: calls were collected and two on the same page were not, so a check asking only whether
 #: the form occurs at all would have stayed green over the defect that was there.
 CALL_FORMS = {
-    FORM_TOP: 147,
-    FORM_DOTTED: 8,
+    FORM_TOP: 153,
+    FORM_DOTTED: 10,
     FORM_IMPORTED: 10,
     FORM_IMPORTED_ATTR: 5,
 }
@@ -107,7 +109,7 @@ CALL_FORMS = {
 #: than in a fence, so it needs its own collector. These are its data rows and the three
 #: ways a row is resolved to something with parameters.
 SPEC_PAGE = "docs/10_operation_specifications.md"
-SPEC_ROW_COUNT = 11
+SPEC_ROW_COUNT = 16
 STRATEGY_SIGNATURE = "the Operation names a callable in the Module Location"
 STRATEGY_CALL_FORMS = "the Input column holds call forms against a named class"
 STRATEGY_MODULE_UNION = "the Operation names a module; any of its callables may own the name"
@@ -355,12 +357,16 @@ def _spec_table_rows():
 
 
 def _module_union(module):
-    """Every parameter name of every callable the module itself defines."""
+    """Every parameter name of every callable the module itself defines, counting a package's
+    private submodules (``jnwb.connectivity._granger``) as the package."""
     names = set()
     for attr, obj in vars(module).items():
         if attr.startswith("_") or not callable(obj):
             continue
-        if getattr(obj, "__module__", None) != module.__name__:
+        home = getattr(obj, "__module__", None) or ""
+        private_part = (home.startswith(module.__name__ + "._")
+                        and home.count(".") == module.__name__.count(".") + 1)
+        if home != module.__name__ and not private_part:
             continue
         try:
             names |= set(inspect.signature(obj).parameters)

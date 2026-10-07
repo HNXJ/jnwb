@@ -14,104 +14,74 @@ reintroduces a project coupling. These tests are.
 """
 from __future__ import annotations
 
-import ast
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts import harness_gate  # noqa: E402
+from scripts.harness_gate import check_frozen_boundary  # noqa: E402
 JNWB_DIR = REPO_ROOT / "jnwb"
 TESTS_DIR = REPO_ROOT / "tests"
 
-# (path relative to jnwb/, fully-qualified module imported) -- the ONLY omission-side imports
-# jnwb/ may contain, and only as lazy, function-body-local imports. Any other omission import
-# anywhere under jnwb/, whether or not inside a function body, fails the freeze.
+# The import scan is `check_frozen_boundary` in scripts/harness_gate.py, and the only omission-side
+# imports jnwb/ may contain are its `AUTHORIZED_JNWB_EXCEPTIONS`, each a lazy, function-body-local
+# import. Any other omission import anywhere under jnwb/, whether or not inside a function body,
+# fails it.
 #
-# This set is now EMPTY. addressing.py's exception was removed 2026-09-03: importing the
+# That set is EMPTY. addressing.py's exception was removed 2026-09-03: importing the
 # project's parser meant jnwb resolved probe areas differently depending on whether omission
 # happened to be importable, so installing a project package silently changed which cortical
 # area a unit was assigned to. addressing.py now carries no area vocabulary at all: it only
 # splits the label on comma or slash and trims whitespace, preserving every label as written.
 # jrsa.py's exception went with the connectivity promotion on 2026-08-23.
-AUTHORIZED_EXCEPTIONS: set = set()
-
-
-def _iter_py_files():
-    for p in JNWB_DIR.rglob("*.py"):
-        if "__pycache__" in p.parts:
-            continue
-        yield p
-
-
-def _omission_imports(tree: ast.Module):
-    """Yield (lineno, module_name, is_module_level) for every omission/-side import in tree."""
-    module_level_nodes = set(id(n) for n in tree.body)
-    for node in ast.walk(tree):
-        names = []
-        if isinstance(node, ast.Import):
-            names = [a.name for a in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                names = [node.module]
-        for name in names:
-            if name == "omission" or name.startswith("omission."):
-                yield node.lineno, name, id(node) in module_level_nodes
 
 
 class TestJnwbFrozenBoundary:
     def test_no_unauthorized_omission_imports(self):
-        violations = []
-        for f in _iter_py_files():
-            rel = f.relative_to(JNWB_DIR).as_posix()
-            tree = ast.parse(f.read_text(encoding="utf-8"), filename=str(f))
-            for lineno, modname, _module_level in _omission_imports(tree):
-                if (rel, modname) not in AUTHORIZED_EXCEPTIONS:
-                    violations.append(f"jnwb/{rel}:{lineno} imports {modname!r}")
+        violations = check_frozen_boundary(JNWB_DIR)
         assert not violations, (
-            "jnwb/ imports from omission/ (see AUTHORIZED_EXCEPTIONS in this test). "
-            "Either this is a new coupling that needs Hamm's explicit authorization before it "
-            "can land, or AUTHORIZED_EXCEPTIONS needs updating alongside it:\n"
+            "jnwb/ imports from omission/ (see AUTHORIZED_JNWB_EXCEPTIONS in "
+            "scripts/harness_gate.py). Either this is a new coupling that needs Hamm's explicit "
+            "authorization before it can land, or a listed exception is no longer lazy:\n"
             + "\n".join(violations)
         )
 
-    def test_the_module_level_import_detector_works(self):
-        """`AUTHORIZED_EXCEPTIONS` is empty, so the test below iterates nothing.
+    def test_the_scan_finds_imports_at_both_levels_and_holds_exceptions_lazy(
+        self, tmp_path, monkeypatch
+    ):
+        """jnwb/ has no omission import and no exception, so the scan passes by finding nothing.
 
-        That is the intended state, and it means the detector the test depends on is
-        never exercised: it would keep passing if `_omission_imports` stopped finding
-        anything. Exercise it directly, so the first exception added is checked by code
-        known to work.
+        It would keep passing if it stopped finding anything. Exercise it on a tree that has
+        imports at module level and inside a function body, then with two of them authorized:
+        the lazy one is accepted, the module-level one still fails.
         """
-        src = (
+        (tmp_path / "m.py").write_text(
             "import omission.alpha\n"
             "from omission.beta import thing\n"
             "import numpy\n"
             "def f():\n"
-            "    import omission.gamma\n"
+            "    import omission.gamma\n",
+            encoding="utf-8",
         )
-        found = [(mod, at_module_level)
-                 for _, mod, at_module_level in sorted(_omission_imports(ast.parse(src)))]
-        assert found == [
-            ("omission.alpha", True),
-            ("omission.beta", True),
-            ("omission.gamma", False),
-        ], found
-
-    def test_authorized_exceptions_are_lazy_not_module_level(self):
-        # Both authorized exceptions must be call-time imports inside a function body, never
-        # at module level -- `import jnwb` alone must never require omission/ to exist.
-        violations = []
-        for relname, modname in AUTHORIZED_EXCEPTIONS:
-            f = JNWB_DIR / relname
-            tree = ast.parse(f.read_text(encoding="utf-8"), filename=str(f))
-            for lineno, found_mod, module_level in _omission_imports(tree):
-                if found_mod == modname and module_level:
-                    violations.append(f"jnwb/{relname}:{lineno} imports {modname!r} at module level")
-        assert not violations, (
-            "An authorized omission/ import is no longer lazy -- this breaks the guarantee that "
-            "jnwb/ is importable without omission/ present:\n" + "\n".join(violations)
+        assert sorted(check_frozen_boundary(tmp_path)) == [
+            "UNAUTHORIZED_IMPORT: m.py:1 imports 'omission.alpha'",
+            "UNAUTHORIZED_IMPORT: m.py:2 imports 'omission.beta'",
+            "UNAUTHORIZED_IMPORT: m.py:5 imports 'omission.gamma'",
+        ]
+        monkeypatch.setattr(
+            harness_gate,
+            "AUTHORIZED_JNWB_EXCEPTIONS",
+            {("m.py", "omission.alpha"), ("m.py", "omission.gamma")},
         )
+        assert sorted(check_frozen_boundary(tmp_path)) == [
+            "NON_LAZY_IMPORT: m.py:1 imports 'omission.alpha' at module level",
+            "UNAUTHORIZED_IMPORT: m.py:2 imports 'omission.beta'",
+        ]
 
     def test_jnwb_test_suite_does_not_import_omission(self):
         """The suite that guards the freeze must itself run without omission/ present.
@@ -122,14 +92,7 @@ class TestJnwbFrozenBoundary:
         which is exactly what happened between 2026-09-03 and 2026-09-04. Project-side tests
         belong in omission/tests/.
         """
-        violations = []
-        for f in TESTS_DIR.rglob("*.py"):
-            if "__pycache__" in f.parts:
-                continue
-            tree = ast.parse(f.read_text(encoding="utf-8"), filename=str(f))
-            for lineno, modname, _ in _omission_imports(tree):
-                violations.append(f"tests/{f.relative_to(TESTS_DIR).as_posix()}:{lineno} "
-                                  f"imports {modname!r}")
+        violations = check_frozen_boundary(TESTS_DIR)
         assert not violations, (
             "The jnwb test suite imports a project package, so it cannot run on a checkout "
             "that has only jnwb (i.e. CI). Move these tests into omission/tests/:\n"

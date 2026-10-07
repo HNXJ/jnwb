@@ -14,7 +14,7 @@ import logging
 from typing import Optional, Dict, List, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import bins_within, onset_locked_counts, whole_bin_count
+from ._bins import bins_within, onset_locked_counts, onset_window, whole_bin_count
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
 import pandas as pd
@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis
 from .spiking import _count_fano
-from .unit_quality import isi_cv
+from .unit_quality import isi_cv, refractory_contamination
 from .spectral import CANONICAL_BANDS
 
 log = logging.getLogger(__name__)
@@ -331,12 +331,16 @@ class UnitAnalyzer:
         """
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
+        # spike - onset in [pre, post], both edges inclusive (`onset_window`); each trial keeps
+        # its spikes in input order.
+        spike_times = np.asarray(spike_times)
+        order = np.argsort(np.asarray(spike_times, dtype=float), axis=None, kind='stable')
+        st = np.asarray(spike_times, dtype=float).ravel()[order]
+        lo, hi = onset_window(st, trial_onsets, win_sec[0], win_sec[1], right_closed=True)
         for trial_idx, onset in enumerate(trial_onsets):
-            mask = ((spike_times >= onset + win_sec[0]) &
-                    (spike_times <= onset + win_sec[1]))
             raster_data.append({
                 'trial':       trial_idx,
-                'spike_times': spike_times[mask] - onset,
+                'spike_times': spike_times.ravel()[np.sort(order[lo[trial_idx]:hi[trial_idx]])] - onset,
             })
 
         return {
@@ -377,14 +381,14 @@ class UnitAnalyzer:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
                 ``bin_size_ms``; the message names the nearest valid windows.
         """
-        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms")
+        n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
+                                   width_param="bin_size_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)
         bin_sec  = bin_size_ms / 1000
         bin_edges = np.linspace(win_sec[0], win_sec[1], n_bins + 1)
 
-        # [onset + pre, onset + post], both edges inclusive. The subtraction used to round a
-        # spike on either edge just outside the outer bin edges, where np.histogram dropped
-        # it: with onsets 0.7 s apart from 2 s, 114 of 405 at the left edge and 147 at the right.
+        # spike - onset in [pre, post], both edges inclusive, and every selected spike is
+        # counted (`onset_locked_counts`).
         trial_psths = onset_locked_counts(spike_times, trial_onsets, win_sec[0], win_sec[1],
                                           bin_edges, 1.0, right_closed=True) / bin_sec
         mean_psth = np.mean(trial_psths, axis=0)
@@ -562,9 +566,12 @@ class UnitAnalyzer:
         windows from the first spike, by the rule of :func:`jnwb.fano_factor`: the unbiased
         (``ddof=1``) variance. Up to 0.2.8 it was the population variance (``ddof=0``),
         ``(n - 1) / n`` of this over ``n`` windows, half at two windows. The variance rule is
-        shared and the windowing is not: here the windows are ``[t0 + k, t0 + k + 1)`` from
-        the first spike ``t0`` with the last one closed, so a spike at the train's end counts,
-        where the trial windows of :func:`jnwb.fano_factor` are right-open.
+        shared and the windowing is not: here the windows are the whole seconds
+        ``[t0 + k, t0 + k + 1)`` from the first spike ``t0``, ``k < floor(t_last - t0)``,
+        with the last one closed, where the trial windows of :func:`jnwb.fano_factor`
+        are right-open. Spikes after the last whole second are not counted, so the train's
+        last spike counts only when its span is a whole number of seconds: spikes at 0,
+        0.5, 1.2 and 2.5 s give counts 2 and 1 and a Fano factor of 1/3.
 
         ``cv_isi`` is :func:`jnwb.isi_cv`, with the unbiased (``ddof=1``) standard deviation
         of the intervals. Up to 0.2.8 it used ``ddof=0`` and read lower by
@@ -581,7 +588,8 @@ class UnitAnalyzer:
             waveform_duration_us: Trough-to-peak duration (µs)
             firing_rate: Mean firing rate (Hz)
             refractory_ms: An inter-spike interval shorter than this, in ms, is a
-                refractory violation.
+                refractory violation, by the rule of :func:`jnwb.refractory_contamination`:
+                an interval within 1 ns of it counts as equal to it.
             max_violation_pct: The verdict needs a violation rate, in percent of
                 intervals, below this.
             max_fano: The verdict needs a Fano factor below this.
@@ -622,7 +630,9 @@ class UnitAnalyzer:
         isis    = np.diff(spike_times)
         isis_ms = isis * 1000
 
-        refr_violations    = int((isis_ms < refractory_ms).sum())
+        refr_violations = refractory_contamination(
+            spike_times, duration_s=float(spike_times[-1] - spike_times[0]) if isis.size else 0.0,
+            refractory_ms=refractory_ms, censored_ms=0.0)["n_violations"]
         refr_violation_pct = 100.0 * refr_violations / len(isis) if len(isis) > 0 else np.nan
 
         # Fano factor via histogram (vectorized); a variance needs two windows.
@@ -844,9 +854,21 @@ class PopulationAnalyzer:
 
             As in :func:`jnwb.compute_population_trajectory`, a component beyond
             ``min(n_time_bins, n_units)`` does not exist, so its projection column,
-            component row and variances are NaN, and with no total variance both variance
-            arrays are NaN.
+            component row and variances are NaN, and with exactly zero total variance the
+            projection, both variance arrays and every component are NaN. Centring a constant
+            unit can leave rounding residue (a constant 0.1 does), which is variance here.
+            Its note on components whose singular values nearly coincide, whose agreement between devices is undefined, applies here too, and float32
+            input is decomposed in float32.
+
+        Raises:
+            ValueError: If ``X`` is not 2-D.
         """
+        X = np.asarray(X)
+        if X.ndim != 2:
+            raise ValueError(
+                f"PopulationAnalyzer.population_trajectory: X must be 2-D "
+                f"(n_time_bins, n_units), got shape {X.shape}. A single unit is X[:, None]."
+            )
         X_mean = np.mean(X, axis=0)
         X_centered = X - X_mean
         n_samples = X.shape[0]
@@ -854,7 +876,8 @@ class PopulationAnalyzer:
         def _result(s: np.ndarray, vt: np.ndarray, device_used: str) -> Dict[str, np.ndarray]:
             vt = vt[:n_components, :]
             projection, vt, explained_variance, explained_variance_ratio, _ = _kept_components(
-                s, vt, X_centered @ vt.T, n_samples, n_components)
+                s, vt, X_centered @ vt.T, n_samples, n_components,
+                nan_projection_without_variance=True)
             return {
                 'projection': projection,
                 'components': vt,
@@ -863,7 +886,8 @@ class PopulationAnalyzer:
                 'device_used': device_used,
             }
 
-        if resolve_device(device, context='population_trajectory', prefer=None) == CUDA:
+        if resolve_device(device, context='PopulationAnalyzer.population_trajectory',
+                          prefer=None) == CUDA:
             last_exc = None
             try:
                 import cupy as cp
@@ -886,7 +910,7 @@ class PopulationAnalyzer:
                     log.warning(f"GPU trajectory SVD via PyTorch failed: {e2}. Falling back to CPU SVD.")
 
             if last_exc is not None:
-                warn_device_fallback("population_trajectory", last_exc)
+                warn_device_fallback("PopulationAnalyzer.population_trajectory", last_exc)
 
         u, s, vt = np.linalg.svd(X_centered, full_matrices=False)
         return _result(s, vt, CPU)

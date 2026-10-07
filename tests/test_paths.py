@@ -5,6 +5,7 @@ with warnings, precedence resolution, and path composition.
 """
 from __future__ import annotations
 
+import sys
 import warnings
 import pytest
 from pathlib import Path
@@ -122,6 +123,31 @@ class TestOutputsAndArtifacts:
         assert paths.outputs_dir() == Path.cwd() / "outputs"
         assert paths.artifacts_dir() == Path.cwd() / "artifacts"
         assert paths.layer_masks_path() == Path.cwd() / "outputs" / "publication_visual_review" / "area_layer_tfr" / "layer_masks.json"
+
+    def test_layer_masks_path_takes_a_subdir_of_the_outputs_directory(self, monkeypatch, tmp_path):
+        """The folder was hardcoded to one corpus's layout; that layout stays the default."""
+        monkeypatch.setenv(paths.ENV_OUTPUTS_DIR, str(tmp_path))
+        assert paths.layer_masks_path("masks") == tmp_path / "masks" / "layer_masks.json"
+        assert paths.layer_masks_path(subdir=Path("a", "b")) == tmp_path / "a" / "b" / "layer_masks.json"
+        assert (paths.layer_masks_path()
+                == tmp_path / "publication_visual_review" / "area_layer_tfr" / "layer_masks.json")
+
+    @pytest.mark.parametrize("subdir, named", [
+        ("", "empty"),
+        (".", "empty"),
+        pytest.param("C:x", "absolute", marks=pytest.mark.skipif(
+            sys.platform != "win32", reason="a drive-relative path roots only on Windows")),
+        (str(Path.cwd()), "absolute"),
+        ("/masks", "absolute"),
+        ("../masks", "'..'"),
+        (Path("a", "..", "..", "b"), "'..'"),
+    ])
+    def test_layer_masks_path_refuses_a_subdir_outside_the_outputs_directory(
+            self, monkeypatch, tmp_path, subdir, named):
+        monkeypatch.setenv(paths.ENV_OUTPUTS_DIR, str(tmp_path))
+        with pytest.raises(ValueError, match=named) as info:
+            paths.layer_masks_path(subdir)
+        assert "subdir" in str(info.value)
 
     def test_outputs_and_artifacts_independent_of_package_install_location(self, monkeypatch, tmp_path):
         """Simulate jnwb installed under site-packages and verify outputs/artifacts resolve to consumer cwd."""

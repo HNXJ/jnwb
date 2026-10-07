@@ -48,9 +48,8 @@ metrics = jnwb.compute_response_metrics(
 
 # pvalue is the two-sided conditional binomial test on the spike counts summed
 # over trials: exact for unequal windows, it assumes Poisson firing within a
-# trial and falls as trials accumulate. Bursting makes it too small: with no
-# effect, 5 Hz firing in bursts of four spikes over 200 trials puts about 30%
-# of units below 0.05. A significant response needs both
+# trial and falls as trials accumulate. Bursting makes it too small, by the
+# amount help(jnwb.classify_response_significance) states. A significant response needs both
 # |response_zscore| >= zscore_threshold (the effect size) and pvalue < alpha.
 sig_result = jnwb.classify_response_significance(metrics, zscore_threshold=2.58, alpha=0.01)
 print("Significant:", sig_result["is_significant"])

@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.9'
-__release_date__ = '2026-10-05'
+__version__ = '0.2.10'
+__release_date__ = '2026-10-07'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -42,14 +42,14 @@ log = logging.getLogger(__name__)
 from .jrsa import jrsa, JRSAResult
 from .rsa import rdm, rdm_similarity
 
-# Central path resolution (2026-08-08). `jnwb.paths.describe()` reports every root
+# Central path resolution. `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
 from . import paths
 
-# Poolable TFR summary statistics (2026-08-08), per nwb_tfr_storage_spec.md Part 2/3.
+# Poolable TFR summary statistics.
 from .tfr_accumulator import TFRAccumulator, assert_mergeable
 
-# NWB fp32 compression (2026-08-09), per nwb_tfr_storage_spec.md Part 1.
+# NWB fp32 compression.
 from .compression import compress_fp32
 from .nwb_io import MissingRequiredNWBFieldError, SqueezedAttributeWarning, nwb_read_io, read_nwb
 from .nwb_inspect import (
@@ -75,6 +75,14 @@ from .nwb_events import (
     events,
     resolve_interval_table,
 )
+from .nwb_integrity import (
+    RaggedIndexRepair,
+    RaggedIndexReport,
+    RaggedIndexRepairRefused,
+    check_ragged_indices,
+    repair_ragged_index,
+)
+from .nwb_validate import NWBValidationReport, validate_nwb
 from .continuous import epoch_continuous
 from .addressing import (
     map_peak_channel_to_area,
@@ -92,6 +100,14 @@ from .laminar import (
     XFlipResult,
     zflip,
     ZFlipResult,
+)
+from .laminar_curation import (
+    curate_and_label,
+    detect_bad_channels,
+    evoked_csd_sink,
+    fuse_laminar_anchors,
+    interpolate_channel_runs,
+    LaminarCurationResult,
 )
 
 #: `__version__` is a literal, so two copies carry the same string whether or not they carry
@@ -152,8 +168,8 @@ from .trajectory import (
     compute_population_trajectory,
 )
 
-# Canonical label-permutation primitive for null construction (2026-08-10; see
-# jnwb/permutation.py's module docstring for the exchangeability bug it fixed).
+# Canonical label-permutation primitive for null construction (see
+# jnwb/permutation.py's module docstring).
 from .permutation import permute_labels, build_permutation_plan
 
 # Trial-segmented artifact detection-and-substitution (see jnwb/artifact_repair.py).
@@ -290,6 +306,13 @@ __all__ = [
     'IntervalTableNotFoundError',
     'ColumnNotFoundError',
     'InvalidOnsetValueError',
+    'check_ragged_indices',
+    'repair_ragged_index',
+    'RaggedIndexReport',
+    'RaggedIndexRepair',
+    'RaggedIndexRepairRefused',
+    'validate_nwb',
+    'NWBValidationReport',
     'epoch_continuous',
 
     # Addressing
@@ -308,6 +331,12 @@ __all__ = [
     'XFlipResult',
     'zflip',
     'ZFlipResult',
+    'curate_and_label',
+    'detect_bad_channels',
+    'evoked_csd_sink',
+    'fuse_laminar_anchors',
+    'interpolate_channel_runs',
+    'LaminarCurationResult',
 
     # Analyzers
     'TFRAnalyzer',

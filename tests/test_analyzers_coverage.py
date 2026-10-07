@@ -442,9 +442,10 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
 
 
 class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
-    """The window is [onset + pre, onset + post], both edges inclusive, but spike - onset
-    rounded a spike on either edge just outside the outer bin edges and np.histogram dropped
-    it: on these onsets, 114 of 405 at the left edge and 147 of 405 at the right."""
+    """A spike is selected when spike - onset lies in [pre, post], both edges inclusive, and
+    every selected spike is counted. ``onset + pre`` rounds differently from ``spike - onset``:
+    on these onsets, 114 of the 405 spikes at ``onset - 0.1`` are below -0.1 s after their
+    onset and 147 of those at ``onset + 0.2`` are above 0.2 s, so neither is selected."""
 
     ONSETS = 2.0 + 0.7 * np.arange(405)
 
@@ -454,21 +455,44 @@ class TestPsthCountsSpikesOnBothEdges(unittest.TestCase):
 
     def test_a_spike_on_the_left_edge_counts_in_the_first_bin(self):
         spikes = self.ONSETS - 0.1
-        self.assertGreater(np.sum(spikes - self.ONSETS < -0.1), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS >= -0.1)
+        self.assertEqual(len(self.ONSETS) - inside, 114)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[0], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[0], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_on_the_right_edge_counts_in_the_last_bin(self):
         spikes = self.ONSETS + 0.2
-        self.assertGreater(np.sum(spikes - self.ONSETS > 0.2), 0)  # the fixture rounds out
+        inside = np.sum(spikes - self.ONSETS <= 0.2)
+        self.assertEqual(len(self.ONSETS) - inside, 147)  # the fixture carries both roundings
         counts = self._counts(spikes)
-        self.assertEqual(counts[-1], len(self.ONSETS))
-        self.assertEqual(counts.sum(), len(self.ONSETS))
+        self.assertEqual(counts[-1], inside)
+        self.assertEqual(counts.sum(), inside)
 
     def test_a_spike_past_either_edge_is_not_counted(self):
         spikes = np.concatenate([self.ONSETS - 0.1 - 1e-6, self.ONSETS + 0.2 + 1e-6])
         self.assertEqual(self._counts(spikes).sum(), 0)
+
+    def test_a_spike_exactly_on_the_right_edge_is_counted(self):
+        # Exact in binary: 1.5 - 1.0 == 0.5, the window end, which the closed edge includes.
+        self.assertEqual(1.5 - 1.0, 0.5)
+        res = UnitAnalyzer.psth(np.array([1.5]), np.array([1.0]), bin_size_ms=250,
+                                window_ms=(-250, 500))
+        np.testing.assert_array_equal(np.rint(res['psth'] * 0.25), [0, 0, 1])
+
+
+class TestRasterSelectsBySpikeMinusOnset(unittest.TestCase):
+    """``UnitAnalyzer.raster`` keeps a spike when spike - onset lies in [pre, post]."""
+
+    def test_both_edges_are_inclusive_in_relative_time(self):
+        # 0.3 - 0.03 == 0.27 exactly, while 0.03 + 0.27 rounds above 0.3; 1.5 - 1.0 == 0.5.
+        self.assertEqual(0.3 - 0.03, 0.27)
+        self.assertGreater(0.03 + 0.27, 0.3)
+        r = UnitAnalyzer.raster(np.array([0.3, 0.29]), np.array([0.03]), window_ms=(270, 500))
+        np.testing.assert_array_equal(r['raster'][0]['spike_times'], [0.3 - 0.03])
+        r = UnitAnalyzer.raster(np.array([1.5, 1.0]), np.array([1.0]), window_ms=(-250, 500))
+        np.testing.assert_array_equal(r['raster'][0]['spike_times'], [0.5, 0.0])
+        self.assertEqual(r['n_spikes'], 2)
 
 
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
@@ -524,6 +548,22 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
                 self.assertEqual(res['refr_violations_pct'], 0.0)
                 self.assertTrue(np.isnan(res['fano_factor']))
                 self.assertIsNone(res['is_good_single_unit'])
+
+    def test_the_fano_windows_are_whole_seconds_and_drop_a_partial_tail(self):
+        """The docstring's input: spikes 0, 0.5, 1.2, 2.5 s give windows [0, 1) and [1, 2]
+        with counts 2 and 1; the spike at 2.5 s lies past the last whole second."""
+        res = UnitAnalyzer.quality_metrics(np.array([0.0, 0.5, 1.2, 2.5]), 300.0, 5.0)
+        self.assertAlmostEqual(res['fano_factor'], np.var([2, 1], ddof=1) / 1.5, places=14)
+
+    def test_the_refractory_rule_is_refractory_contamination_s(self):
+        """An interval within 1 ns of refractory_ms counts as equal to it, as in
+        jnwb.refractory_contamination; it was a violation here."""
+        from jnwb.unit_quality import refractory_contamination
+        st = np.array([0.0, 0.002 + 5e-10, 1.0, 1.002 - 5e-10, 2.0, 2.0015])
+        res = UnitAnalyzer.quality_metrics(st, 300.0, 5.0, refractory_ms=2.0)
+        rc = refractory_contamination(st, duration_s=2.0015, refractory_ms=2.0, censored_ms=0.0)
+        self.assertEqual(rc['n_violations'], 1)                       # only the 1.5 ms interval
+        self.assertAlmostEqual(res['refr_violations_pct'], 100.0 * 1 / 5)
 
     def test_each_cut_off_is_an_argument(self):
         regular = np.arange(0.0, 10.0, 0.003)             # 3 ms intervals, Fano near 0
@@ -693,6 +733,26 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
                         self.assertEqual(res['device_used'], 'cpu')
                         runtime_warnings = [item for item in w if issubclass(item.category, RuntimeWarning)]
                         self.assertTrue(any("GPU computation failed" in str(item.message) for item in runtime_warnings))
+                        # The denial names the method the caller invoked, not a short name.
+                        self.assertTrue(all(str(item.message).startswith(
+                            "PopulationAnalyzer.population_trajectory: ")
+                            for item in runtime_warnings), [str(i.message) for i in runtime_warnings])
+
+    def test_a_denied_device_names_the_method(self):
+        from unittest.mock import patch
+
+        with patch("jnwb._backend.gpu_available", return_value=False):
+            with self.assertWarnsRegex(
+                    RuntimeWarning,
+                    r"^PopulationAnalyzer\.population_trajectory: device='cuda' was requested"):
+                PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3, device="cuda")
+
+    def test_input_that_is_not_two_dimensional_is_refused_by_name(self):
+        # A 1-D X raised numpy's LinAlgError and a 3-D one a broadcasting error.
+        for X in (np.arange(10.0), np.ones((4, 3, 2))):
+            with self.assertRaisesRegex(ValueError,
+                                        r"population_trajectory: X must be 2-D .*got shape"):
+                PopulationAnalyzer.population_trajectory(X)
 
 
 class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
@@ -718,6 +778,56 @@ class TestPopulationAnalyzerTrajectoryUnestimable(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(res['explained_variance_ratio'])))
         self.assertTrue(np.all(np.isnan(res['explained_variance'])))
         self.assertEqual(res['explained_variance_ratio'].shape, (2,))
+
+    def test_a_population_with_no_variance_has_no_components(self):
+        # The SVD of all-zero data returns the identity as Vt; no computation on the data
+        # produced it. A projection on components that do not exist is NaN as well.
+        for dtype in (np.float64, np.float32):
+            res = PopulationAnalyzer.population_trajectory(
+                np.full((20, 5), 3.0, dtype=dtype), n_components=3)
+            self.assertEqual(res['components'].shape, (3, 5))
+            self.assertEqual(res['components'].dtype, dtype)
+            self.assertTrue(np.all(np.isnan(res['components'])))
+            for key in ('explained_variance', 'explained_variance_ratio'):
+                self.assertTrue(np.all(np.isnan(res[key])))
+            self.assertEqual(res['projection'].shape, (20, 3))
+            self.assertEqual(res['projection'].dtype, dtype)
+            self.assertTrue(np.all(np.isnan(res['projection'])))
+
+    def test_a_population_with_variance_is_unchanged_by_the_no_variance_rule(self):
+        # The NaN projection applies only without variance: with variance the result is the
+        # one the helper gives without the switch, bit for bit, in both dtypes.
+        from jnwb.trajectory import _kept_components
+        for dtype in (np.float64, np.float32):
+            X = (np.random.default_rng(3).standard_normal((30, 4)) * [2.0, 1.0, 0.5, 0.0]
+                 ).astype(dtype)
+            Xc = X - np.mean(X, axis=0)
+            _, s, vt = np.linalg.svd(Xc, full_matrices=False)
+            assert np.sum(s ** 2) > 0, "fixture must have variance"
+            vt = vt[:3]
+            ref = _kept_components(s, vt, Xc @ vt.T, 30, 3)
+            res = PopulationAnalyzer.population_trajectory(X, n_components=3)
+            assert np.all(np.isfinite(res['projection'])), "fixture must project finitely"
+            for got, want in zip((res['projection'], res['components'],
+                                  res['explained_variance'], res['explained_variance_ratio']),
+                                 ref[:4]):
+                self.assertEqual(got.dtype, want.dtype)
+                np.testing.assert_array_equal(got, want)
+
+    def test_a_population_with_variance_keeps_its_components(self):
+        X = np.random.default_rng(7).standard_normal((40, 5)) * [3.0, 2.0, 1.5, 1.0, 0.5]
+        assert np.var(X, axis=0).min() > 0, "fixture must vary in every unit"
+        res = PopulationAnalyzer.population_trajectory(X, n_components=3)
+        Xc = X - X.mean(axis=0)
+        _, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+        Vt = Vt[:3]
+        pivot = np.argmax(np.abs(Vt), axis=1)
+        Vt = Vt * np.sign(Vt[np.arange(3), pivot])[:, None]
+        np.testing.assert_allclose(res['components'], Vt, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(res['projection'], Xc @ Vt.T, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(res['explained_variance'], S[:3] ** 2 / 39, rtol=1e-12)
+        np.testing.assert_allclose(res['explained_variance_ratio'],
+                                   S[:3] ** 2 / np.sum(S ** 2), rtol=1e-12)
 
 
 class TestTFRAnalyzerCompareConditions(unittest.TestCase):

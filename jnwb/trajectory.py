@@ -12,7 +12,6 @@ import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, right_open_counts, whole_bin_count
-from ._dictlike import RenamedKeyDict
 from ._spread import zscore
 from .gpu_pca import pin_component_signs
 
@@ -52,7 +51,7 @@ def build_time_resolved_matrix(
             ``bin_size_ms``; the message names the nearest valid windows.
     """
     n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
-                             "time_window_ms")
+                             "time_window_ms", width_param="bin_size_ms")
     start_sec = time_window_ms[0] / 1000.0
     end_sec = time_window_ms[1] / 1000.0
     bin_sec = bin_size_ms / 1000.0
@@ -128,17 +127,27 @@ def compute_population_trajectory(
         - explained_variance_per_component: (n_components,) variance of the z-scored data
           along each component, ``S**2 / (n_samples - 1)`` with
           ``n_samples = n_trials * n_bins``; scikit-learn's ``explained_variance_``
-        - explained_variance: float, the fraction the kept components explain together,
-          which is ``np.nansum(explained_variance_ratio)``. Reading it emits a
-          ``FutureWarning``: in the next release this key carries the per-component
-          variance, as in scikit-learn.
+        - explained_variance: the same values as ``explained_variance_per_component``,
+          scikit-learn's name for them; it was once the kept components' summed
+          fraction, which is ``np.nansum(explained_variance_ratio)``
         - unit_ids: unit IDs in analysis
         - bin_centers: center times of bins
-        - device_used: 'cpu' or 'cuda', the device that performed the SVD
+        - device_used: 'cpu' or 'cuda', the device that performed the SVD; 'cpu' when there
+          is no population and nothing was decomposed
 
-        Both variance arrays are NaN for a component that could not be estimated (fewer
-        units or samples than ``n_components``), and they and ``explained_variance`` are
-        NaN when there is no variance to decompose or no population.
+        The variance arrays and the trajectory are NaN for a component that could not be
+        estimated (fewer units or samples than ``n_components``), and wholly NaN when the
+        z-scored data have exactly zero total variance or there is no population. Z-scoring
+        takes a constant unit to exactly zero, so a population of constant units has none.
+
+        Components whose singular values differ by less than the working precision are not
+        determined by the data: any rotation within their plane fits it equally well, so
+        CPU and CUDA can return different components there, and agreement between devices
+        is undefined. Above that gap the rounding error of a component grows as the
+        precision divided by the gap: in float32 (``PopulationAnalyzer.population_trajectory``
+        keeps it), a relative gap of 1.5e-5 moved a loading by up to 0.009 (median 0.003)
+        between CPU and CUDA over ten random 500 x 20 matrices, and a gap of 1e-3 by up to 1e-4.
+        The decomposition here is in float64.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality
@@ -152,14 +161,15 @@ def compute_population_trajectory(
         # "PCA ran and explained nothing" rather than "PCA did not run". `TFRAnalyzer`
         # already answers NaN for the same condition. Zero stays valid only where zero was
         # estimated from observations.
-        return _trajectory_result({
+        return {
             'trajectory': np.full((n_trials, n_components, n_bins), np.nan),
-            'explained_variance': float('nan'),
+            'explained_variance': np.full(n_components, np.nan),
             'explained_variance_ratio': np.full(n_components, np.nan),
             'explained_variance_per_component': np.full(n_components, np.nan),
             'unit_ids': [],
-            'bin_centers': bin_centers
-        })
+            'bin_centers': bin_centers,
+            'device_used': CPU,
+        }
 
     # Reshape X to (n_trials * n_bins, n_units) to perform PCA over the unit dimension
     X_flat = X.transpose(0, 2, 1).reshape(n_trials * n_bins, n_units)
@@ -197,25 +207,30 @@ def compute_population_trajectory(
     else:
         proj_np, V_np, S_np = _svd_numpy()
 
-    proj_np, _, explained_variance, explained_variance_ratio, explained_total = (
-        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components))
+    # Intentional change of a returned value: with exactly zero total variance the
+    # trajectory is NaN, like the variances and as in PopulationAnalyzer.population_trajectory;
+    # it was zero.
+    proj_np, _, explained_variance, explained_variance_ratio, _ = (
+        _kept_components(S_np, V_np, proj_np, X_flat.shape[0], n_components,
+                         nan_projection_without_variance=True))
 
     # Reshape projected trajectories back to (n_trials, n_components, n_bins)
     trajectory = proj_np.reshape(n_trials, n_bins, n_components).transpose(0, 2, 1)
 
-    return _trajectory_result({
+    return {
         'trajectory': trajectory,
-        'explained_variance': explained_total,
+        'explained_variance': explained_variance.copy(),
         'explained_variance_ratio': explained_variance_ratio,
         'explained_variance_per_component': explained_variance,
         'unit_ids': unit_ids,
         'bin_centers': bin_centers,
         'device_used': resolved,
-    })
+    }
 
 
 def _kept_components(
-    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int
+    S: np.ndarray, Vt: np.ndarray, projection: np.ndarray, n_samples: int, n_components: int,
+    nan_projection_without_variance: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     """Pin signs, name the variances and pad to ``n_components``, from one SVD.
 
@@ -225,12 +240,16 @@ def _kept_components(
         projection: the data projected on them, ``(n_samples, n_kept)``.
         n_samples: rows of the decomposed data.
         n_components: components requested; ``n_kept`` may be fewer.
+        nan_projection_without_variance: with exactly zero total variance, make
+            ``projection`` NaN too. Both public callers set it; without it the projection,
+            computed from the data, is left as it is.
 
     Returns:
         ``(projection, Vt, explained_variance, explained_variance_ratio, explained_total)``.
         The variances are per component, as scikit-learn's PCA names them, and
         ``explained_total`` is the kept components' share together. With no total variance
-        there is no ratio and no variance, so all three are NaN. A requested component
+        there is no ratio, no variance and no component, so all three and ``Vt`` are NaN.
+        A requested component
         beyond ``n_kept`` does not exist -- too few features or samples -- so its column of
         ``projection``, its row of ``Vt`` and its variances are NaN; zero would read as a
         component measured to be zero.
@@ -250,6 +269,14 @@ def _kept_components(
         explained_variance = np.full(n_kept, np.nan, dtype=dtype)
         explained_variance_ratio = np.full(n_kept, np.nan, dtype=dtype)
         explained_total = float('nan')
+        # Intentional change of a returned value: the SVD of all-zero data returns the
+        # identity as Vt, which no computation on the data produced; it is NaN like the
+        # variances.
+        Vt = np.full_like(Vt, np.nan)
+        if nan_projection_without_variance:
+            # Intentional change of a returned value: a projection on
+            # components that do not exist is NaN, like the components; it was zero.
+            projection = np.full_like(projection, np.nan)
 
     missing = n_components - n_kept
     if missing > 0:
@@ -259,16 +286,3 @@ def _kept_components(
         explained_variance_ratio = np.pad(explained_variance_ratio, (0, missing),
                                           constant_values=np.nan)
     return projection, Vt, explained_variance, explained_variance_ratio, explained_total
-
-
-_EXPLAINED_VARIANCE_CHANGES = (
-    "compute_population_trajectory: 'explained_variance' is the fraction of variance the "
-    "kept components explain together. In the next release it becomes each component's "
-    "variance, as in scikit-learn's PCA. Read 'explained_variance_ratio' (each component's "
-    "share; np.nansum of it is this value) or 'explained_variance_per_component' instead."
-)
-
-
-def _trajectory_result(data: dict) -> RenamedKeyDict:
-    """The result dict; reading ``explained_variance`` warns that its meaning changes."""
-    return RenamedKeyDict(data, changing={'explained_variance': _EXPLAINED_VARIANCE_CHANGES})

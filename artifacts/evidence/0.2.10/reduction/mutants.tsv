@@ -1,0 +1,64 @@
+id	phase	selector	rc	summary	verdict
+SP1	pristine	candidate	rc=0	36 passed in 26.74s	OK
+SP1	pristine	api_consistency	rc=0	78 passed in 3.39s	OK
+SP1	pristine	statistics	rc=0	213 passed, 6 warnings in 17.98s	OK
+SP1	pristine	skills_validation	rc=0	84 passed in 9.06s	OK
+SP1	pristine	docs_operation_statements	rc=0	53 passed, 1 warning in 36.51s	OK
+SP1	mutant	candidate	rc=1	1 failed, 3 passed in 3.01s	KILLED
+SP1	mutant	api_consistency	rc=0	78 passed in 3.91s	SURVIVED
+SP1	mutant	statistics	rc=0	213 passed, 6 warnings in 18.40s	SURVIVED
+SP1	mutant	skills_validation	rc=1	1 failed, 60 passed in 10.87s	KILLED
+SP1	mutant	docs_operation_statements	rc=0	53 passed, 1 warning in 34.22s	SURVIVED
+SP1	restore	jnwb/statistics/_tests.py	sha256 MATCH 20bbc205296e8fb0	git status: clean	
+FP1	pristine	candidate	rc=0	12 passed, 2 warnings in 2.32s	OK
+FP1	pristine	a_silent_no_op_is_refused	rc=0	12 passed in 3.23s	OK
+FP1	mutant	candidate	rc=1	1 failed, 6 passed in 2.68s	KILLED
+FP1	mutant	a_silent_no_op_is_refused	rc=1	1 failed, 2 passed in 2.56s	KILLED
+FP1	restore	jnwb/spiking.py	sha256 MATCH a5685e6b77ff09ac	git status: clean	
+CR1	pristine	candidate	rc=0	17 passed in 5.88s	OK
+CR1	pristine	permutation	rc=0	29 passed in 2.28s	OK
+CR1	pristine	rng_control	rc=0	58 passed, 4 warnings in 13.58s	OK
+CR1	pristine	rng_spelling	rc=0	56 passed in 3.63s	OK
+CR1	pristine	precision_switch	rc=0	34 passed in 3.14s	OK
+CR1	pristine	representative_workflow	rc=0	6 passed in 7.23s	OK
+CR1	pristine	docs_smoke	rc=0	10 passed, 4 warnings in 5.22s	OK
+CR1	pristine	docs_call_shapes	rc=0	32 passed, 3 warnings in 10.34s	OK
+CR1	pristine	skills_validation	rc=0	84 passed in 9.80s	OK
+CR1	pristine	docs_operation_statements	rc=0	53 passed, 1 warning in 30.90s	OK
+CR1	mutant	candidate	rc=1	1 failed in 2.74s	KILLED
+CR1	mutant	permutation	rc=1	1 failed, 26 passed in 3.21s	KILLED
+CR1	mutant	rng_control	rc=1	1 failed, 35 passed in 12.94s	KILLED
+CR1	mutant	rng_spelling	rc=0	56 passed in 3.56s	SURVIVED
+CR1	mutant	precision_switch	rc=0	34 passed in 3.05s	SURVIVED
+CR1	mutant	representative_workflow	rc=0	6 passed in 7.70s	SURVIVED
+CR1	mutant	docs_smoke	rc=0	10 passed, 4 warnings in 5.67s	SURVIVED
+CR1	mutant	docs_call_shapes	rc=0	32 passed, 3 warnings in 10.73s	SURVIVED
+CR1	mutant	skills_validation	rc=0	84 passed in 8.93s	SURVIVED
+CR1	mutant	docs_operation_statements	rc=0	53 passed, 1 warning in 30.44s	SURVIVED
+CR1	restore	jnwb/permutation.py	sha256 MATCH 43fc96a4f7fa6682	git status: clean	
+BA1	pristine	candidate	rc=0	17 passed in 5.51s	OK
+BA1	pristine	onset_fitting	rc=0	27 passed, 1 warning in 11.78s	OK
+BA1	pristine	agents_md_recipes	rc=0	7 passed, 1 warning in 3.93s	OK
+BA1	pristine	docs_call_shapes	rc=0	32 passed, 3 warnings in 12.31s	OK
+BA1	pristine	docs_smoke	rc=0	10 passed, 4 warnings in 6.61s	OK
+BA1	mutant	candidate	rc=1	1 failed, 1 passed in 3.60s	KILLED
+BA1	mutant	onset_fitting	rc=0	27 passed, 1 warning in 12.80s	SURVIVED
+BA1	mutant	agents_md_recipes	rc=0	7 passed, 1 warning in 3.96s	SURVIVED
+BA1	mutant	docs_call_shapes	rc=0	32 passed, 3 warnings in 10.84s	SURVIVED
+BA1	mutant	docs_smoke	rc=0	10 passed, 4 warnings in 6.16s	SURVIVED
+BA1	restore	jnwb/onset_fitting.py	sha256 MATCH d41d9aa5cfba223b	git status: clean	
+GB1	pristine	fixture	rc=0	1 passed in 0.15s	OK
+GB1	mutant	fixture	rc=1	1 failed in 0.22s	KILLED
+GB1	restore	scripts/harness_gate.py	sha256 MATCH ddb227cc0bce3fce	git status: clean	
+GB2	pristine	fixture	rc=0	1 passed in 0.13s	OK
+GB2	mutant	fixture	rc=1	1 failed in 0.21s	KILLED
+GB2	restore	scripts/harness_gate.py	sha256 MATCH ddb227cc0bce3fce	git status: clean	
+GB3	pristine	fixture	rc=0	1 passed in 0.13s	OK
+GB3	mutant	fixture	rc=1	1 failed in 0.22s	KILLED
+GB3	restore	scripts/harness_gate.py	sha256 MATCH ddb227cc0bce3fce	git status: clean	
+GB4	pristine	jnwb_scan	rc=0	1 passed in 0.54s	OK
+GB4	mutant	jnwb_scan	rc=1	1 failed in 0.67s	KILLED
+GB4	restore	jnwb/_backend.py	sha256 MATCH ca271d2b6c5a8df3	git status: clean	
+GB5	pristine	tests_scan	rc=0	1 passed in 1.42s	OK
+GB5	mutant	tests_scan	rc=1	1 failed in 1.48s	KILLED
+GB5	restore	tests/test_import_lazy.py	sha256 MATCH 4dc068444eebd778	git status: clean	

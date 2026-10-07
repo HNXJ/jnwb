@@ -88,6 +88,77 @@ class TestResolveDevice:
         assert backend.resolve_device("gpu", context="t") == CUDA
 
 
+def _oserror(message, winerror=None):
+    exc = OSError(message)
+    exc.winerror = winerror
+    return exc
+
+
+class TestLoaderErrorClassification:
+    @pytest.mark.parametrize("exc", [
+        _oserror("opaque", winerror=126),
+        _oserror("opaque", winerror=193),
+        _oserror("opaque", winerror=1114),
+        _oserror("DLL load failed while importing _core"),
+        _oserror("libtorch_cuda.so: undefined symbol: cudaGetDriverEntryPoint"),
+        _oserror("libcudart.so.12: cannot open shared object file"),
+        _oserror('Error loading "cusparse64_12.dll" or one of its dependencies.'),
+        _oserror("dlopen(libcudart.dylib, 6): image not found"),
+        _oserror("dlopen(libcudart.dylib, 6): Library not loaded: @rpath/libcudart.12.dylib"),
+    ], ids=["winerror-126", "winerror-193", "winerror-1114", "dll-load-failed",
+            "undefined-symbol", "cannot-open-shared-object", "error-loading", "image-not-found",
+            "library-not-loaded"])
+    def test_a_library_that_failed_to_load_is_a_loader_error(self, exc):
+        from jnwb._backend import _is_loader_error
+        assert _is_loader_error(exc)
+
+    def test_a_permission_error_is_not_a_loader_error(self):
+        from jnwb._backend import _is_loader_error
+        assert not _is_loader_error(PermissionError(13, "Permission denied", "libcuda.so"))
+        assert not _is_loader_error(_oserror("opaque", winerror=5))
+
+    def test_mixed_failures_name_each_and_advise_for_the_loader_failure(self, monkeypatch):
+        import jnwb._backend as backend
+
+        def cupy_denied():
+            raise PermissionError(13, "Permission denied", "libcuda.so")
+
+        def torch_unloadable():
+            raise _oserror("opaque", winerror=127)
+
+        monkeypatch.setattr(backend, "_cupy_device_count", cupy_denied)
+        monkeypatch.setattr(backend, "_torch_cuda", torch_unloadable)
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert backend.resolve_device("cuda", context="t") == CPU
+        messages = [str(w.message) for w in record if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "CuPy raised PermissionError: [Errno 13] Permission denied" in messages[0]
+        assert "PyTorch could not load its libraries (OSError: opaque)" in messages[0]
+        assert "import torch first" in messages[0] and "import cupy first" not in messages[0]
+
+
+    def test_two_loader_failures_advise_for_the_first_backend(self, monkeypatch):
+        import jnwb._backend as backend
+
+        def cupy_unloadable():
+            raise _oserror("opaque", winerror=126)
+
+        def torch_unloadable():
+            raise _oserror("opaque", winerror=127)
+
+        monkeypatch.setattr(backend, "_cupy_device_count", cupy_unloadable)
+        monkeypatch.setattr(backend, "_torch_cuda", torch_unloadable)
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            assert backend.resolve_device("cuda", context="t") == CPU
+        messages = [str(w.message) for w in record if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "CuPy could not load its libraries" in messages[0]
+        assert "PyTorch could not load its libraries" in messages[0]
+        assert "import cupy first" in messages[0] and "import torch first" not in messages[0]
+
+
 class TestFallbackWarning:
     def test_warns_and_names_the_exception(self):
         with pytest.warns(RuntimeWarning, match="RuntimeError: simulated OOM"):
@@ -152,24 +223,30 @@ class TestCallSitesAreRouted:
         offenders = []
         checked = 0
         for name in self.ROUTED_MODULES:
-            tree = ast.parse((root / f"{name}.py").read_text(encoding="utf-8"))
-            for node in tree.body:
-                for lineno, mod in imports_a_gpu_library(
-                    ast.Module(body=[node], type_ignores=[])
-                ):
-                    if isinstance(node, (ast.Import, ast.ImportFrom)):
-                        offenders.append(f"{name}.py:{lineno}: module-level {mod}")
-            for fn in ast.walk(tree):
-                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                found = list(imports_a_gpu_library(fn))
-                if not found:
-                    continue
-                checked += 1
-                if fn.name.endswith("_gpu") or resolves_capability(fn):
-                    continue
-                for lineno, mod in found:
-                    offenders.append(f"{name}.py:{lineno}: {fn.name} imports {mod}")
+            # a module, or every file of a package
+            single = root / f"{name}.py"
+            paths = [single] if single.is_file() else sorted((root / name).glob("*.py"))
+            assert paths, f"jnwb.{name} has no source file under {root}"
+            for path in paths:
+                where = path.relative_to(root).as_posix()
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                for node in tree.body:
+                    for lineno, mod in imports_a_gpu_library(
+                        ast.Module(body=[node], type_ignores=[])
+                    ):
+                        if isinstance(node, (ast.Import, ast.ImportFrom)):
+                            offenders.append(f"{where}:{lineno}: module-level {mod}")
+                for fn in ast.walk(tree):
+                    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    found = list(imports_a_gpu_library(fn))
+                    if not found:
+                        continue
+                    checked += 1
+                    if fn.name.endswith("_gpu") or resolves_capability(fn):
+                        continue
+                    for lineno, mod in found:
+                        offenders.append(f"{where}:{lineno}: {fn.name} imports {mod}")
 
         assert checked, "no routed module imports a GPU library; this test checks nothing"
         assert offenders == [], (

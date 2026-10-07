@@ -75,6 +75,51 @@ METAL = "metal"
 DEFAULT_SUPPORTS = (CPU, CUDA)
 
 
+#: The ``OSError`` each backend's last probe raised, by backend name. One that
+#: :func:`_is_loader_error` accepts is a shared library that failed to load, which on a
+#: machine with a GPU is usually a clash with a CUDA library another package loaded first
+#: in the same process.
+_LOAD_FAILURES: dict = {}
+
+
+def _probe(backend: str, probe) -> bool:
+    """Run ``probe``, recording an ``OSError`` it raises under ``backend``."""
+    try:
+        available = bool(probe())
+    except OSError as exc:
+        _LOAD_FAILURES[backend] = exc
+        return False
+    except (ImportError, RuntimeError, AttributeError):
+        return False
+    return available
+
+
+#: Windows loader codes: module not found, procedure not found, bad image, DLL init failed.
+_LOADER_WINERRORS = (126, 127, 193, 1114)
+_LOADER_TEXT = ("dll load failed", "error loading", "cannot open shared object",
+                "undefined symbol", "image not found", "library not loaded")
+
+
+def _is_loader_error(exc: OSError) -> bool:
+    """Whether ``exc`` is a shared library failing to load, rather than any other ``OSError``."""
+    if getattr(exc, "winerror", None) in _LOADER_WINERRORS:
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _LOADER_TEXT)
+
+
+def _cupy_device_count():
+    import cupy as cp
+
+    return cp.cuda.runtime.getDeviceCount() > 0
+
+
+def _torch_cuda():
+    import torch
+
+    return torch.cuda.is_available()
+
+
 def cupy_available() -> bool:
     """True if CuPy imports and reports a usable CUDA device.
 
@@ -82,22 +127,12 @@ def cupy_available() -> bool:
     present, failing only at the first allocation. Sites probing by import claimed a GPU
     on machines that had none.
     """
-    try:
-        import cupy as cp
-
-        return cp.cuda.runtime.getDeviceCount() > 0
-    except (ImportError, OSError, RuntimeError, AttributeError):
-        return False
+    return _probe("CuPy", _cupy_device_count)
 
 
 def torch_cuda_available() -> bool:
     """True if PyTorch imports and reports a CUDA device."""
-    try:
-        import torch
-
-        return bool(torch.cuda.is_available())
-    except (ImportError, OSError, RuntimeError, AttributeError):
-        return False
+    return _probe("PyTorch", _torch_cuda)
 
 
 def gpu_available(prefer: Optional[str] = None) -> bool:
@@ -225,10 +260,36 @@ def resolve_device(
             return CPU
         return METAL
 
+    # Only this probe's failures may name the cause, not an earlier call's.
+    _LOAD_FAILURES.clear()
     if gpu_available(prefer=prefer):
         return CUDA
 
     backend = {"cupy": "CuPy", "torch": "PyTorch"}.get(prefer, "CuPy or PyTorch")
+    failed = [(name, _LOAD_FAILURES[name]) for name in ("CuPy", "PyTorch")
+              if name in backend and name in _LOAD_FAILURES]
+    if failed:
+        # The conflict advice is for a loader error only; a PermissionError on the
+        # library, say, is a different fault and its text is the whole message.
+        loader = [name for name, exc in failed if _is_loader_error(exc)]
+        causes = "; ".join(
+            f"{name} could not load its libraries ({type(exc).__name__}: {exc})"
+            if name in loader else f"{name} raised {type(exc).__name__}: {exc}"
+            for name, exc in failed)
+        advice = ""
+        if loader:
+            module = {"CuPy": "cupy", "PyTorch": "torch"}[loader[0]]
+            advice = (f" A CUDA library that another package loaded earlier in this process "
+                      f"(CuPy, for example) can conflict with them, a DLL conflict on Windows: "
+                      f"import {module} first, or run in a separate process.")
+        warnings.warn(
+            f"{context}: device='cuda' was requested but {causes}.{advice} Running on CPU. "
+            f"CPU and GPU paths may disagree numerically.",
+            RuntimeWarning,
+            stacklevel=stacklevel,
+        )
+        return CPU
+
     warnings.warn(
         f"{context}: device='cuda' was requested but no usable CUDA device was found "
         f"via {backend}; running on CPU. CPU and GPU paths may disagree numerically.",

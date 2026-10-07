@@ -702,16 +702,16 @@ class TestNoKeyAssertsAnUncorrectedCorrection:
         would have concealed a reintroduction in ``compare_groups`` from every assertion
         made on the wrapper's own return.
         """
-        import inspect
+        from tests._sources import read_sources, unread_by
 
-        import jnwb.statistics as statistics_module
-
-        src = inspect.getsource(statistics_module)
-        assert "fdr_pval_parametric" not in src, (
-            "jnwb/statistics.py still names a key no code path assigns; a reader takes "
-            "the name for a returned value, which is what 06-44 was reported as"
-        )
-        assert "fdr_pval_nonparametric" not in src
+        for source in read_sources("statistics-keys", "jnwb.statistics"):
+            src = source.text
+            assert "fdr_pval_parametric" not in src, (
+                f"{source.path.name} still names a key no code path assigns; a reader takes "
+                "the name for a returned value, which is what 06-44 was reported as"
+            )
+            assert "fdr_pval_nonparametric" not in src, source.path.name
+        assert unread_by("statistics-keys", "jnwb.statistics") == []
 
 
 # ── The caller names the primary test ──────────────────────────────────
@@ -1267,4 +1267,116 @@ def test_a_finite_difference_too_large_to_represent_keeps_its_sign(paired):
     par = StatisticalAnalysis.compare_groups(np.full(6, 1e308), np.full(6, -1e308),
                                              paired=paired)["parametric"]
     assert par["statistic"] == np.inf and par["pval"] == 0.0, par
+
+
+def test_the_source_list_follows_definitions_into_the_package_submodules():
+    """A source scan of `jnwb.statistics` must read the submodules that define its names. The
+    class keeps `jnwb.statistics` as `__module__`, so it is located by its definition."""
+    from tests._sources import _defining_file, public_definition_files
+
+    assert {p.name for p in public_definition_files("jnwb.statistics")} == {
+        "_analysis.py", "_cluster.py", "_firing.py", "_regression.py", "_tests.py",
+        "_trials.py"}
+    assert StatisticalAnalysis.__module__ == "jnwb.statistics"
+    assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
+
+
+def test_the_source_list_covers_subpackage_all_and_optional_modules():
+    """Names exported by a subpackage's `__all__` and the optional modules are public too."""
+    from tests._sources import public_definition_files
+
+    listed = {p.relative_to(p.parents[1]).as_posix() for p in public_definition_files()}
+    assert {"testing/synth.py", "testing/nwb_fixtures.py", "mcp_server/event_tools.py",
+            "mcp_server/nwb_tools.py", "mcp_server/__main__.py", "jnwb/nam.py", "jnwb/bilinear.py"} <= listed, listed
+
+
+# ── Degenerate inputs: stated values ───────────────────────────────────
+
+
+def _sentences_naming(doc: str, word: str):
+    text = " ".join(doc.split())
+    return [s for s in text.split(". ") if word in s]
+
+
+def test_eta_squared_of_one_value_per_group_is_one_and_the_docstring_says_why():
+    res = StatisticalAnalysis.compare_multiple_groups({"a": [1.0], "b": [2.0], "c": [3.0]})
+    assert np.isnan(res["parametric"]["statistic"]) and np.isnan(res["parametric"]["pval"])
+    assert res["parametric"]["effect_size"] == 1.0
+    said = " ".join(_sentences_naming(StatisticalAnalysis.compare_multiple_groups.__doc__,
+                                      "1.0"))
+    assert "one observation per group" in said, said
+
+
+def test_eta_squared_of_an_empty_group_is_nan_and_the_docstring_names_it():
+    res = StatisticalAnalysis.compare_multiple_groups(
+        {"a": [], "b": [2.0, 3.0], "c": [3.0, 5.0]}, test="parametric")
+    assert np.isnan(res["parametric"]["effect_size"])
+    said = _sentences_naming(StatisticalAnalysis.compare_multiple_groups.__doc__,
+                             "``eta_squared`` is NaN")
+    assert said and "empty" in said[0], said
+
+
+def test_confirmatory_correction_names_the_step_that_made_the_q_values():
+    g1 = np.random.default_rng(11).normal(0.0, 1.0, 40)
+    g2 = np.random.default_rng(12).normal(0.5, 1.0, 40)
+    res = StatisticalAnalysis.confirmatory_compare(g1, g2, hypothesis="g1 differs from g2")
+    q = fdr_correct([res["parametric"]["pval"], res["non_parametric"]["pval"]], method="bh")
+    assert res["correction"] == "bh"
+    assert (res["q_parametric"], res["q_nonparametric"]) == (q[0], q[1])
+    assert StatisticalAnalysis.exploratory_compare(g1, g2)["correction"] == "none"
+
+
+def test_paired_difference_constant_up_to_round_off_gives_a_finite_huge_t():
+    res = StatisticalAnalysis.compare_groups([1.1, 2.1, 3.1, 4.1], [1, 2, 3, 4], paired=True,
+                                             test="parametric")
+    t = res["parametric"]["statistic"]
+    assert np.isfinite(t) and t > 1e13, t
+    doc = " ".join(StatisticalAnalysis.compare_groups.__doc__.split())
+    assert "round-off" in doc and "finite, huge" in doc
+
+
+def test_sign_flip_tie_tolerance_is_eight_eps_times_the_absolute_sum():
+    from jnwb.statistics._tests import _tie_tolerance
+
+    v = np.array([1.0, -2.0, 3.5])
+    assert _tie_tolerance(v) == 8.0 * np.finfo(float).eps * 6.5
+
+
+def test_permutation_test_of_an_overflowing_pool_reports_no_p():
+    res = StatisticalAnalysis.permutation_test(
+        [1e308, 1.7e308, 1e308], [-1e308, -1.7e308, -1.5e308], n_permutations=199, rng=0)
+    assert np.isnan(res["pval"]) and np.isnan(res["observed_difference"])
+    assert res["significant"] is False
+
+
+def test_the_one_test_note_names_the_argument_its_caller_takes():
+    x, y = [1.0, 2.0, 3.0, 4.0], [2.0, 1.0, 4.0, 3.0]
+    note = StatisticalAnalysis.correlate(x, y, method="pearson")["multiple_comparison"]["note"]
+    assert "method=" in note and "test=" not in note, note
+    note = StatisticalAnalysis.compare_groups(x, y, n_bootstrap=10, test="parametric")[
+        "multiple_comparison"]["note"]
+    assert "test=" in note, note
+
+
+@pytest.mark.parametrize("block", [None, 64])
+@pytest.mark.parametrize("statistic_func", [np.mean, np.median])
+@pytest.mark.parametrize("n", [7, 200])
+def test_bootstrap_ci_draws_the_resamples_a_per_resample_loop_draws(statistic_func, n, block,
+                                                                     monkeypatch):
+    """The vectorised draw must leave a seeded result and the caller's stream unchanged,
+    in one block or in many."""
+    if block is not None:
+        import jnwb.statistics._analysis as analysis
+        monkeypatch.setattr(analysis, "_BOOTSTRAP_BLOCK_ELEMENTS", block)
+    data = np.random.default_rng(1).normal(size=n)
+    reference = np.random.default_rng(5)
+    stats_ref = np.array([statistic_func(reference.choice(data, size=n, replace=True))
+                          for _ in range(300)])
+    rng = np.random.default_rng(5)
+    res = StatisticalAnalysis.bootstrap_ci(data, statistic_func, n_bootstrap=300, rng=rng)
+    alpha = (1 - 0.95) / 2                     # bootstrap_ci's own arithmetic, not 2.5
+    assert res["bootstrap_ci"] == (float(np.percentile(stats_ref, alpha * 100)),
+                                   float(np.percentile(stats_ref, (1 - alpha) * 100)))
+    assert res["bootstrap_std"] == float(np.std(stats_ref))
+    assert rng.random() == reference.random()
 

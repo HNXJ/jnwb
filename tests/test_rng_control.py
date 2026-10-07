@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import inspect
 import re
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -76,10 +75,14 @@ class TestNoRandomizedFunctionHidesItsSeed:
     def test_no_seed_literal_survives_in_a_function_body(self):
         """The repair is the absence of this pattern, so grep for it rather than trusting
         that the eight above are all of them."""
-        for mod in ("statistics.py", "decoding.py"):
-            src = (Path(jnwb.__file__).parent / mod).read_text(encoding="utf-8")
-            hits = re.findall(r"default_rng\((\d+)\)", src)
-            assert not hits, f"{mod}: seed literal(s) {hits} still inside a body"
+        from tests._sources import read_sources, unread_by
+
+        for within in ("jnwb.statistics", "jnwb.decoding"):
+            label = f"seed-literals {within}"
+            for source in read_sources(label, within):
+                hits = re.findall(r"default_rng\((\d+)\)", source.text)
+                assert not hits, f"{source.path.name}: seed literal(s) {hits} still inside a body"
+            assert unread_by(label, within) == []
 
     def test_the_named_constant_is_the_seed_that_was_hiding(self):
         assert DEFAULT_SEED == 42
@@ -226,6 +229,22 @@ class TestNestedCvPartitionIsControllable:
         res = nested_cv_linear_svm(X, y, n_splits=3, rng=np.random.default_rng(4))
         assert np.isfinite(res["accuracy"])
 
+    def test_two_generators_give_different_folds(self, decodable):
+        """A Generator is turned into an int seed for scikit-learn; a conversion that
+        ignored the Generator would give every one the same folds."""
+        X, y = decodable
+        folds = {tuple(np.round(nested_cv_linear_svm(
+            X, y, n_splits=3, rng=np.random.default_rng(s))["fold_accuracies"], 10))
+                 for s in (0, 1, 2, 3, 7, 42)}
+        assert len(folds) > 1, "the partition does not respond to the Generator"
+
+    def test_two_generators_give_different_permutation_plans(self):
+        labels, groups = [0, 1] * 8, [0] * 8 + [1] * 8
+        a, b = (jnwb.build_permutation_plan(labels, groups, n_permutations=3,
+                                            rng=np.random.default_rng(s)) for s in (1, 2))
+        assert a["seed"] != b["seed"]
+        assert list(a["draw_manifest"]["label_digest"]) != list(b["draw_manifest"]["label_digest"])
+
     def test_rng_is_a_parameter_at_all(self):
         """The signature was `(X, labels, n_splits)`."""
         assert "rng" in inspect.signature(nested_cv_linear_svm).parameters
@@ -283,7 +302,9 @@ class TestDirectedEstimatorsHonourRng:
         import jnwb._rng
         import jnwb.connectivity
 
-        monkeypatch.setattr(jnwb.connectivity, "_surrogate_rng", jnwb._rng.surrogate_rng)
+        # patched where the estimator looks the name up
+        monkeypatch.setattr(inspect.getmodule(getattr(jnwb, name)), "_surrogate_rng",
+                            jnwb._rng.surrogate_rng)
         assert _null_of(res) == _null_of(DIRECTED[name](np.random.default_rng(0)))
 
     def test_a_generator_records_the_child_seed_that_reproduces_p(self, name):

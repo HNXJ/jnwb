@@ -216,6 +216,21 @@ class TestAnAdimTheResamplingIgnoresIsRefused:
             oa.jrsa(x1[None], x2[None], metric="pearson", adim=(0, 1), permutations=20,
                     rng=0)
 
+    def test_after_axis_0_is_reduced_away_the_refusal_reads_axis_1(self):
+        """The row metrics' resampling moves to axis 1 of the input once a reduction removes
+        axis 0, so `adim` must name axis 1 there, and naming it runs."""
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(6, 20, 4))
+        x2 = x1 + rng.normal(size=x1.shape)
+        kw = dict(metric="cka", labels=["trial", "cond", "unit"],
+                  reduction={"trial": "mean"}, lag=2, stats=False)
+        with pytest.raises(ValueError, match=r"act\(s\) on axis 1 of the input \(the "
+                                             r"observations of a row metric\)"):
+            oa.jrsa(x1, x2, adim=("trial", "unit"), **kw)
+        got = oa.jrsa(x1, x2, adim=("trial", "cond"), **kw)
+        ref = oa.jrsa(x1.mean(0), x2.mean(0), metric="cka", lag=2, stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
     def test_without_resampling_any_adim_runs(self):
         x1, x2 = self._pair()
         got = oa.jrsa(x1, x2, metric="pearson", adim=0, stats=False)
@@ -269,9 +284,10 @@ class TestANumpyIntegerAdimIsTheSameAxis:
             oa.jrsa(x1, x2, metric="pearson", adim=adim, stats=False)
 
 
-class TestARowMetricWindowsTheFeaturesAtTheDefaultAdim:
-    """At adim=-1 the six axis-0 metrics window the last axis, the features, while `lag` and
-    the null act on the observations; `adim=0` windows the observations."""
+class TestARowMetricWindowsTheObservationsByDefault:
+    """IB-58 (ruled 2026-10-06): with `adim` not passed the six axis-0 metrics window axis 0,
+    the observations `lag` and the null act on. They windowed the last axis, the features.
+    A passed ``adim=-1`` still windows the features, and ``adim=0`` the observations."""
 
     ROW = ["cka", "distance_correlation", "hsic", "procrustes", "rsa", "rv"]
 
@@ -282,12 +298,26 @@ class TestARowMetricWindowsTheFeaturesAtTheDefaultAdim:
         return x1, x1 + rng.normal(size=x1.shape)
 
     @pytest.mark.parametrize("metric", ROW)
-    def test_the_default_windows_the_features(self, metric):
+    def test_the_default_windows_the_observations(self, metric):
         x1, x2 = self._pair()
-        got = oa.jrsa(x1, x2, metric=metric, window=(0, 20), stats=False, return_input=True)
+        got = oa.jrsa(x1, x2, metric=metric, window=(0, 50), stats=False, return_input=True)
+        assert got.aligned_x1.shape == (50, 40)
+        ref = oa.jrsa(x1[:50], x2[:50], metric=metric, stats=False)
+        np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    @pytest.mark.parametrize("metric", ROW)
+    def test_a_passed_adim_minus_1_windows_the_features(self, metric):
+        x1, x2 = self._pair()
+        got = oa.jrsa(x1, x2, metric=metric, adim=-1, window=(0, 20), stats=False,
+                      return_input=True)
         assert got.aligned_x1.shape == (200, 20)
         ref = oa.jrsa(x1[:, :20], x2[:, :20], metric=metric, stats=False)
         np.testing.assert_allclose(float(got.value), float(ref.value), rtol=1e-12)
+
+    def test_the_default_is_recorded_as_minus_1(self):
+        x1, x2 = self._pair()
+        got = oa.jrsa(x1, x2, metric="cka", stats=False)
+        assert got.parameters["adim"] == -1 and type(got.parameters["adim"]) is int
 
     @pytest.mark.parametrize("metric", ROW)
     def test_adim_0_windows_the_observations(self, metric):
@@ -999,6 +1029,26 @@ class TestDirectedMetricsStateTheDirectionTheyMeasure:
             warnings.simplefilter("ignore", RuntimeWarning)
             assert float(oa.jrsa(lead, lag, metric="phase_slope", stats=False).value) > 0
 
+    def test_phase_slope_does_not_ask_a_jrsa_caller_for_trials(self):
+        """The metric ravels to one series, so the delegate's "pass 3 or more trials" warning
+        fired on every call, and on every permutation, with nothing a caller could add. The
+        direct estimator keeps the warning and the value is the same either way."""
+        lead, lag = self._lead_lag()
+        kw = dict(fs=100.0, bands=(5.0, 20.0), nperseg=64)
+        with warnings.catch_warnings(record=True) as seen:
+            warnings.simplefilter("always")
+            res = oa.jrsa(lead, lag, metric="phase_slope", stats=False, **kw)
+        assert [str(w.message) for w in seen if "trial" in str(w.message)] == []
+        with pytest.warns(RuntimeWarning, match="pass 3 or more trials|Pass 3 or more trials"):
+            direct = oa.phase_slope_index(lead, lag, **kw)
+        assert float(res.value) == float(direct.x_to_y)
+
+    def test_phase_slope_keeps_every_other_warning_for_a_jrsa_caller(self):
+        lead, _ = self._lead_lag()
+        with pytest.warns(RuntimeWarning, match="agree to rounding"):
+            oa.jrsa(lead, np.zeros_like(lead), metric="phase_slope", stats=False, fs=100.0,
+                    bands=(5.0, 20.0), nperseg=64)
+
     def test_the_docstring_says_so(self):
         doc = " ".join(oa.jrsa.__doc__.split())
         assert ("``granger_ssr_ftest`` and ``transfer_entropy_histogram_nats`` measure "
@@ -1158,3 +1208,89 @@ class TestTimeAxisNullKeepsAutocorrelation:
         x, y = self._ar1_pairs(1, n=60)[0]
         with pytest.raises(ValueError, match="null|block"):
             oa.jrsa(x, y, metric="pearson", permutations=9, rng=0, **kwargs)
+
+
+class TestSimilarityEdges:
+    """P-332 similarity part, the resampling fallback and IB-48."""
+
+    @pytest.mark.parametrize("metric", ["cka", "rv"])
+    @pytest.mark.parametrize("pattern", ["one_value", "per_column"])
+    def test_a_constant_pattern_is_undefined_exactly(self, metric, pattern):
+        """A constant 0.1 pattern centred to rounding residue, and the scale-free ratio
+        returned about 1e-33 instead of NaN."""
+        y = np.random.default_rng(0).normal(size=(20, 3))
+        x = (np.full((20, 3), 0.1) if pattern == "one_value"
+             else np.tile([0.1, 0.3, 0.7], (20, 1)))
+        assert np.isnan(float(oa.jrsa(x, y, metric=metric, stats=False).value))
+        assert np.isnan(float(oa.jrsa(y, x, metric=metric, stats=False).value))
+
+    def test_an_unknown_align_raises_at_equal_lengths(self):
+        """`_align_dimensions` resamples only unequal lengths, so 'bogus' ran unchecked."""
+        rng = np.random.default_rng(0)
+        a, b = rng.normal(size=30), rng.normal(size=30)
+        with pytest.raises(ValueError, match="unrecognized align 'bogus'"):
+            oa.jrsa(a, b, metric="pearson", align="bogus", stats=False)
+        assert np.isfinite(float(oa.jrsa(a, b, metric="pearson", align="none",
+                                         stats=False).value))
+
+    @pytest.mark.parametrize("align, power", [("linear", 1), ("interpolate", 1), ("cubic", 3)])
+    def test_an_interpolation_reproduces_a_polynomial_of_its_degree(self, align, power):
+        """Linear interpolation is exact on a line and a cubic spline on a cubic, so the
+        longer input resampled to the shorter grid equals the polynomial on that grid."""
+        from jnwb.jrsa._stages import _resample_axis
+
+        t10, t7 = np.linspace(0.0, 1.0, 10), np.linspace(0.0, 1.0, 7)
+        x1, x2 = np.stack([t10 ** power, 2.0 - t10 ** power]), np.zeros((2, 7))
+        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+        np.testing.assert_allclose(out1, np.stack([t7 ** power, 2.0 - t7 ** power]),
+                                   rtol=0, atol=1e-12)
+        assert out2 is x2
+
+    def test_a_detrended_straight_line_is_constant_not_standardized_round_off(self):
+        """P-331: the detrend residue of a line (about 1e-14) was standardized to unit
+        variance, and pearson against noise returned -0.026 instead of NaN."""
+        line = 2.0 + 0.37 * np.arange(200.0)
+        noise = np.random.default_rng(0).normal(size=200)
+        res = oa.jrsa(line, noise, metric="pearson", detrend=True, standardize=True,
+                      stats=False)
+        assert np.isnan(float(res.value))
+        kept = oa.jrsa(line + 1e-6 * noise, noise, metric="pearson", detrend=True,
+                       standardize=True, stats=False)
+        assert float(kept.value) == pytest.approx(1.0, abs=1e-6)
+
+    @pytest.mark.parametrize("installed", [False, True])
+    def test_dtw_at_equal_lengths_raises_rather_than_running(self, monkeypatch, installed):
+        """Equal lengths need no resampling, so a dtw request could pass as aligned. It
+        raises: ImportError naming the optional package when absent, NotImplementedError
+        when present."""
+        import sys
+        import types
+
+        monkeypatch.setitem(sys.modules, "dtw", types.ModuleType("dtw") if installed else None)
+        rng = np.random.default_rng(0)
+        a, b = rng.normal(size=30), rng.normal(size=30)
+        expected = NotImplementedError if installed else ImportError
+        with pytest.raises(expected, match="align='dtw'"):
+            oa.jrsa(a, b, metric="pearson", align="dtw", stats=False)
+
+    @pytest.mark.parametrize("align", ["linear", "interpolate", "cubic"])
+    def test_an_interpolation_without_scipy_raises(self, monkeypatch, align):
+        """It fell back to 'downsample' while `parameters['align']` echoed the request."""
+        import sys
+
+        from jnwb.jrsa._stages import _resample_axis
+
+        monkeypatch.setitem(sys.modules, "scipy.interpolate", None)
+        x1, x2 = np.arange(10.0)[None], np.arange(7.0)[None]
+        with pytest.raises(ImportError):
+            _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+
+    def test_no_metric_or_resampler_holds_a_cupy_branch(self):
+        """IB-48: `_to_backend` hands every metric a NumPy array, so the CuPy branches of
+        the metrics, the null and the bootstrap were unreachable; they are removed."""
+        from tests._sources import read_sources
+
+        held = [source.path.name for source in read_sources("jrsa-cupy-branch", "jnwb.jrsa")
+                if source.path.name in ("_metrics.py", "_inference.py")
+                and "cupy" in source.text]
+        assert held == []

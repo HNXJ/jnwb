@@ -3,7 +3,7 @@ jnwb.artifact_repair -- trial-segmented LFP/TFR artifact detection-and-substitut
 
 Operates on plain (n_trials, n_channels, n_times) or (n_trials, n_channels, n_freqs, n_times)
 arrays. Sibling to `jnwb.artifact_detection` (bad-channel/bad-trial exclusion). Defaults such
-as Z_THRESH=6.0 and REWARD_WINDOW_MS are overridable keyword arguments.
+as Z_THRESH=6.0 are overridable keyword arguments.
 
 Single source of truth for cross-channel-synchrony detection + cross-trial-median substitution
 on raw (or band-filtered) LFP trial segments, shape (n_trials, n_channels, n_times). Do not
@@ -14,7 +14,7 @@ DETECTION GEOMETRY (raw LFP trials)
     channels per timepoint. Shared deflections raise most channels together; independent noise
     does not. Default Z_THRESH=6.0 applies to this synchrony statistic (not to unrelated
     cross-trial pooled z-scores). Optionally exclude samples near a fixed post-onset reward
-    window via REWARD_WINDOW_MS so reward-locked transients are not repaired as movement.
+    window via exclude_window_ms so reward-locked transients are not repaired as movement.
 
 METHOD (cross-trial-median substitution on trial segments)
     Detect via cross-channel synchrony; repair via CROSS-TRIAL-MEDIAN SUBSTITUTION (same
@@ -46,7 +46,6 @@ import warnings
 import numpy as np
 
 Z_THRESH = 6.0                       # cross-channel-synchrony threshold, see docstring above
-REWARD_WINDOW_MS = (4000.0, 4300.0)  # excluded from repair eligibility, see docstring above
 
 
 def flagged_to_intervals(flagged, fs, pad_ms=40.0, merge_gap_ms=100.0):
@@ -55,11 +54,7 @@ def flagged_to_intervals(flagged, fs, pad_ms=40.0, merge_gap_ms=100.0):
     Belongs to the INTERVAL-INTERPOLATION repair method (``interpolate_intervals`` below),
     NOT the cross-trial-median method (``repair_lfp_trials`` above) -- the two methods are
     deliberately distinct (see module docstring's METHOD section), so this pair is not a
-    replacement for repair_lfp_trials, just its own canonical home. Extracted from
-    byte-identical copies in ``scripts/repair_lfp_movement_artifacts.py`` and
-    ``scripts/check_lfp_movement_artifacts.py`` (the latter's own docstring already flagged
-    itself as an intentional, self-acknowledged duplicate: "duplicated here (not imported) to
-    keep this diagnostic script self-contained; keep the two in sync if either changes").
+    replacement for repair_lfp_trials, just its own canonical home.
     """
     d = np.diff(flagged.astype(np.int8))
     starts = list(np.where(d == 1)[0] + 1)
@@ -283,7 +278,7 @@ DETECTION_TAILS = ("upper", "both")
 def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
     """Flag (trial, time) cells whose power departs from the cross-trial trend.
 
-    Split out of :func:`repair_band_artifacts` 2026-09-05 so the detection *rule* can be reused
+    Split out of :func:`repair_band_artifacts` so the detection *rule* can be reused
     without the substitution it is normally paired with, and without the 4-D array layout that
     function requires. It exists because the rule was demonstrably easier to retype than to
     reuse: a downstream reimplementation silently turned this one-sided test into a two-sided
@@ -441,8 +436,8 @@ if __name__ == "__main__":
     # repair_band_artifacts self-test: 20 trials, 4 channels, 99 freq rows (3-201Hz step 2),
     # 50 time samples, all trials sharing a common band-power evoked shape in Alpha; one trial
     # gets a sharp Alpha-only power spike absent from the other 19 trials of the same condition
-    # -- the exact "sharp increase across trials, not present in the rest" signature the user
-    # asked to exclude 2026-08-14.
+    # -- a sharp increase across trials, not present in the rest, which the repair exists to
+    # exclude.
     freqs = np.arange(3, 201, 2, dtype=float)
     n_trials, n_channels, n_freqs, n_times = 20, 4, freqs.size, 50
     alpha_sel = (freqs >= 8) & (freqs < 14)

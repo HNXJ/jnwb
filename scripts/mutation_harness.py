@@ -43,6 +43,18 @@ A ``Verdict`` with ``killed=False`` was otherwise only ever a failure, so a *mea
 gap had nowhere to live but a lane report, and a measured hole becomes a forgotten one (P-172).
 An expected survivor inverts the assertion: the gap is asserted to still be a gap, and the run
 fails when the mutant starts being killed and nobody updated the record.
+
+Recipe for running a mutation oracle over ``jnwb/`` (P-305):
+
+* ``tests/test_semantic_mutation_classes.py`` compares each target's bytes in a clone of ``HEAD``
+  against the checkout and fails on any uncommitted byte change to a target. A selector that
+  would run the whole suite while a mutant is applied must deselect that file, or the oracle is
+  red for a reason the mutant did not cause.
+* CUDA agreement tests kill a device mutant only on a machine with a GPU. On a CPU-only
+  machine such a mutant survives, and a survivor there is not evidence of a coverage gap.
+
+A case names its target with :func:`source_path`, which derives the file from the public object
+that defines it; no case here or in the tests spells a ``jnwb/<module>.py`` path.
 """
 
 from __future__ import annotations
@@ -157,6 +169,112 @@ def sha256_bytes(data: bytes) -> str:
 def sha256_file(path: Path) -> str:
     """Digest of a file's bytes, read binary so no line ending is rewritten under us."""
     return sha256_bytes(Path(path).read_bytes())
+
+
+# --------------------------------------------------------------------------------------------
+# where a public object's source lives
+# --------------------------------------------------------------------------------------------
+
+def _import_jnwb(repo: Path | None):
+    """The ``jnwb`` package, imported from ``repo`` when it is not already imported.
+
+    The directory is on ``sys.path`` only for the import, and only when it is not there already;
+    nothing is left prepended. A package already imported from elsewhere is refused for a
+    ``repo`` that does not hold it, because its paths would describe another tree.
+    """
+    import importlib
+
+    if repo is not None and "jnwb" not in sys.modules:
+        added = str(repo) not in sys.path
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        try:
+            package = importlib.import_module("jnwb")
+        finally:
+            if added:
+                sys.path.remove(str(repo))
+    else:
+        package = importlib.import_module("jnwb")
+    return package
+
+
+def _defines_class(path: Path, class_name: str) -> bool:
+    """Whether ``path`` defines ``class_name`` at module level."""
+    import ast
+
+    tree = ast.parse(path.read_bytes().decode("utf-8"), filename=str(path))
+    return any(isinstance(node, ast.ClassDef) and node.name == class_name for node in tree.body)
+
+
+def _class_definition_file(cls: type, found: Path) -> Path:
+    """The file that defines ``cls``, which may not be the file of ``cls.__module__``.
+
+    A package that re-points ``__module__`` at itself (``jnwb.spectral``, ``jnwb.laminar``)
+    makes :func:`inspect.getsourcefile` answer its ``__init__.py``. The definition is looked
+    for in that file, then in the one module of its package that defines the name; zero or
+    several such modules refuse the class by name.
+    """
+    if _defines_class(found, cls.__name__):
+        return found
+    package_dir = found.parent
+    hits = [p for p in sorted(package_dir.rglob("*.py")) if _defines_class(p, cls.__name__)]
+    if len(hits) != 1:
+        raise MutationHarnessError(
+            f"class {cls.__name__} is defined in {len(hits)} modules of {package_dir.name}/, "
+            f"not in {found.name}, the file of its __module__ {cls.__module__!r}"
+        )
+    return hits[0].resolve()
+
+
+def source_path(name: str, anchor: str | None = None, *, repo: Path | None = None) -> str:
+    """Repository-relative posix path of the file that defines ``jnwb.<name>``.
+
+    Derived with :func:`inspect.getsourcefile`, so a function that moves to another module
+    changes no caller. A case whose text lives in a private helper names a public object that
+    reaches it and passes the text as ``anchor``: when the public object's file does not hold
+    the anchor at all, the unique file under ``jnwb/`` that does is used. Zero or several
+    such files raise, because a path picked among candidates is not a derivation. A public
+    object's own file that holds the anchor more than once raises too, rather than handing the
+    case to some other file. The root is the directory holding the imported ``jnwb`` package
+    (which must be ``repo`` when that is given), and it must be a source tree: an installed
+    copy has no ``pyproject.toml`` beside it and is refused, unless ``JNWB_EXPECTED_PACKAGE_ROOT``
+    names its root: a deliberate run against an installed copy, whose ``jnwb/...`` paths are the
+    checkout's. A class resolves to the module that defines it, not the file its ``__module__``
+    names (:func:`_class_definition_file`).
+    """
+    import inspect
+
+    package = _import_jnwb(repo)
+    root = Path(inspect.getsourcefile(package) or "").resolve().parent.parent
+    expected = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    deliberate = expected is not None and Path(expected).resolve() == root
+    if repo is not None and root != Path(repo).resolve() and not deliberate:
+        raise MutationHarnessError(f"jnwb is imported from {root}, not from {repo}")
+    repo = root
+    if not (repo / "pyproject.toml").is_file() and not deliberate:
+        raise MutationHarnessError(f"jnwb is imported from {repo}, which is not a source tree")
+    obj = getattr(package, name)
+    found = Path(inspect.getsourcefile(obj) or "").resolve()
+    if inspect.isclass(obj):
+        found = _class_definition_file(obj, found)
+    rel = found.relative_to(repo)
+    own = 0 if anchor is None else found.read_bytes().decode("utf-8").count(anchor)
+    if anchor is None or own == 1:
+        return rel.as_posix()
+    if own > 1:
+        raise MutationHarnessError(
+            f"anchor {anchor[:60]!r} occurs {own} times in {rel.as_posix()}, the file of jnwb.{name}"
+        )
+    hits = [
+        p
+        for p in sorted((repo / "jnwb").rglob("*.py"))
+        if p.read_bytes().decode("utf-8").count(anchor) == 1
+    ]
+    if len(hits) != 1:
+        raise MutationHarnessError(
+            f"anchor {anchor[:60]!r} for jnwb.{name} is held by {len(hits)} files under jnwb/"
+        )
+    return hits[0].relative_to(repo).as_posix()
 
 
 # --------------------------------------------------------------------------------------------
@@ -1171,21 +1289,27 @@ def load_cases(path: Path) -> list[MutationCase]:
 #: to every other worker. ``tests/test_mutation_harness_validity.py`` holds them to what can be
 #: checked without mutating anything: the anchor still lands exactly once, and every node id they
 #: name still exists in the file it names.
-KNOWN_GAPS: tuple[MutationCase, ...] = (
+def known_gaps(repo: Path) -> tuple[MutationCase, ...]:
+    """The recorded gaps, built at use: a path derived from ``jnwb`` needs ``jnwb`` imported,
+    and importing this module must not import it (run by path, it would resolve to whatever
+    copy is installed). ``repo`` is the source tree the paths are derived in."""
+    return (
     MutationCase(
-        name="P-171 | density-versus-power is named by a test that measures a ratio",
-        path="jnwb/spectral.py",
+        name="P-171 | the bandwidth test, a ratio of two bands, cannot see Welch's scaling",
+        path=source_path(
+            "band_power", "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n", repo=repo
+        ),
         original="        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
         replacement=(
             '        return signal.welch(trace, fs=fs, nperseg=nperseg, scaling="spectrum")\n'
         ),
         selector=(
             "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
-            "::test_the_value_is_a_density_not_an_integrated_power",
+            "::test_the_value_is_independent_of_the_bandwidth",
         ),
         must_fail=(
             "tests/test_spectral.py::TestBandPowerEstimandIsDocumented"
-            "::test_the_value_is_a_density_not_an_integrated_power",
+            "::test_the_value_is_independent_of_the_bandwidth",
         ),
         semantic_property=(
             "band_power returns a spectral density in units^2/Hz, not an integrated power in "
@@ -1195,13 +1319,13 @@ KNOWN_GAPS: tuple[MutationCase, ...] = (
         survivor_reason=(
             "P-171. The test compares narrow/wide, a *ratio* of two means, and Welch's scaling "
             "enters both sides as the same constant factor -- so it detects the bandwidth error "
-            "it is named for and not the scaling error. A P-37 proxy inside an existing test, "
-            "found by measurement. The mutation class itself is covered: "
+            "and not the scaling error. It was named for density-versus-power; it is now named "
+            "for the bandwidth property it checks. The mutation class itself is covered: "
             "tests/test_semantic_mutation_classes.py kills it via "
-            "test_band_power_is_the_mean_psd_over_the_band. The naming is what is not covered."
+            "test_band_power_is_the_mean_psd_over_the_band."
         ),
     ),
-)
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1212,7 +1336,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--known-gaps",
         action="store_true",
-        help="run the recorded KNOWN_GAPS instead of a case file. A gap that has closed is an "
+        help="run the gaps `known_gaps` records instead of a case file. A gap that has closed is an "
         "UNEXPECTED-KILL and fails the run, so the record cannot go on claiming a gap that is gone.",
     )
     parser.add_argument(
@@ -1233,9 +1357,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.known_gaps == (args.cases is not None):
         parser.error("give exactly one of a case file or --known-gaps")
-    cases = list(KNOWN_GAPS) if args.known_gaps else load_cases(args.cases)
-
     worktree = resolve_worktree(args.worktree)
+    cases = list(known_gaps(worktree)) if args.known_gaps else load_cases(args.cases)
     try:
         with MutationSession(worktree, declared_modifications=args.declare_modified) as session:
             # Stated before the cases run, so a refusal further down is still attributable to a

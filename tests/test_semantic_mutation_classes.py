@@ -35,7 +35,7 @@ about each:
   ``finally``, and again here: after the run, every target file is re-hashed against the digest
   taken before it.
 * **Mutating the tree the suite is running in.** The suite runs under ``-n auto``. A mutation
-  applied to ``jnwb/spectral.py`` in the shared checkout would be visible for its whole lifetime
+  applied to a library module in the shared checkout would be visible for its whole lifetime
   to every other worker -- including the tests that read library source as text. Every case here
   runs in a private ``git clone`` of the checkout, torn down afterwards, so no other worker can
   observe a mutant. The clone is only evidence about this checkout if it carries the same bytes,
@@ -87,6 +87,7 @@ from scripts.mutation_harness import (  # noqa: E402
     MutationSession,
     Verdict,
     sha256_file,
+    source_path,
 )
 
 HARNESS_SOURCE = REPO_ROOT / "scripts" / "mutation_harness.py"
@@ -132,7 +133,7 @@ def _case(
     mutation_class: str,
     chain: str,
     name: str,
-    path: str,
+    target: str,
     original: str,
     replacement: str,
     selector: tuple[str, ...],
@@ -144,7 +145,7 @@ def _case(
         chain=chain,
         case=MutationCase(
             name=f"{mutation_class} | {chain} | {name}",
-            path=path,
+            path=source_path(target, original),
             original=original,
             replacement=replacement,
             selector=selector,
@@ -160,7 +161,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "unit scaling",
         "H2",
         "pitch-in-micrometres-read-as-millimetres",
-        "jnwb/spectral.py",
+        "voltage_curvature_1d",
         "    pitch_m = pitch_um * 1e-6\n",
         "    pitch_m = pitch_um * 1e-3\n",
         ("tests/test_spectral.py::TestVoltageCurvatureAndCSD",),
@@ -174,7 +175,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "unit scaling",
         "H6",
         "amplitude-decibels-for-a-power-ratio",
-        "jnwb/spectral.py",
+        "to_db",
         # Re-anchored: the conversion moved out of `to_db`'s errstate block into
         # `_ratio_to_db`, which `to_db` and `band_power` share, one indent level shallower.
         "    return 10.0 * np.log10(ratio)\n",
@@ -191,7 +192,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "axis swap",
         "H4",
         "correlation-taken-over-samples-not-channels",
-        "jnwb/artifact_detection.py",
+        "channel_correlation_matrix",
         # Re-anchored: `channel_correlation_matrix` gained the N1 orientation guard, so the
         # call now passes the coerced `arr` rather than the raw argument. The anchor matched
         # zero times for one commit, and **a case whose anchor matches nothing exits non-zero
@@ -219,7 +220,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "sign flip",
         "H2",
         "csd-sign-convention-dropped",
-        "jnwb/spectral.py",
+        "current_source_density_1d",
         "    return -conductivity_s_per_m * curvature\n",
         "    return conductivity_s_per_m * curvature\n",
         ("tests/test_spectral.py::TestVoltageCurvatureAndCSD",),
@@ -234,7 +235,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "conjugation",
         "H3",
         "psi-cross-spectrum-conjugated-on-the-other-factor",
-        "jnwb/connectivity.py",
+        "phase_slope_index",
         "    return float(np.sum(np.imag(np.conj(c[:-1]) * c[1:])))\n",
         "    return float(np.sum(np.imag(c[:-1] * np.conj(c[1:]))))\n",
         (
@@ -252,7 +253,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "density against spectrum",
         "H5",
         "welch-returns-a-spectrum-not-a-density",
-        "jnwb/spectral.py",
+        "band_power",
         "        return signal.welch(trace, fs=fs, nperseg=nperseg)\n",
         '        return signal.welch(trace, fs=fs, nperseg=nperseg, scaling="spectrum")\n',
         ("tests/test_spectral.py::TestBandPowerEstimandIsDocumented",),
@@ -271,7 +272,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "mean against median and sum",
         "H5",
         "aggregate-to-db-takes-the-median-of-the-ratios",
-        "jnwb/spectral.py",
+        "aggregate_to_db",
         '    mean = np.nanmean if nan_policy == "omit" else np.mean\n',
         '    mean = np.nanmedian if nan_policy == "omit" else np.median\n',
         ("tests/test_composition_aggregation_order.py::TestH5BandPowerToAggregateToDb",),
@@ -285,7 +286,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "mean against median and sum",
         "H5",
         "band-power-integrates-instead-of-averaging",
-        "jnwb/spectral.py",
+        "band_power",
         "    band_power_val = float(np.mean(pxx[mask]))\n",
         "    band_power_val = float(np.sum(pxx[mask]))\n",
         ("tests/test_spectral.py::TestBandPowerEstimandIsDocumented",),
@@ -305,7 +306,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "log before aggregate",
         "H5",
         "decibels-averaged-instead-of-ratios",
-        "jnwb/spectral.py",
+        "aggregate_to_db",
         "            aggregated = mean(p / b, axis=aggregate_over)\n",
         "            aggregated = np.power(10.0, mean(to_db(p / b), axis=aggregate_over) / 10.0)\n",
         ("tests/test_composition_aggregation_order.py::TestH5BandPowerToAggregateToDb",),
@@ -320,7 +321,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "permutation p-value substitution",
         "H9b",
         "granger-reports-the-analytic-f-test-p",
-        "jnwb/connectivity.py",
+        "granger",
         '        p_xy = _surrogate_p(null_xy, fit_xy["gc"], "greater", scale=1.0)\n'
         '        p_yx = _surrogate_p(null_yx, fit_yx["gc"], "greater", scale=1.0)\n',
         '        p_xy = fit_xy["p_f"]\n        p_yx = fit_yx["p_f"]\n',
@@ -340,7 +341,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "generator ignored",
         "H9b",
         "cluster-null-ignores-the-caller-generator",
-        "jnwb/statistics.py",
+        "cluster_permutation_test",
         "    permutation_seeds = spawn_seeds(rng, n_permutations)\n",
         "    permutation_seeds = spawn_seeds(np.random.default_rng(0), n_permutations)\n",
         (
@@ -359,7 +360,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "support gate removed",
         "H9a",
         "nested-design-no-longer-refused",
-        "jnwb/permutation.py",
+        "permute_labels",
         "    if not permutable:\n",
         "    if False:\n",
         (
@@ -378,7 +379,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "failure converted to a default",
         "H7",
         "boundary-nan-repaired-instead-of-refused",
-        "jnwb/spectral.py",
+        "band_power",
         "    if not np.all(np.isfinite(arr)):\n"
         "        raise ValueError(\n"
         '            f"{func_name}: {name} must be finite; remove or repair NaN or Inf samples '
@@ -402,7 +403,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "identity restoration removed",
         "H1",
         "layer-labels-follow-row-position-not-shaft-rank",
-        "jnwb/laminar.py",
+        "label_layers",
         "        rank[order] = np.arange(n_geom_channels, dtype=float)\n",
         "        rank = np.arange(n_geom_channels, dtype=float)\n",
         (
@@ -419,7 +420,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "identity restoration removed",
         "H8",
         "area-joined-by-row-position-not-channel-identifier",
-        "jnwb/addressing.py",
+        "enrich_units_dataframe",
         "        df['area'] = df['peak_channel_id'].apply(lambda x: _enrich(x)[0])\n",
         "        df['area'] = [map_peak_channel_to_area(electrodes_df.index[i], electrodes_df) "
         "for i in range(len(df))]\n",
@@ -438,7 +439,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "result key deleted",
         "H9a",
         "plan-stops-reporting-how-much-null-it-has",
-        "jnwb/permutation.py",
+        "build_permutation_plan",
         '        "n_permutable_groups": int(sum(\n'
         "            len(np.unique(y[group_array == g])) > 1 for g in np.unique(group_array)\n"
         "        )),\n",
@@ -459,7 +460,7 @@ CASES: tuple[SemanticMutation, ...] = (
         "signature drift",
         "H9b",
         "cluster-permutation-default-seed-moves",
-        "jnwb/statistics.py",
+        "cluster_permutation_test",
         "    rng: RNGLike = 0,\n",
         "    rng: RNGLike = 42,\n",
         ("tests/test_rng_control.py::TestNoRandomizedFunctionHidesItsSeed",),

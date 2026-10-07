@@ -45,7 +45,8 @@ graph LR
 import numpy as np
 import jnwb
 
-# x1, x2: Population activity matrices (e.g. 12 conditions x 100 units x 50 timepoints)
+# x1: population activity, 12 conditions x 100 units
+x1 = np.random.default_rng(0).normal(size=(12, 100))
 result = jnwb.jrsa(
     x1,
     x2=None,            # If x2 is None, computes symmetric self-similarity
@@ -74,6 +75,13 @@ fig = result.plot()
 - `result.statistic`: Test statistic accompanying `p` when applicable.
 - `result.null_distribution`: Array of surrogate permutation values when computed.
 
+`result.save(path, fmt)` writes every field in each format: `"npz"` stores the arrays and the
+other fields (`metric`, `parameters`, `execution` with its `seed`) as one JSON string under
+`fields_json`; `"json"` stores every field; `"csv"` stores one `field,value` row per scalar
+field and each array as rows of numbers (a 2-D `value` as one row per matrix row, after a
+`value.shape` row). `result.plot()` centres its diverging colormap on 0 when the matrix has
+both signs; `vmin`, `vmax` and `cmap` override it.
+
 ### The Permutation Null (`null=`)
 
 Each permutation resamples x2 along one axis, and `lag` shifts the same one, whatever `adim`
@@ -81,9 +89,9 @@ names: the last axis for the paired metrics (`"pearson"`, `"spearman"`, `"kendal
 `"mutual_information"`, `"granger_ssr_ftest"`, `"transfer_entropy_histogram_nats"`,
 `"phase_slope"`), so put time last, and axis 0, the observations, for `"rsa"`, `"cka"`, `"rv"`,
 `"hsic"`, `"distance_correlation"` and `"procrustes"`. A non-default `adim` that does not name
-that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. At the
-default `adim=-1` the axis-0 metrics window the features; `adim=0` windows the observations. A
-lag of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
+that axis raises `ValueError` with a permutation null, `bootstrap` or a nonzero `lag`. Without
+`adim`, `window` cuts that axis too; `adim=-1` makes the axis-0 metrics window features. A lag
+of l pairs x1[t] with x2[t - l], dropping |l| samples; `execution['n_overlap']` records the
 count.
 
 | `null=` | Resampling | Valid when |

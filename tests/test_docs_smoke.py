@@ -249,13 +249,14 @@ class TestDocsSmokeFixtures:
         x = np.sin(2 * np.pi * 20 * t)
         y = np.roll(x, int(0.01 * fs))
         psi_narrow = jnwb.phase_slope_index(
-            x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, seed=0,
+            x, y, fs=fs, bands=(18.0, 24.0), n_surrogates=50, seed=0,
         )
         noise_x = rng.normal(size=2000)
         noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
         psi_broad = jnwb.phase_slope_index(
             noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, seed=0,
         )
+        assert psi_narrow.per_band["band"]["n_freq_bins"] == 1
         assert np.isnan(psi_narrow.net)
         assert np.isnan(psi_narrow.per_band["band"]["z"])
         assert psi_broad.net > 0.5

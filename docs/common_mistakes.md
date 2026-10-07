@@ -185,9 +185,9 @@ Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or ver
 
 ```python
 # TRAP (receipt: 2000 samples at 1 kHz, seed=42, n_surrogates=50): a 20 Hz sinusoid
-# with 10 ms delay in a 19–21 Hz band gives net PSI = nan and band z = nan (one 2 Hz bin
-# at the default nperseg of 500). The same delay on 15–30 Hz broadband noise gives
-# net ≈ 0.93 and band z ≈ 9.8.
+# with 10 ms delay in an 18–24 Hz band gives net PSI = nan and band z = nan
+# (one 5.26 Hz bin at the default nperseg of 190). The same delay on 15–30 Hz broadband noise gives
+# net ≈ 0.64 and band z ≈ 7.9.
 ```
 
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
@@ -205,7 +205,7 @@ t = np.arange(2000) / fs
 x = np.sin(2 * np.pi * 20 * t)
 y = np.roll(x, int(0.01 * fs))  # 10 ms delay
 
-psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(19.0, 21.0), n_surrogates=50, rng=0)
+psi_narrow = jnwb.phase_slope_index(x, y, fs=fs, bands=(18.0, 24.0), n_surrogates=50, rng=0)
 
 noise_x = rng.normal(size=2000)
 noise_y = np.roll(noise_x, int(0.01 * fs)) + 0.3 * rng.normal(size=2000)
@@ -213,7 +213,7 @@ psi_broad = jnwb.phase_slope_index(
     noise_x, noise_y, fs=fs, bands=(15.0, 30.0), n_surrogates=50, rng=0,
 )
 
-print("Narrow band net:", psi_narrow.net)          # nan: 19-21 Hz holds one bin, no slope
+print("Narrow band net:", psi_narrow.net)          # nan: 18-24 Hz holds one bin, no slope
 print("Broad band net:", psi_broad.net)            # >> 0 for broadband noise + delay
 print("Broad band z:", psi_broad.per_band["band"]["z"])
 # Directional association only — not perturbational causality.
@@ -430,7 +430,7 @@ et al. 2014, Barnett and Seth 2011). A pitfall with no guard in `jnwb` is the ca
 | Volume conduction | Field spread couples sites with no interaction | Stated under [imaginary coherency and wPLI](coherence_and_tfr.md#imaginary-coherency-weighted-phase-lag-index-imaginary_coherency-wpli) |
 | Signal-to-noise asymmetry | The channel with the better signal-to-noise ratio appears to lead, so a Granger direction can be spurious | Caller: compare power between channels and conditions before reading direction. `jnwb` has no time-reversal or power-stratification control |
 | Common input | An unrecorded source drives both signals and leaves a Granger or phase-slope direction between them | No estimator removes it; a recorded source is conditioned on as [stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling) |
-| Bivariate against conditional Granger | A bivariate fit credits X with influence routed through a third recorded signal | [Stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling). `granger` takes `Z`, which `directed_network` passes to every pair; `granger_spectral` has no `Z` |
+| Bivariate against conditional Granger | A bivariate fit credits X with influence routed through a third recorded signal | [Stated here](08_directed_connectivity_and_information.md#pairwise-and-network-level-coupling). `granger` takes `Z`; `directed_network(conditional=True)` conditions on all other nodes; `granger_spectral` has no `Z` |
 | Sample-size bias | Coherence sits near 1/K for K segments under no coupling | PLV bias and PPC are [stated here](06_spikes_psth_and_onset_dynamics.md#pairwise-phase-consistency-pairwise_phase_consistency); `wpli` returns `wpli_debiased_sq`; `cross_area_coherence` returns `n_segments_used`. Caller: compare conditions at equal K |
 | Phase slope as direction | A phase slope gives a lag asymmetry in the statistics, not an anatomical direction | `phase_slope_index` tests the lead (`p_net`) apart from coupling; see [its page](08_directed_connectivity_and_information.md#3-phase-slope-index-phase_slope_index) |
 | Filtering before Granger | Granger causality is invariant under an invertible filter, so band-passing cannot isolate a band, and it often raises the fitted order | Caller: do not filter first; read `per_band` of `granger_spectral`. No estimator detects a filtered input |

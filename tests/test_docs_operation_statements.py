@@ -279,6 +279,8 @@ def _rng_probes():
         "phase_slope_index": lambda r: jnwb.phase_slope_index(
             t1, t2, fs=100.0, bands=(10.0, 30.0), n_surrogates=5, rng=r),
         "resample_onsets": lambda r: jnwb.resample_onsets(np.arange(10.0), target_n=20, rng=r),
+        "curate_and_label": lambda r: jnwb.curate_and_label(
+            g.normal(size=(8, 4, 600)), 500.0, pitch_um=25.0, compute_xflip=False, rng=r),
         "shuffle_r2_ci": lambda r: jnwb.shuffle_r2_ci(a, a + b, n_shuffle=10, rng=r),
         "transfer_entropy": lambda r: jnwb.transfer_entropy(t1[:300], t2[:300], n_surrogates=5,
                                                             rng=r),
@@ -431,7 +433,8 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     assert "`jnwb._parallel.spawn_seeds`" in cell
     assert "`np.random.SeedSequence(entropy).spawn(n_permutations)`" in cell
     x = np.random.default_rng(1).normal(size=(8, 20))
-    seen = _recorded_items(monkeypatch, "jnwb.statistics", lambda: jnwb.cluster_permutation_test(
+    home = jnwb.cluster_permutation_test.__module__  # where it looks `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.cluster_permutation_test(
         x, x + 0.1, n_permutations=12, rng=np.random.default_rng(5)))
     entropy = int(np.random.default_rng(5).integers(0, 2**63 - 1))
     expected = np.random.SeedSequence(entropy).spawn(12)
@@ -445,7 +448,10 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     # jrsa: one integer seed per permutation.
     assert rows["`jrsa`"] == "one integer seed per permutation"
     j = np.random.default_rng(2).normal(size=(6, 5, 30))
-    seen = _recorded_items(monkeypatch, "jnwb.jrsa", lambda: jnwb.jrsa(
+    from jnwb.jrsa import _permutation_test
+
+    home = _permutation_test.__module__  # where the permutations look `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.jrsa(
         j, j[::-1], metric="pearson", permutations=15, rng=0))
     assert len(seen) == 1 and len(seen[0]) == 15
     assert all(isinstance(s, (int, np.integer)) for s in seen[0]), seen[0][:3]
@@ -453,7 +459,8 @@ def test_every_parallel_draw_is_made_before_the_workers_start(monkeypatch):
     # cross_area_coherence: every surrogate shift, drawn from rng.
     assert rows["`cross_area_coherence`"] == "every surrogate shift"
     s = np.random.default_rng(3).normal(size=(2, 4000))
-    seen = _recorded_items(monkeypatch, "jnwb.spectral", lambda: jnwb.cross_area_coherence(
+    home = jnwb.cross_area_coherence.__module__  # where it looks `parallel_map` up
+    seen = _recorded_items(monkeypatch, home, lambda: jnwb.cross_area_coherence(
         s[0], s[1], fs=1000.0, freq_bands="canonical", n_surrogates=6, rng=11))
     shifts = np.random.default_rng(11).integers(1, 4000 - 1, size=6)
     assert [int(v) for v in seen[0]] == [int(v) for v in shifts]
@@ -672,8 +679,12 @@ def test_the_zflip_row_lists_only_raises_the_code_has():
     # Identical channels have zero imaginary coherency; no raise follows from it.
     same = np.tile(_zflip_input(1), (4, 1))
     jnwb.zflip(same, **ZFLIP_OK)
-    narrow = jnwb.zflip(_zflip_input(), **{**ZFLIP_OK, "freq_range": (15.0, 15.5)})
+    # With surrogates, so the rejection is the bin count's and not the missing null's: at
+    # n_surrogates=0 every fit is rejected whatever freq_range holds.
+    narrow = jnwb.zflip(_zflip_input(), **{**ZFLIP_OK, "freq_range": (15.0, 15.5),
+                                           "n_surrogates": 20})
     assert narrow.accepted is False
+    assert "Insufficient frequency bins" in narrow.rejection_reason
 
 
 @pytest.mark.parametrize("case", sorted(ZFLIP_RAISES))

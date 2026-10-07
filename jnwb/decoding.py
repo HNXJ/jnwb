@@ -199,7 +199,8 @@ def nested_cv_linear_svm(
         ``"success"``, where nothing was drawn.
 
     Raises:
-        ValueError: If ``groups`` is not one id per trial, has a missing id or
+        ValueError: If ``labels`` holds more than two classes, each with at least
+            two trials, or if ``groups`` is not one id per trial, has a missing id or
             a NaN or infinity in a float array, mixes ids that cannot be
             compared, or if a grouped
             outer training set holds a single class.
@@ -254,6 +255,14 @@ def nested_cv_linear_svm(
             "majority_baseline_accuracy": float("nan"),
             "seed": None,
         }
+    if len(classes) > 2 and not (classes.dtype.kind in "fc" and np.isnan(classes).any()):
+        # F1 and ROC-AUC below are binary; scikit-learn's own error named an argument
+        # this function does not take. A NaN label is not a class: scikit-learn's NaN
+        # message is the one that names it.
+        raise ValueError(
+            f"nested_cv_linear_svm: labels has {len(classes)} classes "
+            f"({classes.tolist()}); it decodes two."
+        )
 
     # The partition was fixed at `random_state=42` in four places with no way to
     # vary it, so partition sensitivity could not be assessed at all. An int `rng` is

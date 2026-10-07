@@ -157,29 +157,24 @@ def test_the_new_keys_carry_scikit_learns_values():
     np.testing.assert_allclose(ratio, s[:2] ** 2 / np.sum(s ** 2), rtol=1e-12)
 
 
-def test_the_old_key_keeps_the_fraction_and_warns_at_the_callers_line():
-    """For one release `explained_variance` stays the fraction the kept components explain
-    together; reading it says the key becomes the per-component variance and names the
-    new keys, and the warning points at the line that read it."""
+def test_explained_variance_carries_the_per_component_variance_without_a_warning():
+    """The deprecation completed in 0.2.10: `explained_variance` was the kept components'
+    summed fraction and warned that it would become scikit-learn's per-component
+    `explained_variance_`. It is now those values, and reading it warns about nothing."""
     session = _spread_session()
-    res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
-                                        time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
-                                        n_components=2)
-    s, _ = _reference_singular_values(session)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                            time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                            n_components=2)
         value = res['explained_variance']
         via_get = res.get('explained_variance')
-    assert isinstance(value, float) and via_get == value
-    np.testing.assert_allclose(value, np.sum(s[:2] ** 2) / np.sum(s ** 2), rtol=1e-12)
-    future = [w for w in caught if issubclass(w.category, FutureWarning)]
-    assert len(future) == 2
-    for w in future:
-        assert w.filename == __file__
-        message = str(w.message)
-        assert "explained_variance_ratio" in message
-        assert "explained_variance_per_component" in message
-        assert "next release" in message and "scikit-learn" in message
+    s, n_samples = _reference_singular_values(session)
+    assert value.shape == (2,) and via_get is value
+    np.testing.assert_allclose(value, s[:2] ** 2 / (n_samples - 1), rtol=1e-12)
+    np.testing.assert_array_equal(value, res['explained_variance_per_component'])
+    # Two arrays, so changing one in place does not change the other.
+    assert not np.shares_memory(value, res['explained_variance_per_component'])
 
 
 def test_compute_population_trajectory_empty():
@@ -205,11 +200,12 @@ def test_compute_population_trajectory_empty():
 
     assert res['trajectory'].shape == (4, 2, 5)
     assert np.all(np.isnan(res['trajectory']))
-    for key in ('explained_variance_ratio', 'explained_variance_per_component'):
+    for key in ('explained_variance', 'explained_variance_ratio',
+                'explained_variance_per_component'):
         assert res[key].shape == (2,) and np.all(np.isnan(res[key]))
-    with pytest.warns(FutureWarning):
-        assert np.isnan(res['explained_variance'])
     assert res['unit_ids'] == []
+    # Every return names its device; nothing was decomposed, so on no GPU.
+    assert res['device_used'] == 'cpu'
     # The bins themselves were requested, not estimated, so they stay real.
     assert np.all(np.isfinite(res['bin_centers']))
 
@@ -231,13 +227,10 @@ def test_components_that_could_not_be_estimated_are_not_zero():
     assert 0 < n_real < 8
     assert np.all(np.isfinite(res['trajectory'][:, :n_real, :]))
     assert np.all(np.isnan(res['trajectory'][:, n_real:, :]))
-    for key in ('explained_variance_per_component', 'explained_variance_ratio'):
+    for key in ('explained_variance', 'explained_variance_per_component',
+                'explained_variance_ratio'):
         assert res[key].shape == (8,)
         assert np.all(np.isfinite(res[key][:n_real])) and np.all(np.isnan(res[key][n_real:]))
-    # The ratio is NaN-padded, so the old scalar is its nansum, not its sum.
-    with pytest.warns(FutureWarning, match=r"np\.nansum"):
-        old = res['explained_variance']
-    np.testing.assert_allclose(old, np.nansum(res['explained_variance_ratio']), rtol=1e-12)
 
 
 def test_a_population_with_no_variance_has_no_explained_variance_ratio():
@@ -252,10 +245,56 @@ def test_a_population_with_no_variance_has_no_explained_variance_ratio():
         bin_size_ms=20.0,
         n_components=2,
     )
-    assert np.all(np.isnan(res['explained_variance_per_component']))
-    assert np.all(np.isnan(res['explained_variance_ratio']))
-    with pytest.warns(FutureWarning):
-        assert np.isnan(res['explained_variance'])
+    for key in ('explained_variance', 'explained_variance_per_component',
+                'explained_variance_ratio'):
+        assert np.all(np.isnan(res[key]))
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_a_constant_population_has_a_nan_trajectory(dtype, monkeypatch):
+    """A projection on components that do not exist is NaN, as in
+    `PopulationAnalyzer.population_trajectory`; it was zero. 0.3 has a nonzero computed std."""
+    import jnwb.trajectory as traj
+    for c in (0.0, 0.3):
+        X = np.full((4, 3, 5), c, dtype=dtype)
+        monkeypatch.setattr(traj, "build_time_resolved_matrix",
+                            lambda *a, _X=X, **k: (_X, [0, 1, 2], np.arange(5.0)))
+        res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+        assert res['trajectory'].shape == (4, 2, 5)
+        assert res['trajectory'].dtype == dtype
+        assert np.all(np.isnan(res['trajectory']))
+        for key in ('explained_variance', 'explained_variance_per_component',
+                    'explained_variance_ratio'):
+            assert np.all(np.isnan(res[key]))
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_a_population_with_variance_keeps_its_trajectory(dtype, monkeypatch):
+    """The NaN rule applies only without variance: with variance the trajectory is the one
+    the decomposition gave before the rule, bit for bit."""
+    import jnwb.trajectory as traj
+    from jnwb._spread import zscore
+    X = np.random.default_rng(0).poisson(5.0, size=(4, 3, 5)).astype(dtype)
+    monkeypatch.setattr(traj, "build_time_resolved_matrix",
+                        lambda *a, **k: (X, [0, 1, 2], np.arange(5.0)))
+    res = traj.compute_population_trajectory(None, "A", None, n_components=2)
+    Z = zscore(X.transpose(0, 2, 1).reshape(20, 3), axis=0)
+    _, S, Vt = np.linalg.svd(Z, full_matrices=False)
+    assert np.sum(S ** 2) > 0, "fixture must have variance"
+    proj, *_ = traj._kept_components(S, Vt[:2], Z @ Vt[:2].T, 20, 2)
+    want = proj.reshape(4, 5, 2).transpose(0, 2, 1)
+    assert np.all(np.isfinite(want)), "fixture must project finitely"
+    assert res['trajectory'].dtype == want.dtype
+    np.testing.assert_array_equal(res['trajectory'], want)
+
+
+def test_kept_components_leaves_the_projection_by_default():
+    """Without the switch the helper returns the projection it was given, even with no
+    variance; NaN is each caller's choice."""
+    from jnwb.trajectory import _kept_components
+    proj = np.zeros((6, 2))
+    out, *_ = _kept_components(np.zeros(3), np.eye(3)[:2], proj, 6, 2)
+    np.testing.assert_array_equal(out, proj)
 
 
 class TestPopulationTrajectoryEstimandDivergence:
@@ -311,5 +350,60 @@ class TestComputePopulationTrajectoryDeviceFallback:
             )
         assert res['trajectory'].shape == (4, 2, 5)
         assert np.all((res['explained_variance_ratio'] >= 0.0) & (res['explained_variance_ratio'] <= 1.0))
+
+    def test_a_library_that_fails_to_load_is_named_as_the_cause(self, monkeypatch):
+        """After CuPy loaded its CUDA libraries, `import torch` raised the Windows
+        loader's OSError and the warning said no CUDA device was found. The probe's import
+        is made to raise that error here."""
+        import sys
+
+        loader_error = OSError('[WinError 127] The specified procedure could not be found. '
+                               'Error loading "torch\\lib\\cusparse64_12.dll" or one of its '
+                               'dependencies.')
+
+        class _FailingTorch:
+            def find_spec(self, name, path=None, target=None):
+                if name == "torch":
+                    raise loader_error
+                return None
+
+        monkeypatch.delitem(sys.modules, "torch", raising=False)
+        monkeypatch.setattr(sys, "meta_path", [_FailingTorch(), *sys.meta_path])
+        session = MockSession()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                                time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                                n_components=2, device="cuda")
+        messages = [str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "PyTorch could not load its libraries (OSError: [WinError 127]" in messages[0]
+        assert "DLL conflict" in messages[0] and "import torch first" in messages[0]
+        assert "no usable CUDA device" not in messages[0]
+        assert res['device_used'] == 'cpu'
+
+    def test_a_non_loader_oserror_is_shown_without_the_conflict_advice(self, monkeypatch):
+        """A PermissionError on the library got the DLL-conflict advice too."""
+        import sys
+
+        class _DeniedTorch:
+            def find_spec(self, name, path=None, target=None):
+                if name == "torch":
+                    raise PermissionError(13, "Permission denied", "libcuda.so")
+                return None
+
+        monkeypatch.delitem(sys.modules, "torch", raising=False)
+        monkeypatch.setattr(sys, "meta_path", [_DeniedTorch(), *sys.meta_path])
+        session = MockSession()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            res = compute_population_trajectory(session, area='V1', epochs_df=session.epochs_df,
+                                                time_window_ms=(0.0, 100.0), bin_size_ms=20.0,
+                                                n_components=2, device="cuda")
+        messages = [str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1, messages
+        assert "PyTorch raised PermissionError: [Errno 13] Permission denied: 'libcuda.so'" in messages[0]
+        assert "DLL conflict" not in messages[0] and "import torch first" not in messages[0]
+        assert res['device_used'] == 'cpu'
 
 

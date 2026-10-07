@@ -56,7 +56,6 @@ from scripts.mutation_harness import (  # noqa: E402
     JOURNAL_ABSENT,
     JOURNAL_PRESENT,
     JOURNAL_UNREADABLE,
-    KNOWN_GAPS,
     ConditionFailed,
     HarnessBusy,
     JournalState,
@@ -71,11 +70,13 @@ from scripts.mutation_harness import (  # noqa: E402
     Verdict,
     apply_mutation,
     default_state_root,
+    known_gaps,
     parse_porcelain,
     resolve_worktree,
     restore_and_verify,
     sha256_bytes,
     sha256_file,
+    source_path,
     state_dir_for,
 )
 
@@ -1156,10 +1157,11 @@ def _resolve_node_id(node_id: str) -> bool:
 def test_the_measured_gaps_are_recorded_as_expected_survivors() -> None:
     """06-27 measured P-170 and P-171 and could only narrate them. P-170 is now killed by
     `test_the_returned_spectrum_carries_the_same_sign_as_net`; P-171 stays declared."""
-    assert len(KNOWN_GAPS) == 1
-    recorded = {gap.name.split(" | ")[0] for gap in KNOWN_GAPS}
+    gaps = known_gaps(REPO_ROOT)
+    assert len(gaps) == 1
+    recorded = {gap.name.split(" | ")[0] for gap in gaps}
     assert recorded == {"P-171"}, recorded
-    for gap in KNOWN_GAPS:
+    for gap in gaps:
         assert gap.expected_survivor is True
         assert len(gap.survivor_reason.split()) >= 15, (
             f"{gap.name}: the reason does not say why the gap is tolerated"
@@ -1175,7 +1177,7 @@ def test_every_recorded_gap_still_lands_on_this_checkout() -> None:
     because a mutation of ``jnwb/`` in this checkout is visible to every other ``-n auto`` worker.
     """
     problems: list[str] = []
-    for gap in KNOWN_GAPS:
+    for gap in known_gaps(REPO_ROOT):
         target = REPO_ROOT / gap.path
         if not target.is_file():
             problems.append(f"{gap.name}: {gap.path} does not exist")
@@ -1261,3 +1263,79 @@ def test_the_known_gaps_mode_needs_no_case_file() -> None:
 
     with pytest.raises(SystemExit):
         harness.main(["--worktree", str(REPO_ROOT)])
+
+
+def test_importing_the_harness_imports_no_jnwb() -> None:
+    """Run by path the harness would import whichever ``jnwb`` is installed, so a path derived
+    at import time raised there. Checked in a subprocess, because this process has jnwb loaded."""
+    probe = (
+        "import sys; sys.path.insert(0, sys.argv[1]);"
+        "import scripts.mutation_harness as h;"
+        "assert 'jnwb' not in sys.modules, 'importing the harness imported jnwb';"
+        "assert not hasattr(h, 'KNOWN_GAPS')"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", probe, str(REPO_ROOT)], capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_an_anchor_held_twice_by_the_public_objects_file_is_refused() -> None:
+    """It must not fall through to another file that happens to hold it once."""
+    anchor = "    lfp_matrix: np.ndarray,\n"
+    own = REPO_ROOT / source_path("voltage_curvature_1d")
+    assert own.read_bytes().decode("utf-8").count(anchor) > 1, "the fixture no longer repeats"
+    with pytest.raises(MutationHarnessError, match="occurs"):
+        source_path("voltage_curvature_1d", anchor)
+
+
+@pytest.mark.parametrize("name, defining", [
+    ("VFlipResult", "jnwb/laminar/_vflip.py"),
+    ("XFlipResult", "jnwb/laminar/_xflip.py"),
+    ("AperiodicFitResult", "jnwb/spectral/_psd.py"),
+    ("ComplexTFR", "jnwb/tfr.py"),
+])
+def test_a_class_resolves_to_the_file_that_defines_it(name, defining) -> None:
+    """A package that re-points a class's ``__module__`` at itself made the class resolve to
+    the package ``__init__.py``, which does not define it."""
+    assert source_path(name) == defining
+
+
+def test_a_class_defined_in_no_module_of_its_package_is_refused_by_name(tmp_path: Path) -> None:
+    from scripts.mutation_harness import _class_definition_file
+
+    (tmp_path / "__init__.py").write_text("from ._a import Thing\n", encoding="utf-8")
+    (tmp_path / "_a.py").write_text("Thing = object\n", encoding="utf-8")
+    (tmp_path / "_b.py").write_text("class Other:\n    pass\n", encoding="utf-8")
+    Thing = type("Thing", (), {"__module__": "fake"})
+    with pytest.raises(MutationHarnessError, match="class Thing is defined in 0 modules"):
+        _class_definition_file(Thing, tmp_path / "__init__.py")
+    (tmp_path / "_c.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
+    (tmp_path / "_d.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
+    with pytest.raises(MutationHarnessError, match="class Thing is defined in 2 modules"):
+        _class_definition_file(Thing, tmp_path / "__init__.py")
+
+
+def test_an_installed_copy_resolves_only_when_the_run_names_it(tmp_path, monkeypatch) -> None:
+    """The installed-wheel leg sets JNWB_EXPECTED_PACKAGE_ROOT to the copy under test; without
+    it, or naming another root, a copy with no pyproject.toml beside it is refused."""
+    import importlib.util
+
+    site = tmp_path / "site"
+    (site / "jnwb").mkdir(parents=True)
+    (site / "jnwb" / "__init__.py").write_text("def probe():\n    return 1\n", encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("jnwb", site / "jnwb" / "__init__.py")
+    installed = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(installed)
+    monkeypatch.setitem(sys.modules, "jnwb", installed)
+    monkeypatch.delenv("JNWB_EXPECTED_PACKAGE_ROOT", raising=False)
+    with pytest.raises(MutationHarnessError, match="not a source tree"):
+        source_path("probe")
+    monkeypatch.setenv("JNWB_EXPECTED_PACKAGE_ROOT", str(tmp_path / "elsewhere"))
+    with pytest.raises(MutationHarnessError, match="not a source tree"):
+        source_path("probe")
+    with pytest.raises(MutationHarnessError, match="not from"):
+        source_path("probe", repo=REPO_ROOT)
+    monkeypatch.setenv("JNWB_EXPECTED_PACKAGE_ROOT", str(site))
+    assert source_path("probe") == "jnwb/__init__.py"
+    assert source_path("probe", repo=REPO_ROOT) == "jnwb/__init__.py"

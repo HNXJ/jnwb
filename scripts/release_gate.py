@@ -1375,8 +1375,8 @@ VERSION_PATH = "jnwb/__init__.py"
 
 def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optional[str]:
     """Why the peak-memory record committed at ``rev`` was not taken for the version ``rev``
-    declares, or ``None``. The version is bumped in the commit that refreshes the record, so a
-    record naming another version is one the closure pass did not see refreshed."""
+    declares, or ``None``. The record is refreshed on the clean tree after the version bump is
+    committed, so a record naming another version is one the closure pass did not see refreshed."""
     record, init = _text_at(root, rev, PEAK_MEMORY_PATH), _text_at(root, rev, VERSION_PATH)
     declared = _VERSION_RE.search(init) if init is not None else None
     if declared is None:
@@ -2054,7 +2054,7 @@ def main() -> None:
     gaps_hold, gaps_report = check_known_gaps_hold()
     log.info(gaps_report)
     if not gaps_hold:
-        log.error("A recorded mutation gap no longer matches the measurement; update KNOWN_GAPS.")
+        log.error("A recorded mutation gap no longer matches the measurement; update `known_gaps` in scripts/mutation_harness.py.")
         sys.exit(1)
 
     for cmd in _api_md_check_commands():

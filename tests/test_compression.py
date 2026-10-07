@@ -1313,3 +1313,263 @@ class TestSharedTimestampsSurvive:
 
         small, large = cost(6), cost(24)
         assert large <= 4 * small, (small, large)
+
+
+RATELESS_TS = "acquisition/rateless/timestamps"
+
+
+class TestAStartingTimeWithoutARateIsRefused:
+    """A regular ``timestamps`` array beside a ``starting_time`` that has no ``rate`` attribute
+    cannot be compared with it, so the file is refused, by name, before anything is written.
+
+    The proxy to avoid: any raise. The arithmetic on the missing rate used to raise a bare
+    ``TypeError`` after the temporary file existed, so each refusal asserts its message and an
+    empty output directory; and an irregular array beside the same ``starting_time`` must still
+    convert, or refusing every rate-less group would pass.
+    """
+
+    @staticmethod
+    def _src(path, regular=True):
+        _selectable_file(path)
+        with h5py.File(path, "a") as f:
+            ts = (np.arange(400) / 1000.0 if regular
+                  else np.sort(np.random.default_rng(2).uniform(0.0, 1.0, 400)))
+            f.create_dataset(RATELESS_TS, data=ts)
+            f["acquisition/rateless"].create_dataset("starting_time", data=0.0)
+        with h5py.File(path, "r") as f:
+            assert "rate" not in f["acquisition/rateless/starting_time"].attrs
+        return path
+
+    @pytest.mark.parametrize("select", [[], [OTHER]], ids=["empty", "other"])
+    @pytest.mark.parametrize("entry", ["compress_fp32", "convert"])
+    def test_the_file_is_refused_before_anything_is_written(self, tmp_path, entry, select):
+        from jnwb.compression import convert
+
+        src = self._src(tmp_path / "rateless.nwb")
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match=r"starting_time has no 'rate' attribute.*"
+                                             r"acquisition/rateless/timestamps"):
+            if entry == "convert":
+                convert(src, out / "bad.nwb", select=select)
+            else:
+                jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=select)
+        assert list(out.iterdir()) == []
+
+    def test_an_irregular_array_beside_it_is_kept(self, tmp_path):
+        src = self._src(tmp_path / "rateless.nwb", regular=False)
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[OTHER])
+        assert stats["timestamps_kept_irregular"] == [RATELESS_TS]
+
+
+class TestATimestampsArrayIsFoundUnderEveryName:
+    """A ``timestamps`` array is found by every hard link that opens it, not only by the first
+    name a walk of the file's objects reaches.
+
+    The proxy to avoid: a fixture in which ``timestamps`` is also the first name, where an
+    object walk finds it too. The fixture's first name sorts ahead of it and is asserted to be
+    the one ``visititems`` reports; the array must then show up in the receipt and meet the
+    linked refusal.
+    """
+
+    FIRST = "aaa/first_name"
+    TS = "acquisition/second/timestamps"
+
+    @pytest.fixture
+    def src(self, tmp_path):
+        path = _selectable_file(tmp_path / "hard.nwb")
+        with h5py.File(path, "a") as f:
+            f.create_dataset(self.FIRST, data=np.arange(400) / 1000.0)
+            f[self.TS] = f[self.FIRST]
+        with h5py.File(path, "r") as f:
+            seen = []
+            f.visititems(lambda name, obj: seen.append(name) if obj == f[self.TS] else None)
+            assert seen == [self.FIRST]
+        return path
+
+    def test_the_receipt_lists_it_as_kept_linked(self, src, tmp_path):
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == [self.TS]
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert f[self.TS].dtype == np.float64
+            np.testing.assert_array_equal(f[self.TS][:], f[self.FIRST][:])
+
+    def test_select_naming_it_is_refused_before_anything_is_written(self, src, tmp_path):
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="another link also opens"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[self.TS])
+        assert list(out.iterdir()) == []
+
+
+class TestALinkedIrregularTimestampsArrayIsRefused:
+    """An irregular ``timestamps`` array that a second link opens is kept at its source dtype.
+
+    A cast rewrote it under the selected name only, and through a hard link the other name kept
+    the float64 values, so the two series disagreed on their sample times. The proxy to avoid:
+    refusing every irregular array, so an unlinked one must still be cast.
+    """
+
+    A, B = "acquisition/a/timestamps", "acquisition/b/timestamps"
+
+    @staticmethod
+    def _src(path, link):
+        _selectable_file(path)
+        with h5py.File(path, "a") as f:
+            ts = np.sort(np.random.default_rng(4).uniform(1000.0, 1001.0, 400))
+            f.create_dataset(TestALinkedIrregularTimestampsArrayIsRefused.A, data=ts)
+            target = TestALinkedIrregularTimestampsArrayIsRefused.A
+            f[TestALinkedIrregularTimestampsArrayIsRefused.B] = (
+                f[target] if link == "hard" else h5py.SoftLink("/" + target))
+            f.create_dataset("acquisition/c/timestamps",
+                             data=np.sort(np.random.default_rng(5).uniform(0.0, 1.0, 400)))
+        return path
+
+    @pytest.mark.parametrize("link, name", [("hard", A), ("hard", B), ("soft", B)],
+                             ids=["hard-first", "hard-second", "soft-alias"])
+    def test_a_selection_that_would_split_the_names_is_refused(self, tmp_path, link, name):
+        src = self._src(tmp_path / "irr.nwb", link)
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="irregular timestamps array that another link"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[name])
+        assert list(out.iterdir()) == []
+
+    def test_casting_a_soft_links_target_keeps_both_names_equal(self, tmp_path):
+        """The soft link reads through to the cast target, so no name is left behind."""
+        src = self._src(tmp_path / "irr.nwb", "soft")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[self.A])
+        assert stats["cast_paths"] == ["/" + self.A]
+        assert stats["timestamps_kept_linked"] == []      # cast, so not also reported as kept
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert isinstance(f.get(self.B, getlink=True), h5py.SoftLink)
+            assert f[self.A].dtype == np.float32 and f[self.B].dtype == np.float32
+            np.testing.assert_array_equal(f[self.A][:], f[self.B][:])
+
+    ROOT_LINKS = {
+        "literal": "/acquisition/a/timestamps",
+        "relative": "acquisition/a/timestamps",
+        "dot": "/acquisition/./a/timestamps",
+        "chain": "/acquisition/b/timestamps",          # a soft link to the soft link b
+        "group-alias": "/acquisition/g/timestamps",    # g is a soft link to the group a
+        "to-group": "/acquisition/a",
+    }
+
+    @pytest.mark.parametrize("route", list(ROOT_LINKS))
+    def test_a_top_level_soft_link_to_the_target_is_refused(self, tmp_path, route):
+        """The copy writes a top-level soft link as an independent copy, so it would not follow.
+
+        Decided on the object the link opens: every route to the array is refused, not only
+        the literal path.
+        """
+        src = self._src(tmp_path / "root.nwb", "soft")
+        with h5py.File(src, "a") as f:
+            f["acquisition/g"] = h5py.SoftLink("/acquisition/a")
+            f["rootalias"] = h5py.SoftLink(self.ROOT_LINKS[route])
+            assert f["rootalias"] == f[self.A] or isinstance(f["rootalias"], h5py.Group)
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError, match="irregular timestamps array that another link"):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=[self.A])
+        assert list(out.iterdir()) == []
+
+    def test_a_cast_through_a_group_alias_is_reported_once(self, tmp_path):
+        """The receipt compares objects, so a cast made through an alias path is cast only."""
+        src = self._src(tmp_path / "irr.nwb", "soft")
+        with h5py.File(src, "a") as f:
+            f["acquisition/g"] = h5py.SoftLink("/acquisition/a")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False,
+                                   select=["acquisition/g/timestamps"])
+        assert stats["timestamps_kept_linked"] == []
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            names = [self.A, self.B, "acquisition/g/timestamps"]
+            assert {f[n].dtype for n in names} == {np.dtype(np.float32)}
+            np.testing.assert_array_equal(f[self.A][:], f["acquisition/g/timestamps"][:])
+
+    def test_an_unlinked_irregular_array_is_still_cast(self, tmp_path):
+        src = self._src(tmp_path / "irr.nwb", "hard")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False,
+                                   select=["acquisition/c/timestamps"])
+        assert stats["cast_paths"] == ["/acquisition/c/timestamps"]
+
+    def test_without_the_selection_both_names_read_the_same_values(self, tmp_path):
+        src = self._src(tmp_path / "irr.nwb", "hard")
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == [self.A, self.B]
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            np.testing.assert_array_equal(f[self.A][:], f[self.B][:])
+
+
+class TestASoftLinkAliasIsCastUnderItsOwnName:
+    """A soft link named in ``select=`` becomes an independent float32 dataset under the link's
+    name, and its target keeps its source dtype, as the ``compress_fp32`` docstring states.
+
+    The proxy to avoid: checking only the cast note, which sits on the alias either way. The
+    output is asserted to hold a dataset, not a link, at the alias, and float64 at the target.
+    """
+
+    def test_the_alias_is_a_new_dataset_and_the_target_is_unchanged(self, tmp_path):
+        src = _selectable_file(tmp_path / "soft.nwb")
+        with h5py.File(src, "a") as f:
+            f["aliases/soft_other"] = h5py.SoftLink("/" + OTHER)
+            expected = f[OTHER][:]
+        dst = tmp_path / "ok.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=["aliases/soft_other"])
+        assert stats["cast_paths"] == ["/aliases/soft_other"]
+        with h5py.File(dst, "r") as f:
+            assert isinstance(f.get("aliases/soft_other", getlink=True), h5py.HardLink)
+            assert f["aliases/soft_other"] != f[OTHER]
+            assert f["aliases/soft_other"].dtype == np.float32
+            assert f[OTHER].dtype == np.float64
+            np.testing.assert_array_equal(f[OTHER][:], expected)
+            np.testing.assert_array_equal(f["aliases/soft_other"][:], expected.astype(np.float32))
+        doc = " ".join(jnwb.compress_fp32.__doc__.split())
+        assert "the link no longer opens its target, and the target keeps its source dtype" in doc
+
+
+class TestSoftLinksAreResolvedFromTheirOwnGroup:
+    """A relative soft link opens a path relative to the group that holds it.
+
+    The link scan resolves each soft link from its group; resolving it from the root finds
+    nothing for a relative path, so the array it opens was collapsed and the link dangled.
+    """
+
+    def test_a_relative_soft_link_keeps_its_target(self, tmp_path):
+        src = _selectable_file(tmp_path / "rel.nwb")
+        with h5py.File(src, "a") as f:
+            f.create_dataset("acquisition/a/timestamps", data=np.arange(400) / 1000.0)
+            f["acquisition/a/alias"] = h5py.SoftLink("timestamps")
+            assert f.get("timestamps") is None  # the path does not resolve from the root
+            assert f["acquisition/a/alias"] == f["acquisition/a/timestamps"]
+        dst = tmp_path / "ok.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == ["acquisition/a/timestamps"]
+        assert stats["timestamps_collapsed"] == []
+        with h5py.File(dst, "r") as f:
+            np.testing.assert_array_equal(f["acquisition/a/alias"][:], np.arange(400) / 1000.0)
+
+
+class TestTheSoftLinkedRegularTimestampsMessage:
+    """``select=`` naming a soft link to a regular ``timestamps`` array names the link, its
+    target and the reason the array is kept.
+
+    Tested with the soft link alone: beside a hard link the array is linked whatever the soft
+    link does, and the message would not tell which link made it so.
+    """
+
+    def test_the_message_names_the_link_and_its_target(self, tmp_path):
+        src = _file_with_timestamps(tmp_path / "soft.nwb")
+        with h5py.File(src, "a") as f:
+            f["aliases/soft_ts"] = h5py.SoftLink("/" + REGULAR_TS)
+            assert h5py.h5o.get_info(f[REGULAR_TS].id).rc == 1
+        out = tmp_path / "out"
+        out.mkdir()
+        with pytest.raises(ValueError) as err:
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=["aliases/soft_ts"])
+        assert str(err.value) == (
+            f"select= names aliases/soft_ts, a link to {REGULAR_TS}, a regular timestamps "
+            "array that another link also opens; the conversion keeps it at its source dtype "
+            "instead of replacing it with starting_time and rate, so the link stays valid, and "
+            "it cannot be cast to float32. Remove it from select=."
+        )
+        assert list(out.iterdir()) == []

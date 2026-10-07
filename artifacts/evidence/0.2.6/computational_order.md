@@ -268,6 +268,16 @@ contradicts a written claim it appears in section 6.
 | `zflip[n_samples]` | n_samples | 8192, 50000, 200000, 500000 | 7.36, 22.8, 96.1, 252.3 | +0.86 | 0.983 | 34x | O(n) | T(n log L) | derived | agree |
 | `zflip[n_surrogates]` | n_surrogates | 4, 16, 64, 128 | 29.9, 90.1, 347.6, 708.3 | +0.92 | 0.997 | 24x | O(n) | T(S) | derived | agree |
 
+### `jnwb.laminar_curation`
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `curate_and_label[n_epochs]` | n_epochs | 8, 32, 128, 512 | 28.08, 72.24, 267.7, 970 | +0.86 | 0.995 | 35x | O(n) | T(E) | derived | agree |
+| `detect_bad_channels[n_samples]` | n_samples | 10000, 100000, 1000000, 4000000 | 24.69, 235.1, 2073, 8451 | +0.97 | 1.000 | 342x | O(n) | T(n) | derived | agree |
+| `evoked_csd_sink[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 2.525, 28.72, 306.2, 3594 | +1.05 | 1.000 | 1423x | O(n) | T(C*W) | derived | agree |
+| `fuse_laminar_anchors[n_windows]` | n_windows | 1000, 10000, 100000, 1000000 | 0.1286, 0.2133, 1.205, 17.58 | +0.72 | 0.920 | 137x | sub-linear | T(W) | derived | agree |
+| `interpolate_channel_runs[n_channels]` | n_channels | 1000, 10000, 100000, 1000000 | 4.044, 46.11, 441.5, 4613 | +1.02 | 1.000 | 1141x | O(n) | T(C*n) | derived | agree |
+
 ### `jnwb.metadata`
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
@@ -707,7 +717,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 21 |
+| result container | 22 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -717,7 +727,7 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **52** |
+| **Total** | **53** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -743,10 +753,15 @@ algorithm column still describes the replaced code for both rows.
 | `IntervalTableNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `InvalidOnsetValueError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `JRSAResult` | result container | plain dataclass (jnwb/jrsa.py:30); construction is O(1) field binding. summary/plot/save do scale but are not the export. |
+| `LaminarCurationResult` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__; only method is to_dict. |
 | `Lineage` | result container | frozen dataclass, no __post_init__. |
 | `MissingRequiredNWBFieldError` | exception class | __init__ formats one f-string from one field name: O(1). |
 | `NWBEventError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `NWBInspectError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
+| `RaggedIndexRepair` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `RaggedIndexReport` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `RaggedIndexRepairRefused` | exception class | ValueError subclass; construction is O(1) in every input dimension. |
+| `NWBValidationReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `Preflight` | result container | frozen dataclass; __post_init__ validates the outcome, the reason and each name in `missing`, which a caller's plan bounds, not any data size. |
 | `ProbeGeometry` | result container | frozen dataclass, no __post_init__ (verified programmatically); binds references only. |
@@ -779,6 +794,9 @@ algorithm column still describes the replaced code for both rows.
 | Export | What a measurement would need |
 |---|---|
 | `build_time_resolved_matrix` | An object satisfying the session protocol: get_units(quality=, area=) -> DataFrame whose ROW INDEX POSITION (not the unit_id column) is the spike-lookup key, carrying area and quality columns; plus get_spike_times(row_position) -> ndarray of seconds; plus an epochs DataFrame with a start_time column. All three must be parameterizable in unit count, trial count and spikes per unit. No such class exists in the package: grep 'def get_units' hits only tests/test_trajectory.py:37 and tests/test_pca_device_parity.py:210, both hard-coded mocks with no size parameter. tests/test_declared_return_shapes.py:37 already lists both names under NEEDS_A_SESSION. Writing a stand-in would mean choosing its per-unit spike count and get_units cost, which is the exact freedom that would corrupt the fitted exponent. |
+| `check_ragged_indices` | Cost grows with the number of table rows and with the data length of each ragged column (one read of each index and a cumulative sum; the data arrays are not read, only their shape). Not measured: the order is derived from the code, and a measurement needs NWB files generated at controlled row counts, which the package does not provide. |
+| `repair_ragged_index` | The same read and cumulative sum as `check_ragged_indices`, plus one write of one index. Not measured, for the reason given there. |
+| `validate_nwb` | Cost is the sum of its layers: the `read` and `pynwb_*` layers walk the file's containers and attributes (datasets are not read), `integrity` reads each ragged index and each electrode region once, and the `nwbinspector` and `dandi` layers run those tools, whose cost is theirs and grows with the number of containers, tables and rows they inspect. Not measured: it needs NWB files generated at controlled container counts, which the package does not provide, and the two optional layers are external. |
 | `compute_population_trajectory` | The same session object -- it delegates to build_time_resolved_matrix on its first line -- plus, to measure the SVD stage independently, a way to supply X directly, which the signature does not offer. |
 | `nwb_read_io` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. It opens the file through the same repair context as `read_nwb`. |
 | `read_nwb` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. |

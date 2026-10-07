@@ -148,3 +148,105 @@ def test_the_shim_is_read_only():
 
     assert not hasattr(DictAccessMixin, "__setitem__")
     assert not hasattr(DictAccessMixin, "__iter__")
+
+
+def test_setdefault_of_an_old_name_reads_the_current_key_and_inserts_nothing():
+    # It inserted a key 'old' beside 'new' and returned the default.
+    from jnwb._dictlike import RenamedKeyDict
+
+    d = RenamedKeyDict({"new": 1}, aliases={"old": "new"})
+    with pytest.warns(DeprecationWarning, match="'old' is deprecated"):
+        assert d.setdefault("old", 99) == 1
+    assert dict(d) == {"new": 1}
+    assert d.setdefault("new", 99) == 1
+    assert d.setdefault("other", 7) == 7 and dict(d) == {"new": 1, "other": 7}
+
+
+def _renamed():
+    from jnwb._dictlike import RenamedKeyDict
+
+    return RenamedKeyDict({"new": 1}, aliases={"old": "new"})
+
+
+def _one_deprecation_at_this_line(caught, line):
+    deprecations = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+    assert len(deprecations) == 1, [str(w.message) for w in deprecations]
+    w = deprecations[0]
+    assert "'old' is deprecated" in str(w.message) and "'new'" in str(w.message)
+    assert (w.filename, w.lineno) == (__file__, line), (w.filename, w.lineno)
+
+
+@pytest.mark.parametrize("write", ["setitem", "update", "update_kwargs", "setdefault", "pop"])
+def test_every_write_follows_an_old_name_and_warns_at_the_callers_line(write):
+    """`d['old'] = v` and `update({'old': v})` inserted `old` beside `new`, and `pop('old')`
+    raised KeyError. Each now acts on `new`, warning at the caller's line as a read does;
+    the setdefault case is the only test of its `stacklevel`."""
+    import warnings
+
+    calls = {"setitem": lambda: d.__setitem__("old", 2), "update": lambda: d.update({"old": 2}),
+             "update_kwargs": lambda: d.update(old=2), "setdefault": lambda: d.setdefault("old", 9),
+             "pop": lambda: d.pop("old")}
+    d = _renamed()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        out = calls[write]()
+    _one_deprecation_at_this_line(caught, calls[write].__code__.co_firstlineno)
+    if write == "pop":
+        assert out == 1 and dict(d) == {}
+    elif write == "setdefault":
+        assert out == 1 and dict(d) == {"new": 1}
+    else:
+        assert out is None and dict(d) == {"new": 2}
+
+
+def test_the_subscript_write_warns_at_the_line_that_wrote():
+    # Through a lambda above the warning lands on the lambda's line; this is the bare form.
+    import inspect
+    import warnings
+
+    d = _renamed()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = inspect.currentframe().f_lineno + 1
+        d["old"] = 3
+    _one_deprecation_at_this_line(caught, line)
+    assert dict(d) == {"new": 3}
+
+
+def test_the_in_place_union_follows_an_old_name_and_warns_at_its_line():
+    # `d |= {'old': v}` went through dict.__ior__, inserting 'old' beside 'new' unwarned.
+    import inspect
+    import warnings
+
+    d = _renamed()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        line = inspect.currentframe().f_lineno + 1
+        d |= {"old": 4, "other": 5}
+    _one_deprecation_at_this_line(caught, line)
+    assert dict(d) == {"new": 4, "other": 5}
+
+
+def test_pop_of_an_old_name_whose_current_key_is_gone_is_a_miss():
+    # It raised KeyError('new'), naming a key the caller never asked for.
+    d = _renamed()
+    del d["new"]
+    with pytest.warns(DeprecationWarning):
+        assert d.pop("old", "dflt") == "dflt"
+    with pytest.warns(DeprecationWarning), pytest.raises(KeyError) as info:
+        d.pop("old")
+    assert info.value.args == ("old",)
+
+
+def test_writes_of_current_and_unknown_keys_are_a_dicts():
+    import warnings
+
+    d = _renamed()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        d["new"] = 5
+        d.update({"other": 6}, extra=7)
+        assert d.pop("other") == 6 and d.pop("absent", None) is None
+    assert dict(d) == {"new": 5, "extra": 7}
+    with pytest.raises(KeyError):
+        d.pop("absent")

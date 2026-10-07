@@ -98,6 +98,7 @@ nav:
       - Spikes & Onset Dynamics: 06_spikes_psth_and_onset_dynamics.md
       - Spectra & Decibels: 04_spectral_analysis_and_tfr.md
       - Coherence & TFR: coherence_and_tfr.md
+      - Laminar Depth: laminar.md
       - Artifact Detection & Repair: 05_artifact_detection_and_repair.md
       - Statistical Inference & Nulls: 07_statistical_inference_and_nulls.md
       - Directed Connectivity: 08_directed_connectivity_and_information.md
@@ -126,6 +127,7 @@ nav:
   - Fix a problem:
       - Common Mistakes: common_mistakes.md
       - Errors: errors.md
+      - Repairing NWB Files: repairing_nwb.md
 
   - Look up:
       - Public API: api.md

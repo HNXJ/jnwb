@@ -139,7 +139,9 @@ def get_all_units_metadata(
                 log.info(f"{session_id}: {len(units_df)} units extracted")
 
                 if filter_quality:
-                    q_num = pd.to_numeric(units_df['quality'], errors='coerce')
+                    has_quality = 'quality' in units_df.columns
+                    q_num = (pd.to_numeric(units_df['quality'], errors='coerce') if has_quality
+                             else pd.Series(np.nan, index=units_df.index))
                     if q_num.notna().any():
                         # An infinite quality is no quality code, so it does not pass.
                         finite = np.isfinite(q_num.astype(float))
@@ -147,10 +149,12 @@ def get_all_units_metadata(
                     elif 'is_stable' in units_df.columns:
                         units_df = units_df[units_df['is_stable']]
                     else:
+                        reason = ("the 'quality' column holds no usable value" if has_quality
+                                  else "the units table has no 'quality' column")
                         warnings.warn(
-                            f"{session_id}: filter_quality=True, but the 'quality' column "
-                            f"holds no usable value, so none of its {len(units_df)} units "
-                            f"can pass the filter and all are excluded.",
+                            f"{session_id}: filter_quality=True, but {reason}, so none of "
+                            f"its {len(units_df)} units can pass the filter and all are "
+                            f"excluded.",
                             RuntimeWarning,
                             stacklevel=2,
                         )
@@ -333,8 +337,8 @@ def unit_census_report(
         group_by: Columns to group by (default: ['session_id', 'area', 'depth_class'],
             the geometric depth class from ``enrich_units_dataframe``; a ``layer`` column is
             not read, and a default call on a frame that has ``layer`` but no ``depth_class``
-            emits a ``UserWarning``). An
-            explicit column the frame lacks is dropped with a ``UserWarning``.
+            emits a ``UserWarning``). A column the frame lacks, default or explicit, is
+            dropped with a ``UserWarning``.
 
     Returns:
         Summary DataFrame with counts and statistics
@@ -354,12 +358,22 @@ def unit_census_report(
             )
     else:
         group_by = ['session_id', 'area', 'depth_class']
-        if 'depth_class' not in units_df.columns and 'layer' in units_df.columns:
+        absent = [col for col in group_by if col not in units_df.columns]
+        if 'depth_class' in absent and 'layer' in units_df.columns:
+            absent.remove('depth_class')
             warnings.warn(
                 "unit_census_report: units_df has no 'depth_class' column, so the census is "
                 "not split by depth. Its 'layer' column is not read. 'depth_class' comes "
                 "from enrich_units_dataframe (get_all_units_metadata runs it); rebuild the "
                 "frame with either, or pass group_by explicitly.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if absent:
+            warnings.warn(
+                f"unit_census_report: units_df has no {absent} column, so the default census "
+                "is not split by it; the census is grouped by the remaining default columns "
+                "only. Pass group_by explicitly to choose the grouping.",
                 UserWarning,
                 stacklevel=2,
             )

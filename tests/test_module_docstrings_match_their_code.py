@@ -21,15 +21,25 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# Appended, not prepended: an installed copy must not be shadowed by the source tree.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.mutation_harness import source_path  # noqa: E402
+
 HARNESS_GATE = REPO_ROOT / "scripts" / "harness_gate.py"
 VERSION_HOOK = REPO_ROOT / "scripts" / "mkdocs_version_hook.py"
-CONNECTIVITY = REPO_ROOT / "jnwb" / "connectivity.py"
+#: The module docstring is the one `help(jnwb.connectivity)` shows, which is the package's;
+#: the helper whose body it describes is read from the file that holds it.
+CONNECTIVITY = REPO_ROOT / "jnwb" / "connectivity" / "__init__.py"
+RESIDUAL_VARIANCE = REPO_ROOT / source_path("granger", "def _residual_variance(")
 ARTIFACT_DETECTION = REPO_ROOT / "jnwb" / "artifact_detection.py"
 TFR_ACCUMULATOR = REPO_ROOT / "jnwb" / "tfr_accumulator.py"
 RELEASE_GATE = REPO_ROOT / "scripts" / "release_gate.py"
@@ -382,14 +392,14 @@ class TestConnectivityDescribesItsOwnDivisor:
     """It claimed explicit `N - p` divisors; `_residual_variance` returns `RSS / N`."""
 
     def test_the_function_divides_by_n(self):
-        node = function_def(CONNECTIVITY, "_residual_variance")
+        node = function_def(RESIDUAL_VARIANCE, "_residual_variance")
         # The body without its docstring: the docstring says why `n_params` is gone.
-        source = body_source(CONNECTIVITY, node)
+        source = body_source(RESIDUAL_VARIANCE, node)
         assert "max(n, 1)" in source, source
         assert "n_params" not in source, "the dead parameter is back"
 
     def test_it_takes_no_parameter_it_does_not_read(self):
-        node = function_def(CONNECTIVITY, "_residual_variance")
+        node = function_def(RESIDUAL_VARIANCE, "_residual_variance")
         names = [a.arg for a in node.args.args]
         assert names == ["residuals"], names
 

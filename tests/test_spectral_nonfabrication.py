@@ -9,6 +9,7 @@ Each test fails against the pre-repair implementation:
   fell back to CPU through a log message only.
 """
 
+import inspect
 import sys
 
 import numpy as np
@@ -86,7 +87,7 @@ class TestWpliDevice:
     def test_gpu_failure_warns_and_returns_the_cpu_result(self, monkeypatch):
         x, y = _lagged_pair()
         cpu = jnwb.wpli(x, y, fs=FS, freq_range=(10.0, 40.0))
-        monkeypatch.setattr(jnwb.spectral, "resolve_device", lambda *a, **k: "cuda")
+        monkeypatch.setattr(inspect.getmodule(jnwb.wpli), "resolve_device", lambda *a, **k: "cuda")
         monkeypatch.setitem(sys.modules, "cupy", None)  # `import cupy` now raises
         with pytest.warns(RuntimeWarning, match="wpli: GPU computation failed"):
             out = jnwb.wpli(x, y, fs=FS, freq_range=(10.0, 40.0), device="cuda")
@@ -94,12 +95,13 @@ class TestWpliDevice:
 
     def test_imaginary_coherency_gpu_failure_warns(self, monkeypatch):
         x, y = _lagged_pair()
-        monkeypatch.setattr(jnwb.spectral, "resolve_device", lambda *a, **k: "cuda")
+        home = inspect.getmodule(jnwb.imaginary_coherency)  # where it looks names up
+        monkeypatch.setattr(home, "resolve_device", lambda *a, **k: "cuda")
 
         def _boom(*args, **kwargs):
             raise RuntimeError("simulated device failure")
 
-        monkeypatch.setattr(jnwb.spectral, "_welch_csd_gpu", _boom)
+        monkeypatch.setattr(home, "_welch_csd_gpu", _boom)
         with pytest.warns(RuntimeWarning, match="imaginary_coherency: GPU computation failed"):
             jnwb.imaginary_coherency(x, y, fs=FS, device="cuda")
 

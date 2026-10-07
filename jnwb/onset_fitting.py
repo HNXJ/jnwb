@@ -12,7 +12,9 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import least_squares
 
+from ._spread import is_constant
 from ._units import resolve_unit_alias
+from .unit_quality import _positive_finite
 
 DEFAULT_TAU_MS = 30.0
 
@@ -55,7 +57,9 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
+    Raises ValueError if ``tau_ms`` is not finite and positive.
     """
+    tau_ms = _positive_finite(tau_ms, "tau_ms", "causal_exp_smooth")
     rate = np.asarray(rate, dtype=float)
     if rate.size == 0:
         return np.empty(0, dtype=float)
@@ -94,8 +98,8 @@ def fit_exponential_onset(
 ) -> dict:
     """Grid-search-over-t0, then bounded nonlinear least-squares fit of ``onset_model``.
 
-    2026-08-15 revision: a joint 4-parameter fit (t0, tau, amplitude, baseline optimized
-    together) turned out to be non-identifiable on real PSTHs -- for a smooth, gradually
+    Why a grid: a joint 4-parameter fit (t0, tau, amplitude, baseline optimized
+    together) is non-identifiable on real PSTHs -- for a smooth, gradually
     ramping rise (as opposed to the clean single-population step-like rises used in this
     module's original synthetic self-test), an early t0 paired with a large tau reproduces
     almost the same curve as a true later t0 with small tau, so the joint optimizer routinely
@@ -126,6 +130,10 @@ def fit_exponential_onset(
     is the correct behavior when a class genuinely does not respond in a given area).
 
     Returns dict: t0, tau, amplitude, baseline, r2, converged, cost.
+
+    Raises:
+        ValueError: If ``t_ms`` and ``rate`` are not 1-D of one length, or ``rate`` is
+            constant: a flat trace has no onset, and every ``t0`` fits it equally well.
     """
     t0_bounds_unset = t0_bounds_ms is None and t0_bounds is None
     t0_bounds_ms = resolve_unit_alias(
@@ -151,8 +159,20 @@ def fit_exponential_onset(
 
     t_ms = np.asarray(t_ms, dtype=float)
     rate = np.asarray(rate, dtype=float)
+    if t_ms.ndim != 1 or rate.shape != t_ms.shape:
+        raise ValueError(
+            f"fit_exponential_onset: t_ms and rate must be 1-D and of one length, got shapes "
+            f"{t_ms.shape} and {rate.shape}."
+        )
     if t_ms.size < 4:
         raise ValueError(f"need at least 4 time points to fit, got {t_ms.size}")
+    if is_constant(rate):
+        # Every onset time fits a flat trace equally well: the fit returned the upper t0
+        # bound, with an amplitude at its 1e-6 floor and r2 NaN, as though it were measured.
+        raise ValueError(
+            f"fit_exponential_onset: rate is constant ({rate[0]:g} throughout), so it has no "
+            "rise and no onset time to fit."
+        )
 
     if baseline_window_ms is not None:
         bmask = (t_ms >= baseline_window_ms[0]) & (t_ms < baseline_window_ms[1])
@@ -249,7 +269,7 @@ if __name__ == "__main__":
         {"t0_true": 150.0, "tau_true": 40.0, "amp_true": 15.0, "baseline_true": 8.0, "n_trials": 40},
         {"t0_true": 40.0, "tau_true": 15.0, "amp_true": 50.0, "baseline_true": 3.0, "n_trials": 80},
         {"t0_true": 300.0, "tau_true": 60.0, "amp_true": 10.0, "baseline_true": 6.0, "n_trials": 30},
-        # Broad/gradual rise, large tau -- the exact failure mode found on real PSTHs 2026-08-15:
+        # Broad/gradual rise, large tau -- the failure mode seen on real PSTHs:
         # a joint (t0,tau) fit could reproduce this curve almost as well with t0 near 0 and a
         # larger tau, so this case specifically stress-tests the t0-grid-search fix rather than
         # the original identifiability-friendly small-tau cases above. tau_true=120 sits near

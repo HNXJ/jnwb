@@ -4,6 +4,7 @@ Each test pins a contract a public function violated: returning a valid-looking 
 p = 1/(n_shuffles+1), a fundamental at the first bin) where the quantity is undefined, or
 returning a result that changed with the units of the input.
 """
+import inspect
 import warnings
 
 import numpy as np
@@ -111,8 +112,9 @@ class TestSpectralSummaries:
             raise RuntimeError("simulated CUDA failure")
 
         cpu = jnwb.harmonic_analysis(TRACE, fs=FS)
-        monkeypatch.setattr(spectral, "resolve_device", lambda *a, **k: spectral.CUDA)
-        monkeypatch.setattr(spectral, "_welch_csd_gpu", boom)
+        home = inspect.getmodule(spectral.harmonic_analysis)  # where it looks names up
+        monkeypatch.setattr(home, "resolve_device", lambda *a, **k: spectral.CUDA)
+        monkeypatch.setattr(home, "_welch_csd_gpu", boom)
         with pytest.warns(RuntimeWarning, match="simulated CUDA failure"):
             fallback = jnwb.harmonic_analysis(TRACE, fs=FS, device="cuda")
         assert fallback["fundamental_freq"] == cpu["fundamental_freq"]
@@ -271,9 +273,11 @@ class TestJrsaIsUnitFree:
     def test_zero_input_is_undefined(self, metric):
         assert np.isnan(self._value(np.zeros_like(self.X), self.Y, metric))
 
-    @pytest.mark.skipif(not _backend.cupy_available(), reason="needs CuPy with a CUDA device")
     @pytest.mark.parametrize("metric", ["pearson", "spearman", "cosine"])
-    def test_cuda_matches_cpu(self, metric):
+    def test_backend_cupy_changes_no_number(self, metric):
+        """P-281: this was `test_cuda_matches_cpu`, skipped without CuPy, and compared the CPU
+        with the CPU: `backend='cupy'` converts to NumPy and warns. It now says so, and runs
+        everywhere."""
         tied = np.repeat(self.RNG.normal(size=10), 4)[:, None] * np.ones((1, 3))
         cases = [
             (self.X, self.Y),
@@ -283,11 +287,12 @@ class TestJrsaIsUnitFree:
         ]
         for x, y in cases:
             cpu = self._value(x, y, metric)
-            gpu = self._value(x, y, metric, backend="cupy")
+            with pytest.warns(RuntimeWarning, match="computes in NumPy on the CPU"):
+                requested = self._value(x, y, metric, backend="cupy")
             if np.isnan(cpu):
-                assert np.isnan(gpu)
+                assert np.isnan(requested)
             else:
-                assert gpu == pytest.approx(cpu, rel=1e-9)
+                assert requested == cpu
 
 
 @pytest.mark.parametrize("scale", [1e-3, 1e-6, 1e-9])

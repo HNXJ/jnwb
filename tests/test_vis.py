@@ -243,6 +243,33 @@ def test_exports_in_the_group_render_in_the_session_browser():
     assert running, "each export would open and shut down a browser of its own"
 
 
+def test_only_a_missing_chrome_may_skip_the_browser_tests(session_browser_parts):
+    parts = session_browser_parts
+
+    class ChromeNotFoundError(Exception):
+        """Named as choreographer's is."""
+
+    def ended_by(cause):
+        try:
+            raise parts.failed("died during calc_fig") from cause
+        except parts.failed as err:
+            return err
+
+    assert parts.chrome_missing(ended_by(ChromeNotFoundError("no chrome")))
+    assert not parts.chrome_missing(ended_by(FileNotFoundError("no browser")))
+    assert not parts.chrome_missing(ended_by(None))
+
+    try:  # reached only through __context__: the raise has no `from`
+        try:
+            raise ChromeNotFoundError("no chrome")
+        except ChromeNotFoundError:
+            raise parts.failed("died during calc_fig")  # noqa: B904
+    except parts.failed as err:
+        assert err.__cause__ is None
+        assert parts.chrome_missing(err)
+    assert not parts.chrome_missing(parts.failed("gave no calc_fig in 90 s"))
+
+
 def test_a_call_to_a_dead_session_browser_raises_its_ending(session_browser_parts):
     parts = session_browser_parts
     launch = FileNotFoundError("no browser")

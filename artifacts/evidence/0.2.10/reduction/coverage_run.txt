@@ -1,0 +1,41 @@
+# Full coverage pass, lane r-10-21 (one run)
+date: 2026-10-07T16:55:20Z
+head: 9e9a4b630a0aa398d121f09378bac99e75c7d15d
+cwd: /c/workspace/jnwb-lanes/r-10-21
+env: COVERAGE_CORE=ctrace COVERAGE_FILE=<scratch>/_temp_r1021_cov/.coverage PYTHONPATH=/c/workspace/jnwb-lanes/r-10-21
+python: Python 3.14.3; coverage 7.14.3;pytest 9.0.2;pytest-cov 7.1.0;pytest-xdist 3.8.0;
+cmd: python -u -m pytest tests/ -q -n 12 -p no:cacheprovider --basetemp C:/workspace/pytest_temp/r1021 --cov=jnwb --cov=scripts --cov-context=test --cov-report= --junitxml=<scratch>/_temp_r1021_cov/junit.xml
+# log tail
+7120 passed, 30 skipped, 20 xfailed, 172 warnings, 30 subtests passed in 457.12s (0:07:37)
+rc=0
+end: 2026-10-07T17:03:03Z
+
+# analysis: python r1021_analyse.py <COVERAGE_FILE> <junit.xml> <worktree> <out>
+# re-run after the boundary-test rewrite: loc sums below count tests/test_jnwb_frozen_boundary.py
+# at 137 lines; per_file_unique_lines.tsv was written by the first run, at baseline (176 lines).
+# The first run printed 15852 and 16391 loc for the two sets; nothing else differs.
+contexts(tests with lines) 5402; test files 202; covered lines 17791
+junit tests 7170; failed/error 0; runtime 3740s
+zero-unique files 68 (15813 loc, 1099 tests)
+zero-jnwb (process) files 61 (16352 loc, 1209 tests)
+
+# group check: lines whose every covering test file lies in the set
+zero-unique, covers lines	files 40	lines lost if deleted together 0	jnwb 0	scripts 0
+zero-unique, covers nothing	files 28	lines lost if deleted together 0	jnwb 0	scripts 0
+all zero-unique	files 68	lines lost if deleted together 0	jnwb 0	scripts 0
+
+# per-test-context probe, run before the full pass (3 tests, one shared function, -n 2)
+== core=default COVERAGE_CORE=unset
+cmd: COVERAGE_FILE=_temp_cov_default PYTHONPATH=<worktree> python -m pytest test_ctxprobe.py -q -p no:cacheprovider --cov=jnwb --cov-context=test --cov-report= -n 2
+3 passed in 5.47s
+jnwb/_backend.py line, n tests, tests (_is_64_bit body):
+179	2	test_first;test_second
+180	2	test_first;test_second
+181	2	test_first;test_second
+== core=ctrace COVERAGE_CORE=ctrace
+cmd: COVERAGE_FILE=_temp_cov_ctrace PYTHONPATH=<worktree> python -m pytest test_ctxprobe.py -q -p no:cacheprovider --cov=jnwb --cov-context=test --cov-report= -n 2
+3 passed in 6.86s
+jnwb/_backend.py line, n tests, tests (_is_64_bit body):
+179	3	test_first;test_second;test_third
+180	3	test_first;test_second;test_third
+181	3	test_first;test_second;test_third

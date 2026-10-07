@@ -61,7 +61,8 @@ def test_the_sweep_reads_the_working_tree_and_not_an_installed_copy():
     if here not in PACKAGE_ROOT.parents:
         pytest.skip(f"qualifying {PACKAGE_ROOT}, not this checkout")
     for module in ("addressing", "continuous", "laminar", "spectral", "statistics"):
-        assert (PACKAGE_ROOT / f"{module}.py").is_file(), f"the sweep has no {module}.py to read"
+        assert (PACKAGE_ROOT / f"{module}.py").is_file() or (
+            PACKAGE_ROOT / module / "__init__.py").is_file(), f"the sweep has no {module} to read"
 
 
 # ===========================================================================
@@ -625,7 +626,7 @@ def test_the_sweep_reaches_the_whole_package():
     """A scan over an empty file list is a live zero that means nothing."""
     modules = list(PACKAGE_ROOT.rglob("*.py"))
     assert len(modules) > 30, f"only {len(modules)} modules scanned"
-    assert (PACKAGE_ROOT / "jrsa.py") in modules
+    assert (PACKAGE_ROOT / "jrsa" / "_stages.py") in modules
 
 
 # Reviewed, one row per surviving site, keyed without line numbers. A new site fails the test
@@ -651,10 +652,10 @@ ACCEPTED_CHAIN_ELSE = {
      ("greater", "less"), 1):
         "_count_at_least_as_extreme checks alternative against _TAILS and raises; the else "
         "is the 'two-sided' branch.",
-    ("laminar.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
+    ("laminar/_vflip.py", "vflip", "CHAIN_ELSE", "orientation", ("auto", "superficial_to_deep"), 1):
         "orientation is checked against valid_orientations and raises; the else is the "
         "'deep_to_superficial' branch.",
-    ("spectral.py", "relative_power", "CHAIN_ELSE", "model",
+    ("spectral/_decibels.py", "relative_power", "CHAIN_ELSE", "model",
      ("mean_of_ratios", "ratio_of_means"), 1):
         "model is checked against RELATIVE_POWER_MODELS and raises; the else is the "
         "'log_ratio' branch.",
@@ -674,41 +675,30 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("trajectory.py", "compute_population_trajectory", "Exception",
      ("S_np", "V_np", "proj_np"), False, 1):
         "Same GPU -> NumPy SVD fallback, same announcement.",
-    ("spectral.py", "harmonic_analysis", "Exception", ("frequencies", "pxx"), False, 1):
+    ("spectral/_psd.py", "harmonic_analysis", "Exception", ("frequencies", "pxx"), False, 1):
         "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
         "warn_device_fallback; the handler rebinds device = CPU, so the device follows the "
         "value. Same estimator on another device, not a different one.",
-    ("spectral.py", "spectral_tilt", "Exception", ("frequencies", "pxx"), False, 1):
+    ("spectral/_psd.py", "spectral_tilt", "Exception", ("frequencies", "pxx"), False, 1):
         "GPU Welch -> scipy.signal.welch with the same nperseg, announced by "
         "warn_device_fallback; the handler rebinds resolved = CPU, so the device follows the "
         "value.",
-    ("spectral.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
+    ("spectral/_coupling.py", "cross_area_coherence", "Exception", ("computed",), False, 1):
         "GPU coherence -> CPU wholesale; the handler rebinds device_used = 'cpu', so the "
         "recorded device follows the value.",
-    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 1):
-        "OPEN, carried deliberately: align='interpolate' or 'linear' falls back to "
-        "'downsample' when scipy is "
-        "absent while parameters['align'] echoes the request -- a substitution. Doubly latent: "
-        "scipy is a declared dependency, and jrsa() refuses x1 and x2 of different shapes in "
-        "_validate_inputs before _align_dimensions, so no axis is ever resampled. The "
-        "reachable half of the same function is repaired below "
-        "(test_an_unrecognised_align_raises_rather_than_resampling_silently).",
-    ("jrsa.py", "_resample_axis", "ImportError", ("x1", "x2"), False, 2):
-        "OPEN, carried deliberately: the align='cubic' twin of the first site, the same "
-        "substitution under the same two latencies.",
-    ("jrsa.py", "_reduce_one", "AttributeError", (), True, 1):
+    ("jrsa/_stages.py", "_reduce_one", "AttributeError", (), True, 1):
         "cupy.median -> cupy.percentile(50) inside _reduce_one. The 50th percentile with "
         "linear interpolation IS the median; same number, different call. The label stays "
         "true.",
-    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr_cpu",), False, 1):
+    ("jrsa/_stages.py", "_apply_preprocessing._prep", "ImportError", ("arr_cpu",), False, 1):
         "scipy.signal.detrend(type='linear') -> degree-1 polyfit subtraction. Both are the "
         "least-squares linear detrend; scipy's own implementation is the same normal equations.",
-    ("jrsa.py", "_apply_preprocessing._prep", "ImportError", ("arr",), False, 1):
+    ("jrsa/_stages.py", "_apply_preprocessing._prep", "ImportError", ("arr",), False, 1):
         "Same detrend equivalence on the non-GPU path.",
-    ("jrsa.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
+    ("jrsa/_backends.py", "_ensure_np", "(RuntimeError, TypeError, ValueError)", ("a",), False, 1):
         "tensor.numpy() -> np.asarray(tensor) inside _ensure_np. A conversion of the same "
         "data, not a second way of computing it.",
-    ("laminar.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
+    ("laminar/_xflip.py", "_compute_correlation_matrix", "np.linalg.LinAlgError", ("theta",), False, 1):
         "OPEN, carried deliberately: a singular covariance is pseudo-inverted and the result "
         "is returned as a partial correlation with no indication. Reproduced -- a rank-2 "
         "channel pair yields exactly -1.0, a plausible and wrong number. Nearly unreachable "
@@ -723,12 +713,11 @@ ACCEPTED_HANDLER_RECOVERY = {
     # A returned *absence* is the opposite of this class, not an instance of it: NaN, None,
     # False, an error dict and an `accepted=False` result all decline to answer. The class
     # needs a plausible answer filed under the request's name.
-    ("_backend.py", "cupy_available", "(ImportError, OSError, RuntimeError, AttributeError)",
-     (), True, 1):
-        "Returns False when CuPy will not import or count devices. A declared absence.",
-    ("_backend.py", "torch_cuda_available",
-     "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
-        "Returns False when torch will not import or report CUDA. A declared absence.",
+    ("_backend.py", "_probe", "OSError", (), True, 1):
+        "Returns False when CuPy or torch cannot load its libraries, and records the error so "
+        "the denial warning names it. A declared absence.",
+    ("_backend.py", "_probe", "(ImportError, RuntimeError, AttributeError)", (), True, 1):
+        "Returns False when CuPy or torch will not import or report CUDA. A declared absence.",
     ("_backend.py", "jax_metal_available",
      "(ImportError, OSError, RuntimeError, AttributeError)", (), True, 1):
         "Returns False when JAX exposes no Metal device. A declared absence.",
@@ -755,17 +744,17 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
-    ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
+    ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
         "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
         "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "
         "missing statsmodels is imported outside the handler and raises.",
     ("io.py", "_stored_seek_is_reliable", "Exception", (), True, 1):
         "Returns False when its zipfile probe raises, so a stored entry is read forward, the "
         "path that needs no seek. Same bytes either way; only time differs.",
-    ("jrsa.py", "_granger", "ImportError", (), True, 1):
+    ("jrsa/_metrics.py", "_granger", "ImportError", (), True, 1):
         "statsmodels absent -> warns and returns NaN for Granger causality. It declines "
         "rather than substituting another estimator, which is 06-15's repair in this module.",
-    ("jrsa.py", "_result_plot", "ImportError", (), True, 1):
+    ("jrsa/_result.py", "_result_plot", "ImportError", (), True, 1):
         "matplotlib absent -> warns and returns None instead of a figure. Absence.",
     ("mcp_server/event_tools.py", "get_event_codes_and_timings",
      "IntervalTableNotFoundError", (), True, 1):
@@ -794,12 +783,32 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
         "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
         "Absence.",
-    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
-        "The 'fixed' fit. Returns AperiodicFitResult(accepted=False) with every estimate None "
-        "-- the declared refusal shape, which is what a non-identifiable fit is supposed to "
-        "emit.",
-    ("spectral.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 2):
-        "The 'knee' fit. The same refusal shape, with mode='knee'.",
+    ("spectral/_psd.py", "aperiodic_fit._fit_single_1d", "Exception", (), True, 1):
+        "The one handler around both modes' fits and the robust refit (it was one handler "
+        "per mode). Returns AperiodicFitResult(accepted=False) with every estimate None and "
+        "the requested mode -- the declared refusal shape, which is what a non-identifiable "
+        "fit, or a robust refit left with fewer than 4 bins, is supposed to emit.",
+    ("nwb_validate.py", "_version", "metadata.PackageNotFoundError", (), True, 1):
+        "A distribution that is not installed reports None in the versions table; absence, "
+        "not a plausible substitute.",
+    ("nwb_validate.py", "_layer_read", "Exception", (), True, 1):
+        "The failure is the finding: the layer returns status 'fail' carrying the exception "
+        "type and text, filed under its own layer name. Nothing is substituted for the result.",
+    ("nwb_validate.py", "_layer_pynwb", "Exception", (), True, 1):
+        "Same: a validator that raises is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_layer_inspector", "ImportError", (), True, 1):
+        "A missing optional dependency is reported as status 'skipped' with the install hint; "
+        "a skipped layer never counts as a pass (dandi_ready needs the layer to have run).",
+    ("nwb_validate.py", "_layer_inspector", "Exception", (), True, 1):
+        "A raising checker is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_layer_dandi", "ImportError", (), True, 1):
+        "Missing dandi is reported as status 'skipped', never a pass; dandi_ready stays False.",
+    ("nwb_validate.py", "_layer_dandi", "Exception", (), True, 1):
+        "A raising validator is reported as a 'fail' layer with the exception text.",
+    ("nwb_validate.py", "_dandi_validate", "ImportError", (), True, 1):
+        "Tries dandi.validate.validate, then dandi.validate._core.validate: the same function "
+        "under the module path an older release exposes it at. Neither found is reported by "
+        "the caller as 'skipped'.",
 }
 
 
@@ -891,8 +900,26 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
         deferral, so it is driven here. If a validator is ever loosened, the corresponding
         ``else`` becomes a live substitution and this test is what says so.
         """
-        with pytest.raises((ValueError, TypeError, NotImplementedError)):
+        with pytest.raises(ValueError, match=_PROBE_REFUSAL[selector]):
             call()
+
+
+#: The refusal each probe above must raise: its own selector's name and the rejected value.
+#: Any error used to pass, so a probe that broke before reaching its validator still passed.
+_PROBE_REFUSAL = {
+    "continuous.boundary_policy": r"Unknown boundary_policy: 'bogus'",
+    "laminar.orientation": r"orientation must be one of .*got 'bogus'",
+    "spectral.model": r"model must be one of .*got 'bogus'",
+    "statistics.alternative": r"^sweep: alternative must be one of .*got 'bogus'",
+    "permutation.alternative": r"alternative must be one of .*got 'bogus'",
+    "statistics.shuffle_pvalue_paired.alt":
+        r"^shuffle_pvalue_paired: alternative must be one of .*got 'bogus'",
+    "statistics.shuffle_pvalue_unpaired.alt":
+        r"^shuffle_pvalue_unpaired: alternative must be one of .*got 'bogus'",
+    "statistics.exact_sign_flip.alt": r"alternative must be 'two-sided', .*got 'bogus'",
+    "statistics.tail": r"tail must be 'both', 'greater', or 'less'; got 'bogus'",
+    "jrsa.alternative": r"^jrsa: unrecognized alternative 'bogus'",
+}
 
 
 _SCALAR_ATTR_BODY = "    raw = ds.attrs.get(key)\n    return None if raw is None else float(raw)\n"
@@ -951,7 +978,7 @@ class TestASiteIsReviewedAtItsOwnSite:
         for module, anchor, scanner, accepted in (
                 ("mcp_server/nwb_tools.py", _SCALAR_ATTR_BODY, scan_recovering_handlers,
                  ACCEPTED_HANDLER_RECOVERY),
-                ("connectivity.py", _ADF_BODY, scan_recovering_handlers,
+                ("connectivity/_granger.py", _ADF_BODY, scan_recovering_handlers,
                  ACCEPTED_HANDLER_RECOVERY),
                 ("nam.py", _NAM_GUARD, scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY),
                 ("permutation.py", _TIE_COUNT_BODY, scan_selector_chain_fallthrough,
@@ -975,9 +1002,9 @@ class TestASiteIsReviewedAtItsOwnSite:
     def test_a_value_planted_before_a_reviewed_nan_is_named(self):
         planted = ("    try:\n        float(series[0])\n    except _ADF_NUMERICAL_FAILURES:\n"
                    "        return 0.5\n")
-        result = _plant_before("connectivity.py", _ADF_BODY, planted,
+        result = _plant_before("connectivity/_granger.py", _ADF_BODY, planted,
                                scan_recovering_handlers, ACCEPTED_HANDLER_RECOVERY)
-        _assert_names_both(result, ("connectivity.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES",
+        _assert_names_both(result, ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES",
                                     (), True))
 
     def test_a_module_guard_planted_before_a_reviewed_one_is_named(self):

@@ -54,6 +54,17 @@ class TestComputeResponseMetrics:
         assert metrics["response_rate"] == pytest.approx(4 / 0.15)
         assert metrics["response_count"] == 12
 
+    @pytest.mark.parametrize("spike, onset, window", [
+        (0.3, 0.03, (0.27, 0.5)),   # exactly on the start: 0.3 - 0.03 == 0.27, 0.03 + 0.27 > 0.3
+        (0.06, 0.02, (0.0, 0.04)),  # 0.06 - 0.02 < 0.04, but 0.02 + 0.04 <= 0.06
+    ])
+    def test_windows_select_by_spike_minus_onset(self, spike, onset, window):
+        assert window[0] <= spike - onset < window[1]       # the case is what it is named
+        m = compute_response_metrics(np.array([spike]), np.array([onset]),
+                                     baseline_window_s=(-0.02, -0.01), response_window_s=window)
+        assert m["response_count"] == 1
+        assert m["latency"] == (spike - onset) - window[0]
+
     def test_per_trial_rates_are_returned_in_onset_order(self):
         onsets = np.array([0.0, 10.0, 20.0])
         spikes = np.array([-0.2, 0.01, 0.02, 9.8, 9.9, 20.05])  # baseline 1, 2, 0; response 2, 0, 1
@@ -247,24 +258,36 @@ class TestClassifyResponseSignificance:
         assert np.mean(p < alpha) <= bound, (np.mean(p < alpha), bound)
         assert 0.3 < np.median(p) < 0.7, np.median(p)
 
-    def test_bursting_at_zero_effect_rejects_about_thirty_percent(self):
-        """The limit the docstring states: 5 Hz firing in bursts of four spikes 4 ms apart,
-        200 trials, default windows, no effect. The test counts each spike of a burst as an
-        independent event, so about 30% of 300 units fall below p = 0.05."""
+    @pytest.mark.parametrize("gap_s, low, high", [(0.004, 0.2, 0.4), (0.050, 0.12, 0.27)])
+    def test_bursting_at_zero_effect_rejects_what_the_docstring_states(self, gap_s, low, high):
+        """The limit the docstring states: 5 Hz firing in bursts of four spikes, 200 trials,
+        default windows, no effect. The test counts each spike of a burst as an independent
+        event, so about 30% of 300 units fall below p = 0.05 with the spikes 4 ms apart and
+        about 19% with them 50 ms apart."""
         rng = np.random.default_rng(20260927)
         onsets = np.arange(200) * 1.0 + 1.0
         p = []
         for _ in range(300):
             starts = rng.uniform(0.0, 202.0, rng.poisson(5.0 / 4 * 202.0))
-            st = np.sort((starts[:, None] + np.arange(4) * 0.004).ravel())
+            st = np.sort((starts[:, None] + np.arange(4) * gap_s).ravel())
             m = compute_response_metrics(st, onsets)
             p.append(classify_response_significance(m, zscore_threshold=0.0,
                                                     min_spike_count=0)["pvalue"])
         rate = float(np.mean(np.array(p) < 0.05))
-        assert 0.2 < rate < 0.4, rate
+        assert low < rate < high, rate
 
 
 class TestPhaseLockingIndex:
+    def test_rayleigh_p_is_the_first_order_series_its_comment_states(self):
+        lfp_timestamps = np.linspace(0, 10, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        spikes = np.sort(np.random.default_rng(3).uniform(0.5, 9.5, 40))
+        res = phase_locking_index(spikes, lfp_phase, lfp_timestamps, n_bins=18)
+        z, n = res["rayleigh_z"], res["n_spikes"]
+        assert 0 < z < 3
+        assert res["rayleigh_pvalue"] == pytest.approx(
+            np.exp(-z) * (1 + (2 * z - z ** 2) / (4 * n)), rel=1e-12)
+
     def test_empty_spikes_return_nan_values(self):
         result = phase_locking_index(np.array([]), np.array([0.0]), np.array([0.0]))
         assert np.isnan(result["peak_to_mean_contrast"])
@@ -597,6 +620,16 @@ class TestSpikeCountCorrelation:
         res = spike_count_correlation((u for u in units), (0.0, 2.0), bin_ms=500.0)
         assert res["n_units"] == 2
 
+    def test_fewer_than_three_bins_is_refused(self):
+        from jnwb.spiking import spike_count_correlation
+        units = [np.array([0.1, 0.2, 0.7]), np.array([0.3, 0.6, 0.9])]
+        # With 2 bins every Pearson r is +1 or -1, so a mean of them measures nothing.
+        with pytest.raises(ValueError, match=r"gives 2 bins.*at least 3"):
+            spike_count_correlation(units, (0.0, 1.0), bin_ms=500.0)
+        with pytest.raises(ValueError, match=r"gives 2 bins.*at least 3"):
+            spike_count_correlation([], (0.0, 1.0), bin_ms=500.0)
+        assert spike_count_correlation(units, (0.0, 0.9), bin_ms=300.0)["n_bins"] == 3
+
 
 class TestFanoFactor:
     ONSETS = np.arange(200) * 2.0
@@ -634,6 +667,37 @@ class TestFanoFactor:
         res = fano_factor([np.array([0.0, 0.5, 2.0, 2.5])], [0.0, 2.0], (0.0, 0.5), summary="mean")
         np.testing.assert_array_equal(res["counts"], [[1, 1]])
 
+    # (spike, onset, window): the spike minus the onset is in the window, though adding the
+    # onset to an edge rounds the other way for the last two.
+    EDGE_CASES = [
+        (0.3, 0.1, (0.0, 0.2)),     # 0.3 - 0.1 = 0.19999999999999998 < 0.2
+        (0.3, 0.03, (0.27, 0.5)),   # exactly on w0: 0.3 - 0.03 == 0.27, but 0.03 + 0.27 > 0.3
+        (0.06, 0.02, (0.0, 0.04)),  # 0.06 - 0.02 < 0.04, but 0.02 + 0.04 <= 0.06
+    ]
+
+    @pytest.mark.parametrize("spike, onset, window", EDGE_CASES)
+    def test_every_onset_window_selects_by_spike_minus_onset(self, spike, onset, window):
+        from jnwb._bins import onset_locked_counts
+        from jnwb.connectivity import bin_spikes
+        from jnwb.spiking import fano_factor
+        w0, w1 = window
+        assert w0 <= spike - onset < w1                     # the case is what it is named
+        st = np.array([spike])
+        fano = fano_factor([st], [onset, onset], window, summary="mean")["counts"]
+        np.testing.assert_array_equal(fano, [[1, 1]])
+        edges = np.array([w0, w1])
+        assert onset_locked_counts(st, [onset], w0, w1, edges, 1.0, right_closed=False).sum() == 1
+        assert bin_spikes(st, window_s=window, bin_size_ms=10.0, trial_starts=[onset]).sum() == 1
+
+    def test_a_closed_edge_reaches_a_spike_above_the_rounded_onset_plus_edge(self):
+        from jnwb._bins import onset_window
+        # 0.23 - 0.05 == 0.18 exactly, but 0.05 + 0.18 rounds to 0.22999999999999998, below the
+        # spike: a binary search on onset + edge alone stops before it.
+        spike, onset, w1 = 0.23, 0.05, 0.18
+        assert spike - onset == w1 and onset + w1 < spike   # the case is what it is named
+        lo, hi = onset_window(np.array([spike]), [onset], 0.0, w1, right_closed=True)
+        assert (lo[0], hi[0]) == (0, 1)
+
     @pytest.mark.parametrize("kw", [dict(summary="max"), dict(onsets_s=[1.0]), dict(window_s=(0.5, 0.5))])
     def test_refusals(self, kw):
         from jnwb.spiking import fano_factor
@@ -643,6 +707,67 @@ class TestFanoFactor:
             fano_factor(**args)
         with pytest.raises(TypeError):
             fano_factor([np.array([0.1])], [0.0, 1.0], (0.0, 0.5))
+
+
+class TestWholeBinCount:
+    @pytest.mark.parametrize("window, says", [
+        ((100.0, 0.0), r"win_ms=\(100, 0\) is reversed: its end precedes its start"),
+        ((5.0, 5.0), r"win_ms=\(5, 5\) is empty: its end equals its start"),
+        ((0.0, np.nan), r"win_ms=\(0, nan\) must have finite ends"),
+    ])
+    def test_a_window_that_does_not_run_forward_is_named(self, window, says):
+        # A reversed window read "Use , or a bin width that divides the span".
+        from jnwb._bins import whole_bin_count
+        with pytest.raises(ValueError, match=says):
+            whole_bin_count(window, 10.0, "f")
+
+    def test_the_tolerance_holds_at_three_hundred_million_ms(self):
+        """3e7 bins of 10 ms: rounding of the ends (about 6e-9 of a bin) stays inside the
+        tolerance (about 1e-7 of a bin), and 1e-5 of a bin is refused."""
+        from jnwb._bins import whole_bin_count
+        assert whole_bin_count((0.0, 3e8), 10.0, "f") == 30_000_000
+        assert whole_bin_count((3e8, 6e8), 10.0, "f") == 30_000_000
+        start = 0.1
+        assert whole_bin_count((start, start + 3e8), 10.0, "f") == 30_000_000
+        with pytest.raises(ValueError, match="partial"):
+            whole_bin_count((0.0, 3e8 + 1e-4), 10.0, "f")
+
+    def test_refused_and_suggested_windows_print_apart_at_large_times(self):
+        # At 3e12 ms all three printed as (3e+12, 3e+12).
+        import re
+        from jnwb._bins import whole_bin_count
+        with pytest.raises(ValueError) as err:
+            whole_bin_count((3e12, 3e12 + 25.0), 10.0, "f")
+        shown = re.findall(r"win_ms=\(([^)]*)\)", str(err.value))
+        assert len(shown) == 3 and len(set(shown)) == 3, shown
+        ends = [float(s.split(", ")[1]) for s in shown]
+        assert ends == [3e12 + 25.0, 3e12 + 20.0, 3e12 + 30.0]
+
+    @pytest.mark.parametrize("width", [0.0, -10.0, np.nan, np.inf])
+    def test_a_bin_width_that_is_not_finite_and_positive_is_named(self, width):
+        # 0 raised a bare ZeroDivisionError and NaN "cannot convert float NaN to integer".
+        from jnwb._bins import whole_bin_count
+        with pytest.raises(ValueError, match=r"^f: bin_width=\S+ must be finite and positive"):
+            whole_bin_count((0.0, 100.0), width, "f")
+
+    def test_the_bin_width_refusal_uses_the_callers_parameter_name(self):
+        import pandas as pd
+        from jnwb import UnitAnalyzer, build_time_resolved_matrix
+
+        with pytest.raises(ValueError, match=r"UnitAnalyzer\.psth: bin_size_ms=0 must be"):
+            UnitAnalyzer.psth(np.array([0.1]), np.array([0.0]), window_ms=(0.0, 100.0),
+                              bin_size_ms=0.0)
+
+        class _Session:
+            def get_units(self, quality=None, area=None):
+                return pd.DataFrame({"area": ["V1"]})
+
+            def get_spike_times(self, unit):
+                return np.array([0.1])
+
+        with pytest.raises(ValueError, match=r"build_time_resolved_matrix: bin_size_ms=0 must be"):
+            build_time_resolved_matrix(_Session(), "V1", pd.DataFrame({"start_time": [0.0]}),
+                                       time_window_ms=(0.0, 100.0), bin_size_ms=0.0)
 
 
 class TestNetworkBurstIndex:

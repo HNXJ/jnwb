@@ -19,11 +19,18 @@ import importlib.util
 import inspect
 import json
 import pathlib
+import sys
+
+import pytest
 
 from jnwb import laminar
 from jnwb.laminar import xflip
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+from tests.test_vflip_calibration_receipt import _with_prose_edited  # noqa: E402
+
 RAW = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5_raw.json"
 REPORT = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5.md"
 
@@ -45,6 +52,10 @@ def _top_level(module_name):
     """Top-level functions, classes and assigned names of a jnwb module, and the names it imports
     from other jnwb modules, read from the file itself rather than through the importer."""
     path = ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+    package = module_name.rpartition(".")[0]
+    if not path.is_file():  # a package: its names are bound in its __init__
+        path = ROOT.joinpath(*module_name.split("."), "__init__.py")
+        package = module_name
     tree = ast.parse(path.read_text(encoding="utf-8"))
     defined, imports = {}, {}
     for node in tree.body:
@@ -54,8 +65,10 @@ def _top_level(module_name):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             defined.update({t.id: node for t in targets if isinstance(t, ast.Name)})
         elif isinstance(node, ast.ImportFrom):
-            if node.level == 1:
-                origin = "jnwb" + ("." + node.module if node.module else "")
+            if node.level:
+                parts = package.split(".")
+                base = ".".join(parts[: len(parts) - node.level + 1])
+                origin = base + ("." + node.module if node.module else "")
             elif node.level == 0 and (node.module or "").split(".")[0] == "jnwb":
                 origin = node.module
             else:
@@ -72,7 +85,7 @@ def _reachable_from_xflip():
     out a second time on purpose. It follows names across jnwb modules, constants included:
     the tie rule xflip counts its surrogates with lives in `jnwb.permutation`.
     """
-    home = "jnwb.laminar"
+    home = xflip.__module__  # the file that defines xflip, not the path it is imported by
     seen, reached, queue = set(), set(), [(home, "xflip")]
     while queue:
         key = queue.pop(0)
@@ -125,6 +138,52 @@ def test_the_receipt_covers_every_helper_xflip_reaches():
     )
     for name, source in _generator().estimator_sources():
         assert source.strip(), f"{name} hashed as empty source"
+
+
+@pytest.mark.parametrize("edited", ["a\n\n    b", "a  \n    b", "a\n    b  "])
+def test_an_edit_inside_a_multi_line_string_literal_changes_the_receipt(monkeypatch, edited):
+    """The hash rule dropped blank lines and trailing spaces everywhere, inside string
+    literals too, so editing a literal's blank line left the receipt current."""
+    generator = _generator()
+    real = inspect.getsource
+    anchor = '    gen, seed_entropy = recorded_rng(rng, "xflip")\n'
+
+    def with_literal(body):
+        def source(obj):
+            text = real(obj)
+            if obj is not inspect.getmodule(xflip):
+                return text
+            assert text.count(anchor) == 1
+            return text.replace(anchor, f'    _literal = """{body}"""\n' + anchor)
+        return source
+
+    monkeypatch.setattr(inspect, "getsource", with_literal("a\n    b"))
+    plain = generator.estimator_sha256()
+    monkeypatch.setattr(inspect, "getsource", with_literal(edited))
+    assert generator.estimator_sha256() != plain
+
+
+def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):
+    """P-285: the receipt hashed comments, so a comment edit read as a changed estimator."""
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+    assert "  # edited" in _with_prose_edited(real(inspect.getmodule(xflip)))
+
+    monkeypatch.setattr(inspect, "getsource", lambda obj: _with_prose_edited(real(obj)))
+    assert generator.estimator_sha256() == before, (
+        "editing only docstrings and comments changed the receipt hash"
+    )
+
+
+def test_a_code_edit_changes_the_receipt(monkeypatch):
+    """The hash rule must not strip code: the tie width in `jnwb.permutation` is code."""
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+    monkeypatch.setattr(inspect, "getsource",
+                        lambda obj: real(obj).replace("_TIE_RTOL = ", "_TIE_RTOL = 2 * "))
+    assert generator.estimator_sha256() != before
 
 
 def test_the_operating_point_is_the_shipped_default_where_it_claims_to_be():

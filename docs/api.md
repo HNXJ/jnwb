@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 173 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 186 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -69,7 +69,7 @@ All 173 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.bin_spikes | function | `(spike_times, window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, trial_starts: 'Optional[Sequence[float]]' = None, output: 'str' = 'count', return_centers: 'bool' = False, *, window: 'Optional[Tuple[float, float]]' = None)`<br>*Bridge spike data into the ``(n_trials, n_bins)`` contract used by every estimator.* |
 | jnwb.binary_occupancy_mutual_information | function | `(spike_times1: 'np.ndarray', spike_times2: 'np.ndarray', time_window_s: 'Optional[Tuple[float, float]]' = None, bin_size_ms: 'float' = 10.0, *, time_window: 'Optional[Tuple[float, float]]' = None) -> 'float'`<br>*Explicit alias for binary occupancy MI. `time_window_s` is in seconds.* |
 | jnwb.directed_connectivity | function | `(X, Y, method: 'str' = 'granger', **kwargs) -> 'DirectedResult'`<br>*One entry point for all three directed estimators.* |
-| jnwb.directed_network | function | `(signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, **kwargs) -> 'Dict[str, Any]'`<br>*All-pairs directed connectivity over N nodes.* |
+| jnwb.directed_network | function | `(signals, method: 'str' = 'granger', labels: 'Optional[Sequence[str]]' = None, fdr: 'bool' = True, fdr_method: 'str' = 'bh', n_jobs: 'int' = 1, *, conditional: 'bool' = False, **kwargs) -> 'Dict[str, Any]'`<br>*All-pairs directed connectivity over N nodes.* |
 | jnwb.granger | function | `(X, Y, order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', Z = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Bivariate or conditional Granger causality between two arbitrary signals.* |
 | jnwb.granger_causality | function | `(signal1: 'np.ndarray', signal2: 'np.ndarray', order: 'Union[int, str]' = 5, device: 'str' = 'cpu', ridge: 'float' = 0.0, criterion: 'str' = 'aic') -> 'Dict[str, Union[float, dict, list]]'`<br>*Compute bivariate Granger Causality (GC) values between two continuous signals.* |
 | jnwb.granger_spectral | function | `(X, Y, fs: 'float', order: 'Union[int, str]' = 'auto', max_lag: 'int' = 20, criterion: 'str' = 'bic', n_freqs: 'int' = 256, bands: 'Union[str, Dict[str, Tuple[float, float]], Tuple[float, float], None]' = None, ridge: 'float' = 0.0, detrend: 'Optional[str]' = 'zscore', n_surrogates: 'int' = 0, rng: 'RNGLike' = 0, time_axis: 'int' = -1, *, seed: 'Any' = 0) -> 'DirectedResult'`<br>*Frequency-resolved Granger causality (Geweke, 1982) — directionality per band.* |
@@ -129,6 +129,17 @@ All 173 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.xflip | function | `(data: 'np.ndarray', *, method: 'str' = 'pearson', contiguous: 'bool' = True, n_blocks: 'Optional[int]' = 2, min_block_size: 'int' = 2, n_surrogates: 'int' = 200, surrogate_method: 'str' = 'auto', alpha: 'float' = 0.05, min_contrast: 'float' = 0.05, min_boundary_drop: 'float' = 0.05, channel_axis: 'int' = 0, is_corr_matrix: 'Optional[bool]' = None, rng: 'Optional[Union[np.random.Generator, int]]' = None) -> 'XFlipResult'`<br>*Cross-Channel Laminar Correlation Profile (xFLIP).* |
 | jnwb.zflip | function | `(lfp_matrix: 'np.ndarray', fs: 'float', *, orientation: 'str', freq_range: 'Tuple[float, float]' = (15.0, 35.0), pitch_um: 'Optional[float]' = None, nperseg: 'Optional[int]' = None, noverlap: 'Optional[int]' = None, min_linearity_r2: 'float' = 0.7, min_wpli: 'float' = 0.15, min_band_power_fraction: 'float' = 0.01, n_surrogates: 'int' = 50, alpha: 'float' = 0.05, rng: 'RNGLike' = 0, seed: 'Any' = 0) -> 'ZFlipResult'`<br>*Estimate depth phase gradients, and an apparent phase delay and velocity only where phase is linear in frequency.* |
 
+## Module: jnwb.laminar_curation
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.LaminarCurationResult | class | *Result of :func:`curate_and_label`.* |
+| jnwb.curate_and_label | function | `(lfp: 'np.ndarray', fs: 'float', *, pitch_um: 'float', erp: 'Optional[np.ndarray]' = None, erp_times_ms: 'Optional[np.ndarray]' = None, n_windows: 'int' = 4, band_low_hz: 'Tuple[float, float]' = (10.0, 19.0), band_high_hz: 'Tuple[float, float]' = (75.0, 150.0), granular_thickness_um: 'float' = 400.0, max_superficial_um: 'float' = 1200.0, max_deep_um: 'float' = 1600.0, silent_threshold: 'float' = 0.12, smooth_um: 'float' = 50.0, min_lobe_um: 'float' = 150.0, min_lobe_amplitude: 'float' = 0.2, bad_zone_contacts: 'int' = 6, bad_zone_fraction: 'float' = 0.6, edge_fraction: 'float' = 0.1, edge_jump_z: 'float' = 6.0, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6, compute_xflip: 'bool' = True, xflip_n_surrogates: 'int' = 50, rng: 'RNGLike' = 42, max_interpolate_run: 'int' = 3, min_contacts: 'int' = 8, min_edge_contacts: 'int' = 11, nperseg: 'int' = 512, **bad_channel_kwargs: 'Any') -> 'LaminarCurationResult'`<br>*Curate a laminar LFP recording and label every contact by cortical compartment.* |
+| jnwb.detect_bad_channels | function | `(data: 'np.ndarray', fs: 'float', *, neighbor_contacts: 'int' = 2, min_neighbor_corr_z: 'float' = -4.0, max_power_z: 'float' = 5.0, power_band_hz: 'Tuple[float, float]' = (1.0, 150.0), correlation_fs_hz: 'float' = 100.0, max_iterations: 'int' = 4, nperseg: 'int' = 512) -> 'Dict[str, Any]'`<br>*Flag contacts that decorrelate from their neighbors or have outlying power.* |
+| jnwb.evoked_csd_sink | function | `(erp: 'np.ndarray', times_ms: 'np.ndarray', *, pitch_um: 'float', usable_mask: 'Optional[np.ndarray]' = None, smooth_um: 'float' = 50.0, sink_window_ms: 'Tuple[float, float]' = (40.0, 150.0), min_sink_z: 'float' = 3.0, onset_z: 'float' = 3.0, onset_min_duration_ms: 'float' = 5.0, onset_earliest_ms: 'float' = 25.0, min_contacts: 'int' = 8) -> 'Dict[str, Any]'`<br>*Locate the evoked current-source-density sink along the shaft.* |
+| jnwb.fuse_laminar_anchors | function | `(*, vflip_um: 'Optional[float]' = None, motif_um: 'Optional[float]' = None, xflip_um: 'Optional[float]' = None, csd_um: 'Optional[float]' = None, window_um: 'Optional[np.ndarray]' = None, consistency_deep: 'float' = nan, consistency_superficial: 'float' = nan, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6) -> 'Dict[str, Any]'`<br>*Choose the laminar anchor and grade it; report how the other estimates sit against it.* |
+| jnwb.interpolate_channel_runs | function | `(data: 'np.ndarray', bad_mask: 'np.ndarray', *, max_run: 'int' = 3, blocked_mask: 'Optional[np.ndarray]' = None) -> 'Dict[str, Any]'`<br>*Linearly interpolate runs of at most ``max_run`` adjacent bad contacts.* |
+
 ## Module: jnwb.metadata
 
 | Symbol | Type | Signature / Description |
@@ -172,6 +183,16 @@ All 173 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.resolve_acquisition | function | `(path_or_nwb: 'InspectInput', name: 'str | None' = None) -> 'str'`<br>*Resolve an acquisition or processing continuous series name.* |
 | jnwb.unit_spike_times | function | `(path_or_nwb: 'InspectInput', unit_index: 'int' = 0) -> 'np.ndarray'`<br>*Return spike times (seconds) for one units-table row.* |
 
+## Module: jnwb.nwb_integrity
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.RaggedIndexRepair | class | *Outcome of ``repair_ragged_index``. ``written`` is False for a dry run and True only after the written index was re-read, checked and moved into place; ``output_path`` is the file that holds it (``None`` for a dry run).* |
+| jnwb.RaggedIndexRepairRefused | class | *``repair_ragged_index`` found a condition under which it must not write.* |
+| jnwb.RaggedIndexReport | class | *All ragged columns of one table. ``unlisted_ragged_columns`` are datasets that have a ``<name>_index`` partner but are absent from the table's ``colnames`` attribute, which makes pynwb hide them. ``ok`` is every column ``ok`` and no unlisted column.* |
+| jnwb.check_ragged_indices | function | `(path: 'str | Path', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None) -> 'RaggedIndexReport'`<br>*Check every ``<column>_index`` of one table of an NWB file, without writing.* |
+| jnwb.repair_ragged_index | function | `(path: 'str | Path', column: 'str', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None, dry_run: 'bool' = True, output_path: 'str | Path | None' = None, in_place: 'bool' = False, backup_path: 'str | Path | None' = None) -> 'RaggedIndexRepair'`<br>*Correct one ragged index that carries the multi-probe offset defect.* |
+
 ## Module: jnwb.nwb_io
 
 | Symbol | Type | Signature / Description |
@@ -180,6 +201,13 @@ All 173 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
 | jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |
 | jnwb.read_nwb | function | `(path: 'Any', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Any'`<br>*Read an NWB file through jnwb's scoped HDMF builder repairs.* |
+
+## Module: jnwb.nwb_validate
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.NWBValidationReport | class | *All layers of one file, plus the versions that produced them.* |
+| jnwb.validate_nwb | function | `(path: 'str | Path', *, layers: 'Sequence[str] | None' = None, dandi_ignore: 'Sequence[str]' = ('DANDI.NO_DANDISET_FOUND',), max_messages: 'int' = 50) -> 'NWBValidationReport'`<br>*Validate one NWB file and report every layer. Read-only; nothing is written.* |
 
 ## Module: jnwb.onset_fitting
 
@@ -227,7 +255,7 @@ All 173 core functions, classes, and constants exported in the top-level jnwb na
 |---|---|---|
 | jnwb.AperiodicFitResult | class | *Container for 1/f aperiodic spectral parameter estimates.* |
 | jnwb.aggregate_to_db | function | `(power, baseline, *, how: str, aggregate_over = None, nan_policy: str = 'propagate')`<br>*Form a power ratio, aggregate on the RATIO scale, and take ``10*log10`` exactly once.* |
-| jnwb.aperiodic_fit | function | `(freqs: numpy.ndarray, psd: numpy.ndarray, freq_range: Tuple[float, float], mode: str = 'fixed') -> jnwb.spectral.AperiodicFitResult | List[typing.Any]`<br>*Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.* |
+| jnwb.aperiodic_fit | function | `(freqs: numpy.ndarray, psd: numpy.ndarray, freq_range: Tuple[float, float], mode: str = 'fixed', *, robust: bool = False) -> jnwb.spectral.AperiodicFitResult | List[typing.Any]`<br>*Fit aperiodic 1/f spectral parameters directly to an existing power spectrum.* |
 | jnwb.band_power | function | `(lfp_trace: numpy.ndarray, fs: float | None = None, sampling_rate: float | None = None, freq_range: Tuple[float, float] = (1.0, 90.0), normalize: bool = True, baseline: numpy.ndarray | None = None, device: str = 'cpu') -> float`<br>*Mean power spectral density over a frequency band.* |
 | jnwb.bipolar_reference | function | `(channel_data: numpy.ndarray, channel_order: numpy.ndarray | None = None) -> numpy.ndarray`<br>*Bipolar (adjacent-channel difference) re-reference along a probe's depth order.* |
 | jnwb.compute_multitaper_psd | function | `(data: numpy.ndarray, fs: float, nw: float = 3.0, k_tapers: int | None = None, axis: int = -1) -> Tuple[numpy.ndarray, numpy.ndarray]`<br>*Compute power spectral density via the Discrete Prolate Spheroidal Sequences (DPSS) multitaper method.* |

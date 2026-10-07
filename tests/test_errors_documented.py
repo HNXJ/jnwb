@@ -35,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+from tests._sources import read_sources, unread_by  # noqa: E402
 from tests.test_docs_user_navigation import (  # noqa: E402
     declared_off_the_nav,
     excluded_from_the_site,
@@ -97,10 +98,10 @@ class TestEveryErrorClassIsExplained:
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
         assert _mentions(page, name)
 
-    def test_there_are_thirteen_of_them(self):
+    def test_there_are_fourteen_of_them(self):
         """A count that fails when an error class is added without a paragraph. If this
         fails, add the class to docs/errors.md and change the number here."""
-        assert len(_exported_errors()) == 13, _exported_errors()
+        assert len(_exported_errors()) == 14, _exported_errors()
 
     def test_both_base_classes_are_named_so_a_caller_can_catch_a_family(self):
         page = (DOCS / "errors.md").read_text(encoding="utf-8")
@@ -206,9 +207,11 @@ class TestTheMessagesOnThePageAreTheRealOnes:
 
     @staticmethod
     def _source_text():
-        source_dir = DOCS.parent / "jnwb"
-        return "\n".join(p.read_text(encoding="utf-8")
-                         for p in sorted(source_dir.glob("*.py")))
+        return "\n".join(source.text for source in read_sources("error-messages"))
+
+    def test_the_source_read_is_every_file_that_defines_a_public_name(self):
+        self._source_text()
+        assert unread_by("error-messages") == []
 
     @pytest.mark.parametrize("fragment", QUOTED)
     def test_each_quoted_fragment_is_in_the_source(self, fragment):

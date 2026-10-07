@@ -11,6 +11,7 @@ import warnings
 from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
+from ._bins import onset_window, whole_bin_count
 from ._spread import is_constant
 from ._units import resolve_unit_alias
 import pandas as pd
@@ -126,26 +127,21 @@ def compute_response_metrics(
     response_spikes = []
     latencies = []
 
-    # Pre-sort spike times to ensure searchsorted works correctly
-    st = np.sort(spike_times)
+    # Spike minus onset in each right-open window, by binary search on the sorted float64
+    # train (`onset_window`, the rule `bin_spikes` and `fano_factor` use).
+    st = np.sort(np.asarray(spike_times, dtype=float), axis=None)
+    onsets = np.asarray(epoch_onsets, dtype=float).ravel()
+    b_lo, b_hi = onset_window(st, onsets, baseline_start, baseline_stop)
+    r_lo, r_hi = onset_window(st, onsets, response_start, response_stop)
 
-    for onset in epoch_onsets:
-        # Searchsorted instead of masking: O(log N) instead of O(N)
-        # Bounded on right-open intervals [start, stop)
-        b_lo = np.searchsorted(st, onset + baseline_start, side='left')
-        b_hi = np.searchsorted(st, onset + baseline_stop, side='left')
-        baseline_count = b_hi - b_lo
-
-        r_lo = np.searchsorted(st, onset + response_start, side='left')
-        r_hi = np.searchsorted(st, onset + response_stop, side='left')
-        response_count = r_hi - r_lo
-
-        baseline_spikes.append(baseline_count)
+    for i, onset in enumerate(onsets):
+        baseline_spikes.append(b_hi[i] - b_lo[i])
+        response_count = r_hi[i] - r_lo[i]
         response_spikes.append(response_count)
 
         # Compute latency (first spike in response window)
         if response_count > 0:
-            latency = st[r_lo] - (onset + response_start)
+            latency = (st[r_lo[i]] - onset) - response_start
             latencies.append(latency)
 
     # Compute rates
@@ -218,10 +214,11 @@ def classify_response_significance(
     ``N = 0``. Conditioning on the counts makes it exact for any pair of window lengths and
     keeps it valid when the rate varies from trial to trial. It assumes Poisson firing
     within a trial; bursting or refractoriness inside a window breaks that assumption.
-    Bursting makes the p-value too small: with no effect, 5 Hz firing in bursts of four
-    spikes over 200 trials puts about 30% of units below p = 0.05, because the test counts
-    each spike of a burst as an independent event. The p-value falls as trials accumulate
-    at a fixed effect.
+    Bursting makes the p-value too small, because the test counts each spike of a burst as
+    an independent event. With no effect, 5 Hz firing in bursts of four spikes over 200
+    trials and the default windows puts about 30% of units below p = 0.05 when the spikes
+    of a burst are 4 ms apart, and about 18% when they are 50 ms apart. The p-value falls
+    as trials accumulate at a fixed effect.
 
     ``response_zscore`` is the effect size: a response is significant when
     ``|response_zscore| >= zscore_threshold`` and ``p < alpha``. Among significant
@@ -466,8 +463,8 @@ def phase_locking_index(
         # z == 0 is a measured zero resultant, whose p-value is exactly 1.
         result['rayleigh_pvalue'] = 1.0
 
-        # P-value approximation for Rayleigh test
-        # For large n, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n) - (24*z - 132*z^2 + 76*z^3 - 9*z^4) / (288*n^2))
+        # P-value approximation for Rayleigh test: the large-n series truncated after its
+        # first-order term, rayleigh_pvalue ≈ exp(-z) * (1 + (2*z - z^2) / (4*n)).
         if z > 0:
             pval = np.exp(-z) * (1 + (2*z - z**2) / (4*len(spike_phases)))
             # The series expansion goes negative for large z, and a negative p-value
@@ -714,7 +711,7 @@ def spike_count_correlation(
 
     Args:
         spike_times: Sequence of per-unit 1-D arrays of spike times in seconds.
-        window_s: ``(start, end)`` in seconds; the span must be whole bins.
+        window_s: ``(start, end)`` in seconds; the span must be at least 3 whole bins.
         bin_ms: Bin width in milliseconds; required.
 
     Returns:
@@ -725,7 +722,7 @@ def spike_count_correlation(
 
     Raises:
         ValueError: If `spike_times` is a bare array, a spike time is non-finite, `bin_ms` is not
-            positive and finite, or the window is not whole bins.
+            positive and finite, or the window is not whole bins or is fewer than 3 bins.
 
     References:
         Cohen, M. R., and Kohn, A. (2011). Measuring and interpreting neuronal correlations.
@@ -733,6 +730,16 @@ def spike_count_correlation(
     """
     trains = _unit_trains(spike_times, "spike_count_correlation")
     counts = _unit_counts(trains, window_s, bin_ms)
+    n_window_bins = whole_bin_count(window_s, float(bin_ms) / 1000.0, "spike_count_correlation",
+                                    "window_s", unit="s")
+    if n_window_bins < 3:
+        # INTENTIONAL BREAK (0.2.10): 2 bins returned a mean of correlations that are all +1
+        # or -1, since a Pearson r of two points is +-1 whatever the units do.
+        raise ValueError(
+            f"spike_count_correlation: window_s {tuple(window_s)} at bin_ms={bin_ms:g} gives "
+            f"{n_window_bins} bins; a Pearson r needs at least 3, because with 2 every r is "
+            "+1 or -1."
+        )
     n_units = len(trains)
     n_bins = counts.shape[1] if n_units else 0
     excluded = [i for i in range(n_units) if np.all(counts[i] == counts[i, 0])] if n_bins else list(range(n_units))
@@ -776,9 +783,9 @@ def fano_factor(
 ) -> Dict[str, Any]:
     """Fano factor per unit across trials, summarised over units (Churchland et al. 2010).
 
-    For each unit, the spike count in the fixed window ``[onset + window_s[0], onset +
-    window_s[1])`` is taken on every trial, and its across-trial variance (ddof=1, the unbiased
-    estimate, so a Poisson unit has expectation 1) is divided by its mean. `summary` chooses
+    For each unit, the spikes whose time minus the onset lies in ``[window_s[0], window_s[1])``
+    are counted on every trial, as in `bin_spikes`, and the count's across-trial variance
+    (ddof=1, the unbiased estimate, so a Poisson unit has expectation 1) is divided by its mean. `summary` chooses
     the mean or the median over units and has no default.
 
     A unit with a zero mean count has no defined Fano factor. It is excluded and reported, never
@@ -819,8 +826,8 @@ def fano_factor(
         raise ValueError(f"fano_factor: window_s start must be before its end, got {window_s}.")
     counts = np.zeros((len(trains), onsets.size))
     for i, u in enumerate(trains):
-        u = np.sort(u)
-        counts[i] = np.searchsorted(u, onsets + w1, side="left") - np.searchsorted(u, onsets + w0, side="left")
+        lo, hi = onset_window(np.sort(u), onsets, w0, w1)
+        counts[i] = hi - lo
     mean = counts.mean(axis=1) if trains else np.zeros(0)
     excluded = np.flatnonzero(mean == 0)
     per_unit = _count_fano(counts)

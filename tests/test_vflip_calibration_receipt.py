@@ -7,8 +7,11 @@ estimator; changing it without rerunning ``scripts/calibrate_vflip.py`` fails he
 
 That hash covered ``inspect.getsource(vflip)`` alone, while ``vflip`` delegates the band
 normalization to ``_unit_range``. A line-count-preserving defect in that helper left the
-receipt reading "current" and this file passing 4 of 4, so the hash now covers every
-module-level function in ``jnwb.laminar`` that ``vflip`` can reach.
+receipt reading "current" and this file passing 4 of 4. The hash then covered the
+functions of the file defining ``vflip`` only, so the device resolution it calls in
+``jnwb._backend`` went unhashed, and it hashed docstrings, so a docstring edit made the
+receipt stale. It now covers the code of ``vflip_from_lfp``, which the calibration runs,
+and everything it reaches in any jnwb module, without docstrings or comments.
 """
 
 import ast
@@ -17,16 +20,35 @@ import inspect
 import json
 import pathlib
 
-from jnwb import laminar
-from jnwb.laminar import vflip
+import pytest
+
+from jnwb.laminar import vflip, vflip_from_lfp
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RAW = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
 REPORT = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4.md"
 
 
+def _refuse_constant(token):
+    raise ValueError(f"{token} is not JSON; the record must be strict")
+
+
+def strict_loads(text):
+    """``json.loads`` that refuses NaN, Infinity and -Infinity tokens."""
+    return json.loads(text, parse_constant=_refuse_constant)
+
+
 def _raw():
-    return json.loads(RAW.read_text(encoding="utf-8"))
+    return strict_loads(RAW.read_text(encoding="utf-8"))
+
+
+def test_the_raw_record_is_strict_json_and_states_what_null_means():
+    """It held 44 bare -Infinity tokens, which a strict parser rejects."""
+    raw = _raw()
+    assert "null in scores or min_score = support floor, no finite score" in raw["null_score_means"]
+    min_scores = [cell["min_score"] for by_val in raw["families"].values()
+                  for cell in by_val.values()]
+    assert None in min_scores, "no floor score left to encode; the null convention is untested"
 
 
 def test_receipt_and_generator_exist():
@@ -43,25 +65,68 @@ def _generator():
     return module
 
 
-def _reachable_from_vflip():
+def test_the_generator_writes_minus_infinity_as_null_and_refuses_nan(tmp_path):
+    """The committed record passing a strict parse says nothing about the next one written;
+    this drives the writer itself."""
+    path = tmp_path / "raw.json"
+    _generator().write_raw({"min_score": float("-inf"), "scores": [1.5, float("-inf")]}, path)
+    text = path.read_text(encoding="utf-8")
+    assert "Infinity" not in text
+    assert strict_loads(text) == {"min_score": None, "scores": [1.5, None]}
+    with pytest.raises(ValueError):
+        _generator().write_raw({"scores": [float("nan")]}, tmp_path / "nan.json")
+
+
+def _top_level(module_name):
+    """Top-level definitions of a jnwb module, and the names it imports from other jnwb
+    modules, read from the file itself rather than through the importer."""
+    path = ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+    package = module_name.rpartition(".")[0]
+    if not path.is_file():  # a package: its names are bound in its __init__
+        path = ROOT.joinpath(*module_name.split("."), "__init__.py")
+        package = module_name
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    defined, imports = {}, {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defined[node.name] = node
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            defined.update({t.id: node for t in targets if isinstance(t, ast.Name)})
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                parts = package.split(".")
+                base = ".".join(parts[: len(parts) - node.level + 1])
+                origin = base + ("." + node.module if node.module else "")
+            elif (node.module or "").split(".")[0] == "jnwb":
+                origin = node.module
+            else:
+                continue
+            for alias in node.names:
+                imports[alias.asname or alias.name] = (origin, alias.name)
+    return defined, imports
+
+
+def _reachable_from_vflip_from_lfp():
     """The closure, recomputed here rather than taken from the generator."""
-    tree = ast.parse(inspect.getsource(laminar))
-    defs = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-    reached, stack = set(), ["vflip"]
-    while stack:
-        name = stack.pop()
-        if name in reached or name not in defs:
+    home = vflip_from_lfp.__module__  # the file that defines it, not the path it is imported by
+    seen, reached, queue = set(), set(), [(home, "vflip_from_lfp")]
+    while queue:
+        key = queue.pop(0)
+        if key in seen:
             continue
-        reached.add(name)
-        for call in ast.walk(defs[name]):
-            if isinstance(call, ast.Call):
-                callee = getattr(call.func, "id", None) or getattr(call.func, "attr", None)
-                if callee:
-                    stack.append(callee)
+        seen.add(key)
+        module_name, name = key
+        defined, imports = _top_level(module_name)
+        if name in imports:
+            queue.append(imports[name])
+        elif name in defined:
+            reached.add(name if module_name == home else f"{module_name}.{name}")
+            for sub in ast.walk(defined[name]):
+                if isinstance(sub, ast.Name):
+                    queue.append((module_name, sub.id))
+                elif isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
+                    queue.append((module_name, sub.func.attr))
     return reached
 
 
@@ -72,8 +137,8 @@ def test_receipt_was_generated_from_the_current_estimator():
     )
 
 
-def test_the_receipt_covers_every_helper_vflip_reaches():
-    """The receipt has to certify the estimator, not one function of it.
+def test_the_receipt_covers_everything_the_estimator_reaches():
+    """The receipt has to certify the estimator, not one function or one file of it.
 
     Hashing `vflip` alone was not a narrower receipt, it was a receipt that could be
     read as current while the estimator had changed: recentring `_unit_range` on its own
@@ -82,19 +147,75 @@ def test_the_receipt_covers_every_helper_vflip_reaches():
     compared against the set the generator hashes.
     """
     covered = {name for name, _ in _generator().estimator_sources()}
-    expected = _reachable_from_vflip()
+    expected = _reachable_from_vflip_from_lfp()
 
-    assert "vflip" in covered
-    assert "_unit_range" in covered, (
-        "`vflip` delegates its band normalization to `_unit_range`; a receipt that does "
-        "not hash it cannot detect a defect reintroduced there"
-    )
+    for name in ("vflip", "vflip_from_lfp", "_unit_range", "jnwb._backend.resolve_device"):
+        assert name in covered, f"the receipt does not hash {name}"
     assert covered == expected, (
-        "the generator hashes a different set of functions than `vflip` reaches: "
+        "the generator hashes a different set of definitions than `vflip_from_lfp` reaches: "
         f"missing {sorted(expected - covered)}, extra {sorted(covered - expected)}"
     )
     for name, source in _generator().estimator_sources():
         assert source.strip(), f"{name} hashed as empty source"
+
+
+def _with_prose_edited(source):
+    """``source`` with text added inside every docstring and a comment on every def line."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source
+    lines = source.splitlines(keepends=True)
+
+    def char_col(lineno, byte_col):
+        return len(lines[lineno - 1].encode("utf-8")[:byte_col].decode("utf-8"))
+
+    edits = []
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)):
+            col = char_col(node.lineno, node.col_offset)
+            text = lines[node.lineno - 1]
+            quote = col
+            while text[quote] not in "'\"":
+                quote += 1
+            width = 3 if text[quote:quote + 3] in ('"""', "'''") else 1
+            edits.append((node.lineno, quote + width, "Edited. "))
+        elif isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            line = lines[node.lineno - 1]
+            edits.append((node.lineno, len(line.rstrip("\r\n")), "  # edited"))
+    for lineno, col, text in sorted(edits, reverse=True):
+        line = lines[lineno - 1]
+        lines[lineno - 1] = line[:col] + text + line[col:]
+    return "".join(lines)
+
+
+def test_a_docstring_or_comment_edit_leaves_the_receipt_current(monkeypatch):
+    """P-229: the receipt hashed docstrings, so a docstring edit read as a changed estimator."""
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+    home = inspect.getmodule(vflip)
+    assert "Edited. " in _with_prose_edited(real(home))  # the edit is not vacuous
+
+    monkeypatch.setattr(inspect, "getsource", lambda obj: _with_prose_edited(real(obj)))
+    assert generator.estimator_sha256() == before, (
+        "editing only docstrings and comments changed the receipt hash"
+    )
+
+
+def test_a_code_edit_changes_the_receipt(monkeypatch):
+    generator = _generator()
+    before = generator.estimator_sha256()
+    real = inspect.getsource
+
+    def mutated(obj):
+        source = real(obj)
+        assert source.count("if span < 1e-12:") <= 1
+        return source.replace("if span < 1e-12:", "if span < 2e-12:")
+
+    monkeypatch.setattr(inspect, "getsource", mutated)
+    assert generator.estimator_sha256() != before
 
 
 def test_receipt_threshold_is_the_shipped_default():

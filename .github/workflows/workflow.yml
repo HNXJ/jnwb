@@ -148,6 +148,8 @@ jobs:
         # which `--dist=loadgroup` in pyproject.toml runs on one worker.
         env:
           JNWB_REQUIRE_FIGURE_COMPARISON: ${{ matrix.figures == 'compared' && '1' || '0' }}
+          # The runner has Chrome: a missing one fails the browser-backed tests, not skips them.
+          JNWB_REQUIRE_BROWSER: '1'
         run: |
           pytest -v -n auto tests/
 
@@ -244,6 +246,8 @@ jobs:
 
       - name: Run pytest
         if: env.QUALIFIED_BY == ''
+        env:
+          JNWB_REQUIRE_BROWSER: '1'
         run: |
           pytest -v -n auto tests/
 
@@ -352,7 +356,7 @@ jobs:
           purelib=$(/tmp/clean_env/bin/python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
           echo "Suite will run against: $purelib/jnwb"
           cd /tmp
-          JNWB_EXPECTED_PACKAGE_ROOT="$purelib" /tmp/clean_env/bin/python -m pytest \
+          JNWB_REQUIRE_BROWSER=1 JNWB_EXPECTED_PACKAGE_ROOT="$purelib" /tmp/clean_env/bin/python -m pytest \
             --import-mode=importlib -o pythonpath= -n auto \
             --rootdir="$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/tests" -q
 

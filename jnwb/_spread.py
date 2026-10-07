@@ -42,7 +42,7 @@ def zscore(a: Any, axis: int, *, ignore_nan: bool = False, xp: Any = np) -> Any:
     """``(a - mean) / std`` along ``axis`` (population std), with each constant slice exactly 0.
 
     NaN stays NaN. A slice that varies but whose std underflows to 0 is centred and left
-    unscaled.
+    unscaled. A slice holding inf or -inf and not constant has a NaN std and is all NaN.
     """
     mean_fn, std_fn = (xp.nanmean, xp.nanstd) if ignore_nan else (xp.mean, xp.std)
     with warnings.catch_warnings():
@@ -50,5 +50,35 @@ def zscore(a: Any, axis: int, *, ignore_nan: bool = False, xp: Any = np) -> Any:
         mean = mean_fn(a, axis=axis, keepdims=True)
         sd = std_fn(a, axis=axis, keepdims=True)
     constant = is_constant(a, axis=axis, keepdims=True, ignore_nan=ignore_nan, xp=xp)
-    z = (a - mean) / xp.where(sd > 0, sd, 1.0)
+    z = (a - mean) / xp.where(sd == 0, 1.0, sd)   # a NaN std stays NaN
     return xp.where(constant, a * 0, z)
+
+
+#: k of the linear-detrend round-off bound ``k * n * eps * scale`` (see `zero_detrend_residue`).
+DETREND_ROUND_OFF_K = 4.0
+
+
+def zero_detrend_residue(residue: Any, original: Any, axis: int, *, xp: Any = np) -> Any:
+    """``residue`` with each slice set to exactly 0 where removing a straight line from
+    ``original`` left round-off alone: ``max|residue| <= k * n * eps * max|original|``,
+    ``k = 4``, ``n`` the slice length and ``eps`` that of the residue's dtype.
+
+    A straight line minus its least-squares fit is zero in exact arithmetic, but its computed
+    residue is not, and a constant test or a standardization then reads the residue as signal.
+    Derivation, with ``u = eps / 2`` and ``m = max|original|``: the intercept is a mean of
+    ``n`` terms and errs by at most ``n u m``; the slope, ``sum(t a) / sum(t ** 2)`` on
+    ``t`` in ``[-1, 1]``, by at most ``n u m sum|t| / sum(t ** 2) <= 1.5 n u m``; the fitted
+    value ``b0 + b1 t`` by their sum plus ``2 u m``, and the subtraction adds ``2 u m``. So
+    a residue element errs by at most ``(1.25 n + 2) eps m <= 2 n eps m`` for ``n >= 3``, and
+    ``k = 4`` doubles that. Measured on lines with offset and slope spanning 1e-6 to 1e6, the
+    largest residue was ``1.91 n eps m``, at ``n = 3`` (``scipy.signal.detrend``), and below
+    ``0.03 n eps m`` from ``n = 100``. A NaN slice is left as it is.
+    """
+    n = residue.shape[axis]
+    eps = float(xp.finfo(residue.dtype).eps)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)       # all-NaN slice
+        bound = DETREND_ROUND_OFF_K * n * eps * xp.max(xp.abs(original), axis=axis,
+                                                       keepdims=True)
+        within = xp.max(xp.abs(residue), axis=axis, keepdims=True) <= bound
+    return xp.where(within, residue * 0, residue)

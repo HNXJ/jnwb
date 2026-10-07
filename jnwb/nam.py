@@ -9,19 +9,17 @@ Each unit/channel i gets its OWN sub-network h_i seeing ONLY that unit's tempora
 so its scalar contribution to the decision is unambiguous -- which a standard network, mixing all
 inputs in its first layer, cannot give.
 
-IMPLEMENTATION NOTE (identical math, not an approximation)
-    The reference implementation loops `for i in range(N): subnets[i](x[:, i])`, which is N
-    separate small GPU kernels per forward pass and is dominated by launch overhead. This
-    implements the same N independent sub-networks as GROUPED operations:
+IMPLEMENTATION
+    The N sub-networks run as grouped operations rather than a loop over units, which would
+    launch N small GPU kernels per forward pass. The arithmetic is the same:
         - a grouped Conv1d (groups=N) = N independent temporal convolutions
         - two einsum layers against per-unit weight tensors = N independent MLPs
-    No weights are shared across units. Verified equivalent to the looped form in
-    tests/receipts (see scripts/decode_fig04_v9_nam.py's self-check).
+    No weights are shared across units.
 
 ATTRIBUTION
-    S_i = std over trials of unit i's contribution. High S_i = that unit's output swings with
-    the class, i.e. it is driving the decision. S_i ~ 0 = contributes nothing. For the 3-way
-    (A/B/R) case S_i is the mean over classes of the per-class trial-wise std.
+    S_i = std over trials of unit i's contribution, averaged over classes. High S_i = that
+    unit's output swings with the class, i.e. it is driving the decision. S_i ~ 0 =
+    contributes nothing.
 """
 from __future__ import annotations
 
@@ -109,9 +107,26 @@ def train_nam(model, X_tr, y_tr, X_val, y_val, device="cpu", max_epochs=300, pat
               lr=1e-3, weight_decay=1e-3, batch_size=64, class_weight=None, seed=0):
     """Train on the TRAIN split only. The VAL split never contributes a gradient -- it is used
     solely to early-stop and to restore the best-val weights, which is what keeps it available
-    as an honest model-selection set while TEST stays untouched."""
+    as an honest model-selection set while TEST stays untouched.
+
+    ``seed`` seeds the batch order through a local ``torch.Generator``, and dropout, which
+    takes no generator, through the device's default generator inside
+    ``torch.random.fork_rng``: torch's global random state is the same on return as on
+    entry."""
     _require_torch()
-    torch.manual_seed(seed)
+    dev = torch.device(device)
+    cuda = [dev.index if dev.index is not None else torch.cuda.current_device()] \
+        if dev.type == "cuda" else []
+    with torch.random.fork_rng(devices=cuda):
+        torch.random.default_generator.manual_seed(seed)
+        for index in cuda:
+            torch.cuda.default_generators[index].manual_seed(seed)
+        return _train_nam(model, X_tr, y_tr, X_val, y_val, device, max_epochs, patience,
+                          lr, weight_decay, batch_size, class_weight, seed)
+
+
+def _train_nam(model, X_tr, y_tr, X_val, y_val, device, max_epochs, patience, lr,
+               weight_decay, batch_size, class_weight, seed):
     model.to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     Xtr = torch.as_tensor(X_tr, dtype=torch.float32, device=device)

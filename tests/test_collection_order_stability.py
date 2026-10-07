@@ -42,7 +42,7 @@ CRASHING_SUBSET = [
     "tests/test_analyzers_coverage.py::TestPopulationAnalyzerTrajectory",
     "tests/test_backend.py::TestCapabilityProbes",
 ]
-SUBSET_SIZE = 7
+SUBSET_SIZE = 9
 
 
 def _run_pytest(args: list[str]) -> subprocess.CompletedProcess:
