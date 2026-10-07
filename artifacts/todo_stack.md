@@ -383,9 +383,9 @@ Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/compression.py`, `jnwb/metadata.py`, `jnwb/addressing.py`, `tests/test_compression.py`, `tests/test_metadata.py`, `tests/test_addressing.py`, `docs/02_paths_addressing_metadata.md`.
 - P-296 dated comments: `jnwb/addressing.py:683` names a date. Check: the line is deleted or shown to state behaviour. Waits: no behavioural effect.
 - P-344: wall time rises 2.4x from 800 to 1600 series. Check: a measurement against HDF5 per-op cost accounts for the ratio, or the cause is found. Waits: linear op count.
-- P-348: relative soft-link resolution, the soft-linked `select=` message and CUDA constant-channel NaN are unpinned. Check: a test fails when each is dropped. Waits: observed correct.
+- P-348: CUDA constant-channel NaN is unpinned. Check: a test fails when it is dropped. Waits: observed correct.
+- `compress_fp32(select=...)` on an irregular `timestamps` array that no other link opens, inside a group a top-level soft link opens, casts it under its own name only: the two names then read float32 and float64 values. Check: refused by name, with a test. Waits: 0.2.9 behaves the same; the docstring states the refusal only for an array another link also opens.
 - P-192 page part: `docs/02_paths_addressing_metadata.md` does not state that `enrich_units_dataframe` needs `peak_channel_id` to resolve `area` and `depth_class`; the call now warns and its docstring states it. Check: the page states the prerequisite (06-90). Waits: the call warns.
-- P-312: `compare_old_new_criteria` mishandles nullable `is_stable`. Check: a nullable `is_stable` column is handled, asserted by a test. Waits: not exported.
 - `classify_layer_from_depth` reads electrode z as depth with no declared shallow end. Check: D10's ruling is applied and stated. Waits: stated; a ruling.
 Accept: each check passes.
 Stop: a fix would name an area vocabulary.
