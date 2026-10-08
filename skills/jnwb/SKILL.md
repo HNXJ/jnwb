@@ -65,10 +65,14 @@ tfr = jnwb.complex_tfr(data, fs=fs, freqs=freqs)
 ```
 
 ## 6. Verification
-`jnwb.__all__` is the public surface; run this rather than quoting counts.
+`jnwb.__all__` is the public surface; save this as `check_all.py` and run `python check_all.py` rather than quoting counts.
 
-```bash
-python -c "import jnwb; assert all(hasattr(jnwb, n) for n in jnwb.__all__)"
+```python
+# Input: deterministic array.
+import jnwb
+
+missing = [n for n in jnwb.__all__ if not hasattr(jnwb, n)]
+assert not missing, missing
 ```
 
 ## 7. Documentation
