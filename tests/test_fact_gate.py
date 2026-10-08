@@ -134,6 +134,13 @@ def test_a_todo_holder_is_unheld_only_while_its_item_is_live():
         "VIOLATED", [f"todo:{ITEM} is not a live item"])
 
 
+def test_a_todo_holder_naming_a_roadmap_row_is_unheld():
+    roadmap = ("| ID | Theme | Defect | Waits | Release |\n|---|---|---|---|---|\n"
+               "| 12-09 | a theme | a defect | a reason | deferred-99.0.0 |\n")
+    items = fact_gate.live_items(f"### {ITEM} An item\n", roadmap)
+    assert status(graph(), "todo:12-09", items=items) == ("UNHELD", ["held by todo 12-09"])
+
+
 def test_a_test_reaches_an_export_only_through_an_import_of_the_package():
     source = (
         "import jnwb.ontology as O\n"

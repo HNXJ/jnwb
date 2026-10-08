@@ -8,7 +8,8 @@ file. Each fact's ``Held by`` cell names its holders:
   ``test:PATH``       resolves when that test module exists; ``test:PATH::NAME`` when that test
                       function (``Class::name`` inside a class, or a whole ``Class``) exists
   ``computed:NAME``   a predicate below, evaluated on the fact graph
-  ``todo:ITEM``       the fact is UNHELD, and ITEM must be a live todo item
+  ``todo:ITEM``       the fact is UNHELD, and ITEM must be a live todo item: one in the
+                      todo stack or a readable row of ``artifacts/roadmap.md``
 
 A fact is VIOLATED when a computed predicate is false, a holder does not resolve, a ``todo:``
 names no live item, or it names no holder at all; UNHELD when it names a live ``todo:`` item;
@@ -46,8 +47,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import build_fact_graph  # noqa: E402
+from scripts.release_gate import ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
+ROADMAP_PATH = REPO_ROOT / _ROADMAP
 _ITEM_HEADING = re.compile(r"^### (\d{2}-\d{2,3})\b", re.M)
 
 HELD, VIOLATED, UNHELD = "HELD", "VIOLATED", "UNHELD"
@@ -56,8 +59,9 @@ Graph = Dict[str, Any]
 Constants = Dict[str, List[str]]
 
 
-def live_items(todo_text: str) -> List[str]:
-    return _ITEM_HEADING.findall(todo_text)
+def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
+    """Item ids in the todo stack, then those of the roadmap's readable rows."""
+    return _ITEM_HEADING.findall(todo_text) + [i for i, _ in roadmap_rows(roadmap_text)[0]]
 
 
 # ------------------------------------------------------------------------ computed predicates
@@ -190,14 +194,18 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 
 
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
-        todo_path: Path = TODO_PATH, graph: Optional[Graph] = None):
-    """Build the fact graph (unless given) and evaluate every fact of the fact source."""
+        todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
+        roadmap_path: Path = ROADMAP_PATH):
+    """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED."""
     source = facts_path or build_fact_graph.FACT_STACK
     facts = build_fact_graph.load_facts(source)
     constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
     if graph is None:
         graph = build_fact_graph.build(package, root, source)
-    results = evaluate(facts, constants, graph, live_items(todo_path.read_text(encoding="utf-8")))
+    roadmap = roadmap_path.read_text(encoding="utf-8") if roadmap_path.is_file() else ""
+    results = evaluate(facts, constants, graph,
+                       live_items(todo_path.read_text(encoding="utf-8"), roadmap))
     return source, results
 
 

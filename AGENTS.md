@@ -68,6 +68,7 @@ first. Check the state file with `python scripts/reconstruct_state.py --check`. 
 has left the problem stack; `git log -S '| P-NN |' -- artifacts/problem_stack.md` finds it.
 Memory is a hypothesis about state, never evidence. The todo stack holds one `# i.j.k` section
 per version and only work not yet done: a finished item is deleted, never ticked or moved.
+Its companion `artifacts/roadmap.md` holds work deferred past those versions, one row per item.
 (`docs/fact_stack.md` / `docs/todo_stack.md` when the repository has no `artifacts/`.)
 
 ## 3. Loop
