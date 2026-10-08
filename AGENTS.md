@@ -131,7 +131,7 @@ item 2 of "Core scientific invariants" in `CONTRIBUTING.md`.
 | `python scripts/docs_build.py` | Strict MkDocs via `sys.executable`; never bare `mkdocs` |
 
 Agents run the suite with `bash C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>` (writes the stamp `.git/jnwb_suite_ok`)
-and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null` (needs stamp == HEAD, no CI in flight,
+and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null` (needs stamp == HEAD unless the push touches only `artifacts/`, no CI in flight,
 newest completed run not failed); the host guard blocks a plain push.
 
 The interpreter set is fact R6.
