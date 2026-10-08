@@ -120,6 +120,14 @@ class TestSpikingPopulationMeasures:
         assert out["counts"].shape == (2, 3)
 
 
+class TestNormalizeWaveforms:
+    def test_it_declares_and_returns_units_by_samples(self):
+        """Three units of 48 samples: 3 and 48 cannot be swapped."""
+        assert ("n_units", "n_samples") in declared_shapes(jnwb.normalize_waveforms)
+        rng = np.random.default_rng(0)
+        assert jnwb.normalize_waveforms(rng.standard_normal((3, 48))).shape == (3, 48)
+
+
 class TestTheUncoveredTwoAreNamed:
     """A gap that is stated cannot be mistaken later for a dimension that was checked."""
 
@@ -143,7 +151,8 @@ class TestTheListOfDeclaringFunctionsIsComplete:
     def test_every_function_declaring_a_return_shape_is_accounted_for(self):
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
-                   "spike_count_correlation", "fano_factor", *NEEDS_A_SESSION}
+                   "spike_count_correlation", "fano_factor", "normalize_waveforms",
+                   *NEEDS_A_SESSION}
         declaring = {
             name for name in jnwb.__all__
             if callable(getattr(jnwb, name, None))

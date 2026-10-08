@@ -468,6 +468,22 @@ and `refractory_contamination` were measured again the same day after their rule
 | `isi_cv[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1475, 2.039, 25.87, 113.6 | +1.11 | 1.000 | 770x | O(n) | T(S log S) | derived | agree |
 | `refractory_contamination[n_spikes]` | n_spikes | 10000, 100000, 1000000, 4000000 | 0.1363, 1.391, 21.58, 90.44 | +1.10 | 0.999 | 664x | O(n) | T(S log S) | derived | agree |
 
+### `jnwb.wavemap`
+
+Added 2026-10-08 with the module, after the counts of section 1. Measured with the `Spec`,
+`sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python 3.14.5,
+NumPy 2.5.3, x86_64 macOS, jnwb imported from the checkout. Held fixed: 82 samples with troughs
+at samples 20-39 and the default 48-sample window at 30 kHz (`align_waveforms[n_units]`); 64
+units (both `[n_samples]` rows); 48 samples (`normalize_waveforms[n_units]`). `U` units, `n`
+samples. `wavemap` and `wavemap_resolution_sweep` are in section 8.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `align_waveforms[n_units]` | n_units | 1000, 10000, 100000, 1000000 | 0.4297, 12, 74.2, 999.6 | +1.09 | 0.988 | 2326x | O(n) | T(U*n) | derived | agree |
+| `align_waveforms[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.2368, 2.285, 23.22, 231 | +1.00 | 1.000 | 975x | O(n) | T(U*n) | derived | agree |
+| `normalize_waveforms[n_units]` | n_units | 1000, 10000, 100000, 1000000 | 0.2853, 4.98, 45.24, 465.1 | +1.06 | 0.997 | 1630x | O(n) | T(U*n) | derived | agree |
+| `normalize_waveforms[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.2583, 4.793, 39.12, 492.5 | +1.08 | 0.996 | 1906x | O(n) | T(U*n) | derived | agree |
+
 ## 4. Gaps
 
 19 order gaps lie along a parameter this measurement swept; 30 do not;
@@ -599,7 +615,7 @@ orders of magnitude, and none of them is an order defect.
 | `save_figure_suite` | n_figures | +1.05 | Renders are independent and serialized. |
 | `shuffle_pvalue_paired[n_shuffles]` | n_shuffles | +0.97 | Memory T(B*n) where T(n) suffices. |
 | `shuffle_r2_ci[n_samples]` | n_samples | +0.69 | Same. |
-| `shuffle_r2_ci[n_shuffle]` | n_shuffle | +1.01 | _r2 recomputes np.std(s) and the full 2x2 corrcoef, including the score's own permutation-invariant variance, on every draw; one dot product against a pre-centred, pre-normalised score suffices. |
+| `shuffle_r2_ci[n_shuffle]` | n_shuffle | +1.01 | _r2 recomputes np.std(s) and the full 2x2 corrcoef, including the score's own permutation-invariant variance, on every draw; one dot product against a pre-centred, pre-normalized score suffices. |
 
 ## 5. Admissible orders recorded as `unknown`
 
@@ -788,6 +804,7 @@ algorithm column still describes the replaced code for both rows.
 | `setup_vector_graphics` | no input | Takes no data; sets 3 matplotlib rcParams. |
 | `vis` | module | Module-valued export (the optional `vis` extra): a namespace, not a callable. Nothing to scale. |
 | `visual_qc` | module | Module-valued export: a namespace, not a callable. Nothing to scale. |
+| `WaveMAPResult` | result container | frozen dataclass, no __post_init__; binds the arrays and graph `wavemap` built. |
 
 ## 8. Exports whose cost grows but which cannot be measured here
 
@@ -800,6 +817,8 @@ algorithm column still describes the replaced code for both rows.
 | `compute_population_trajectory` | The same session object -- it delegates to build_time_resolved_matrix on its first line -- plus, to measure the SVD stage independently, a way to supply X directly, which the signature does not offer. |
 | `nwb_read_io` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. It opens the file through the same repair context as `read_nwb`. |
 | `read_nwb` | Cost grows with the number of NWB containers and attributes in the file; datasets are read lazily, so their size does not enter until the caller indexes them. A measurement needs NWB files generated at controlled container counts. No such generator exists in the package, and a test-only one would choose the per-container cost, which is the freedom that would corrupt the fitted exponent. |
+| `wavemap` | Cost is UMAP's nearest-neighbor graph (approximate NN-descent, near T(U log U) in units at fixed `n_neighbors`, times the samples per row), Louvain on that graph (near-linear in its edges, U*n_neighbors), and, with `embedding=True`, UMAP's stochastic layout and `transform`. Not measured here: it needs the `wavemap` extra (umap-learn, through numba), which has no wheel for this host's Python 3.14 on x86_64 macOS; UMAP's own cost is the library's, and its NN-descent iteration count depends on the data. |
+| `wavemap_resolution_sweep` | `n_runs` UMAP graphs on `floor(fraction*U)` units, each partitioned at every resolution, so the cost of `wavemap` without the embedding times `n_runs`, plus `n_runs * len(resolutions)` Louvain partitions. Not measured, for the reason given for `wavemap`. |
 
 ## 9. Blockers
 

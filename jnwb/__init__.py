@@ -41,6 +41,15 @@ log = logging.getLogger(__name__)
 # ============================================================================
 from .jrsa import jrsa, JRSAResult
 from .rsa import rdm, rdm_similarity
+# Imported eagerly, as jrsa is, so the function `wavemap` and not its module is bound to the
+# name; the module needs only NumPy until a clustering function is called.
+from .wavemap import (
+    WaveMAPResult,
+    align_waveforms,
+    normalize_waveforms,
+    wavemap,
+    wavemap_resolution_sweep,
+)
 
 # Central path resolution. `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
@@ -405,6 +414,13 @@ __all__ = [
     'presence_ratio',
     'isi_cv',
     'refractory_contamination',
+
+    # Waveform clustering (WaveMAP; UMAP and Louvain need the wavemap extra)
+    'WaveMAPResult',
+    'align_waveforms',
+    'normalize_waveforms',
+    'wavemap',
+    'wavemap_resolution_sweep',
 
     # Digital filtering
     'bandpass_filter',

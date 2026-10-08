@@ -22,6 +22,7 @@ Install an extra with `pip install "jnwb[<extra>]"`; combine them as `"jnwb[torc
 | `gpu` | CuPy for CUDA 12.x acceleration, and JAX |
 | `mcp` | Model Context Protocol server tooling |
 | `vis` | the Plotly figure engine `jnwb.vis`, with kaleido for SVG/PNG export |
+| `wavemap` | umap-learn, networkx |
 | `docs` | the MkDocs documentation builder |
 | `test` | pytest and pytest-xdist, plus the packaging and notebook tooling used to test a build and the tutorials |
 | `all` | every extra above |
@@ -63,7 +64,7 @@ Clone and install an editable development environment:
 ```bash
 git clone https://github.com/HNXJ/jnwb.git
 cd jnwb
-pip install -e ".[test,docs,vis]"
+pip install -e ".[test,docs,vis,wavemap]"
 ```
 
 These are the extras the suite exercises; its exports need Chrome (see [Extras](#extras)). With a

@@ -209,3 +209,23 @@ Each function measures one sorted unit and keeps or rejects none. Sources are in
 `trough_to_peak_ms` runs from the larger extremum to the opposite one after it, so it is never
 negative. The flatness and sharpness thresholds have no default and no published value.
 Undefined input is NaN or a `ValueError` naming the reason, never 0.
+
+## 6. Waveform Clustering with WaveMAP (`jnwb.wavemap`)
+
+WaveMAP (Lee et al. 2021) clusters units by mean-waveform shape: Louvain on UMAP's
+nearest-neighbor graph of normalized waveforms. The embedding is for display only. Sources are
+in [References](references.md#waveform-clustering); the clustering needs the `wavemap` extra.
+
+| Function | Input | Returns |
+|---|---|---|
+| `align_waveforms(waveforms, fs, *, pre_s=0.0004, post_s=0.0012)` | `(n_units, n_samples)`, one channel each | `(aligned, valid)`; NaN where the window leaves the samples |
+| `normalize_waveforms(waveforms, *, subtract_mean=True)` | `(n_units, n_samples)` | each row minus its mean, over its largest absolute value |
+| `wavemap(waveforms, *, resolution, ...)` | aligned, normalized, finite rows | `WaveMAPResult` |
+| `wavemap_resolution_sweep(waveforms, resolutions, ...)` | as `wavemap` | `modularity`, `n_clusters`, `min_cluster_size` per resolution and run |
+
+`resolution` is the paper's Markov time (Lambiotte et al. 2008): larger gives fewer clusters.
+networkx takes the reciprocal, so `wavemap` passes `1 / resolution`; `python-louvain` agrees
+with the paper only at 1. There is no default: apply the paper's rule (largest modularity with
+every cluster above 20 units) to the sweep. Fine clusters can change with the seed, so compare
+labels across `rng` values before naming one. Waveforms filtered differently separate by
+pipeline (Lee et al. 2023), so cluster such datasets apart.

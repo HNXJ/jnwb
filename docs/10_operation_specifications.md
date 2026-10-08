@@ -22,7 +22,7 @@ than the function's first draw from it:
 
 | Accepted `rng` | Functions | Other values |
 |---|---|---|
-| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `build_permutation_plan`, `cluster_permutation_test`, `cross_area_coherence`, `cross_modal_comparison`, `curate_and_label`, `exact_sign_flip`, `granger`, `granger_spectral`, `jrsa`, `nested_cv_linear_svm`, `paired_fire_prob_test`, `permute_labels`, `phase_slope_index`, `resample_onsets`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci`, `transfer_entropy`, `xflip`, `zflip`, the `testing.synth` builders and `testing.SynthNWBBuildOptions` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
+| an `int` seed, a `Generator`, or `None` | the `StatisticalAnalysis` methods, `build_permutation_plan`, `cluster_permutation_test`, `cross_area_coherence`, `cross_modal_comparison`, `curate_and_label`, `exact_sign_flip`, `granger`, `granger_spectral`, `jrsa`, `nested_cv_linear_svm`, `paired_fire_prob_test`, `permute_labels`, `phase_slope_index`, `resample_onsets`, `shuffle_pvalue_paired`, `shuffle_pvalue_unpaired`, `shuffle_r2_ci`, `transfer_entropy`, `wavemap`, `wavemap_resolution_sweep`, `xflip`, `zflip`, the `testing.synth` builders and `testing.SynthNWBBuildOptions` | `TypeError`, for a `float`, a `bool`, a `SeedSequence`, a bit generator and a list alike |
 
 `build_canonical_tutorial_nwb` and `SynthNWBBuildOptions` spell the argument `seed`.
 

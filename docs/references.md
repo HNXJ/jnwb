@@ -4,9 +4,9 @@ Published sources for the methods jnwb implements. Each row names the result jnw
 the functions that implement it, and each of those functions cites the same DOI in its docstring;
 a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
 2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26, the unit-quality sources and
-the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04). Each matched
-the title, authors and year of its Crossref record, except the arXiv entry, matched to its
-DataCite record, and Llobet et al. 2022, matched to bioRxiv's record of its version 1. Where
+the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04, the WaveMAP
+sources on 2026-10-08). Each matched the title, authors and year of its Crossref record, except
+the arXiv entries, matched to their DataCite records, and Llobet et al. 2022, matched to bioRxiv's record of its version 1. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
 implements; the functions it names are those the pitfall concerns, and their docstrings do not
@@ -90,6 +90,20 @@ thresholds are the caller's.
 | Shinomoto, S., et al. (2009). Relating neuronal firing patterns to functional differentiation of cerebral cortex. *PLoS Computational Biology* 5(7), e1000433. [doi:10.1371/journal.pcbi.1000433](https://doi.org/10.1371/journal.pcbi.1000433) | The coefficient of variation of the inter-spike intervals, their standard deviation over their mean (eq. 1); jnwb takes the unbiased (`ddof=1`) standard deviation, the variance rule of `fano_factor` | `isi_cv` |
 | Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011) | The fraction $f$ of a unit's spikes from a contaminating source, the smaller root of $r = 2(\tau_R - \tau_C) N^2 (1 - f) f / T$, with $r$ the number of consecutive inter-spike intervals shorter than the refractory period $\tau_R$, $\tau_C$ the censored period, $N$ the spike count and $T$ the recording duration | `refractory_contamination` |
 | Llobet, V., Wyngaard, A., & Barbour, B. (2022). Automatic post-processing and merging of multiple spike-sorting analyses with Lussac. *bioRxiv* preprint, version 1. [doi:10.1101/2022.02.08.479192](https://doi.org/10.1101/2022.02.08.479192) | A derivation of the Hill et al. (2011) estimate (eqs. 1 and 4), cited as the derivation only; jnwb computes the estimate as Hill et al. write it, with the plain recording duration | `refractory_contamination` |
+
+## Waveform clustering
+
+WaveMAP clusters normalized mean waveforms on UMAP's k-nearest-neighbor graph with Louvain.
+The resolution is the Markov time of Lambiotte et al. (2008), the convention of the `cylouvain`
+package the published code used: a larger resolution gives fewer clusters.
+
+| Reference | Result implemented | Functions |
+|---|---|---|
+| Lee, E. K., et al. (2021). Non-linear dimensionality reduction on extracellular waveforms reveals cell type diversity in premotor cortex. *eLife* 10, e67490. [doi:10.7554/eLife.67490](https://doi.org/10.7554/eLife.67490) | WaveMAP (Methods): the 1.6 ms window with 0.4 ms before the trough, per-unit normalization, Louvain on the UMAP graph with n_neighbors 20 and min_dist 0.1, the embedding used only for display, and the resolution chosen by modularity over 25 runs on 80% subsets (Fig. 3B). jnwb aligns at whole samples and does not exclude units; the published code also fixed the resolution at 1.5, and jnwb has no default | `align_waveforms`, `normalize_waveforms`, `wavemap`, `wavemap_resolution_sweep` |
+| Lee, K., Carr, N., Perliss, A., & Chandrasekaran, C. (2023). WaveMAP for identifying putative cell types from in vivo electrophysiology. *STAR Protocols* 4(2), 102320. [doi:10.1016/j.xpro.2023.102320](https://doi.org/10.1016/j.xpro.2023.102320) | Steps 9-10: subtract each waveform's mean, then divide by its largest absolute value. The protocol's printed code transposes first, which would normalize each time point across units; jnwb normalizes each unit | `normalize_waveforms`, `wavemap` |
+| McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform manifold approximation and projection for dimension reduction. *arXiv* 1802.03426. [doi:10.48550/arXiv.1802.03426](https://doi.org/10.48550/arXiv.1802.03426) | The fuzzy simplicial set (the weighted k-nearest-neighbor graph) and the 2-d embedding, through `umap-learn` | `wavemap`, `wavemap_resolution_sweep` |
+| Blondel, V. D., Guillaume, J.-L., Lambiotte, R., & Lefebvre, E. (2008). Fast unfolding of communities in large networks. *Journal of Statistical Mechanics* 2008, P10008. [doi:10.1088/1742-5468/2008/10/P10008](https://doi.org/10.1088/1742-5468/2008/10/P10008) | Louvain modularity optimisation, through `networkx.community.louvain_communities` | `wavemap`, `wavemap_resolution_sweep` |
+| Lambiotte, R., Delvenne, J.-C., & Barahona, M. (2008). Laplacian dynamics and multiscale modular structure in networks. *arXiv* 0812.1770. [doi:10.48550/arXiv.0812.1770](https://doi.org/10.48550/arXiv.0812.1770) | The Markov-time resolution t, whose linearized stability is, up to a constant and a factor t, modularity with the null-model term weighted 1/t; jnwb passes `resolution=1/t` to networkx | `wavemap`, `wavemap_resolution_sweep` |
 
 ## Representational analysis
 

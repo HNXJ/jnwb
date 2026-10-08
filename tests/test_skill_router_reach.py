@@ -113,6 +113,8 @@ QC_ROUTES = (
     "jnwb.isi_cv", "jnwb.Lineage", "jnwb.presence_ratio", "jnwb.Provenance",
     "jnwb.refractory_contamination", "jnwb.Result", "jnwb.spatial_derivative_sharpness",
     "jnwb.visual_qc", "jnwb.waveform_features", "jnwb.waveform_flatness", "jnwb.waveform_snr",
+    "jnwb.align_waveforms", "jnwb.normalize_waveforms", "jnwb.wavemap",
+    "jnwb.wavemap_resolution_sweep", "jnwb.WaveMAPResult",
 )
 
 
