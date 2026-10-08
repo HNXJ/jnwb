@@ -31,7 +31,7 @@ internal by construction and lists the ones it leaves out.
 | `artifacts/benchmarks/` | Performance baseline and import profile (`python scripts/benchmark_import.py --write`) |
 | `docs/` | User docs; `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources |
 | `examples/` | `quickstart_jnwb.py`; notebooks that `tests/test_notebooks.py` executes |
-| `CONTRIBUTING.md` | How to change code, docs, skills and releases |
+| `.github/CONTRIBUTING.md` | How to change code, docs, skills and releases |
 | `.github/workflows/workflow.yml` | CI; the publication order is a fact (§2) |
 
 ## 1. Evidence

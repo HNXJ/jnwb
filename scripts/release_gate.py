@@ -1540,7 +1540,7 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
       4. the committed peak-memory record names the version HEAD declares;
-      5. ``changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
+      5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1636,11 +1636,11 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
     if leftover is None:
-        violations.append("git cannot list changelog.d/ at HEAD, so whether every changelog "
+        violations.append("git cannot list artifacts/changelog.d/ at HEAD, so whether every changelog "
                           "fragment reached CHANGELOG.md is unknown")
     elif leftover:
         violations.append(
-            f"{len(leftover)} file(s) in changelog.d/ at HEAD are not assembled into "
+            f"{len(leftover)} file(s) in artifacts/changelog.d/ at HEAD are not assembled into "
             f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
             + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
     return violations
@@ -1692,7 +1692,7 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
 
 
 def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
-    """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
+    """Files committed under ``artifacts/changelog.d/`` at HEAD other than its README, or ``None``.
 
     Anything else there is a change the assembled section does not carry. The exempt names are
     the assembler's own, imported rather than retyped.
@@ -1701,7 +1701,7 @@ def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]
         sys.path.append(str(REPO_ROOT))
     from scripts.assemble_changelog import NOT_FRAGMENTS
 
-    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "changelog.d"],
+    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "artifacts/changelog.d"],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return None

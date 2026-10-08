@@ -780,7 +780,7 @@ class TestTheTagPushCreatesTheRelease:
     def test_the_contributing_steps_describe_this_order(self):
         """Steps 4 to 6 of "Releasing" are what a maintainer follows; a step that still says to
         publish a Release by hand would have them do what the workflow no longer reads."""
-        text = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        text = (REPO_ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
         section = re.search(r"^## Releasing\n(.*?)^## ", text, re.M | re.S).group(1)
         steps = dict(re.findall(r"^([4-6])\. (.*?)(?=^\d\. |^\*\*|\Z)", section, re.M | re.S))
         assert sorted(steps) == ["4", "5", "6"], sorted(steps)

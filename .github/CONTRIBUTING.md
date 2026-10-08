@@ -135,7 +135,7 @@ Stage exact paths. `git add .` sweeps in build output and scratch files.
 - **Docs and skills in lockstep.** Changing a public symbol means updating `docs/` and
   `skills/` in the same commit.
 - **A changelog fragment** for anything a user would notice: one file,
-  `changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
+  `artifacts/changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
   `<category>` one of `breaking`, `added`, `changed`, `deprecated`, `removed`, `fixed`,
   `security` or `documentation`. Two changes then touch two files and merge without conflict.
   Breaking changes say what breaks and how to keep the old behaviour.
@@ -330,7 +330,7 @@ jnwb/
 
 ### Permitted Root Entries (Allowlist)
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
-- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
+- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
 
 The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
 - **CI / VCS**: `.git/`, `.github/`

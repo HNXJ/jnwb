@@ -1853,7 +1853,7 @@ class TestRowsAgainstTheLiveCall:
         assert unrouted == [], f"chance sentences that do not route to the baseline: {unrouted}"
 
 
-CONTRIBUTING = ROOT_DIR / "CONTRIBUTING.md"
+CONTRIBUTING = ROOT_DIR / ".github" / "CONTRIBUTING.md"
 
 
 def _skill_template() -> List[str]:

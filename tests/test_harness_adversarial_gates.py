@@ -1403,7 +1403,7 @@ class TestGate6RecursiveCoverage:
         "examples/quickstart_planted.py",
         "examples/notebooks/99_planted.ipynb",
         "README.md",
-        "CONTRIBUTING.md",
+        ".github/CONTRIBUTING.md",
     ])
     def test_forbidden_token_is_detected_on_every_durable_surface(self, tmp_path, rel):
         violations = self._plant(tmp_path, rel)
@@ -1436,7 +1436,7 @@ class TestGate6RecursiveCoverage:
         repository no longer has -- green tests covering nothing.
         """
         from scripts.harness_gate import DATASET_SCAN_ROOT_DOCS
-        for rel in ["README.md", "CONTRIBUTING.md", "examples/quickstart_jnwb.py"]:
+        for rel in ["README.md", ".github/CONTRIBUTING.md", "examples/quickstart_jnwb.py"]:
             assert (REPO_ROOT / rel).exists(), f"probe target missing: {rel}"
         assert "README.md" in DATASET_SCAN_ROOT_DOCS
 

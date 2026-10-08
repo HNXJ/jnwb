@@ -6,7 +6,7 @@ units it speaks in, and -- per operation -- the estimator, the result type, and 
 failure semantics.
 
 These are contracts for callers. The rules for *adding* an operation are in
-[`CONTRIBUTING.md`](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md).
+[`CONTRIBUTING.md`](https://github.com/HNXJ/jnwb/blob/main/.github/CONTRIBUTING.md).
 
 ---
 

@@ -99,11 +99,11 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
     """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
     ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against.
     ``recorded`` is the version the peak-memory record names, ``None`` for no record.
-    ``changelog.d/`` holds its README and each name in ``fragments``."""
-    (tmp_path / "changelog.d").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "changelog.d" / "README.md").write_text("# Fragments\n", encoding="utf-8")
+    ``artifacts/changelog.d/`` holds its README and each name in ``fragments``."""
+    (tmp_path / "artifacts" / "changelog.d").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "changelog.d" / "README.md").write_text("# Fragments\n", encoding="utf-8")
     for name in fragments:
-        (tmp_path / "changelog.d" / name).write_text("- a change\n", encoding="utf-8")
+        (tmp_path / "artifacts" / "changelog.d" / name).write_text("- a change\n", encoding="utf-8")
     (tmp_path / "artifacts" / "benchmarks").mkdir(parents=True, exist_ok=True)
     (tmp_path / "jnwb").mkdir(exist_ok=True)
     (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
@@ -218,10 +218,10 @@ def test_a_missing_problem_stack_fails(tmp_path):
 
 @pytest.mark.parametrize("name", ["stray.fixed.md", "notes.txt", ".keep"])
 def test_a_fragment_left_in_changelog_d_fails(tmp_path, name):
-    """A fragment still in changelog.d/ is a change the assembled release notes do not carry."""
+    """A fragment still in artifacts/changelog.d/ is a change the assembled release notes do not carry."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], fragments=[name])
     v = check_release_readiness(root, head=HEAD)
-    assert len(v) == 1 and "changelog.d/" in v[0] and f"changelog.d/{name}" in v[0], v
+    assert len(v) == 1 and "artifacts/changelog.d/" in v[0] and f"artifacts/changelog.d/{name}" in v[0], v
 
 
 def test_an_item_still_required_this_cycle_fails(tmp_path):

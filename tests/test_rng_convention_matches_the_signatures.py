@@ -79,7 +79,7 @@ import jnwb
 from jnwb._rng import Default
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
+CONTRIBUTING = REPO_ROOT / ".github" / "CONTRIBUTING.md"
 SPEC_PAGE = REPO_ROOT / "docs" / "10_operation_specifications.md"
 PROSE_FILES = (CONTRIBUTING, SPEC_PAGE)
 
