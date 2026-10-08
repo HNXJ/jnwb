@@ -65,7 +65,7 @@ AUTONOMY: none for the B3 lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`, `artifacts/fact_stack.md`.
 - I1: declared signature types for every numeric public operation, and type-checked composition edges (`jnwb/_declarations.py`). Check: a planted spikes-to-LFP-only edge is reported VIOLATED by `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
-Accept: the Identity table and B3 report no UNHELD fact. Stop: a declaration would change a public signature without a ruling.
+Accept: the planted spikes-to-LFP-only edge is reported VIOLATED and the Identity table reports no UNHELD fact. Stop: a declaration would change a public signature without a ruling.
 
 ### 11-06 A defaulted `window=` in a public function has a cited reason in the B3 table
 
@@ -74,7 +74,7 @@ AUTONOMY: none for the B3 lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `jnwb/_declarations.py`, `artifacts/fact_stack.md`.
 - B3: the lexicon and exceptions table. Check: a planted public function with a defaulted `window=` and no cited reason in the table is VIOLATED by `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
-Accept: the Identity table and B3 report no UNHELD fact. Stop: a declaration would change a public signature without a ruling.
+Accept: the planted defaulted-`window=` function with no cited reason is VIOLATED and B3 reports no UNHELD fact. Stop: a declaration would change a public signature without a ruling.
 
 ### 09-04 The claim-class text check reports the planted 0.2.7 fig09 unit as VIOLATED
 
@@ -83,7 +83,7 @@ AUTONOMY: none for the dB-lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - S8: claim classes and the text check over docs, skills, figure labels and docstrings. Check: `scripts/fact_gate.py` reports the 0.2.7 fig09 unit, planted, as VIOLATED. Waits: fact reports UNHELD; nothing public claims it.
-Accept: the Science and Skills tables report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+Accept: the planted 0.2.7 fig09 unit is reported VIOLATED by `scripts/fact_gate.py` and S8 reports no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 11-07 Each of the S1, S2, S5 and S7 scans reports its own planted case
 
@@ -92,7 +92,7 @@ AUTONOMY: none for the dB-lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - S1, S2, S5 and S7: the scans as ruled in Q13. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
-Accept: the Science and Skills tables report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+Accept: each scan reports its own planted case in `tests/test_fact_gate.py` and S1, S2, S5 and S7 report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 11-08 A domain skill with fewer than three exclusive operations is VIOLATED by K1
 
@@ -101,7 +101,7 @@ AUTONOMY: none for the dB-lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - K1: the partition with k = 3 exclusive operations per shipped domain skill. Check: a planted two-operation skill is VIOLATED. Waits: skill-partition check; no shipped behaviour.
-Accept: the Science and Skills tables report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+Accept: the planted two-operation skill is VIOLATED and K1 reports no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 11-09 A planned skill is reported only when K1 and K5 hold for it
 
@@ -110,7 +110,7 @@ AUTONOMY: none for the dB-lexicon values; holder cells under the standing author
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
 - Planned skills (moved from the fact stack as plan, Q14): twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` wait on their public APIs and neither is a required endpoint: a capability the router routes cleanly gets no skill. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: plan for future skills; no shipped behaviour.
-Accept: the Science and Skills tables report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+Accept: the fact gate reports a planned skill only when K1 and K5 hold for it, and the planned-skill fact reports no UNHELD. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 10-11 A shared reference inflates coherence and Granger on the same pair
 
@@ -119,7 +119,7 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Common reference: a shared reference inflates coherence and Granger. Check: a test asserts both inflated against the same pair after `bipolar_reference`, with a stated ground truth and an explicit `rng`. Waits: tests only; records present behaviour.
-Accept: every pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap. Stop: a test would need a threshold no reference fixes.
+Accept: a test asserts both inflated against the same pair after `bipolar_reference`, and this pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap. Stop: a test would need a threshold no reference fixes.
 
 ### 11-10 Zero-lag mixing keeps `imaginary_coherency` and `wpli` near zero while coherence is high
 
@@ -128,7 +128,7 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Volume conduction: zero-lag mixing keeps `imaginary_coherency` and `wpli` near zero while coherence is high. Check: a test asserts coherence above a stated floor and both measures below a stated bound. Waits: tests only; records present behaviour.
-Accept: the check passes. Stop: a test would need a threshold no reference fixes.
+Accept: a test asserts coherence above a stated floor and both measures below a stated bound. Stop: a test would need a threshold no reference fixes.
 
 ### 11-11 Added noise on one channel yields a Granger direction with no true lag, recorded by a test
 
@@ -137,7 +137,7 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - SNR asymmetry: added noise on one channel yields a Granger direction with no true lag. Check: a test records today's direction and its docstring names the gap 11-04 closes. Waits: tests only; records present behaviour.
-Accept: the check passes. Stop: a test would need a threshold no reference fixes.
+Accept: a test records today's direction and its docstring names the gap 11-04 closes. Stop: a test would need a threshold no reference fixes.
 
 ### 11-12 A common driver with unequal delays makes bivariate Granger spurious and conditional `granger` removes it
 
@@ -146,7 +146,7 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Common input: a common driver with unequal delays makes bivariate Granger spurious, and conditional `granger` removes it. Check: a test asserts the spurious value and its removal. Waits: tests only; records present behaviour.
-Accept: the check passes. Stop: a test would need a threshold no reference fixes.
+Accept: a test asserts the spurious value and its removal. Stop: a test would need a threshold no reference fixes.
 
 ### 11-13 The `pairwise_phase_consistency` and debiased wPLI null means stay near zero at every segment count
 
@@ -155,7 +155,7 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `tests/test_connectivity_pitfalls.py`.
 Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
 - Sample-size bias: the `pairwise_phase_consistency` and debiased wPLI null means stay near zero for every segment count. Check: a test asserts both below a stated bound at three or more segment counts. Waits: tests only; records present behaviour.
-Accept: the check passes. Stop: a test would need a threshold no reference fixes.
+Accept: a test asserts both null means below a stated bound at three or more segment counts. Stop: a test would need a threshold no reference fixes.
 
 ### 10-12 Each connectivity and spectral safeguard names its `docs/references.md` row
 
@@ -293,7 +293,7 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_skill_symbol_coverage.py`, `scripts/docs_form_gate.py`.
 Split from the documentation-check item on 2026-10-04, which landed every other bullet.
 - The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the nav reader of `scripts/docs_form_gate.py`, and a planted commented line is not read as a page. Waits: no commented page exists.
-Accept: the check passes. Stop: the oracle needs a type that no annotation or table entry states.
+Accept: the check passes. Stop: none.
 
 ### 10-15 The four published unit measures are public operations or ruled exclusions
 
