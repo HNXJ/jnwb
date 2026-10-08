@@ -42,7 +42,7 @@ lines.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
-| G pitfalls and skill sources | 10-11, 11-10, 11-11, 11-12, 11-13, 10-12, 11-14, 11-29 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
+| G pitfalls and skill sources | 10-11, 11-10, 11-11, 11-12, 11-13, 11-31, 10-12, 11-14, 11-29 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | D display, documentation and unit measures | 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 
@@ -157,21 +157,30 @@ Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each 
 - Sample-size bias: the `pairwise_phase_consistency` and debiased wPLI null means stay near zero for every segment count. Check: a test asserts both below a stated bound at three or more segment counts. Waits: tests only; records present behaviour.
 Accept: a test asserts both null means below a stated bound at three or more segment counts. Stop: a test would need a threshold no reference fixes.
 
+### 11-31 Every pitfall row of the `common_mistakes` pitfalls table is held by a test or names its gap
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `tests/test_connectivity_pitfalls.py`.
+Source: `docs/common_mistakes.md` lines 427-437, the nine rows: common reference, volume conduction, signal-to-noise asymmetry, common input, bivariate against conditional Granger, sample-size bias, phase slope as direction, filtering before Granger and non-stationarity.
+- Phase slope as direction, filtering before Granger and non-stationarity are named by none of 10-11 and 11-10 to 11-13. Check: a test in `tests/test_connectivity_pitfalls.py` holds each of the nine rows, or its docstring names the gap. Waits: tests only; records present behaviour.
+Accept: every pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap. Stop: a test would need a threshold no reference fixes.
+
 ### 10-12 Each connectivity and spectral safeguard names its `docs/references.md` row
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - Each connectivity and spectral safeguard restates its method instead of naming its `docs/references.md` row. Check: the line test in `tests/test_skills_validation.py` finds no restated definition. Waits: pointers only.
-Accept: routing rows still match signatures; the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
+Accept: the line test in `tests/test_skills_validation.py` finds no restated definition; routing rows still match signatures and the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
 
 ### 11-14 The unscoped-delay branch of `TestCausalFilterDelayIsScopedToAThresholdCrossing` is pinned
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
+Writes: `tests/test_skills_validation.py`.
 - P-216 statistics part: the unscoped-delay paraphrase branch of `TestCausalFilterDelayIsScopedToAThresholdCrossing` (`tests/test_skills_validation.py`, lane G's file) is unpinned. Check: a test fails when that branch is removed. Waits: behaves correctly.
-Accept: routing rows still match signatures; the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
+Accept: a test fails when the unscoped-delay branch is removed. Stop: none.
 
 ### 11-29 A request for published nonparametric Granger values meets a statement of the estimator difference
 
@@ -179,7 +188,7 @@ Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - A request to compare with published nonparametric Granger values meets no statement of the estimator difference. Check: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification. Waits: skill text only.
-Accept: routing rows still match signatures; the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
+Accept: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification; routing rows still match signatures and the summed skill length does not grow. Stop: none.
 
 ### 10-09 `apply_tight_auto_axis` draws data with minimum -5 inside the axes
 
@@ -328,3 +337,20 @@ Role: jnwb-developer. Skill: per chain. Blocked by: 07-08.
 Writes: `tests/test_composition_*.py`.
 - 07-09: no test composes two skills' operations in router order where each call is right and the order, an identifier or a substituted signal class is wrong. Check: the band-comparison task as one chain (the minimal base) in `tests/test_composition_*.py`; each chain runs on unequal dimensions, fails on the wrong composition and passes on the right one, and a chain correct today records its killing mutation in its docstring. Waits: new tests of new composition.
 Accept: the check passes. Stop: a chain is wrong today and its repair needs a path outside `Writes`.
+
+### 11-32 Each fact citing `todo:09-04` or `todo:10-10` names an item whose bullet states its work
+
+Release: deferred-0.2.11.
+AUTONOMY: none; holder cells belong to Hamm.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `artifacts/fact_stack.md`, `artifacts/todo_stack.md`.
+- S9 to S14, K4, I2 and I3 cite `todo:09-04` or `todo:10-10` though no bullet of those items names them (renaming 09-04 makes the fact gate report VIOLATED 8). Check: each such fact's holder names an item whose bullet states that fact's work. Waits: holder cells belong to Hamm; edit only with his authorisation.
+Accept: each such holder names an item whose bullet states that fact's work. Stop: a holder cell would change without Hamm's authorisation.
+
+### 11-33 No `###` item of the todo stack exceeds eight lines
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `tests/test_stack_item_length.py`.
+- The eight-line limit of an item is stated in this stack and nothing checks it. Check: `tests/test_stack_item_length.py` asserts that no `###` item of `artifacts/todo_stack.md` runs past 8 lines from its heading to its last non-blank line, and fails on a planted nine-line item. Waits: process evidence only; no shipped behaviour.
+Accept: the test passes on the live stack. Stop: none.
