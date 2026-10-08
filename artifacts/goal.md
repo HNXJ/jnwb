@@ -3,7 +3,8 @@
 Ruled 2026-09-19 by Hamm; revised by Hamm 2026-09-22 and 2026-09-27. The statement jnwb is
 measured against from 0.2.6 on, subject to `artifacts/direction.md`, which it does not restate.
 Durable rules it relies on are in `artifacts/fact_stack.md`; release acceptance is `AGENTS.md` §11;
-a cycle's scope is its version section of `artifacts/todo_stack.md` (goal 9).
+a cycle's scope is its section of `artifacts/todo_stack.md` while open, and its rows in
+`artifacts/roadmap.md` before it opens (goal 9).
 
 Each goal has one check. A goal with no check is a preference and is recorded as work in
 `artifacts/todo_stack.md` until it has one. "Held by" names checks, never item ids.
