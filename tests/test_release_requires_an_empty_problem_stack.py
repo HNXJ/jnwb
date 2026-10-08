@@ -42,9 +42,11 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.release_gate import (  # noqa: E402
     NEXT_CYCLE,
     RELEASE_CYCLE,
+    ROADMAP_PATH,
     blocker_fixpoint_receipt,
     check_release_readiness,
     problem_rows,
+    roadmap_rows,
     todo_release_fields,
 )
 HEAD = "a" * 40
@@ -877,6 +879,30 @@ def test_an_unreadable_roadmap_row_is_refused(tmp_path, row):
     root = _tree(tmp_path, roadmap=_roadmap(row))
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and "is not a readable row" in v[0], v
+
+
+@pytest.mark.parametrize("marker", [
+    "Required for 0.2.11",
+    "required-0.2.11",
+], ids=["prose-marker", "release-marker"])
+def test_a_roadmap_row_marking_work_required_is_refused(marker):
+    rows, refused = roadmap_rows(_roadmap(f"| 12-09 | a theme | {marker} | a reason | "
+                                          f"deferred-{AFTER_NEXT} |"))
+    assert len(rows) == 1 and len(refused) == 1 and "marks work required" in refused[0], refused
+
+
+def test_a_roadmap_id_repeated_inside_the_roadmap_is_refused():
+    row = _roadmap_row()
+    rows, refused = roadmap_rows(_roadmap(row, row))
+    assert len(rows) == 2 and refused == ["12-09 appears twice"], refused
+
+
+def test_the_live_roadmap_parses_without_refusal():
+    """The committed roadmap, read by the parser STEP 0a runs, against the live todo stack."""
+    text = (REPO_ROOT / ROADMAP_PATH).read_text(encoding="utf-8")
+    stack_ids = {ident for ident, _, _ in todo_release_fields(REPO_ROOT)}
+    refused = roadmap_rows(text, stack_ids)[1]
+    assert refused == [], refused
 
 
 def test_a_missing_roadmap_fails(tmp_path):
