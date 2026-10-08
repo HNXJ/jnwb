@@ -135,7 +135,7 @@ Stage exact paths. `git add .` sweeps in build output and scratch files.
 - **Docs and skills in lockstep.** Changing a public symbol means updating `docs/` and
   `skills/` in the same commit.
 - **A changelog fragment** for anything a user would notice: one file,
-  `changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
+  `artifacts/changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
   `<category>` one of `breaking`, `added`, `changed`, `deprecated`, `removed`, `fixed`,
   `security` or `documentation`. Two changes then touch two files and merge without conflict.
   Breaking changes say what breaks and how to keep the old behaviour.

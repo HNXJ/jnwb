@@ -145,7 +145,7 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 ## Contributing
 
 Setup, the checks to run, the branch model and the release procedure are in
-[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
+[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/.github/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
 
 For AI agents: see [artifacts/agents.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/agents.md).
 

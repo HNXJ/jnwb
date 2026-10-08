@@ -403,9 +403,6 @@ PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14")  # every claimed version must be t
 #: Directories that hold tracked source. Anything else at the root is a mistake.
 SOURCE_ROOT_DIRS = {
     "jnwb", "tests", "examples", "docs", "skills", "scripts", "artifacts", ".github",
-    # One file per unreleased change, assembled into CHANGELOG.md at release by
-    # scripts/assemble_changelog.py.
-    "changelog.d",
 }
 
 #: Build output, caches and environments. Tolerated on disk, but each must be gitignored --
@@ -425,7 +422,7 @@ ALLOWED_ROOT_DIRS = SOURCE_ROOT_DIRS | EPHEMERAL_ROOT_DIRS | TOOL_ROOT_DIRS
 ALLOWED_ROOT_FILES = {
     ".gitattributes",
     ".gitignore", ".readthedocs.yaml", "AGENTS.md", "CHANGELOG.md", "CITATION.cff", "CLAUDE.md",
-    "CONTRIBUTING.md", "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
+    "LICENSE", "MANIFEST.in", "pyproject.toml", "README.md",
     # CLAUDE.md is git-ignored and untracked: AGENTS.md is the only repository-level
     # instruction file. It stays on this list so a contributor's own ignored copy does
     # not trip the root freeze -- permitted locally, never part of the repository.
@@ -574,7 +571,7 @@ def check_docs_version_matches_package(repo_root: Optional[Path] = None) -> List
 
 #: Root-level user-facing documents included in the Gate 6 scan. These ship to or are read by
 #: downstream users, so they carry the same dataset-independence obligation as docs/.
-DATASET_SCAN_ROOT_DOCS = ("README.md", "CONTRIBUTING.md", "AGENTS.md")
+DATASET_SCAN_ROOT_DOCS = ("README.md", ".github/CONTRIBUTING.md", "AGENTS.md")
 
 #: Files exempt from the Gate 6 scan, each with the reason it legitimately carries a token.
 #: An exemption is a deliberate, named decision -- never a silent skip.
@@ -643,7 +640,7 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
             target_files.append(skill_file)
             
     # 3. Core harness authority and developer guides
-    for harness_name in ["AGENTS.md", "CONTRIBUTING.md"]:
+    for harness_name in ["AGENTS.md", ".github/CONTRIBUTING.md"]:
         harness_file = root / harness_name
         if harness_file.exists():
             target_files.append(harness_file)

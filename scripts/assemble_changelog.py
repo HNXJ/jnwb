@@ -1,6 +1,6 @@
-"""Assemble the files under ``changelog.d/`` into a release section of ``CHANGELOG.md``.
+"""Assemble the files under ``artifacts/changelog.d/`` into a release section of ``CHANGELOG.md``.
 
-Each change writes its own file, ``changelog.d/<name>.<category>.md``, holding one or more
+Each change writes its own file, ``artifacts/changelog.d/<name>.<category>.md``, holding one or more
 top-level ``- `` bullets. Two changes made in parallel therefore touch two different files and
 merge without conflict, where two edits under ``## [Unreleased]`` collide on the same lines.
 
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FRAGMENT_DIR = REPO_ROOT / "changelog.d"
+FRAGMENT_DIR = REPO_ROOT / "artifacts" / "changelog.d"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 
 #: Fragment category -> section heading, in the order the sections are written.

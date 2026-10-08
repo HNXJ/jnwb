@@ -68,7 +68,7 @@ def _split_release(text: str, version: str):
 
 
 def _write_fragments(directory: Path, bullets) -> None:
-    directory.mkdir()
+    directory.mkdir(parents=True)
     counts = {}
     # Written in reverse so that nothing depends on creation order.
     numbered = []
@@ -85,18 +85,18 @@ def test_assembly_reproduces_a_hand_written_release(tmp_path, version, date):
     without, expected, bullets = _split_release(CHANGELOG_TEXT, version)
     assert len({cat for cat, _ in bullets}) >= 2, "the case needs more than one category"
     assert without != expected
-    _write_fragments(tmp_path / "changelog.d", bullets)
+    _write_fragments(tmp_path / "artifacts" / "changelog.d", bullets)
 
-    assembled = assemble(without, version, date, read_fragments(tmp_path / "changelog.d"))
+    assembled = assemble(without, version, date, read_fragments(tmp_path / "artifacts" / "changelog.d"))
 
     assert assembled == expected
 
 
 def test_the_release_gate_reads_the_assembled_file(tmp_path):
     changelog = "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-09-01\n\n### Added\n\n- old\n"
-    (tmp_path / "changelog.d").mkdir()
-    (tmp_path / "changelog.d" / "a.fixed.md").write_bytes(b"- a fix\n")
-    assembled = assemble(changelog, "0.1.1", "2026-09-02", read_fragments(tmp_path / "changelog.d"))
+    (tmp_path / "artifacts" / "changelog.d").mkdir(parents=True)
+    (tmp_path / "artifacts" / "changelog.d" / "a.fixed.md").write_bytes(b"- a fix\n")
+    assembled = assemble(changelog, "0.1.1", "2026-09-02", read_fragments(tmp_path / "artifacts" / "changelog.d"))
     assert unreleased_entry_lines(assembled) == []
     assert re.search(r"^## \[0\.1\.1\] - 2026-09-02\s*$", assembled, re.MULTILINE)
     assert assembled.endswith("## [0.1.0] - 2026-09-01\n\n### Added\n\n- old\n")
@@ -134,8 +134,8 @@ def _two_branches(repo: Path, change_a, change_b) -> subprocess.CompletedProcess
 
 def _fragment(name, text):
     def write(repo: Path) -> None:
-        (repo / "changelog.d").mkdir(exist_ok=True)
-        (repo / "changelog.d" / name).write_bytes(text.encode("utf-8"))
+        (repo / "artifacts" / "changelog.d").mkdir(parents=True, exist_ok=True)
+        (repo / "artifacts" / "changelog.d" / name).write_bytes(text.encode("utf-8"))
     return write
 
 
@@ -159,7 +159,7 @@ def test_two_parallel_fragments_merge_without_conflict(tmp_path):
     assert merged.returncode == 0, merged.stdout + merged.stderr
 
     changelog = (repo / "CHANGELOG.md").read_bytes().decode("utf-8")
-    assembled = assemble(changelog, "0.1.1", "2026-09-02", read_fragments(repo / "changelog.d"))
+    assembled = assemble(changelog, "0.1.1", "2026-09-02", read_fragments(repo / "artifacts" / "changelog.d"))
     assert "### Added\n\n- gamma\n\n### Fixed\n\n- delta\n\n## [0.1.0]" in assembled
 
 
@@ -174,9 +174,9 @@ def test_the_same_two_changes_written_under_unreleased_conflict(tmp_path):
 
 def test_the_committed_fragments_assemble():
     """A malformed fragment fails here, on the commit that adds it, not at release."""
-    fragments = read_fragments(ROOT / "changelog.d")
+    fragments = read_fragments(ROOT / "artifacts" / "changelog.d")
     for _, _, path in fragments:
-        assert path.parent == ROOT / "changelog.d"
+        assert path.parent == ROOT / "artifacts" / "changelog.d"
     if fragments:
         assemble(CHANGELOG_TEXT, "999.0.0", "2099-01-01", fragments)
 
@@ -210,8 +210,8 @@ def test_the_command_writes_the_section_and_consumes_its_fragments(tmp_path, cap
     changelog = tmp_path / "CHANGELOG.md"
     original = b"# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-09-01\n\n### Added\n\n- old\n"
     changelog.write_bytes(original)
-    fragments = tmp_path / "changelog.d"
-    fragments.mkdir()
+    fragments = tmp_path / "artifacts" / "changelog.d"
+    fragments.mkdir(parents=True)
     (fragments / "a.added.md").write_bytes(b"- new\n")
     (fragments / "README.md").write_bytes(b"How to write a fragment.\n")
     common = ["--version", "0.1.1", "--date", "2026-09-02",

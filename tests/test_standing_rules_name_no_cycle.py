@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 LITERAL_LABEL = re.compile(r"\b(?:required|deferred|release-step)-\d+\.\d+\.\d+")
 
 #: Files that state rules for every cycle. The problem stack's header is one; its rows are not.
-STANDING_FILES = ("AGENTS.md", "CONTRIBUTING.md", "artifacts/cooperation.md",
+STANDING_FILES = ("AGENTS.md", ".github/CONTRIBUTING.md", "artifacts/cooperation.md",
                   "artifacts/fact_stack.md")
 STANDING_GLOBS = ("artifacts/agents/*.md", "artifacts/skills/*/SKILL.md")
 PROBLEM_STACK = REPO_ROOT / "artifacts" / "problem_stack.md"
