@@ -79,6 +79,16 @@ Left by the 0.2.10 closure pass (2026-10-07); shipped values change only when th
 Accept: the entry is in the changelog.
 Stop: none.
 
+### 10-30 The fragment directory is written once and covered by a test
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `scripts/assemble_changelog.py`, `scripts/release_gate.py`, `tests/test_changelog_fragments.py`.
+Left by the root-layout verification (2026-10-08); shipped behaviour is unchanged.
+- `read_fragments` returns an empty list for a missing directory, `FRAGMENT_DIR` has no test, and `release_gate.py` repeats the path instead of importing it. Check: a stale default fails a test; one definition of the path.
+Accept: a test fails when `FRAGMENT_DIR` points at a missing directory, and `release_gate.py` imports the path.
+Stop: none.
+
 ### 10-10 Identity and scientific-choice facts held
 
 Release: deferred-0.2.11.
@@ -562,7 +572,7 @@ Stop: public API; Hamm rules the shape.
 Release: deferred-0.2.11.
 AUTONOMY: none until Hamm rules each shape from 11-04's proposal.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: 11-04, 14-03.
-Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `changelog.d/pitfall-estimators.added.md`.
+Writes: `jnwb/connectivity/**`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_connectivity.py`, `tests/test_connectivity_pitfalls.py`, `docs/08_directed_connectivity_and_information.md`, `docs/references.md`, `artifacts/changelog.d/pitfall-estimators.added.md`.
 11-04's acceptance makes the implementation its own item, with API, docs and tests before any skill row.
 - The four estimators 11-04 proposes (`artifacts/evidence/0.2.11/pitfall_estimators_proposal.md`) have no implementation. Check: each ruled estimator ships with its signature, a `docs/references.md` row and a synthetic test, and the 10-11 test that names its gap asserts the repair. Waits: public API; nothing lands before the ruling.
 Accept: the suite and harness pass; the packet reports the `docs/api.md` rows and the changelog text.
@@ -573,7 +583,7 @@ Stop: an estimator whose shape Hamm has not ruled.
 Release: deferred-0.2.11.
 AUTONOMY: none.
 Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: the collaborator's label-learning skill, 14-03.
-Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `changelog.d/unit-quality-screen.added.md`.
+Writes: `jnwb/unit_quality.py`, `jnwb/__init__.py`, `jnwb/_lazy_exports.py`, `tests/test_unit_quality_screen.py`, `docs/09_decoding_and_visual_qc.md`, `docs/common_mistakes.md`, `examples/notebooks/unit_quality.ipynb`, `artifacts/changelog.d/unit-quality-screen.added.md`.
 Ruled 2026-10-03: decided later. When the collaborator's label-learning skill arrives, this
 design and theirs go to Hamm, who rules the screen into the core or deletes this item so the
 downstream skill composes 13-03's measures. Features are 13-03's measures

@@ -330,7 +330,7 @@ jnwb/
 
 ### Permitted Root Entries (Allowlist)
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
-- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
+- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
 
 The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
 - **CI / VCS**: `.git/`, `.github/`
