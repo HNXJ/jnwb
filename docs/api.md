@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 186 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 191 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -349,3 +349,13 @@ All 186 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.resample_onsets | function | `(onsets: numpy.ndarray, target_n: int = 100, rng: int | numpy.random._generator.Generator | None = 42, *, random_state: typing.Any = 42) -> numpy.ndarray`<br>*Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there are fewer than ``target_n`` available), for a consistent raster trial count across units with different trial counts.* |
 | jnwb.save_figure_suite | function | `(figures: List[matplotlib.figure.Figure], output_dir: str | pathlib.Path, basename: str, dpi: int = 300, formats: List[str] = ['png', 'pdf']) -> None`<br>*Save a suite of figures to disk with consistent naming.* |
 | jnwb.setup_vector_graphics | function | `()`<br>*Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape.* |
+
+## Module: jnwb.wavemap
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.WaveMAPResult | class | *What `wavemap` returns.* |
+| jnwb.align_waveforms | function | `(waveforms, fs: 'float', *, pre_s: 'float' = 0.0004, post_s: 'float' = 0.0012) -> 'Tuple[np.ndarray, np.ndarray]'`<br>*Cut each mean waveform to the window ``[trough - pre_s, trough + post_s)``.* |
+| jnwb.normalize_waveforms | function | `(waveforms, *, subtract_mean: 'bool' = True) -> 'np.ndarray'`<br>*Scale each row so its largest absolute value is 1, after removing its mean.* |
+| jnwb.wavemap | function | `(waveforms, *, resolution: 'float', n_neighbors: 'int' = 20, min_dist: 'float' = 0.1, metric: 'str' = 'euclidean', embedding: 'bool' = True, rng: 'RNGLike' = 42) -> 'WaveMAPResult'`<br>*Cluster normalized mean waveforms on their UMAP graph with Louvain (Lee et al. 2021).* |
+| jnwb.wavemap_resolution_sweep | function | `(waveforms, resolutions: 'Sequence[float]', *, n_runs: 'int' = 25, fraction: 'float' = 0.8, n_neighbors: 'int' = 20, rng: 'RNGLike' = 42) -> 'Dict[str, np.ndarray]'`<br>*Modularity and cluster count across resolutions, over random subsets of units.* |

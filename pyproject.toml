@@ -73,6 +73,11 @@ vis = [
     "plotly>=6.1.1",
     "kaleido>=1.0.0",
 ]
+# jnwb.wavemap and jnwb.wavemap_resolution_sweep: the UMAP graph and Louvain partition.
+wavemap = [
+    "umap-learn>=0.5",
+    "networkx>=3.0",
+]
 test = [
     "pytest>=7.0",
     "pytest-xdist>=3.0",
@@ -91,7 +96,7 @@ docs = [
     "pymdown-extensions>=11.0.1",
 ]
 all = [
-    "jnwb[mcp,torch,gpu,vis,validate,test,docs]",
+    "jnwb[mcp,torch,gpu,vis,validate,wavemap,test,docs]",
 ]
 
 [project.urls]

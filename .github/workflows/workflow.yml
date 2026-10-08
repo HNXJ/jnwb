@@ -130,10 +130,11 @@ jobs:
         if: env.QUALIFIED_BY == ''
         # `vis` so jnwb.vis is exercised on every leg. No leg runs the suite without Plotly: the
         # build job's smoke step checks the wheel without the extra, and
-        # tests/test_optional_vis_extra.py blocks Plotly in a subprocess.
+        # tests/test_optional_vis_extra.py blocks Plotly in a subprocess. `wavemap` so the UMAP and
+        # Louvain tests of jnwb.wavemap run instead of skipping.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ".[test,docs,vis]"
+          python -m pip install ".[test,docs,vis,wavemap]"
 
       - name: Pin Matplotlib to the release that wrote the committed figures
         # tests/test_generated_figures_are_maintained.py holds this pin to the version the PNGs
@@ -241,7 +242,7 @@ jobs:
       - name: Install dependencies at the floors
         if: env.QUALIFIED_BY == ''
         run: |
-          python -m pip install ".[test,docs,vis]" -c /tmp/floors.txt
+          python -m pip install ".[test,docs,vis,wavemap]" -c /tmp/floors.txt
           python -m pip list
 
       - name: Run pytest

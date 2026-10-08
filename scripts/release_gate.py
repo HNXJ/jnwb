@@ -52,8 +52,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: Extras whose tooling must be present for release qualification to mean anything: every extra
 #: the suite uses. A test whose extra is absent skips, naming the extra, so without this check
 #: the suite would not fail, it would report a *different* result, which is worse. ``vis`` is
-#: here because the suite imports ``jnwb.vis``, and every CI leg installs it.
-REQUIRED_EXTRAS = ("test", "docs", "vis")
+#: here because the suite imports ``jnwb.vis``, and every CI leg installs it; ``wavemap`` because
+#: tests/test_wavemap.py clusters with umap-learn and networkx.
+REQUIRED_EXTRAS = ("test", "docs", "vis", "wavemap")
 
 
 _VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
