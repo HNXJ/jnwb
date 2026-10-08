@@ -26,7 +26,7 @@ Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_
 - `jnwb.waveform_flatness(waveform, *, threshold)` and `jnwb.spatial_derivative_sharpness(waveform, channel_positions, *, threshold)`: Flat and sharp flags against a `threshold` the caller gives; neither has a default or a published value, so state it with every flag. The sharpness needs two or more channels and their positions: request the geometry when the waveform has one channel or no positions.
 - `jnwb.presence_ratio(spike_times, blocks)`: Fraction of the caller's `[start, stop)` blocks, in seconds, that hold a spike.
 - `jnwb.isi_cv(spike_times)`: Coefficient of variation of the intervals; NaN under three spikes.
-- `jnwb.refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)`: Contaminating fraction after Hill et al. (2011). The duration and both periods are required: request them. `contamination` is NaN, with a `reason`, for an empty train, a zero duration or an equation with no real root.
+- `jnwb.refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)`: Contaminating fraction after Hill et al. (2011). The duration and both periods are required: request them. `contamination` is NaN, with a `reason`, for an empty train or an equation with no real root. A zero `duration_s` with spikes whose span exceeds it raises `ValueError`.
 
 ### Unit-quality classes and tiers
 
@@ -68,7 +68,7 @@ Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_
    value to screen against. No measure here, and no agreement with a label, shows that a unit
    is a single neuron, and a request to call a unit a single neuron from quality measures alone
    is declined. A measure or class that the input cannot support (NaN, `'Unknown'`) is reported
-   as not estimable, never as a plausible number. State every cut-off with the class or flag
+   as not estimable, never as a plausible number. The one exception is `classify_unit_quality`: a unit with a measured `quality` or `snr` failure is `'Poor'` even when another metric is undefined. State every cut-off with the class or flag
    it produced.
 6. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are
    at hand; request the provenance and lineage a `Result` refuses to be built without; report
