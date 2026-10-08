@@ -351,6 +351,6 @@ Accept: each such holder names an item whose bullet states that fact's work. Sto
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `jnwb/wavemap.py`, `tests/test_wavemap.py`, `skills/jnwb-qc/SKILL.md`, `docs/api.md`.
+Writes: `jnwb/wavemap.py`, `tests/test_wavemap.py`, `skills/jnwb-qc/SKILL.md`.
 - The sweep fixes `metric="euclidean"` (`jnwb/wavemap.py`, signature of `wavemap_resolution_sweep`), so a caller who clusters with another metric cannot sweep with it. Check: a test passes a non-default `metric` to both and the graph differs from the euclidean one. Waits: tests only.
-Accept: the sweep and `wavemap` take the same `metric`; the routing row and `docs/api.md` agree. Stop: a metric the UMAP backend refuses.
+Accept: the sweep and `wavemap` take the same `metric`; the routing row agrees; the integrator regenerates `docs/api.md`. Stop: a metric the UMAP backend refuses.
