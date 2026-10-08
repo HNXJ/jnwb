@@ -81,8 +81,9 @@ Lee et al. (2021): normalized mean waveforms clustered with Louvain on UMAP's ne
    as not estimable, never as a plausible number. The one exception is `classify_unit_quality`: a unit with a measured `quality` or `snr` failure is `'Poor'` even when another metric is undefined. State every cut-off with the class or flag
    it produced.
 6. **A waveform cluster is not a cell type**: a WaveMAP cluster groups units by mean-waveform
-   shape on one dataset, at one resolution and seed. Repeat it with other `rng` values and
-   report how well the labels agree before naming a cluster; decline to call a cluster a cell
+   shape on one dataset, at one resolution and seed. Resample the units (`wavemap_resolution_sweep`; a
+   new `rng` alone leaves the graph unchanged below 4096 units) and report how well the labels
+   agree before naming a cluster; decline to call a cluster a cell
    type, or to equate clusters across datasets recorded or filtered differently, from shape
    alone.
 7. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are

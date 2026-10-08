@@ -314,3 +314,10 @@ class TestWaveMAP:
         b = jnwb.wavemap_resolution_sweep(x, [1.5], n_runs=2, rng=4)
         for key in a:
             np.testing.assert_array_equal(a[key], b[key])
+
+@needs_extra
+def test_two_seeds_change_the_embedding():
+    x, _ = two_shapes()
+    a = jnwb.wavemap(x, resolution=1.0, rng=0)
+    b = jnwb.wavemap(x, resolution=1.0, rng=1)
+    assert a.embedding is not None and not np.allclose(a.embedding, b.embedding)
