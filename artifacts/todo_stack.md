@@ -25,7 +25,7 @@ version is 0.2.10 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 |---|---|
 | `AUTONOMY: max` unless an item says otherwise (`AGENTS.md` §12) | actor and critic sequence the work |
 | One item per packet, in the contract of `artifacts/skills/jnwb-fact-action` §5; role `jnwb-developer` unless named | a batched packet redefines the hard item |
-| A lane is one worktree and one writer; at most three lanes run at once; a lane's items run in the order listed | lanes never share a file, so they merge without conflict |
+| A lane is one worktree and one writer; lanes run one at a time per agent slot: one Claude subagent plus one opencode worker (ruling 2026-10-06); a lane's items run in the order listed | lanes never share a file, so they merge without conflict |
 | A packet reproduces each bullet on its own tree first; a bullet that does not reproduce is deleted | non-reproduction is a result |
 | The actor is never the verifier | every repair is re-run by someone else |
 | The integrator owns the stacks, `CHANGELOG.md` and `docs/api.md` | packets report the disposition and the changelog text |
