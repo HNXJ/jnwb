@@ -56,8 +56,8 @@ The execution loop formalizes $W = P(RG)^N S$:
 ### S — Seal & Reconcile
 - Reconcile the todo stack: delete completed items from `artifacts/todo_stack.md`.
 - Keep documentation, skills, and gates synchronized.
-- Run `python scripts/harness_gate.py` and `python -m pytest tests/ -q`.
-- Commit validated checkpoints on `dev`, push to `origin/dev`, and verify clean status.
+- Run `python scripts/harness_gate.py`, and the suite through the wrapper `AGENTS.md` section 6 names.
+- Commit validated checkpoints on `dev`, push only through the push wrapper `AGENTS.md` section 6 names, and verify clean status.
 
 ## 5. Delegation Protocol (Role ⊥ Domain)
 When delegating sub-tasks to separate subagents or roles, decouple the role from the domain skill. Every delegated packet must follow the standard contract:

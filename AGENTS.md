@@ -84,9 +84,10 @@ per version and only work not yet done: a finished item is deleted, never ticked
   (9) repository evidence: re-read targets, run probes, collect receipts. Order the work and
   define acceptance; a fact does not prove the current state satisfies it.
 - **Review** — review the last result, update the todo stack, choose the next item; commit,
-  push to `dev`, verify sync.
+  push to `dev` through the §6 wrappers, verify sync.
 - **Progress** — the smallest authorised change; preserve invariants; test; back to Review.
-- **Seal** — verify the release; remove completed items; commit, push, verify a clean sync.
+- **Seal** — verify the release; remove completed items; commit, push through the §6 wrappers,
+  verify a clean sync.
 
 Continue while useful work remains; stop when only a human decision remains or authority or
 evidence is missing. Never stop after one item, commit nothing, leave validated changes
@@ -128,6 +129,10 @@ item 2 of "Core scientific invariants" in `CONTRIBUTING.md`.
 | `python scripts/harness_gate.py` | Every gate in `GATES` passed; `CONTRIBUTING.md` says what each checks |
 | `python scripts/release_gate.py` | Release readiness; run before tagging |
 | `python scripts/docs_build.py` | Strict MkDocs via `sys.executable`; never bare `mkdocs` |
+
+Agents run the suite with `bash C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>` (writes the stamp `.git/jnwb_suite_ok`)
+and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null` (needs stamp == HEAD, no CI in flight,
+newest completed run not failed); the host guard blocks a plain push.
 
 The interpreter set is fact R6.
 
