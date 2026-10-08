@@ -138,14 +138,14 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `install` at 895, `quickstart` at 828, `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 828 and `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | nine of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-04 with `wc -w`. Eight pages sit over their ceiling, and each owes the one
+Measured 2026-10-04 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
@@ -154,9 +154,10 @@ sentence the rule asks for:
 | `02_paths_addressing_metadata` | 1733 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
 | `03_representational_similarity_jrsa` | 1341 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
 | `04_spectral_analysis_and_tfr` | 1217 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
-| `06_spikes_psth_and_onset_dynamics` | 1371 | PSTH and response tests, phase locking, onset fitting, trajectories and unit quality measures share a page, and the page sat at 1199 words before the unit quality table |
-| `architecture` | 1878 | two pages merged: the module map is a 618-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `06_spikes_psth_and_onset_dynamics` | 1573 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table |
+| `architecture` | 1901 | two pages merged: the module map is a 618-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
+| `install` | 901 | one row per extra in the extras table; the `wavemap` row took it over |
 | `errors` | 2018 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation

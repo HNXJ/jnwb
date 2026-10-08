@@ -18,11 +18,12 @@ git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@gith
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
-pip install -e ".[test,docs,vis]"
+pip install -e ".[test,docs,vis,wavemap]"
 ```
 
 These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
-Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
+Plotly from `vis`, and `tests/test_wavemap.py` clusters with umap-learn and networkx from
+`wavemap`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
 accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
 Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
 in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back

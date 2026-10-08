@@ -106,7 +106,7 @@ DISCLOSURE_KEY = "surrogate_seed_entropy"
 #: The seed `cross_area_coherence` has always used, now visible in its signature.
 COHERENCE_DEFAULT_SEED = 42
 
-EXPECTED_TOTAL = 24
+EXPECTED_TOTAL = 26
 
 
 def _public_callables():
