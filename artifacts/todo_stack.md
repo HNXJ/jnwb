@@ -79,16 +79,6 @@ Left by the 0.2.10 closure pass (2026-10-07); shipped values change only when th
 Accept: the entry is in the changelog.
 Stop: none.
 
-### 10-30 The fragment directory is written once and covered by a test
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/assemble_changelog.py`, `scripts/release_gate.py`, `tests/test_changelog_fragments.py`.
-Left by the root-layout verification (2026-10-08); shipped behaviour is unchanged.
-- `read_fragments` returns an empty list for a missing directory, `FRAGMENT_DIR` has no test, and `release_gate.py` repeats the path instead of importing it. Check: a stale default fails a test; one definition of the path.
-Accept: a test fails when `FRAGMENT_DIR` points at a missing directory, and `release_gate.py` imports the path.
-Stop: none.
-
 ### 10-10 Identity and scientific-choice facts held
 
 Release: deferred-0.2.11.

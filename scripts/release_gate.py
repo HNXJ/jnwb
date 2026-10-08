@@ -1699,9 +1699,10 @@ def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]
     """
     if str(REPO_ROOT) not in sys.path:
         sys.path.append(str(REPO_ROOT))
-    from scripts.assemble_changelog import NOT_FRAGMENTS
+    from scripts.assemble_changelog import FRAGMENT_DIR, NOT_FRAGMENTS
 
-    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "artifacts/changelog.d"],
+    fragment_path = FRAGMENT_DIR.relative_to(REPO_ROOT).as_posix()
+    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", fragment_path],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return None

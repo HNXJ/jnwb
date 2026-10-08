@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.assemble_changelog import (  # noqa: E402
     CATEGORIES,
+    FRAGMENT_DIR,
     FragmentError,
     assemble,
     main,
@@ -41,6 +42,13 @@ from scripts.release_gate import unreleased_entry_lines  # noqa: E402
 
 CHANGELOG_TEXT = (ROOT / "CHANGELOG.md").read_bytes().decode("utf-8")
 HEADING_TO_CATEGORY = {heading: category for category, heading in CATEGORIES.items()}
+
+
+def test_the_default_fragment_directory_is_the_one_directory():
+    # read_fragments returns [] for a missing directory, so a stale default would leave every
+    # fragment unassembled without an error. The path is asserted, not inferred from the gate.
+    assert FRAGMENT_DIR == ROOT / "artifacts" / "changelog.d"
+    assert FRAGMENT_DIR.is_dir(), f"{FRAGMENT_DIR} is not a directory"
 
 
 def _split_release(text: str, version: str):
