@@ -84,16 +84,20 @@ The key is `bool(spectral_radius < 1.0)` (`jnwb/connectivity/_granger.py:1074`).
 |---|---|---|---|
 | random walk | 0.0009 | 0.99613 | True |
 | AR phi=0.999 | 0.5004 | 0.99860 | True |
-| 0.05 Hz drift | 0.0000 | 1.00000 | False |
+| 0.05 Hz drift | 0.0000 | ~1.00000 | build-dependent |
 | AR phi=1.002 | 1.0000 | 1.00200 | False |
 | stationary AR | 0.0000 | 0.75789 | True |
 
 The slowly decaying mode the row names passes unflagged, and `granger`'s ADF check calls that
-same fixture a unit root, so the two estimators disagree. Neither is reliable alone: the ADF
-verdict on a random walk flips between the raw series (p = 0.0009, stationary) and the
-lagged copy `granger` is actually handed (p = 0.085, unit root). Only the explosive mode is
-caught by both. `docs/common_mistakes.md:437` states the radius rule correctly, so this is a
-coverage gap, not a false promise.
+same fixture a unit root, so the two estimators disagree. The drift reaches a radius within
+float rounding of 1.0, so which side of the strict comparison it lands on is a property of
+the linear-algebra stack rather than of the data: the development machine put it 1.6e-15
+below (reported `stationary` True), while CI's stack put it at or above 1.0 (reported False).
+Either way no warning is raised, so a mode sitting on the boundary gets no signal at all.
+Neither test is reliable alone: the ADF verdict on a random walk flips between the raw series
+(p = 0.0009, stationary) and the lagged copy `granger` is actually handed (p = 0.085, unit
+root). Only the explosive mode is caught by both. `docs/common_mistakes.md:437` states the
+radius rule correctly, so this is a coverage gap, not a false promise.
 
 ### P-361 filtering before `granger` is not a band selector
 

@@ -1223,9 +1223,9 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
     - A slowly decaying mode at phi = 0.999 gives radius 0.99860, so S1 holds and the key
       says `stationary` True, while the series plainly is not stationary (S2 fails) and
       `granger`'s ADF does not reject the unit root at p = 0.50 (S3 does not reject).
-    - A 0.05 Hz drift gives radius 0.9999999999999984, which is 1.6e-15 below the threshold,
-      so S1's verdict turns on the last three bits of a float and no warning is raised,
-      while `granger`'s ADF rejects the unit root.
+    - A 0.05 Hz drift reaches a radius within float rounding of 1.0, so S1's verdict turns
+      on the last bits of a float and no warning is raised either way, while `granger`'s ADF
+      rejects the unit root.
     - Neither test substitutes for the other: on a random walk the ADF verdict flips between
       the raw series (p = 0.0009, S3 rejects) and the lagged copy `granger` is handed
       (p = 0.085, S3 does not reject).
@@ -1294,10 +1294,12 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
         )
 
     def test_a_drift_sits_within_rounding_of_the_threshold(self):
-        """A unit-root mode reaches a radius 1.6e-15 below 1.0, so the strict comparison
-        calls it stationary and no warning is raised. The verdict here is decided by the
-        last three bits of a float, and `granger`'s ADF check calls the same drifting
-        process a unit root, so the two estimators disagree."""
+        """A unit-root mode reaches a radius within float rounding of 1.0, so which side of
+        the strict comparison it lands on is a property of the build, not of the data. On
+        this machine it landed 1.6e-15 below; CI's linear-algebra stack put it at or above.
+        Either way no warning is raised, so a mode sitting on the boundary gets no signal
+        from `granger_spectral` at all. The pin here is the placement and the silence, not
+        the verdict."""
         time = np.arange(N_TIMES) / FS
         drift = np.sin(2.0 * np.pi * 0.05 * time)
         delayed = np.roll(drift, 5)
@@ -1307,15 +1309,16 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
         assert radius == pytest.approx(1.0, abs=1e-13), (
             f"the drift radius must sit on the threshold, got {radius!r}"
         )
-        assert 1.0 - radius < 1e-14, "and below it, not above"
-        assert result.diagnostics["stationary"] is True, (
-            "so the strict comparison reports a unit root as stationary"
+        assert result.diagnostics["stationary"] == (radius < 1.0), (
+            "the key is the strict comparison of the radius, nothing more"
         )
-        assert result.diagnostics["warnings"] == []
+        assert result.diagnostics["warnings"] == [], (
+            "and a radius on the threshold raises no warning on either side"
+        )
 
         var = jnwb.granger(delayed, drift, order=4, n_surrogates=19, rng=0)
         assert "possible_nonstationarity_adf_p>0.05" in var.diagnostics["warnings"], (
-            "while the ADF check on the same drifting process calls it a unit root"
+            "the ADF check still calls the drifting pair a unit root"
         )
 
     def test_granger_carries_no_stationarity_key(self):
