@@ -152,7 +152,8 @@ jobs:
           # The runner has Chrome: a missing one fails the browser-backed tests, not skips them.
           JNWB_REQUIRE_BROWSER: '1'
         run: |
-          pytest -v -n auto tests/
+          # Runs pytest and annotates each failed test; the exit status is pytest's own.
+          python scripts/ci_pytest.py tests/
 
   test-floors:
     # The matrix legs install the newest release of every dependency, so the `>=` floors in
@@ -250,7 +251,7 @@ jobs:
         env:
           JNWB_REQUIRE_BROWSER: '1'
         run: |
-          pytest -v -n auto tests/
+          python scripts/ci_pytest.py tests/
 
   build:
     name: Build & Validate Distribution
