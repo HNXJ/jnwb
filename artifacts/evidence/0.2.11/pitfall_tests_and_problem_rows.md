@@ -93,7 +93,9 @@ same fixture a unit root, so the two estimators disagree. The drift reaches a ra
 float rounding of 1.0, so which side of the strict comparison it lands on is a property of
 the linear-algebra stack rather than of the data: the development machine put it 1.6e-15
 below (reported `stationary` True), while CI's stack put it at or above 1.0 (reported False).
-Either way no warning is raised, so a mode sitting on the boundary gets no signal at all.
+Either way the placement is within float rounding of the threshold; whether a warning fires
+there is build-dependent too (this machine: none; CI: one), so a mode sitting on the boundary
+gets no reliable signal at all.
 Neither test is reliable alone: the ADF verdict on a random walk flips between the raw series
 (p = 0.0009, stationary) and the lagged copy `granger` is actually handed (p = 0.085, unit
 root). Only the explosive mode is caught by both. `docs/common_mistakes.md:437` states the

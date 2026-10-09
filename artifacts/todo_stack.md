@@ -336,7 +336,7 @@ Accept: the row or the holding class's docstring states the order dependence. St
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `jnwb/connectivity/_granger.py`, `docs/common_mistakes.md`, `tests/test_connectivity_pitfalls.py`.
-- P-360: the key is `bool(spectral_radius < 1.0)` (`_granger.py:1074`), a fitted-VAR predicate. A unit root at phi = 0.999 (radius 0.99860) reads True while `granger`'s ADF calls it a unit root; a 0.05 Hz drift reaches a radius within float rounding of 1.0, so which side of the comparison it lands on is a property of the linear-algebra stack and no warning is raised either way (`TestNonStationarityIsOnlyFlaggedWhenExplosive`). Evidence: `artifacts/evidence/0.2.11/pitfall_tests_and_problem_rows.md`. Waits: a key rename is a ruling; docstring wording is not.
+- P-360: the key is `bool(spectral_radius < 1.0)` (`_granger.py:1074`), a fitted-VAR predicate. A unit root at phi = 0.999 (radius 0.99860) reads True while `granger`'s ADF calls it a unit root; a 0.05 Hz drift reaches a radius within float rounding of 1.0, so which side of the comparison it lands on is a property of the linear-algebra stack and whether a warning fires there is build-dependent (`TestNonStationarityIsOnlyFlaggedWhenExplosive`). Evidence: `artifacts/evidence/0.2.11/pitfall_tests_and_problem_rows.md`. Waits: a key rename is a ruling; docstring wording is not.
 Accept: the key's docstring and `docs/common_mistakes.md:437` name the predicate as fitted-VAR stability. Stop an API rename.
 
 ### 11-39 The filtering row's auto-order ceiling and its failed band recovery are unpinned

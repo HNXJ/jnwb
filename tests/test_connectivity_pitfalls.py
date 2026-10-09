@@ -1224,7 +1224,8 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
       says `stationary` True, while the series plainly is not stationary (S2 fails) and
       `granger`'s ADF does not reject the unit root at p = 0.50 (S3 does not reject).
     - A 0.05 Hz drift reaches a radius within float rounding of 1.0, so S1's verdict turns
-      on the last bits of a float and no warning is raised either way, while `granger`'s ADF
+      on the last bits of a float, and whether a warning fires there is build-dependent
+      (this machine: none; CI's stack: one), while `granger`'s ADF
       rejects the unit root.
     - Neither test substitutes for the other: on a random walk the ADF verdict flips between
       the raw series (p = 0.0009, S3 rejects) and the lagged copy `granger` is handed
@@ -1295,11 +1296,11 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
 
     def test_a_drift_sits_within_rounding_of_the_threshold(self):
         """A unit-root mode reaches a radius within float rounding of 1.0, so which side of
-        the strict comparison it lands on is a property of the build, not of the data. On
-        this machine it landed 1.6e-15 below; CI's linear-algebra stack put it at or above.
-        Either way no warning is raised, so a mode sitting on the boundary gets no signal
-        from `granger_spectral` at all. The pin here is the placement and the silence, not
-        the verdict."""
+        the strict comparison it lands on is a property of the build, not of the data (this
+        machine: 1.6e-15 below; CI's stack: at or above). Whether a warning fires there is
+        build-dependent too, so a mode sitting on the boundary gets no reliable signal from
+        `granger_spectral` at all. The pin here is the placement and the definition of the key,
+        never the verdict and never the warnings list."""
         time = np.arange(N_TIMES) / FS
         drift = np.sin(2.0 * np.pi * 0.05 * time)
         delayed = np.roll(drift, 5)
@@ -1312,9 +1313,9 @@ class TestNonStationarityIsOnlyFlaggedWhenExplosive:
         assert result.diagnostics["stationary"] == (radius < 1.0), (
             "the key is the strict comparison of the radius, nothing more"
         )
-        assert result.diagnostics["warnings"] == [], (
-            "and a radius on the threshold raises no warning on either side"
-        )
+        # No assertion on `warnings` here: whether a threshold-sitting radius warns is
+        # itself build-dependent (this machine raises none; CI's stack raises one), which
+        # is the third way the boundary is unreliable.
 
         var = jnwb.granger(delayed, drift, order=4, n_surrogates=19, rng=0)
         assert "possible_nonstationarity_adf_p>0.05" in var.diagnostics["warnings"], (
