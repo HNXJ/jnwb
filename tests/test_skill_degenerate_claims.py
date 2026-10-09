@@ -51,6 +51,20 @@ def test_identical_constant_groups_give_mann_whitney_statistic_and_nan_p():
     assert res["significant_nonparametric"] is False
 
 
+def test_all_tied_groups_read_nan_p_whatever_scipy_returns(monkeypatch):
+    """scipy 1.17 (the declared floor) returns p 1.0 for all-tied groups and 1.18 returns NaN."""
+    from scipy import stats
+
+    monkeypatch.setattr(stats, "mannwhitneyu", lambda x, y, **kwargs: (4.5, 1.0))
+    a = np.full(3, 2.0)
+    assert np.ptp(a) == 0
+
+    res = jnwb.StatisticalAnalysis.exploratory_compare(a, a.copy())
+
+    np.testing.assert_allclose(res["non_parametric"]["statistic"], 4.5, rtol=1e-12)
+    assert _is_nan(res["non_parametric"]["pval"])
+
+
 def test_empty_group_and_all_zero_paired_difference_give_nan_on_both_tests():
     empty = np.array([])
     three = np.array([1.0, 2.0, 3.0])
