@@ -351,7 +351,7 @@ jobs:
           python - <<'PY'
           import pathlib, tomllib
           extras = tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']
-          requirements = extras['test'] + extras['docs'] + extras['vis']
+          requirements = extras['test'] + extras['docs'] + extras['vis'] + extras['wavemap']
           pathlib.Path('/tmp/test-requirements.txt').write_text('\n'.join(requirements))
           PY
           /tmp/clean_env/bin/pip install -r /tmp/test-requirements.txt

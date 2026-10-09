@@ -28,12 +28,14 @@ def failures(path):
 def main(argv):
     junit = Path(tempfile.gettempdir()) / "jnwb_ci_junit.xml"
     args = argv[1:] or ["tests/"]
+    junit.unlink(missing_ok=True)
     rc = subprocess.call([sys.executable, "-m", "pytest", "-v", "-n", "auto",
                           f"--junitxml={junit}", *args])
     if rc != 0 and junit.exists():
         found = failures(junit)
         for test_id, message in found:
-            print(f"::error title={test_id}::{message[:300]}".replace("\r", " "))
+            title = test_id.replace("::", " > ")  # "::" would end the annotation's parameter list
+            print(f"::error title={title}::{message[:300]}".replace("\r", " "))
         print(f"{len(found)} failed test(s) annotated")
     return rc
 
