@@ -42,7 +42,7 @@ lines.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
-| G pitfalls and skill sources | 10-11, 11-10, 11-11, 11-12, 11-13, 11-31, 10-12, 11-14, 11-29 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
+| G pitfalls and skill sources | 10-12, 11-14, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | D display, documentation and unit measures | 11-34, 11-35, 11-36, 10-29, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `artifacts/changelog.d/psi-roundoff-width.changed.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 
@@ -112,59 +112,11 @@ Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack
 - Planned skills (moved from the fact stack as plan, Q14): twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` wait on their public APIs and neither is a required endpoint: a capability the router routes cleanly gets no skill. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: plan for future skills; no shipped behaviour.
 Accept: the fact gate reports a planned skill only when K1 and K5 hold for it, and the planned-skill fact reports no UNHELD. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
-### 10-11 A shared reference inflates coherence and Granger on the same pair
 
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
-- Common reference: a shared reference inflates coherence and Granger. Check: a test asserts both inflated against the same pair after `bipolar_reference`, with a stated ground truth and an explicit `rng`. Waits: tests only; records present behaviour.
-Accept: a test asserts both inflated against the same pair after `bipolar_reference`, and this pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap. Stop: a test would need a threshold no reference fixes.
 
-### 11-10 Zero-lag mixing keeps `imaginary_coherency` and `wpli` near zero while coherence is high
 
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
-- Volume conduction: zero-lag mixing keeps `imaginary_coherency` and `wpli` near zero while coherence is high. Check: a test asserts coherence above a stated floor and both measures below a stated bound. Waits: tests only; records present behaviour.
-Accept: a test asserts coherence above a stated floor and both measures below a stated bound. Stop: a test would need a threshold no reference fixes.
 
-### 11-11 Added noise on one channel yields a Granger direction with no true lag, recorded by a test
 
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
-- SNR asymmetry: added noise on one channel yields a Granger direction with no true lag. Check: a test records today's direction and its docstring names the gap 11-04 closes. Waits: tests only; records present behaviour.
-Accept: a test records today's direction and its docstring names the gap 11-04 closes. Stop: a test would need a threshold no reference fixes.
-
-### 11-12 A common driver with unequal delays makes bivariate Granger spurious and conditional `granger` removes it
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
-- Common input: a common driver with unequal delays makes bivariate Granger spurious, and conditional `granger` removes it. Check: a test asserts the spurious value and its removal. Waits: tests only; records present behaviour.
-Accept: a test asserts the spurious value and its removal. Stop: a test would need a threshold no reference fixes.
-
-### 11-13 The `pairwise_phase_consistency` and debiased wPLI null means stay near zero at every segment count
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: table 2 of `artifacts/evidence/0.2.9/references/bastos_survey.md`. Each test builds the case it is named after, with a stated ground truth and an explicit `rng`.
-- Sample-size bias: the `pairwise_phase_consistency` and debiased wPLI null means stay near zero for every segment count. Check: a test asserts both below a stated bound at three or more segment counts. Waits: tests only; records present behaviour.
-Accept: a test asserts both null means below a stated bound at three or more segment counts. Stop: a test would need a threshold no reference fixes.
-
-### 11-31 Every pitfall row of the `common_mistakes` pitfalls table is held by a test or names its gap
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
-Writes: `tests/test_connectivity_pitfalls.py`.
-Source: `docs/common_mistakes.md` lines 427-437, the nine rows: common reference, volume conduction, signal-to-noise asymmetry, common input, bivariate against conditional Granger, sample-size bias, phase slope as direction, filtering before Granger and non-stationarity.
-- Phase slope as direction, filtering before Granger and non-stationarity are named by none of 10-11 and 11-10 to 11-13. Check: a test in `tests/test_connectivity_pitfalls.py` holds each of the nine rows, or its docstring names the gap. Waits: tests only; records present behaviour.
-Accept: every pitfall statement of the `common_mistakes` pitfalls section is held by a test or names its gap. Stop: a test would need a threshold no reference fixes.
 
 ### 10-12 Each connectivity and spectral safeguard names its `docs/references.md` row
 
@@ -370,3 +322,35 @@ Role: jnwb-developer. Skill: jnwb-qc. Blocked by: 11-34.
 Writes: `jnwb/wavemap.py`, `tests/test_wavemap.py`, `tests/test_skill_degenerate_claims.py`.
 - Four audits show the tests pass on all-singleton labels, on an ignored `resolution`, on `fraction=1.0` and on an ignored `rng`; the sweep output carries no seeds, so an `rng=None` run cannot be repeated; the degenerate-claims header names skill text that five of its eight tests have no row for. Check: each mutant fails a named test. Waits: tests only, except the seed record.
 Accept: each of the four mutants is killed and the sweep output names its seeds. Stop: a fixture whose planted structure the clustering does not recover at any resolution.
+
+### 11-37 The SNR-asymmetry docs row states a direction rule the fixture contradicts
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `docs/common_mistakes.md`, `skills/jnwb-connectivity/SKILL.md`, `tests/test_connectivity_pitfalls.py`.
+- P-359: `docs/common_mistakes.md:431` credits the direction to the signal-to-noise ratio, and the fixture shows it following the fitted order instead: y to x at order 1 (7 of 10 seeds), x to y at every order 2 to 20 (9 or 10 of 10), significant at p = 0.005 under both the shipped null and a phase-randomised one (`TestSignalToNoiseAsymmetry`), while no coupling exists. Evidence: `artifacts/evidence/0.2.11/pitfall_tests_and_problem_rows.md`. Waits: the mechanism is unresolved; wording only.
+Accept: the row or the holding class's docstring states the order dependence. Stop an estimator repair.
+
+### 11-38 `diagnostics['stationary']` names statistical stationarity but tests VAR stability
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `jnwb/connectivity/_granger.py`, `docs/common_mistakes.md`, `tests/test_connectivity_pitfalls.py`.
+- P-360: the key is `bool(spectral_radius < 1.0)` (`_granger.py:1074`), a fitted-VAR predicate, so a unit root at phi = 0.999 (radius 0.99860) and a drift 1.6e-15 under the threshold both read True while `granger`'s ADF calls them unit roots (`TestNonStationarityIsOnlyFlaggedWhenExplosive`). Evidence: `artifacts/evidence/0.2.11/pitfall_tests_and_problem_rows.md`. Waits: a key rename is a ruling; docstring wording is not.
+Accept: the key's docstring and `docs/common_mistakes.md:437` name the predicate as fitted-VAR stability. Stop an API rename.
+
+### 11-39 The filtering row's auto-order ceiling and its failed band recovery are unpinned
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `skills/jnwb-connectivity/SKILL.md`, `tests/test_connectivity_pitfalls.py`.
+- P-361: on the filtered pair `order='auto'` moves from 3 to the `max_lag` ceiling of 20, and no filter recovers a band value (ratio 0.666 at 8-60 Hz, 0.457 at 30-80 Hz, against `granger_spectral`'s 0.2976), which is what `common_mistakes.md:436` means by "filtering cannot isolate a band" (`TestFilteringBeforeGranger`, four mutants killed). Waits: the estimator behaviour is recorded, not repaired; the gap is that no skill states it.
+Accept: the skill states both, and the tests fail when either changes. Stop none.
+
+### 11-40 The pitfalls row on phase slope and the PSI page do not point at each other
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
+Writes: `docs/common_mistakes.md`, `docs/08_directed_connectivity_and_information.md`, `tests/test_connectivity_pitfalls.py`.
+- P-362: `docs/common_mistakes.md:435` cites only the PSI page (`docs/08_directed_connectivity_and_information.md:88-113`), whose section never names unequal-delay common input, while `:432` and `:166` already carry it and the fixture shows a driver with power spread across the band reads as a lead at p = 2.28e-23 (`TestPhaseSlopeIsNotDirection`). Waits: the vocabulary is already constrained; this is a cross-reference only.
+Accept: row 435 or the PSI page names the common-driver case. Stop a vocabulary change.
