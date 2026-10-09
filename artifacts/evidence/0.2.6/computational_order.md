@@ -733,7 +733,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 22 |
+| result container | 23 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -743,7 +743,7 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **53** |
+| **Total** | **54** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -776,6 +776,7 @@ algorithm column still describes the replaced code for both rows.
 | `NWBInspectError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `RaggedIndexRepair` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `RaggedIndexReport` | result container | frozen dataclass, no __post_init__; binds references only. |
+| `WaveformBlockReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `RaggedIndexRepairRefused` | exception class | ValueError subclass; construction is O(1) in every input dimension. |
 | `NWBValidationReport` | result container | frozen dataclass, no __post_init__; binds references only. |
 | `PopulationAnalyzer` | stateful class | PopulationAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
@@ -812,6 +813,7 @@ algorithm column still describes the replaced code for both rows.
 |---|---|
 | `build_time_resolved_matrix` | An object satisfying the session protocol: get_units(quality=, area=) -> DataFrame whose ROW INDEX POSITION (not the unit_id column) is the spike-lookup key, carrying area and quality columns; plus get_spike_times(row_position) -> ndarray of seconds; plus an epochs DataFrame with a start_time column. All three must be parameterizable in unit count, trial count and spikes per unit. No such class exists in the package: grep 'def get_units' hits only tests/test_trajectory.py:37 and tests/test_pca_device_parity.py:210, both hard-coded mocks with no size parameter. tests/test_declared_return_shapes.py:37 already lists both names under NEEDS_A_SESSION. Writing a stand-in would mean choosing its per-unit spike count and get_units cost, which is the exact freedom that would corrupt the fitted exponent. |
 | `check_ragged_indices` | Cost grows with the number of table rows and with the data length of each ragged column (one read of each index and a cumulative sum; the data arrays are not read, only their shape). Not measured: the order is derived from the code, and a measurement needs NWB files generated at controlled row counts, which the package does not provide. |
+| `check_waveform_blocks` | Cost grows with the number of units and with each block's samples (one read of each unit's slice, one max and one min per row). Not measured: the order is derived from the code, and a measurement needs NWB files generated at controlled unit and block counts, which the package does not provide. |
 | `repair_ragged_index` | The same read and cumulative sum as `check_ragged_indices`, plus one write of one index. Not measured, for the reason given there. |
 | `validate_nwb` | Cost is the sum of its layers: the `read` and `pynwb_*` layers walk the file's containers and attributes (datasets are not read), `integrity` reads each ragged index and each electrode region once, and the `nwbinspector` and `dandi` layers run those tools, whose cost is theirs and grows with the number of containers, tables and rows they inspect. Not measured: it needs NWB files generated at controlled container counts, which the package does not provide, and the two optional layers are external. |
 | `compute_population_trajectory` | The same session object -- it delegates to build_time_resolved_matrix on its first line -- plus, to measure the SVD stage independently, a way to supply X directly, which the signature does not offer. |

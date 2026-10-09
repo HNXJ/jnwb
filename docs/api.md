@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 191 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 193 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -190,7 +190,9 @@ All 191 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.RaggedIndexRepair | class | *Outcome of ``repair_ragged_index``. ``written`` is False for a dry run and True only after the written index was re-read, checked and moved into place; ``output_path`` is the file that holds it (``None`` for a dry run).* |
 | jnwb.RaggedIndexRepairRefused | class | *``repair_ragged_index`` found a condition under which it must not write.* |
 | jnwb.RaggedIndexReport | class | *All ragged columns of one table. ``unlisted_ragged_columns`` are datasets that have a ``<name>_index`` partner but are absent from the table's ``colnames`` attribute, which makes pynwb hide them. ``ok`` is every column ``ok`` and no unlisted column.* |
+| jnwb.WaveformBlockReport | class | *Every unit's waveform block of one table. ``ok`` is every unit ``"owned"``: an ``"unknown"`` is explicit uncertainty, not a pass. ``rtol``/``atol`` echo the tolerances the verdicts were computed with.* |
 | jnwb.check_ragged_indices | function | `(path: 'str | Path', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None) -> 'RaggedIndexReport'`<br>*Check every ``<column>_index`` of one table of an NWB file, without writing.* |
+| jnwb.check_waveform_blocks | function | `(path: 'str | Path', *, table: 'str' = 'units', rtol: 'float', atol: 'float' = 0.0) -> 'WaveformBlockReport'`<br>*Check every unit's index-sliced ``waveform_mean`` block against its stored ``amplitude``.* |
 | jnwb.repair_ragged_index | function | `(path: 'str | Path', column: 'str', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None, dry_run: 'bool' = True, output_path: 'str | Path | None' = None, in_place: 'bool' = False, backup_path: 'str | Path | None' = None) -> 'RaggedIndexRepair'`<br>*Correct one ragged index that carries the multi-probe offset defect.* |
 
 ## Module: jnwb.nwb_io

@@ -15,6 +15,14 @@ flat data are complete and in row order; only the index is wrong, so those rows 
 earlier probes' data. ``check_ragged_indices`` detects it; ``repair_ragged_index`` writes the
 corrected index to a new file, or in place on request, under the refusal rules stated on that
 function.
+
+Waveform blocks need a different check. A unit's ``waveform_mean`` block is sliced from the
+flat data by ``waveform_mean_index``, and nothing ties the sliced block to the unit: a file
+whose blocks are stored out of unit order reads another unit's block through pynwb with no
+warning. ``check_waveform_blocks`` compares each sliced block's row amplitudes against the
+unit's stored ``amplitude`` and reports, per unit, whether the block is owned, unowned, or
+unknown. It repairs nothing and reassigns nothing: a match is evidence the block is the
+unit's, never a license to move one.
 """
 
 from __future__ import annotations
@@ -24,10 +32,11 @@ import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Any, Literal, Sequence
 
 import h5py
 import numpy as np
+from jnwb.addressing import _finite_cutoff
 
 #: ``"detected"``: the index equals the known defect's formula and the corrected index ends at
 #: the data length. ``"absent"``: the index equals the corrected one. ``"not_tested"``: no probe
@@ -372,3 +381,196 @@ def _write_verified(src: Path, dest: Path, backup: Path | None, old: np.ndarray,
         raise
     finally:
         tmp.unlink(missing_ok=True)
+
+
+#: Ownership verdicts of one waveform block. ``"unknown"`` is explicit non-assignment:
+#: the stored metadata cannot verify the block, so the check neither passes nor fails it.
+WaveformOwnership = Literal["owned", "unowned", "unknown"]
+
+
+@dataclass(frozen=True)
+class WaveformBlockCheck:
+    """One unit's index-sliced ``waveform_mean`` block against its stored ``amplitude``.
+
+    ``status`` is ``"owned"`` when some row's peak-to-peak matches the stored amplitude
+    within tolerance, ``"unowned"`` when the block is complete and no row matches, and
+    ``"unknown"`` when there is nothing to compare (an empty block) or no finite
+    reference (a NaN or infinite amplitude). ``matched_row`` is the first matching row,
+    ``None`` unless owned; ``largest_row`` the first row of greatest peak-to-peak,
+    ``None`` for an empty block; ``best_dev`` the smallest absolute deviation of a row's
+    peak-to-peak from the stored amplitude, in the data's units, ``None`` when unknown.
+    ``peak_channel_id`` is carried as stored (``None`` when the column is absent) so the
+    caller can join it against the electrodes table; it is never a criterion, because a
+    block row is not in general a channel id (on DANDI:000253 the ids run 2..5281
+    against 384 block rows).
+    """
+
+    index: int
+    unit_id: int
+    status: WaveformOwnership
+    matched_row: int | None
+    largest_row: int | None
+    n_rows: int
+    stored_amplitude: float
+    best_dev: float | None
+    peak_channel_id: Any
+
+
+@dataclass(frozen=True)
+class WaveformBlockReport:
+    """Every unit's waveform block of one table. ``ok`` is every unit ``"owned"``: an
+    ``"unknown"`` is explicit uncertainty, not a pass. ``rtol``/``atol`` echo the
+    tolerances the verdicts were computed with."""
+
+    file: str
+    table: str
+    n_units: int
+    rtol: float
+    atol: float
+    units: tuple[WaveformBlockCheck, ...]
+
+    @property
+    def ok(self) -> bool:
+        return all(u.status == "owned" for u in self.units)
+
+    @property
+    def n_owned(self) -> int:
+        return sum(u.status == "owned" for u in self.units)
+
+    @property
+    def n_unowned(self) -> int:
+        return sum(u.status == "unowned" for u in self.units)
+
+    @property
+    def n_unknown(self) -> int:
+        return sum(u.status == "unknown" for u in self.units)
+
+
+def check_waveform_blocks(path: str | Path, *, table: str = "units",
+                          rtol: float, atol: float = 0.0) -> WaveformBlockReport:
+    """Check every unit's index-sliced ``waveform_mean`` block against its stored ``amplitude``.
+
+    For each unit the block ``data[index[i - 1]:index[i]]`` is sliced exactly as pynwb
+    slices it, and each row's peak-to-peak (max minus min) is compared with the unit's
+    stored ``amplitude``. The unit is ``"owned"`` when some row matches within tolerance,
+    on any row and not only the largest: on the DANDI:000253 file above, 238 of the 2446
+    units (9.7%) match only on a smaller-than-largest row. It is ``"unowned"`` when the
+    block is
+    complete and no row matches, and ``"unknown"`` for an empty block or a missing, NaN
+    or infinite amplitude.
+
+    A match is necessary evidence, not sufficient proof: two units with indistinguishable
+    amplitudes cannot be told apart by it. What the check never does is reassign: no
+    block is moved, relabeled or guessed from its amplitude, so a wrong verdict misleads
+    no downstream read.
+
+    Parameters
+    ----------
+    path : str or Path
+        NWB (HDF5) file, opened read-only.
+    table : str
+        HDF5 path of the table group (default ``"units"``).
+    rtol : float
+        Required relative tolerance of the amplitude match: a row matches when
+        ``|ptp - amplitude| <= atol + rtol * |amplitude|``. Required, because no
+        tolerance suits every writer: on DANDI:000253
+        ``sub-621890_ses-1186358749_ogen.nwb`` (2446 units, blocks in unit order) every
+        unit matches at ``rtol=1e-6`` while 47% miss exact equality, so an exact-only
+        rule refuses nearly half of a correctly ordered file, and a loose rule accepts
+        another unit's block. Pass what the file's precision justifies.
+    atol : float
+        Absolute term of the same match; 0.0 disables it. Pass a small voltage when
+        amplitudes approach zero, where a relative tolerance decides nothing.
+
+    Returns
+    -------
+    WaveformBlockReport
+        One ``WaveformBlockCheck`` per unit, in row order.
+
+    Raises
+    ------
+    KeyError
+        The table, ``waveform_mean`` with its ``_index``, or ``amplitude`` is absent.
+    ValueError
+        ``rtol`` or ``atol`` is NaN, infinite or negative; ``amplitude`` is not a
+        numeric column; a column's length is not one value per unit; the index is not
+        an integer array slicing ``waveform_mean`` (non-integer, negative,
+        decreasing, or out of bounds); or ``waveform_mean`` is not a 2-D array of
+        ``(channel, sample)`` blocks.
+    TypeError
+        ``rtol`` or ``atol`` is ``None``, a boolean or not a real number.
+
+    Notes
+    -----
+    Nothing is modified or repaired. An index that is itself misshapen is refused
+    rather than attributed: run ``check_ragged_indices`` first when the index is
+    suspect, since slices taken through a wrong index attribute the wrong rows.
+    """
+
+    def _refuse(message: str) -> ValueError:
+        return ValueError(f"{table}: {message}")
+
+    rtol = _finite_cutoff(rtol, "rtol", "check_waveform_blocks")
+    atol = _finite_cutoff(atol, "atol", "check_waveform_blocks")
+    if not rtol >= 0:
+        raise ValueError(
+            f"check_waveform_blocks: rtol must be >= 0, not {rtol!r}")
+    if not atol >= 0:
+        raise ValueError(
+            f"check_waveform_blocks: atol must be >= 0, not {atol!r}")
+    path = Path(path)
+    with h5py.File(path, "r") as f:
+        g = _group(f, table)
+        for col in ("waveform_mean", "waveform_mean_index", "amplitude"):
+            if col not in g or not isinstance(g[col], h5py.Dataset):
+                raise KeyError(f"{table} has no column {col!r}")
+        wm, wmi, amp_ds = g["waveform_mean"], g["waveform_mean_index"], g["amplitude"]
+        if wm.ndim != 2:
+            raise _refuse(f"waveform_mean has shape {wm.shape}; a mean-waveform block "
+                          "is (channels, samples), so these rows cannot be attributed")
+        if amp_ds.dtype.kind not in "fiub":
+            raise _refuse(f"amplitude has dtype {amp_ds.dtype}, not numeric; a stored "
+                          "amplitude it cannot be compared with is not a reference")
+        if not np.issubdtype(wmi.dtype, np.integer):
+            raise _refuse(f"waveform_mean_index has dtype {wmi.dtype}, not integer; "
+                          "its slices cannot be taken")
+        idx = wmi[()].astype(np.int64)
+        n = int(idx.size)
+        if np.any(idx < 0) or np.any(np.diff(idx) < 0) or np.any(idx > wm.shape[0]):
+            raise _refuse("waveform_mean_index is negative, decreasing, or out of bounds; "
+                          "slices taken through it attribute the wrong rows")
+        amp = np.asarray(amp_ds[()], dtype=np.float64)
+        if amp.shape != (n,):
+            raise _refuse(f"amplitude holds {amp.size} values for {n} units; a column "
+                          "with no one value per unit is not a reference")
+        ids = (g["id"][()] if "id" in g and isinstance(g["id"], h5py.Dataset)
+               else np.arange(n))
+        if ids.shape != (n,):
+            raise _refuse(f"id holds {ids.size} values for {n} units")
+        pc = (g["peak_channel_id"][()]
+              if "peak_channel_id" in g and isinstance(g["peak_channel_id"], h5py.Dataset)
+              else None)
+        if pc is not None and pc.shape != (n,):
+            raise _refuse(f"peak_channel_id holds {pc.size} values for {n} units")
+        starts = np.zeros(0, dtype=np.int64) if n == 0 else np.concatenate(
+            ([0], idx[:-1])).astype(np.int64)
+        units = []
+        for i in range(n):
+            block = wm[starts[i]:idx[i]]
+            a = float(amp[i])
+            n_rows = int(block.shape[0])
+            prow = None if pc is None else (
+                pc[i].item() if isinstance(pc[i], np.generic) else pc[i])
+            uid = ids[i].item() if isinstance(ids[i], np.generic) else ids[i]
+            if n_rows == 0 or not np.isfinite(a):
+                units.append(WaveformBlockCheck(
+                    i, int(uid), "unknown", None, None, 0, a, None, prow))
+                continue
+            ptp = block.max(axis=1) - block.min(axis=1)
+            dev = np.abs(ptp - a)
+            limit = atol + rtol * abs(a)
+            matched = next((j for j in range(n_rows) if dev[j] <= limit), None)
+            units.append(WaveformBlockCheck(
+                i, int(uid), "owned" if matched is not None else "unowned", matched,
+                int(np.argmax(ptp)), n_rows, a, float(dev.min()), prow))
+    return WaveformBlockReport(path.name, table, n, rtol, atol, tuple(units))

@@ -88,7 +88,9 @@ from .nwb_integrity import (
     RaggedIndexRepair,
     RaggedIndexReport,
     RaggedIndexRepairRefused,
+    WaveformBlockReport,
     check_ragged_indices,
+    check_waveform_blocks,
     repair_ragged_index,
 )
 from .nwb_validate import NWBValidationReport, validate_nwb
@@ -316,10 +318,12 @@ __all__ = [
     'ColumnNotFoundError',
     'InvalidOnsetValueError',
     'check_ragged_indices',
+    'check_waveform_blocks',
     'repair_ragged_index',
     'RaggedIndexReport',
     'RaggedIndexRepair',
     'RaggedIndexRepairRefused',
+    'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
     'epoch_continuous',

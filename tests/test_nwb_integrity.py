@@ -57,7 +57,8 @@ def _index(path):
 
 def test_symbols_are_public():
     for name in ("check_ragged_indices", "repair_ragged_index",
-                 "RaggedIndexReport", "RaggedIndexRepair", "RaggedIndexRepairRefused"):
+                 "RaggedIndexReport", "RaggedIndexRepair", "RaggedIndexRepairRefused",
+                 "check_waveform_blocks", "WaveformBlockReport"):
         assert name in jnwb.__all__ and hasattr(jnwb, name)
 
 
@@ -525,3 +526,227 @@ def test_the_repair_page_makes_no_claim_about_what_a_third_party_tool_reports():
     lines = [ln for ln in page.splitlines() if "nwbinspector" in ln.lower()]
     assert lines and not [ln for ln in lines if re.search(r"\bnone\b|\bnot\b|\bcannot\b", ln)]
     assert "the previous one cannot" not in page and "do not." not in page
+
+
+_W27_AMPS = (25.0, 40.0, 55.0, 70.0)
+_W27_ROWS = (2, 3, 4, 5)
+
+
+def _w27_block(amp, nrows, nsamp=4):
+    """One unit's true block: row 0 carries exactly `amp` peak-to-peak, the rest flat."""
+    b = np.zeros((nrows, nsamp))
+    if nrows:
+        b[0, -1] = float(amp)
+    return b
+
+
+def _w27_write(path, order=(0, 1, 2, 3), amps=_W27_AMPS, rows=_W27_ROWS):
+    """Valid NWB file whose stored block order is `order`: unit `i` stores the block of
+    unit `order[i]` while its amplitude stays its own. `order=(1, 0, 2, 3)` swaps the
+    first two units' blocks and leaves the index consistent with what is stored."""
+    from datetime import datetime, timezone
+
+    import pynwb
+
+    nwb = pynwb.NWBFile(session_description="w", identifier="w27",
+                        session_start_time=datetime.now(timezone.utc))
+    nwb.add_unit_column(name="waveform_mean", description="mean waveform", index=True)
+    nwb.add_unit_column(name="amplitude", description="spike amplitude")
+    nwb.add_unit_column(name="peak_channel_id", description="peak channel")
+    blocks = [_w27_block(a, r) for a, r in zip(amps, rows)]
+    for i, b in enumerate(order):
+        nwb.add_unit(spike_times=[0.1 * (i + 1)], waveform_mean=blocks[b],
+                     amplitude=amps[i], peak_channel_id=i)
+    with pynwb.NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    return path
+
+
+def test_pynwb_index_read_returns_another_units_block_without_warning(tmp_path):
+    """The defect #27 repairs nothing of: on a file whose blocks are stored out of unit
+    order, pynwb's indexed read returns another unit's block and warns nothing. Unit 0's
+    truth is 2 rows; it reads 3, the exact values of unit 1's block."""
+    import warnings
+
+    import pynwb
+
+    path = _w27_write(tmp_path / "perm.nwb", order=(1, 0, 2, 3))
+    with pynwb.NWBHDF5IO(str(path), "r") as io:
+        units = io.read().units
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            got = [np.asarray(units["waveform_mean"][i]) for i in range(4)]
+    assert caught == []
+    assert got[0].shape == (3, 4)
+    np.testing.assert_array_equal(got[0], _w27_block(40.0, 3))
+    np.testing.assert_array_equal(got[1], _w27_block(25.0, 2))
+
+
+class TestCheckWaveformBlocks:
+    """#27: `check_waveform_blocks` detects index-sliced blocks that are not the unit's.
+
+    Ownership is the stored amplitude matched on some row within tolerance, nothing
+    more: the check never reassigns a block, and `peak_channel_id` is carried for the
+    caller, never used as a criterion (on DANDI:000253 it indexes a larger electrode
+    space than the block rows, measured 2..5281 against 384 rows).
+    """
+
+    def test_swapped_units_are_unowned_and_the_rest_owned(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        rep = check_waveform_blocks(_w27_write(tmp_path / "perm.nwb", order=(1, 0, 2, 3)),
+                                    rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unowned", "unowned", "owned", "owned"]
+        assert (rep.n_owned, rep.n_unowned, rep.n_unknown) == (2, 2, 0)
+        assert not rep.ok
+        owned = rep.units[2]
+        assert (owned.matched_row, owned.largest_row, owned.best_dev) == (0, 0, 0.0)
+        assert owned.stored_amplitude == 55.0 and owned.n_rows == 4
+        assert (owned.index, owned.unit_id, owned.peak_channel_id) == (2, 2, 2)
+
+    def test_an_ordered_file_passes_exact(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        rep = check_waveform_blocks(_w27_write(tmp_path / "ok.nwb"), rtol=0.0)
+        assert rep.ok and [u.status for u in rep.units] == ["owned"] * 4
+        assert all(u.matched_row == 0 and u.best_dev == 0.0 for u in rep.units)
+
+    def test_a_nan_amplitude_and_an_empty_block_are_unknown_not_unowned(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _w27_write(tmp_path / "edge.nwb", order=(0, 1, 2),
+                          amps=(25.0, float("nan"), 55.0), rows=(2, 3, 0))
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["owned", "unknown", "unknown"]
+        assert (rep.n_owned, rep.n_unowned, rep.n_unknown) == (1, 0, 2)
+        assert not rep.ok
+        assert np.isnan(rep.units[1].stored_amplitude)
+        assert rep.units[2].n_rows == 0
+        for u in rep.units[1:]:
+            assert u.matched_row is None and u.best_dev is None
+
+    def test_missing_columns_and_table_raise(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        with pytest.raises(KeyError, match="no_such_table"):
+            check_waveform_blocks(path, table="no_such_table", rtol=1e-9)
+        no_wave = tmp_path / "no_wave.nwb"
+        import shutil
+
+        shutil.copy(path, no_wave)
+        with h5py.File(no_wave, "a") as handle:
+            del handle["units/waveform_mean"]
+            del handle["units/waveform_mean_index"]
+        with pytest.raises(KeyError, match="waveform_mean"):
+            check_waveform_blocks(no_wave, rtol=1e-9)
+        no_amp = tmp_path / "no_amp.nwb"
+        shutil.copy(path, no_amp)
+        with h5py.File(no_amp, "a") as handle:
+            del handle["units/amplitude"]
+        with pytest.raises(KeyError, match="amplitude"):
+            check_waveform_blocks(no_amp, rtol=1e-9)
+
+    def test_an_integer_amplitude_column_reads_and_a_string_one_is_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        ints = _w27_write(tmp_path / "ints.nwb", amps=(25, 40, 55, 70))
+        with h5py.File(ints, "r") as handle:
+            assert handle["units/amplitude"].dtype.kind == "i"
+        assert check_waveform_blocks(ints, rtol=0.0).ok
+        import shutil
+
+        strings = tmp_path / "strings.nwb"
+        shutil.copy(ints, strings)
+        with h5py.File(strings, "a") as handle:
+            del handle["units/amplitude"]
+            handle.create_dataset("units/amplitude",
+                                  data=np.array(["a", "b", "c", "d"], dtype=object),
+                                  dtype=h5py.string_dtype())
+        with pytest.raises(ValueError, match="amplitude.*not numeric"):
+            check_waveform_blocks(strings, rtol=1e-9)
+
+    def test_a_bad_tolerance_is_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError):
+                check_waveform_blocks(path, rtol=bad)
+        for bad in (None, True, "1e-9"):
+            with pytest.raises(TypeError):
+                check_waveform_blocks(path, rtol=bad)
+        with pytest.raises(ValueError, match="rtol"):
+            check_waveform_blocks(path, rtol=-1e-9)
+        with pytest.raises(ValueError, match="atol"):
+            check_waveform_blocks(path, rtol=1e-9, atol=-1.0)
+
+    def test_a_broken_index_refuses_instead_of_attributing(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        import shutil
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        bad = tmp_path / "bad_index.nwb"
+        shutil.copy(path, bad)
+        with h5py.File(bad, "a") as handle:
+            index = handle["units/waveform_mean_index"][()]
+            handle["units/waveform_mean_index"][...] = index[::-1]
+        with pytest.raises(ValueError, match="index"):
+            check_waveform_blocks(bad, rtol=1e-9)
+
+    def test_a_flat_waveform_mean_is_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        import shutil
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        flat = tmp_path / "flat.nwb"
+        shutil.copy(path, flat)
+        with h5py.File(flat, "a") as handle:
+            data = handle["units/waveform_mean"][()]
+            del handle["units/waveform_mean"]
+            handle.create_dataset("units/waveform_mean", data=data.ravel())
+        with pytest.raises(ValueError, match="waveform_mean"):
+            check_waveform_blocks(flat, rtol=1e-9)
+
+    def test_report_carries_file_table_and_tolerances(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        rep = check_waveform_blocks(_w27_write(tmp_path / "ok.nwb"), rtol=1e-9, atol=0.5)
+        assert (rep.file, rep.table, rep.n_units) == ("ok.nwb", "units", 4)
+        assert (rep.rtol, rep.atol) == (1e-9, 0.5)
+    def test_a_column_with_no_value_per_unit_is_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        import shutil
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        for col in ("id", "peak_channel_id", "amplitude"):
+            short = tmp_path / f"short_{col}.nwb"
+            shutil.copy(path, short)
+            with h5py.File(short, "a") as handle:
+                data = handle[f"units/{col}"][()]
+                del handle[f"units/{col}"]
+                handle.create_dataset(f"units/{col}", data=data[:-1])
+            with pytest.raises(ValueError, match=col):
+                check_waveform_blocks(short, rtol=1e-9)
+
+    def test_atol_decides_a_sub_relative_mismatch(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        import shutil
+
+        path = _w27_write(tmp_path / "ok.nwb")
+        bumped = tmp_path / "bumped.nwb"
+        shutil.copy(path, bumped)
+        with h5py.File(bumped, "a") as handle:
+            amp = handle["units/amplitude"][()].astype(float)
+            amp[0] += 1e-7
+            handle["units/amplitude"][...] = amp
+        assert check_waveform_blocks(bumped, rtol=0.0).units[0].status == "unowned"
+        rep = check_waveform_blocks(bumped, rtol=0.0, atol=1e-6)
+        assert rep.units[0].status == "owned"
+        assert rep.units[0].matched_row == 0
+        assert rep.ok
+

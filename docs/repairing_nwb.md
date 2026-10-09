@@ -67,6 +67,34 @@ dense spiking, or a waveform table with one row per channel per unit, can exceed
 that wraps silently produces a decreasing index. `length_fits` and `monotonic` catch both; the
 fix is rewriting the file with a wider integer type, not editing the index.
 
+## Waveform block ownership
+
+A unit's `waveform_mean` block is sliced from the flat data by `waveform_mean_index`,
+and nothing ties the sliced block to the unit: a file whose blocks are stored out of
+unit order reads another unit's block through pynwb with no warning.
+`check_waveform_blocks` compares each sliced block's row amplitudes against the unit's
+stored `amplitude`:
+
+```python
+import jnwb
+
+report = jnwb.check_waveform_blocks("session.nwb", rtol=1e-6)
+print(report.n_owned, report.n_unowned, report.n_unknown)
+```
+
+A unit is `owned` when some row's peak-to-peak matches within tolerance:
+
+| Verdict | Meaning |
+|---|---|
+| `owned` | some row's peak-to-peak matches within tolerance |
+| `unowned` | the block is complete and no row matches |
+| `unknown` | the block is empty, or the amplitude is missing, NaN or infinite |
+
+`rtol` is required because no tolerance suits every writer. `peak_channel_id` travels
+with each verdict for the caller's own join against the electrodes table; the check never
+uses it, since a block row is not a channel id. The check repairs and reassigns nothing:
+a match is evidence, not proof, and `report.ok` holds only when every unit is owned.
+
 ## Units schema across sessions
 
 Pooling units from several files needs the same columns, dtypes and index layout. Before
