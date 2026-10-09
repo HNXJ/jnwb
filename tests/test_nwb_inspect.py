@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import h5py
 import numpy as np
 import jnwb
 from jnwb.nwb_inspect import (
@@ -496,3 +497,90 @@ class TestColumnDescriptions:
             assert electrodes["id"] is None, form
             assert electrodes["location"], form
 
+
+class TestNonnumericIntervalColumnsSurvive:
+    """One nonnumeric interval column used to raise `TypeError` from `inspect` and make
+    the whole file unreadable (GitHub issue #28).
+
+    `np.isnan` is defined only for floats and complex, so a string, a compound row or any
+    other scalar dtype raised instead of being sampled. The fix keeps the float-NaN-to-None
+    reading and passes every other dtype through, so a malformed value stays visible as
+    itself rather than becoming a plausible one.
+    """
+
+    def _with_columns(self, tmp_path, columns):
+        """A written NWB file with extra raw columns added to its interval table, so the
+        columns are read back exactly as a file on disk stores them."""
+        path = tmp_path / "nonnumeric.nwb"
+        write_synth_nwb(path, canonical_co_resident_options())
+        with h5py.File(path, "r+") as handle:
+            table = None
+            for name in handle["intervals"].keys():
+                if isinstance(handle["intervals"][name], h5py.Group):
+                    table = handle["intervals"][name]
+                    break
+            assert table is not None, "the fixture must write an interval table"
+            for name, values, dtype in columns:
+                table.create_dataset(name, data=np.array(values, dtype=dtype))
+        return path
+
+    def _sampled(self, tmp_path, columns):
+        tables = jnwb.inspect(self._with_columns(tmp_path, columns))["interval_tables"]
+        return {c["name"]: c for t in tables for c in t["columns"]}
+
+    def test_a_string_column_does_not_raise_and_matches_the_real_file(self, tmp_path):
+        # The real DANDI:000253 file stores its text columns as variable-length UTF-8,
+        # which h5py hands back as `bytes` inside an object array. Those elements are not
+        # `np.generic`, so they never reached the broken `np.isnan` path; this test pins
+        # that they keep being returned as stored.
+        import h5py as _h5py
+
+        got = self._sampled(
+            tmp_path,
+            [("label", ["alpha", "beta"], _h5py.string_dtype(encoding="utf-8"))],
+        )
+        assert [
+            v.decode("utf-8") if isinstance(v, (bytes, np.bytes_)) else str(v)
+            for v in got["label"]["sample_values"]
+        ] == ["alpha", "beta"]
+
+    def test_a_numeric_column_still_reads_its_own_values(self, tmp_path):
+        got = self._sampled(tmp_path, [("count", [3, 1, 2], np.int32)])
+        assert got["count"]["sample_values"] == [3, 1, 2]
+
+    def test_a_bool_column_is_returned_as_bool(self, tmp_path):
+        got = self._sampled(tmp_path, [("flag", [True, False, True], np.bool_)])
+        assert got["flag"]["sample_values"] == [True, False, True]
+
+    def test_a_float_nan_still_reads_as_none(self, tmp_path):
+        """The one case the old code got right, kept by the fix."""
+        got = self._sampled(tmp_path, [("score", [1.5, np.nan], np.float64)])
+        assert got["score"]["sample_values"] == [1.5, None]
+
+    def test_a_compound_row_does_not_raise(self, tmp_path):
+        """A compound dtype is the shape that raised most directly: `np.isnan` cannot
+        decide anything about a whole struct row."""
+        compound = np.dtype([("seconds", np.int64), ("fraction", np.float64)])
+        rows = np.array([(10, 0.5), (20, np.nan)], dtype=compound)
+        got = self._sampled(tmp_path, [("stamp", list(rows), compound)])
+        assert len(got["stamp"]["sample_values"]) == 2
+        # `.item()` on a void scalar returns a plain tuple, not a named row.
+        assert got["stamp"]["sample_values"][0][0] == 10
+        assert np.isnan(got["stamp"]["sample_values"][1][1])
+
+    def test_a_non_nan_nonfinite_float_is_not_coerced_to_none(self, tmp_path):
+        """Only NaN reads as None. An infinity is not NaN and must pass through as
+        itself, not be folded into the missing-value case."""
+        got = self._sampled(tmp_path, [("score", [1.5, np.inf], np.float64)])
+        assert got["score"]["sample_values"] == [1.5, np.inf]
+
+    def test_an_empty_string_column_does_not_raise(self, tmp_path):
+        import h5py as _h5py
+
+        got = self._sampled(
+            tmp_path, [("label", ["", "beta"], _h5py.string_dtype(encoding="utf-8"))]
+        )
+        assert [
+            v.decode("utf-8") if isinstance(v, (bytes, np.bytes_)) else str(v)
+            for v in got["label"]["sample_values"]
+        ] == ["", "beta"]
