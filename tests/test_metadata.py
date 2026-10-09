@@ -1113,3 +1113,117 @@ class TestTheDefaultCensusWarnsOfAnAbsentColumn:
             unit_census_report(units)
         messages = [str(w.message) for w in caught if w.category is UserWarning]
         assert len(messages) == 1 and "'layer' column is not read" in messages[0]
+
+
+def _drop_session_description(source, target):
+    """Copy an NWB file minus its required `session_description`, verified in bytes."""
+    import shutil
+
+    import h5py
+
+    shutil.copy(source, target)
+    with h5py.File(target, "a") as handle:
+        del handle["session_description"]
+    with h5py.File(target, "r") as handle:
+        assert "session_description" not in handle
+    return target
+
+
+class TestUnitsMetadataWaiverAndObjectInput:
+    """#29: `get_all_units_metadata` takes an open `NWBFile` and an explicit
+    missing-field waiver, and the waiver stays visible in the result.
+
+    The proxies to avoid: a waiver that records the request instead of the event (an
+    offered-but-unused waiver must leave no trace), and a default path that moves (an
+    incomplete file is still refused without the waiver, and a complete file reads
+    exactly as before, with no waiver record).
+    """
+
+    def test_default_path_records_no_waiver(self, tmp_path):
+        path = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        units = get_all_units_metadata(path)
+        assert len(units) == 2
+        assert units.attrs == {}
+
+    def test_default_still_refuses_a_file_missing_session_description(self, tmp_path):
+        from jnwb.nwb_io import MissingRequiredNWBFieldError
+
+        full = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        path = _drop_session_description(full, tmp_path / "ses-07_nodesc.nwb")
+        with pytest.raises(MissingRequiredNWBFieldError):
+            get_all_units_metadata(path)
+        with pytest.raises(MissingRequiredNWBFieldError):
+            get_all_units_metadata(path, on_read_error="raise")
+
+    def test_a_waiver_offered_but_unused_records_nothing(self, tmp_path):
+        path = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        default = get_all_units_metadata(path)
+        waived = get_all_units_metadata(path, allow_missing=("session_description",))
+        pd.testing.assert_frame_equal(waived, default)
+        assert waived.attrs == {}
+
+    def test_waiver_opens_the_incomplete_file_and_records_it(self, tmp_path):
+        full = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        path = _drop_session_description(full, tmp_path / "ses-07_nodesc.nwb")
+        units = get_all_units_metadata(path, allow_missing=("session_description",))
+        assert len(units) == 2
+        assert units.attrs["jnwb_waived_requirements"] == {
+            str(path): ("session_description",)}
+        pd.testing.assert_frame_equal(units, get_all_units_metadata(full))
+
+    def test_an_unknown_waiver_field_raises_not_skips(self, tmp_path):
+        path = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        with pytest.raises(ValueError, match="not a field jnwb refuses on"):
+            get_all_units_metadata(path, allow_missing=("sesion_description",))
+
+    def test_an_open_nwbfile_reads_like_its_path(self, tmp_path):
+        from jnwb.nwb_io import nwb_read_io
+
+        path = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        with nwb_read_io(str(path), load_namespaces=True) as io:
+            units = get_all_units_metadata(io.read())
+        pd.testing.assert_frame_equal(units, get_all_units_metadata(path))
+        assert units["session_id"].unique().tolist() == [7]
+        assert units.attrs == {}
+
+    def test_an_open_nwbfile_from_a_waived_read_records_the_waiver(self, tmp_path):
+        from jnwb.nwb_io import nwb_read_io
+
+        full = _write_minimal_nwb(tmp_path / "ses-07_full.nwb")
+        path = _drop_session_description(full, tmp_path / "ses-07_nodesc.nwb")
+        with nwb_read_io(str(path), load_namespaces=True,
+                         allow_missing=("session_description",)) as io:
+            units = get_all_units_metadata(io.read())
+        assert len(units) == 2
+        assert units.attrs["jnwb_waived_requirements"] == {
+            str(path): ("session_description",)}
+
+    def test_an_in_memory_nwbfile_uses_its_identifier(self):
+        from datetime import datetime, timezone
+
+        import pynwb
+
+        nwb = pynwb.NWBFile(session_description="m", identifier="mem-1",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit(spike_times=[0.1, 0.2])
+        nwb.add_unit(spike_times=[0.3])
+        assert getattr(nwb, "container_source", None) is None
+        units = get_all_units_metadata(nwb)
+        assert len(units) == 2
+        assert units["session_id"].unique().tolist() == ["mem-1"]
+        assert units.attrs == {}
+
+    def test_a_mixed_path_and_object_list_reads_both(self, tmp_path):
+        from jnwb.nwb_io import nwb_read_io
+
+        first = _write_minimal_nwb(tmp_path / "ses-07_a.nwb")
+        second = _write_minimal_nwb(tmp_path / "ses-08_b.nwb")
+        with nwb_read_io(str(second), load_namespaces=True) as io:
+            units = get_all_units_metadata([first, io.read()])
+        assert len(units) == 4
+        assert sorted(units["session_id"].unique().tolist()) == [7, 8]
+        assert units.attrs == {}
+
+    def test_a_non_path_non_object_still_raises_type_error(self):
+        with pytest.raises(TypeError):
+            get_all_units_metadata(42)

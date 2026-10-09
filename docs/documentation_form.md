@@ -158,7 +158,7 @@ sentence the rule asks for:
 | `architecture` | 1901 | two pages merged: the module map is a 618-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `index` | 417 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `install` | 901 | one row per extra in the extras table; the `wavemap` row took it over |
-| `errors` | 2018 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
+| `errors` | 2042 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 

@@ -11,14 +11,15 @@ import logging
 import operator
 import warnings
 from pathlib import Path
-from typing import Collection, Literal, Optional, List, Dict, Tuple, Union
+from typing import Collection, Literal, Optional, List, Dict, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
+from pynwb import NWBFile
 from jnwb.addressing import (
     _STABLE_QUALITY_LABELS, _finite_cutoff, _passes_cutoff, _quality_is_stable,
     _refuse_repeated_columns, _stable_label_set,
 )
-from jnwb.nwb_io import nwb_read_io
+from jnwb.nwb_io import WAIVED_REQUIREMENTS_ATTR, _normalise_allow_missing, nwb_read_io
 
 log = logging.getLogger(__name__)
 
@@ -65,20 +66,99 @@ def _check_paths_exist(nwb_paths, caller: str) -> None:
         )
 
 
+def _object_identity(nwb):
+    """(input name, session_id, raw_session) for an already-open ``NWBFile``.
+
+    A handle read from a file answers like the path form: its ``container_source``
+    names that file while it exists, so the same file read by path or by handle
+    carries the same session id. A handle with no file behind it is named by the
+    file's own ``identifier``.
+    """
+    source = getattr(nwb, "container_source", None)
+    if source:
+        src = Path(str(source))
+        if src.exists():
+            return str(src), *_session_id_from_path(src)
+    ident = getattr(nwb, "identifier", None)
+    ident = str(ident) if ident else "NWBFile"
+    return ident, ident, ident
+
+
+def _note_waiver(waived_by_input, name, waived) -> None:
+    """Record the waivers one input's read actually used, merged under its name."""
+    for field in dict.fromkeys(waived):
+        known = waived_by_input.setdefault(name, ())
+        if field not in known:
+            waived_by_input[name] = known + (field,)
+
+
+def _extract_units_frame(nwb, *, session_id, raw_session, filter_quality,
+                         quality_threshold, stable_threshold, stable_labels):
+    """One input's enriched units frame, or ``None`` when it has no units table.
+
+    Returns ``(frame_or_None, waived)``, where ``waived`` is what this object's read
+    actually used. The quality-filter warning is raised one level above this helper,
+    so it still points at the caller.
+    """
+    if nwb.units is None:
+        log.warning(f"{raw_session}: No units found")
+        return None, ()
+
+    raw_units = nwb.units.to_dataframe().copy()
+    elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
+
+    from jnwb.addressing import enrich_units_dataframe
+    units_df = enrich_units_dataframe(raw_units, elec_df,
+                                      stable_threshold=stable_threshold,
+                                      stable_labels=stable_labels)
+    units_df['session_id'] = session_id
+
+    log.info(f"{session_id}: {len(units_df)} units extracted")
+
+    if filter_quality:
+        has_quality = 'quality' in units_df.columns
+        q_num = (pd.to_numeric(units_df['quality'], errors='coerce') if has_quality
+                 else pd.Series(np.nan, index=units_df.index))
+        if q_num.notna().any():
+            # An infinite quality is no quality code, so it does not pass.
+            finite = np.isfinite(q_num.astype(float))
+            units_df = units_df[(q_num >= quality_threshold) & finite]
+        elif 'is_stable' in units_df.columns:
+            units_df = units_df[units_df['is_stable']]
+        else:
+            reason = ("the 'quality' column holds no usable value" if has_quality
+                      else "the units table has no 'quality' column")
+            warnings.warn(
+                f"{session_id}: filter_quality=True, but {reason}, so none of "
+                f"its {len(units_df)} units can pass the filter and all are "
+                f"excluded.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            units_df = units_df.iloc[0:0]
+        log.info(f"  Filtered to {len(units_df)} units with quality >= {quality_threshold}")
+
+    return units_df, tuple(getattr(nwb, WAIVED_REQUIREMENTS_ATTR, ()) or ())
+
+
 def get_all_units_metadata(
-    nwb_paths: Union[str, Path, List[Union[str, Path]]],
+    nwb_paths: Union[str, Path, NWBFile, List[Union[str, Path, NWBFile]]],
     filter_quality: bool = False,
     quality_threshold: float = 1.0,
     on_read_error: Literal["skip", "raise"] = "skip",
     *,
     stable_threshold: float = 1.0,
     stable_labels: Collection[str] = _STABLE_QUALITY_LABELS,
+    allow_missing: Union[Sequence[str], str, None] = None,
 ) -> pd.DataFrame:
     """
     Extract all units and metadata from one or more NWB files.
 
     Args:
-        nwb_paths: Single NWB path or list of paths
+        nwb_paths: Single NWB path, open :class:`pynwb.NWBFile`, or list mixing
+            both. An open handle is used as is and is not closed here; it must stay
+            readable (its file open, or built in memory), since a closed file's
+            tables cannot be read back.
         filter_quality: If True, filter to units with a finite quality >= quality_threshold,
             or, when a file's quality holds text labels, to units whose label is in
             ``stable_labels``.
@@ -90,6 +170,12 @@ def get_all_units_metadata(
             :func:`jnwb.enrich_units_dataframe`, whose default convention they share.
             ``quality_threshold`` decides the numeric filter and ``stable_threshold`` the
             ``is_stable`` column; a bare-string ``stable_labels`` raises ``TypeError``.
+        allow_missing: required fields tolerated when opening path inputs, with
+            :func:`jnwb.read_nwb`'s semantics -- today only ``"session_description"``,
+            which then reads ``""``. Validated on every call, so an unknown field raises
+            ``ValueError`` even when every input is an open handle, for which there is no
+            file to open and the argument otherwise has no effect. A handle carries the
+            waivers its own read used, and those are recorded below.
 
     Returns:
         DataFrame with all unit metadata across sessions
@@ -100,75 +186,73 @@ def get_all_units_metadata(
         :func:`jnwb.addressing.enrich_units_dataframe`, which is called with no depth unit,
         so it reads 'Unknown' unless the electrodes table declares one.
 
+        The frame's ``attrs["jnwb_waived_requirements"]`` maps each input name (the path
+        string, or the handle's source path or identifier) to the tuple of fields its read
+        actually waived. The key is present only when at least one input waived something,
+        so a default call reads exactly as before; a waived field and a genuinely empty
+        one differ by this record alone, and no value is fabricated for either.
+
     Example:
         >>> units = get_all_units_metadata('/path/to/nwb')
         >>> stable_units = get_all_units_metadata('/path/to/nwbs', filter_quality=True, quality_threshold=1.0)
+        >>> waived = get_all_units_metadata('incomplete.nwb', allow_missing=("session_description",))
+        >>> waived.attrs["jnwb_waived_requirements"]
+        {'incomplete.nwb': ('session_description',)}
     """
     _stable_label_set(stable_labels, "get_all_units_metadata")
-    if isinstance(nwb_paths, (str, Path)):
+    # Validated up front so a typo raises even when every input is an open handle,
+    # for which there is no file to open.
+    _normalise_allow_missing(allow_missing)
+    if isinstance(nwb_paths, (str, Path, NWBFile)):
         nwb_paths = [nwb_paths]
 
     nwb_paths = list(nwb_paths)
-    _check_paths_exist(nwb_paths, "get_all_units_metadata")
+    _check_paths_exist([p for p in nwb_paths if not isinstance(p, NWBFile)],
+                       "get_all_units_metadata")
 
     all_units = []
     n_failed = 0
+    waived_by_input: Dict[str, Tuple[str, ...]] = {}
 
-    for nwb_path in nwb_paths:
-        nwb_path = Path(nwb_path)
+    for item in nwb_paths:
+        if isinstance(item, NWBFile):
+            name, session_id, raw_session = _object_identity(item)
+            try:
+                units_df, waived = _extract_units_frame(
+                    item, session_id=session_id, raw_session=raw_session,
+                    filter_quality=filter_quality, quality_threshold=quality_threshold,
+                    stable_threshold=stable_threshold, stable_labels=stable_labels)
+            except _NWB_READ_ERRORS as e:
+                log.error(f"{name}: {e}")
+                if on_read_error == "raise":
+                    raise
+                n_failed += 1
+                continue
+            if units_df is None:
+                continue
+            _note_waiver(waived_by_input, name, waived)
+            all_units.append(units_df)
+            continue
+        nwb_path = Path(item)
         session_id, raw_session = _session_id_from_path(nwb_path)
 
         try:
-            with nwb_read_io(str(nwb_path), load_namespaces=True) as io:
-                nwb = io.read()
-
-                # Extract units
-                if nwb.units is None:
-                    log.warning(f"{raw_session}: No units found")
-                    continue
-
-                raw_units = nwb.units.to_dataframe().copy()
-                elec_df = nwb.electrodes.to_dataframe().copy() if nwb.electrodes is not None else None
-
-                from jnwb.addressing import enrich_units_dataframe
-                units_df = enrich_units_dataframe(raw_units, elec_df,
-                                                  stable_threshold=stable_threshold,
-                                                  stable_labels=stable_labels)
-                units_df['session_id'] = session_id
-
-                log.info(f"{session_id}: {len(units_df)} units extracted")
-
-                if filter_quality:
-                    has_quality = 'quality' in units_df.columns
-                    q_num = (pd.to_numeric(units_df['quality'], errors='coerce') if has_quality
-                             else pd.Series(np.nan, index=units_df.index))
-                    if q_num.notna().any():
-                        # An infinite quality is no quality code, so it does not pass.
-                        finite = np.isfinite(q_num.astype(float))
-                        units_df = units_df[(q_num >= quality_threshold) & finite]
-                    elif 'is_stable' in units_df.columns:
-                        units_df = units_df[units_df['is_stable']]
-                    else:
-                        reason = ("the 'quality' column holds no usable value" if has_quality
-                                  else "the units table has no 'quality' column")
-                        warnings.warn(
-                            f"{session_id}: filter_quality=True, but {reason}, so none of "
-                            f"its {len(units_df)} units can pass the filter and all are "
-                            f"excluded.",
-                            RuntimeWarning,
-                            stacklevel=2,
-                        )
-                        units_df = units_df.iloc[0:0]
-                    log.info(f"  Filtered to {len(units_df)} units with quality >= {quality_threshold}")
-
-                all_units.append(units_df)
-
+            with nwb_read_io(str(nwb_path), load_namespaces=True,
+                             allow_missing=allow_missing) as io:
+                units_df, waived = _extract_units_frame(
+                    io.read(), session_id=session_id, raw_session=raw_session,
+                    filter_quality=filter_quality, quality_threshold=quality_threshold,
+                    stable_threshold=stable_threshold, stable_labels=stable_labels)
         except _NWB_READ_ERRORS as e:
             log.error(f"{nwb_path.name}: {e}")
             if on_read_error == "raise":
                 raise
             n_failed += 1
             continue
+        if units_df is None:
+            continue
+        _note_waiver(waived_by_input, str(nwb_path), waived)
+        all_units.append(units_df)
 
     if not all_units:
         # Per-file skipping is the point of on_read_error='skip' in a multi-file call, but
@@ -185,6 +269,11 @@ def get_all_units_metadata(
 
     result = pd.concat(all_units, ignore_index=True)
     log.info(f"Total: {len(result)} units across {len(nwb_paths)} sessions")
+    if waived_by_input:
+        # Visible in the result, and only when a read waived something: a default call
+        # carries no such key, exactly as before. `pd.concat` drops `.attrs`, so this is
+        # set on the returned frame rather than inherited.
+        result.attrs["jnwb_waived_requirements"] = dict(waived_by_input)
 
     return result
 

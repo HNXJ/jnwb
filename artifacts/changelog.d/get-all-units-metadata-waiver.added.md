@@ -1,0 +1,1 @@
+- `jnwb.get_all_units_metadata` takes an open `NWBFile` as well as paths, and an `allow_missing=` waiver with `read_nwb`'s semantics for files missing a required field. The waivers a read used are recorded in the frame's `attrs["jnwb_waived_requirements"]`, keyed by input name; nothing is recorded when nothing was waived (GitHub issue #29).

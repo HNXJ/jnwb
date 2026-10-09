@@ -188,7 +188,10 @@ with jnwb.nwb_read_io("session.nwb", allow_missing=("session_description",)) as 
     spike_times = nwbfile.units["spike_times"][0]
 ```
 
-The functions that take a path (`inspect`, `events`, `unit_spike_times`, ...) never waive.
+The functions that take a path (`inspect`, `events`, `unit_spike_times`, ...) never
+waive, except `get_all_units_metadata`, which takes `allow_missing=` with the same semantics
+and records the waivers its reads used in the frame's `attrs["jnwb_waived_requirements"]`,
+keyed by input name.
 
 ### What a read returns for each state of `session_description`
 
