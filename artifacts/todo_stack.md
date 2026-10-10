@@ -43,21 +43,12 @@ lines.
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 | G pitfalls and skill sources | 10-12, 11-14, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| D display, documentation and unit measures | 11-34, 11-35, 11-36, 10-29, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `artifacts/changelog.d/psi-roundoff-width.changed.md` |
+| D display, documentation and unit measures | 11-34, 11-35, 11-36, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
 Question round at the opening: the B3 choice-name lexicon (10-10) and the dB-lexicon values 09-04
 reads.
-
-### 10-29 The PSI round-off width change is in the changelog
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `artifacts/changelog.d/psi-roundoff-width.changed.md`.
-Left by the 0.2.10 closure pass (2026-10-07); shipped values change only when the jackknife spread is at rounding level.
-- The PSI round-off width changed from `8 n eps P` to `4 n eps P sqrt(U-1)` (commit `c62fa430`) and the 0.2.10 section does not say so. Check: a changelog entry names the change and its effect on the NaN decision. Waits: it decides NaN against finite z only at rounding-level spread.
-Accept: the entry is in the changelog. Stop: none.
 
 ### 10-10 Every numeric public operation declares signature types that compose
 
