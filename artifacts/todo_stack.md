@@ -45,6 +45,7 @@ lines.
 | G pitfalls and skill sources | 10-12, 11-14, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | D display, documentation and unit measures | 11-34, 11-35, 11-36, 10-29, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `artifacts/changelog.d/psi-roundoff-width.changed.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
+| W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
 Question round at the opening: the B3 choice-name lexicon (10-10) and the dB-lexicon values 09-04
 reads.
@@ -354,3 +355,11 @@ Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: none.
 Writes: `docs/common_mistakes.md`, `docs/08_directed_connectivity_and_information.md`, `tests/test_connectivity_pitfalls.py`.
 - P-362: `docs/common_mistakes.md:435` cites only the PSI page (`docs/08_directed_connectivity_and_information.md:88-113`), whose section never names unequal-delay common input, while `:432` and `:166` already carry it and the fixture shows a driver with power spread across the band reads as a lead at p = 2.28e-23 (`TestPhaseSlopeIsNotDirection`). Waits: the vocabulary is already constrained; this is a cross-reference only.
 Accept: row 435 or the PSI page names the common-driver case. Stop a vocabulary change.
+
+### 11-41 The frozen files with misordered waveform blocks are not dispositioned
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
+Writes: `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`.
+- Issue #27 closed with `check_waveform_blocks` as the detection tool, but no record in this repo says which frozen files hold misordered blocks or what each file's verdict was; the prior audit's worktree is inaccessible, so the scope is re-derived from disk. Check: the evidence file lists every frozen file checked with its owned/unowned/unknown counts, and each unowned file is repaired, flagged, or awaiting a ruling. Waits: detection only; the check moves nothing.
+Accept: every frozen file in the re-derived scope has a row. Stop: a repair or relabel needs a ruling.
