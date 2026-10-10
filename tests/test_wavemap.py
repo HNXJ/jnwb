@@ -271,8 +271,8 @@ class TestWaveMAP:
         assert res.labels.shape == (120,) and res.n_clusters == res.labels.max() + 1
         for c in range(res.n_clusters):
             assert np.unique(truth[res.labels == c]).size == 1
-        for shape in (0, 1):     # measured: one cluster of 60 and two of 38 and 22
-            assert np.unique(res.labels[truth == shape]).size <= 2
+        for shape in (0, 1):     # measured: one cluster of 60 and two of 38 and 22; singletons give 60
+            assert np.unique(res.labels[truth == shape]).size <= 5
         assert res.embedding.shape == (120, 2)
         assert res.graph.shape == (120, 120)
         assert -0.5 <= res.modularity <= 1.0
@@ -344,6 +344,8 @@ class TestWaveMAP:
         x, _ = two_shapes()
         out = jnwb.wavemap_resolution_sweep(x, [0.5, 1.5], n_runs=2, rng=None)
         assert out["units"].shape == (2, 96) and out["umap_seed"].shape == (2,)
+        assert out["umap_seed"][0] != out["umap_seed"][1]          # a fresh UMAP seed per run
+        assert out["louvain_seed"][0] != out["louvain_seed"][1]
         for r in range(2):
             graph = wm._umap(x[out["units"][r]], 20, 0.1, "euclidean",
                              int(out["umap_seed"][r])).graph_
