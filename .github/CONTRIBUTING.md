@@ -38,7 +38,12 @@ python -m pytest tests/ -q
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
 CI exercises every version `pyproject.toml` declares, so a version the package claims is a
-version CI runs. A test that needs an optional extra skips when the extra is absent and names
+version CI runs. On Windows, pytest's temporary directory must sit on the same drive as the
+checkout: pass `--basetemp` pointing outside the repo on that drive, since a cross-drive
+temporary directory makes tests that clone the tree fail with "Improper link". Do not set
+it through the `PYTEST_ADDOPTS` environment variable instead: that value reaches every
+pytest the harness spawns as a subprocess, including the mutation-harness runs, and breaks
+them. Pass it as an explicit command-line argument. A test that needs an optional extra skips when the extra is absent and names
 it; `release_gate.py` refuses to run without every extra the suite uses, so no such skip
 reaches a release.
 
