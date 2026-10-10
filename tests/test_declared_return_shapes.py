@@ -12,12 +12,12 @@ these are fixtures, and the dimensions are chosen mutually distinct -- 7 trials,
 512 samples, 5 channels -- so that no two axes can be confused for one another and a
 transposed return would fail rather than coincide.
 
-Five exported functions declare a named shape in a `Returns:` block.
+Nine exported functions declare a named shape in a `Returns:` block.
 `build_time_resolved_matrix` and `compute_population_trajectory` each take a live NWB
 session and are not constructible here; `TestTheUncoveredTwoAreNamed` keeps that gap stated
-rather than implied by their absence. The third, `laplacian_reference`, is pinned in
+rather than implied by their absence. `laplacian_reference` is pinned in
 `tests/test_axis_convention_matches_the_specification.py`, where its axis order is the
-subject.
+subject; the other six are checked below.
 """
 
 from __future__ import annotations
