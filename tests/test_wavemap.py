@@ -315,6 +315,16 @@ class TestWaveMAP:
         for key in a:
             np.testing.assert_array_equal(a[key], b[key])
 
+    def test_the_sweep_builds_its_graph_with_the_metric_wavemap_takes(self, monkeypatch):
+        x, _ = two_shapes()
+        seen = []
+        umap_call = wm._umap
+        monkeypatch.setattr(wm, "_umap", lambda *a: seen.append(a[3]) or umap_call(*a))
+        euclid = jnwb.wavemap_resolution_sweep(x, [0.5, 1.5], n_runs=2, rng=4)
+        cosine = jnwb.wavemap_resolution_sweep(x, [0.5, 1.5], n_runs=2, metric="cosine", rng=4)
+        assert seen == ["euclidean"] * 2 + ["cosine"] * 2
+        assert not np.array_equal(euclid["modularity"], cosine["modularity"])
+
 @needs_extra
 def test_two_seeds_change_the_embedding():
     x, _ = two_shapes()

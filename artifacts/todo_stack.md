@@ -43,7 +43,7 @@ lines.
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 | G pitfalls and skill sources | 10-12, 11-14, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| D display, documentation and unit measures | 11-34, 11-35, 11-36, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| D display, documentation and unit measures | 11-35, 11-36, 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/wavemap.py`, `tests/test_wavemap.py`, `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
@@ -291,14 +291,6 @@ Writes: `artifacts/fact_stack.md`, `artifacts/todo_stack.md`.
 - S9 to S14, K4, I2 and I3 cite `todo:09-04` or `todo:10-10` though no bullet of those items names them (renaming 09-04 makes the fact gate report VIOLATED 8). Check: each such fact's holder names an item whose bullet states that fact's work. Waits: holder cells belong to Hamm; edit only with his authorisation.
 Accept: each such holder names an item whose bullet states that fact's work. Stop: a holder cell would change without Hamm's authorisation.
 
-### 11-34 `wavemap_resolution_sweep` takes the `metric` that `wavemap` takes
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `jnwb/wavemap.py`, `tests/test_wavemap.py`, `skills/jnwb-qc/SKILL.md`.
-- The sweep fixes `metric="euclidean"` (`jnwb/wavemap.py`, signature of `wavemap_resolution_sweep`), so a caller who clusters with another metric cannot sweep with it. Check: a test passes a non-default `metric` to both and the graph differs from the euclidean one. Waits: tests only.
-Accept: the sweep and `wavemap` take the same `metric`; the routing row agrees; the integrator regenerates `docs/api.md`. Stop: a metric the UMAP backend refuses.
-
 ### 11-35 `normalize_waveforms` returns NaN for every constant row
 
 Release: deferred-0.2.11.
@@ -310,7 +302,7 @@ Accept: every constant row reads NaN and the docstring agrees. Stop: a threshold
 ### 11-36 The WaveMAP tests fail on a broken clustering and the sweep records its seeds
 
 Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: 11-34.
+Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
 Writes: `jnwb/wavemap.py`, `tests/test_wavemap.py`, `tests/test_skill_degenerate_claims.py`.
 - Four audits show the tests pass on all-singleton labels, on an ignored `resolution`, on `fraction=1.0` and on an ignored `rng`; the sweep output carries no seeds, so an `rng=None` run cannot be repeated; the degenerate-claims header names skill text that five of its eight tests have no row for. Check: each mutant fails a named test. Waits: tests only, except the seed record.
 Accept: each of the four mutants is killed and the sweep output names its seeds. Stop: a fixture whose planted structure the clustering does not recover at any resolution.

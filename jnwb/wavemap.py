@@ -299,6 +299,7 @@ def wavemap(waveforms, *, resolution: float, n_neighbors: int = 20, min_dist: fl
 
 def wavemap_resolution_sweep(waveforms, resolutions: Sequence[float], *, n_runs: int = 25,
                              fraction: float = 0.8, n_neighbors: int = 20,
+                             metric: str = "euclidean",
                              rng: RNGLike = DEFAULT_SEED) -> Dict[str, np.ndarray]:
     """Modularity and cluster count across resolutions, over random subsets of units.
 
@@ -314,6 +315,7 @@ def wavemap_resolution_sweep(waveforms, resolutions: Sequence[float], *, n_runs:
         n_runs: Number of random subsets.
         fraction: Fraction of units per subset, in ``(0, 1]``.
         n_neighbors: UMAP neighborhood size.
+        metric: UMAP input metric, as for `wavemap`.
         rng: Seed or Generator for the subsets and every seed.
 
     Returns:
@@ -355,7 +357,7 @@ def wavemap_resolution_sweep(waveforms, resolutions: Sequence[float], *, n_runs:
     for r in range(int(n_runs)):
         idx = gen.permutation(x.shape[0])[:n_sub]
         umap_seed, louvain_seed = _seeds(gen)
-        graph = _umap(x[idx], int(n_neighbors), 0.1, "euclidean", umap_seed).graph_
+        graph = _umap(x[idx], int(n_neighbors), 0.1, metric, umap_seed).graph_
         for i, t in enumerate(res):
             labels, q[i, r] = _louvain(graph, float(t), louvain_seed)
             counts = np.bincount(labels)
