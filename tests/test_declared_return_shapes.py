@@ -22,6 +22,7 @@ subject.
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
 import re
 
@@ -128,6 +129,18 @@ class TestNormalizeWaveforms:
         assert jnwb.normalize_waveforms(rng.standard_normal((3, 48))).shape == (3, 48)
 
 
+@pytest.mark.skipif(importlib.util.find_spec("umap") is None
+                    or importlib.util.find_spec("networkx") is None,
+                    reason="needs the wavemap extra: pip install jnwb[wavemap]")
+class TestWavemapResolutionSweep:
+    def test_it_declares_and_returns_runs_by_subset(self):
+        """Three runs of 30 of 60 units: 3 and 30 cannot be swapped."""
+        assert ("n_runs", "n_subset") in declared_shapes(jnwb.wavemap_resolution_sweep)
+        x = jnwb.normalize_waveforms(np.random.default_rng(0).standard_normal((60, 48)))
+        out = jnwb.wavemap_resolution_sweep(x, [1.0], n_runs=3, fraction=0.5, rng=0)
+        assert out["units"].shape == (3, 30)
+
+
 class TestTheUncoveredTwoAreNamed:
     """A gap that is stated cannot be mistaken later for a dimension that was checked."""
 
@@ -152,7 +165,7 @@ class TestTheListOfDeclaringFunctionsIsComplete:
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
                    "spike_count_correlation", "fano_factor", "normalize_waveforms",
-                   *NEEDS_A_SESSION}
+                   "wavemap_resolution_sweep", *NEEDS_A_SESSION}
         declaring = {
             name for name in jnwb.__all__
             if callable(getattr(jnwb, name, None))
