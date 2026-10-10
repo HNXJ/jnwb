@@ -139,6 +139,17 @@ class TestNormalize:
         x = jnwb.normalize_waveforms(w)
         assert np.isnan(x[0]).all() and np.isfinite(x[1]).all() and np.isnan(x[2]).all()
 
+    def test_every_constant_row_is_nan_whatever_its_rounding_residue(self):
+        w = np.repeat(np.random.default_rng(0).uniform(-5.0, 5.0, 1001)[:, None], 82, axis=1)
+        residue = np.abs(w - w.mean(axis=1, keepdims=True)).max(axis=1)
+        assert (residue > 0).sum() > 100, "fixture must leave rounding residue"
+        assert np.isnan(jnwb.normalize_waveforms(w)).all()
+
+    def test_without_mean_subtraction_only_a_row_of_zeros_is_nan(self):
+        x = jnwb.normalize_waveforms(np.vstack([np.full(48, -3.0), np.zeros(48)]),
+                                     subtract_mean=False)
+        assert np.array_equal(x[0], np.full(48, -1.0)) and np.isnan(x[1]).all()
+
 
 # --- the resolution convention, on a graph built here (networkx only) -------------------------
 

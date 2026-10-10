@@ -156,8 +156,9 @@ def normalize_waveforms(waveforms, *, subtract_mean: bool = True) -> np.ndarray:
     The normalization of Lee et al. (2021, Methods) and Lee et al. (2023, steps 9-10): per
     unit, subtract the mean over samples (``subtract_mean=True``), then divide by the largest
     absolute value, so amplitude, which falls with distance from the electrode, does not
-    drive the clustering. A row that is constant after the subtraction, or holds a NaN or an
-    infinity, is returned as NaN.
+    drive the clustering. A row that holds a NaN or an infinity is returned as NaN, as is a row
+    of zeros; with ``subtract_mean=True``, so is a row whose samples are all equal, which the
+    subtraction makes zero in exact arithmetic but leaves as rounding residue in floating point.
 
     Args:
         waveforms: ``(n_units, n_samples)``.
@@ -174,10 +175,12 @@ def normalize_waveforms(waveforms, *, subtract_mean: bool = True) -> np.ndarray:
         Lee, K., et al. (2023). STAR Protocols 4, 102320. doi:10.1016/j.xpro.2023.102320
     """
     w = _waveform_matrix(waveforms, "normalize_waveforms")
+    varies = np.ones((w.shape[0], 1), dtype=bool)
     if subtract_mean:
+        varies = (w.max(axis=1) != w.min(axis=1))[:, None]
         w = w - w.mean(axis=1, keepdims=True)
     scale = np.max(np.abs(w), axis=1, keepdims=True)
-    ok = np.isfinite(scale) & (scale > 0)
+    ok = varies & np.isfinite(scale) & (scale > 0)
     return np.where(ok, w / np.where(ok, scale, 1.0), np.nan)
 
 
