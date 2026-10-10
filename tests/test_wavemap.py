@@ -271,6 +271,8 @@ class TestWaveMAP:
         assert res.labels.shape == (120,) and res.n_clusters == res.labels.max() + 1
         for c in range(res.n_clusters):
             assert np.unique(truth[res.labels == c]).size == 1
+        for shape in (0, 1):     # measured: one cluster of 60 and two of 38 and 22
+            assert np.unique(res.labels[truth == shape]).size <= 2
         assert res.embedding.shape == (120, 2)
         assert res.graph.shape == (120, 120)
         assert -0.5 <= res.modularity <= 1.0
@@ -280,7 +282,7 @@ class TestWaveMAP:
         fine = jnwb.wavemap(x, resolution=0.2, embedding=False, rng=0)
         mid = jnwb.wavemap(x, resolution=1.5, embedding=False, rng=0)
         coarse = jnwb.wavemap(x, resolution=20.0, embedding=False, rng=0)
-        assert fine.n_clusters >= mid.n_clusters >= coarse.n_clusters
+        assert fine.n_clusters > mid.n_clusters >= coarse.n_clusters   # measured: 27, 3, 3
         assert np.array_equal(mid.graph.toarray(), coarse.graph.toarray())   # one UMAP graph
 
     def test_labels_are_ordered_by_size(self):
@@ -309,10 +311,15 @@ class TestWaveMAP:
     def test_no_embedding_when_not_asked(self):
         assert jnwb.wavemap(two_shapes()[0], resolution=1.5, embedding=False).embedding is None
 
-    def test_the_sweep_shapes_and_its_smallest_cluster(self):
+    def test_the_sweep_shapes_and_its_smallest_cluster(self, monkeypatch):
         x, _ = two_shapes()
+        rows = []
+        umap_call = wm._umap
+        monkeypatch.setattr(wm, "_umap", lambda *a: rows.append(a[0].shape[0]) or umap_call(*a))
         out = jnwb.wavemap_resolution_sweep(x, [0.5, 1.5, 5.0], n_runs=3, fraction=0.8, rng=0)
-        assert set(out) == {"resolution", "modularity", "n_clusters", "min_cluster_size"}
+        assert rows == [96] * 3                                              # floor(0.8 * 120)
+        assert set(out) == {"resolution", "modularity", "n_clusters", "min_cluster_size",
+                            "units", "umap_seed", "louvain_seed"}
         for key in ("modularity", "n_clusters", "min_cluster_size"):
             assert out[key].shape == (3, 3)
         assert np.all(out["min_cluster_size"] >= 1)
@@ -325,6 +332,25 @@ class TestWaveMAP:
         b = jnwb.wavemap_resolution_sweep(x, [1.5], n_runs=2, rng=4)
         for key in a:
             np.testing.assert_array_equal(a[key], b[key])
+
+    def test_two_sweep_seeds_change_the_subsets_and_the_scores(self):
+        x, _ = two_shapes()
+        a = jnwb.wavemap_resolution_sweep(x, [0.5], n_runs=3, rng=4)
+        b = jnwb.wavemap_resolution_sweep(x, [0.5], n_runs=3, rng=5)
+        assert not np.array_equal(a["units"], b["units"])
+        assert not np.array_equal(a["modularity"], b["modularity"])
+
+    def test_the_recorded_units_and_seeds_repeat_a_run(self):
+        x, _ = two_shapes()
+        out = jnwb.wavemap_resolution_sweep(x, [0.5, 1.5], n_runs=2, rng=None)
+        assert out["units"].shape == (2, 96) and out["umap_seed"].shape == (2,)
+        for r in range(2):
+            graph = wm._umap(x[out["units"][r]], 20, 0.1, "euclidean",
+                             int(out["umap_seed"][r])).graph_
+            for i, t in enumerate(out["resolution"]):
+                labels, q = wm._louvain(graph, float(t), int(out["louvain_seed"][r]))
+                np.testing.assert_allclose(q, out["modularity"][i, r], rtol=1e-12)
+                assert np.bincount(labels).size == out["n_clusters"][i, r]
 
     def test_the_sweep_builds_its_graph_with_the_metric_wavemap_takes(self, monkeypatch):
         x, _ = two_shapes()

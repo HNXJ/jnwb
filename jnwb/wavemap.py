@@ -322,8 +322,10 @@ def wavemap_resolution_sweep(waveforms, resolutions: Sequence[float], *, n_runs:
         rng: Seed or Generator for the subsets and every seed.
 
     Returns:
-        Dict with ``resolution`` ``(R,)`` and, each ``(R, n_runs)``, ``modularity``,
-        ``n_clusters`` and ``min_cluster_size``.
+        Dict with ``resolution`` ``(R,)``; each ``(R, n_runs)``, ``modularity``,
+        ``n_clusters`` and ``min_cluster_size``; and the record that repeats each run:
+        ``units`` ``(n_runs, n_subset)``, the rows of `waveforms` it drew, and ``umap_seed``
+        and ``louvain_seed`` ``(n_runs,)``.
 
     Raises:
         ValueError: As `wavemap`; also if `resolutions` is empty, `n_runs` < 1, `fraction` is
@@ -357,12 +359,16 @@ def wavemap_resolution_sweep(waveforms, resolutions: Sequence[float], *, n_runs:
     q = np.zeros((res.size, int(n_runs)))
     k = np.zeros((res.size, int(n_runs)), dtype=int)
     smallest = np.zeros((res.size, int(n_runs)), dtype=int)
+    units = np.zeros((int(n_runs), n_sub), dtype=int)
+    seeds = np.zeros((int(n_runs), 2), dtype=np.int64)
     for r in range(int(n_runs)):
         idx = gen.permutation(x.shape[0])[:n_sub]
         umap_seed, louvain_seed = _seeds(gen)
+        units[r], seeds[r] = idx, (umap_seed, louvain_seed)
         graph = _umap(x[idx], int(n_neighbors), 0.1, metric, umap_seed).graph_
         for i, t in enumerate(res):
             labels, q[i, r] = _louvain(graph, float(t), louvain_seed)
             counts = np.bincount(labels)
             k[i, r], smallest[i, r] = counts.size, counts.min()
-    return {"resolution": res, "modularity": q, "n_clusters": k, "min_cluster_size": smallest}
+    return {"resolution": res, "modularity": q, "n_clusters": k, "min_cluster_size": smallest,
+            "units": units, "umap_seed": seeds[:, 0], "louvain_seed": seeds[:, 1]}

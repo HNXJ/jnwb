@@ -221,7 +221,7 @@ in [References](references.md#waveform-clustering); the clustering needs the `wa
 | `align_waveforms(waveforms, fs, *, pre_s=0.0004, post_s=0.0012)` | `(n_units, n_samples)`, one channel each | `(aligned, valid)`; NaN where the window leaves the samples |
 | `normalize_waveforms(waveforms, *, subtract_mean=True)` | `(n_units, n_samples)` | each row minus its mean, over its largest absolute value |
 | `wavemap(waveforms, *, resolution, ...)` | aligned, normalized, finite rows | `WaveMAPResult` |
-| `wavemap_resolution_sweep(waveforms, resolutions, ...)` | as `wavemap` | `modularity`, `n_clusters`, `min_cluster_size` per resolution and run |
+| `wavemap_resolution_sweep(waveforms, resolutions, ...)` | as `wavemap` | `modularity`, `n_clusters`, `min_cluster_size` per resolution and run; `units`, `umap_seed`, `louvain_seed` per run |
 
 `resolution` is the paper's Markov time (Lambiotte et al. 2008): larger gives fewer clusters.
 networkx takes the reciprocal, so `wavemap` passes `1 / resolution`; `python-louvain` agrees
