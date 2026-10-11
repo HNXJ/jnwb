@@ -111,7 +111,7 @@ def jrsa(
     adim=Default(-1),
     labels=None,
     align="auto",
-    align_mode="fraction",
+    align_mode=Default("fraction"),
     reduction=None,
     # analysis
     metric="rsa",
@@ -171,7 +171,8 @@ def jrsa(
         interpolate | nearest | linear | cubic | dtw. Any other value raises ValueError,
         also when the lengths already agree and nothing is resampled.
     align_mode : str
-        Correspondence rule: fraction | sample | timestamp | index.
+        Deprecated; it has no effect. Passing it emits a DeprecationWarning, and it will be
+        removed in 0.2.13. Alignment is set by `align`.
     reduction : dict or None
         Dimension reductions, e.g. {"trial": "mean"}. The operation is one of
         mean | median | sum | max | min; anything else raises rather than defaulting.
@@ -413,6 +414,16 @@ def jrsa(
     adim_given = not isinstance(adim, Default)
     if not adim_given:
         adim = adim.value
+    # `align_mode` has no effect; alignment is set by `align`. A passed value warns, and the
+    # sentinel tells it apart from the default, which is unwrapped here.
+    if isinstance(align_mode, Default):
+        align_mode = align_mode.value
+    else:
+        warnings.warn(
+            "align_mode has no effect and will be removed in 0.2.13; alignment is set by `align`",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     # `_align_dimensions` resamples only an axis whose lengths differ, so an unknown `align`
     # on equal lengths reached no check and ran while `parameters['align']` echoed it.
     if align not in ALIGN_MODES + ("none", "dtw"):

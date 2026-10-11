@@ -363,3 +363,109 @@ def test_the_live_tree_gives_every_domain_skill_its_floor_of_exclusive_operation
     assert fact_gate.partition(g, constants) == [], counts
     _, results = fact_gate.run(facts_path=source, graph=g)
     assert {f: s for f, s, _ in results}["K1"] == "HELD"
+
+
+GLOBAL_SEEDED = "import numpy as np\n\ndef f():\n    np.random.seed(0)\n    return np.random.rand()\n"
+GLOBAL_SEEDED_FROM_IMPORT = "from random import seed\n\nseed(3)\n"
+GENERATOR_ONLY = (
+    "import random\nimport numpy as np\n\n"
+    "def f(rng):\n    return rng.integers(4)\n\n"
+    "local = random.Random(0)\nlocal.seed(5)\nrng = np.random.default_rng(0)\n"
+)
+UNNAMED_RNG = "import numpy as np\n\ndef f(x):\n    return np.random.default_rng(0).normal(size=x)\n"
+NAMED_RNG = "import numpy as np\n\ndef f(x, rng):\n    return rng.normal(size=x)\n"
+DB_AVERAGE = "import numpy as np\n\ndef f(p):\n    return np.mean(10 * np.log10(p))\n"
+DB_AVERAGE_BY_NAME = ("import numpy as np\n\ndef f(p):\n    db = 10 * np.log10(p)\n"
+                      "    return np.nanmean(db, axis=0)\n")
+DB_SUM_OVER_COUNT = "import numpy as np\n\ndef f(p):\n    return np.sum(10 * np.log10(p)) / p.size\n"
+DB_MEDIAN = "import numpy as np\n\ndef f(p):\n    return np.median(10 * np.log10(p))\n"
+RAW_AVERAGE_THEN_LOG = "import numpy as np\n\ndef f(p):\n    m = np.mean(p)\n    return 10 * np.log10(m)\n"
+LIVE_CONSTANTS = build_fact_graph.read_constants(build_fact_graph.FACT_STACK.read_text(encoding="utf-8"))
+SCAN_RELATIONS = ("global_seeds", "rng_parameters", "db_averages")
+
+
+def scanned(python=("jnwb/a.py", "scripts/b.py"), **relations):
+    """A graph whose files are read, holding the scan relations the caller names."""
+    return {"entities": {"python": list(python)},
+            "relations": {name: relations.get(name, []) for name in SCAN_RELATIONS}}
+
+
+def test_a_global_seed_call_is_violated():
+    assert "np.random.seed(0)" in GLOBAL_SEEDED, "fixture must seed the global state"
+    assert build_fact_graph.global_seed_calls(GLOBAL_SEEDED) == ["line 4: np.random.seed"]
+    assert "seed(3)" in GLOBAL_SEEDED_FROM_IMPORT, "fixture must call the imported seed"
+    assert build_fact_graph.global_seed_calls(GLOBAL_SEEDED_FROM_IMPORT) == ["line 3: seed"]
+
+
+@pytest.mark.parametrize("source, spelled", [
+    ("import numpy.random as nr\nnr.seed(1)\n", "nr.seed"),
+    ("from numpy import random as npr\nnpr.seed(1)\n", "npr.seed"),
+    ("from numpy.random import seed as s\ns(1)\n", "s"),
+    ("import random as r\nr.seed(1)\n", "r.seed"),
+])
+def test_a_global_seed_reached_through_an_alias_is_violated(source, spelled):
+    assert f"{spelled}(1)" in source, "fixture must call the seed"
+    assert build_fact_graph.global_seed_calls(source) == [f"line 2: {spelled}"]
+
+
+def test_a_generator_and_a_local_instance_are_held():
+    assert "default_rng(0)" in GENERATOR_ONLY and "local.seed(5)" in GENERATOR_ONLY, (
+        "fixture must build a generator and seed a local instance")
+    assert build_fact_graph.global_seed_calls(GENERATOR_ONLY) == []
+
+
+def test_a_global_seed_anywhere_in_the_tree_is_violated_and_an_unread_tree_is_not_a_pass():
+    seeded = [["tests/t.py", "line 2: np.random.seed"]]
+    assert status(scanned(global_seeds=seeded), "computed:global_seeds") == (
+        "VIOLATED", ["computed:global_seeds: tests/t.py: line 2: np.random.seed"])
+    assert status(scanned(), "computed:global_seeds") == ("HELD", [])
+    assert status(scanned(python=()), "computed:global_seeds") == (
+        "VIOLATED", ["computed:global_seeds: the graph reads no python file"])
+
+
+def test_a_consumer_without_an_rng_parameter_is_violated():
+    assert "default_rng(0)" in UNNAMED_RNG, "fixture must draw from a numpy generator"
+    assert build_fact_graph.rng_violations(UNNAMED_RNG) == [
+        "line 3: f draws without an rng parameter"]
+    assert "rng.normal" in NAMED_RNG, "fixture must draw from the generator it takes"
+    assert build_fact_graph.rng_violations(NAMED_RNG) == []
+
+
+def test_the_rng_rule_is_read_from_the_jnwb_and_scripts_files():
+    violated = [["scripts/s.py", "line 3: f draws without an rng parameter"]]
+    assert status(scanned(rng_parameters=violated), "computed:rng_parameters") == (
+        "VIOLATED", ["computed:rng_parameters: scripts/s.py: line 3: f draws without an rng parameter"])
+    assert status(scanned(), "computed:rng_parameters") == ("HELD", [])
+    assert status(scanned(python=("docs/x.py",)), "computed:rng_parameters") == (
+        "VIOLATED", ["computed:rng_parameters: the graph reads no jnwb or scripts python file"])
+
+
+@pytest.mark.parametrize("source, expected", [
+    (DB_AVERAGE, ["line 4: np.mean over a dB value"]),
+    (DB_AVERAGE_BY_NAME, ["line 5: np.nanmean over a dB value"]),
+    (DB_SUM_OVER_COUNT, ["line 4: np.sum over a dB value divided by a count"]),
+])
+def test_an_average_of_dB_values_is_violated(source, expected):
+    assert "log10" in source, "fixture must convert to dB"
+    assert build_fact_graph.db_average_violations(source, LIVE_CONSTANTS) == expected
+
+
+@pytest.mark.parametrize("source", [DB_MEDIAN, RAW_AVERAGE_THEN_LOG])
+def test_a_median_of_dB_values_and_an_average_of_raw_power_are_not_flagged(source):
+    assert "log10" in source, "fixture must convert to dB"
+    assert build_fact_graph.db_average_violations(source, LIVE_CONSTANTS) == []
+
+
+def test_the_dB_rule_is_read_from_the_jnwb_files():
+    flagged = [["jnwb/a.py", "line 4: np.mean over a dB value"]]
+    assert status(scanned(db_averages=flagged), "computed:db_averages") == (
+        "VIOLATED", ["computed:db_averages: jnwb/a.py: line 4: np.mean over a dB value"])
+    assert status(scanned(), "computed:db_averages") == ("HELD", [])
+    assert status(scanned(python=("scripts/s.py",)), "computed:db_averages") == (
+        "VIOLATED", ["computed:db_averages: the graph reads no jnwb python file"])
+
+
+def test_the_live_graph_reads_the_python_files_the_scans_need(live):
+    _, g = live
+    python = g["entities"]["python"]
+    assert python and any(p.startswith("jnwb/") for p in python), "the graph read no jnwb file"

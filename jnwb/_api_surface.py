@@ -59,6 +59,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "vis.spiking": "public",
     "vis.state_space": "public",
     "vis.theme": "public",
+    "vis.wavemap": "public",
     "visual_qc": "public",
     "wavemap": "public",
     "_api_surface": "module-internal",

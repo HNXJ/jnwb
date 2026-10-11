@@ -36,6 +36,11 @@ Computed predicates:
               router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
               operation does not share it with the domain skill that owns it.
 
+  global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
+  rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
+                   takes an ``rng`` parameter (the graph's ``rng_parameters``)
+  db_averages      no average in ``jnwb/`` takes a dB value (the graph's ``db_averages``)
+
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
 from __future__ import annotations
@@ -176,10 +181,37 @@ def partition(graph: Graph, constants: Constants) -> List[str]:
                      for skill, count in sorted(counts.items()) if count < floor]
 
 
+def global_seeds(graph: Graph, constants: Constants) -> List[str]:
+    """Each call, in any tracked file, that seeds the global random state."""
+    if not graph["entities"].get("python"):
+        return ["the graph reads no python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["global_seeds"]]
+
+
+def rng_parameters(graph: Graph, constants: Constants) -> List[str]:
+    """Each function in ``jnwb/`` or ``scripts/`` that draws from a random module and takes no
+    parameter named ``rng``."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.SCANNED_FOR_RNG) for path in python):
+        return ["the graph reads no jnwb or scripts python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["rng_parameters"]]
+
+
+def db_averages(graph: Graph, constants: Constants) -> List[str]:
+    """Each average in ``jnwb/`` of a dB value, or of a name a dB conversion was assigned to."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.DB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["db_averages"]]
+
+
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
     "partition": partition,
+    "global_seeds": global_seeds,
+    "rng_parameters": rng_parameters,
+    "db_averages": db_averages,
 }
 
 

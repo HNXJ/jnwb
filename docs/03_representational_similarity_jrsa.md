@@ -31,7 +31,7 @@ graph LR
   | `"granger_ssr_ftest"` | x2 → x1: how much x2's past predicts x1 | the reverse of `jnwb.granger(X, Y).x_to_y` |
   | `"transfer_entropy_histogram_nats"` | x2 → x1 | the reverse of `jnwb.transfer_entropy(X, Y).x_to_y` |
   | `"phase_slope"` | positive when x1 leads x2 | the same sign as `jnwb.phase_slope_index(X, Y).x_to_y` |
-- **Tensor alignment**: 2D, 3D, and 4D tensors, with automatic trial/time alignment (`align="auto"`, `align_mode="fraction"`, `lag=0`).
+- **Tensor alignment**: 2D, 3D, and 4D tensors, with automatic trial/time alignment (`align="auto"`, `lag=0`).
 - **Resampling**: permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
 - **CPU arithmetic**: `jrsa` has no GPU path; every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic, so `backend="cupy"` gives the same numbers on the CPU; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`. `n_jobs` parallelises over CPU workers, and `res.execution` records what ran.
 

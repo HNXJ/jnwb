@@ -109,7 +109,6 @@ class TestNestedCvRng:
         """`rng=None` reached scikit-learn as `random_state=None`, which draws the folds,
         and the grouped path's group order, from NumPy's global RandomState."""
         X, y, groups = _rng_probe_data()
-        np.random.seed(123)
         before = np.random.get_state()
         nested_cv_linear_svm(X, y, n_splits=3, rng=None,
                              groups=groups if grouped else None)

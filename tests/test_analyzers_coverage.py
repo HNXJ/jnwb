@@ -59,9 +59,9 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         frequency axis and its coordinates are unchanged, so the same bins fall in each
         band.
         """
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         self.freqs = np.linspace(1.0, 150.0, 200)
-        self.tfr_data = np.random.randn(2, 200, 3, 2)
+        self.tfr_data = rng.standard_normal((2, 200, 3, 2))
 
     def test_extract_band_alpha(self):
         """Verify alpha band extraction (8-12/15 Hz)."""
@@ -115,8 +115,8 @@ class TestTFRAnalyzerTrialAverage(unittest.TestCase):
         here is load-bearing beyond the trial axis needing at least two samples for the
         `ddof=1` standard deviation. This was (64, 100, 300, 80), 1.144 GiB.
         """
-        np.random.seed(42)
-        self.tfr_data = np.random.randn(2, 3, 4, 5)
+        rng = np.random.default_rng(42)
+        self.tfr_data = rng.standard_normal((2, 3, 4, 5))
 
     def test_trial_average_shape(self):
         """Verify trial average returns dict with mean array reduced over trials."""
@@ -136,8 +136,8 @@ class TestTFRAnalyzerLayerAware(unittest.TestCase):
 
     def setUp(self):
         """Create mock TFR data with layer mask."""
-        np.random.seed(42)
-        self.tfr_data = np.random.randn(128, 100, 300)
+        rng = np.random.default_rng(42)
+        self.tfr_data = rng.standard_normal((128, 100, 300))
 
         # Create layer mask: superficial (first 62), deep (last 66)
         self.layer_mask = {
@@ -188,11 +188,11 @@ class TestUnitAnalyzerAutocorrelogram(unittest.TestCase):
 
     def setUp(self):
         """Create realistic spike times."""
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         spike_times = []
         t = 0.0
         while t < 5.0:
-            t += 0.01 + np.random.uniform(-0.002, 0.002)
+            t += 0.01 + rng.uniform(-0.002, 0.002)
             spike_times.append(t)
         self.spike_times = np.array(spike_times)
 
@@ -331,13 +331,13 @@ class TestPopulationAnalyzerCompareCriteria(unittest.TestCase):
 
     def setUp(self):
         """Create mock unit populations."""
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         self.group1 = pd.DataFrame({
-            'firing_rate': np.random.exponential(8, 50),
+            'firing_rate': rng.exponential(8, 50),
             'area': ['V1'] * 50,
         })
         self.group2 = pd.DataFrame({
-            'firing_rate': np.random.exponential(5, 50),
+            'firing_rate': rng.exponential(5, 50),
             'area': ['V2'] * 50,
         })
 
@@ -359,9 +359,9 @@ class TestPopulationAnalyzerDistribution(unittest.TestCase):
 
     def setUp(self):
         """Create mock population data."""
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         self.units_df = pd.DataFrame({
-            'firing_rate': np.random.exponential(5, 150),
+            'firing_rate': rng.exponential(5, 150),
             'area': ['V1'] * 50 + ['V2'] * 50 + ['MT'] * 50,
         })
 
@@ -387,9 +387,9 @@ class TestStatisticalAnalysisCoverage(unittest.TestCase):
 
     def setUp(self):
         """Create test data."""
-        np.random.seed(42)
-        self.x = np.random.randn(100)
-        self.y = np.random.randn(100)
+        rng = np.random.default_rng(42)
+        self.x = rng.standard_normal(100)
+        self.y = rng.standard_normal(100)
 
     def test_correlate_returns_dict(self):
         """Verify correlate returns proper structure."""
@@ -426,9 +426,9 @@ class TestTFRAnalyzerBandNames(unittest.TestCase):
         As above, the 150-bin frequency axis and its coordinates are what decide which
         bins each of the five bands selects; the rest was 0.358 GiB of shape assertion.
         """
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         self.freqs = np.linspace(1.0, 150.0, 150)
-        self.tfr_data = np.random.randn(2, 150, 3, 4)
+        self.tfr_data = rng.standard_normal((2, 150, 3, 4))
 
     def test_all_bands_extractable(self):
         """Verify all standard bands can be extracted."""
@@ -500,8 +500,8 @@ class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
 
     def test_quality_metrics_structure(self):
         """Verify quality_metrics returns expected fields."""
-        np.random.seed(42)
-        spike_times = np.sort(np.random.uniform(0, 10, 200))
+        rng = np.random.default_rng(42)
+        spike_times = np.sort(rng.uniform(0, 10, 200))
         result = UnitAnalyzer.quality_metrics(spike_times, waveform_duration_us=250.0, firing_rate=20.0)
         self.assertIsInstance(result, dict)
         self.assertIn('refr_violations_pct', result)

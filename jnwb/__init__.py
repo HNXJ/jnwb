@@ -412,6 +412,10 @@ __all__ = [
 
     # Unit quality measures
     'waveform_features',
+    'waveform_halfwidth',
+    'repolarization_slope',
+    'waveform_spread',
+    'amplitude_cutoff',
     'waveform_snr',
     'waveform_flatness',
     'spatial_derivative_sharpness',

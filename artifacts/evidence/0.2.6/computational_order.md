@@ -484,6 +484,23 @@ samples. `wavemap` and `wavemap_resolution_sweep` are in section 8.
 | `normalize_waveforms[n_units]` | n_units | 1000, 10000, 100000, 1000000 | 0.2853, 4.98, 45.24, 465.1 | +1.06 | 0.997 | 1630x | O(n) | T(U*n) | derived | agree |
 | `normalize_waveforms[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.2583, 4.793, 39.12, 492.5 | +1.08 | 0.996 | 1906x | O(n) | T(U*n) | derived | agree |
 
+### `jnwb.unit_quality`: half-width, slope, spread, amplitude cut-off
+
+Added 2026-10-11 with the four functions, after the counts of section 1. Measured with the `Spec`,
+`sweep`, `pin_threads` and `markdown` of `scripts/measure_order.py`, 5 repeats, Python 3.14.3,
+NumPy 2.4.6, x86_64 Windows, jnwb imported from the checkout. Held fixed: 16 channels with one
+trough of width n/20 on channel 8, fs 30 kHz, the default upsampling 200/82 (both `[n_samples]`
+rows; `scipy.signal.resample` is the FFT that sets n log n); 60 samples and 17 sites
+(`waveform_spread`); 500 histogram bins (`amplitude_cutoff`). `C` channels, `n` samples, `N`
+amplitudes.
+
+| spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `waveform_halfwidth[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.3017, 3.34, 62.07, 299 | +1.03 | 0.988 | 991x | O(n) | T(n log n) | derived | agree |
+| `repolarization_slope[n_samples]` | n_samples | 1000, 10000, 100000, 1000000 | 0.4563, 3.357, 57.18, 287.5 | +0.96 | 0.990 | 630x | O(n) | T(n log n) | derived | agree |
+| `waveform_spread[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 0.1971, 0.5716, 7.669, 77.15 | +0.89 | 0.974 | 391x | O(n) | T(C) | derived | agree |
+| `amplitude_cutoff[n_amplitudes]` | n_amplitudes | 100000, 1000000, 4000000, 10000000 | 2.655, 19.59, 72.98, 163.4 | +0.90 | 1.000 | 62x | O(n) | T(N) | derived | agree |
+
 ## 4. Gaps
 
 19 order gaps lie along a parameter this measurement swept; 30 do not;

@@ -14,6 +14,8 @@ import numpy as np
 import pytest
 
 import jnwb
+from jnwb.unit_quality import (amplitude_cutoff, repolarization_slope, waveform_halfwidth,
+                               waveform_spread)
 
 
 # --- planted-unit generators -----------------------------------------------------------------
@@ -346,3 +348,252 @@ def test_the_threshold_is_required_and_must_be_positive(func):
         func(*args)
     with pytest.raises(ValueError, match="threshold"):
         func(*args, threshold=0.0)
+
+
+# --- half-width, repolarization slope and spread, in the form of ecephys_spike_sorting ----------
+
+def _interval_ms(n_samples, m, fs):
+    """The interval of ``linspace(0, n_samples / fs, m)`` in ms, the source's time axis."""
+    return n_samples * 1000.0 / (fs * (m - 1))
+
+
+def _trough_trace(n_samples, points):
+    trace = np.zeros(n_samples)
+    for sample, value in points.items():
+        trace[sample] = value
+    return trace
+
+
+#: A trough at sample 10 with half level -50: the first sample before it below -50 is 9 and
+#: the first from it on above -50 is 12, three intervals.
+_HALF_WIDTH_POINTS = {8: -20.0, 9: -60.0, 10: -100.0, 11: -70.0, 12: -40.0, 13: -10.0}
+
+
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+def test_half_width_counts_the_samples_beyond_half_the_extremum(sign):
+    trace = sign * _trough_trace(30, _HALF_WIDTH_POINTS)
+    assert int(np.argmax(np.abs(trace))) == 10 and np.abs(trace).max() == 100.0
+    got = waveform_halfwidth(trace[None, :], 10000.0, upsampling_factor=1)
+    # The source's axis linspace(0, 30 / fs, 30) has an interval of 30 / (fs * 29).
+    np.testing.assert_allclose(got, 3 * _interval_ms(30, 30, 10000.0), rtol=1e-12)
+
+
+def test_half_width_starts_at_the_first_sample_beyond_half_not_the_last_crossing():
+    # An earlier excursion below the half level at sample 3 starts the width there, as the
+    # source's `np.min(np.where(...))` does: 9 intervals, not 3.
+    trace = _trough_trace(30, {**_HALF_WIDTH_POINTS, 3: -55.0})
+    assert trace[3] < 0.5 * trace.min() and trace[4:9].max() > 0.5 * trace.min()
+    got = waveform_halfwidth(trace[None, :], 10000.0, upsampling_factor=1)
+    np.testing.assert_allclose(got, 9 * _interval_ms(30, 30, 10000.0), rtol=1e-12)
+
+
+def test_half_width_on_a_tie_measures_the_trough():
+    # max == |min|: the source measures the trough (2 intervals, samples 14 to 16), not the
+    # peak (4 intervals, samples 4 to 8).
+    trace = _trough_trace(30, {4: 60.0, 5: 100.0, 6: 70.0, 7: 60.0, 8: 40.0,
+                               14: -60.0, 15: -100.0, 16: -40.0})
+    assert trace.max() == -trace.min()
+    got = waveform_halfwidth(trace[None, :], 10000.0, upsampling_factor=1)
+    np.testing.assert_allclose(got, 2 * _interval_ms(30, 30, 10000.0), rtol=1e-12)
+
+
+def test_half_width_on_the_default_resampling_matches_the_resampled_cosine():
+    # -c + A cos(2 pi n / N) is one Fourier component plus a constant, so resampling it to M
+    # samples gives -c + A cos(2 pi m / M) exactly. Its trough (m = M/2) is the extremum, with
+    # half level -(A + c)/2, crossed where cos = (c - A) / (2 A), at phases alpha and
+    # 2 pi - alpha: the width runs from sample floor(M alpha / 2 pi) + 1 to
+    # floor(M (1 - alpha / 2 pi)) + 1, at the source's interval N / (fs (M - 1)).
+    n, fs, a, c = 82, 30000.0, 1.0, 0.2
+    m = int(n * 200 / 82)
+    assert m == 200
+    trace = -c + a * np.cos(2 * np.pi * np.arange(n) / n)
+    assert -trace.min() > trace.max()
+    edge = m * np.arccos((c - a) / (2 * a)) / (2 * np.pi)
+    # Neither crossing is within 1e-3 of a sample, so rounding cannot move it.
+    assert min(edge % 1, 1 - edge % 1, (m - edge) % 1, 1 - (m - edge) % 1) > 1e-3
+    first, last = int(np.floor(edge)) + 1, int(np.floor(m - edge)) + 1
+    assert (first, last) == (64, 137)
+    got = waveform_halfwidth(trace[None, :], fs)
+    np.testing.assert_allclose(got, (last - first) * _interval_ms(n, m, fs), rtol=1e-12)
+
+
+def test_half_width_is_nan_without_a_sample_before_the_extremum_and_refuses_bad_input():
+    trace = _trough_trace(30, {0: -100.0, 1: -60.0, 2: -20.0})
+    assert int(np.argmin(trace)) == 0
+    assert np.isnan(waveform_halfwidth(trace[None, :], 10000.0, upsampling_factor=1))
+    with pytest.raises(ValueError, match="upsampling_factor"):
+        waveform_halfwidth(trace[None, :], 10000.0, upsampling_factor=0.5)
+    with pytest.raises(ValueError, match="fs"):
+        waveform_halfwidth(trace[None, :], 0.0)
+
+
+def _repolarizing_trace():
+    """A trough of -100 at sample 10 rising 5 per sample for the 20 samples of the source's
+    window, then flat at -5, so a window of any other length fits a different line."""
+    trace = np.full(40, -5.0)
+    trace[:10] = 0.0
+    trace[10:30] = -100.0 + 5.0 * np.arange(20)
+    return trace
+
+
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+def test_repolarization_slope_is_the_line_through_the_window_after_the_extremum(sign):
+    trace = sign * _repolarizing_trace()
+    assert int(np.argmax(np.abs(trace))) == 10 and trace[29] == sign * -5.0
+    got = repolarization_slope(trace[None, :], 20000.0, upsampling_factor=1)
+    # 5 per interval of the source's axis, 40 / (20 kHz * 39), is 97.5 per ms, positive for a
+    # trough and for a peak alike.
+    expected = 5.0 / _interval_ms(40, 40, 20000.0)
+    assert expected == pytest.approx(97.5, rel=1e-12)
+    np.testing.assert_allclose(got, expected, rtol=1e-12)
+    shorter = repolarization_slope(trace[None, :], 20000.0, upsampling_factor=1, window_samples=5)
+    np.testing.assert_allclose(shorter, expected, rtol=1e-12)
+    assert repolarization_slope(trace[None, :], 20000.0, upsampling_factor=1,
+                                window_samples=25) < expected
+
+
+def test_repolarization_slope_is_nan_at_the_last_sample_and_refuses_a_bad_window():
+    trace = np.zeros(10)
+    trace[-1] = -50.0
+    assert int(np.argmax(np.abs(trace))) == trace.size - 1
+    assert np.isnan(repolarization_slope(trace[None, :], 1000.0, upsampling_factor=1))
+    for window in (1, 2.5, True):
+        with pytest.raises(ValueError, match="window_samples"):
+            repolarization_slope(trace[None, :], 1000.0, window_samples=window)
+
+
+def _spread_waveform(amplitudes):
+    """Channel c carries amplitude ``amplitudes[c]``: -a on sample 5, 0 elsewhere."""
+    w = np.zeros((len(amplitudes), 12))
+    w[:, 5] = -np.asarray(amplitudes, dtype=float)
+    return w
+
+
+def test_spread_counts_the_sites_above_twelve_percent_and_drops_an_outlier():
+    # Sites are every second channel within 16 of the peak (20): 4, 6, ..., 36. Above 12 of
+    # 100: 16 (13), 18, 20, 22 and 36 (30); 24 (12) is not above it, odd channels are not
+    # sites. Site 36, at position 16 among the sites against a median of 8 and a median
+    # absolute deviation of 1, has modified z 0.6745 * 8 > 1.5 and is dropped; site 16 has
+    # 0.6745 * 2 <= 1.5 and stays. Four sites at 20 um.
+    amp = np.full(40, 5.0)
+    amp[[16, 18, 20, 22, 24, 36]] = [13.0, 50.0, 100.0, 50.0, 12.0, 30.0]
+    amp[[19, 21]] = 90.0
+    w = _spread_waveform(amp)
+    assert jnwb.waveform_features(w, 30000.0)["peak_channel"] == 20
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0), 80.0, rtol=1e-12)
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0, outlier_z=10.0), 100.0,
+                               rtol=1e-12)
+    # A site whose modified z equals outlier_z is kept (`<=`, `isnot_outlier`).
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0, outlier_z=0.6745 * 2.0),
+                               80.0, rtol=1e-12)
+
+
+def test_spread_drops_channel_zero_as_the_source_does():
+    # The source's `sites_to_sample > 0` leaves channel 0 out though it carries the unit: of
+    # channels 0, 2 and 4 only 2 and 4 count.
+    amp = np.full(10, 1.0)
+    amp[[0, 2, 4]] = [60.0, 100.0, 60.0]
+    w = _spread_waveform(amp)
+    assert jnwb.waveform_features(w, 30000.0)["peak_channel"] == 2
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0), 40.0, rtol=1e-12)
+    # A peak on channel 0 is dropped too; the threshold is then 12 % of the largest site left
+    # (60 on channel 2), so channel 4 at 30 counts and channel 6 at 7 does not.
+    amp = np.full(10, 1.0)
+    amp[[0, 2, 4, 6]] = [100.0, 60.0, 30.0, 7.0]
+    w = _spread_waveform(amp)
+    assert jnwb.waveform_features(w, 30000.0)["peak_channel"] == 0 and 7.0 < 0.12 * 60.0
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0), 40.0, rtol=1e-12)
+    with pytest.raises(ValueError, match="channel 0"):
+        waveform_spread(_spread_waveform([100.0]), site_spacing_um=20.0)
+
+
+def test_spread_refuses_bad_geometry():
+    w = _spread_waveform([10.0, 100.0, 10.0])
+    with pytest.raises(TypeError):
+        waveform_spread(w)
+    with pytest.raises(ValueError, match="site_range"):
+        waveform_spread(w, site_spacing_um=20.0, site_range=15)
+    with pytest.raises(ValueError, match="threshold"):
+        waveform_spread(w, site_spacing_um=20.0, threshold=1.0)
+    with pytest.raises(ValueError, match="site_spacing_um"):
+        waveform_spread(w, site_spacing_um=float("nan"))
+
+
+@pytest.mark.parametrize("call", [
+    lambda w: waveform_halfwidth(w, 30000.0),
+    lambda w: repolarization_slope(w, 30000.0),
+    lambda w: waveform_spread(w, site_spacing_um=20.0),
+])
+def test_a_waveform_with_a_nan_sample_is_refused(call):
+    w = _spread_waveform([10.0, 100.0, 10.0])
+    w[0, 3] = np.nan
+    assert np.isnan(w).sum() == 1
+    with pytest.raises(ValueError, match="NaN"):
+        call(w)
+
+
+# --- agreement with ecephys_spike_sorting at 919992748a53 ----------------------------------------
+
+def _allen_case_waveform():
+    """24 channels of 82 samples at 30 kHz, peak channel 6, falling off by 0.8 per channel."""
+    t = np.arange(82)
+    trace = (-100.0 * np.exp(-0.5 * ((t - 30) / 2.0) ** 2)
+             + 35.0 * np.exp(-0.5 * ((t - 42) / 4.0) ** 2))
+    return np.array([0.8 ** abs(c - 6) * trace for c in range(24)])
+
+
+def _allen_case_amplitudes():
+    """The 4000 quantiles of N(100, 10), with every amplitude at or below 90 left out."""
+    from statistics import NormalDist
+
+    q = NormalDist(100.0, 10.0)
+    full = np.array([q.inv_cdf((i + 0.5) / 4000) for i in range(4000)])
+    return full[full > 90.0]
+
+
+def test_the_waveform_measures_reproduce_the_source_on_a_fixed_unit():
+    # The expected values are the source's own: `calculate_waveform_halfwidth`,
+    # `calculate_waveform_repolarization_slope` (V/s from µV) and `calculate_2D_features`
+    # (spread_threshold 0.12, site_range 16, site_spacing 20e-6 m) of
+    # modules/mean_waveforms/waveform_metrics.py at commit 919992748a53, run on this waveform
+    # resampled by 200/82 with peak channel 6 on 2026-10-11.
+    w = _allen_case_waveform()
+    assert jnwb.waveform_features(w, 30000.0)["peak_channel"] == 6
+    np.testing.assert_allclose(waveform_halfwidth(w, 30000.0), 0.15108877721943048, rtol=1e-12)
+    np.testing.assert_allclose(repolarization_slope(w, 30000.0) * 1e-3, 0.5064552069143894,
+                               rtol=1e-12)
+    np.testing.assert_allclose(waveform_spread(w, site_spacing_um=20.0), 140.00000000000003,
+                               rtol=1e-12)
+
+
+def test_the_amplitude_cutoff_reproduces_the_source_on_fixed_amplitudes():
+    # `amplitude_cutoff` of modules/quality_metrics/metrics.py at commit 919992748a53 (500 bins,
+    # smoothing 3) gives 0.20362567401249895 on these amplitudes. The fraction beyond the mirror
+    # of the cut, P(X > 110) / P(X > 90) = 0.1587 / 0.8413 = 0.189, is what the symmetric
+    # model estimates; the histogram and smoothing put it within 0.02 of that.
+    amplitudes = _allen_case_amplitudes()
+    assert amplitudes.size == 3365 and amplitudes.min() > 90.0
+    got = amplitude_cutoff(amplitudes)
+    np.testing.assert_allclose(got, 0.20362567401249895, rtol=1e-12)
+    from statistics import NormalDist
+    q = NormalDist(100.0, 10.0)
+    assert abs(got - (1 - q.cdf(110.0)) / (1 - q.cdf(90.0))) < 0.02
+
+
+def test_the_amplitude_cutoff_is_capped_at_one_half():
+    # With the lowest bin the mode, the bin matching the lowest bin's density is the lowest
+    # bin itself, so the sum covers the whole distribution (1) and the cap returns 0.5.
+    amplitudes = np.array([0.0, 0.0, 0.0, 1.0])
+    density, _ = np.histogram(amplitudes, 2, density=True)
+    assert density[0] > density[1]
+    assert amplitude_cutoff(amplitudes, num_histogram_bins=2) == 0.5
+
+
+def test_the_amplitude_cutoff_refuses_undefined_input():
+    for bad in (np.array([]), np.array([1.0, np.nan]), np.ones((2, 2))):
+        with pytest.raises(ValueError, match="amplitudes"):
+            amplitude_cutoff(bad)
+    with pytest.raises(ValueError, match="num_histogram_bins"):
+        amplitude_cutoff(np.arange(10.0), num_histogram_bins=1)
+    with pytest.raises(ValueError, match="histogram_smoothing_value"):
+        amplitude_cutoff(np.arange(10.0), histogram_smoothing_value=0.0)

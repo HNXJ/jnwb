@@ -82,7 +82,6 @@ class TestStatisticsRNG:
         assert res_perm1["pval"] == res_perm2["pval"]
 
     def test_global_rng_state_untouched(self):
-        np.random.seed(98765)
         state_before = np.random.get_state()
 
         data = np.array([2.0, 4.0, 6.0, 8.0, 10.0])

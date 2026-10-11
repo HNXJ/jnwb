@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 193 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 197 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -334,13 +334,17 @@ All 193 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.amplitude_cutoff | function | `(amplitudes, *, num_histogram_bins: 'int' = 500, histogram_smoothing_value: 'float' = 3.0) -> 'float'`<br>*Fraction of a unit's spikes missing below the detection threshold, from its amplitudes.* |
 | jnwb.isi_cv | function | `(spike_times) -> 'float'`<br>*Coefficient of variation of the inter-spike intervals (Shinomoto et al. 2009, eq. 1).* |
 | jnwb.presence_ratio | function | `(spike_times, blocks) -> 'float'`<br>*Fraction of caller-given blocks that hold at least one spike (Siegle et al. 2021).* |
 | jnwb.refractory_contamination | function | `(spike_times, *, duration_s: 'float', refractory_ms: 'float', censored_ms: 'float') -> 'Dict[str, Any]'`<br>*Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).* |
+| jnwb.repolarization_slope | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024, window_samples: 'int' = 20) -> 'float'`<br>*Slope of the return towards baseline after the largest deflection (Jia et al. 2019).* |
 | jnwb.spatial_derivative_sharpness | function | `(waveform, channel_positions, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*How sharply amplitude falls from the peak channel to its nearest channels.* |
 | jnwb.waveform_features | function | `(waveform, fs: 'float') -> 'Dict[str, Any]'`<br>*Peak channel, amplitude, trough-to-peak duration, peak-trough ratio and polarity.* |
 | jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |
+| jnwb.waveform_halfwidth | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024) -> 'float'`<br>*Width of the largest deflection at half its height, in ms (Jia et al. 2019).* |
 | jnwb.waveform_snr | function | `(spike_waveforms) -> 'float'`<br>*Signal-to-noise ratio of one unit on one channel (Siegle et al. 2021, Methods).* |
+| jnwb.waveform_spread | function | `(waveform, *, site_spacing_um: 'float', threshold: 'float' = 0.12, site_range: 'int' = 16, site_step: 'int' = 2, outlier_z: 'float' = 1.5) -> 'float'`<br>*Extent along the probe of the channels that carry the unit, in µm (Jia et al. 2019).* |
 
 ## Module: jnwb.viz
 
