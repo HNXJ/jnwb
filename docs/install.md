@@ -6,7 +6,7 @@
 pip install -U jnwb
 ```
 
-Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
+Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.
 
 jnwb is dataset-agnostic. The public surface is the contents of `jnwb.__all__`, documented in [Public API](api.md).
 

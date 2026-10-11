@@ -86,7 +86,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest ]
-        python-version: [ "3.12", "3.13", "3.14" ]
+        python-version: [ "3.12", "3.13", "3.14", "3.15" ]
+        # h5py ships no CPython 3.15 wheel yet. Ubuntu builds it against the system HDF5 headers,
+        # and the Windows leg waits for a wheel.
+        exclude:
+          - os: windows-latest
+            python-version: "3.15"
         # The one leg that must compare the documentation figures: it pins the Matplotlib release
         # that wrote them, so a newer minor release reaching the other legs cannot turn every
         # comparison into a skip. Windows and 3.14, as the figures were rendered.
@@ -109,8 +114,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          # Prereleases are admitted for 3.15 only.
+          allow-prereleases: ${{ matrix.python-version == '3.15' }}
           cache: pip
           cache-dependency-path: pyproject.toml
+
+      - name: Install the HDF5 headers that h5py builds against
+        if: matrix.python-version == '3.15' && env.QUALIFIED_BY == ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhdf5-dev pkg-config
 
       - name: Install Liberation Sans for the documentation figures
         # The committed figures are drawn in Liberation Sans, and
@@ -128,6 +141,8 @@ jobs:
 
       - name: Install dependencies
         if: env.QUALIFIED_BY == ''
+        env:
+          HDF5_PKGCONFIG_NAME: hdf5-serial
         # `vis` so jnwb.vis is exercised on every leg. No leg runs the suite without Plotly: the
         # build job's smoke step checks the wheel without the extra, and
         # tests/test_optional_vis_extra.py blocks Plotly in a subprocess. `wavemap` so the UMAP and
@@ -251,53 +266,6 @@ jobs:
         env:
           JNWB_REQUIRE_BROWSER: '1'
         run: |
-          python scripts/ci_pytest.py tests/
-
-  test-py315:
-    # Non-blocking: h5py has no CPython 3.15 wheel, so this leg builds it from source and can fail
-    # for reasons outside this repository. No job needs it, and it does not run on tag pushes.
-    name: Test (Python 3.15 on ubuntu-latest, non-blocking)
-    if: "!startsWith(github.ref, 'refs/tags/')"
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    continue-on-error: true
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.15
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.15"
-          allow-prereleases: true
-
-      - name: Install the HDF5 headers that h5py builds against
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libhdf5-dev pkg-config
-
-      - name: Install Liberation Sans for the documentation figures
-        shell: bash
-        run: |
-          cd "$RUNNER_TEMP"
-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
-          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
-          tar xzf liberation-fonts.tar.gz
-          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
-
-      - name: Install dependencies
-        env:
-          HDF5_PKGCONFIG_NAME: hdf5-serial
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ".[test,docs,vis,wavemap]"
-
-      - name: Run pytest
-        env:
-          JNWB_REQUIRE_FIGURE_COMPARISON: '0'
-          JNWB_REQUIRE_BROWSER: '1'
-        run: |
-          # Runs pytest and annotates each failed test; the exit status is pytest's own.
           python scripts/ci_pytest.py tests/
 
   build:

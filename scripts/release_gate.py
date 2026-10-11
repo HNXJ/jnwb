@@ -689,8 +689,26 @@ def required_ci_jobs(workflow: Optional[str] = None,
             names.append(template.strip())
             continue
         keys = sorted(axes)
-        for combination in itertools.product(*(axes[key] for key in keys)):
-            values = {k: str(v) for k, v in zip(keys, combination)}
+        legs = [
+            {k: str(v) for k, v in zip(keys, combination)}
+            for combination in itertools.product(*(axes[key] for key in keys))
+        ]
+        # An `exclude` entry removes each leg that matches it on all of its keys.
+        for excluded in matrix.get("exclude") or []:
+            legs = [leg for leg in legs
+                    if not all(leg.get(k) == str(v) for k, v in excluded.items())]
+        # An `include` entry adds its keys to each leg it matches on the matrix axes, and is a leg
+        # of its own only when it matches none.
+        for included in matrix.get("include") or []:
+            entry = {k: str(v) for k, v in included.items()}
+            shared = {k: v for k, v in entry.items() if k in axes}
+            matched = [leg for leg in legs if all(leg[k] == v for k, v in shared.items())]
+            if matched:
+                for leg in matched:
+                    leg.update(entry)
+            else:
+                legs.append(entry)
+        for values in legs:
             names.append(_MATRIX_REF.sub(
                 lambda m: values.get(m.group(1), m.group(0)), template).strip())
     return names

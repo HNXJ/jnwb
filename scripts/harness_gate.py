@@ -397,8 +397,8 @@ INTERNAL_ROOT_PACKAGES = {"scripts", "tests", "docs", "examples"}
 # no ceiling; CI tests every declared version. Testing only the floor and the head is
 # what let 0.2.5 ship a 3.13 classifier no leg of the matrix ever ran.
 PYTHON_FLOOR = "3.12"
-PYTHON_SUPPORTED = ("3.12", "3.13", "3.14")   # what the classifiers must claim
-PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14")  # every claimed version must be tested
+PYTHON_SUPPORTED = ("3.12", "3.13", "3.14", "3.15")   # what the classifiers must claim
+PYTHON_CI_REQUIRED = ("3.12", "3.13", "3.14", "3.15")  # every claimed version must be tested
 
 #: Directories that hold tracked source. Anything else at the root is a mistake.
 SOURCE_ROOT_DIRS = {

@@ -40,14 +40,14 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 
 ## Installation
 
-Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
+Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.
 
 ```bash
 pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.10`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.11`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs,vis]" for development

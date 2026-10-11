@@ -293,14 +293,52 @@ def test_required_jobs_expand_the_matrix_and_exclude_conditional_jobs():
     assert "Ship It" not in required_ci_jobs(OTHER_WORKFLOW)
 
 
+def test_required_jobs_drop_an_excluded_leg_and_add_an_include_only_when_it_makes_a_leg():
+    workflow = textwrap.dedent("""\
+        jobs:
+          test:
+            name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+            strategy:
+              matrix:
+                os: [ubuntu-latest, windows-latest]
+                python-version: ["3.12", "3.15"]
+                exclude:
+                  - os: windows-latest
+                    python-version: "3.15"
+                include:
+                  - os: windows-latest
+                    python-version: "3.12"
+                    figures: compared
+                  - os: macos-latest
+                    python-version: "3.12"
+    """)
+    assert sorted(required_ci_jobs(workflow)) == sorted([
+        "Test (Python 3.12 on ubuntu-latest)",
+        "Test (Python 3.15 on ubuntu-latest)",
+        "Test (Python 3.12 on windows-latest)",
+        "Test (Python 3.12 on macos-latest)",
+    ])
+
+
 def test_this_repository_requires_every_matrix_leg_and_the_build_job():
     required = required_ci_jobs(root=REPO_ROOT)
+    import itertools
     import tomllib
     import yaml
 
     workflow = yaml.safe_load((REPO_ROOT / CI_WORKFLOW_PATH).read_text(encoding="utf-8"))
     matrix = workflow["jobs"]["test"]["strategy"]["matrix"]
-    expected = len(matrix["os"]) * len(matrix["python-version"])
+    # The legs CI runs: the axes' product, less each exclude, plus each include that matches no
+    # leg. An include that matches a leg only adds keys to it, as the Windows 3.14 figures entry does.
+    axes = [k for k, v in matrix.items() if isinstance(v, list) and k not in ("include", "exclude")]
+    legs = [dict(zip(axes, combo)) for combo in itertools.product(*(matrix[k] for k in axes))]
+    for excluded in matrix.get("exclude") or []:
+        legs = [leg for leg in legs if not all(str(leg[k]) == str(v) for k, v in excluded.items())]
+    for included in matrix.get("include") or []:
+        shared = {k: str(v) for k, v in included.items() if k in axes}
+        if not any(all(str(leg[k]) == v for k, v in shared.items()) for leg in legs):
+            legs.append(included)
+    expected = len(legs)
     assert len(required) == expected + 3, required
     assert "Build & Validate Distribution" in required
     assert workflow["jobs"]["test-floors"]["name"] in required
