@@ -9,7 +9,7 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Optional
 
 import numpy as np
 import plotly.graph_objects as go

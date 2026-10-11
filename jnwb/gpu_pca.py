@@ -5,7 +5,7 @@ analysis uses ``compute_population_trajectory``.
 """
 
 import logging
-from typing import Tuple, Dict, Any
+from typing import Tuple
 import numpy as np
 
 from ._backend import CUDA, resolve_device, warn_device_fallback

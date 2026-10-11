@@ -11,7 +11,7 @@ No statistic is computed here: every mask, interval and null is a caller input.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence
 
 import numpy as np
 import plotly.graph_objects as go

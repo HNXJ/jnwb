@@ -493,8 +493,8 @@ class TFRAccumulator:
 
 
 #: Provenance attributes that must match before two summary groups may be merged. Refusing to
-#: merge on mismatch is a hard assertion per the spec, not a convention -- see the doctrine
-#: rule that a registry/summary with no provenance is unpoolable.
+#: merge on mismatch is a hard assertion per the spec, not a convention -- see the rule
+#: that a registry/summary with no provenance is unpoolable.
 REQUIRED_MATCH = (
     "freqs", "times", "baseline_window", "baseline_method",
     "tfr_method", "preproc_version", "unit", "log_scaled",

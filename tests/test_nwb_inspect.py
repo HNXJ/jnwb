@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 import h5py
 import numpy as np
 import jnwb
 from jnwb.nwb_inspect import (
-    AcquisitionNotFoundError,
     AmbiguousAcquisitionError,
     ChannelIndexError,
     acquisition_channel,

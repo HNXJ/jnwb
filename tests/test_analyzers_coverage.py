@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive tests for jnwb.analyzers module.
+Tests for jnwb.analyzers module.
 
 Focus areas:
 - TFRAnalyzer: band extraction, layer-aware averaging, trial averaging

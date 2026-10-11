@@ -1,7 +1,7 @@
 """
 Visual Quality Control and Multi-Session Inspection
 
-New orthogonal jnwb module for comprehensive QC visualization.
+New orthogonal jnwb module for QC visualization.
 Consolidates logic from archived Y-files:
 - jnwb_visual_qc/ folder
 - jnwb_visual_qc_multisession/ folder
@@ -15,12 +15,10 @@ Date: 2026-06-25
 
 import logging
 import warnings
-from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 log = logging.getLogger(__name__)
 

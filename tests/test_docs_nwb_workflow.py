@@ -11,8 +11,6 @@ import numpy as np
 import pytest
 import yaml
 
-import jnwb
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
 MKDOCS = REPO_ROOT / "mkdocs.yml"

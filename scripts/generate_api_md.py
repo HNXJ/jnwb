@@ -8,7 +8,7 @@ import types
 import typing
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, get_args, get_origin
+from typing import Any, Dict, List, get_args, get_origin
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

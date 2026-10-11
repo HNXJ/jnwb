@@ -14,7 +14,6 @@ import numpy as np
 from ._bins import onset_window, whole_bin_count
 from ._spread import is_constant
 from ._units import resolve_unit_alias
-import pandas as pd
 from scipy import stats
 
 log = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-"""Comprehensive Regression Test Suite for TFRAnalyzer.extract_band and BANDS.
+"""Regression test suite for TFRAnalyzer.extract_band and BANDS.
 
 Verifies:
   - Explicit frequency coordinate enforcement (F1 fix)

@@ -1,5 +1,4 @@
 import io
-import tempfile
 import tracemalloc
 import zipfile
 from pathlib import Path

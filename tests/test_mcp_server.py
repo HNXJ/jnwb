@@ -8,8 +8,6 @@ the live registry are the same set, which is the thing that was actually wrong.
 import importlib
 import pathlib
 import re
-import subprocess
-import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone

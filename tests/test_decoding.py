@@ -402,7 +402,6 @@ class TestNestedCvGroups:
 
     def test_grouped_folds_never_split_a_group(self, monkeypatch):
         """Asserted on the folds the decoder iterated, captured at the splitter."""
-        import jnwb.decoding as decoding
 
         calls = _record_grouped_splits(monkeypatch)
         X, labels, groups = _group_offset_data(n_groups=12)

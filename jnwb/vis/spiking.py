@@ -8,7 +8,7 @@ jnwb.vis.spiking -- Raster, PSTH and population heatmap panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import plotly.graph_objects as go

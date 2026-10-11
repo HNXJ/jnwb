@@ -24,7 +24,7 @@ import inspect
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Iterator, List, Tuple
 
 import pytest
 

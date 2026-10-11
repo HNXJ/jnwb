@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model, DEFAULT_TAU_MS
+from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
 
 
 class TestPublicImport:

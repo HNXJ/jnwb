@@ -1,5 +1,5 @@
 """
-tests/test_vis.py -- Comprehensive unit and integration tests for jnwb.vis.
+tests/test_vis.py -- Unit and integration tests for jnwb.vis.
 
 Tests:
 1. PlotlyPublicationCanvas layout, domain geometry, and collision-free math.
@@ -21,12 +21,9 @@ Tests:
 from __future__ import annotations
 
 import asyncio
-import json
 import threading
 import warnings
 import xml.etree.ElementTree as ET
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -36,16 +33,6 @@ import plotly.graph_objects as go  # noqa: E402
 
 from jnwb.vis.canvas import PlotlyPublicationCanvas, STANDARD_LAYOUT_WIDTHS_MM, MM_TO_PX
 from jnwb.vis.sidecar import EpistemicArgumentObject, serialize_argument_sidecar
-from jnwb.vis.theme import (
-    COLOR_PALETTES,
-    FONT_FAMILY,
-    FONT_SIZES,
-    TOL_MUTED,
-    OKABE_ITO,
-    NATURE_ACCENTS,
-    apply_publication_theme,
-    get_publication_layout_template,
-)
 from jnwb.vis.laminar import (
     plot_spectrolaminar_map,
     plot_opposing_gradients,

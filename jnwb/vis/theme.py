@@ -14,7 +14,7 @@ spines, and there is no dark variant. On a dark page a figure shows as a white p
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
 import plotly.graph_objects as go
 
 

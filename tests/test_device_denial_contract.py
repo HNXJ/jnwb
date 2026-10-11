@@ -41,7 +41,7 @@ import numpy as np
 import pytest
 
 import jnwb._backend as backend
-from jnwb._backend import CUDA, warn_no_gpu_path
+from jnwb._backend import warn_no_gpu_path
 from jnwb.connectivity import fit_var_bivariate, granger_causality, select_optimal_lag
 from jnwb.laminar import vflip
 from jnwb.rsa import rdm

@@ -6,11 +6,8 @@ Focus: Core statistical analysis and data structures that work correctly.
 """
 
 import unittest
-import pytest
 from pathlib import Path
 import numpy as np
-import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
 
 import sys
 # Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an

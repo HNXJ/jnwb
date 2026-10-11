@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import tempfile
 from pathlib import Path
 
@@ -20,7 +19,6 @@ from jnwb.testing.nwb_fixtures import (
     FLASH_TABLE,
     RF_TABLE,
     TASK_TABLE,
-    SynthNWBBuildOptions,
     build_synth_nwb,
     canonical_co_resident_options,
     lfp_wrapped_options,

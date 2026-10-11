@@ -132,7 +132,6 @@ class TestMetadataIsDerived:
         it came from, so ``source.replace(getdoc(fn), "")`` removes nothing and the scan
         silently inspects the prose it meant to exclude.
         """
-        import re
 
         for fn in (release_metadata, check_release_body_claims):
             tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))

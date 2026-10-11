@@ -24,7 +24,6 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import numpy as np
 import plotly.graph_objects as go
 
 from .sidecar import EpistemicArgumentObject, serialize_argument_sidecar
