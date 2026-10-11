@@ -378,6 +378,9 @@ class PlotlyPublicationCanvas:
         Returns:
             Dictionary mapping format key ('svg', 'png', 'html', 'argument') to output Path.
         """
+        # Validated before anything renders, so an incomplete argument writes no file.
+        if not isinstance(argument_object, EpistemicArgumentObject):
+            argument_object = EpistemicArgumentObject.from_dict(argument_object)
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         svg_path = out_dir / f"{basename}.svg"
