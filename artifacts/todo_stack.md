@@ -44,7 +44,7 @@ lines.
 | C interpreter legs | 11-44 | 0.5 h at the 0.2.11 version bump, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py` |
 | D unit measures | 10-15 | 6 h | `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`, `docs/references.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | W WaveMAP display | 11-45 | 4 h | `jnwb/vis/**`, `tests/test_vis*.py`, `examples/tutorials/10_wavemap.py`, `tests/test_tutorials.py`, `docs/vis.md` |
-| Y identity facts | 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 16 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
+| Y identity facts | 11-07, 10-10, 11-06, 09-04, 11-32 | 13 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 
 The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 2026-10-10
 (`artifacts/rulings/2026-10-10.md`). ETAs are estimates of wall time with one worker per lane.
@@ -70,27 +70,18 @@ Accept: the check passes. Stop: a definition the Allen code and the paper state 
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/vis/**`, `tests/test_vis*.py`, `examples/tutorials/10_wavemap.py`, `tests/test_tutorials.py`, `docs/vis.md`.
+Writes: `jnwb/vis/**`, `tests/test_vis*.py`, `examples/tutorials/10_wavemap.py`, `tests/test_tutorials.py`, `docs/vis.md`, `scripts/build_open_data_excerpt.py`, `examples/data/dandi000253_excerpt.nwb`, `examples/data/dandi000253_excerpt.provenance.json`, `tests/test_open_data_example.py`.
 - Ruled 2026-10-11: `jnwb.wavemap` returns a `WaveMAPResult` that nothing draws and no tutorial runs. Check: a `jnwb.vis` function draws the embedding coloured by cluster beside each cluster's mean normalized waveform from that result, refuses a result whose labels do not match the waveforms, and `tests/test_tutorials.py` runs the tutorial on the DANDI 000253 excerpt. Waits: new display, no estimator.
 Accept: the check passes. Stop: the excerpt holds no mean waveforms, or the figure needs a value the result does not carry.
 
-### 11-09 A planned skill is reported only when K1 and K5 hold for it
+### 11-07 Each of the S1, S2 and S5 scans reports its own planted case
 
 Release: deferred-0.2.11.
 AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- Planned skills (moved from the fact stack as plan, Q14): twelve, the ten of 0.2.6 with `jnwb-landmark-viz` included (ruled 2026-09-22, P-180), plus `jnwb-paradigm` (experiment and timing semantics) and `jnwb-qc` (independent scientific and output QC); `jnwb-data-engineering` and `jnwb-compute` wait on their public APIs and neither is a required endpoint: a capability the router routes cleanly gets no skill. Check: the fact gate reports a planned skill only when K1 and K5 hold for it. Waits: plan for future skills; no shipped behaviour.
-Accept: the fact gate reports a planned skill only when K1 and K5 hold for it, and the planned-skill fact reports no UNHELD. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
-
-### 11-07 Each of the S1, S2, S5 and S7 scans reports its own planted case
-
-Release: deferred-0.2.11.
-AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- S1, S2, S5 and S7: the scans as ruled in Q13. Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
-Accept: each scan reports its own planted case in `tests/test_fact_gate.py` and S1, S2, S5 and S7 report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
+- S1, S2 and S5: the scans as ruled in Q13; S2 reads the dB lexicon transcribed on 2026-10-11, and S5 refuses a seed anywhere and a randomness call without an `rng` parameter in `jnwb/` and `scripts/`. S7 moved to roadmap 12-11 (ruled 2026-10-11). Check: each scan reports its own planted case in `tests/test_fact_gate.py`. Waits: fact reports UNHELD; nothing public claims it.
+Accept: each scan reports its own planted case in `tests/test_fact_gate.py` and S1, S2 and S5 report no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 10-10 Every numeric public operation declares signature types that compose
 
@@ -127,3 +118,20 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `artifacts/fact_stack.md`, `artifacts/todo_stack.md`.
 - S9 to S14, K4, I2 and I3 cite `todo:09-04` or `todo:10-10` though no bullet of those items names them (renaming 09-04 makes the fact gate report VIOLATED 8). Check: each such fact's holder names an item whose bullet states that fact's work. Waits: holder cells belong to Hamm; edit only with his authorisation.
 Accept: each such holder names an item whose bullet states that fact's work. Stop: a holder cell would change without Hamm's authorisation.
+
+### 11-46 `jrsa` reads `align_mode` or deprecates it
+
+Release: deferred-0.2.11.
+AUTONOMY: none; Hamm rules implement or deprecate.
+Role: jnwb-developer. Skill: jnwb-similarity. Blocked by: the ruling.
+Writes: `jnwb/jrsa/__init__.py`, `jnwb/jrsa/_stages.py`, `tests/test_jrsa*.py`.
+- `jrsa(..., align_mode=...)` documents the parameter (`jnwb/jrsa/__init__.py:114,173`) and passes it to `_resample_axis` (`_stages.py:163`), which never reads it: any value gives the default result (compression audit 2026-10-11). Check: two `align_mode` values give different results, or passing one warns `DeprecationWarning`, in `tests/test_jrsa*.py`.
+Accept: the check passes. Stop: a value would change a published result.
+
+### 11-48 The compression audit's approved reductions
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: per lane, named in `artifacts/rulings/2026-10-11.md` (compression row).
+- Approved 2026-10-11: (1) docs duplicates to pointers, stale `CONTRIBUTING.md` paths, the version-claim test reads `docs/**`; (2) CHANGELOG blocks 0.2.9, 0.2.8, 0.2.5, 0.2.4 and 0.1.0 to 0.1.7 to an archive; (3) the tutorial_00 cached runs and parametrized tables; (4) one SVD fallback, `_api_surface` into `tests/`, `run_cases` deleted; (6) `AGENTS.md` §11 and §12 to rulings, deprecation paths for `gpu_pca`, the two MI alias wrappers and the duplicate `clopper_pearson_ci`. Check: each lane's collected test count and every assertion survive, and the full suite and harness pass. Waits: no shipped number changes.
+Accept: the check passes. Stop: a cut would drop a fact, ruling or receipt a file cites, or change a public result.
