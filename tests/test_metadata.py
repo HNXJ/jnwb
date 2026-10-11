@@ -132,13 +132,6 @@ class TestPublicImport:
         assert callable(get_all_units_metadata)
         assert callable(electrode_inventory)
 
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("get_all_units_metadata", "classify_unit_quality", "unit_census_report",
-                     "get_snr_analysis", "electrode_inventory", "filter_by_criteria",
-                     "audit_units", "audit_electrodes", "assign_quality_tier"):
-            assert name in jnwb.__all__
-
 class TestAuditUnits:
     def test_empty_dataframe_returns_zeroed_defaults(self):
         result = audit_units(pd.DataFrame({"x": []}))

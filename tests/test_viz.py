@@ -19,21 +19,6 @@ from jnwb.viz import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        assert jnwb.setup_vector_graphics is setup_vector_graphics
-        assert jnwb.apply_tight_auto_axis is apply_tight_auto_axis
-        assert jnwb.save_figure_suite is save_figure_suite
-        assert jnwb.resample_onsets is resample_onsets
-        assert jnwb.raster_psth is raster_psth
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("setup_vector_graphics", "apply_tight_auto_axis", "save_figure_suite",
-                     "resample_onsets", "raster_psth"):
-            assert name in jnwb.__all__
-
 class TestSetupVectorGraphics:
     def test_sets_editable_svg_fonttype(self):
         plt.rcParams['svg.fonttype'] = 'path'

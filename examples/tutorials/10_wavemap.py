@@ -115,7 +115,7 @@ def main() -> None:
         print(f"  cluster {k}: {members.size} units, ids {members[:5].tolist()} ...")
 
     # A cluster is not a cell type: each one is a shape group at this resolution, and the
-    # colours tie the embedding (panel A) to the mean normalized waveform of the group (panel B).
+    # colors tie the embedding (panel A) to the mean normalized waveform of the group (panel B).
     canvas = vis.plot_wavemap(result, aligned)
     normalized = jnwb.normalize_waveforms(aligned)
     for trace in canvas.fig.data:

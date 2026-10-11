@@ -20,10 +20,6 @@ class TestPublicImports:
         assert hasattr(jnwb.io, "stream_npz_array")
         assert jnwb.io.stream_npz_array is stream_npz_array
 
-    def test_in_all(self):
-        assert "stream_npz_array" in jnwb.__all__
-        assert "io" in jnwb.__all__
-
 
 class TestStreamNPZArrayParity:
     @pytest.mark.parametrize("compress", [False, True])

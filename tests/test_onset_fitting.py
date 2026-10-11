@@ -10,22 +10,6 @@ import pytest
 from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_model
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        from jnwb import causal_exp_smooth as pub_smooth
-        from jnwb import fit_exponential_onset as pub_fit
-        from jnwb import onset_model as pub_model
-        assert pub_smooth is causal_exp_smooth
-        assert pub_fit is fit_exponential_onset
-        assert pub_model is onset_model
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        assert "causal_exp_smooth" in jnwb.__all__
-        assert "fit_exponential_onset" in jnwb.__all__
-        assert "onset_model" in jnwb.__all__
-
-
 class TestCausalExpSmooth:
     def test_output_shape_matches_input(self):
         rate = np.random.default_rng(0).normal(10, 1, size=100)

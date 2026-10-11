@@ -63,15 +63,17 @@ class TestTFRAnalyzerBandExtraction(unittest.TestCase):
         self.freqs = np.linspace(1.0, 150.0, 200)
         self.tfr_data = rng.standard_normal((2, 200, 3, 2))
 
+    def _assert_band_shape(self, band):
+        result = TFRAnalyzer.extract_band(self.tfr_data, band, freqs=self.freqs, freq_axis=1)
+        self.assertEqual(result.shape, (2, 3, 2))
+
     def test_extract_band_alpha(self):
         """Verify alpha band extraction (8-12/15 Hz)."""
-        result = TFRAnalyzer.extract_band(self.tfr_data, 'alpha', freqs=self.freqs, freq_axis=1)
-        self.assertEqual(result.shape, (2, 3, 2))
+        self._assert_band_shape('alpha')
 
     def test_extract_band_beta(self):
         """Verify beta band extraction (15-30 Hz)."""
-        result = TFRAnalyzer.extract_band(self.tfr_data, 'beta', freqs=self.freqs, freq_axis=1)
-        self.assertEqual(result.shape, (2, 3, 2))
+        self._assert_band_shape('beta')
 
     def test_extract_band_bounds(self):
         """Verify extracted band is float."""
@@ -702,23 +704,20 @@ class TestPopulationAnalyzerTrajectory(unittest.TestCase):
         self.X_f64 = rng.standard_normal((50, 10), dtype=np.float64)
         self.X_f32 = rng.standard_normal((50, 10), dtype=np.float32)
 
-    def test_preserves_float64_dtype_and_reports_device(self):
-        res = PopulationAnalyzer.population_trajectory(self.X_f64, n_components=3)
-        self.assertEqual(res['projection'].dtype, np.float64)
-        self.assertEqual(res['components'].dtype, np.float64)
-        self.assertEqual(res['explained_variance'].dtype, np.float64)
-        self.assertEqual(res['explained_variance_ratio'].dtype, np.float64)
+    def _assert_dtype_preserved(self, X, dtype):
+        res = PopulationAnalyzer.population_trajectory(X, n_components=3)
+        self.assertEqual(res['projection'].dtype, dtype)
+        self.assertEqual(res['components'].dtype, dtype)
+        self.assertEqual(res['explained_variance'].dtype, dtype)
+        self.assertEqual(res['explained_variance_ratio'].dtype, dtype)
         self.assertIn('device_used', res)
         self.assertIn(res['device_used'], ('cpu', 'cuda'))
 
+    def test_preserves_float64_dtype_and_reports_device(self):
+        self._assert_dtype_preserved(self.X_f64, np.float64)
+
     def test_preserves_float32_dtype_and_reports_device(self):
-        res = PopulationAnalyzer.population_trajectory(self.X_f32, n_components=3)
-        self.assertEqual(res['projection'].dtype, np.float32)
-        self.assertEqual(res['components'].dtype, np.float32)
-        self.assertEqual(res['explained_variance'].dtype, np.float32)
-        self.assertEqual(res['explained_variance_ratio'].dtype, np.float32)
-        self.assertIn('device_used', res)
-        self.assertIn(res['device_used'], ('cpu', 'cuda'))
+        self._assert_dtype_preserved(self.X_f32, np.float32)
 
     def test_fallback_warning_when_gpu_fails(self):
         import warnings

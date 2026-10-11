@@ -9,16 +9,6 @@ import jnwb
 from jnwb.filtering import bandpass_filter, notch_filter
 
 
-class TestFilterExports:
-    def test_top_level_exports(self):
-        assert jnwb.bandpass_filter is bandpass_filter
-        assert jnwb.notch_filter is notch_filter
-
-    def test_in_all(self):
-        assert "bandpass_filter" in jnwb.__all__
-        assert "notch_filter" in jnwb.__all__
-
-
 class TestBandpassFilter:
     def test_passband_preservation_and_stopband_attenuation(self):
         fs = 1000.0

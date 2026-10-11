@@ -24,6 +24,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +38,7 @@ N = 2000
 PEAK_HZ = 23.0
 
 
+@lru_cache(maxsize=None)
 def _run(path, table="trials"):
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join(
@@ -76,8 +78,8 @@ def _write(nwb, path):
     return str(path)
 
 
-@pytest.fixture
-def timestamps_file(tmp_path):
+@pytest.fixture(scope="module")
+def timestamps_file(tmp_path_factory):
     """No `rate`: the series carries one timestamp per sample."""
     import pynwb
 
@@ -86,11 +88,11 @@ def timestamps_file(tmp_path):
         name="lfp", data=data,
         electrodes=nwb.create_electrode_table_region(list(range(8)), "all"),
         timestamps=np.arange(N) / FS))
-    return _write(nwb, tmp_path / "timestamps.nwb")
+    return _write(nwb, tmp_path_factory.mktemp("timestamps") / "timestamps.nwb")
 
 
-@pytest.fixture
-def processing_file(tmp_path):
+@pytest.fixture(scope="module")
+def processing_file(tmp_path_factory):
     """Nothing in /acquisition; the LFP is in a processing module."""
     import pynwb
 
@@ -99,7 +101,7 @@ def processing_file(tmp_path):
     module.add(pynwb.ecephys.LFP(electrical_series=pynwb.ecephys.ElectricalSeries(
         name="lfp", data=data,
         electrodes=nwb.create_electrode_table_region(list(range(8)), "all"), rate=FS)))
-    return _write(nwb, tmp_path / "processing.nwb")
+    return _write(nwb, tmp_path_factory.mktemp("processing") / "processing.nwb")
 
 
 @pytest.fixture
@@ -165,8 +167,8 @@ class TestAProcessingModuleFile:
         assert f"spectral peak at {PEAK_HZ:.1f} Hz" in out
 
 
-@pytest.fixture
-def ambiguous_layout_file(tmp_path):
+@pytest.fixture(scope="module")
+def ambiguous_layout_file(tmp_path_factory):
     """A constant rate, so it gets past the rate guard, and a square array with a
     matching electrode count, so `acquisition_channel` cannot tell which axis is
     channels. This is the shape that reaches the `except jnwb.NWBInspectError` path."""
@@ -177,7 +179,7 @@ def ambiguous_layout_file(tmp_path):
     nwb.add_acquisition(pynwb.ecephys.ElectricalSeries(
         name="lfp", data=square,
         electrodes=nwb.create_electrode_table_region(list(range(8)), "all"), rate=FS))
-    return _write(nwb, tmp_path / "square.nwb")
+    return _write(nwb, tmp_path_factory.mktemp("square") / "square.nwb")
 
 
 class TestASeriesThatRaisesOnRead:
@@ -213,31 +215,33 @@ class TestAnOrdinaryFileIsUnchanged:
         assert "Layout discovered and aligned" in result.stdout
 
 
+FACTORY_OPTIONS = ["canonical_co_resident_options", "lfp_wrapped_options",
+                   "numeric_codes_options", "task_only_options",
+                   "processing_lfp_options"]
+
+
+@pytest.fixture(scope="module", params=FACTORY_OPTIONS)
+def factory_run(request, tmp_path_factory):
+    """One build and one tutorial run per factory; both tests below read the same result."""
+    from jnwb.testing import nwb_fixtures
+
+    factory = request.param
+    path = tmp_path_factory.mktemp(factory) / f"{factory}.nwb"
+    nwb_fixtures.write_synth_nwb(path, getattr(nwb_fixtures, factory)())
+    return _run(path, table=None)
+
+
 class TestEveryFixtureShape:
     """05-42's accept condition: every shape `jnwb/testing/nwb_fixtures.py` can build."""
 
-    OPTIONS = ["canonical_co_resident_options", "lfp_wrapped_options",
-               "numeric_codes_options", "task_only_options",
-               "processing_lfp_options"]
-
-    @pytest.mark.parametrize("factory", OPTIONS)
-    def test_the_tutorial_completes(self, tmp_path, factory):
-        from jnwb.testing import nwb_fixtures
-
-        path = tmp_path / f"{factory}.nwb"
-        nwb_fixtures.write_synth_nwb(path, getattr(nwb_fixtures, factory)())
-        result = _run(path, table=None)
+    def test_the_tutorial_completes(self, factory_run):
+        result = factory_run
         assert result.returncode == 0, result.stdout + result.stderr
 
-    @pytest.mark.parametrize("factory", OPTIONS)
-    def test_it_never_prints_a_bare_none(self, tmp_path, factory):
+    def test_it_never_prints_a_bare_none(self, factory_run):
         """`None Hz`, `shape None` and `layout None` are the shape of an unguarded key
         read after 05-39 made every key always present."""
-        from jnwb.testing import nwb_fixtures
-
-        path = tmp_path / f"{factory}_none.nwb"
-        nwb_fixtures.write_synth_nwb(path, getattr(nwb_fixtures, factory)())
-        out = _run(path, table=None).stdout
+        out = factory_run.stdout
         for bad in ("None Hz", "shape None", "layout None"):
             assert bad not in out, (bad, out)
 

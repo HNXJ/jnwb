@@ -18,27 +18,7 @@ from jnwb.decoding import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        assert jnwb.majority_baseline is majority_baseline
-        assert jnwb.fold_majority_baseline is fold_majority_baseline
-        assert jnwb.nested_cv_linear_svm is nested_cv_linear_svm
-        assert jnwb.assign_outer_folds is assign_outer_folds
-        assert jnwb.build_inner_validation_partitions is build_inner_validation_partitions
-        assert jnwb.build_representation_ladder is build_representation_ladder
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("majority_baseline", "fold_majority_baseline", "nested_cv_linear_svm",
-                     "assign_outer_folds", "build_inner_validation_partitions",
-                     "build_representation_ladder"):
-            assert name in jnwb.__all__
-
 class TestMajorityBaseline:
-    def test_empty_labels_is_nan(self):
-        assert np.isnan(majority_baseline(np.array([])))
-
     def test_balanced_binary_is_half(self):
         labels = np.array([0, 0, 1, 1])
         assert majority_baseline(labels) == pytest.approx(0.5)

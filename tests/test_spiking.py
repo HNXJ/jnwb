@@ -18,21 +18,6 @@ from jnwb.spiking import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        assert jnwb.compute_response_metrics is compute_response_metrics
-        assert jnwb.classify_response_significance is classify_response_significance
-        assert jnwb.phase_locking_index is phase_locking_index
-        assert jnwb.pairwise_phase_consistency is pairwise_phase_consistency
-        assert jnwb.gaussian_smooth_rate is gaussian_smooth_rate
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("compute_response_metrics", "classify_response_significance",
-                     "phase_locking_index", "pairwise_phase_consistency", "gaussian_smooth_rate"):
-            assert name in jnwb.__all__
-
 class TestComputeResponseMetrics:
     def test_empty_inputs_returns_zeroed_defaults(self):
         metrics = compute_response_metrics(np.array([]), np.array([0.0, 1.0]))

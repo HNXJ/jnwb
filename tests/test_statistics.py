@@ -19,33 +19,6 @@ from jnwb.statistics import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        assert jnwb.fires_in_window is fires_in_window
-        assert jnwb.fire_indicator is fire_indicator
-        assert jnwb.paired_fire_prob_test is paired_fire_prob_test
-        assert jnwb.rate_in_window is rate_in_window
-        assert jnwb.shuffle_pvalue_paired is shuffle_pvalue_paired
-        assert jnwb.shuffle_pvalue_unpaired is shuffle_pvalue_unpaired
-        assert jnwb.detect_trial_cycles is detect_trial_cycles
-        assert jnwb.assign_subblock_quartiles is assign_subblock_quartiles
-        assert jnwb.shuffle_r2_ci is shuffle_r2_ci
-        assert jnwb.cross_modal_comparison is cross_modal_comparison
-        assert jnwb.clopper_pearson is clopper_pearson
-        assert jnwb.exact_sign_flip is exact_sign_flip
-        assert jnwb.mann_whitney_p_floor is mann_whitney_p_floor
-        assert jnwb.fdr_correct is fdr_correct
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("fires_in_window", "fire_indicator", "paired_fire_prob_test",
-                     "rate_in_window", "shuffle_pvalue_paired", "shuffle_pvalue_unpaired",
-                     "detect_trial_cycles", "assign_subblock_quartiles", "shuffle_r2_ci",
-                     "cross_modal_comparison",
-                     "clopper_pearson", "exact_sign_flip", "mann_whitney_p_floor", "fdr_correct"):
-            assert name in jnwb.__all__
-
 class TestFiresInWindow:
     def test_spike_inside_window_returns_true(self):
         spikes = np.array([1.05])

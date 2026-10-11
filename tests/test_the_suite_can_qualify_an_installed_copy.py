@@ -174,7 +174,7 @@ def test_every_example_guard_stands_aside_for_a_deliberate_installed_run() -> No
     Not a text search for the variable name: the comment above the guard names it too, so a
     guard stripped back to `if (_CHECKOUT / "jnwb").exists()` would still match the string.
     """
-    assert len(EXAMPLES) == 11, f"{len(EXAMPLES)} examples found, expected 11"
+    assert len(EXAMPLES) == 12, f"{len(EXAMPLES)} examples found, expected 12"
     for example in EXAMPLES:
         tree = ast.parse(example.read_text(encoding="utf-8"))
         guards = [

@@ -79,7 +79,7 @@ that estimates it and pass the result in. Signatures are on [Public API](api.md)
 ## WaveMAP display
 
 `plot_wavemap` draws one `WaveMAPResult` from `jnwb.wavemap`: the 2-d UMAP embedding, one trace
-per cluster (panel A), and each cluster's mean of the normalized waveforms in the same colour
+per cluster (panel A), and each cluster's mean of the normalized waveforms in the same color
 (panel B). It takes no canvas and is called as `plot_wavemap(result, waveforms)`; `layout` and
 `height_mm` are keyword-only options. It builds a one-row, two-panel canvas and returns it, so the
 figure is written with `canvas.fig` or sealed with `save_and_seal`. The mean is the only value

@@ -45,6 +45,7 @@ VIS_EXPORTS = [
     "hierarchy",
     "spectral",
     "state_space",
+    "wavemap",
     "plot_spectrolaminar_map",
     "plot_opposing_gradients",
     "plot_csd",
@@ -55,6 +56,7 @@ VIS_EXPORTS = [
     "plot_granger_spectra",
     "plot_decoding_timecourse",
     "plot_rsm_heatmap",
+    "plot_wavemap",
 ]
 
 
@@ -90,17 +92,9 @@ def test_colorbar_title_names_the_quantity_and_the_unit_is_written_once(panel):
 
 
 @pytest.mark.parametrize("panel", COLORBAR_PANELS, ids=PANEL_IDS)
-@pytest.mark.parametrize("title", ["CSD (A/m³)", "Rate in A/m³"])
-def test_colorbar_title_that_names_the_unit_is_refused(panel, title):
-    canvas = _canvas()
-    with pytest.raises(ValueError, match="colorbar_title"):
-        panel(canvas, title)
-    assert len(canvas.fig.data) == 0  # refused before anything is drawn
-
-
-@pytest.mark.parametrize("panel", COLORBAR_PANELS, ids=PANEL_IDS)
-@pytest.mark.parametrize("title", ["", "   "])
-def test_blank_colorbar_title_is_refused(panel, title):
+@pytest.mark.parametrize("title", ["CSD (A/m³)", "Rate in A/m³", "", "   "],
+                         ids=["unit_csd", "unit_rate", "blank", "spaces"])
+def test_colorbar_title_that_names_the_unit_or_is_blank_is_refused(panel, title):
     canvas = _canvas()
     with pytest.raises(ValueError, match="colorbar_title"):
         panel(canvas, title)

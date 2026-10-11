@@ -2,7 +2,7 @@
 jnwb.vis.wavemap -- The WaveMAP display: the embedding by cluster beside each cluster's mean waveform.
 
 - ``plot_wavemap``: panel A is the 2-d UMAP embedding of a `jnwb.wavemap` result, one trace per
-  cluster; panel B is each cluster's mean of the normalized waveforms, in the same colour.
+  cluster; panel B is each cluster's mean of the normalized waveforms, in the same color.
 """
 
 from __future__ import annotations
@@ -26,13 +26,13 @@ def _colour(cluster: int) -> str:
 
 def plot_wavemap(result: WaveMAPResult, waveforms, *, layout: str = "1.5col",
                  height_mm: float = 80.0) -> PlotlyPublicationCanvas:
-    """Draw a WaveMAP result: the embedding coloured by cluster, and each cluster's mean waveform.
+    """Draw a WaveMAP result: the embedding colored by cluster, and each cluster's mean waveform.
 
     Call it as ``plot_wavemap(result, waveforms)``; ``layout`` and ``height_mm`` are keyword-only.
 
     Panel A (``tags`` "A") scatters ``result.embedding`` by ``result.labels``. Panel B (``B``)
     draws, for each cluster, the mean over its units of ``normalize_waveforms(waveforms)``, in the
-    colour of the cluster in panel A. The mean is the only value computed here; the embedding
+    color of the cluster in panel A. The mean is the only value computed here; the embedding
     and the labels are the result's.
 
     Args:

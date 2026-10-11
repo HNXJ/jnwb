@@ -6,53 +6,24 @@ from jnwb.onset_fitting import causal_exp_smooth, fit_exponential_onset, onset_m
 from jnwb.statistics import StatisticalAnalysis
 
 class TestOnsetBoundStatus:
-    def test_onset_lower_bound_censored(self):
+    @pytest.mark.parametrize("t0,status,expected_t0,atol", [
+        pytest.param(-50.0, "lower", 0.0, 1e-3, id="test_onset_lower_bound_censored"),
+        pytest.param(450.0, "upper", 400.0, 1e-3, id="test_onset_upper_bound_censored"),
+        pytest.param(100.0, None, 100.0, 1e-1, id="test_onset_interior_unconstrained"),
+        pytest.param(0.0, "lower", 0.0, 1e-3, id="test_onset_exactly_at_lower_bound"),
+        pytest.param(400.0, "upper", 400.0, 1e-3, id="test_onset_exactly_at_upper_bound"),
+        pytest.param(25.0, None, 25.0, 1e-1, id="test_onset_just_above_lower_bound"),
+    ])
+    def test_onset_bound_status(self, t0, status, expected_t0, atol):
         t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=-50.0, tau=30.0, amplitude=20.0, baseline=5.0)
+        rate = onset_model(t, t0=t0, tau=30.0, amplitude=20.0, baseline=5.0)
         fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
         assert fit["converged"] is True
-        assert fit["bound_status"] == "lower"
-        assert np.isclose(fit["t0"], 0.0, atol=1e-3)
-
-    def test_onset_upper_bound_censored(self):
-        t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=450.0, tau=30.0, amplitude=20.0, baseline=5.0)
-        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
-        assert fit["converged"] is True
-        assert fit["bound_status"] == "upper"
-        assert np.isclose(fit["t0"], 400.0, atol=1e-3)
-
-    def test_onset_interior_unconstrained(self):
-        t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=100.0, tau=30.0, amplitude=20.0, baseline=5.0)
-        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
-        assert fit["converged"] is True
-        assert fit["bound_status"] is None
-        assert np.isclose(fit["t0"], 100.0, atol=1e-1)
-
-    def test_onset_exactly_at_lower_bound(self):
-        t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=0.0, tau=30.0, amplitude=20.0, baseline=5.0)
-        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
-        assert fit["converged"] is True
-        assert fit["bound_status"] == "lower"
-        assert np.isclose(fit["t0"], 0.0, atol=1e-3)
-
-    def test_onset_exactly_at_upper_bound(self):
-        t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=400.0, tau=30.0, amplitude=20.0, baseline=5.0)
-        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
-        assert fit["converged"] is True
-        assert fit["bound_status"] == "upper"
-        assert np.isclose(fit["t0"], 400.0, atol=1e-3)
-
-    def test_onset_just_above_lower_bound(self):
-        t = np.arange(-100.0, 500.0, 5.0)
-        rate = onset_model(t, t0=25.0, tau=30.0, amplitude=20.0, baseline=5.0)
-        fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 400.0))
-        assert fit["converged"] is True
-        assert fit["bound_status"] is None
-        assert np.isclose(fit["t0"], 25.0, atol=1e-1)
+        if status is None:
+            assert fit["bound_status"] is None
+        else:
+            assert fit["bound_status"] == status
+        assert np.isclose(fit["t0"], expected_t0, atol=atol)
 
     def test_fitted_keys_and_values_preserved(self):
         t = np.arange(-100.0, 500.0, 5.0)
