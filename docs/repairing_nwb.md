@@ -55,8 +55,7 @@ verified file. `in_place=True` with a `backup_path` replaces the input instead, 
 verified copy and an atomic `os.replace`; the backup holds the old index. A new `output_path` is
 claimed exclusively just before the move, so a file that appears there meanwhile is refused. A
 dry run writes nothing and ignores `backup_path`. A failure at any step
-leaves the input byte-identical. The refusal is the useful behavior: a file that is wrong in a
-different way stays unchanged and reported.
+leaves the input byte-identical, so a file wrong in another way stays unchanged and reported.
 
 **Also check:** a ragged column whose data and `_index` exist but whose name is missing from the
 table's `colnames` attribute is hidden by pynwb (`units["spike_times"]` raises `KeyError`).
@@ -92,9 +91,9 @@ with each verdict for the caller's own join against the electrodes table; the ch
 uses it. The check repairs and reassigns nothing:
 a match is evidence, not proof, and `report.ok` holds only when every unit is owned.
 
-When the median ratio of amplitude to largest block peak-to-peak is 1000 or more, or 1/1000 or
-less, the check raises `ValueError` for a unit mismatch (microvolts against volts, say) and
-judges no unit.
+When the median ratio of amplitude to largest block peak-to-peak, over units with a nonzero
+amplitude and a finite, nonflat block, is 1000 or more, or 1/1000 or less, the check raises
+`ValueError` for a unit mismatch (microvolts against volts, say) and judges no unit.
 
 ## Units schema across sessions
 

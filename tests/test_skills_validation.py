@@ -2023,7 +2023,9 @@ _REFERENCED_METHODS = (
     "cone of influence", "Welch", "multitaper", "Morlet", "aperiodic",
 )
 #: A sentence that says what a method measures or what it equals.
-_DEFINES = re.compile(r"\b(?:measures?|is defined|are defined|equals?|is the|are the)\b", re.I)
+_DEFINES = re.compile(
+    r"\b(?:measures?|is defined|are defined|equals?|is the|are the|gives|quantif(?:y|ies)|estimates)\b",
+    re.I)
 #: A formula written out in `$` math, the form a definition takes on the page.
 _FORMULA = re.compile(r"\$[^$]+\$")
 #: The two skills whose safeguards section is held to the reference rule.
@@ -2088,6 +2090,11 @@ class TestSafeguardsPointToTheReferenceRow:
 
     def test_the_check_flags_a_planted_definition(self):
         planted = "Granger causality measures temporal-lag asymmetry under an observational model."
+        assert _restated_definitions(planted) == [planted]
+
+    @pytest.mark.parametrize("verb", ["gives", "quantifies", "estimates"])
+    def test_the_check_flags_each_defining_verb(self, verb):
+        planted = f"Granger causality {verb} temporal-lag asymmetry under an observational model."
         assert _restated_definitions(planted) == [planted]
 
     def test_the_check_passes_a_pointer(self):
