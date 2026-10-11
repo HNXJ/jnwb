@@ -878,3 +878,86 @@ class TestCheckWaveformBlocksDense:
             del handle["units/amplitude"]
         with pytest.raises(KeyError, match="amplitude"):
             check_waveform_blocks(bare, rtol=1e-9)
+
+
+def _largest_ptp(path, table="units"):
+    """Each unit's largest channel peak-to-peak, read back from the blocks the check reads.
+    The fixtures assert their amplitude ratio with it, so the precondition is the file's."""
+    with h5py.File(path, "r") as handle:
+        g = handle[table]
+        wm = g["waveform_mean"][()]
+        if "waveform_mean_index" in g:
+            idx = g["waveform_mean_index"][()].astype(np.int64)
+            starts = np.concatenate(([0], idx[:-1]))
+            blocks = [wm[s:e] for s, e in zip(starts, idx)]
+        else:
+            blocks = [wm[i].T for i in range(wm.shape[0])]
+    return np.array([np.ptp(b, axis=1).max() for b in blocks])
+
+
+class TestCheckWaveformBlocksUnits:
+    """An amplitude in another unit than the blocks is refused, not reported as every unit
+    unowned. The refusal reads the median, over the usable units, of the amplitude over the
+    block's largest peak-to-peak; each fixture sets that ratio and asserts it first."""
+
+    @pytest.mark.parametrize("factor", [1e6, 1e-6], ids=["times-1e6", "times-1e-6"])
+    def test_dense_amplitude_in_another_unit_is_refused(self, tmp_path, factor):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "dense.nwb", _dense_stack(),
+                            amps=tuple(a * factor for a in _DENSE_AMPS))
+        with h5py.File(path, "r") as handle:
+            amps = handle["units/amplitude"][()]
+        np.testing.assert_allclose(amps / _largest_ptp(path), factor, rtol=1e-9)
+        with pytest.raises(ValueError, match="unit mismatch"):
+            check_waveform_blocks(path, rtol=1e-9)
+
+    @pytest.mark.parametrize("factor", [1e6, 1e-6], ids=["times-1e6", "times-1e-6"])
+    def test_ragged_amplitude_in_another_unit_is_refused(self, tmp_path, factor):
+        from jnwb import check_waveform_blocks
+
+        path = _w27_write(tmp_path / "ragged.nwb")
+        with h5py.File(path, "a") as handle:
+            handle["units/amplitude"][...] = np.asarray(_W27_AMPS) * factor
+        with h5py.File(path, "r") as handle:
+            amps = handle["units/amplitude"][()]
+        np.testing.assert_allclose(amps / _largest_ptp(path), factor, rtol=1e-9)
+        with pytest.raises(ValueError, match="unit mismatch"):
+            check_waveform_blocks(path, rtol=1e-9)
+
+    @pytest.mark.parametrize("factor", [999.0, 1 / 999], ids=["times-999", "times-1-over-999"])
+    def test_a_ratio_inside_the_bound_is_not_refused(self, tmp_path, factor):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "near.nwb", _dense_stack(),
+                            amps=tuple(a * factor for a in _DENSE_AMPS))
+        with h5py.File(path, "r") as handle:
+            amps = handle["units/amplitude"][()]
+        np.testing.assert_allclose(amps / _largest_ptp(path), factor, rtol=1e-9)
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unowned"] * 4
+
+    def test_most_amplitudes_nan_with_the_rest_agreeing_is_not_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        blocks = np.stack([_dense_block(a, c) for a, c in
+                           zip((25.0, 40.0, 55.0, 70.0, 85.0), (0, 2, 1, 2, 0))])
+        nan = float("nan")
+        path = _dense_write(tmp_path / "mostly_nan.nwb", blocks,
+                            amps=(nan, nan, nan, 70.0, 85.0))
+        with h5py.File(path, "r") as handle:
+            amps = handle["units/amplitude"][()]
+        assert np.isnan(amps).sum() > amps.size / 2
+        np.testing.assert_allclose(amps[3:] / _largest_ptp(path)[3:], 1.0, rtol=1e-9)
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unknown"] * 3 + ["owned"] * 2
+
+    def test_a_two_dimensional_dense_block_names_the_electrodes_axis(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        flat = _dense_write(tmp_path / "flat2d.nwb", _dense_stack().reshape(4, -1))
+        with h5py.File(flat, "r") as handle:
+            assert handle["units/waveform_mean"].ndim == 2
+            assert "waveform_mean_index" not in handle["units"]
+        with pytest.raises(ValueError, match="electrodes axis"):
+            check_waveform_blocks(flat, rtol=1e-9)

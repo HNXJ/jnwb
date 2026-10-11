@@ -503,7 +503,10 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
         (non-integer, negative, decreasing, or out of bounds), or ``waveform_mean`` is not a
         2-D array of ``(channel, sample)`` blocks. Without one, ``waveform_mean`` is not a
         3-D ``(unit, sample, channel)`` array, or its first axis is not the number of units,
-        which is the length of ``amplitude``.
+        which is the length of ``amplitude``. The median, over the units whose amplitude is
+        finite and nonzero and whose block is finite with a nonzero peak-to-peak, of the
+        amplitude over the block's largest channel peak-to-peak is 1000 or more, or 1/1000
+        or less: the amplitude and the blocks are in different units, and no unit is judged.
     TypeError
         ``rtol`` or ``atol`` is ``None``, a boolean or not a real number.
 
@@ -537,8 +540,8 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
         wm, amp_ds = g["waveform_mean"], g["amplitude"]
         if dense and wm.ndim != 3:
             raise _refuse(f"waveform_mean has shape {wm.shape} with no waveform_mean_index; "
-                          "a dense mean-waveform array is (units, samples, channels) in NWB "
-                          "schema order, so these blocks cannot be attributed")
+                          "the dense layout needs the electrodes axis (units, samples, channels) "
+                          "in NWB schema order, so these blocks cannot be attributed")
         if not dense and wm.ndim != 2:
             raise _refuse(f"waveform_mean has shape {wm.shape}; a mean-waveform block "
                           "is (channels, samples), so these rows cannot be attributed")
@@ -581,6 +584,7 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
             starts = np.zeros(0, dtype=np.int64) if n == 0 else np.concatenate(
                 ([0], idx[:-1])).astype(np.int64)
         units = []
+        ratios = []  # |amplitude| over the largest peak-to-peak, for each usable unit
         for i in range(n):
             # Rows are channels in both layouts: a dense (sample, channel) block is transposed.
             block = wm[i].T if dense else wm[starts[i]:idx[i]]
@@ -594,10 +598,20 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
                     i, int(uid), "unknown", None, None, 0, a, None, prow))
                 continue
             ptp = block.max(axis=1) - block.min(axis=1)
+            if a != 0 and np.isfinite(block).all() and ptp.max() > 0:
+                ratios.append(abs(a) / float(ptp.max()))
             dev = np.abs(ptp - a)
             limit = atol + rtol * abs(a)
             matched = next((j for j in range(n_rows) if dev[j] <= limit), None)
             units.append(WaveformBlockCheck(
                 i, int(uid), "owned" if matched is not None else "unowned", matched,
                 int(np.argmax(ptp)), n_rows, a, float(dev.min()), prow))
+        if ratios:
+            median = float(np.median(ratios))
+            if median >= 1000 or median <= 1 / 1000:
+                raise _refuse(
+                    "the median ratio of stored amplitude to largest block peak-to-peak is "
+                    f"{median:.3g} over {len(ratios)} usable units, outside 1/1000 to 1000: "
+                    "a unit mismatch between amplitude and waveform_mean, for example "
+                    "microvolts against volts. No unit was judged.")
     return WaveformBlockReport(path.name, table, n, rtol, atol, tuple(units))

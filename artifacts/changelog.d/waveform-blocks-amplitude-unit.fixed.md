@@ -1,0 +1,1 @@
+- `jnwb.check_waveform_blocks` raises `ValueError` naming a unit mismatch when the median ratio of stored `amplitude` to largest block peak-to-peak is 1000 or more, or 1/1000 or less; it used to report every unit unowned in that case. A 2-D dense `waveform_mean` is still refused, now with a message that names the electrodes axis. Files whose units agree keep their results.

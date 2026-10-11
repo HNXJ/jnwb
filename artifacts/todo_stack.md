@@ -41,7 +41,6 @@ lines.
 
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
-| W waveform provenance | 11-41 | 0.5 h; in review | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 | C interpreter legs | 11-44 | 1 h; in progress, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py` |
 | G pitfalls and skill sources | 10-12, 11-29 | 3 h | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | P skills composition | 07-08, 07-09 | 7 h; 07-09 needs 07-08 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
@@ -50,14 +49,6 @@ lines.
 
 The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 2026-10-10
 (`artifacts/rulings/2026-10-10.md`). ETAs are estimates of wall time with one worker per lane.
-
-### 11-41 `check_waveform_blocks` reports every unit unowned when the amplitude's unit differs from the blocks'
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `artifacts/changelog.d/waveform-blocks-amplitude-unit.fixed.md`, `skills/jnwb-nwb-data/SKILL.md`, `docs/repairing_nwb.md`.
-- On all 22 frozen files the stored `amplitude` is in microvolts and the blocks in volts, so every unit reads unowned (`artifacts/evidence/0.2.11/frozen-waveform-disposition.md` section 3); and a 2-D dense `waveform_mean` (units, samples), which the NWB schema allows, is refused as unattributable. Check: a fixture with amplitude 1e6 times the blocks' scale raises `ValueError` naming a unit mismatch (ruled 2026-10-11: median ratio of stored amplitude to block peak-to-peak off by a factor of 1000 or more; no new parameter), and the 2-D case is read as one row per unit or refused naming the missing electrodes axis.
-Accept: both fixtures pass and the ragged and 3-D dense results are unchanged. Stop: a file whose units agree changes result.
 
 ### 11-44 Python 3.15 is tested but not declared
 

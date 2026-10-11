@@ -96,6 +96,11 @@ with each verdict for the caller's own join against the electrodes table; the ch
 uses it, since a block row is not a channel id. The check repairs and reassigns nothing:
 a match is evidence, not proof, and `report.ok` holds only when every unit is owned.
 
+An `amplitude` stored in another unit than the blocks, such as microvolts against volts, is
+refused with a `ValueError` naming a unit mismatch when the median, over the units with a finite
+nonzero amplitude and a finite block, of the amplitude over the block's largest channel
+peak-to-peak is 1000 or more, or 1/1000 or less; that refusal judges no unit.
+
 ## Units schema across sessions
 
 Pooling units from several files needs the same columns, dtypes and index layout. Before
