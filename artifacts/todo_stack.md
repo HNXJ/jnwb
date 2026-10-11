@@ -42,7 +42,8 @@ lines.
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
 | C interpreter legs | 11-44 | 0.5 h at the 0.2.11 version bump, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py` |
-| D display, documentation and unit measures | 10-15 | 6 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| D unit measures | 10-15 | 6 h | `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`, `docs/references.md`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| W WaveMAP display | 11-45 | 4 h | `jnwb/vis/**`, `tests/test_vis*.py`, `examples/tutorials/10_wavemap.py`, `tests/test_tutorials.py`, `docs/vis.md` |
 | Y identity facts | 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 16 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 
 The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 2026-10-10
@@ -60,10 +61,18 @@ Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop:
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
-Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
+Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`, `docs/references.md`.
+Ruled 2026-10-11: all four public, each in the form AllenInstitute `ecephys_spike_sorting` implements. Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
 - Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each is a public operation by its published definition with a `docs/references.md` row, or a ruled exclusion recorded in `artifacts/evidence/0.2.9/unit_qc_inventory.md`. Waits: new capability, not a defect.
-Accept: the check passes. Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
+Accept: the check passes. Stop: a definition the Allen code and the paper state differently.
+
+### 11-45 A WaveMAP result has a figure and a tutorial
+
+Release: deferred-0.2.11.
+Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
+Writes: `jnwb/vis/**`, `tests/test_vis*.py`, `examples/tutorials/10_wavemap.py`, `tests/test_tutorials.py`, `docs/vis.md`.
+- Ruled 2026-10-11: `jnwb.wavemap` returns a `WaveMAPResult` that nothing draws and no tutorial runs. Check: a `jnwb.vis` function draws the embedding coloured by cluster beside each cluster's mean normalized waveform from that result, refuses a result whose labels do not match the waveforms, and `tests/test_tutorials.py` runs the tutorial on the DANDI 000253 excerpt. Waits: new display, no estimator.
+Accept: the check passes. Stop: the excerpt holds no mean waveforms, or the figure needs a value the result does not carry.
 
 ### 11-09 A planned skill is reported only when K1 and K5 hold for it
 
