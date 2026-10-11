@@ -801,3 +801,66 @@ class TestTheTagPushCreatesTheRelease:
         assert "from scripts.release_gate import" in source, source[:400]
         for name in ("check_release_body_claims", "release_metadata"):
             assert re.search(rf"^\s+{name},$", source, re.M), name
+
+
+class TestPython315LegIsNonBlocking:
+    """The Python 3.15 leg reports without gating anything. h5py publishes no cp315 wheel, so the
+    leg builds it from source and can fail for reasons outside this repository.
+
+    What keeps it non-blocking: `continue-on-error` on the job, no job waits on it, an `if:` that
+    keeps it off tag pushes and out of the release gate's required set, and a name no other job
+    shares. What would pass while that is broken: a `needs:` on the leg, a leg in the test matrix
+    (the required count grows), or a leg that runs on a tag push.
+    """
+
+    JOB = "test-py315"
+
+    @classmethod
+    def _job(cls):
+        jobs = _load_workflow()["jobs"]
+        assert cls.JOB in jobs, f"no {cls.JOB} job in the workflow"
+        return jobs[cls.JOB]
+
+    def test_the_leg_cannot_fail_the_run(self):
+        assert self._job().get("continue-on-error") is True, self._job().get("continue-on-error")
+
+    def test_no_job_waits_on_the_leg(self):
+        for jid, job in _load_workflow()["jobs"].items():
+            needs = job.get("needs") or []
+            needs = [needs] if isinstance(needs, str) else needs
+            assert self.JOB not in needs, (jid, needs)
+
+    def test_the_leg_is_not_run_on_tag_pushes(self):
+        condition = " ".join(str(self._job().get("if", "")).split())
+        assert condition == "!startsWith(github.ref, 'refs/tags/')", condition
+
+    def test_the_release_gate_does_not_require_the_leg(self):
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import required_ci_jobs
+
+        assert self._job()["name"] not in required_ci_jobs(root=REPO_ROOT)
+
+    def test_the_leg_is_one_ubuntu_job_on_python_315_with_prereleases(self):
+        job = self._job()
+        assert job["runs-on"] == "ubuntu-latest", job["runs-on"]
+        assert "strategy" not in job, job.get("strategy")
+        setup = [s for s in job["steps"] if "setup-python" in str(s.get("uses", ""))]
+        assert len(setup) == 1, setup
+        assert setup[0]["with"] == {"python-version": "3.15", "allow-prereleases": True}, (
+            setup[0]["with"])
+
+    def test_the_leg_runs_the_blocking_legs_pytest_command_with_the_same_gates(self):
+        step = next(s for s in self._job()["steps"] if s.get("name") == "Run pytest")
+        assert "python scripts/ci_pytest.py tests/" in str(step["run"]), step["run"]
+        assert step["env"]["JNWB_REQUIRE_BROWSER"] == "1", step["env"]
+        assert step["env"]["JNWB_REQUIRE_FIGURE_COMPARISON"] == "0", step["env"]
+
+    def test_the_hdf5_headers_are_installed_before_pip_builds_h5py(self):
+        steps = self._job()["steps"]
+        apt = [i for i, s in enumerate(steps) if "apt-get install" in str(s.get("run", ""))]
+        install = [i for i, s in enumerate(steps) if "pip install" in str(s.get("run", ""))]
+        assert len(apt) == 1 and len(install) == 1 and apt[0] < install[0], (apt, install)
+        assert "libhdf5-dev" in steps[apt[0]]["run"], steps[apt[0]]["run"]

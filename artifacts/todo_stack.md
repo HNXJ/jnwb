@@ -178,15 +178,13 @@ Writes: `artifacts/fact_stack.md`, `artifacts/todo_stack.md`.
 - S9 to S14, K4, I2 and I3 cite `todo:09-04` or `todo:10-10` though no bullet of those items names them (renaming 09-04 makes the fact gate report VIOLATED 8). Check: each such fact's holder names an item whose bullet states that fact's work. Waits: holder cells belong to Hamm; edit only with his authorisation.
 Accept: each such holder names an item whose bullet states that fact's work. Stop: a holder cell would change without Hamm's authorisation.
 
-### 11-41 The frozen files with misordered waveform blocks are not dispositioned
+### 11-41 `check_waveform_blocks` reports every unit unowned when the amplitude's unit differs from the blocks'
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
-Writes: `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `artifacts/changelog.d/waveform-blocks-dense-layout.added.md`, `skills/jnwb-nwb-data/SKILL.md`, `docs/repairing_nwb.md`.
-- A 2-D dense `waveform_mean` (units, samples), one channel per unit and allowed by the NWB schema, is refused with a message saying its blocks cannot be attributed. Check: it is read as one row per unit, or refused with a message that names the missing electrodes axis.
-- Ruled 2026-10-10: `check_waveform_blocks` reads a dense `(units, samples, channels)` `waveform_mean` with the same amplitude rule, and inputs it reads today keep their results; every frozen file raises `KeyError` on `waveform_mean_index` today. V182o hardware-channel-0 units (the consumer's JNWB-015 record) are their own class, reported apart from unowned blocks. Check: a dense fixture with one misordered block is reported unowned, and the indexed fixtures' results are unchanged.
-- Issue #27 closed with `check_waveform_blocks` as the detection tool, but no record in this repo says which frozen files hold misordered blocks or what each file's verdict was; the prior audit's worktree is inaccessible, so the scope is re-derived from disk. Check: the evidence file lists every frozen file checked with its owned/unowned/unknown counts, and each unowned file is repaired, flagged, or awaiting a ruling. Waits: detection only; the check moves nothing.
-Accept: every frozen file in the re-derived scope has a row. Stop: a repair or relabel needs a ruling.
+Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `artifacts/changelog.d/waveform-blocks-amplitude-unit.fixed.md`, `skills/jnwb-nwb-data/SKILL.md`, `docs/repairing_nwb.md`.
+- On all 22 frozen files the stored `amplitude` is in microvolts and the blocks in volts, so every unit reads unowned (`artifacts/evidence/0.2.11/frozen-waveform-disposition.md` section 3); and a 2-D dense `waveform_mean` (units, samples), which the NWB schema allows, is refused as unattributable. Check: a fixture with amplitude 1e6 times the blocks' scale gets the behaviour Hamm rules (a refusal, a scale keyword, or a documented limit), and the 2-D case is read as one row per unit or refused naming the missing electrodes axis. Waits: the amplitude choice is public API.
+Accept: both fixtures pass and the ragged and 3-D dense results are unchanged. Stop: the ruling is not given.
 
 ### 11-44 No CI leg runs Python 3.15
 
