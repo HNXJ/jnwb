@@ -69,11 +69,9 @@ fix is rewriting the file with a wider integer type, not editing the index.
 
 ## Waveform block ownership
 
-A unit's `waveform_mean` block is sliced from the flat data by `waveform_mean_index`, or,
-in a dense table with no index, is `waveform_mean[unit]` of shape
-`(units, samples, channels)`, the NWB schema order. Nothing ties the block to the unit: a
-file whose blocks are stored out of unit order reads another unit's block through pynwb
-with no warning. `check_waveform_blocks` compares each block's row amplitudes against the
+A unit's `waveform_mean` block is sliced by `waveform_mean_index`, or, with no index, is
+`waveform_mean[unit]` of shape `(units, samples, channels)`. Nothing ties the block to the
+unit: blocks stored out of unit order read as another unit's through pynwb, silently. `check_waveform_blocks` compares each block's row amplitudes against the
 unit's stored `amplitude`:
 
 ```python
@@ -83,8 +81,6 @@ report = jnwb.check_waveform_blocks("session.nwb", rtol=1e-6)
 print(report.n_owned, report.n_unowned, report.n_unknown)
 ```
 
-A unit is `owned` when some row's peak-to-peak matches within tolerance:
-
 | Verdict | Meaning |
 |---|---|
 | `owned` | some row's peak-to-peak matches within tolerance |
@@ -93,13 +89,12 @@ A unit is `owned` when some row's peak-to-peak matches within tolerance:
 
 `rtol` is required because no tolerance suits every writer. `peak_channel_id` travels
 with each verdict for the caller's own join against the electrodes table; the check never
-uses it, since a block row is not a channel id. The check repairs and reassigns nothing:
+uses it. The check repairs and reassigns nothing:
 a match is evidence, not proof, and `report.ok` holds only when every unit is owned.
 
-An `amplitude` stored in another unit than the blocks, such as microvolts against volts, is
-refused with a `ValueError` naming a unit mismatch when the median, over the units with a finite
-nonzero amplitude and a finite block, of the amplitude over the block's largest channel
-peak-to-peak is 1000 or more, or 1/1000 or less; that refusal judges no unit.
+When the median ratio of amplitude to largest block peak-to-peak is 1000 or more, or 1/1000 or
+less, the check raises `ValueError` for a unit mismatch (microvolts against volts, say) and
+judges no unit.
 
 ## Units schema across sessions
 

@@ -42,7 +42,6 @@ lines.
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
 | C interpreter legs | 11-44 | 1 h; in progress, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py` |
-| G pitfalls and skill sources | 10-12, 11-29 | 3 h | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
 | P skills composition | 07-08, 07-09 | 7 h; 07-09 needs 07-08 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | D display, documentation and unit measures | 10-14, 11-20, 10-15 | 11 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | Y identity facts | 11-08, 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 18 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
@@ -57,22 +56,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`.
 - Ruled 2026-10-11: the non-blocking 3.15 leg passed (dev run 38121481816), so 3.15 joins the blocking matrix on Ubuntu (h5py built against the system HDF5) and the classifiers, with gate 8 unchanged; Windows 3.15 waits for h5py cp315 wheels. Check: gate 8 passes with 3.15 in `PYTHON_SUPPORTED` and `PYTHON_CI_REQUIRED`, the non-blocking job is gone, and the README's tested versions match the matrix.
 Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop: a dependency pin would change a supported version.
-
-### 10-12 Each connectivity and spectral safeguard names its `docs/references.md` row
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
-- Each connectivity and spectral safeguard restates its method instead of naming its `docs/references.md` row. Check: the line test in `tests/test_skills_validation.py` finds no restated definition. Waits: pointers only.
-Accept: the line test in `tests/test_skills_validation.py` finds no restated definition; routing rows still match signatures and the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
-
-### 11-29 A request for published nonparametric Granger values meets a statement of the estimator difference
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
-- A request to compare with published nonparametric Granger values meets no statement of the estimator difference. Check: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification. Waits: skill text only.
-Accept: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification; routing rows still match signatures and the summed skill length does not grow. Stop: none.
 
 ### 07-08 The router composes the minimal skill set a task needs
 
