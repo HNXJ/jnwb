@@ -166,3 +166,27 @@ def test_a_wavemap_result_on_a_small_synthetic_set_draws_its_clusters():
     for k in range(result.n_clusters):
         np.testing.assert_allclose(drawn[k], normalized[result.labels == k].mean(axis=0),
                                    rtol=1e-12)
+
+
+@pytest.mark.parametrize("n_clusters", [8, 9, 12, 24])
+def test_every_cluster_keeps_its_own_colour_beyond_seven(n_clusters):
+    """More clusters than the 7 Nature accents: a static export has no hover text, so a reused
+    colour would merge two clusters in both panels (Lee et al. 2021 report 8)."""
+    labels = np.repeat(np.arange(n_clusters), 3)
+    waveforms = np.random.default_rng(2).standard_normal((labels.size, 48))
+    assert np.unique(labels).size > 7, "fixture must exceed the seven Nature accents"
+    canvas = plot_wavemap(_result(labels), waveforms)
+    colours = {}
+    for trace in canvas.fig.data:
+        colour = trace.marker.color if trace.xaxis == "x" else trace.line.color
+        colours.setdefault(trace.legendgroup, set()).add(colour)
+    assert len(colours) == n_clusters
+    assert all(len(c) == 1 for c in colours.values()), colours
+    assert len({next(iter(c)) for c in colours.values()}) == n_clusters, "clusters share a colour"
+
+
+def test_more_clusters_than_distinct_colours_is_refused():
+    labels = np.repeat(np.arange(25), 2)
+    waveforms = np.random.default_rng(3).standard_normal((labels.size, 48))
+    with pytest.raises(ValueError, match="25 clusters exceed the 24 distinct colors"):
+        plot_wavemap(_result(labels), waveforms)

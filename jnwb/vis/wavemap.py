@@ -8,11 +8,16 @@ jnwb.vis.wavemap -- The WaveMAP display: the embedding by cluster beside each cl
 from __future__ import annotations
 
 import numpy as np
+import plotly.colors
 import plotly.graph_objects as go
 
 from ..wavemap import WaveMAPResult, normalize_waveforms
 from .canvas import PlotlyPublicationCanvas
-from .theme import NATURE_ACCENTS, configure_axis
+from .theme import NATURE_ACCENTS, TOL_MUTED, configure_axis
+
+# The smallest palette that gives every cluster its own color; a static export has no hover text,
+# so a reused color would merge two clusters in both panels.
+_PALETTES = (NATURE_ACCENTS, TOL_MUTED, plotly.colors.qualitative.Dark24)
 
 
 def _layout_key(axis_name: str) -> str:
@@ -20,8 +25,13 @@ def _layout_key(axis_name: str) -> str:
     return f"{axis_name[0]}axis{axis_name[1:]}"
 
 
-def _colour(cluster: int) -> str:
-    return NATURE_ACCENTS[cluster % len(NATURE_ACCENTS)]
+def _palette(n_clusters: int) -> list:
+    """One distinct color per cluster, or ValueError when no palette holds that many."""
+    for palette in _PALETTES:
+        if n_clusters <= len(palette):
+            return list(palette)
+    raise ValueError(f"plot_wavemap: {n_clusters} clusters exceed the {len(_PALETTES[-1])} "
+                     "distinct colors available; cluster at a coarser resolution.")
 
 
 def plot_wavemap(result: WaveMAPResult, waveforms, *, layout: str = "1.5col",
@@ -49,8 +59,10 @@ def plot_wavemap(result: WaveMAPResult, waveforms, *, layout: str = "1.5col",
     Raises:
         ValueError: If ``result.embedding`` is None, if the result or `waveforms` holds no units,
             if ``len(result.labels)`` differs from the number of rows of `waveforms` or of
-            ``result.embedding``, or if a row has no finite normalized value (a NaN, an infinity or
-            a flat trace), which the mean would hide.
+            ``result.embedding``, if a row has no finite normalized value (a NaN, an infinity or
+            a flat trace), which the mean would hide, or if the clusters outnumber the 24
+            distinct colors (each cluster gets its own color: the Nature accents up to 7, Tol's
+            muted set up to 9, Plotly's Dark24 up to 24).
     """
     if result.embedding is None:
         raise ValueError("plot_wavemap: result.embedding is None; call wavemap(..., embedding=True) "
@@ -72,16 +84,18 @@ def plot_wavemap(result: WaveMAPResult, waveforms, *, layout: str = "1.5col",
         raise ValueError(f"plot_wavemap: result.embedding has {embedding.shape[0]} rows but "
                          f"result.labels has {labels.shape[0]} entries; the embedding needs one row "
                          "per label.")
+    clusters = np.unique(labels)
+    palette = _palette(clusters.size)
 
     canvas = PlotlyPublicationCanvas(layout=layout, height_mm=height_mm, rows=1, cols=2,
                                      tags=[["A", "B"]])
     x_emb, y_emb = canvas.get_axis_names(0, 0)
     x_mean, y_mean = canvas.get_axis_names(0, 1)
     n_samples = normalized.shape[1]
-    for k in np.unique(labels):
+    for i, k in enumerate(clusters):
         members = labels == k
         name = f"cluster {int(k)}"
-        colour = _colour(int(k))
+        colour = palette[i]
         canvas.fig.add_trace(go.Scatter(
             x=embedding[members, 0], y=embedding[members, 1], mode="markers", name=name,
             legendgroup=name, showlegend=False, marker=dict(color=colour, size=5),
