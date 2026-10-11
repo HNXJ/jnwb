@@ -11,7 +11,7 @@ synthetic test, every skill points to its sources and composes with the router, 
 documented call shapes are checked, and the identity and scientific-choice facts are held.
 
 Acceptance: `AGENTS.md` §11; the facts 10-10 and 09-04 hold use the ruled lexicons; the router
-composes the minimal skill set for each chain 07-09 tests; each published unit measure is a public
+composes the minimal skill set for each chain the composition tests run; each published unit measure is a public
 operation by its published definition or a ruled exclusion.
 
 Every item here carries `deferred-0.2.11`, the one deferred value `scripts/release_gate.py` accepts
@@ -41,9 +41,8 @@ lines.
 
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
-| C interpreter legs | 11-44 | 1 h; in progress, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py` |
-| P skills composition | 07-08, 07-09 | 7 h; 07-09 needs 07-08 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
-| D display, documentation and unit measures | 10-14, 11-20, 10-15 | 11 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| C interpreter legs | 11-44 | 0.5 h at the 0.2.11 version bump, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py` |
+| D display, documentation and unit measures | 11-20, 10-15 | 11 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | Y identity facts | 11-08, 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 18 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 
 The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 2026-10-10
@@ -52,35 +51,10 @@ The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 20
 ### 11-44 Python 3.15 is tested but not declared
 
 Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`.
-- Ruled 2026-10-11: the non-blocking 3.15 leg passed (dev run 38121481816), so 3.15 joins the blocking matrix on Ubuntu (h5py built against the system HDF5) and the classifiers, with gate 8 unchanged; Windows 3.15 waits for h5py cp315 wheels. Check: gate 8 passes with 3.15 in `PYTHON_SUPPORTED` and `PYTHON_CI_REQUIRED`, the non-blocking job is gone, and the README's tested versions match the matrix.
+Role: jnwb-developer. Skill: none. Blocked by: the 0.2.11 version bump.
+Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py`.
+- Ruled 2026-10-11: 3.15 joins the blocking matrix on Ubuntu and the classifiers, gate 8 unchanged; it waits for the version bump, since gate 8 refuses a tested version that is not declared and the release-body check refuses a classifier the 0.2.10 notes lack. Do: apply `artifacts/evidence/0.2.11/py315-blocking.patch` (matrix, exclude-aware `required_ci_jobs`, docs), add 3.15 to the classifiers and `PYTHON_SUPPORTED`. Check: gate 8 passes and the non-blocking job is gone.
 Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop: a dependency pin would change a supported version.
-
-### 07-08 The router composes the minimal skill set a task needs
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb. Blocked by: none.
-Writes: `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`.
-- 07-08: router section 2 maps each task phrase to one skill, so a multi-skill task reaches the first match. Check: a table of tasks and required skill sets passes in `tests/test_skill_router_reach.py`, with plotting supplied arrays reaching figures and QC, and a band comparison between conditions reaching paradigm, NWB data, spectral, statistics, figures and QC. Waits: router feature; no shipped behaviour changes.
-Accept: the check passes. Stop: a task needs a skill outside the fact stack's planned set.
-
-### 07-09 Composition tests cover the chains the router sequences
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: per chain. Blocked by: 07-08.
-Writes: `tests/test_composition_*.py`.
-- 07-09: no test composes two skills' operations in router order where each call is right and the order, an identifier or a substituted signal class is wrong. Check: the band-comparison task as one chain (the minimal base) in `tests/test_composition_*.py`; each chain runs on unequal dimensions, fails on the wrong composition and passes on the right one, and a chain correct today records its killing mutation in its docstring. Waits: new tests of new composition.
-Accept: the check passes. Stop: a chain is wrong today and its repair needs a path outside `Writes`.
-
-### 10-14 The documented call shapes are type-checked by an annotation oracle
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`.
-Split from the documentation-check item on 2026-10-04, which landed every other bullet.
-- P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Ruled 2026-10-04 (Hamm): an annotation oracle over literals and page-assigned names, plus a small table of argument types for names a page never assigns. Check: `tests/test_docs_call_shapes.py` fails the oracle on all three calls. Waits: the documented calls are already corrected; the oracle guards recurrence.
-Accept: the check passes. Stop: the oracle needs a type that no annotation or table entry states.
 
 ### 11-20 `Canvas.save_and_seal` loses no export on a loaded machine and an export error reaches the caller
 

@@ -24,6 +24,13 @@ Electrophysiology analysis in general: NWB processing, spike dynamics, time-freq
 | Quality control: unit-quality measures and classes, WaveMAP waveform clustering (`wavemap` extra), unit and electrode table audits, unit-quality plots, result records of what ran on which inputs | `jnwb-qc` |
 | Plotly multi-panel figures with SVG/PNG/HTML export and an argument sidecar (needs the `vis` extra) | `jnwb-landmark-viz` |
 
+A task that needs several skills takes its row here, which names the whole set in the order a chain runs it, not the first routing row it matches:
+
+| Multi-skill task | Skills, in order |
+|---|---|
+| Plotting supplied arrays | `jnwb-figures`, `jnwb-qc` |
+| Band comparison between conditions | `jnwb-nwb-data`, `jnwb-paradigm`, `jnwb-lfp-spectral`, `jnwb-statistics`, `jnwb-figures`, `jnwb-qc` |
+
 Before routing, check the plan:
 
 - `jnwb.preflight(question)`: Takes a `jnwb.Question` and returns a `Preflight` whose `outcome` is `"decline"` when `unsupported_inference` is stated, else `"request"` when `signals`, `signal_units`, `contrast` or `inference_unit` is empty (`missing` names each), else `"failure"` when `non_identifiable` is stated, else `"supported"`. `reason` says why and names the optional fields left empty.
