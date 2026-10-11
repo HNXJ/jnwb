@@ -1,21 +1,14 @@
-# 0.2.11
+# 0.2.12
 
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. This
-stack holds the current window only. Cycles 0.2.12 to 0.2.14 are one row per item in
-`artifacts/roadmap.md`, and the full text of each is in `artifacts/archive/0.2.10/todo_stack_0.2.10.md`,
-the stack as it stood when 0.2.10 closed. The previous cycle's record is
-`artifacts/archive/0.2.9/todo_stack_0.2.9.md`, with its closure receipt beside it.
+stack holds the current window only; the rest of 0.2.12 to 0.2.14 is one row per item in
+`artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.11
+closed on 2026-10-11 with every item done (`git log -- artifacts/todo_stack.md`).
 
-Theme: interpretation, routing and documentation hold: every interpretational pitfall has a
-synthetic test, every skill points to its sources and composes with the router, displays and
-documented call shapes are checked, and the identity and scientific-choice facts are held.
+Theme and acceptance: `artifacts/goal.md` and `AGENTS.md` §11, until Hamm rules the 0.2.12 theme.
 
-Acceptance: `AGENTS.md` §11; the router
-composes the minimal skill set for each chain the composition tests run; each published unit measure is a public
-operation by its published definition or a ruled exclusion.
-
-Every item here carries `deferred-0.2.11`, the one deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.10 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+Every item here carries `deferred-0.2.12`, the one deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.11 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -41,24 +34,13 @@ lines.
 
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
-| C interpreter legs | 11-44 | 0.5 h at the 0.2.11 version bump, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py` |
-| K reductions | 11-48 | 2 h, two worktrees (docs; tests) | the files each site names |
+| K docs reductions | 12-14 | 1 h: rebase `lane-k1` onto the release and rerun its checks | the files 12-14 names |
 
-The identity and scientific-choice facts (10-10, 11-06, 09-04, 11-32, 11-07) moved to 0.2.12 on
-2026-10-11 (`artifacts/rulings/2026-10-11.md`). ETAs are estimates of wall time with one worker per lane.
+### 12-14 The audit's docs and CHANGELOG reductions
 
-### 11-44 Python 3.15 is tested but not declared
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: the 0.2.11 version bump.
-Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py`.
-- Ruled 2026-10-11: 3.15 joins the blocking matrix on Ubuntu and the classifiers, gate 8 unchanged; it waits for the version bump, since gate 8 refuses a tested version that is not declared and the release-body check refuses a classifier the 0.2.10 notes lack. Do: apply `artifacts/evidence/0.2.11/py315-blocking.patch` (matrix, exclude-aware `required_ci_jobs`, docs), add 3.15 to the classifiers and `PYTHON_SUPPORTED`. Check: gate 8 passes and the non-blocking job is gone.
-Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop: a dependency pin would change a supported version.
-
-### 11-48 The compression audit's approved reductions
-
-Release: deferred-0.2.11.
+Release: deferred-0.2.12.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: per lane, named in `artifacts/rulings/2026-10-11.md` (compression row).
-- Approved 2026-10-11: (1) docs duplicates to pointers, stale `CONTRIBUTING.md` paths, the version-claim test reads `docs/**`; (2) CHANGELOG blocks 0.2.9, 0.2.8, 0.2.5, 0.2.4 and 0.1.0 to 0.1.7 to an archive; (3) the tutorial_00 cached runs and parametrized tables. Steps 4 and 6 moved to roadmap 12-13. Check: each lane's collected test count and every assertion survive, and the full suite and harness pass. Waits: no shipped number changes.
-Accept: the check passes. Stop: a cut would drop a fact, ruling or receipt a file cites, or change a public result.
+Writes: `README.md`, `CHANGELOG.md`, `docs/common_mistakes.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/documentation_form.md`, `docs/install.md`, `docs/quickstart.md`, `docs/tutorials/00_your_own_file.md`, `.github/CONTRIBUTING.md`, `tests/test_prose_version_claims_are_live.py`, `artifacts/archive/changelog_0.1.0-0.2.9.md`.
+- Steps 1 and 2 of the 2026-10-11 compression audit, built on branch `lane-k1` at `dae02ac0` and not landed before the 0.2.11 release: duplicated docs passages become links (568 words), stale `CONTRIBUTING.md` paths, the version-claim test reads `docs/**`, and CHANGELOG blocks 0.2.9, 0.2.8, 0.2.4 and 0.1.0 to 0.1.7 move to an archive (816 lines). Check: on the rebased branch the docs tests, `scripts/docs_build.py` and the harness pass, and a script shows every moved CHANGELOG line exactly once. Waits: documentation only; no shipped number changes.
+Accept: the check passes. Stop: a cut drops a fact, ruling or receipt a file cites.
+
