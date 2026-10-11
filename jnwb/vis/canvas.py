@@ -20,6 +20,7 @@ Enforces:
 
 from __future__ import annotations
 
+import json
 import logging
 import warnings
 from pathlib import Path
@@ -53,9 +54,26 @@ MAX_HEIGHT_MM = 235.0  # 888.19 px
 _BROWSER_SHUTDOWN_ERROR = "Couldn't close or kill browser subprocess"
 
 
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
 def _is_written(path: Path) -> bool:
-    """True when the file exists and has a non-zero size."""
-    return path.exists() and path.stat().st_size > 0
+    """True when the file exists, is non-empty and reads as its format: the PNG signature, an
+    `<svg` or `<html` element in the first 4 KiB, or JSON that parses."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    data = path.read_bytes()
+    suffix = path.suffix.lower()
+    if suffix == ".png":
+        return data.startswith(_PNG_SIGNATURE)
+    if suffix in (".svg", ".html"):
+        return f"<{suffix[1:]}".encode() in data[:4096].lower()
+    if suffix == ".json":
+        try:
+            json.loads(data)
+        except ValueError:
+            return False
+    return True
 
 
 def _verify_written(paths: Dict[str, Path]) -> None:

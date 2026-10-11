@@ -40,15 +40,16 @@ ARGUMENT = {
 class FakeKaleido:
     """Stands in for kaleido's `calc_fig_sync` and `write_fig_from_object_sync`.
 
-    `render_error` raises from a render. `empty_format` renders no bytes for that format.
-    `shutdown_error` is raised when the session closes. Every entry-point call is recorded in
-    `sessions`.
+    `render_error` raises from a render. `empty_format` renders no bytes for that format, and
+    `corrupt_format` renders bytes that are not that format. `shutdown_error` is raised when the
+    session closes. Every entry-point call is recorded in `sessions`.
     """
 
     def __init__(self, monkeypatch):
         self.sessions: list[str] = []
         self.render_error = None
         self.empty_format = None
+        self.corrupt_format = None
         self.shutdown_error = None
         monkeypatch.setattr(kaleido, "calc_fig_sync", self.calc_fig_sync)
         monkeypatch.setattr(kaleido, "write_fig_from_object_sync", self.write_fig_from_object_sync)
@@ -58,6 +59,8 @@ class FakeKaleido:
             raise self.render_error
         if fmt == self.empty_format:
             return b""
+        if fmt == self.corrupt_format:
+            return b"not an image"
         return SVG if fmt == "svg" else PNG
 
     def calc_fig_sync(self, fig, opts=None, topojson=None, kopts=None):
@@ -138,6 +141,16 @@ def test_a_shutdown_timeout_after_the_files_are_written_keeps_them(tmp_path, mon
     assert paths["png"].read_bytes() == PNG
     assert paths["html"].exists()
     assert paths["argument"].exists()
+
+
+@pytest.mark.parametrize("fmt", ["svg", "png"])
+def test_an_export_that_is_not_its_format_raises_and_seals_nothing(tmp_path, monkeypatch, fmt):
+    fake = FakeKaleido(monkeypatch)
+    fake.corrupt_format = fmt
+    with pytest.raises(RuntimeError, match=f"Export verification failed: {fmt}"):
+        _canvas().save_and_seal(tmp_path, "figure", ARGUMENT)
+    assert (tmp_path / f"figure.{fmt}").read_bytes() == b"not an image", "fixture must write the file"
+    assert not (tmp_path / "figure_argument.json").exists()
 
 
 def test_files_from_an_earlier_call_are_never_sealed(tmp_path, monkeypatch):
