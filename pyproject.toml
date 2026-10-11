@@ -76,7 +76,7 @@ vis = [
 ]
 # jnwb.wavemap and jnwb.wavemap_resolution_sweep: the UMAP graph and Louvain partition.
 wavemap = [
-    "umap-learn>=0.5",
+    "umap-learn>=0.5.6",
     "networkx>=3.0",
 ]
 test = [
