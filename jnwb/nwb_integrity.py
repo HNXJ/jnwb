@@ -17,12 +17,13 @@ corrected index to a new file, or in place on request, under the refusal rules s
 function.
 
 Waveform blocks need a different check. A unit's ``waveform_mean`` block is sliced from the
-flat data by ``waveform_mean_index``, and nothing ties the sliced block to the unit: a file
-whose blocks are stored out of unit order reads another unit's block through pynwb with no
-warning. ``check_waveform_blocks`` compares each sliced block's row amplitudes against the
-unit's stored ``amplitude`` and reports, per unit, whether the block is owned, unowned, or
-unknown. It repairs nothing and reassigns nothing: a match is evidence the block is the
-unit's, never a license to move one.
+flat data by ``waveform_mean_index``, or, in a dense table with no index, is
+``waveform_mean[unit]``. Nothing ties the block to the unit: a file whose blocks are stored
+out of unit order reads another unit's block through pynwb with no warning.
+``check_waveform_blocks`` compares each block's row amplitudes against the unit's stored
+``amplitude`` and reports, per unit, whether the block is owned, unowned, or unknown. It
+repairs nothing and reassigns nothing: a match is evidence the block is the unit's, never a
+license to move one.
 """
 
 from __future__ import annotations
@@ -448,16 +449,19 @@ class WaveformBlockReport:
 
 def check_waveform_blocks(path: str | Path, *, table: str = "units",
                           rtol: float, atol: float = 0.0) -> WaveformBlockReport:
-    """Check every unit's index-sliced ``waveform_mean`` block against its stored ``amplitude``.
+    """Check every unit's ``waveform_mean`` block against its stored ``amplitude``.
 
-    For each unit the block ``data[index[i - 1]:index[i]]`` is sliced exactly as pynwb
-    slices it, and each row's peak-to-peak (max minus min) is compared with the unit's
-    stored ``amplitude``. The unit is ``"owned"`` when some row matches within tolerance,
-    on any row and not only the largest: on the DANDI:000253 file above, 238 of the 2446
-    units (9.7%) match only on a smaller-than-largest row. It is ``"unowned"`` when the
-    block is
-    complete and no row matches, and ``"unknown"`` for an empty block or a missing, NaN
-    or infinite amplitude.
+    A ragged ``waveform_mean`` is sliced by ``waveform_mean_index`` as pynwb slices it, so
+    unit ``i``'s block is ``data[index[i - 1]:index[i]]``. A dense ``waveform_mean``, with no
+    index, is a 3-D array of shape ``(units, samples, channels)`` in the NWB schema order
+    (``num_units, num_samples, num_electrodes``), and unit ``i``'s block is
+    ``waveform_mean[i]``. In both layouts a row of a block is one channel, and each row's
+    peak-to-peak (max minus min over the samples) is compared with the unit's stored
+    ``amplitude``. The unit is ``"owned"`` when some row matches within tolerance, on any row
+    and not only the largest: on the DANDI:000253 file above, 238 of the 2446 units (9.7%)
+    match only on a smaller-than-largest row. It is ``"unowned"`` when the block is complete
+    and no row matches, and ``"unknown"`` for an empty block or a missing, NaN or infinite
+    amplitude; a dense block with no samples is empty.
 
     A match is necessary evidence, not sufficient proof: two units with indistinguishable
     amplitudes cannot be told apart by it. What the check never does is reassign: no
@@ -485,25 +489,28 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
     Returns
     -------
     WaveformBlockReport
-        One ``WaveformBlockCheck`` per unit, in row order.
+        One ``WaveformBlockCheck`` per unit, in unit order. ``matched_row`` and ``largest_row``
+        count the block's rows, which are channels in both layouts.
 
     Raises
     ------
     KeyError
-        The table, ``waveform_mean`` with its ``_index``, or ``amplitude`` is absent.
+        The table, ``waveform_mean``, or ``amplitude`` is absent.
     ValueError
         ``rtol`` or ``atol`` is NaN, infinite or negative; ``amplitude`` is not a
-        numeric column; a column's length is not one value per unit; the index is not
-        an integer array slicing ``waveform_mean`` (non-integer, negative,
-        decreasing, or out of bounds); or ``waveform_mean`` is not a 2-D array of
-        ``(channel, sample)`` blocks.
+        numeric column; a column's length is not one value per unit. With a
+        ``waveform_mean_index``, the index is not an integer array slicing ``waveform_mean``
+        (non-integer, negative, decreasing, or out of bounds), or ``waveform_mean`` is not a
+        2-D array of ``(channel, sample)`` blocks. Without one, ``waveform_mean`` is not a
+        3-D ``(unit, sample, channel)`` array, or its first axis is not the number of units,
+        which is the length of ``amplitude``.
     TypeError
         ``rtol`` or ``atol`` is ``None``, a boolean or not a real number.
 
     Notes
     -----
-    Nothing is modified or repaired. An index that is itself misshapen is refused
-    rather than attributed: run ``check_ragged_indices`` first when the index is
+    Nothing is modified or repaired. In the ragged layout an index that is itself misshapen
+    is refused rather than attributed: run ``check_ragged_indices`` first when the index is
     suspect, since slices taken through a wrong index attribute the wrong rows.
     """
 
@@ -521,24 +528,42 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
     path = Path(path)
     with h5py.File(path, "r") as f:
         g = _group(f, table)
-        for col in ("waveform_mean", "waveform_mean_index", "amplitude"):
+        dense = "waveform_mean_index" not in g
+        needed = (("waveform_mean", "amplitude") if dense
+                  else ("waveform_mean", "waveform_mean_index", "amplitude"))
+        for col in needed:
             if col not in g or not isinstance(g[col], h5py.Dataset):
                 raise KeyError(f"{table} has no column {col!r}")
-        wm, wmi, amp_ds = g["waveform_mean"], g["waveform_mean_index"], g["amplitude"]
-        if wm.ndim != 2:
+        wm, amp_ds = g["waveform_mean"], g["amplitude"]
+        if dense and wm.ndim != 3:
+            raise _refuse(f"waveform_mean has shape {wm.shape} with no waveform_mean_index; "
+                          "a dense mean-waveform array is (units, samples, channels) in NWB "
+                          "schema order, so these blocks cannot be attributed")
+        if not dense and wm.ndim != 2:
             raise _refuse(f"waveform_mean has shape {wm.shape}; a mean-waveform block "
                           "is (channels, samples), so these rows cannot be attributed")
         if amp_ds.dtype.kind not in "fiub":
             raise _refuse(f"amplitude has dtype {amp_ds.dtype}, not numeric; a stored "
                           "amplitude it cannot be compared with is not a reference")
-        if not np.issubdtype(wmi.dtype, np.integer):
-            raise _refuse(f"waveform_mean_index has dtype {wmi.dtype}, not integer; "
-                          "its slices cannot be taken")
-        idx = wmi[()].astype(np.int64)
-        n = int(idx.size)
-        if np.any(idx < 0) or np.any(np.diff(idx) < 0) or np.any(idx > wm.shape[0]):
-            raise _refuse("waveform_mean_index is negative, decreasing, or out of bounds; "
-                          "slices taken through it attribute the wrong rows")
+        if dense:
+            if amp_ds.ndim != 1:
+                raise _refuse(f"amplitude has shape {amp_ds.shape}; a dense waveform_mean "
+                              "counts its units by one amplitude per unit")
+            n = int(amp_ds.shape[0])
+            if wm.shape[0] != n:
+                raise _refuse(f"waveform_mean has {wm.shape[0]} units on its first axis, "
+                              f"but amplitude has {n}; the dense layout is (units, samples, "
+                              "channels) in NWB schema order")
+        else:
+            wmi = g["waveform_mean_index"]
+            if not np.issubdtype(wmi.dtype, np.integer):
+                raise _refuse(f"waveform_mean_index has dtype {wmi.dtype}, not integer; "
+                              "its slices cannot be taken")
+            idx = wmi[()].astype(np.int64)
+            n = int(idx.size)
+            if np.any(idx < 0) or np.any(np.diff(idx) < 0) or np.any(idx > wm.shape[0]):
+                raise _refuse("waveform_mean_index is negative, decreasing, or out of bounds; "
+                              "slices taken through it attribute the wrong rows")
         amp = np.asarray(amp_ds[()], dtype=np.float64)
         if amp.shape != (n,):
             raise _refuse(f"amplitude holds {amp.size} values for {n} units; a column "
@@ -552,17 +577,19 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
               else None)
         if pc is not None and pc.shape != (n,):
             raise _refuse(f"peak_channel_id holds {pc.size} values for {n} units")
-        starts = np.zeros(0, dtype=np.int64) if n == 0 else np.concatenate(
-            ([0], idx[:-1])).astype(np.int64)
+        if not dense:
+            starts = np.zeros(0, dtype=np.int64) if n == 0 else np.concatenate(
+                ([0], idx[:-1])).astype(np.int64)
         units = []
         for i in range(n):
-            block = wm[starts[i]:idx[i]]
+            # Rows are channels in both layouts: a dense (sample, channel) block is transposed.
+            block = wm[i].T if dense else wm[starts[i]:idx[i]]
             a = float(amp[i])
             n_rows = int(block.shape[0])
             prow = None if pc is None else (
                 pc[i].item() if isinstance(pc[i], np.generic) else pc[i])
             uid = ids[i].item() if isinstance(ids[i], np.generic) else ids[i]
-            if n_rows == 0 or not np.isfinite(a):
+            if n_rows == 0 or not np.isfinite(a) or (dense and block.shape[1] == 0):
                 units.append(WaveformBlockCheck(
                     i, int(uid), "unknown", None, None, 0, a, None, prow))
                 continue

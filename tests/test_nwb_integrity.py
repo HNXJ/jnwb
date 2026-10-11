@@ -750,3 +750,131 @@ class TestCheckWaveformBlocks:
         assert rep.units[0].matched_row == 0
         assert rep.ok
 
+
+_DENSE_AMPS = (25.0, 40.0, 55.0, 70.0)
+_DENSE_CHANNEL = (0, 2, 1, 2)  # the channel that carries each unit's peak-to-peak
+
+
+def _dense_block(amp, channel, nsamp=4, nchan=3):
+    """One unit's true dense block, (samples, channels): `channel` carries `amp`
+    peak-to-peak along the samples axis and every other value is zero."""
+    b = np.zeros((nsamp, nchan))
+    b[-1, channel] = float(amp)
+    return b
+
+
+def _dense_stack(order=(0, 1, 2, 3)):
+    """Dense blocks stored in `order`: slot `i` holds the block of unit `order[i]`, while the
+    amplitude column keeps each unit's own value."""
+    return np.stack([_dense_block(_DENSE_AMPS[u], _DENSE_CHANNEL[u]) for u in order])
+
+
+def _dense_write(path, blocks, amps=_DENSE_AMPS):
+    """A units table with a dense `waveform_mean` and no index: `blocks` is stored as given,
+    shape (units, samples, channels), beside `amplitude`."""
+    with h5py.File(path, "w") as f:
+        g = f.create_group("units")
+        g.create_dataset("id", data=np.arange(len(amps)))
+        g.create_dataset("waveform_mean", data=np.asarray(blocks, dtype="f8"))
+        g.create_dataset("amplitude", data=np.asarray(amps, dtype="f8"))
+        g.attrs["colnames"] = np.array(["waveform_mean", "amplitude"], dtype="S")
+    return path
+
+
+class TestCheckWaveformBlocksDense:
+    """The dense layout: no `waveform_mean_index`, and `waveform_mean` is (units, samples,
+    channels) in NWB schema order, so unit `i`'s block is `waveform_mean[i]`."""
+
+    def test_dense_blocks_in_unit_order_are_all_owned(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "dense.nwb", _dense_stack())
+        with h5py.File(path, "r") as handle:
+            assert "waveform_mean_index" not in handle["units"]
+            assert handle["units/waveform_mean"].shape == (4, 4, 3)
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert rep.ok and [u.status for u in rep.units] == ["owned"] * 4
+        assert [u.matched_row for u in rep.units] == list(_DENSE_CHANNEL)
+        assert [u.largest_row for u in rep.units] == list(_DENSE_CHANNEL)
+        assert all(u.best_dev == 0.0 and u.n_rows == 3 for u in rep.units)
+        assert [u.stored_amplitude for u in rep.units] == list(_DENSE_AMPS)
+
+    def test_dense_blocks_swapped_between_two_units_are_both_unowned(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        blocks = _dense_stack(order=(1, 0, 2, 3))
+        assert not np.array_equal(blocks[0], _dense_block(_DENSE_AMPS[0], _DENSE_CHANNEL[0]))
+        path = _dense_write(tmp_path / "swap.nwb", blocks)
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unowned", "unowned", "owned", "owned"]
+        assert (rep.n_owned, rep.n_unowned, rep.n_unknown) == (2, 2, 0)
+        assert not rep.ok
+        assert rep.units[0].best_dev == 15.0 and rep.units[1].best_dev == 15.0
+        assert rep.units[0].matched_row is None and rep.units[1].matched_row is None
+
+    def test_a_nan_amplitude_is_unknown_not_unowned(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "nan.nwb", _dense_stack(),
+                            amps=(25.0, float("nan"), 55.0, 70.0))
+        with h5py.File(path, "r") as handle:
+            assert np.isnan(handle["units/amplitude"][1])
+            assert "waveform_mean_index" not in handle["units"]
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["owned", "unknown", "owned", "owned"]
+        assert (rep.n_owned, rep.n_unowned, rep.n_unknown) == (3, 0, 1)
+        assert not rep.ok
+        unknown = rep.units[1]
+        assert np.isnan(unknown.stored_amplitude)
+        assert unknown.matched_row is None and unknown.best_dev is None and unknown.n_rows == 0
+
+    def test_a_dense_block_with_no_finite_sample_reads_as_unowned_or_no_samples_as_unknown(
+            self, tmp_path):
+        """An all-NaN block reads as the ragged layout reads it: complete, with no row
+        matching the amplitude."""
+        from jnwb import check_waveform_blocks
+
+        blocks = _dense_stack()
+        blocks[2] = np.nan
+        path = _dense_write(tmp_path / "nan_block.nwb", blocks)
+        with h5py.File(path, "r") as handle:
+            assert np.isnan(handle["units/waveform_mean"][2]).all()
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["owned", "owned", "unowned", "owned"]
+        assert rep.units[2].matched_row is None
+
+        empty = _dense_write(tmp_path / "no_samples.nwb", np.zeros((4, 0, 3)))
+        with h5py.File(empty, "r") as handle:
+            assert handle["units/waveform_mean"].shape == (4, 0, 3)
+        rep = check_waveform_blocks(empty, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["unknown"] * 4
+        assert all(u.n_rows == 0 for u in rep.units)
+
+    def test_a_dense_array_that_does_not_match_the_units_is_refused(self, tmp_path):
+        from jnwb import check_waveform_blocks
+
+        short = _dense_write(tmp_path / "short.nwb", _dense_stack()[:3])
+        with h5py.File(short, "r") as handle:
+            assert handle["units/waveform_mean"].shape[0] == 3
+            assert handle["units/amplitude"].shape[0] == 4
+        with pytest.raises(ValueError, match="first axis"):
+            check_waveform_blocks(short, rtol=1e-9)
+        flat = _dense_write(tmp_path / "flat.nwb", _dense_stack().reshape(4, -1))
+        with h5py.File(flat, "r") as handle:
+            assert handle["units/waveform_mean"].ndim == 2
+        with pytest.raises(ValueError, match="no waveform_mean_index"):
+            check_waveform_blocks(flat, rtol=1e-9)
+
+    def test_a_dense_table_without_amplitude_raises_keyerror(self, tmp_path):
+        import shutil
+
+        from jnwb import check_waveform_blocks
+
+        path = _dense_write(tmp_path / "ok.nwb", _dense_stack())
+        bare = tmp_path / "bare.nwb"
+        shutil.copy(path, bare)
+        with h5py.File(bare, "a") as handle:
+            assert "waveform_mean_index" not in handle["units"]
+            del handle["units/amplitude"]
+        with pytest.raises(KeyError, match="amplitude"):
+            check_waveform_blocks(bare, rtol=1e-9)

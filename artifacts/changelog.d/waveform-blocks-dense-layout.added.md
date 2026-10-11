@@ -1,0 +1,1 @@
+- `jnwb.check_waveform_blocks` also reads the dense layout: a `waveform_mean` of shape `(units, samples, channels)` with no `waveform_mean_index`, in NWB schema order. Each unit gets the same owned, unowned or unknown verdict against its `amplitude`; ragged files give the same results as before.
