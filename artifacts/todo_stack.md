@@ -46,7 +46,7 @@ lines.
 | D display, documentation and unit measures | 11-20, 10-14, 10-15 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
-| C interpreter legs | 11-44 | `.github/workflows/workflow.yml`, `tests/test_ci_conclusion_gate.py`, `pyproject.toml` classifiers |
+| C interpreter legs | 11-44 | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py` |
 
 Question round at the opening: the B3 choice-name lexicon (10-10) and the dB-lexicon values 09-04
 reads.
@@ -183,13 +183,13 @@ Accept: each such holder names an item whose bullet states that fact's work. Sto
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: none.
 Writes: `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py`, `artifacts/changelog.d/waveform-blocks-amplitude-unit.fixed.md`, `skills/jnwb-nwb-data/SKILL.md`, `docs/repairing_nwb.md`.
-- On all 22 frozen files the stored `amplitude` is in microvolts and the blocks in volts, so every unit reads unowned (`artifacts/evidence/0.2.11/frozen-waveform-disposition.md` section 3); and a 2-D dense `waveform_mean` (units, samples), which the NWB schema allows, is refused as unattributable. Check: a fixture with amplitude 1e6 times the blocks' scale gets the behaviour Hamm rules (a refusal, a scale keyword, or a documented limit), and the 2-D case is read as one row per unit or refused naming the missing electrodes axis. Waits: the amplitude choice is public API.
-Accept: both fixtures pass and the ragged and 3-D dense results are unchanged. Stop: the ruling is not given.
+- On all 22 frozen files the stored `amplitude` is in microvolts and the blocks in volts, so every unit reads unowned (`artifacts/evidence/0.2.11/frozen-waveform-disposition.md` section 3); and a 2-D dense `waveform_mean` (units, samples), which the NWB schema allows, is refused as unattributable. Check: a fixture with amplitude 1e6 times the blocks' scale raises `ValueError` naming a unit mismatch (ruled 2026-10-11: median ratio of stored amplitude to block peak-to-peak off by a factor of 1000 or more; no new parameter), and the 2-D case is read as one row per unit or refused naming the missing electrodes axis.
+Accept: both fixtures pass and the ragged and 3-D dense results are unchanged. Stop: a file whose units agree changes result.
 
-### 11-44 No CI leg runs Python 3.15
+### 11-44 Python 3.15 is tested but not declared
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `.github/workflows/workflow.yml`, the tests that read its matrix, `pyproject.toml` classifiers.
-- Ruled 2026-10-10: a non-blocking 3.15 leg now, the 3.15 classifier once it passes, and the leg required once h5py ships cp315 wheels. h5py, torch and cupy-cuda12x have no cp315 wheel today, so the leg builds h5py against the system HDF5 on Ubuntu. Check: the leg is a separate job with `continue-on-error: true`, `tests/test_ci_conclusion_gate.py` still counts the blocking matrix, and the leg's suite summary line is read on `dev`.
-Accept: one `dev` run shows the 3.15 leg's summary line and a green blocking matrix. Stop: the leg needs a dependency pin that changes a supported version.
+Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`.
+- Ruled 2026-10-11: the non-blocking 3.15 leg passed (dev run 38121481816), so 3.15 joins the blocking matrix on Ubuntu (h5py built against the system HDF5) and the classifiers, with gate 8 unchanged; Windows 3.15 waits for h5py cp315 wheels. Check: gate 8 passes with 3.15 in `PYTHON_SUPPORTED` and `PYTHON_CI_REQUIRED`, the non-blocking job is gone, and the README's tested versions match the matrix.
+Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop: a dependency pin would change a supported version.
