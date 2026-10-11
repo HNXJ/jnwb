@@ -1058,9 +1058,9 @@ def _var_pair(seed=5, phi=0.5, lag=3, n=N_TIMES):
 
 
 class TestFilteringBeforeGranger:
-    """Filtering before Granger: Granger causality is invariant under an invertible filter,
-    so band-passing cannot
-    isolate a band, and it often raises the fitted order (Bastos and Schoffelen 2016
+    """Filtering before Granger: the Granger causality of the process is invariant under an
+    invertible filter, so band-passing cannot isolate a band, while the estimate from a finite
+    filtered sample changes and the fitted order often rises (Bastos and Schoffelen 2016
     table 2, filtering row; Barnett and Seth 2011, whose abstract states the invariance and
     the order effect). The caller's step is to read `per_band` of `granger_spectral`.
 
@@ -1207,6 +1207,19 @@ class TestFilteringBeforeGranger:
         assert raw.p_y_to_x == pytest.approx(0.05), (
             "and the p-value does not reveal the inflation, which is why the statistic is "
             "the thing to read"
+        )
+
+    def test_the_connectivity_skill_states_both_filtering_facts(self):
+        """The two facts this class records, as the connectivity skill states them, because
+        that is the page an agent loads before fitting. Rewording either sentence fails here.
+        The behaviour behind both is pinned by the order and band tests above."""
+        skill = Path(__file__).resolve().parents[1] / "skills" / "jnwb-connectivity" / "SKILL.md"
+        text = " ".join(skill.read_text(encoding="utf-8").split())
+        assert '`order="auto"` moves to the `max_lag` ceiling' in text, (
+            "the skill no longer states that order='auto' moves to the max_lag ceiling"
+        )
+        assert "no tested band-pass filter recovers a `granger_spectral` band value" in text, (
+            "the skill no longer states that no tested filter recovers a band value"
         )
 
 

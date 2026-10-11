@@ -145,12 +145,12 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-04 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
+Measured 2026-10-10 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 2974 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words |
+| `common_mistakes` | 3067 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words |
 | `02_paths_addressing_metadata` | 1733 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
 | `03_representational_similarity_jrsa` | 1341 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
 | `04_spectral_analysis_and_tfr` | 1217 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |

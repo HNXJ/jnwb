@@ -108,7 +108,8 @@ print("Band summaries:", psi_res.per_band)
 
 `p_net`, equal to `p_x_to_y` and `p_y_to_x`, is the jackknife t test of a lead;
 `p_coupling_surrogate` tests coupling, zero lag included. The jackknife leaves out one trial, or
-with fewer than three trials one segment and warns. Under a zero-lag common source the lead p
+with fewer than three trials one segment and warns. Under a zero-lag
+[common source](common_mistakes.md#interpretational-pitfalls-of-coupling-and-direction) the lead p
 rejects at 0.04 to 0.06 for a nominal 0.05, and 0.06 to 0.08 leaving out segments; the
 surrogate p, up to 0.46. The default `nperseg` leaves at least 20 segments.
 

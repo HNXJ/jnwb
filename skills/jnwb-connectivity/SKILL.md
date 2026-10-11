@@ -31,6 +31,7 @@ Directional coupling, lag asymmetry, Granger causality, phase slope index or tra
 3. **Surrogate nulls**: significance comes from surrogates that destroy cross-signal alignment while preserving each signal's autocorrelation. `granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` pair the source with the wrong trial at 7 or more trials and circularly shift each trial below that, because a few trials admit too few re-pairings for a calibrated null; `params['surrogate_scheme']` records which ran.
 4. **Coupling vs direction vs delay**: Unsigned coupling magnitude (e.g. wPLI $\ge 0$) does not determine propagation direction. Direction requires a signed phase or phase-slope estimator. Latency delay ($d\phi/df = -2\pi \Delta\tau$) and apparent velocity ($v = \Delta z / \Delta\tau$) require verified linear unwrapped phase across the fitted band and explicit identifiability criteria; report unavailable otherwise.
 5. **Volume conduction**: the safeguard **No volume-conduction immunity** in section 4 of the router, [`skills/jnwb/SKILL.md`](../jnwb/SKILL.md), binds every operation here.
+6. **Filtering**: on the tested band-filtered VAR(3) pair, `order="auto"` moves to the `max_lag` ceiling, and no tested band-pass filter recovers a `granger_spectral` band value; read `per_band` of `granger_spectral` instead.
 
 ## 4. Minimal Workflow
 ```python

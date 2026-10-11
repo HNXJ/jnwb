@@ -886,7 +886,11 @@ def granger_spectral(
         ``per_band[name] = {value, value_reverse, peak_hz, peak_hz_reverse, ...}``.
         ``x_to_y``/``y_to_x`` are the frequency averages over the full spectrum.
         ``diagnostics['spectral_radius'] >= 1`` means the VAR is non-stationary
-        and the decomposition must not be interpreted.
+        and the decomposition must not be interpreted. ``diagnostics['stationary']``
+        is the fitted-VAR predicate ``spectral_radius < 1``: VAR stability, not a
+        stationarity test. A slowly decaying mode (AR phi = 0.999, radius 0.99860)
+        passes it unflagged, while the ADF check in ``granger`` calls the same series
+        a unit root.
 
     References:
         Geweke, J. (1982). Measurement of linear dependence and feedback between multiple

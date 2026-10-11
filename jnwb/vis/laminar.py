@@ -9,14 +9,13 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
-import re
 from typing import Dict, Optional
 
 import numpy as np
 import plotly.graph_objects as go
 
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text, unit_label
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, checked_colorbar_label, configure_axis
 
 _DEPTH_AXIS_TITLES = {
     "mm": "Cortical Depth (mm)",
@@ -418,15 +417,7 @@ def plot_csd(
         ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
             names ``value_unit``, or ``depth_unit`` is not one of the three units.
     """
-    value_unit = required_text("value_unit", value_unit)
-    if colorbar_title is not None:
-        required_text("colorbar_title", colorbar_title)
-        if re.search(rf"(?<![\w/]){re.escape(value_unit)}(?![\w/])", colorbar_title):
-            raise ValueError(
-                f"colorbar_title {colorbar_title!r} names the unit {value_unit!r}, which the "
-                "colorbar already carries; pass the quantity alone, for example colorbar_title='CSD'."
-            )
-    colorbar_label = unit_label(colorbar_title, value_unit)
+    colorbar_label = checked_colorbar_label(colorbar_title, value_unit)
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
