@@ -278,3 +278,88 @@ def test_the_harness_gate_fails_on_a_violated_fact_and_names_the_source(monkeypa
     monkeypatch.setattr(fact_gate, "run", lambda: (REPO_ROOT / "facts.md", results))
     assert harness_gate.check_fact_predicates() == ["X1: planted"]
     assert "facts.md" in harness_gate._fact_pass_line()
+
+
+PARTITION_CONSTANTS = {**CONSTANTS, "k": ["3"]}
+
+
+def skill_graph(routes):
+    """Shipped skills, each with the routing targets it names, as the graph records them."""
+    return {
+        "entities": {"skill": sorted(routes)},
+        "relations": {"routes": [[skill, t] for skill in sorted(routes) for t in routes[skill]]},
+    }
+
+
+def partition_status(routes, constants=PARTITION_CONSTANTS):
+    return status(skill_graph(routes), "computed:partition", constants=constants)
+
+
+def exclusive_to(routes, skill):
+    """The targets `skill` routes that no other domain skill routes; the router is outside."""
+    others = {t for s, ts in routes.items() if s not in ("jnwb", skill) for t in ts}
+    return sorted(set(routes[skill]) - others)
+
+
+def test_a_domain_skill_with_two_exclusive_operations_is_violated():
+    routes = {
+        "jnwb": ["a", "x"],
+        "jnwb-two": ["x", "y"],
+        "jnwb-three": ["p", "q", "r"],
+    }
+    assert exclusive_to(routes, "jnwb-two") == ["x", "y"], "fixture must give jnwb-two two exclusive operations"
+    assert exclusive_to(routes, "jnwb-three") == ["p", "q", "r"]
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: jnwb-two owns 2 exclusive operations, fewer than 3"])
+
+
+def test_every_domain_skill_with_three_exclusive_operations_is_held():
+    routes = {
+        "jnwb": ["a", "p", "x"],
+        "jnwb-one": ["p", "q", "r"],
+        "jnwb-two": ["x", "y", "z"],
+    }
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [3, 3]
+    assert partition_status(routes) == ("HELD", [])
+
+
+def test_an_operation_two_domain_skills_route_breaks_the_partition():
+    routes = {"jnwb-one": ["p", "q", "r", "shared"], "jnwb-two": ["x", "y", "z", "shared"]}
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [3, 3], (
+        "fixture must meet the floor, so only the shared operation can fail it")
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: shared is routed by jnwb-one, jnwb-two"])
+
+
+def test_the_floor_is_read_from_the_k_constant():
+    routes = {"jnwb-one": ["p", "q"], "jnwb-two": ["x", "y"]}
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [2, 2]
+    assert partition_status(routes) == ("VIOLATED", [
+        "computed:partition: jnwb-one owns 2 exclusive operations, fewer than 3",
+        "computed:partition: jnwb-two owns 2 exclusive operations, fewer than 3"])
+    assert partition_status(routes, constants={**CONSTANTS, "k": ["2"]}) == ("HELD", [])
+
+
+def test_a_domain_skill_that_routes_nothing_is_violated():
+    routes = {"jnwb": ["a"], "jnwb-one": ["p", "q", "r"], "jnwb-silent": []}
+    assert exclusive_to(routes, "jnwb-silent") == []
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: jnwb-silent owns 0 exclusive operations, fewer than 3"])
+    assert partition_status({"jnwb": ["a"]}) == (
+        "VIOLATED", ["computed:partition: the graph names no domain skill"])
+
+
+def test_the_skill_partition_needs_the_k_constant():
+    with pytest.raises(ValueError, match="name no k"):
+        partition_status({"jnwb-one": ["p"]}, constants=CONSTANTS)
+
+
+def test_the_live_tree_gives_every_domain_skill_its_floor_of_exclusive_operations(live):
+    source, g = live
+    constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
+    counts = fact_gate.exclusive_counts(g)
+    assert counts, "no domain skill was read from the live graph"
+    assert set(counts) == set(g["entities"]["skill"]) - {"jnwb"}
+    assert fact_gate.partition(g, constants) == [], counts
+    _, results = fact_gate.run(facts_path=source, graph=g)
+    assert {f: s for f, s, _ in results}["K1"] == "HELD"

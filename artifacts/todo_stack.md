@@ -42,8 +42,8 @@ lines.
 | Lane | Items, in order | ETA (estimate) | Owns |
 |---|---|---|---|
 | C interpreter legs | 11-44 | 0.5 h at the 0.2.11 version bump, then one CI run | `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gate.py`, `README.md`, `docs/install.md`, `docs/index.md`, `scripts/release_gate.py`, `tests/test_ci_conclusion_gate.py`, `tests/test_workflow_release_policy.py`, `tests/test_readme_smoke.py`, `tests/test_gate8_covers_every_version_surface.py` |
-| D display, documentation and unit measures | 11-20, 10-15 | 11 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
-| Y identity facts | 11-08, 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 18 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
+| D display, documentation and unit measures | 10-15 | 6 h; 10-15 needs a ruling for each new public operation | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| Y identity facts | 11-09, 11-07, 10-10, 11-06, 09-04, 11-32 | 16 h; 10-10 creates `jnwb/_declarations.py`, which 11-06 extends and 09-04 reads; 11-32 needs Hamm | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 
 The B3 choice-name lexicon and the dB lexicon that lane Y reads were ruled on 2026-10-10
 (`artifacts/rulings/2026-10-10.md`). ETAs are estimates of wall time with one worker per lane.
@@ -56,14 +56,6 @@ Writes: `.github/workflows/workflow.yml`, `pyproject.toml`, `scripts/harness_gat
 - Ruled 2026-10-11: 3.15 joins the blocking matrix on Ubuntu and the classifiers, gate 8 unchanged; it waits for the version bump, since gate 8 refuses a tested version that is not declared and the release-body check refuses a classifier the 0.2.10 notes lack. Do: apply `artifacts/evidence/0.2.11/py315-blocking.patch` (matrix, exclude-aware `required_ci_jobs`, docs), add 3.15 to the classifiers and `PYTHON_SUPPORTED`. Check: gate 8 passes and the non-blocking job is gone.
 Accept: one `dev` run with a green Ubuntu 3.15 leg in the blocking matrix. Stop: a dependency pin would change a supported version.
 
-### 11-20 `Canvas.save_and_seal` loses no export on a loaded machine and an export error reaches the caller
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/vis/**`, `tests/test_vis*.py`, `tests/test_viz*.py`.
-- P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call; a serial run exits after a failed close; a test fails when the export error is swallowed; a later call fails fast. Waits: loud. Observed 2026-10-04 under xdist: on a loaded machine a `-n 12` run of `4be1792b` hung 17 minutes in a headless Chrome child of one worker, and after that child was killed the suite reported 0 failed, so a lost export did not reach the test that made it; whether that can make qualifying evidence falsely pass is for the closure pass to classify.
-Accept: the check passes. Stop: none beyond the standing ones.
-
 ### 10-15 The four published unit measures are public operations or ruled exclusions
 
 Release: deferred-0.2.11.
@@ -72,15 +64,6 @@ Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`,
 Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
 - Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each is a public operation by its published definition with a `docs/references.md` row, or a ruled exclusion recorded in `artifacts/evidence/0.2.9/unit_qc_inventory.md`. Waits: new capability, not a defect.
 Accept: the check passes. Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
-
-### 11-08 A domain skill with fewer than three exclusive operations is VIOLATED by K1
-
-Release: deferred-0.2.11.
-AUTONOMY: none for the dB-lexicon values; holder cells under the standing authorization of 2026-09-29; the scans are `max`.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/fact_gate.py`, `tests/test_fact_gate.py`, `artifacts/fact_stack.md`.
-- K1: the partition with k = 3 exclusive operations per shipped domain skill. Check: a planted two-operation skill is VIOLATED. Waits: skill-partition check; no shipped behaviour.
-Accept: the planted two-operation skill is VIOLATED and K1 reports no UNHELD fact. Stop: a scan would need a scientific criterion not ruled in Q12 or Q13.
 
 ### 11-09 A planned skill is reported only when K1 and K5 hold for it
 

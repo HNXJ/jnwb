@@ -1,0 +1,1 @@
+- `PlotlyPublicationCanvas.save_and_seal` renders the SVG and PNG in one kaleido session and writes the argument sidecar last, so a failed export raises and seals nothing; files from an earlier call at the same paths are removed first. A browser shutdown that times out after both images are written emits a `RuntimeWarning` and keeps them.

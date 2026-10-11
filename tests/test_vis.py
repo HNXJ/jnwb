@@ -169,7 +169,8 @@ def test_canvas_colorbar_placement():
 # intermittently, so every test that exports through it shares one xdist group, which
 # `--dist loadgroup` in pyproject.toml runs on a single worker. The group also renders in one
 # browser for the whole session (`session_browser` in conftest.py), so no export waits on a
-# shutdown; the retry below covers a kaleido that cannot keep one.
+# shutdown. A shutdown that times out after the files are written only warns, so the export
+# test does not retry: a retry would re-run an export that lost a file and hide it.
 BROWSER_SHUTDOWN_TIMEOUT = "Couldn't close or kill browser subprocess"
 
 
@@ -353,12 +354,12 @@ def test_canvas_save_and_seal_triple_export(tmp_path, sample_argument_data):
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=80.0, rows=1, cols=1, tags=[["A"]])
     canvas.fig.add_trace(go.Scatter(x=[0, 1, 2], y=[10, 20, 15], mode="lines+markers"))
 
-    out_paths = retry_browser_shutdown(lambda: canvas.save_and_seal(
+    out_paths = canvas.save_and_seal(
         output_dir=tmp_path,
         basename="test_figure",
         argument_object=sample_argument_data,
         png_dpi=150,
-    ))
+    )
 
     assert "svg" in out_paths and out_paths["svg"].exists()
     assert "png" in out_paths and out_paths["png"].exists()

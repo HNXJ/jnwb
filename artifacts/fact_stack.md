@@ -89,7 +89,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 
 | ID | Domain | Predicate | Held by | Ruled |
 |---|---|---|---|---|
-| K1 | shipped domain skills | they partition the routed operations, each owning at least `k` exclusively, the router outside the partition | `todo:11-08` | 2026-09-22; Q14 2026-09-29 |
+| K1 | shipped domain skills | they partition the routed operations, each owning at least `k` exclusively, the router outside the partition | `computed:partition` | 2026-09-22; Q14 2026-09-29 |
 | K2 | routing rows | every routing target starts at an export of `jnwb.__all__` and resolves on the package; the targets read are the calls in a routing bullet's head and the names in a skill table's `jnwb.` column | `computed:routes` | 2026-09-22; Q15 2026-09-29 |
 | K3 | every skill | a task ends in one of four outcomes: compose and execute, request missing information, report non-identifiability or failure, decline unsupported inference | `test:tests/test_skill_decline_behaviour.py::test_every_skill_outcome_is_tested_or_excused` | 2026-09-22 |
 | K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `todo:09-04` | 2026-09-22 |

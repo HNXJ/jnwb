@@ -32,6 +32,9 @@ Computed predicates:
   routes      every routing target starts at an export of ``jnwb.__all__`` and its whole dotted
               path resolves on the package. Only the two routing forms the graph builder reads
               are seen.
+  partition   no routed operation belongs to two shipped domain skills (every skill but the
+              router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
+              operation does not share it with the domain skill that owns it.
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -134,9 +137,49 @@ def routes(graph: Graph, constants: Constants) -> List[str]:
     return found
 
 
+ROUTER_SKILL = "jnwb"
+
+
+def _owners(graph: Graph) -> Dict[str, set]:
+    """Each routed target and the domain skills that route it."""
+    domain = [skill for skill in graph["entities"]["skill"] if skill != ROUTER_SKILL]
+    owners: Dict[str, set] = {}
+    for skill, target in graph["relations"]["routes"]:
+        if skill in domain:
+            owners.setdefault(target, set()).add(skill)
+    return owners
+
+
+def exclusive_counts(graph: Graph) -> Dict[str, int]:
+    """Each domain skill's count of routed targets that no other domain skill routes."""
+    domain = [skill for skill in graph["entities"]["skill"] if skill != ROUTER_SKILL]
+    owners = _owners(graph)
+    counts = {skill: 0 for skill in domain}
+    for owning in owners.values():
+        if len(owning) == 1:
+            counts[next(iter(owning))] += 1
+    return counts
+
+
+def partition(graph: Graph, constants: Constants) -> List[str]:
+    """Each operation two domain skills route, and each domain skill owning fewer than ``k``
+    exclusive operations; no domain skill at all is itself a failure, never an empty pass."""
+    if "k" not in constants:
+        raise ValueError("the constants name no k, the skill-partition floor")
+    floor = int(constants["k"][0])
+    counts = exclusive_counts(graph)
+    if not counts:
+        return ["the graph names no domain skill"]
+    shared = [f"{target} is routed by {', '.join(sorted(owning))}"
+              for target, owning in sorted(_owners(graph).items()) if len(owning) > 1]
+    return shared + [f"{skill} owns {count} exclusive operations, fewer than {floor}"
+                     for skill, count in sorted(counts.items()) if count < floor]
+
+
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
+    "partition": partition,
 }
 
 
