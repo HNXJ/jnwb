@@ -251,9 +251,7 @@ def wavemap(waveforms, *, resolution: float, n_neighbors: int = 20, min_dist: fl
     Both stochastic stages draw their integer seed from `rng`, so an ``int`` repeats the
     result on one installation; UMAP and Louvain versions may still differ across installs.
     The embedding comes from ``UMAP.transform`` of the input after the fit, as in the figure
-    code of Lee et al. (2021); for the training data umap-learn (0.5.12, by an input hash)
-    returns the fitted embedding, which the protocol (Lee et al. 2023) reads through
-    ``fit_transform``.
+    code of Lee et al. (2021); the protocol (Lee et al. 2023) plots ``fit_transform``.
 
     Args:
         waveforms: ``(n_units, n_samples)`` finite array, ``n_units > n_neighbors``.
