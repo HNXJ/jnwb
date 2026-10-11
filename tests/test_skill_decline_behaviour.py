@@ -231,7 +231,8 @@ def _():
 def _():
     assert_states(
         "jnwb-connectivity",
-        "Unsigned coupling magnitude (e.g. wPLI $\\ge 0$) does not determine propagation direction",
+        "Unsigned coupling magnitude ([wPLI](../../docs/references.md#coherence-and-phase)) "
+        "does not determine propagation direction",
     )
     x, y = _directed_pair()
     with pytest.raises(ValueError, match="Unknown method='wpli'"):
