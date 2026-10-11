@@ -29,21 +29,22 @@ def setup_vector_graphics():
 def apply_tight_auto_axis(ax, x_span: Tuple[float, float] = (-500, 4124), y_margin: float = 0.12):
     """Pin the x-axis to ``x_span`` and fit the y-axis to the plotted lines.
 
-    The y lower limit is floored at 0, so negative values in the lines are drawn outside the
-    axes and not shown. Do not use it on signed data such as z-scores or LFP.
+    The y lower limit is floored at 0 only when no plotted value is negative. Signed data such
+    as z-scores or LFP keeps its negative values in view.
     """
     ax.set_xlim(x_span)
     lines = ax.get_lines()
     if lines:
         all_y = []
         for line in lines:
-            ydata = line.get_ydata()
+            ydata = np.asarray(line.get_ydata(), dtype=float)  # set_ydata keeps a list as given
             if len(ydata) > 0 and not np.all(np.isnan(ydata)):
                 all_y.extend(ydata[~np.isnan(ydata)])
         if all_y:
             ymin, ymax = np.min(all_y), np.max(all_y)
             rng = max(ymax - ymin, 1e-3)
-            ax.set_ylim(max(0, ymin - y_margin * rng), ymax + y_margin * rng)
+            low = ymin - y_margin * rng
+            ax.set_ylim(max(0, low) if ymin >= 0 else low, ymax + y_margin * rng)
 
 
 def save_figure_suite(

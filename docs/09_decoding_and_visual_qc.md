@@ -164,8 +164,8 @@ plt.rcParams["ps.fonttype"] = 42
 ### Tight Auto-Axis Bounding (`apply_tight_auto_axis`)
 
 Pins the x-axis to `x_span` and fits the y-axis to the plotted lines with a margin. The y lower
-limit is floored at 0, so negative values are drawn outside the axes; do not use it on signed
-data such as z-scores or LFP.
+limit is floored at 0 only when no plotted value is negative, so signed data such as z-scores or
+LFP keeps its negative values in view.
 
 ```python
 import matplotlib.pyplot as plt

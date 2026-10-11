@@ -1,0 +1,1 @@
+- `visual_qc.plot_unit_quality_distribution` raises `ValueError`, naming the column, when its stability flag (`stable_plus`, else `is_stable`) holds a value that is not a boolean. It used to coerce with `astype(bool)`, so a text flag such as `"no"` drew every unit as Stable. Real booleans (numpy, Python or pandas `boolean`) plot as before.

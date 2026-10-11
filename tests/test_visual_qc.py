@@ -228,6 +228,26 @@ def test_a_unit_of_unknown_stability_is_in_neither_bar_and_counted_in_the_title(
     plt.close(fig)
 
 
+def test_a_non_boolean_stability_flag_raises_instead_of_plotting_every_unit_stable():
+    import pytest
+
+    # astype(bool) read every non-empty string as True, so "no" drew as Stable.
+    text = _units_df(n=3).drop(columns=["stable_plus"]).assign(is_stable=["yes", "no", "yes"])
+    with pytest.raises(ValueError, match=r"'is_stable'.*non-boolean values.*'no'"):
+        plot_unit_quality_distribution(text)
+    text = _units_df(n=3).drop(columns=["is_stable"]).assign(stable_plus=["stable", "x", "y"])
+    with pytest.raises(ValueError, match="'stable_plus'"):
+        plot_unit_quality_distribution(text)
+    # 0 and 1 are not booleans, so an integer flag is refused rather than read by its truth value.
+    ints = _units_df(n=3).drop(columns=["stable_plus"]).assign(is_stable=[1, 0, 1])
+    with pytest.raises(ValueError, match="'is_stable'"):
+        plot_unit_quality_distribution(ints)
+    plt.close("all")
+    # Python booleans in an object column, with one unit missing, are real booleans and count.
+    stable = pd.Series([True, None, False, True], dtype=object)
+    assert _stability_bars(stable) == [("Unstable", 1), ("Stable", 2)]
+
+
 def test_quality_distribution_skips_an_absent_metric_panel():
     units = _units_df().drop(columns=["waveform_duration"])
     fig = plot_unit_quality_distribution(units)

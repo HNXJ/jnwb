@@ -11,7 +11,7 @@ Matplotlib publication figures, equal raster trial counts, or vector export (SVG
 
 ## 2. Routing
 - `jnwb.setup_vector_graphics()`: Sets publication rcParams for editable vector text (`svg.fonttype = 'none'`).
-- `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Sets the x-limits to `x_span` exactly, whatever the data spans, so pass your own span; the signature's `(-500, 4124)` is one fixed window. Fits the y-limits to the plotted lines with `y_margin` padding and floors the lower limit at 0, so it suits non-negative traces such as rates: negative values fall out of view.
+- `jnwb.apply_tight_auto_axis(ax, x_span=(-500, 4124), y_margin=0.12)`: Sets the x-limits to `x_span` exactly, whatever the data spans, so pass your own span; the signature's `(-500, 4124)` is one fixed window. Fits the y-limits to the plotted lines with `y_margin` padding; the lower limit is floored at 0 only when no plotted value is negative, so signed traces keep their negative values in view.
 - `jnwb.save_figure_suite(figures, output_dir, basename, dpi=300, formats=["png", "pdf"])`: Exports a **list** of figures, one `<basename>_page<N>.<fmt>` per figure per format. `figures` is iterated, so a single figure must be passed as `[fig]`; passing the figure itself raises `TypeError: 'Figure' object is not iterable`.
 - `jnwb.resample_onsets(onsets, target_n=100, rng=42)`: Resamples onsets to exactly `target_n`, for an equal raster trial count across units. With at least `target_n` onsets it draws without replacement; with fewer it draws **with** replacement, so onsets repeat.
 

@@ -1,0 +1,2 @@
+- `apply_tight_auto_axis` floors the y lower limit at 0 only when every plotted value is non-negative. Before, a line with a minimum of -5 was drawn below the axes; the lower limit now sits one margin below the minimum. Non-negative data keeps the floor at 0.
+- `apply_tight_auto_axis` accepts a line whose y data was set from a list with `set_ydata`; it raised `TypeError` before.

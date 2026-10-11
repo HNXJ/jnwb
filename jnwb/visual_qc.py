@@ -10,7 +10,6 @@ Provides functions for plotting waveforms, noise distributions, and unit metrics
 across single or multiple sessions for visual inspection and validation.
 
 Author: New jnwb module
-Date: 2026-06-25
 """
 
 import logging
@@ -51,6 +50,21 @@ def _mark_unknown(ax, x_pos, values) -> None:
         if np.isnan(v):
             ax.text(x, 0, 'unknown', ha='center', va='bottom', rotation=90,
                     color='dimgray', fontsize=8)
+
+
+def _stability_flags(flags: pd.Series, name: str) -> pd.Series:
+    """The known stability flags, which must be booleans. ``astype(bool)`` read any non-empty
+    string as True, so a text flag drew every unit Stable; a non-boolean value raises instead."""
+    known = flags.dropna()
+    if not pd.api.types.is_bool_dtype(known.dtype):
+        bad = [v for v in known if not isinstance(v, (bool, np.bool_))]
+        if bad:
+            raise ValueError(
+                f"plot_unit_quality_distribution: stability column {name!r} must hold booleans; "
+                f"dtype {flags.dtype} has non-boolean values {bad[:5]!r}"
+            )
+    # Booleans only: cast to a bool dtype, since ``~`` on an object column of bools is bitwise.
+    return known.astype(bool)
 
 
 def _drawn_template(waveform: np.ndarray) -> np.ndarray:
@@ -240,6 +254,8 @@ def plot_unit_quality_distribution(
     Visualizes: firing rate, SNR, waveform duration, quality flag distribution.
     A metric whose column is absent leaves its panel empty, titled as absent. A unit whose
     stability is ``<NA>`` is counted in neither stability bar; the panel title gives how many.
+    A stability column must hold booleans (numpy, Python or pandas ``boolean``); any other
+    value raises ``ValueError``, naming the column.
 
     Args:
         units_df: DataFrame with unit metrics (from get_all_units_metadata)
@@ -318,7 +334,7 @@ def plot_unit_quality_distribution(
     if 'is_stable' in units_df.columns or 'stable_plus' in units_df.columns:
         stable_col = 'stable_plus' if 'stable_plus' in units_df.columns else 'is_stable'
         # Each bar is counted from its own class, so an absent class plots as zero.
-        stable = units_df[stable_col].dropna().astype(bool)
+        stable = _stability_flags(units_df[stable_col], stable_col)
         n_unknown = len(units_df) - len(stable)
         counts = [int((~stable).sum()), int(stable.sum())]
         ax.bar(range(2), counts)

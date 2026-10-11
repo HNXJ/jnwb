@@ -42,8 +42,8 @@ lines.
 | Lane | Items, in order | Owns |
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
-| G pitfalls and skill sources | 10-12, 11-14, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| D display, documentation and unit measures | 10-09, 11-16, 11-17, 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-24, 11-25, 11-26, 10-14, 11-27, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| G pitfalls and skill sources | 10-12, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
+| D display, documentation and unit measures | 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-25, 11-26, 10-14, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
@@ -118,14 +118,6 @@ Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`
 - Each connectivity and spectral safeguard restates its method instead of naming its `docs/references.md` row. Check: the line test in `tests/test_skills_validation.py` finds no restated definition. Waits: pointers only.
 Accept: the line test in `tests/test_skills_validation.py` finds no restated definition; routing rows still match signatures and the summed skill length does not grow. Stop: a pointer would drop a safeguard's dimension that a routing row needs.
 
-### 11-14 The unscoped-delay branch of `TestCausalFilterDelayIsScopedToAThresholdCrossing` is pinned
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: per skill. Blocked by: none.
-Writes: `tests/test_skills_validation.py`.
-- P-216 statistics part: the unscoped-delay paraphrase branch of `TestCausalFilterDelayIsScopedToAThresholdCrossing` (`tests/test_skills_validation.py`, lane G's file) is unpinned. Check: a test fails when that branch is removed. Waits: behaves correctly.
-Accept: a test fails when the unscoped-delay branch is removed. Stop: none.
-
 ### 11-29 A request for published nonparametric Granger values meets a statement of the estimator difference
 
 Release: deferred-0.2.11.
@@ -133,30 +125,6 @@ Role: jnwb-developer. Skill: per skill. Blocked by: none.
 Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`.
 - A request to compare with published nonparametric Granger values meets no statement of the estimator difference. Check: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification. Waits: skill text only.
 Accept: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification; routing rows still match signatures and the summed skill length does not grow. Stop: none.
-
-### 10-09 `apply_tight_auto_axis` draws data with minimum -5 inside the axes
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/viz.py`, `tests/test_viz*.py`, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`.
-- P-244: `apply_tight_auto_axis` floors y at 0 (`jnwb/viz.py:46`), so data with minimum -5 is drawn outside the axes. Check: the floor applies only to non-negative data, and a test asserts `ylim[0] <= -5` for that case. Waits: display only, stated.
-Accept: the check passes. Stop: none beyond the standing ones.
-
-### 11-16 A text flag in the stability panel raises instead of plotting every unit Stable
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/visual_qc.py`, `tests/test_visual_qc.py`.
-- P-313: the stability panel coerces with `astype(bool)` (`jnwb/visual_qc.py:323`), so a text flag plots every unit Stable. Check: a non-boolean flag raises a named error, asserted with string flags. Waits: display only.
-Accept: the check passes. Stop: none beyond the standing ones.
-
-### 11-17 `tests/test_vis_draws_no_default_landmark.py` rejects a `UnaryOp` default and a body fallback
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `tests/test_vis_draws_no_default_landmark.py`.
-- P-275: `tests/test_vis_draws_no_default_landmark.py` misses a `UnaryOp` default and a body fallback. Check: a planted fixture for each is rejected. Waits: the code has neither.
-Accept: the check passes. Stop: none beyond the standing ones.
 
 ### 11-18 `plot_csd` rejects a unit-bearing or blank `colorbar_title` and the depth hover names `depth_unit`
 
@@ -206,14 +174,6 @@ Writes: `jnwb/vis/spiking.py`, `tests/test_vis*.py`.
 - P-332 display part: `plot_sorted_heatmap(category_labels=...)` is accepted and ignored (`jnwb/vis/spiking.py:245`). Check: the labels are drawn or the argument raises, asserted by a test. Waits: display.
 Accept: the check passes. Stop: none beyond the standing ones.
 
-### 11-24 `jnwb/visual_qc.py:13` names no date
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/visual_qc.py`.
-- P-296 dated comments: `jnwb/visual_qc.py:13` names a date. Check: the line is deleted or shown to state behaviour. Waits: no behavioural effect.
-Accept: the check passes. Stop: none beyond the standing ones.
-
 ### 11-25 The gradients crossover default and the `jnwb.vis` vocabulary are pinned by tests
 
 Release: deferred-0.2.11.
@@ -238,15 +198,6 @@ Writes: `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/te
 Split from the documentation-check item on 2026-10-04, which landed every other bullet.
 - P-167 and P-84: P-79b, P-79c and P-82 are wrong-type calls that bind cleanly; the recorded call fragments use names the page never assigns (`lfp_segments`, `spike_trains`, `session_qc_list`). Ruled 2026-10-04 (Hamm): an annotation oracle over literals and page-assigned names, plus a small table of argument types for names a page never assigns. Check: `tests/test_docs_call_shapes.py` fails the oracle on all three calls. Waits: the documented calls are already corrected; the oracle guards recurrence.
 Accept: the check passes. Stop: the oracle needs a type that no annotation or table entry states.
-
-### 11-27 `_nav_pages` does not read commented `mkdocs.yml` lines as pages
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `tests/test_skill_symbol_coverage.py`, `scripts/docs_form_gate.py`.
-Split from the documentation-check item on 2026-10-04, which landed every other bullet.
-- The nav reader `_nav_pages` of `tests/test_skill_symbol_coverage.py` reads commented `mkdocs.yml` lines as pages. Check: it calls the nav reader of `scripts/docs_form_gate.py`, and a planted commented line is not read as a page. Waits: no commented page exists.
-Accept: the check passes. Stop: none.
 
 ### 10-15 The four published unit measures are public operations or ruled exclusions
 

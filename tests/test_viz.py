@@ -58,6 +58,26 @@ class TestApplyTightAutoAxis:
         assert ymax > 4.0
         plt.close(fig)
 
+    def test_ylim_keeps_a_negative_minimum_in_view(self):
+        """A floor at 0 drew data with a minimum of -5 outside the axes. The floor is for
+        non-negative data only."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2], [-5.0, 0.0, 3.0])
+        assert min(ax.get_lines()[0].get_ydata()) == -5.0  # the fixture must go negative
+        apply_tight_auto_axis(ax, y_margin=0.12)
+        ymin, ymax = ax.get_ylim()
+        assert ymin <= -5
+        assert ymax >= 3
+        plt.close(fig)
+
+    def test_ylim_floor_at_zero_still_applies_to_nonnegative_data(self):
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0.5, 4.0])
+        assert min(ax.get_lines()[0].get_ydata()) >= 0  # the fixture must not go negative
+        apply_tight_auto_axis(ax, y_margin=0.5)  # the margin would reach -1.25 without the floor
+        assert ax.get_ylim()[0] == 0
+        plt.close(fig)
+
 
 class TestSaveFigureSuite:
     def test_writes_one_file_per_page_and_format(self, tmp_path):

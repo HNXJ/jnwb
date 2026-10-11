@@ -1447,6 +1447,20 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
         assert len(giving) == 2, giving
 
+    @pytest.mark.parametrize("instruction", [
+        "Remove the group delay from every onset before comparing conditions.",
+        "Remove the filter delay from every onset before comparing conditions.",
+    ])
+    def test_a_paraphrase_naming_group_or_remove_is_seen(self, instruction):
+        """Two branches of `_delay_sentences` no test pinned: `group` as the delay's name and
+        `remove` as the removal verb. Deleting either from the pattern lets these paraphrases
+        through unseen, and no test above names either branch."""
+        from jnwb.onset_fitting import causal_exp_smooth
+
+        mutant = causal_exp_smooth.__doc__ + f"\n    {instruction}\n"
+        giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
+        assert len(giving) == 2, giving
+
     def test_tau_ms_is_still_held_fixed_across_compared_conditions(self):
         """The half of the original safeguard that was correct and is load-bearing."""
         fixed = [
@@ -1729,7 +1743,10 @@ class TestRowsAgainstTheLiveCall:
             ax.plot([0.0, 5.0, 10.0], [-1.0, 1.0, 0.5])
             jnwb.apply_tight_auto_axis(ax, x_span=(0.0, 10.0))
             assert ax.get_xlim() == (0.0, 10.0)
-            assert ax.get_ylim()[0] == 0.0, "the lower y-limit is no longer floored at 0"
+            assert ax.get_ylim()[0] < -1.0, "a negative value is drawn outside the axes"
+            ax.lines[0].set_ydata([0.0, 1.0, 0.5])  # the margin reaches below 0
+            jnwb.apply_tight_auto_axis(ax, x_span=(0.0, 10.0))
+            assert ax.get_ylim()[0] == 0.0, "non-negative data is no longer floored at 0"
             jnwb.apply_tight_auto_axis(ax)
             assert ax.get_xlim() == (-500.0, 4124.0), "x is no longer pinned to x_span"
         finally:

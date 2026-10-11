@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 import jnwb
+from scripts import docs_form_gate as gate
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
@@ -392,7 +393,8 @@ def _mkdocs_block(key: str) -> list[str]:
 
 
 def _nav_pages() -> set[str]:
-    return {m for ln in _mkdocs_block("nav") for m in re.findall(r"([\w/.-]+\.md)\b", ln)}
+    """The local pages on the nav, read by the gate's own reader: a commented line is not one."""
+    return set(gate.nav_targets(ROOT / "mkdocs.yml"))
 
 
 def _skill_paths() -> set[str]:
@@ -413,6 +415,21 @@ def _path_is_routed(path: str, nav: set[str], refs: set[str]) -> bool:
     if path.startswith("docs/") and path.removeprefix("docs/") in nav:
         return True
     return any(path == r or (r.endswith("/") and path.startswith(r)) for r in refs)
+
+
+def test_nav_reader_reads_no_commented_entry(monkeypatch, tmp_path) -> None:
+    """MkDocs reads no commented line as a page, so the nav reader must not either."""
+    planted = tmp_path / "mkdocs.yml"
+    planted.write_text(
+        "nav:\n"
+        "  - Look up:\n"
+        "      - Public API: api.md\n"
+        "  #   - Retired: retired_page.md\n"
+        "# - Old: old_page.md\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "ROOT", tmp_path)
+    assert _nav_pages() == {"api.md"}, f"commented lines read as pages: {sorted(_nav_pages())}"
 
 
 def test_every_page_script_and_notebook_is_routed_or_excluded() -> None:
