@@ -17,14 +17,18 @@ from __future__ import annotations
 
 import inspect
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 import jnwb
-from scripts import docs_form_gate as gate
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+from scripts import docs_form_gate as gate  # noqa: E402
+
 SKILLS = ROOT / "skills"
 
 WORD = re.compile(r"\b([A-Za-z_]\w*)\b")

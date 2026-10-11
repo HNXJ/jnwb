@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from jnwb.unit_quality import _peak_channel
+
 log = logging.getLogger(__name__)
 
 # Palette constants duplicated here so jnwb/ has no downstream-project import dependency.
@@ -104,12 +106,12 @@ def plot_unit_waveforms(
             without per-sample gaps when the amplitude matters.
         max_units_per_page: Units per figure page (for large unit sets)
         figsize: Figure size (width, height)
-        channels: ``"peak"`` draws the channel with the largest absolute deflection
-            over finite samples (NaN and infinite samples, and channels with no finite
-            sample, ignored), with ±1 SD across spikes when the
-            input is 3-D; ``"all"`` draws every channel and refuses a channel with no finite
-            sample. Channels are never averaged together, because a channel mean shrinks the
-            peak by the channel count.
+        channels: ``"peak"`` draws the peak channel, the channel of largest peak-to-trough
+            amplitude (maximum minus minimum) over finite samples, which is the channel
+            `waveform_features` reports (NaN and infinite samples, and channels with no finite
+            sample, ignored), with ±1 SD across spikes when the input is 3-D; ``"all"`` draws
+            every channel and refuses a channel with no finite sample. Channels are never
+            averaged together, because a channel mean shrinks the peak by the channel count.
         voltage_unit: The unit of the waveform values, written on each voltage axis; the
             traces are drawn as given and never rescaled. Pass the unit of your data; the
             default ``"μV"`` is only a label. ``None`` or ``""`` leaves the unit off.
@@ -205,13 +207,9 @@ def plot_unit_waveforms(
             if channels is not None:
                 template = _drawn_template(waveform)
                 if channels == "peak":
-                    # Deflection over finite samples only: a channel with none never wins, an
-                    # infinite sample does not make a channel the peak, and the check above
-                    # guarantees one channel has a finite sample.
-                    deflection = np.array([np.abs(tr[np.isfinite(tr)]).max()
-                                           if np.isfinite(tr).any() else np.nan
-                                           for tr in template])
-                    peak = int(np.nanargmax(deflection))
+                    # The rule of `waveform_features`: the largest max minus min over finite
+                    # samples. A flat template draws its first channel.
+                    peak, _ = _peak_channel(template, "plot_unit_waveforms", flat_ok=True)
                     ax.plot(template[peak], color=MADELANE_GOLD, linewidth=2,
                             label=f'Channel {peak}')
                     if waveform.ndim == 3:

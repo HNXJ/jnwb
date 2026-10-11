@@ -181,6 +181,22 @@ def test_plot_unit_waveforms_refuses_a_masked_entry():
     plt.close("all")
 
 
+def test_plot_peak_channel_is_the_channel_waveform_features_reports():
+    from jnwb.unit_quality import waveform_features
+
+    # Channel 0 has the larger absolute deflection (4 against 3); channel 1 the larger
+    # peak-to-peak (3 - (-1.5) = 4.5 against 4). The two rules pick different channels.
+    template = np.array([[-4.0, 0.0, 0.0, 0.0], [2.0, 3.0, -1.5, 0.0]])
+    assert np.abs(template).max(axis=1).argmax() == 0, "fixture must split the two rules"
+    reported = waveform_features(template, 30000.0)["peak_channel"]
+    assert reported == 1
+    (fig,) = plot_unit_waveforms([7], {7: template}, channels="peak")
+    (line,) = fig.axes[0].get_lines()
+    assert line.get_label() == f"Channel {reported}"
+    np.testing.assert_array_equal(line.get_ydata(), template[reported])
+    plt.close(fig)
+
+
 def test_plot_unit_quality_distribution_returns_populated_figure():
     units = _units_df()
     fig = plot_unit_quality_distribution(units)

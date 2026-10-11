@@ -52,13 +52,17 @@ def _positive_finite(value, name: str, func_name: str) -> float:
     return v
 
 
-def _peak_channel(w: np.ndarray, func_name: str):
+def _peak_channel(w: np.ndarray, func_name: str, *, flat_ok: bool = False):
     """``(peak channel, per-channel amplitudes)``: the channel of largest peak-to-trough
-    amplitude ``max - min``, the first of tied channels. A waveform of zero amplitude on every
-    channel has no peak channel and raises."""
-    amplitudes = w.max(axis=1) - w.min(axis=1)
+    amplitude ``max - min``, the first of tied channels. Non-finite samples are left out of a
+    channel's extremes, so a channel with no finite sample has amplitude -inf and never wins. A
+    waveform of zero amplitude on every channel has no peak channel and raises, unless `flat_ok`
+    (a drawing), which takes the first channel."""
+    finite = np.isfinite(w)
+    amplitudes = (np.where(finite, w, -np.inf).max(axis=1)
+                  - np.where(finite, w, np.inf).min(axis=1))
     peak = int(np.argmax(amplitudes))
-    if amplitudes[peak] <= 0:
+    if amplitudes[peak] <= 0 and not flat_ok:
         raise ValueError(
             f"{func_name}: the waveform has zero amplitude on every channel, so it has no "
             "peak channel."

@@ -43,7 +43,7 @@ lines.
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 | G pitfalls and skill sources | 10-12, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| D display, documentation and unit measures | 11-18, 11-19, 11-20, 11-21, 11-22, 11-30, 11-25, 11-26, 10-14, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| D display, documentation and unit measures | 11-20, 11-21, 11-22, 11-30, 11-25, 10-14, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
@@ -126,22 +126,6 @@ Writes: `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`
 - A request to compare with published nonparametric Granger values meets no statement of the estimator difference. Check: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification. Waits: skill text only.
 Accept: a decline-behaviour case in `tests/test_skills_validation.py` finds the skill stating the difference as a decline or a qualification; routing rows still match signatures and the summed skill length does not grow. Stop: none.
 
-### 11-18 `plot_csd` rejects a unit-bearing or blank `colorbar_title` and the depth hover names `depth_unit`
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/vis/**`, `tests/test_vis*.py`.
-- Vis label edges: a full label in `plot_csd`'s `colorbar_title` doubles the unit; a whitespace-only title is accepted; the depth hover has no unit. Check: a title naming a unit raises, a whitespace-only title raises, and the depth hover names `depth_unit`, one test each. Waits: visibly contradictory, never silent.
-Accept: the check passes. Stop: none beyond the standing ones.
-
-### 11-19 The hierarchy hover's "%" removal is pinned, infinities raise and an empty `rel_power` raises
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/vis/**`, `tests/test_vis*.py`.
-- Vis range edges: the hierarchy hover's "%" removal is unpinned; `plot_spectrolaminar_map` draws infinities as gaps; an empty `rel_power` fails in numpy. Check: a test fails when the "%" removal is dropped, infinities raise, and an empty `rel_power` raises a named error. Waits: shipped hover correct.
-Accept: the check passes. Stop: none beyond the standing ones.
-
 ### 11-20 `Canvas.save_and_seal` loses no export on a loaded machine and an export error reaches the caller
 
 Release: deferred-0.2.11.
@@ -180,14 +164,6 @@ Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
 Writes: `jnwb/vis/**`, `tests/test_vis*.py`.
 - P-216 display part: the gradients crossover default and the `jnwb.vis` vocabulary beyond a grep are unpinned. Check: a test fails when the crossover default changes, and one pins the vocabulary. Waits: behaves correctly.
-Accept: the check passes. Stop: none beyond the standing ones.
-
-### 11-26 `plot_unit_waveforms` and `waveform_features` use one peak-channel rule
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, `tests/test_visual_qc.py`, `tests/test_unit_quality.py`.
-- Closure pass 2026-10-05: `plot_unit_waveforms(channels="peak")` takes the largest absolute deflection (`jnwb/visual_qc.py:95`) while `waveform_features` takes the largest max minus min (`jnwb/unit_quality.py:69`), so on a template where the rules differ the drawn and the reported peak channel differ. Check: both call one peak-channel rule (`AGENTS.md` 4.7), asserted on such a template. Waits: display only; the reported features are unchanged.
 Accept: the check passes. Stop: none beyond the standing ones.
 
 ### 10-14 The documented call shapes are type-checked by an annotation oracle

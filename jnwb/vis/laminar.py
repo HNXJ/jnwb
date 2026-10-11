@@ -9,6 +9,7 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
+import re
 from typing import Dict, Optional
 
 import numpy as np
@@ -56,8 +57,8 @@ def plot_spectrolaminar_map(
         rel_power: 2D array of shape [n_freqs, n_depths] or [n_depths, n_freqs], holding
             fractions in [0, 1], for example power normalised across contacts per frequency.
             The colour scale is fixed to [0, 1]. ``jnwb.relative_power`` returns a ratio to
-            baseline, which is unbounded, and is not this input. Non-finite values are drawn
-            as gaps.
+            baseline, which is unbounded, and is not this input. NaN values are drawn as gaps;
+            infinite values raise.
         freqs: 1D array of frequencies (Hz).
         depths: 1D array of cortical depths, in ``depth_unit``.
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
@@ -74,9 +75,9 @@ def plot_spectrolaminar_map(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` does not
-            match ``freqs`` and ``depths``, or a finite value of ``rel_power`` lies outside
-            [0, 1].
+        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` is empty or
+            does not match ``freqs`` and ``depths``, ``rel_power`` holds an infinite value, or
+            a finite value of ``rel_power`` lies outside [0, 1].
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -84,6 +85,8 @@ def plot_spectrolaminar_map(
     rel_power = np.asarray(rel_power, dtype=float)
     freqs = np.asarray(freqs, dtype=float)
     depths = np.asarray(depths, dtype=float)
+    if rel_power.size == 0:
+        raise ValueError("rel_power is empty; pass one fraction in [0, 1] per frequency and depth.")
 
     # Ensure shape is [depths, freqs] for heatmap display (x=freqs, y=depths)
     if rel_power.shape == (len(freqs), len(depths)):
@@ -93,6 +96,11 @@ def plot_spectrolaminar_map(
     else:
         raise ValueError(
             f"rel_power shape {rel_power.shape} does not match freqs ({len(freqs)}) and depths ({len(depths)})."
+        )
+    if np.isinf(z_data).any():
+        raise ValueError(
+            "rel_power holds infinite values; plot_spectrolaminar_map draws NaN as a gap and "
+            "refuses +inf and -inf on its fixed [0, 1] colour scale."
         )
     finite = z_data[np.isfinite(z_data)]
     if finite.size and (finite.min() < 0.0 or finite.max() > 1.0):
@@ -397,7 +405,8 @@ def plot_csd(
         title: Panel title, for example ``"Current Source Density"``. None draws no title.
         colorbar_title: Name of the quantity on the colorbar, for example ``"CSD"``; the
             colorbar reads ``"<colorbar_title> (<value_unit>)"``. None labels it with
-            ``value_unit`` alone.
+            ``value_unit`` alone. A blank title, or one that names ``value_unit``, raises: the
+            unit is written once, by ``value_unit``.
         value_unit: Unit of ``csd_matrix``, for example ``"A/m³"`` or ``"V/m²"``. Required;
             it labels the colorbar and the hover text.
         depth_unit: Unit of ``depths``: ``'mm'``, ``'um'`` or ``'relative'`` (0 = pia,
@@ -406,10 +415,18 @@ def plot_csd(
             white matter.
 
     Raises:
-        ValueError: ``value_unit`` is not a non-empty string, or ``depth_unit`` is not one
-            of the three units.
+        ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
+            names ``value_unit``, or ``depth_unit`` is not one of the three units.
     """
-    colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
+    value_unit = required_text("value_unit", value_unit)
+    if colorbar_title is not None:
+        required_text("colorbar_title", colorbar_title)
+        if re.search(rf"(?<![\w/]){re.escape(value_unit)}(?![\w/])", colorbar_title):
+            raise ValueError(
+                f"colorbar_title {colorbar_title!r} names the unit {value_unit!r}, which the "
+                "colorbar already carries; pass the quantity alone, for example colorbar_title='CSD'."
+            )
+    colorbar_label = unit_label(colorbar_title, value_unit)
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
@@ -433,7 +450,7 @@ def plot_csd(
         xaxis=x_axis,
         yaxis=y_axis,
         hovertemplate=(
-            f"Time: %{{x:.1f}} ms<br>Depth: %{{y:.3f}}<br>Value: %{{z:.2e}} {value_unit}"
+            f"Time: %{{x:.1f}} ms<br>Depth: %{{y:.3f}} {depth_unit}<br>Value: %{{z:.2e}} {value_unit}"
             "<extra></extra>"
         ),
     )
