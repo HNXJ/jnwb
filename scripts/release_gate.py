@@ -55,6 +55,8 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: here because the suite imports ``jnwb.vis``, and every CI leg installs it; ``wavemap`` because
 #: tests/test_wavemap.py clusters with umap-learn and networkx.
 REQUIRED_EXTRAS = ("test", "docs", "vis", "wavemap")
+# The extras STEP 8 installs before running the tutorials, as CI's tutorial step has them.
+TUTORIAL_EXTRAS = ("vis", "wavemap")
 
 
 _VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -2221,9 +2223,19 @@ def main() -> None:
         if not tutorials:
             log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
             sys.exit(1)
+        # As CI does: the extras the tutorials draw are installed only now, after STEP 7 has
+        # checked the wheel without them (tutorial 10 needs `vis` and `wavemap`).
+        subprocess.run([venv_python, "-m", "pip", "install", f"{whl}[{','.join(TUTORIAL_EXTRAS)}]"],
+                       check=True)
+        purelib = subprocess.run(
+            [venv_python, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+            check=True, capture_output=True, text=True).stdout.strip()
         # PYTHONPATH is stripped and the CWD is the staging directory, so a tutorial that
         # only runs from the source tree fails here instead of passing by checkout proximity.
+        # JNWB_EXPECTED_PACKAGE_ROOT makes each tutorial's prefer-the-checkout guard stand
+        # aside; without it every tutorial imported the checkout it ships in, not the wheel.
         tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
         for tutorial in tutorials:
             res = subprocess.run(
                 [venv_python, str(tutorial)], cwd=str(staging_dir),

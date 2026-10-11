@@ -546,6 +546,22 @@ class TestInstalledArtifactVerification:
         assert 'k != "PYTHONPATH"' in gate, (
             "the release gate must strip PYTHONPATH before running tutorials"
         )
+        assert 'tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"]' in gate, (
+            "without JNWB_EXPECTED_PACKAGE_ROOT each tutorial's guard imports the checkout, "
+            "so STEP 8 runs the source tree, not the wheel"
+        )
+
+    def test_release_gate_installs_the_extras_the_ci_tutorial_step_has(self):
+        """CI's tutorial step runs after `vis` and `wavemap` are installed into the clean env;
+        STEP 8 must install the same, or tutorial 10 fails locally and passes in CI."""
+        workflow = (REPO_ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")
+        ci = set(re.findall(r"extras\['(\w+)'\]", workflow))
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        local = re.search(r"^TUTORIAL_EXTRAS = \(([^)]*)\)", gate, re.M)
+        assert local, "release_gate.py names no TUTORIAL_EXTRAS"
+        local = set(re.findall(r'"(\w+)"', local.group(1)))
+        assert {"vis", "wavemap"} <= ci, f"fixture: CI installs {sorted(ci)}"
+        assert {"vis", "wavemap"} <= local, f"STEP 8 installs {sorted(local)}"
 
     @staticmethod
     def _pinned_version_literals(source):
