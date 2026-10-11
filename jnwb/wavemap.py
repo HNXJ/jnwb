@@ -35,7 +35,7 @@ References:
     reveals cell type diversity in premotor cortex. eLife 10, e67490. doi:10.7554/eLife.67490
 
     Lee, K., Carr, N., Perliss, A. & Chandrasekaran, C. (2023). WaveMAP for identifying
-    putative cell types from in vivo electrophysiology. STAR Protocols 4, 102320.
+    putative cell types from in vivo electrophysiology. STAR Protocols 4(2), 102320.
     doi:10.1016/j.xpro.2023.102320
 
     McInnes, L., Healy, J. & Melville, J. (2018). UMAP: Uniform manifold approximation and
@@ -172,7 +172,7 @@ def normalize_waveforms(waveforms, *, subtract_mean: bool = True) -> np.ndarray:
 
     References:
         Lee, E. K., et al. (2021). eLife 10, e67490. doi:10.7554/eLife.67490
-        Lee, K., et al. (2023). STAR Protocols 4, 102320. doi:10.1016/j.xpro.2023.102320
+        Lee, K., et al. (2023). STAR Protocols 4(2), 102320. doi:10.1016/j.xpro.2023.102320
     """
     w = _waveform_matrix(waveforms, "normalize_waveforms")
     varies = np.ones((w.shape[0], 1), dtype=bool)
@@ -245,12 +245,15 @@ def wavemap(waveforms, *, resolution: float, n_neighbors: int = 20, min_dist: fl
     it at `resolution` in the published convention (larger, fewer clusters; module
     docstring). The defaults of `n_neighbors` and `min_dist` are those of Lee et al. (2021,
     Table 1), who chose a resolution of 1.5 by maximizing modularity with every cluster
-    above 20 units; Lee et al. (2023) used 2.0 and n_neighbors 15. There is no default
-    resolution: choose it from `wavemap_resolution_sweep` and report it.
+    above 20 units; Lee et al. (2023, steps 13 and 15) used 2 and n_neighbors 15. There is no
+    default resolution: choose it from `wavemap_resolution_sweep` and report it.
 
     Both stochastic stages draw their integer seed from `rng`, so an ``int`` repeats the
     result on one installation; UMAP and Louvain versions may still differ across installs.
-    The embedding comes from ``UMAP.transform`` of the input, as in the published code.
+    The embedding comes from ``UMAP.transform`` of the input after the fit, as in the figure
+    code of Lee et al. (2021); for the training data umap-learn (0.5.12, by an input hash)
+    returns the fitted embedding, which the protocol (Lee et al. 2023) reads through
+    ``fit_transform``.
 
     Args:
         waveforms: ``(n_units, n_samples)`` finite array, ``n_units > n_neighbors``.
@@ -272,7 +275,7 @@ def wavemap(waveforms, *, resolution: float, n_neighbors: int = 20, min_dist: fl
 
     References:
         Lee, E. K., et al. (2021). eLife 10, e67490. doi:10.7554/eLife.67490
-        Lee, K., et al. (2023). STAR Protocols 4, 102320. doi:10.1016/j.xpro.2023.102320
+        Lee, K., et al. (2023). STAR Protocols 4(2), 102320. doi:10.1016/j.xpro.2023.102320
         McInnes, L., Healy, J. & Melville, J. (2018). arXiv:1802.03426.
         doi:10.48550/arXiv.1802.03426
         Blondel, V. D., et al. (2008). J. Stat. Mech. P10008. doi:10.1088/1742-5468/2008/10/P10008

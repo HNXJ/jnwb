@@ -30,7 +30,7 @@ Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_
 
 ### Waveform clustering (WaveMAP)
 
-Lee et al. (2021): normalized mean waveforms clustered with Louvain on UMAP's nearest-neighbor graph. `wavemap` and `wavemap_resolution_sweep` need the `wavemap` extra (`pip install jnwb[wavemap]`) and raise `ImportError` naming it; the other two need only NumPy. `docs/06_spikes_psth_and_onset_dynamics.md` section 6 walks through it.
+Lee et al. (2021) and the protocol of Lee et al. (2023): normalized mean waveforms clustered with Louvain on UMAP's nearest-neighbor graph. `wavemap` and `wavemap_resolution_sweep` need the `wavemap` extra (`pip install jnwb[wavemap]`) and raise `ImportError` naming it; the other two need only NumPy. `docs/06_spikes_psth_and_onset_dynamics.md` section 6 walks through it.
 
 - `jnwb.align_waveforms(waveforms, fs, *, pre_s=0.0004, post_s=0.0012)`: Cuts each row of `(n_units, n_samples)` mean waveforms, one channel per unit, to the window around its trough (whole samples; 48 samples at 30 kHz by default). A row whose window leaves its samples, or that holds a NaN, comes back NaN and False in the returned mask, never padded: drop it, and report how many were dropped.
 - `jnwb.normalize_waveforms(waveforms, *, subtract_mean=True)`: Per unit, subtracts the mean and divides by the largest absolute value; a non-finite row, a row of zeros and, with `subtract_mean=True`, a constant row are NaN.

@@ -95,7 +95,10 @@ thresholds are the caller's.
 
 WaveMAP clusters normalized mean waveforms on UMAP's k-nearest-neighbor graph with Louvain.
 The resolution is the Markov time of Lambiotte et al. (2008), the convention of the `cylouvain`
-package the published code used: a larger resolution gives fewer clusters.
+package the published code used: a larger resolution gives fewer clusters. Lee et al. (2021)
+also cite Lambiotte (2007), *Finding communities at different resolutions in large networks*,
+an Institute for Mathematical Sciences report with no DOI or arXiv identifier, for the same
+convention.
 
 | Reference | Result implemented | Functions |
 |---|---|---|
