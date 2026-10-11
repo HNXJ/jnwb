@@ -40,7 +40,8 @@ def plot_decoding_timecourse(
         col: Grid column index.
         time_ms: 1D array of time points relative to onset.
         accuracy: 1D array of decoding accuracy over time.
-        ci_low: 1D array of lower confidence bounds.
+        ci_low: 1D array of lower confidence bounds. The ribbon is drawn only when both
+            ``ci_low`` and ``ci_high`` are given.
         ci_high: 1D array of upper confidence bounds.
         chance_level: Theoretical chance level (e.g. 0.5 for binary classification).
         sig_clusters: List of (t_start, t_end) tuples for statistically significant time clusters.

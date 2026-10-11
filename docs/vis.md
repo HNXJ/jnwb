@@ -70,7 +70,7 @@ Each function draws into one `(row, col)` of a canvas.
 | `plot_spectral_modulation_matrix` | area x band modulation, with FDR-corrected markers |
 | `plot_granger_spectra` | directed Granger spectra, with a shuffle-null ribbon |
 | `plot_hierarchy_regression` | values over hierarchy rank with supplied error bars and null; computes a least-squares line; `y_label=` names the quantity |
-| `plot_decoding_timecourse` | cross-validated decoding over time, with a CI ribbon |
+| `plot_decoding_timecourse` | cross-validated decoding over time, with a CI ribbon, drawn only when both `ci_low` and `ci_high` are given |
 | `plot_rsm_heatmap` | a representational similarity or dissimilarity matrix |
 
 Every other interval, null and correction is an input: compute it with the jnwb operation

@@ -384,8 +384,11 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
     and ``f`` is its smaller root, ``(1 - sqrt(1 - 2 r T / ((tau_R - tau_C) N^2))) / 2``. A
     violation is an inter-spike interval between consecutive spikes shorter than ``tau_R``;
     an interval within 1 ns of ``tau_R`` counts as equal to it, so spike times on a sample grid
-    compare exactly. The derivation is restated by Llobet et al. (2022). The result is
-    unitless, between 0 and 1/2.
+    compare exactly. Llobet et al. (2022) derive the same count (their eq. 1) and root (their
+    eq. 4, ``C'``) for a single contaminating unit, with ``T`` less the censored time. For
+    contamination from many units or noise they add contaminant-to-contaminant violations and
+    use their eq. 3 instead, which gives a lower contamination for the same ``r``; this
+    function computes Hill's. The result is unitless, between 0 and 1/2.
 
     Args:
         spike_times: 1-D spike times in seconds. Duplicate spike times are the caller's to

@@ -259,7 +259,8 @@ def plot_sorted_heatmap(
         rate_matrix: 2D array of shape [n_units, n_times], in ``value_unit``.
         time_ms: 1D array of time points relative to event.
         sort_idx: Optional 1D sorting indices (e.g. by latency or response category).
-        category_labels: Optional labels for unit groups.
+        category_labels: Reserved. A non-None value raises ``ValueError``: the labels name unit
+            groups, and no argument maps them to rows.
         cmap: Colormap name.
         title: Panel title.
         colorbar_title: Name of the quantity on the colorbar, for example ``"Rate"``; the
@@ -269,9 +270,14 @@ def plot_sorted_heatmap(
             it labels the colorbar and the hover text.
 
     Raises:
-        ValueError: ``value_unit`` is not a non-empty string.
+        ValueError: ``value_unit`` is not a non-empty string, or ``category_labels`` is given.
     """
     colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
+    if category_labels is not None:
+        raise ValueError(
+            "plot_sorted_heatmap: category_labels cannot be drawn, because the argument has no "
+            "defined mapping from labels to rows. Pass category_labels=None."
+        )
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rate_matrix = np.asarray(rate_matrix, dtype=float)

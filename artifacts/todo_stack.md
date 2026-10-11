@@ -43,7 +43,7 @@ lines.
 |---|---|---|
 | Y identity facts | 10-10, 11-06, 09-04, 11-07, 11-08, 11-09, 11-32 | `jnwb/__init__.py`, `jnwb/compression.py`, `jnwb/_declarations.py`, the fact gate and its test, `artifacts/fact_stack.md` holder cells |
 | G pitfalls and skill sources | 10-12, 11-29, 11-37, 11-38, 11-39, 11-40 | `tests/test_connectivity_pitfalls.py`, `tests/test_substitution_class_sweep.py`, `skills/jnwb-connectivity/SKILL.md`, `skills/jnwb-population/SKILL.md`, `skills/jnwb-lfp-spectral/SKILL.md`, `tests/test_skills_validation.py`, `docs/03_representational_similarity_jrsa.md`, `docs/08_directed_connectivity_and_information.md` |
-| D display, documentation and unit measures | 11-20, 11-21, 11-22, 11-30, 11-25, 10-14, 10-15, 11-28 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
+| D display, documentation and unit measures | 11-20, 11-42, 11-43, 11-25, 10-14, 10-15 | `jnwb/viz.py`, `jnwb/vis/**`, `jnwb/visual_qc.py`, `jnwb/unit_quality.py`, their tests, `skills/jnwb-landmark-viz/SKILL.md`, `skills/jnwb-figures/SKILL.md`, `skills/jnwb-qc/SKILL.md`, `docs/vis.md`, `tests/test_docs_call_shapes.py`, `scripts/docs_form_gate.py`, `tests/test_skill_symbol_coverage.py`, `artifacts/evidence/0.2.9/unit_qc_inventory.md` |
 | P skills composition | 07-08, 07-09 | `skills/jnwb/SKILL.md`, `skills/jnwb/agents/openai.yaml`, `tests/test_skill_router_reach.py`, `tests/test_composition_*.py` |
 | W waveform provenance | 11-41 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md`, `jnwb/nwb_integrity.py`, `tests/test_nwb_integrity.py` |
 
@@ -134,28 +134,20 @@ Writes: `jnwb/vis/**`, `tests/test_vis*.py`, `tests/test_viz*.py`.
 - P-254: `Canvas.save_and_seal` loses its export on a loaded Windows machine when choreographer's shutdown budget expires; a serial run can hang at exit after a failed close; no test shows an export error reaching the caller. Check: one kaleido session per call; a serial run exits after a failed close; a test fails when the export error is swallowed; a later call fails fast. Waits: loud. Observed 2026-10-04 under xdist: on a loaded machine a `-n 12` run of `4be1792b` hung 17 minutes in a headless Chrome child of one worker, and after that child was killed the suite reported 0 failed, so a lost export did not reach the test that made it; whether that can make qualifying evidence falsely pass is for the closure pass to classify.
 Accept: the check passes. Stop: none beyond the standing ones.
 
-### 11-21 `docs/vis.md` and the `state_space.py` docstring say the ribbon needs `ci_low` and `ci_high`
+### 11-42 `plot_sorted_heatmap` checks `colorbar_title` with the rule `plot_csd` uses
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `docs/vis.md`, `jnwb/vis/state_space.py`.
-- P-280 ribbon: `docs/vis.md:73` and the `jnwb/vis/state_space.py:34` docstring promise a ribbon that `plot_decoding_timecourse` draws only when `ci_low` and `ci_high` are given. Check: both say so. Waits: wording.
+Writes: `jnwb/vis/spiking.py`, `jnwb/vis/laminar.py`, `jnwb/vis/theme.py`, `tests/test_vis*.py`.
+- Review of 11-18 (2026-10-10): `plot_sorted_heatmap` (`jnwb/vis/spiking.py:275`) passes `colorbar_title` to `unit_label` unchecked, so a title naming `value_unit` doubles it and a blank title is accepted; `plot_csd` now refuses both inline (`jnwb/vis/laminar.py:422`). Check: both call one helper (`AGENTS.md` 4.7), and a test per function refuses a unit-naming and a blank title. Waits: display only.
 Accept: the check passes. Stop: none beyond the standing ones.
 
-### 11-22 A hand-computed `raster_psth` SEM test kills the ddof=0 and the no-square-root mutants
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
-Writes: `tests/test_vis*.py`, `tests/test_viz*.py`.
-- P-367: no test pins the `raster_psth` SEM value; a ddof=0 mutant and a mutant that drops the division by the square root of the trial count both pass all 423 tests in the 11 files that call it (found 2026-10-04 at `94334cb4`). Check: one hand-computed SEM test fails both mutants. Waits: display helper, value unchanged.
-Accept: the check passes. Stop: none beyond the standing ones.
-
-### 11-30 `plot_sorted_heatmap(category_labels=...)` draws the labels or raises
+### 11-43 The raster SEM ribbon of `jnwb.vis` is pinned by a hand-computed value
 
 Release: deferred-0.2.11.
 Role: jnwb-developer. Skill: jnwb-landmark-viz. Blocked by: none.
 Writes: `jnwb/vis/spiking.py`, `tests/test_vis*.py`.
-- P-332 display part: `plot_sorted_heatmap(category_labels=...)` is accepted and ignored (`jnwb/vis/spiking.py:245`). Check: the labels are drawn or the argument raises, asserted by a test. Waits: display.
+- Review of 11-22 (2026-10-10): `jnwb/vis/spiking.py:139` computes the SEM ribbon as `raster_psth` does (`jnwb/viz.py:166`), and only the latter is pinned (`tests/test_vis_heatmap_ribbon_sem.py`). Check: the ribbon reuses `raster_psth`'s SEM or a hand-computed test fails its ddof=0 and no-square-root mutants. Waits: display only.
 Accept: the check passes. Stop: none beyond the standing ones.
 
 ### 11-25 The gradients crossover default and the `jnwb.vis` vocabulary are pinned by tests
@@ -182,15 +174,6 @@ Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
 Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`, `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
 Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
 - Four published measures the copied screen applies and jnwb lacks: amplitude cut-off (Hill et al. 2011), half-width, repolarisation slope and spread (Jia et al. 2019). Check: each is a public operation by its published definition with a `docs/references.md` row, or a ruled exclusion recorded in `artifacts/evidence/0.2.9/unit_qc_inventory.md`. Waits: new capability, not a defect.
-Accept: the check passes. Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
-
-### 11-28 The `refractory_contamination` sentence on Llobet et al. (2022) matches the paper
-
-Release: deferred-0.2.11.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: none.
-Writes: `jnwb/unit_quality.py`, `tests/test_unit_quality.py`, `skills/jnwb-qc/SKILL.md`.
-Moved from the 0.2.9 inventory on 2026-10-04 (ruled). The code read was `E:/omission` at `c3d69375`, which copies the duration measure and the unit screen of the lab pipeline it cites (`yihan777/alpha_beta_mechanism@826e540`).
-- Closure pass 2026-10-05: `refractory_contamination` says the Hill et al. (2011) derivation "is restated by Llobet et al. (2022)" (`jnwb/unit_quality.py:383`); Llobet's model differs from Hill's and the sentence was not checked against the paper. Check: the sentence matches the paper, or is deleted. Waits: citation wording; the computation follows Hill.
 Accept: the check passes. Stop: a new public operation, or a definition with more than one published form, needs Hamm's ruling.
 
 ### 07-08 The router composes the minimal skill set a task needs
