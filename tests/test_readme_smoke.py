@@ -77,6 +77,35 @@ def test_readme_arrays_quickstart_recovers_the_onset_it_prints():
     )
 
 
+def test_readme_more_examples_recover_the_effects_they_plant():
+    """Each "More examples" block names a planted effect; executing it does not check it.
+
+    Held to the effect, not to the printed digits, which can move with the BLAS build.
+    """
+    text = README.read_text(encoding="utf-8")
+    section = text.split("## More examples", 1)[1].split("\n## ", 1)[0]
+    blocks = _self_contained_python_blocks(section)
+    assert len(blocks) == 3, f"expected the three planted-effect blocks, found {len(blocks)}"
+    spaces = []
+    for block in blocks:
+        namespace = {"__name__": "__readme__"}
+        exec(compile(block, "README.md", "exec"), namespace)  # noqa: S102 - the point
+        spaces.append(namespace)
+
+    gc = spaces[0]["gc"]
+    assert gc.p_x_to_y < 1e-3 and gc.p_y_to_x > 0.05, "the planted lead of x was not recovered"
+    assert gc.x_to_y > 10 * gc.y_to_x
+
+    mask = spaces[1]["best"]["mask"]
+    assert spaces[1]["best"]["p_value"] < 0.05
+    assert mask[40:60].all(), "the reported cluster does not cover the planted points 40-59"
+    assert mask.sum() <= 25, f"the cluster spreads to {mask.sum()} points beyond the effect"
+
+    dec, null = spaces[2]["dec"], spaces[2]["null"]
+    assert dec["accuracy"] > null["accuracy"] + 0.2
+    assert dec["accuracy"] > dec["majority_baseline_accuracy"] + 0.2
+
+
 def test_readme_links_resolve_from_the_page_that_renders_it():
     """`readme = "README.md"` makes this file the PyPI long description.
 
