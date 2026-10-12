@@ -145,7 +145,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-12 with `wc -w`. Eight pages sit over their ceiling, and each owes the one
+Measured 2026-10-12 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
@@ -156,6 +156,7 @@ sentence the rule asks for:
 | `04_spectral_analysis_and_tfr` | 1217 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
 | `06_spikes_psth_and_onset_dynamics` | 1535 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table |
 | `architecture` | 1901 | two pages merged: the module map is a 649-word reference table, and the prose states the boundary, the invariants and the claim table once each |
+| `install` | 914 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 428 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
 | `errors` | 2042 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 

@@ -665,6 +665,10 @@ def required_ci_jobs(workflow: Optional[str] = None,
     exactly the shape this check exists to catch. Measured at 30c425cf: ``Build & Validate
     Distribution`` is ``needs: test``, and with four test legs red it reported ``skipped``
     rather than ``failure``. A rule reading "no job concluded failure" calls that green.
+
+    A job carrying ``continue-on-error: true`` is excluded for the opposite reason: it reports
+    and does not gate. Its failure must not turn the commit's CI conclusion red, so the release
+    gate does not require it.
     """
     import itertools
 
@@ -680,6 +684,9 @@ def required_ci_jobs(workflow: Optional[str] = None,
         if not isinstance(job, dict):
             continue
         if "if" in job:
+            continue
+        # Reports and does not gate: see the docstring.
+        if job.get("continue-on-error") is True:
             continue
         template = str(job.get("name") or job_id)
         matrix = ((job.get("strategy") or {}).get("matrix")) or {}
