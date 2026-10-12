@@ -54,7 +54,7 @@ Accept: the check passes. Stop: a cut drops a fact, ruling or receipt a file cit
 Release: deferred-0.2.12.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/release_gate.py`, `tests/test_workflow_release_policy.py`.
-- `release_gate.py` STEP 8 sets `JNWB_EXPECTED_PACKAGE_ROOT` but, unlike CI's tutorial step (`workflow.yml`, `assert 'clean_env' in jnwb.__file__`), never checks where `jnwb` resolves, so a tutorial that fell back to the checkout would pass. Check: before the loop, the venv run of `import jnwb` with `tutorial_env` from the staging dir prints a path under `purelib`, and a test that drops the variable makes STEP 8's check fail. Waits: no path makes a tutorial fall back today; the guard stands aside whenever the variable is set (review of `424a11be`, 2026-10-11).
+- `release_gate.py` STEP 8 sets `JNWB_EXPECTED_PACKAGE_ROOT` but, unlike CI's tutorial step (`workflow.yml`, `assert 'clean_env' in jnwb.__file__`), never checks where `jnwb` resolves, so a tutorial that fell back to the checkout would pass. Check: before the loop, the venv run of `import jnwb` with `tutorial_env` from the staging dir prints a path under `purelib`, and a test that drops the variable makes STEP 8's check fail. Waits: at `424a11be` no path makes a tutorial fall back; the guard stands aside whenever the variable is set (review of `424a11be`, 2026-10-11).
 Accept: the check passes.
 
 ### 12-17 Internal vocabulary leaves `CHANGELOG.md`
