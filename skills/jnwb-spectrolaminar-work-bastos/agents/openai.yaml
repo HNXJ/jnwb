@@ -1,0 +1,8 @@
+interface:
+  display_name: jnwb-spectrolaminar-work-bastos
+  description: SpectrolaminarWork-Bastos, the Bastos lab spectrolaminar workflow that
+    tests each probe for the alpha-beta and gamma relative-power motif under several noise
+    strategies, aligns grand averages on the crossover with superficial up, and aligns the
+    stimulus-evoked CSD on that crossover.
+policy:
+  allow_implicit_invocation: true

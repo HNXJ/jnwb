@@ -44,6 +44,7 @@ CANONICAL_SKILLS = {
     "jnwb-figures",
     "jnwb-landmark-viz",
     "jnwb-qc",
+    "jnwb-spectrolaminar-work-bastos",
 }
 
 ROOT_DIR = Path(__file__).resolve().parent.parent

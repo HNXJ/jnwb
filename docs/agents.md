@@ -86,7 +86,7 @@ the skill that covers it:
 | Experiment structure: interval tables, event rows, epochs around events, recording cycles, condition meaning from documented metadata | `jnwb-paradigm` |
 | Spike trains: binning, raster, PSTH, onset latency, response significance, spike-field locking, causal smoothing | `jnwb-spiking` |
 | LFP filtering, band power, complex Morlet TFR, multi-trial accumulation, artifact detection and repair (`bad_channels_from_correlation`, `consensus_bad_trials`, `repair_lfp_trials`) | `jnwb-lfp-spectral` |
-| Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-lfp-spectral` (its depth estimators read the spectra and correlation matrices it produces); `jnwb-nwb-data` for the electrode table |
+| Laminar depth: cortical layers, crossover contacts, CSD, probe geometry | `jnwb-spectrolaminar-work-bastos` (crossover, layer labels, curation, aligned workflow); `jnwb-lfp-spectral` (spectra, xFLIP, zFLIP, CSD); `jnwb-nwb-data` for the electrode table |
 | Bootstrap, label/trial permutation, multiple comparisons (FDR), RNG | `jnwb-statistics` |
 | Linear SVM decoding, neural trajectories, jRSA, population geometry | `jnwb-population` |
 | Directed coupling (Granger, PSI, transfer entropy); lag asymmetry, not causation | `jnwb-connectivity` |

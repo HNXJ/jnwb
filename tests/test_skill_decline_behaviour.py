@@ -198,6 +198,63 @@ def _():
     assert not [f for f in fields if "conduction" in f]
 
 
+# ------------------------------------------------------------------- spectrolaminar workflow
+
+
+def _motif_psd():
+    from jnwb.testing import synth_laminar_motif
+
+    rec = synth_laminar_motif(24, 5000, 1000.0, c_crossover=11.5, pitch_um=100.0, snr=20.0, rng=0)
+    return jnwb.compute_psd(rec.lfp, 1000.0, axis=-1)
+
+
+def _linear_geometry(n_contacts, pitch_um):
+    electrodes = pd.DataFrame({"x": 0.0, "y": 0.0, "z": pitch_um * np.arange(n_contacts),
+                               "channel_id": [f"ch{k}" for k in range(n_contacts)]})
+    return jnwb.probe_geometry(electrodes, units="um")
+
+
+@case("jnwb-spectrolaminar-work-bastos", "supported")
+def _():
+    # The odd and even subsets are probes of their own at twice the pitch; on the full-probe
+    # frame their crossovers agree with the whole probe's within one subset spacing.
+    freqs, psd = _motif_psd()
+    depths = {}
+    for name, rows, spacing, offset in (("all", slice(None), 100.0, 0.0),
+                                        ("odd", slice(0, None, 2), 200.0, 0.0),
+                                        ("even", slice(1, None, 2), 200.0, 100.0)):
+        fit = jnwb.vflip(psd[rows], freqs, contact_spacing=spacing)
+        assert fit.accepted and fit.orientation == "superficial_to_deep"
+        depths[name] = fit.crossover_depth_um + offset
+    assert max(abs(v - depths["all"]) for v in depths.values()) < 200.0
+
+
+@case("jnwb-spectrolaminar-work-bastos", "request")
+def _():
+    lfp = np.random.default_rng(0).normal(size=(16, 4, 600))
+    with pytest.raises(TypeError, match="pitch_um"):
+        jnwb.curate_and_label(lfp, 1000.0)
+
+
+@case("jnwb-spectrolaminar-work-bastos", "failure")
+def _():
+    # A probe with no motif gets no anchor: the fit is rejected and no layer is imputed.
+    geom = _linear_geometry(16, 100.0)
+    fit = jnwb.vflip(np.ones((16, 200)), np.linspace(1.0, 200.0, 200), probe_geometry=geom)
+    assert not fit.accepted and fit.crossover_contact is None
+    assert set(jnwb.label_layers(fit, geom).values()) == {"na"}
+
+
+@case("jnwb-spectrolaminar-work-bastos", "decline")
+def _():
+    # A vflip crossover is never reported as a vFLIP2 crossover, and the vFLIP2 omega tiers are
+    # never applied to it: the result carries no omega or G to apply them to.
+    assert_states("jnwb-spectrolaminar-work-bastos", "`vflip` is not vFLIP2",
+                  "never apply to `support_score`")
+    fields = jnwb.VFlipResult.__dataclass_fields__
+    assert not [f for f in fields if f.lower() in ("omega", "g", "goodness_of_fit")]
+
+
 # ----------------------------------------------------------------------------- connectivity
 
 
