@@ -41,7 +41,7 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 | 1 | U consumer API | 12-18, 12-19 | the files each names, `jnwb/__init__.py`, `docs/api.md` | none |
 | 2 | C changelog | 12-17 | the files 12-17 names | none |
 | 2 | P pandas 3 | 12-20 | the files 12-20 names | none |
-| 2 | Q closure findings | 12-15, then 12-12 (roadmap rows) | the files each names | U |
+| 2 | Q closure findings | 12-12 (roadmap row) | the files each names | U |
 | 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | P |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 
