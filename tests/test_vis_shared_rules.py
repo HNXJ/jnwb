@@ -64,14 +64,14 @@ def _canvas(rows=1):
     return PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=rows, cols=1)
 
 
-def _csd_panel(canvas, colorbar_title):
+def _csd_panel(canvas, colorbar_title, value_unit="A/m³"):
     plot_csd(canvas, 0, 0, csd_matrix=np.ones((3, 4)), time_ms=np.arange(4.0),
-             depths=np.arange(3.0), value_unit="A/m³", depth_unit="mm",
+             depths=np.arange(3.0), value_unit=value_unit, depth_unit="mm",
              colorbar_title=colorbar_title)
 
 
-def _sorted_panel(canvas, colorbar_title):
-    plot_sorted_heatmap(canvas, 0, 0, np.ones((3, 4)), np.arange(4.0), value_unit="A/m³",
+def _sorted_panel(canvas, colorbar_title, value_unit="A/m³"):
+    plot_sorted_heatmap(canvas, 0, 0, np.ones((3, 4)), np.arange(4.0), value_unit=value_unit,
                         colorbar_title=colorbar_title)
 
 
@@ -99,6 +99,18 @@ def test_colorbar_title_that_names_the_unit_or_is_blank_is_refused(panel, title)
     with pytest.raises(ValueError, match="colorbar_title"):
         panel(canvas, title)
     assert len(canvas.fig.data) == 0  # refused before anything is drawn
+
+
+@pytest.mark.parametrize("panel", COLORBAR_PANELS, ids=PANEL_IDS)
+def test_z_score_is_a_quantity_under_unit_z_and_the_unit_z_is_still_refused(panel):
+    """"z-score" names a z-scored quantity. Under value_unit "z" it was refused as the unit z;
+    the unit z itself stays refused in every other form."""
+    canvas = _canvas()
+    panel(canvas, "z-score", value_unit="z")
+    assert _colorbar_text(canvas) == "z-score (z)"  # precondition: the quantity is accepted
+    for title in ("z", "Rate (z)", "z-score (z)"):
+        with pytest.raises(ValueError, match="colorbar_title"):
+            panel(_canvas(), title, value_unit="z")
 
 
 def test_raster_psth_sem_ribbon_is_mean_plus_minus_1_96_sample_sem_by_hand():

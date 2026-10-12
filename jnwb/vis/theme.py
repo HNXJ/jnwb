@@ -167,12 +167,16 @@ def checked_colorbar_label(colorbar_title: str | None, value_unit: str) -> str:
     """Colorbar label for a quantity in ``value_unit``, or ``ValueError``.
 
     The colorbar carries the unit once. A ``colorbar_title`` that is given must be non-blank and
-    must not name ``value_unit``; ``None`` labels the colorbar with ``value_unit`` alone.
+    must not name ``value_unit``; ``None`` labels the colorbar with ``value_unit`` alone. Under
+    ``value_unit="z"`` the phrase "z-score" names a z-scored quantity and is not the unit.
     """
     value_unit = required_text("value_unit", value_unit)
     if colorbar_title is not None:
         required_text("colorbar_title", colorbar_title)
-        if re.search(rf"(?<![\w/]){re.escape(value_unit)}(?![\w/])", colorbar_title):
+        named = colorbar_title
+        if value_unit == "z":
+            named = re.sub(r"(?<![\w/])z-score(?![\w/])", "", named)
+        if re.search(rf"(?<![\w/]){re.escape(value_unit)}(?![\w/])", named):
             raise ValueError(
                 f"colorbar_title {colorbar_title!r} names the unit {value_unit!r}, which the "
                 "colorbar already carries; pass the quantity alone, for example colorbar_title='CSD'."
