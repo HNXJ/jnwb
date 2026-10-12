@@ -2002,12 +2002,25 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
 """
 
 
+def probe_jnwb_file(venv_python: str, cwd: str, env: dict) -> str:
+    """Where `import jnwb` resolves under `env`, from `cwd`. A failing import exits with the
+    probe's stderr, so the cause is in the log rather than a bare CalledProcessError."""
+    probe = subprocess.run([venv_python, "-c", "import jnwb; print(jnwb.__file__)"],
+                           cwd=cwd, env=env, capture_output=True, text=True)
+    if probe.returncode != 0:
+        raise SystemExit(f"`import jnwb` failed in the tutorial environment:\n{probe.stderr}")
+    return probe.stdout.strip()
+
+
 def check_resolves_under(resolved: str, purelib: str) -> None:
     """Exit unless `import jnwb` resolved under `purelib`, the installed package root.
 
     A tutorial that fell back to the checkout would pass STEP 8 while testing the source tree;
-    the message names both paths so the fallback is visible.
+    the message names both paths so the fallback is visible. An empty purelib resolves to the
+    cwd, and an empty or "None" resolution is no evidence at all, so both are refused first.
     """
+    if not purelib or not resolved or resolved == "None":
+        raise SystemExit(f"cannot verify where jnwb resolved: resolved={resolved!r}, purelib={purelib!r}")
     if not pathlib.Path(resolved).resolve().is_relative_to(pathlib.Path(purelib).resolve()):
         raise SystemExit(f"jnwb resolved to {resolved}, outside the installed package root {purelib}")
 
@@ -2247,10 +2260,7 @@ def main() -> None:
         tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
         # Before any tutorial runs: where `import jnwb` lands under the same environment.
-        resolved = subprocess.run(
-            [venv_python, "-c", "import jnwb; print(jnwb.__file__)"],
-            cwd=str(staging_dir), env=tutorial_env, check=True, capture_output=True, text=True,
-        ).stdout.strip()
+        resolved = probe_jnwb_file(venv_python, str(staging_dir), tutorial_env)
         check_resolves_under(resolved, purelib)
         for tutorial in tutorials:
             res = subprocess.run(

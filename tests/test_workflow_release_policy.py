@@ -586,6 +586,33 @@ class TestInstalledArtifactVerification:
         message = str(failure.value.code)
         assert str(checkout) in message and str(purelib) in message, message
 
+    def test_step8_refuses_an_empty_purelib_or_an_unknown_resolution(self, tmp_path):
+        """An empty purelib makes Path("") the cwd, so a file under the cwd passes the old check.
+        An empty or "None" resolution is no evidence, so it is refused with its own message."""
+        from scripts.release_gate import check_resolves_under
+
+        cwd_file = Path.cwd() / "jnwb" / "__init__.py"
+        assert cwd_file.is_relative_to(Path.cwd()), "fixture: a file under the cwd, which an empty purelib resolves to"
+        with pytest.raises(SystemExit, match="cannot verify"):
+            check_resolves_under(str(cwd_file), "")
+        for resolved in ("", "None"):
+            with pytest.raises(SystemExit, match="cannot verify"):
+                check_resolves_under(resolved, str(tmp_path / "site-packages"))
+
+    def test_step8_probe_failure_exits_with_the_probes_stderr(self, tmp_path, monkeypatch):
+        """A failing `import jnwb` probe must surface its stderr, not a bare CalledProcessError."""
+        import subprocess
+
+        from scripts import release_gate
+
+        failing = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'jnwb'")
+        monkeypatch.setattr(release_gate.subprocess, "run", lambda *args, **kwargs: failing)
+        assert failing.returncode != 0, "fixture: the probe fails"
+        with pytest.raises(SystemExit) as failure:
+            release_gate.probe_jnwb_file("python", str(tmp_path), {})
+        assert "No module named 'jnwb'" in str(failure.value.code), failure.value.code
+
     @staticmethod
     def _pinned_version_literals(source):
         """Every string literal in `source` whose VALUE is exactly a version string.
