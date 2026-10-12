@@ -16,7 +16,9 @@ REPO = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "dashboard.yml"
 CHECK = REPO / "scripts" / "check_dashboard_build.py"
 SHA = "0123456789abcdef0123456789abcdef01234567"
-PUBLISH_ACTION = "peaceiris/actions-gh-pages@"
+PUBLISH = "git push origin HEAD:gh-pages"
+# The repository's Actions policy (Settings, Actions, General) admits only these.
+ALLOWED_ACTIONS = ("HNXJ/", "actions/", "github/", "pypa/gh-action-pypi-publish@")
 
 
 def _workflow():
@@ -41,9 +43,7 @@ def _step_index(steps, needle):
 
 
 def _publish_index(steps):
-    hits = [i for i, s in enumerate(steps) if str(s.get("uses", "")).startswith(PUBLISH_ACTION)]
-    assert len(hits) == 1, f"expected one {PUBLISH_ACTION} step, found {hits}"
-    return hits[0]
+    return _step_index(steps, PUBLISH)
 
 
 def test_triggers_are_push_to_main_and_manual_dispatch_only():
@@ -70,12 +70,37 @@ def test_concurrency_queues_runs_without_cancelling():
 
 def test_publish_is_a_non_orphan_non_forced_push_of_the_site_from_the_source_sha():
     steps = _job(_workflow())["steps"]
-    with_ = steps[_publish_index(steps)]["with"]
-    assert with_["force_orphan"] in (False, "false")
-    assert with_["keep_files"] in (False, "false")
-    assert with_["publish_branch"] == "gh-pages"
-    assert with_["publish_dir"] == "${{ runner.temp }}/site"
-    assert "${{ github.sha }}" in with_["commit_message"]
+    run = steps[_publish_index(steps)]["run"]
+    lines = [line.strip() for line in run.splitlines()]
+    # Non-orphan: the commit sits on the existing gh-pages history.
+    assert "git fetch origin gh-pages" in lines
+    assert 'git worktree add --detach "$RUNNER_TEMP/pages" origin/gh-pages' in lines
+    assert "--orphan" not in run
+    # Not forced: no --force, -f or +refspec on the push.
+    push = [line for line in lines if line.startswith("git push")]
+    assert push == [PUBLISH]
+    # The old files go and only the build's files come in.
+    remove = lines.index("git rm -r -q --ignore-unmatch .")
+    copy = lines.index('cp -a "$RUNNER_TEMP/site/." .')
+    assert remove < copy
+    assert any(line.startswith("git commit") and "$GITHUB_SHA" in line for line in lines)
+
+
+def test_every_action_in_every_workflow_is_one_the_repository_allows():
+    """A disallowed action fails the run at startup, before any job reports."""
+    used = []
+    workflows = REPO / ".github" / "workflows"
+    for path in sorted([*workflows.glob("*.yml"), *workflows.glob("*.yaml")]):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for job in doc["jobs"].values():
+            if "uses" in job:  # a reusable workflow
+                used.append((path.name, job["uses"]))
+            used += [(path.name, s["uses"]) for s in job.get("steps", []) if "uses" in s]
+    assert used, "no workflow step uses an action; the scan read nothing"
+    # GitHub matches owner names without case; local actions (./) stay in the repository.
+    allowed = tuple(prefix.lower() for prefix in ALLOWED_ACTIONS) + ("./",)
+    refused = [(name, uses) for name, uses in used if not uses.lower().startswith(allowed)]
+    assert not refused, refused
 
 
 def test_build_runs_before_the_check_and_the_check_before_publish():

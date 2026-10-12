@@ -49,3 +49,5 @@ Work that omission and jaxfne asked for, and the release tooling that showed def
   cover it, its own workflow check does.
 - JNWB-013 (length-1 device attributes) closed on omission's side 2026-10-12: its repaired NWBs
   store those attributes as scalars (h5py, all 10 sub-V182o files); jnwb runs no test for it.
+- Omission runs 0.2.11 (b5ee25f7) and offers itself as a consumer test bed: before the 0.2.12 tag,
+  send it the candidate commit for its units-table identity gates and the Fig03/Fig04 producers.
