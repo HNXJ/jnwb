@@ -38,7 +38,7 @@ an export raises `RuntimeError` ("Kaleido requires Google Chrome to be installed
 
 ### pandas 3
 
-hdmf, which jnwb requires as `hdmf>=4.1.0`, declares `pandas<3`, so a plain install resolves pandas to a 2.x release. To run on pandas 3, install it after jnwb with `pip install "pandas>=3,<4"`. A non-blocking CI job (Python 3.13 on Linux) runs the test suite that way and reports its result.
+hdmf 4.3.1 caps pandas below 3. For pandas 3, install it after jnwb: `pip install "pandas>=3,<4"`; a non-blocking CI job tests that.
 
 ### GPU and parallel execution
 
