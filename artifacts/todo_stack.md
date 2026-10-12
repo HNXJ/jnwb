@@ -33,14 +33,21 @@ lines.
 
 ## Lanes
 
-| Lane | Items, in order | ETA (estimate) | Owns |
-|---|---|---|---|
-| K docs reductions | 12-14 | 1 h: rebase `lane-k1` onto the release and rerun its checks | the files 12-14 names |
-| G release gate | 12-16 | 20 min | the files 12-16 names |
-| C changelog vocabulary | 12-17 | 1 h, after 12-14 moves the old sections | the files 12-17 names |
-| U consumer requests | 12-18, 12-19 | 2 h each | the files each names |
-| P pandas 3 | 12-20 | 30 min plus one CI run | the files 12-20 names |
-| J jaxfne ground truth | 12-21 | 2 h, after jaxfne sends the excerpt | the files 12-21 names |
+Three lanes run at once; a wave opens when the lanes it depends on have merged. Full suites run
+one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
+
+| Wave | Lane | Items, in order | Owns | Waits for |
+|---|---|---|---|---|
+| 1 | U consumer API | 12-18, 12-19 | the files each names, `jnwb/__init__.py`, `docs/api.md` | none |
+| 1 | G release gate | 12-16 | the files 12-16 names | none |
+| 1 | K docs reductions | 12-14 | the files 12-14 names | none |
+| 2 | C changelog | 12-17 | the files 12-17 names | K |
+| 2 | P pandas 3 | 12-20 | the files 12-20 names | G and K |
+| 2 | Q closure findings | 12-15, then 12-12 (roadmap rows) | the files each names | U |
+| 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | G and P |
+| any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
+
+The integrator writes `CHANGELOG.md` entries for U after C lands, in the template 12-17 enforces.
 
 ### 12-14 The audit's docs and CHANGELOG reductions
 
