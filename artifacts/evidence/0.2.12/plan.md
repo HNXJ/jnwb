@@ -1,7 +1,8 @@
 # 0.2.12 plan
 
-Drafted 2026-10-12 after the 0.2.11 release. Proposal until Hamm rules the theme; the stacks stay
-the record (`artifacts/todo_stack.md`, `artifacts/roadmap.md`).
+Drafted 2026-10-12 after the 0.2.11 release; Hamm ruled all three decisions below as proposed the
+same day (`artifacts/rulings/2026-10-12.md`). The stacks stay the record (`artifacts/todo_stack.md`,
+`artifacts/roadmap.md`).
 
 ## Scope today
 
@@ -46,5 +47,5 @@ Work that omission and jaxfne asked for, and the release tooling that showed def
 
 - The dashboard (hnxj.github.io/jnwb) rebuilds on every push to `main`; `release_gate.py` does not
   cover it, its own workflow check does.
-- Omission holds its upgrade from 0.2.9 on JNWB-013 (length-1 device attributes) until jnwb runs
-  0.2.11 on one of its files.
+- JNWB-013 (length-1 device attributes) closed on omission's side 2026-10-12: its repaired NWBs
+  store those attributes as scalars (h5py, all 10 sub-V182o files); jnwb runs no test for it.

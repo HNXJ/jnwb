@@ -5,7 +5,8 @@ stack holds the current window only; the rest of 0.2.12 to 0.2.14 is one row per
 `artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.11
 closed on 2026-10-11 with every item done (`git log -- artifacts/todo_stack.md`).
 
-Theme and acceptance: `artifacts/goal.md` and `AGENTS.md` §11, until Hamm rules the 0.2.12 theme.
+Theme, ruled 2026-10-12: consumers first (`artifacts/evidence/0.2.12/plan.md`). Acceptance:
+`artifacts/goal.md` and `AGENTS.md` §11.
 
 Every item here carries `deferred-0.2.12`, the one deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.11 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
@@ -37,7 +38,7 @@ lines.
 | K docs reductions | 12-14 | 1 h: rebase `lane-k1` onto the release and rerun its checks | the files 12-14 names |
 | G release gate | 12-16 | 20 min | the files 12-16 names |
 | C changelog vocabulary | 12-17 | 1 h, after 12-14 moves the old sections | the files 12-17 names |
-| U consumer requests | 12-18, 12-19 | 2 h each, after Hamm rules the signatures | the files each names |
+| U consumer requests | 12-18, 12-19 | 2 h each | the files each names |
 | P pandas 3 | 12-20 | 30 min plus one CI run | the files 12-20 names |
 | J jaxfne ground truth | 12-21 | 2 h, after jaxfne sends the excerpt | the files 12-21 names |
 
@@ -62,24 +63,24 @@ Accept: the check passes.
 Release: deferred-0.2.12.
 Role: jnwb-developer. Skill: none. Blocked by: 12-14.
 Writes: `CHANGELOG.md`, `scripts/harness_gate.py`, `tests/test_harness_gate.py`.
-- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Breaking, Added, Changed, Deprecated, Removed, Fixed. The same check holds the shared template of meet 204dfdaa (2026-10-12, agent proposal, not ruled): one line per change of at most about 120 characters naming its test or file, and a `[results change]` marker that names the seed kind affected (int seed or Generator). Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
+- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Breaking, Added, Changed, Deprecated, Removed, Fixed. The same check holds the shared template of meet 204dfdaa (adopted by Hamm 2026-10-12, with the last five releases kept and older ones archived): one line per change of at most about 120 characters naming its test or file, and a `[results change]` marker that names the seed kind affected (int seed or Generator). Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
 Accept: the check passes. Stop: a rewording changes what an entry says shipped.
 
 
 ### 12-18 A unit's peak channel mapped to its curated layer
 
 Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: Hamm's signature ruling.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
 Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `skills/jnwb-lfp-spectral/SKILL.md`.
-- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Waits: new public API; the signature is Hamm's (proposed `map_peak_channel_to_layer(units_df, curation)`).
+- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Signature ruled 2026-10-12: `map_peak_channel_to_layer(units_df, curation)` returns one label or "na" per unit. Waits: new public API, announced in the changelog with its tests.
 Accept: the check passes.
 
 ### 12-19 A causal Gaussian smoother that states its lag
 
 Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: Hamm's signature ruling.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
 Writes: `jnwb/onset_fitting.py`, `tests/test_onset_fitting.py`, `skills/jnwb-spiking/SKILL.md`.
-- jnwb offers only `causal_exp_smooth`; omission carries its own past-only Gaussian and its figures cannot state the display lag (omission request, 2026-10-12). Check: an impulse at bin k gives zero output before k; the reported mean lag equals the kernel's centroid and matches sigma*sqrt(2/pi) bins within the kernel's truncation error; a step's half-rise falls at the reported lag within one bin. Waits: new public API; the signature and the edge rule (edge-padded, as omission does) are Hamm's.
+- jnwb offers only `causal_exp_smooth`; omission carries its own past-only Gaussian and its figures cannot state the display lag (omission request, 2026-10-12). Check: an impulse at bin k gives zero output before k; the reported mean lag equals the kernel's centroid and matches sigma*sqrt(2/pi) bins within the kernel's truncation error; a step's half-rise falls at the reported lag within one bin. Signature ruled 2026-10-12: `causal_gaussian_smooth(rate, sigma_bins)` returns `(smoothed, mean_lag_bins)`, past-only kernel, edge-padded. Waits: new public API, announced in the changelog with its tests.
 Accept: the check passes.
 
 ### 12-20 Units tables under pandas 3
