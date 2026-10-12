@@ -1,7 +1,0 @@
-band,n_resolved,n_at_lower_bound,n_le_20ms,frac_le_20ms,median_T_om_unpinned_ms
-theta,3,0,0,0.0,309.0
-alpha,5,1,1,0.2,149.5
-beta,36,17,25,0.69,193.0
-low_gamma,36,1,8,0.22,59.5
-high_gamma,24,0,2,0.08,139.5
-out_of_band,10,0,1,0.1,152.0
