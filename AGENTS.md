@@ -25,7 +25,7 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 
 ## 2. Project state
 
-Five slots, one file each; this file routes to them and never restates them.
+Five slots, one file each; this file routes to them and never restates them. Verified lessons, each with trigger, cause, repair, evidence and scope, go in `artifacts/memory.md`.
 
 | Slot | File | Agents may edit? |
 |---|---|---|
