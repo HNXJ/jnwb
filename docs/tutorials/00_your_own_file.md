@@ -32,8 +32,8 @@ Pass the table as the second argument. Choosing the first table in the list inst
 have aligned everything to detected photodiode changes and reported a PSTH of 0.00 Hz
 without complaining.
 
-**Which column holds the codes.** `codes` is a jnwb default, not an NWB requirement. The
-script prefers it when present and otherwise takes the first non-structural column that has
+**Which column holds the codes.** The script prefers `codes` when present, a default that
+[Errors](../errors.md#columnnotfounderror) explains, and otherwise takes the first non-structural column that has
 sample values, then passes that name explicitly. Naming a column that does not exist raises
 `ColumnNotFoundError` listing the columns that do.
 
