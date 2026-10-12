@@ -1,0 +1,115 @@
+{
+  "generated": {
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "date": "2000-01-01T00:00:00Z"
+  },
+  "sources": {
+    "release": ["pyproject.toml"],
+    "releases": ["CHANGELOG.md"],
+    "ci": [".github/workflows/workflow.yml"],
+    "api": ["jnwb/__init__.py"],
+    "verified": ["artifacts/frozen_validated.json"],
+    "performance": ["artifacts/benchmarks/baseline_performance.json"],
+    "order": ["artifacts/computational_order.json"],
+    "references": ["docs/references.md"],
+    "figures": ["docs/assets/figures"]
+  },
+  "release": {
+    "version": "0.0.0",
+    "date": "2000-01-02",
+    "python": [
+      "Programming Language :: Python :: 3",
+      "Programming Language :: Python :: 8.1",
+      "Programming Language :: Python :: 8.3"
+    ],
+    "links": {
+      "pypi": "https://example.invalid/pypi/",
+      "docs": "https://example.invalid/docs/",
+      "repo": "https://example.invalid/repo",
+      "changelog": "https://example.invalid/changelog"
+    }
+  },
+  "releases": [
+    {
+      "version": "0.0.0",
+      "date": "2000-01-02",
+      "counts": {"Added": 2, "Fixed": 1},
+      "entries": [
+        {"kind": "Added", "text": "Adds `op_a` with **bold** text and a [link](https://example.invalid/a)."},
+        {"kind": "Added", "text": "Adds `op_b`."},
+        {"kind": "Fixed", "text": "Fixes `op_a` when the input is empty."}
+      ]
+    },
+    {
+      "version": "0.0.0rc1",
+      "date": "1999-12-31",
+      "counts": {"Changed": 1},
+      "entries": [
+        {"kind": "Changed", "text": "Renames `op_b` to `op_c`."}
+      ]
+    }
+  ],
+  "ci": {
+    "legs": [
+      {"python": "8.1", "os": "os_a"},
+      {"python": "8.3", "os": "os_b", "note": "dependency floor"}
+    ]
+  },
+  "api": {
+    "total": 2,
+    "groups": [
+      {"module": "jnwb.op_mod", "extra": null, "symbols": ["op_a", "op_b"]}
+    ]
+  },
+  "verified": {
+    "functions": [
+      {
+        "file": "jnwb/op_mod.py",
+        "qualname": "op_a",
+        "verified_at": "2000-01-01",
+        "tests": ["tests/test_op_mod.py::test_op_a_one", "tests/test_op_mod.py::test_op_a_two"]
+      },
+      {
+        "file": "jnwb/op_mod.py",
+        "qualname": "op_b",
+        "verified_at": "2000-01-02",
+        "tests": ["tests/test_op_mod.py::test_op_b"]
+      }
+    ]
+  },
+  "performance": {
+    "baseline": [
+      {"name": "op_a", "time_ms": 1.5, "peak_mb": 2.0, "scale": "synthetic"},
+      {"name": "op_b", "time_ms": 0.5, "peak_mb": 1.0, "scale": "synthetic"}
+    ],
+    "peak_memory": {
+      "jnwb_version": "0.0.0",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "python": "8.1",
+      "platform": "os_a",
+      "unit": "MiB",
+      "operations": [
+        {"name": "op_a", "peak_mib": 3.0, "added_mib": 1.0, "added_is": "synthetic"},
+        {"name": "op_b", "peak_mib": 2.0, "added_mib": 0.5, "added_is": "synthetic"}
+      ]
+    },
+    "import": {"total_ms": 12.5, "modules": {"op_mod": 4.0}}
+  },
+  "order": [
+    {"export": "op_a", "order": "order_a", "evidence": "synthetic"},
+    {"export": "op_b", "order": "order_b"}
+  ],
+  "references": [
+    {"text": "Synthetic reference A", "url": "https://example.invalid/ref-a"},
+    {"text": "Synthetic reference B", "url": null}
+  ],
+  "figures": [
+    {
+      "id": "fig_a",
+      "title": "Figure A",
+      "light": "assets/fig_a.light.png",
+      "dark": "assets/fig_a.dark.png",
+      "docs_page": "https://example.invalid/docs/fig_a.html"
+    }
+  ]
+}

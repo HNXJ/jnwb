@@ -58,7 +58,7 @@ p.lede { color: var(--muted); margin: 0 0 var(--gap); }
 .card .value { font-size: 26px; font-weight: 600; margin-top: 2px; }
 .card .sub { color: var(--muted); font-size: 12px; }
 .card[data-target] { cursor: pointer; }
-.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: var(--gap); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: var(--gap); overflow-wrap: anywhere; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .toolbar input, .toolbar select {
   background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit;
@@ -169,7 +169,7 @@ footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px
 
 <footer>Generated from <code data-slot="generated.commit"></code>. Documentation: <a data-slot-href="release.links.docs">Read the Docs</a>.</footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
