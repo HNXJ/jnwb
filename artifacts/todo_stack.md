@@ -39,12 +39,11 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 1 | U consumer API | 12-18, 12-19 | the files each names, `jnwb/__init__.py`, `docs/api.md` | none |
-| 1 | G release gate | 12-16 | the files 12-16 names | none |
 | 1 | K docs reductions | 12-14 | the files 12-14 names | none |
 | 2 | C changelog | 12-17 | the files 12-17 names | K |
-| 2 | P pandas 3 | 12-20 | the files 12-20 names | G and K |
+| 2 | P pandas 3 | 12-20 | the files 12-20 names | K |
 | 2 | Q closure findings | 12-15, then 12-12 (roadmap rows) | the files each names | U |
-| 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | G and P |
+| 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | P |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 
 The integrator writes `CHANGELOG.md` entries for U after C lands, in the template 12-17 enforces.
@@ -56,14 +55,6 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `README.md`, `CHANGELOG.md`, `docs/common_mistakes.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/documentation_form.md`, `docs/install.md`, `docs/quickstart.md`, `docs/tutorials/00_your_own_file.md`, `.github/CONTRIBUTING.md`, `tests/test_prose_version_claims_are_live.py`, `artifacts/archive/changelog_0.1.0-0.2.9.md`.
 - Steps 1 and 2 of the 2026-10-11 compression audit, built on branch `lane-k1` at `dae02ac0` and not landed before 0.2.11 shipped; duplicated docs passages become links (568 words), stale `CONTRIBUTING.md` paths, the version-claim test reads `docs/**`, and CHANGELOG blocks 0.2.9, 0.2.8, 0.2.4 and 0.1.0 to 0.1.7 move to an archive (816 lines). Check: on the rebased branch the docs tests, `scripts/docs_build.py` and the harness pass, and a script shows every moved CHANGELOG line exactly once. Waits: documentation only; no shipped number changes.
 Accept: the check passes. Stop: a cut drops a fact, ruling or receipt a file cites.
-
-### 12-16 STEP 8 asserts the tutorials import the wheel
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `scripts/release_gate.py`, `tests/test_workflow_release_policy.py`.
-- `release_gate.py` STEP 8 sets `JNWB_EXPECTED_PACKAGE_ROOT` but, unlike CI's tutorial step (`workflow.yml`, `assert 'clean_env' in jnwb.__file__`), never checks where `jnwb` resolves, so a tutorial that fell back to the checkout would pass. Check: before the loop, the venv run of `import jnwb` with `tutorial_env` from the staging dir prints a path under `purelib`, and a test that drops the variable makes STEP 8's check fail. Waits: at `424a11be` no path makes a tutorial fall back; the guard stands aside whenever the variable is set (review of `424a11be`, 2026-10-11).
-Accept: the check passes.
 
 ### 12-17 Internal vocabulary leaves `CHANGELOG.md`
 
