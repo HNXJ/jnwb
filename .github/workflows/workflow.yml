@@ -268,6 +268,48 @@ jobs:
         run: |
           python scripts/ci_pytest.py tests/
 
+  test-pandas3:
+    # Non-blocking, and no job needs it. hdmf declares pandas<3, so this leg installs pandas 3
+    # after jnwb to run the suite on it. A failure here is a finding to read, not a red build.
+    name: Test (pandas 3, Python 3.13 on ubuntu-latest, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Liberation Sans for the documentation figures
+        # As in the test job: the figure comparison draws with Liberation Sans.
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
+          tar xzf liberation-fonts.tar.gz
+          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
+
+      - name: Install jnwb, then pandas 3 over hdmf's pandas<3 cap
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[test,docs,vis,wavemap]"
+          python -m pip install "pandas>=3,<4"
+
+      - name: Require pandas 3
+        run: |
+          python -c "import pandas; print(pandas.__version__); assert pandas.__version__.startswith('3'), pandas.__version__"
+
+      - name: Run pytest
+        env:
+          JNWB_REQUIRE_BROWSER: '1'
+        run: |
+          python scripts/ci_pytest.py tests/
+
   build:
     name: Build & Validate Distribution
     needs: [test, test-floors]

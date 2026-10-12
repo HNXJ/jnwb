@@ -36,6 +36,10 @@ kaleido 1.x exports SVG and PNG through a Chrome or Chromium it does not install
 an export raises `RuntimeError` ("Kaleido requires Google Chrome to be installed"); run
 `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`), or set `BROWSER_PATH` to an existing browser.
 
+### pandas 3
+
+hdmf, which jnwb requires as `hdmf>=4.1.0`, declares `pandas<3`, so a plain install resolves pandas to a 2.x release. To run on pandas 3, install it after jnwb with `pip install "pandas>=3,<4"`. A non-blocking CI job (Python 3.13 on Linux) runs the test suite that way and reports its result.
+
 ### GPU and parallel execution
 
 Functions with a `device=` argument (see [Public API](api.md)) accept `'cpu'`, the default,

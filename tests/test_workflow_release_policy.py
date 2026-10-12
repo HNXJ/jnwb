@@ -917,3 +917,126 @@ class TestPython315IsBlockingOnUbuntu:
         assert len(setup) == 1, setup
         assert setup[0]["with"]["allow-prereleases"] == "${{ matrix.python-version == '3.15' }}", (
             setup[0]["with"])
+
+
+class TestPandas3LegIsNonBlocking:
+    """The pandas 3 leg runs the suite on pandas 3, which hdmf's `pandas<3` cap keeps out of the
+    install. It reports; no job that publishes or releases waits on it.
+
+    What would pass while this is broken: a leg without `continue-on-error`, which gates the run
+    when it fails; a leg that installs pandas 3 but never asserts the version, so pandas 2 would
+    pass; or a publish or release job that lists the leg in `needs:`.
+    """
+
+    LEG = "test-pandas3"
+
+    def _leg(self) -> dict:
+        jobs = _load_workflow()["jobs"]
+        assert self.LEG in jobs, sorted(jobs)
+        return jobs[self.LEG]
+
+    def _runs(self) -> list[str]:
+        return [str(step.get("run", "")) for step in self._leg()["steps"]]
+
+    def test_the_leg_runs_python_313_on_ubuntu(self):
+        leg = self._leg()
+        assert leg["runs-on"] == "ubuntu-latest", leg["runs-on"]
+        setup = [s for s in leg["steps"] if "setup-python" in str(s.get("uses", ""))]
+        assert len(setup) == 1 and setup[0]["with"]["python-version"] == "3.13", setup
+
+    def test_the_leg_is_continue_on_error(self):
+        assert self._leg().get("continue-on-error") is True, self._leg().get("continue-on-error")
+
+    def test_the_leg_installs_pandas_3_after_jnwb(self):
+        # Both installs share one `run:` block, so the order is read within its text.
+        body = "\n".join(self._runs())
+        jnwb = body.find(".[test,docs,vis,wavemap]")
+        pandas = body.find('pip install "pandas>=3')
+        assert body.count('pip install "pandas>=3') == 1, body
+        assert 0 <= jnwb < pandas, (jnwb, pandas)
+
+    def test_the_leg_prints_and_asserts_the_pandas_major_version(self):
+        body = "\n".join(self._runs())
+        assert re.search(r"print\(pandas\.__version__\)", body), body
+        assert re.search(r"assert pandas\.__version__\.startswith\(['\"]3['\"]\)", body), body
+
+    def test_the_suite_runs_after_the_version_assertion(self):
+        runs = self._runs()
+        check = [i for i, run in enumerate(runs) if "assert pandas.__version__" in run]
+        suite = [i for i, run in enumerate(runs) if "ci_pytest.py tests/" in run]
+        assert len(check) == 1 and len(suite) == 1 and check[0] < suite[0], (check, suite)
+
+    def test_no_job_needs_the_leg_and_no_publish_or_release_job_is_gated_by_it(self):
+        jobs = _load_workflow()["jobs"]
+        assert self.LEG in jobs, sorted(jobs)
+        for jid in ("publish-testpypi", "verify-testpypi", "publish-pypi", "github-release"):
+            assert jid in jobs, jid
+        for jid, job in jobs.items():
+            needs = job.get("needs") or []
+            needs = [needs] if isinstance(needs, str) else needs
+            assert self.LEG not in needs, f"{jid} needs {self.LEG}"
+
+
+#: The release gate's required jobs at baseline 0d6b9d63, read from that commit's
+#: workflow.yml by `required_ci_jobs(workflow=...)`. Ten names, before the pandas 3 leg existed.
+BASELINE_REQUIRED_JOBS = sorted([
+    "Build & Validate Distribution",
+    "Find a passed dev run of this commit",
+    "Test (Python 3.12 on ubuntu-latest)",
+    "Test (Python 3.12 on windows-latest)",
+    "Test (Python 3.13 on ubuntu-latest)",
+    "Test (Python 3.13 on windows-latest)",
+    "Test (Python 3.14 on ubuntu-latest)",
+    "Test (Python 3.14 on windows-latest)",
+    "Test (Python 3.15 on ubuntu-latest)",
+    "Test (dependency floors, Python 3.12.0 on ubuntu-latest)",
+])
+
+
+class TestContinueOnErrorJobsAreNotRequired:
+    """A job that reports and does not gate is not one the release gate requires.
+
+    What would pass while this is broken: a continue-on-error job listed as required, so a red
+    report reads as a red CI conclusion; or the exclusion widened so a gating job drops out.
+    """
+
+    WITH_FLAG = (
+        "jobs:\n"
+        "  gate:\n    name: Gate\n    runs-on: x\n"
+        "  report:\n    name: Report\n    continue-on-error: true\n    runs-on: x\n"
+    )
+    WITHOUT_FLAG = (
+        "jobs:\n"
+        "  gate:\n    name: Gate\n    runs-on: x\n"
+        "  report:\n    name: Report\n    runs-on: x\n"
+    )
+
+    def test_a_continue_on_error_job_is_not_listed(self):
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import required_ci_jobs
+
+        assert sorted(required_ci_jobs(self.WITH_FLAG)) == ["Gate"]
+
+    def test_the_same_job_without_the_flag_is_listed(self):
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import required_ci_jobs
+
+        assert sorted(required_ci_jobs(self.WITHOUT_FLAG)) == ["Gate", "Report"]
+
+    def test_the_live_pandas_leg_is_not_required_and_no_other_job_moved(self):
+        import sys
+
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+        from scripts.release_gate import required_ci_jobs
+
+        names = required_ci_jobs(root=REPO_ROOT)
+        assert len(names) == len(BASELINE_REQUIRED_JOBS) and names, names
+        assert not any(name.startswith("Test (pandas 3") for name in names), names
+        assert sorted(names) == BASELINE_REQUIRED_JOBS, sorted(set(names) ^ set(BASELINE_REQUIRED_JOBS))
