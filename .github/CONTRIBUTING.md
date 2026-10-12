@@ -239,6 +239,8 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 - **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
   contract for tables, vocabulary, length, navigation and figures. It is kept off the
   published site.
+- **Dashboard**: `scripts/build_dashboard.py` builds the site from committed records, and
+  `.github/workflows/dashboard.yml` publishes it from `main` to the `gh-pages` branch.
 - **Warning-Free Builds**: The documentation must compile with zero warnings:
   ```bash
   python scripts/docs_build.py

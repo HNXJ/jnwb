@@ -80,6 +80,10 @@ gallery_src/
 !artifacts/benchmarks/*.json
 !examples/data/*.provenance.json
 !artifacts/frozen_validated.json
+# The dashboard's template and data contract; its built data.json stays out.
+!scripts/dashboard/index.html
+!scripts/dashboard/data.schema.json
+!tests/fixtures/dashboard_data.json
 *.asv
 *.mexw64
 *.mlx

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jnwb dashboard</title>
+<meta name="description" content="jnwb releases, validation, performance and public API, generated from the repository's committed records.">
+<link rel="icon" href="assets/favicon.png">
+<!--
+  Template. Holds layout and tokens only: every number, name and date comes from data.json,
+  which scripts/build_dashboard.py writes from committed records. app.js renders it.
+  Section ids and data-slot names below are the contract app.js fills; do not rename one
+  without changing app.js.
+-->
+<style>
+:root {
+  --bg: #ffffff; --surface: #f6f7f9; --border: #dde1e6; --text: #1b1f24; --muted: #5b6573;
+  --accent: #3b5bdb; --accent-soft: #e7ecfd; --ok: #2b8a3e; --warn: #c26d00; --bad: #c92a2a;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius: 8px; --gap: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --surface: #171b21; --border: #2a313a; --text: #e6e9ee; --muted: #9aa4b2;
+    --accent: #7c9cff; --accent-soft: #1d2540; --ok: #69db7c; --warn: #ffa94d; --bad: #ff8787;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b21; --border: #2a313a; --text: #e6e9ee; --muted: #9aa4b2;
+  --accent: #7c9cff; --accent-soft: #1d2540; --ok: #69db7c; --warn: #ffa94d; --bad: #ff8787;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
+a { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: 0.92em; }
+header.top {
+  position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--gap); padding: 10px 16px; flex-wrap: wrap;
+}
+header.top img { height: 28px; }
+header.top .title { font-weight: 600; }
+header.top .meta { color: var(--muted); font-size: 13px; }
+header.top .links { margin-left: auto; display: flex; gap: 12px; font-size: 14px; }
+nav.tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+nav.tabs button {
+  background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+  padding: 10px 12px; font: inherit; cursor: pointer; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
+section[role="tabpanel"][hidden] { display: none; }
+h2 { font-size: 20px; margin: 0 0 4px; }
+p.lede { color: var(--muted); margin: 0 0 var(--gap); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--gap); margin-bottom: 24px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.card .label { color: var(--muted); font-size: 13px; }
+.card .value { font-size: 26px; font-weight: 600; margin-top: 2px; }
+.card .sub { color: var(--muted); font-size: 12px; }
+.card[data-target] { cursor: pointer; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: var(--gap); overflow-wrap: anywhere; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.toolbar input, .toolbar select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit;
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; cursor: pointer; user-select: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.chart { width: 100%; min-height: 320px; }
+.tag { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 12px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
+.gallery figure { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.gallery img { width: 100%; display: block; }
+.gallery figcaption { padding: 8px 10px; font-size: 13px; }
+.empty { color: var(--muted); font-style: italic; }
+footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px 16px; border-top: 1px solid var(--border); }
+@media (max-width: 600px) { header.top .links { margin-left: 0; width: 100%; } .card .value { font-size: 22px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <img src="assets/jnwb-logo.png" alt="">
+  <span class="title">jnwb</span>
+  <span class="meta">version <span data-slot="release.version"></span> · <span data-slot="release.date"></span></span>
+  <span class="links">
+    <a data-slot-href="release.links.docs">Documentation</a>
+    <a data-slot-href="release.links.pypi">PyPI</a>
+    <a data-slot-href="release.links.repo">GitHub</a>
+    <button id="theme-toggle" type="button" aria-label="Toggle light and dark">◐</button>
+  </span>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-controls="overview" aria-selected="true">Overview</button>
+  <button role="tab" aria-controls="releases">Releases</button>
+  <button role="tab" aria-controls="validation">Validation</button>
+  <button role="tab" aria-controls="performance">Performance</button>
+  <button role="tab" aria-controls="api">API</button>
+  <button role="tab" aria-controls="figures">Figures</button>
+</nav>
+
+<main>
+  <!-- Overview: one card per section, each opening its tab. -->
+  <section id="overview" role="tabpanel">
+    <h2>Overview</h2>
+    <p class="lede">Built from the repository at <code data-slot="generated.commit"></code> (<span data-slot="generated.date"></span>).</p>
+    <div class="cards">
+      <div class="card" data-target="releases"><div class="label">Latest release</div><div class="value" data-slot="release.version"></div><div class="sub" data-slot="release.date"></div></div>
+      <div class="card" data-target="releases"><div class="label">Python</div><div class="value" data-slot="overview.python_range"></div><div class="sub">supported versions</div></div>
+      <div class="card" data-target="api"><div class="label">Public API</div><div class="value" data-slot="api.total"></div><div class="sub">symbols in <code>jnwb.__all__</code></div></div>
+      <div class="card" data-target="validation"><div class="label">Independently verified</div><div class="value" data-slot="overview.verified_count"></div><div class="sub">functions</div></div>
+      <div class="card" data-target="releases"><div class="label">CI legs</div><div class="value" data-slot="overview.ci_count"></div><div class="sub">Python × OS, plus dependency floors</div></div>
+    </div>
+    <div class="panel"><div id="chart-release-counts" class="chart" aria-label="Changelog entries per release"></div></div>
+  </section>
+
+  <!-- Releases: changelog by version with kind filter; CI matrix. -->
+  <section id="releases" role="tabpanel" hidden>
+    <h2>Releases</h2>
+    <p class="lede">Each release's changelog entries, by kind.</p>
+    <div class="toolbar">
+      <select id="release-select" aria-label="Release"></select>
+      <select id="release-kind" aria-label="Kind"><option value="">All kinds</option></select>
+      <input id="release-search" type="search" placeholder="Filter entries" aria-label="Filter entries">
+    </div>
+    <div id="release-entries" class="panel"></div>
+    <h2>Test matrix</h2>
+    <div class="panel table-wrap"><table id="ci-table"></table></div>
+  </section>
+
+  <!-- Validation: verified functions; references the implementations conform to. -->
+  <section id="validation" role="tabpanel" hidden>
+    <h2>Independently verified functions</h2>
+    <p class="lede">Each was verified at the commit shown; the listed tests fail if its behaviour changes.</p>
+    <div class="toolbar"><input id="verified-search" type="search" placeholder="Filter by file or function" aria-label="Filter verified functions"></div>
+    <div class="panel table-wrap"><table id="verified-table"></table></div>
+    <h2>References</h2>
+    <div id="references" class="panel"></div>
+  </section>
+
+  <!-- Performance: baseline timings, peak memory, import cost, computational order. -->
+  <section id="performance" role="tabpanel" hidden>
+    <h2>Performance</h2>
+    <p class="lede">Measured on the machine and commit each record names.</p>
+    <div class="panel"><div id="chart-baseline" class="chart" aria-label="Baseline timings"></div></div>
+    <div class="panel"><div id="chart-peak-memory" class="chart" aria-label="Peak memory"></div><div id="peak-memory-meta" class="sub"></div></div>
+    <div class="panel"><div id="chart-import" class="chart" aria-label="Import cost"></div></div>
+    <h2>Computational order</h2>
+    <div class="toolbar"><input id="order-search" type="search" placeholder="Filter by export" aria-label="Filter computational order"></div>
+    <div class="panel table-wrap"><table id="order-table"></table></div>
+  </section>
+
+  <!-- API: symbols by module, linked to the API reference. -->
+  <section id="api" role="tabpanel" hidden>
+    <h2>Public API</h2>
+    <div class="toolbar"><input id="api-search" type="search" placeholder="Find a symbol" aria-label="Find a symbol"></div>
+    <div id="api-groups"></div>
+  </section>
+
+  <!-- Figures: light/dark pairs follow the theme. -->
+  <section id="figures" role="tabpanel" hidden>
+    <h2>Figures</h2>
+    <p class="lede">Generated by the documentation's figure scripts; each links to the page that explains it.</p>
+    <div id="figure-gallery" class="gallery"></div>
+  </section>
+</main>
+
+<footer>Generated from <code data-slot="generated.commit"></code>. Documentation: <a data-slot-href="release.links.docs">Read the Docs</a>.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
+        integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7"
+        crossorigin="anonymous"></script>
+<script src="app.js"></script>
+</body>
+</html>
