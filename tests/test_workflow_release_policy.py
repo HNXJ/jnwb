@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -562,6 +563,28 @@ class TestInstalledArtifactVerification:
         local = set(re.findall(r'"(\w+)"', local.group(1)))
         assert {"vis", "wavemap"} <= ci, f"fixture: CI installs {sorted(ci)}"
         assert {"vis", "wavemap"} <= local, f"STEP 8 installs {sorted(local)}"
+
+    def test_step8_check_fails_when_jnwb_resolves_outside_purelib(self, tmp_path):
+        """With JNWB_EXPECTED_PACKAGE_ROOT dropped, `import jnwb` lands in the checkout, outside
+        purelib. STEP 8 must check that before the tutorial loop and fail, naming both paths."""
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        call = gate.find("check_resolves_under(resolved, purelib)")
+        loop = gate.find("for tutorial in tutorials:")
+        assert 0 <= call < loop, "STEP 8 must check where jnwb resolves before the tutorial loop"
+
+        from scripts.release_gate import check_resolves_under
+
+        purelib = tmp_path / "site-packages"
+        installed = purelib / "jnwb" / "__init__.py"
+        checkout = tmp_path / "checkout" / "jnwb" / "__init__.py"
+        assert installed.is_relative_to(purelib), "fixture: the installed path is under purelib"
+        assert not checkout.is_relative_to(purelib), "fixture: the fallback path is outside purelib"
+
+        check_resolves_under(str(installed), str(purelib))
+        with pytest.raises(SystemExit) as failure:
+            check_resolves_under(str(checkout), str(purelib))
+        message = str(failure.value.code)
+        assert str(checkout) in message and str(purelib) in message, message
 
     @staticmethod
     def _pinned_version_literals(source):

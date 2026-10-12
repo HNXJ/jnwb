@@ -2002,6 +2002,16 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
 """
 
 
+def check_resolves_under(resolved: str, purelib: str) -> None:
+    """Exit unless `import jnwb` resolved under `purelib`, the installed package root.
+
+    A tutorial that fell back to the checkout would pass STEP 8 while testing the source tree;
+    the message names both paths so the fallback is visible.
+    """
+    if not pathlib.Path(resolved).resolve().is_relative_to(pathlib.Path(purelib).resolve()):
+        raise SystemExit(f"jnwb resolved to {resolved}, outside the installed package root {purelib}")
+
+
 def main() -> None:
     log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
     try:
@@ -2236,6 +2246,12 @@ def main() -> None:
         # aside; without it every tutorial imported the checkout it ships in, not the wheel.
         tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
+        # Before any tutorial runs: where `import jnwb` lands under the same environment.
+        resolved = subprocess.run(
+            [venv_python, "-c", "import jnwb; print(jnwb.__file__)"],
+            cwd=str(staging_dir), env=tutorial_env, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        check_resolves_under(resolved, purelib)
         for tutorial in tutorials:
             res = subprocess.run(
                 [venv_python, str(tutorial)], cwd=str(staging_dir),
