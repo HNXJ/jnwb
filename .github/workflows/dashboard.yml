@@ -47,12 +47,17 @@ jobs:
         run: |
           touch "$RUNNER_TEMP/site/.nojekyll"
 
+      # Plain git: the repository allows only its own, GitHub's and pypa's publish action.
       - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: "${{ runner.temp }}/site"
-          force_orphan: false
-          keep_files: false
-          commit_message: "Dashboard from ${{ github.sha }}"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add --detach "$RUNNER_TEMP/pages" origin/gh-pages
+          cd "$RUNNER_TEMP/pages"
+          git rm -r -q --ignore-unmatch .
+          cp -a "$RUNNER_TEMP/site/." .
+          git add --all .
+          if git diff --cached --quiet; then echo "gh-pages already holds this build"; exit 0; fi
+          git commit -q -m "Dashboard from $GITHUB_SHA"
+          git push origin HEAD:gh-pages
