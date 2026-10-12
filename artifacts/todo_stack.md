@@ -37,6 +37,9 @@ lines.
 | K docs reductions | 12-14 | 1 h: rebase `lane-k1` onto the release and rerun its checks | the files 12-14 names |
 | G release gate | 12-16 | 20 min | the files 12-16 names |
 | C changelog vocabulary | 12-17 | 1 h, after 12-14 moves the old sections | the files 12-17 names |
+| U consumer requests | 12-18, 12-19 | 2 h each, after Hamm rules the signatures | the files each names |
+| P pandas 3 | 12-20 | 30 min plus one CI run | the files 12-20 names |
+| J jaxfne ground truth | 12-21 | 2 h, after jaxfne sends the excerpt | the files 12-21 names |
 
 ### 12-14 The audit's docs and CHANGELOG reductions
 
@@ -59,6 +62,38 @@ Accept: the check passes.
 Release: deferred-0.2.12.
 Role: jnwb-developer. Skill: none. Blocked by: 12-14.
 Writes: `CHANGELOG.md`, `scripts/harness_gate.py`, `tests/test_harness_gate.py`.
-- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Added, Changed, Deprecated, Removed, Fixed, Breaking, Documentation. Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
+- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Breaking, Added, Changed, Deprecated, Removed, Fixed. The same check holds the shared template of meet 204dfdaa (2026-10-12, agent proposal, not ruled): one line per change of at most about 120 characters naming its test or file, and a `[results change]` marker that names the seed kind affected (int seed or Generator). Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
 Accept: the check passes. Stop: a rewording changes what an entry says shipped.
 
+
+### 12-18 A unit's peak channel mapped to its curated layer
+
+Release: deferred-0.2.12.
+Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: Hamm's signature ruling.
+Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `skills/jnwb-lfp-spectral/SKILL.md`.
+- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Waits: new public API; the signature is Hamm's (proposed `map_peak_channel_to_layer(units_df, curation)`).
+Accept: the check passes.
+
+### 12-19 A causal Gaussian smoother that states its lag
+
+Release: deferred-0.2.12.
+Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: Hamm's signature ruling.
+Writes: `jnwb/onset_fitting.py`, `tests/test_onset_fitting.py`, `skills/jnwb-spiking/SKILL.md`.
+- jnwb offers only `causal_exp_smooth`; omission carries its own past-only Gaussian and its figures cannot state the display lag (omission request, 2026-10-12). Check: an impulse at bin k gives zero output before k; the reported mean lag equals the kernel's centroid and matches sigma*sqrt(2/pi) bins within the kernel's truncation error; a step's half-rise falls at the reported lag within one bin. Waits: new public API; the signature and the edge rule (edge-padded, as omission does) are Hamm's.
+Accept: the check passes.
+
+### 12-20 Units tables under pandas 3
+
+Release: deferred-0.2.12.
+Role: jnwb-developer. Skill: none. Blocked by: none.
+Writes: `.github/workflows/workflow.yml`, `docs/install.md`, `tests/test_workflow_release_policy.py`.
+- jnwb declares `pandas>=2.2.2` uncapped, but hdmf's `pandas<3` downgrades pandas on install, while omission's units tables build only on pandas 3.0.5 (omission JNWB-010). Check: a non-blocking CI leg installs pandas 3 over hdmf's cap and runs the suite, and `docs/install.md` states the hdmf cap and the override. Waits: no shipped behaviour changes; the leg reports, it does not gate.
+Accept: the leg ran once on dev and its result is recorded.
+
+### 12-21 A jaxfne simulation as jnwb ground truth
+
+Release: deferred-0.2.12.
+Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: jaxfne delivering the excerpt.
+Writes: `examples/data/jaxfne_*.nwb`, `examples/data/jaxfne_*.provenance.json`, `tests/test_jaxfne_ground_truth.py`.
+- No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8, 2026-10-12). Check: a small NWB excerpt with a provenance file, whose simulated directed coupling and delay are stated in it, is recovered by the jnwb connectivity call within a tolerance the provenance states, and a shuffled control is not. Waits: needs jaxfne's excerpt; nothing shipped changes.
+Accept: the check passes.
