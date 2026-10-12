@@ -73,26 +73,33 @@ def test_publish_is_a_non_orphan_non_forced_push_of_the_site_from_the_source_sha
     run = steps[_publish_index(steps)]["run"]
     lines = [line.strip() for line in run.splitlines()]
     # Non-orphan: the commit sits on the existing gh-pages history.
+    assert "git fetch origin gh-pages" in lines
     assert 'git worktree add --detach "$RUNNER_TEMP/pages" origin/gh-pages' in lines
     assert "--orphan" not in run
     # Not forced: no --force, -f or +refspec on the push.
     push = [line for line in lines if line.startswith("git push")]
     assert push == [PUBLISH]
     # The old files go and only the build's files come in.
-    assert "git rm -r -q --ignore-unmatch ." in lines
-    assert 'cp -a "$RUNNER_TEMP/site/." .' in lines
+    remove = lines.index("git rm -r -q --ignore-unmatch .")
+    copy = lines.index('cp -a "$RUNNER_TEMP/site/." .')
+    assert remove < copy
     assert any(line.startswith("git commit") and "$GITHUB_SHA" in line for line in lines)
 
 
 def test_every_action_in_every_workflow_is_one_the_repository_allows():
     """A disallowed action fails the run at startup, before any job reports."""
     used = []
-    for path in sorted((REPO / ".github" / "workflows").glob("*.yml")):
+    workflows = REPO / ".github" / "workflows"
+    for path in sorted([*workflows.glob("*.yml"), *workflows.glob("*.yaml")]):
         doc = yaml.safe_load(path.read_text(encoding="utf-8"))
         for job in doc["jobs"].values():
+            if "uses" in job:  # a reusable workflow
+                used.append((path.name, job["uses"]))
             used += [(path.name, s["uses"]) for s in job.get("steps", []) if "uses" in s]
     assert used, "no workflow step uses an action; the scan read nothing"
-    refused = [(name, uses) for name, uses in used if not uses.startswith(ALLOWED_ACTIONS)]
+    # GitHub matches owner names without case; local actions (./) stay in the repository.
+    allowed = tuple(prefix.lower() for prefix in ALLOWED_ACTIONS) + ("./",)
+    refused = [(name, uses) for name, uses in used if not uses.lower().startswith(allowed)]
     assert not refused, refused
 
 
