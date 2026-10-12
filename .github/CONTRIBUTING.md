@@ -351,8 +351,6 @@ The `artifacts/` directory is the canonical location for non-package, repository
 artifacts/
 ├── todo_stack.md    # Remaining work, grouped by the version that carries it
 ├── benchmarks/      # Performance profiles, timing benchmarks, scalability receipts
-├── data/            # Small fixtures and derived tables
-├── developer/       # Developer work products
 └── scratch/         # Disposable developer scripts, temporary test data (gitignored)
 ```
 

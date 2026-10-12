@@ -34,7 +34,7 @@ db_mean = jnwb.aggregate_to_db(power, baseline, how="mean_of_ratios", aggregate_
 db_weighted = jnwb.aggregate_to_db(power, baseline, how="ratio_of_means", aggregate_over=0)
 ```
 
-`jnwb.aggregate_to_db` enforces this: negative inputs raise an error, preventing callers from accidentally passing decibels.
+`jnwb.aggregate_to_db` enforces this; its negative-input guard is described in [Decibel Formation](04_spectral_analysis_and_tfr.md#decibel-formation-aggregate_to_db-to_db-db_aggregations).
 
 ---
 
@@ -122,10 +122,8 @@ print("Row-wise outer CV accuracy (upper bound):", res["accuracy"])
 print("Fold Majority Baseline:", res["majority_baseline_accuracy"])
 ```
 
-This removes scaler and hyperparameter-selection leakage, not block leakage. The folds are drawn over rows with no `groups`, so trials
-from one block fall on both sides of a fold boundary and share its slow drift. Report
-`accuracy` as an upper bound on the block-held-out accuracy, as
-[Decoding & Unit-Quality Plots](09_decoding_and_visual_qc.md) describes.
+This removes scaler and hyperparameter-selection leakage, not block leakage. Report
+`accuracy` as an upper bound on the block-held-out accuracy; [Decoding & Unit-Quality Plots](09_decoding_and_visual_qc.md#nested-cv-linear-svm-decoding-nested_cv_linear_svm) gives the mechanism.
 
 ---
 
@@ -260,9 +258,9 @@ table = jnwb.events("session.nwb")                            # which column hol
 lfp, fs = jnwb.acquisition_channel("session.nwb", channel=0)  # which acquisition?
 ```
 
-NWB constrains the container, not the contents. `codes` is a jnwb default rather than an NWB
-requirement, so a file from another lab usually names that column `stimulus`, `condition`,
-`trial_type` or nothing at all. A file may hold five interval tables, of which the one you
+NWB constrains the container, not the contents. The code column is named by the file's author,
+and [Errors](errors.md#columnnotfounderror) says what the `codes` default does with a file that
+names it otherwise. A file may hold five interval tables, of which the one you
 want is not the first. Onsets are seconds here and milliseconds in plenty of other
 toolboxes, and a continuous array may be stored time-by-channel or channel-by-time.
 

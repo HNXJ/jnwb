@@ -79,11 +79,10 @@ from any working directory, ahead of a package of the same name elsewhere on you
 A project cloned inside the jnwb checkout will shadow itself, silently:
 `import yourproject` returns a well-formed module from the wrong copy.
 `.gitignore` hides the directory from `git status`, which removes the last
-signal you would get. This has happened in practice — two copies of one project
-disagreed on a label, and most importing files took the stale one.
+signal you would get.
 
 Keep your analysis project in its own directory, beside the jnwb checkout rather than
-inside it. jnwb's own harness enforces the equivalent invariant on this repository,
+inside it. jnwb's own checks enforce the equivalent invariant on this repository,
 and the published wheel ships only `jnwb/`.
 
 For a stricter editable install that maps `jnwb` alone instead of the whole root:
