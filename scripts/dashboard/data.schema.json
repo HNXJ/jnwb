@@ -142,7 +142,7 @@
       "items": {
         "type": "object",
         "required": ["export", "order"],
-        "properties": {"export": {"type": "string"}, "order": {"type": "string"}, "evidence": {"type": "string"}}
+        "properties": {"export": {"type": "string"}, "order": {"type": "string"}, "evidence": {"type": "string"}, "module": {"type": "string", "description": "the jnwb.x heading above the row's table"}}
       }
     },
     "references": {
