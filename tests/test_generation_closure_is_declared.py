@@ -166,7 +166,7 @@ def test_the_contract_requires_the_canonical_mutation_harness():
     in the contract said otherwise. The repair is the sentence, so the sentence is what is
     pinned here.
     """
-    contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    contributing = (REPO_ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     assert "scripts/mutation_harness.py" in contributing, (
         "CONTRIBUTING.md must name the canonical mutation harness; an unmentioned mechanism "
         "is one every lane reimplements in the shared scratchpad"

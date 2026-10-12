@@ -42,9 +42,11 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.release_gate import (  # noqa: E402
     NEXT_CYCLE,
     RELEASE_CYCLE,
+    ROADMAP_PATH,
     blocker_fixpoint_receipt,
     check_release_readiness,
     problem_rows,
+    roadmap_rows,
     todo_release_fields,
 )
 HEAD = "a" * 40
@@ -94,16 +96,25 @@ def _commit(root, message):
     return _git(root, "rev-parse", "HEAD")
 
 
+def _roadmap(*rows):
+    return "# Roadmap\n\n| ID | Theme | Defect | Waits | Release |\n|---|---|---|---|---|\n" + "".join(
+        f"{r}\n" for r in rows)
+
+
 def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True,
-          recorded=RELEASE_CYCLE, fragments=()):
+          recorded=RELEASE_CYCLE, fragments=(), roadmap=_roadmap()):
     """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
     ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against.
     ``recorded`` is the version the peak-memory record names, ``None`` for no record.
-    ``changelog.d/`` holds its README and each name in ``fragments``."""
-    (tmp_path / "changelog.d").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "changelog.d" / "README.md").write_text("# Fragments\n", encoding="utf-8")
+    ``artifacts/changelog.d/`` holds its README and each name in ``fragments``.
+    ``roadmap`` is the roadmap's text, ``None`` for no roadmap."""
+    if roadmap is not None:
+        (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "artifacts" / "roadmap.md").write_text(roadmap, encoding="utf-8")
+    (tmp_path / "artifacts" / "changelog.d").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "changelog.d" / "README.md").write_text("# Fragments\n", encoding="utf-8")
     for name in fragments:
-        (tmp_path / "changelog.d" / name).write_text("- a change\n", encoding="utf-8")
+        (tmp_path / "artifacts" / "changelog.d" / name).write_text("- a change\n", encoding="utf-8")
     (tmp_path / "artifacts" / "benchmarks").mkdir(parents=True, exist_ok=True)
     (tmp_path / "jnwb").mkdir(exist_ok=True)
     (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
@@ -218,10 +229,10 @@ def test_a_missing_problem_stack_fails(tmp_path):
 
 @pytest.mark.parametrize("name", ["stray.fixed.md", "notes.txt", ".keep"])
 def test_a_fragment_left_in_changelog_d_fails(tmp_path, name):
-    """A fragment still in changelog.d/ is a change the assembled release notes do not carry."""
+    """A fragment still in artifacts/changelog.d/ is a change the assembled release notes do not carry."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], fragments=[name])
     v = check_release_readiness(root, head=HEAD)
-    assert len(v) == 1 and "changelog.d/" in v[0] and f"changelog.d/{name}" in v[0], v
+    assert len(v) == 1 and "artifacts/changelog.d/" in v[0] and f"artifacts/changelog.d/{name}" in v[0], v
 
 
 def test_an_item_still_required_this_cycle_fails(tmp_path):
@@ -836,6 +847,79 @@ def test_a_missing_todo_stack_fails(tmp_path):
     _commit(root, "delete the todo stack")
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and "todo_stack.md is missing" in v[0], v
+
+
+def _roadmap_row(ident="12-09", waits="a reason", release=f"deferred-{AFTER_NEXT}"):
+    return f"| {ident} | a theme | a defect | {waits} | {release} |"
+
+
+def test_a_readable_roadmap_row_deferred_past_this_cycle_passes(tmp_path):
+    root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], roadmap=_roadmap(_roadmap_row()))
+    assert check_release_readiness(root, head=HEAD) == []
+
+
+def test_a_roadmap_row_deferred_to_this_cycle_is_refused(tmp_path):
+    root = _tree(tmp_path, roadmap=_roadmap(_roadmap_row(release=f"deferred-{RELEASE_CYCLE}")))
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and f"not later than {RELEASE_CYCLE}" in v[0], v
+
+
+def test_a_roadmap_id_also_in_the_todo_stack_is_refused(tmp_path):
+    root = _tree(tmp_path, items=[_item("12-09", DEFERRED)], roadmap=_roadmap(_roadmap_row()))
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "12-09 is also in artifacts/todo_stack.md" in v[0], v
+
+
+@pytest.mark.parametrize("row", [
+    f"| 12-09 | a theme | a defect | deferred-{AFTER_NEXT} |",
+    _roadmap_row(waits=""),
+    _roadmap_row(ident="12-9a"),
+], ids=["no-waits-cell", "empty-waits", "bad-id"])
+def test_an_unreadable_roadmap_row_is_refused(tmp_path, row):
+    root = _tree(tmp_path, roadmap=_roadmap(row))
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "is not a readable row" in v[0], v
+
+
+@pytest.mark.parametrize("marker", [
+    "Required for 0.2.11",
+    "required-0.2.11",
+], ids=["prose-marker", "release-marker"])
+def test_a_roadmap_row_marking_work_required_is_refused(marker):
+    rows, refused = roadmap_rows(_roadmap(f"| 12-09 | a theme | {marker} | a reason | "
+                                          f"deferred-{AFTER_NEXT} |"))
+    assert len(rows) == 1 and len(refused) == 1 and "marks work required" in refused[0], refused
+
+
+def test_a_roadmap_id_repeated_inside_the_roadmap_is_refused():
+    row = _roadmap_row()
+    rows, refused = roadmap_rows(_roadmap(row, row))
+    assert len(rows) == 2 and refused == ["12-09 appears twice"], refused
+
+
+def test_the_live_roadmap_parses_without_refusal():
+    """The committed roadmap, read by the parser STEP 0a runs, against the live todo stack."""
+    text = (REPO_ROOT / ROADMAP_PATH).read_text(encoding="utf-8")
+    stack_ids = {ident for ident, _, _ in todo_release_fields(REPO_ROOT)}
+    refused = roadmap_rows(text, stack_ids)[1]
+    assert refused == [], refused
+
+
+def test_a_missing_roadmap_fails(tmp_path):
+    """Deleting the roadmap must not read as no deferred work."""
+    root = _tree(tmp_path, roadmap=None)
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and "roadmap.md is missing at HEAD" in v[0], v
+
+
+def test_a_roadmap_edit_after_the_receipt_commit_is_stale(tmp_path):
+    """The closure pass judged the roadmap too, so only the receipt and the todo stack may follow."""
+    root, passed = _repository(tmp_path)
+    _record_receipt(root, passed)
+    (root / "artifacts" / "roadmap.md").write_text(_roadmap(_roadmap_row()), encoding="utf-8")
+    head = _commit(root, "a roadmap row the closure pass never read")
+    v = check_release_readiness(root, head=head)
+    assert len(v) == 1 and "1 file(s) other than the receipt" in v[0] and "roadmap.md" in v[0], v
 
 
 def test_a_receipt_cannot_be_tied_to_an_unresolved_head(tmp_path):

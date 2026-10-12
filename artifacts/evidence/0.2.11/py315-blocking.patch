@@ -1,0 +1,380 @@
+diff --git a/.github/workflows/workflow.yml b/.github/workflows/workflow.yml
+index 55703a37..41f5bc42 100644
+--- a/.github/workflows/workflow.yml
++++ b/.github/workflows/workflow.yml
+@@ -86,7 +86,12 @@ jobs:
+       fail-fast: false
+       matrix:
+         os: [ ubuntu-latest, windows-latest ]
+-        python-version: [ "3.12", "3.13", "3.14" ]
++        python-version: [ "3.12", "3.13", "3.14", "3.15" ]
++        # h5py ships no CPython 3.15 wheel yet. Ubuntu builds it against the system HDF5 headers,
++        # and the Windows leg waits for a wheel.
++        exclude:
++          - os: windows-latest
++            python-version: "3.15"
+         # The one leg that must compare the documentation figures: it pins the Matplotlib release
+         # that wrote them, so a newer minor release reaching the other legs cannot turn every
+         # comparison into a skip. Windows and 3.14, as the figures were rendered.
+@@ -109,9 +114,17 @@ jobs:
+         uses: actions/setup-python@v5
+         with:
+           python-version: ${{ matrix.python-version }}
++          # Prereleases are admitted for 3.15 only.
++          allow-prereleases: ${{ matrix.python-version == '3.15' }}
+           cache: pip
+           cache-dependency-path: pyproject.toml
+ 
++      - name: Install the HDF5 headers that h5py builds against
++        if: matrix.python-version == '3.15' && env.QUALIFIED_BY == ''
++        run: |
++          sudo apt-get update
++          sudo apt-get install -y libhdf5-dev pkg-config
++
+       - name: Install Liberation Sans for the documentation figures
+         # The committed figures are drawn in Liberation Sans, and
+         # tests/test_generated_figures_are_maintained.py compares them pixel for pixel, so every
+@@ -128,6 +141,8 @@ jobs:
+ 
+       - name: Install dependencies
+         if: env.QUALIFIED_BY == ''
++        env:
++          HDF5_PKGCONFIG_NAME: hdf5-serial
+         # `vis` so jnwb.vis is exercised on every leg. No leg runs the suite without Plotly: the
+         # build job's smoke step checks the wheel without the extra, and
+         # tests/test_optional_vis_extra.py blocks Plotly in a subprocess. `wavemap` so the UMAP and
+@@ -253,53 +268,6 @@ jobs:
+         run: |
+           python scripts/ci_pytest.py tests/
+ 
+-  test-py315:
+-    # Non-blocking: h5py has no CPython 3.15 wheel, so this leg builds it from source and can fail
+-    # for reasons outside this repository. No job needs it, and it does not run on tag pushes.
+-    name: Test (Python 3.15 on ubuntu-latest, non-blocking)
+-    if: "!startsWith(github.ref, 'refs/tags/')"
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 60
+-    continue-on-error: true
+-
+-    steps:
+-      - uses: actions/checkout@v4
+-
+-      - name: Set up Python 3.15
+-        uses: actions/setup-python@v5
+-        with:
+-          python-version: "3.15"
+-          allow-prereleases: true
+-
+-      - name: Install the HDF5 headers that h5py builds against
+-        run: |
+-          sudo apt-get update
+-          sudo apt-get install -y libhdf5-dev pkg-config
+-
+-      - name: Install Liberation Sans for the documentation figures
+-        shell: bash
+-        run: |
+-          cd "$RUNNER_TEMP"
+-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+-          echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
+-          tar xzf liberation-fonts.tar.gz
+-          echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
+-
+-      - name: Install dependencies
+-        env:
+-          HDF5_PKGCONFIG_NAME: hdf5-serial
+-        run: |
+-          python -m pip install --upgrade pip
+-          python -m pip install ".[test,docs,vis,wavemap]"
+-
+-      - name: Run pytest
+-        env:
+-          JNWB_REQUIRE_FIGURE_COMPARISON: '0'
+-          JNWB_REQUIRE_BROWSER: '1'
+-        run: |
+-          # Runs pytest and annotates each failed test; the exit status is pytest's own.
+-          python scripts/ci_pytest.py tests/
+-
+   build:
+     name: Build & Validate Distribution
+     needs: [test, test-floors]
+diff --git a/README.md b/README.md
+index 78b1290c..5d1d6486 100644
+--- a/README.md
++++ b/README.md
+@@ -40,7 +40,7 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
+ 
+ ## Installation
+ 
+-Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
++Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.
+ 
+ ```bash
+ pip install jnwb                  # latest published release
+diff --git a/docs/index.md b/docs/index.md
+index 56bcb259..b8515f95 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -20,7 +20,7 @@ pip install -U jnwb
+ pip install "jnwb[torch,gpu]"   # optional CuPy / PyTorch
+ ```
+ 
+-Requires Python 3.12 or newer; CI tests 3.12, 3.13 and 3.14. See [Installation](install.md).
++Requires Python 3.12 or newer; CI tests 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last. See [Installation](install.md).
+ 
+ ## Example
+ 
+diff --git a/docs/install.md b/docs/install.md
+index 15fba800..64c774f4 100644
+--- a/docs/install.md
++++ b/docs/install.md
+@@ -6,7 +6,7 @@
+ pip install -U jnwb
+ ```
+ 
+-Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
++Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.
+ 
+ jnwb is dataset-agnostic. The public surface is the contents of `jnwb.__all__`, documented in [Public API](api.md).
+ 
+diff --git a/scripts/release_gate.py b/scripts/release_gate.py
+index 854ecf18..982b3418 100644
+--- a/scripts/release_gate.py
++++ b/scripts/release_gate.py
+@@ -689,8 +689,26 @@ def required_ci_jobs(workflow: Optional[str] = None,
+             names.append(template.strip())
+             continue
+         keys = sorted(axes)
+-        for combination in itertools.product(*(axes[key] for key in keys)):
+-            values = {k: str(v) for k, v in zip(keys, combination)}
++        legs = [
++            {k: str(v) for k, v in zip(keys, combination)}
++            for combination in itertools.product(*(axes[key] for key in keys))
++        ]
++        # An `exclude` entry removes each leg that matches it on all of its keys.
++        for excluded in matrix.get("exclude") or []:
++            legs = [leg for leg in legs
++                    if not all(leg.get(k) == str(v) for k, v in excluded.items())]
++        # An `include` entry adds its keys to each leg it matches on the matrix axes, and is a leg
++        # of its own only when it matches none.
++        for included in matrix.get("include") or []:
++            entry = {k: str(v) for k, v in included.items()}
++            shared = {k: v for k, v in entry.items() if k in axes}
++            matched = [leg for leg in legs if all(leg[k] == v for k, v in shared.items())]
++            if matched:
++                for leg in matched:
++                    leg.update(entry)
++            else:
++                legs.append(entry)
++        for values in legs:
+             names.append(_MATRIX_REF.sub(
+                 lambda m: values.get(m.group(1), m.group(0)), template).strip())
+     return names
+diff --git a/tests/test_ci_conclusion_gate.py b/tests/test_ci_conclusion_gate.py
+index 765ab5f8..29f7e5ab 100644
+--- a/tests/test_ci_conclusion_gate.py
++++ b/tests/test_ci_conclusion_gate.py
+@@ -293,14 +293,52 @@ def test_required_jobs_expand_the_matrix_and_exclude_conditional_jobs():
+     assert "Ship It" not in required_ci_jobs(OTHER_WORKFLOW)
+ 
+ 
++def test_required_jobs_drop_an_excluded_leg_and_add_an_include_only_when_it_makes_a_leg():
++    workflow = textwrap.dedent("""\
++        jobs:
++          test:
++            name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
++            strategy:
++              matrix:
++                os: [ubuntu-latest, windows-latest]
++                python-version: ["3.12", "3.15"]
++                exclude:
++                  - os: windows-latest
++                    python-version: "3.15"
++                include:
++                  - os: windows-latest
++                    python-version: "3.12"
++                    figures: compared
++                  - os: macos-latest
++                    python-version: "3.12"
++    """)
++    assert sorted(required_ci_jobs(workflow)) == sorted([
++        "Test (Python 3.12 on ubuntu-latest)",
++        "Test (Python 3.15 on ubuntu-latest)",
++        "Test (Python 3.12 on windows-latest)",
++        "Test (Python 3.12 on macos-latest)",
++    ])
++
++
+ def test_this_repository_requires_every_matrix_leg_and_the_build_job():
+     required = required_ci_jobs(root=REPO_ROOT)
++    import itertools
+     import tomllib
+     import yaml
+ 
+     workflow = yaml.safe_load((REPO_ROOT / CI_WORKFLOW_PATH).read_text(encoding="utf-8"))
+     matrix = workflow["jobs"]["test"]["strategy"]["matrix"]
+-    expected = len(matrix["os"]) * len(matrix["python-version"])
++    # The legs CI runs: the axes' product, less each exclude, plus each include that matches no
++    # leg. An include that matches a leg only adds keys to it, as the Windows 3.14 figures entry does.
++    axes = [k for k, v in matrix.items() if isinstance(v, list) and k not in ("include", "exclude")]
++    legs = [dict(zip(axes, combo)) for combo in itertools.product(*(matrix[k] for k in axes))]
++    for excluded in matrix.get("exclude") or []:
++        legs = [leg for leg in legs if not all(str(leg[k]) == str(v) for k, v in excluded.items())]
++    for included in matrix.get("include") or []:
++        shared = {k: str(v) for k, v in included.items() if k in axes}
++        if not any(all(str(leg[k]) == v for k, v in shared.items()) for leg in legs):
++            legs.append(included)
++    expected = len(legs)
+     assert len(required) == expected + 3, required
+     assert "Build & Validate Distribution" in required
+     assert workflow["jobs"]["test-floors"]["name"] in required
+diff --git a/tests/test_gate8_covers_every_version_surface.py b/tests/test_gate8_covers_every_version_surface.py
+index 035bd35a..47766506 100644
+--- a/tests/test_gate8_covers_every_version_surface.py
++++ b/tests/test_gate8_covers_every_version_surface.py
+@@ -57,24 +57,28 @@ def test_a_skewed_floor_fails(scratch, rel):
+ 
+ @pytest.mark.parametrize("rel", ["README.md", "docs/install.md"])
+ def test_a_skewed_tested_set_fails(scratch, rel):
+-    _skew(scratch, rel, "Tested in CI on 3.12, 3.13 and 3.14.", "Tested in CI on 3.12 and 3.14.")
++    _skew(scratch, rel,
++          "Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.",
++          "Tested in CI on 3.12 and 3.14.")
+     violations = check_python_floor_consistency(scratch)
+     assert any("PYTHON_DOC_CI_SKEW" in v and rel in v for v in violations), violations
+ 
+ 
+ def test_a_version_every_leg_of_which_is_excluded_is_untested(scratch):
+     """The matrix list still names 3.13; an `exclude` leaves it no leg to run on."""
++    # Added to the matrix's existing `exclude:` list: a second `exclude:` key would be silently
++    # dropped by the YAML loader, and the 3.13 exclusion with it.
+     _skew(scratch, ".github/workflows/workflow.yml",
+-          "      matrix:\n",
+-          "      matrix:\n        exclude:\n          - python-version: \"3.13\"\n")
++          "        exclude:\n",
++          "        exclude:\n          - python-version: \"3.13\"\n")
+     violations = check_python_floor_consistency(scratch)
+     assert any("3.13" in v and ("UNTESTED" in v or "CI_SKEW" in v) for v in violations), violations
+ 
+ 
+ def test_an_exclude_that_leaves_the_version_a_leg_is_not_a_violation(scratch):
+     _skew(scratch, ".github/workflows/workflow.yml",
+-          "      matrix:\n",
+-          "      matrix:\n        exclude:\n          - python-version: \"3.13\"\n"
++          "        exclude:\n",
++          "        exclude:\n          - python-version: \"3.13\"\n"
+           "            os: windows-latest\n")
+     assert check_python_floor_consistency(scratch) == []
+ 
+diff --git a/tests/test_workflow_release_policy.py b/tests/test_workflow_release_policy.py
+index 874cda99..edbb752b 100644
+--- a/tests/test_workflow_release_policy.py
++++ b/tests/test_workflow_release_policy.py
+@@ -803,64 +803,51 @@ class TestTheTagPushCreatesTheRelease:
+             assert re.search(rf"^\s+{name},$", source, re.M), name
+ 
+ 
+-class TestPython315LegIsNonBlocking:
+-    """The Python 3.15 leg reports without gating anything. h5py publishes no cp315 wheel, so the
+-    leg builds it from source and can fail for reasons outside this repository.
+-
+-    What keeps it non-blocking: `continue-on-error` on the job, no job waits on it, an `if:` that
+-    keeps it off tag pushes and out of the release gate's required set, and a name no other job
+-    shares. What would pass while that is broken: a `needs:` on the leg, a leg in the test matrix
+-    (the required count grows), or a leg that runs on a tag push.
++class TestPython315IsBlockingOnUbuntu:
++    """Python 3.15 is a blocking leg of the test matrix on Ubuntu. h5py ships no CPython 3.15 wheel
++    yet, so the Ubuntu leg builds it against the system HDF5 headers, and the Windows leg is
++    excluded until a wheel exists.
++
++    What would pass while that is broken: a 3.15 leg without the HDF5 step (h5py fails to build),
++    a Windows 3.15 leg (no wheel to install), or 3.15 run in a job outside the matrix, which leaves
++    the test matrix unchanged.
+     """
+ 
+-    JOB = "test-py315"
+-
+-    @classmethod
+-    def _job(cls):
+-        jobs = _load_workflow()["jobs"]
+-        assert cls.JOB in jobs, f"no {cls.JOB} job in the workflow"
+-        return jobs[cls.JOB]
+-
+-    def test_the_leg_cannot_fail_the_run(self):
+-        assert self._job().get("continue-on-error") is True, self._job().get("continue-on-error")
+-
+-    def test_no_job_waits_on_the_leg(self):
+-        for jid, job in _load_workflow()["jobs"].items():
+-            needs = job.get("needs") or []
+-            needs = [needs] if isinstance(needs, str) else needs
+-            assert self.JOB not in needs, (jid, needs)
+-
+-    def test_the_leg_is_not_run_on_tag_pushes(self):
+-        condition = " ".join(str(self._job().get("if", "")).split())
+-        assert condition == "!startsWith(github.ref, 'refs/tags/')", condition
+-
+-    def test_the_release_gate_does_not_require_the_leg(self):
+-        import sys
+-
+-        if str(REPO_ROOT) not in sys.path:
+-            sys.path.append(str(REPO_ROOT))
+-        from scripts.release_gate import required_ci_jobs
+-
+-        assert self._job()["name"] not in required_ci_jobs(root=REPO_ROOT)
+-
+-    def test_the_leg_is_one_ubuntu_job_on_python_315_with_prereleases(self):
+-        job = self._job()
+-        assert job["runs-on"] == "ubuntu-latest", job["runs-on"]
+-        assert "strategy" not in job, job.get("strategy")
+-        setup = [s for s in job["steps"] if "setup-python" in str(s.get("uses", ""))]
++    @staticmethod
++    def _test_job() -> dict:
++        return _load_workflow()["jobs"]["test"]
++
++    def test_python_315_is_in_the_test_matrix(self):
++        matrix = self._test_job()["strategy"]["matrix"]
++        assert "3.15" in matrix["python-version"], matrix["python-version"]
++
++    def test_the_only_excluded_leg_is_windows_315(self):
++        matrix = self._test_job()["strategy"]["matrix"]
++        assert matrix.get("exclude") == [{"os": "windows-latest", "python-version": "3.15"}], (
++            matrix.get("exclude"))
++
++    def test_no_separate_test_py315_job_remains(self):
++        assert "test-py315" not in _load_workflow()["jobs"]
++
++    def test_the_hdf5_headers_are_installed_on_the_315_leg_before_pip_builds_h5py(self):
++        steps = self._test_job()["steps"]
++        hdf5 = [i for i, s in enumerate(steps) if "libhdf5-dev" in str(s.get("run", ""))]
++        install = [s.get("name") for s in steps].index("Install dependencies")
++        assert len(hdf5) == 1 and hdf5[0] < install, (hdf5, install)
++        step = steps[hdf5[0]]
++        assert "sudo apt-get update" in step["run"], step["run"]
++        assert "sudo apt-get install -y libhdf5-dev pkg-config" in step["run"], step["run"]
++        assert step.get("if") == "matrix.python-version == '3.15' && env.QUALIFIED_BY == ''", (
++            step.get("if"))
++
++    def test_the_install_step_names_the_hdf5_pkgconfig_library(self):
++        steps = self._test_job()["steps"]
++        install = next(s for s in steps if s.get("name") == "Install dependencies")
++        assert install.get("env") == {"HDF5_PKGCONFIG_NAME": "hdf5-serial"}, install.get("env")
++
++    def test_setup_python_allows_prereleases_only_on_the_315_leg(self):
++        steps = self._test_job()["steps"]
++        setup = [s for s in steps if "setup-python" in str(s.get("uses", ""))]
+         assert len(setup) == 1, setup
+-        assert setup[0]["with"] == {"python-version": "3.15", "allow-prereleases": True}, (
++        assert setup[0]["with"]["allow-prereleases"] == "${{ matrix.python-version == '3.15' }}", (
+             setup[0]["with"])
+-
+-    def test_the_leg_runs_the_blocking_legs_pytest_command_with_the_same_gates(self):
+-        step = next(s for s in self._job()["steps"] if s.get("name") == "Run pytest")
+-        assert "python scripts/ci_pytest.py tests/" in str(step["run"]), step["run"]
+-        assert step["env"]["JNWB_REQUIRE_BROWSER"] == "1", step["env"]
+-        assert step["env"]["JNWB_REQUIRE_FIGURE_COMPARISON"] == "0", step["env"]
+-
+-    def test_the_hdf5_headers_are_installed_before_pip_builds_h5py(self):
+-        steps = self._job()["steps"]
+-        apt = [i for i, s in enumerate(steps) if "apt-get install" in str(s.get("run", ""))]
+-        install = [i for i, s in enumerate(steps) if "pip install" in str(s.get("run", ""))]
+-        assert len(apt) == 1 and len(install) == 1 and apt[0] < install[0], (apt, install)
+-        assert "libhdf5-dev" in steps[apt[0]]["run"], steps[apt[0]]["run"]

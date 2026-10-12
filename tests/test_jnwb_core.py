@@ -6,11 +6,8 @@ Focus: Core statistical analysis and data structures that work correctly.
 """
 
 import unittest
-import pytest
 from pathlib import Path
 import numpy as np
-import pandas as pd
-from unittest.mock import Mock, patch, MagicMock
 
 import sys
 # Appended, not prepended: prepending would also put the checkout's jnwb/ ahead of an
@@ -135,24 +132,23 @@ class TestTFRAnalyzer(unittest.TestCase):
         with self.assertRaises(ValueError):
             TFRAnalyzer.extract_band(tfr_data, 'invalid_band', freqs=freqs)
 
-    def test_average_across_channels_shape(self):
-        """Test channel averaging produces correct shape."""
-        band_power = np.random.randn(44, 99, 500)
+    def _assert_channel_average_shape(self, n_channels):
+        band_power = np.random.randn(n_channels, 99, 500)
         result = TFRAnalyzer.average_across_channels(band_power)
         # Should be (time, trials)
         self.assertEqual(result.shape, (99, 500))
 
+    def test_average_across_channels_shape(self):
+        """Test channel averaging produces correct shape."""
+        self._assert_channel_average_shape(44)
+
     def test_average_across_channels_single_channel(self):
         """Test channel averaging with single channel."""
-        band_power = np.random.randn(1, 99, 500)
-        result = TFRAnalyzer.average_across_channels(band_power)
-        self.assertEqual(result.shape, (99, 500))
+        self._assert_channel_average_shape(1)
 
     def test_average_across_channels_many_channels(self):
         """Test channel averaging with many channels."""
-        band_power = np.random.randn(82, 99, 500)
-        result = TFRAnalyzer.average_across_channels(band_power)
-        self.assertEqual(result.shape, (99, 500))
+        self._assert_channel_average_shape(82)
 
 
 class TestUnitAnalyzer(unittest.TestCase):

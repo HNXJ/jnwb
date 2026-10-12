@@ -23,7 +23,6 @@ import sys
 
 import pytest
 
-from jnwb import laminar
 from jnwb.laminar import xflip
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]

@@ -145,6 +145,48 @@ def _fano(n_trials: int) -> Callable[[], object]:
     return lambda: jnwb.fano_factor(units, onsets, (0.0, 0.5), summary="mean")
 
 
+def _trough(n: int) -> np.ndarray:
+    """A (16, n) mean waveform: one trough of width n/20 at sample n/2, on channel 8 only."""
+    t = np.arange(n, dtype=float)
+    w = np.zeros((16, n))
+    w[8] = -np.exp(-((t - n / 2) ** 2) / (2 * (n / 20) ** 2))
+    return w
+
+
+def _halfwidth(n: int, _tmp: Path) -> Callable[[], object]:
+    from jnwb import unit_quality as uq
+
+    w = _trough(n)
+    assert np.isfinite(uq.waveform_halfwidth(w, 30_000.0)), "fixture must cross the half level"
+    return lambda: uq.waveform_halfwidth(w, 30_000.0)
+
+
+def _slope(n: int, _tmp: Path) -> Callable[[], object]:
+    from jnwb import unit_quality as uq
+
+    w = _trough(n)
+    assert np.isfinite(uq.repolarization_slope(w, 30_000.0)), "fixture must leave a fit window"
+    return lambda: uq.repolarization_slope(w, 30_000.0)
+
+
+def _spread(n_channels: int, _tmp: Path) -> Callable[[], object]:
+    from jnwb import unit_quality as uq
+
+    scale = np.exp(-((np.arange(n_channels) - n_channels // 2) ** 2) / (2 * 4.0 ** 2))
+    t = np.arange(60, dtype=float)
+    w = scale[:, None] * (-np.exp(-((t - 20) ** 2) / (2 * 4.0 ** 2)))[None, :]
+    assert np.isfinite(uq.waveform_spread(w, site_spacing_um=20.0)), "fixture must have sites"
+    return lambda: uq.waveform_spread(w, site_spacing_um=20.0)
+
+
+def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
+    from jnwb import unit_quality as uq
+
+    amplitudes = np.random.default_rng(0).normal(size=n)
+    assert 0.0 <= uq.amplitude_cutoff(amplitudes) <= 0.5, "fixture must give a cut-off"
+    return lambda: uq.amplitude_cutoff(amplitudes)
+
+
 SPECS: Dict[str, Spec] = {
     "phase_slope_index[n_samples]": Spec(
         "n_samples", (60_000, 200_000, 700_000, 2_000_000, 4_000_000),
@@ -211,6 +253,37 @@ SPECS: Dict[str, Spec] = {
         "n_epochs", (8, 32, 128, 512),
         "16 contacts, 500 samples per epoch, white noise (grade F), fs=500 Hz, compute_xflip=False",
         lambda n, _tmp: _curation("curate", n),
+    ),
+    # Admissible bounds, read from the function bodies in jnwb/unit_quality.py. The n log n of
+    # the two samples specs is the FFT of scipy.signal.resample over m = int(n * 200 / 82)
+    # samples; the channel passes (isfinite, max, min) are O(C * n) with C = 16 fixed.
+    "waveform_halfwidth[n_samples]": Spec(
+        "n_samples", (1_000, 10_000, 100_000, 1_000_000),
+        "16 channels, one trough of width n/20 at sample n/2 on channel 8 only, fs=30000, "
+        "upsampling_factor=200/82 (default); admissible O(n log n)",
+        _halfwidth,
+    ),
+    "repolarization_slope[n_samples]": Spec(
+        "n_samples", (1_000, 10_000, 100_000, 1_000_000),
+        "as waveform_halfwidth, window_samples=20 (default); the fit is a constant 20 samples, "
+        "so admissible O(n log n)",
+        _slope,
+    ),
+    # The sites are a fixed set of 17 channels (site_range 16, site_step 2), so the only term
+    # that grows is the channel passes over C * n with n = 60 held: admissible O(C).
+    "waveform_spread[n_channels]": Spec(
+        "n_channels", (100, 1_000, 10_000, 100_000),
+        "60 samples, trough at sample 20 (width 4), channel scale Gaussian centred on the middle "
+        "channel (width 4), site_spacing_um=20, defaults; admissible O(C)",
+        _spread,
+    ),
+    # One pass over the amplitudes (asarray, isfinite, np.histogram with 500 uniform bins); the
+    # smoothing and the search run over 500 bins whatever N is: admissible O(N).
+    "amplitude_cutoff[n_amplitudes]": Spec(
+        "n_amplitudes", (100_000, 1_000_000, 4_000_000, 10_000_000),
+        "standard normal amplitudes, default_rng(0), num_histogram_bins=500, "
+        "histogram_smoothing_value=3 (defaults); admissible O(N)",
+        _cutoff,
     ),
 }
 

@@ -56,6 +56,10 @@ EXPORT_MODULES: dict[str, str] = {
     "assign_quality_tier": "metadata",
     # unit quality measures
     "waveform_features": "unit_quality",
+    "waveform_halfwidth": "unit_quality",
+    "repolarization_slope": "unit_quality",
+    "waveform_spread": "unit_quality",
+    "amplitude_cutoff": "unit_quality",
     "waveform_snr": "unit_quality",
     "waveform_flatness": "unit_quality",
     "spatial_derivative_sharpness": "unit_quality",

@@ -84,6 +84,28 @@ def test_the_excerpt_is_the_published_data_and_ships_outside_the_wheel(provenanc
     assert find["include"] == ["jnwb*"] and "examples*" in find["exclude"], find
 
 
+def test_the_excerpt_keeps_one_source_mean_waveform_per_unit(provenance):
+    """The waveform panel of tutorial 10 reads units/waveform_mean: one dense row per unit, in
+    the source's dtype and sample count. The provenance names the source block and the rule
+    that chose each row, and its digest is the column's."""
+    meta = provenance["waveform_mean"]
+    with h5py.File(EXCERPT, "r") as h:
+        column = h["units/waveform_mean"][()]
+        n_units = h["units/id"].shape[0]
+        assert "units/waveform_mean_index" not in h, "the column must be dense, not ragged"
+    assert n_units > 0, "the excerpt holds no units, so this check examines nothing"
+    assert column.shape == (n_units, meta["n_samples"]) == (provenance["selection"]["n_units"], 82)
+    assert column.dtype == np.float64 and meta["dtype"] == "float64"
+    assert np.isfinite(column).all()
+    assert meta["unit_label_in_source"] == "volts"
+    assert meta["source_dataset"] == "units/waveform_mean"
+    assert meta["source_asset"] == provenance["assets"]["units"]["path"]
+    assert len(meta["channel_row"]) == n_units
+    assert all(0 <= k < max(meta["channel_rows_per_block"]) for k in meta["channel_row"])
+    assert hashlib.sha256(np.ascontiguousarray(column).tobytes()).hexdigest() == \
+        meta["excerpt_column_sha256"]
+
+
 def test_the_derived_clock_follows_the_timestamps_and_spikes(tutorial, provenance, tmp_path):
     pristine = _clock(tutorial, EXCERPT)
     source = provenance["source_values"]

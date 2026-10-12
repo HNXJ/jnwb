@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from .._layout import require_trial_length

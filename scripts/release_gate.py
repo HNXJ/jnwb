@@ -4,7 +4,8 @@ Pipeline, in the order the steps run. The labels are names, not positions: the s
 the label 1 and runs last, because it is the one step that takes tens of minutes, and every
 cheaper check that can refuse the release runs before it.
   0a. Release readiness: artifacts/state.md is absent or records HEAD, the working tree is
-      clean, the problem stack is empty, no todo item is still required this cycle, and the
+      clean, the problem stack is empty, no todo item is still required this cycle, every
+      roadmap row is readable and deferred past this cycle, and the
       blocker-focused closure receipt reports zero for this commit
   0. Required release/test tooling is present in the active environment
   0b. The declared version is not one the package index already serves
@@ -51,8 +52,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: Extras whose tooling must be present for release qualification to mean anything: every extra
 #: the suite uses. A test whose extra is absent skips, naming the extra, so without this check
 #: the suite would not fail, it would report a *different* result, which is worse. ``vis`` is
-#: here because the suite imports ``jnwb.vis``, and every CI leg installs it.
-REQUIRED_EXTRAS = ("test", "docs", "vis")
+#: here because the suite imports ``jnwb.vis``, and every CI leg installs it; ``wavemap`` because
+#: tests/test_wavemap.py clusters with umap-learn and networkx.
+REQUIRED_EXTRAS = ("test", "docs", "vis", "wavemap")
+# The extras STEP 8 installs before running the tutorials, as CI's tutorial step has them.
+TUTORIAL_EXTRAS = ("vis", "wavemap")
 
 
 _VERSION_RE = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -687,8 +691,26 @@ def required_ci_jobs(workflow: Optional[str] = None,
             names.append(template.strip())
             continue
         keys = sorted(axes)
-        for combination in itertools.product(*(axes[key] for key in keys)):
-            values = {k: str(v) for k, v in zip(keys, combination)}
+        legs = [
+            {k: str(v) for k, v in zip(keys, combination)}
+            for combination in itertools.product(*(axes[key] for key in keys))
+        ]
+        # An `exclude` entry removes each leg that matches it on all of its keys.
+        for excluded in matrix.get("exclude") or []:
+            legs = [leg for leg in legs
+                    if not all(leg.get(k) == str(v) for k, v in excluded.items())]
+        # An `include` entry adds its keys to each leg it matches on the matrix axes, and is a leg
+        # of its own only when it matches none.
+        for included in matrix.get("include") or []:
+            entry = {k: str(v) for k, v in included.items()}
+            shared = {k: v for k, v in entry.items() if k in axes}
+            matched = [leg for leg in legs if all(leg[k] == v for k, v in shared.items())]
+            if matched:
+                for leg in matched:
+                    leg.update(entry)
+            else:
+                legs.append(entry)
+        for values in legs:
             names.append(_MATRIX_REF.sub(
                 lambda m: values.get(m.group(1), m.group(0)), template).strip())
     return names
@@ -1271,6 +1293,55 @@ RECEIPT_MAY_FOLLOW = frozenset({RECEIPT_PATH, TODO_PATH})
 DEFERRED_VALUE = f"deferred-{NEXT_CYCLE}"
 RELEASE_STEP_VALUE = f"release-step-{RELEASE_CYCLE}"
 
+#: Work deferred past the cycles the todo stack holds, one table row per item.
+ROADMAP_PATH = "artifacts/roadmap.md"
+ROADMAP_HEADER = ("ID", "Theme", "Defect", "Waits", "Release")
+_ROADMAP_ID = re.compile(r"^\d\d-\d+$")
+_ROADMAP_RELEASE = re.compile(r"^deferred-(\d+\.\d+\.\d+)$")
+_BULLET = re.compile(r"^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])?[ \t]*")
+
+
+def roadmap_rows(text: str, stack_ids: Iterable[str] = ()) -> Tuple[List[Tuple[str, str]],
+                                                                     List[str]]:
+    """``(rows, refused)`` read from roadmap text; each row is ``(id, release)``.
+
+    A row is ``| id | theme | defect | waits | deferred-X.Y.Z |``. Refused: a table row other
+    than the header and its separator that does not read as one, or an id-shaped line outside
+    the table; a row with an empty ``waits`` cell; a version not later than this cycle; an id
+    that appears twice, or also in ``stack_ids``; and any line marking work required. Only
+    readable rows are returned, refused or not, so a caller that needs the ids still sees them.
+    """
+    rows: List[Tuple[str, str]] = []
+    refused: List[str] = []
+    cycle, stack, seen = _version_tuple(RELEASE_CYCLE), set(stack_ids), set()
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if _REQUIRED_MARKER.search(line) or re.search(r"(?<![\w-])required-", line, re.I):
+            refused.append(f"line {lineno} marks work required: {line.strip()[:60]!r}")
+        cells = _cells(line)
+        if cells is None:
+            if _ITEM_SHAPED.match(_BULLET.sub("", line, count=1)):
+                refused.append(f"line {lineno} is id-shaped outside the table: "
+                               f"{line.strip()[:60]!r}")
+            continue
+        if tuple(cells) == ROADMAP_HEADER or (cells and all(_SEPARATOR_CELL.match(c)
+                                                            for c in cells)):
+            continue
+        release = _ROADMAP_RELEASE.match(cells[4]) if len(cells) == 5 else None
+        if not (release and _ROADMAP_ID.match(cells[0]) and cells[3]):
+            refused.append(f"line {lineno} is not a readable row '| id | theme | defect | "
+                           f"waits | deferred-X.Y.Z |': {line.strip()[:60]!r}")
+            continue
+        ident = cells[0]
+        rows.append((ident, cells[4]))
+        if _version_tuple(release.group(1)) <= cycle:
+            refused.append(f"{ident} is deferred to {release.group(1)}, not later than "
+                           f"{RELEASE_CYCLE}")
+        if ident in seen or ident in stack:
+            refused.append(f"{ident} appears twice" if ident in seen
+                           else f"{ident} is also in {TODO_PATH}")
+        seen.add(ident)
+    return rows, refused
+
 
 def todo_release_fields(root: pathlib.Path = REPO_ROOT) -> List[Tuple[str, str, str]]:
     """``(id, title, release)`` for every item in the todo stack, at any heading depth."""
@@ -1366,7 +1437,7 @@ def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
 #: What STEP 0a reads. It reads each from HEAD, never from the working copy: an uncommitted edit
 #: that deletes required items and adds a receipt would otherwise pass condition 3 for a commit
 #: whose stacks still hold them.
-STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, RECEIPT_PATH)
+STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, ROADMAP_PATH, RECEIPT_PATH)
 
 #: The committed peak-memory record, and the file that declares the version it must name.
 PEAK_MEMORY_PATH = "artifacts/benchmarks/peak_memory.json"
@@ -1534,18 +1605,19 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
       2. no todo item is still required for this cycle, and every item's release is readable.
          An item is not required when it is deferred to the next cycle, or when it is this
          cycle's release step, which completes only after the tag; and no line inside such an
-         item, or outside any item, marks work required for this cycle;
+         item, or outside any item, marks work required for this cycle; and the roadmap exists
+         and :func:`roadmap_rows` refuses none of its lines;
       3. the independent blocker-focused closure receipt exists and reports zero, and its
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
       4. the committed peak-memory record names the version HEAD declares;
-      5. ``changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
+      5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
 
-    The three files are read as committed at HEAD, and an uncommitted change anywhere in the
+    The stacks and receipt are read as committed at HEAD, and an uncommitted change anywhere in the
     working tree is itself a violation: the release is of a commit, and a working-copy edit is
     not in it.
     """
@@ -1605,6 +1677,16 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"{len(marked)} line(s) mark work required for {RELEASE_CYCLE} or earlier inside a "
             "section that does not hold the release open, so the item's own field under-reports "
             "it: " + "; ".join(marked[:8]) + (" ..." if len(marked) > 8 else ""))
+    roadmap = _text_at(root, "HEAD", ROADMAP_PATH)
+    if roadmap is None:
+        violations.append(f"{ROADMAP_PATH} is missing at HEAD, so whether work deferred past "
+                          f"{NEXT_CYCLE} is recorded is unknown")
+    else:
+        refused = roadmap_rows(roadmap, {i for i, _, _ in items})[1]
+        if refused:
+            violations.append(
+                f"{len(refused)} line(s) of {ROADMAP_PATH} are refused: " + "; ".join(refused[:8])
+                + (" ..." if len(refused) > 8 else ""))
 
     # 3. the independent closure receipt
     receipt = _text_at(root, "HEAD", RECEIPT_PATH)
@@ -1636,11 +1718,11 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
     if leftover is None:
-        violations.append("git cannot list changelog.d/ at HEAD, so whether every changelog "
+        violations.append("git cannot list artifacts/changelog.d/ at HEAD, so whether every changelog "
                           "fragment reached CHANGELOG.md is unknown")
     elif leftover:
         violations.append(
-            f"{len(leftover)} file(s) in changelog.d/ at HEAD are not assembled into "
+            f"{len(leftover)} file(s) in artifacts/changelog.d/ at HEAD are not assembled into "
             f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
             + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
     return violations
@@ -1692,16 +1774,17 @@ def main_ancestry_violations(root: pathlib.Path = REPO_ROOT,
 
 
 def unassembled_fragments(root: pathlib.Path = REPO_ROOT) -> Optional[List[str]]:
-    """Files committed under ``changelog.d/`` at HEAD other than its README, or ``None``.
+    """Files committed under ``artifacts/changelog.d/`` at HEAD other than its README, or ``None``.
 
     Anything else there is a change the assembled section does not carry. The exempt names are
     the assembler's own, imported rather than retyped.
     """
     if str(REPO_ROOT) not in sys.path:
         sys.path.append(str(REPO_ROOT))
-    from scripts.assemble_changelog import NOT_FRAGMENTS
+    from scripts.assemble_changelog import FRAGMENT_DIR, NOT_FRAGMENTS
 
-    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", "changelog.d"],
+    fragment_path = FRAGMENT_DIR.relative_to(REPO_ROOT).as_posix()
+    listed = subprocess.run(["git", "ls-tree", "-r", "--name-only", "HEAD", "--", fragment_path],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return None
@@ -2140,9 +2223,19 @@ def main() -> None:
         if not tutorials:
             log.error("No numbered tutorials found; 0.2.4-03 cannot be verified.")
             sys.exit(1)
+        # As CI does: the extras the tutorials draw are installed only now, after STEP 7 has
+        # checked the wheel without them (tutorial 10 needs `vis` and `wavemap`).
+        subprocess.run([venv_python, "-m", "pip", "install", f"{whl}[{','.join(TUTORIAL_EXTRAS)}]"],
+                       check=True)
+        purelib = subprocess.run(
+            [venv_python, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+            check=True, capture_output=True, text=True).stdout.strip()
         # PYTHONPATH is stripped and the CWD is the staging directory, so a tutorial that
         # only runs from the source tree fails here instead of passing by checkout proximity.
+        # JNWB_EXPECTED_PACKAGE_ROOT makes each tutorial's prefer-the-checkout guard stand
+        # aside; without it every tutorial imported the checkout it ships in, not the wheel.
         tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
         for tutorial in tutorials:
             res = subprocess.run(
                 [venv_python, str(tutorial)], cwd=str(staging_dir),

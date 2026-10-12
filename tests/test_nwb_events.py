@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -29,7 +28,6 @@ from jnwb.testing.nwb_fixtures import (
     CODE_LABEL_A,
     CODE_LABEL_B,
     CODE_NUMERIC_A,
-    CODE_NUMERIC_B,
     FLASH_TABLE,
     RF_TABLE,
     TASK_TABLE,

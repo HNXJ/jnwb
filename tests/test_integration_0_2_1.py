@@ -11,9 +11,6 @@ Tests composition, cross-primitive assumptions, boundary neutrality, and failure
 """
 from __future__ import annotations
 
-import tempfile
-import zipfile
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest

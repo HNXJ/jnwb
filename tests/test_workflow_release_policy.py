@@ -546,6 +546,22 @@ class TestInstalledArtifactVerification:
         assert 'k != "PYTHONPATH"' in gate, (
             "the release gate must strip PYTHONPATH before running tutorials"
         )
+        assert 'tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"]' in gate, (
+            "without JNWB_EXPECTED_PACKAGE_ROOT each tutorial's guard imports the checkout, "
+            "so STEP 8 runs the source tree, not the wheel"
+        )
+
+    def test_release_gate_installs_the_extras_the_ci_tutorial_step_has(self):
+        """CI's tutorial step runs after `vis` and `wavemap` are installed into the clean env;
+        STEP 8 must install the same, or tutorial 10 fails locally and passes in CI."""
+        workflow = (REPO_ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")
+        ci = set(re.findall(r"extras\['(\w+)'\]", workflow))
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        local = re.search(r"^TUTORIAL_EXTRAS = \(([^)]*)\)", gate, re.M)
+        assert local, "release_gate.py names no TUTORIAL_EXTRAS"
+        local = set(re.findall(r'"(\w+)"', local.group(1)))
+        assert {"vis", "wavemap"} <= ci, f"fixture: CI installs {sorted(ci)}"
+        assert {"vis", "wavemap"} <= local, f"STEP 8 installs {sorted(local)}"
 
     @staticmethod
     def _pinned_version_literals(source):
@@ -780,7 +796,7 @@ class TestTheTagPushCreatesTheRelease:
     def test_the_contributing_steps_describe_this_order(self):
         """Steps 4 to 6 of "Releasing" are what a maintainer follows; a step that still says to
         publish a Release by hand would have them do what the workflow no longer reads."""
-        text = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        text = (REPO_ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
         section = re.search(r"^## Releasing\n(.*?)^## ", text, re.M | re.S).group(1)
         steps = dict(re.findall(r"^([4-6])\. (.*?)(?=^\d\. |^\*\*|\Z)", section, re.M | re.S))
         assert sorted(steps) == ["4", "5", "6"], sorted(steps)
@@ -801,3 +817,53 @@ class TestTheTagPushCreatesTheRelease:
         assert "from scripts.release_gate import" in source, source[:400]
         for name in ("check_release_body_claims", "release_metadata"):
             assert re.search(rf"^\s+{name},$", source, re.M), name
+
+
+class TestPython315IsBlockingOnUbuntu:
+    """Python 3.15 is a blocking leg of the test matrix on Ubuntu. h5py ships no CPython 3.15 wheel
+    yet, so the Ubuntu leg builds it against the system HDF5 headers, and the Windows leg is
+    excluded until a wheel exists.
+
+    What would pass while that is broken: a 3.15 leg without the HDF5 step (h5py fails to build),
+    a Windows 3.15 leg (no wheel to install), or 3.15 run in a job outside the matrix, which leaves
+    the test matrix unchanged.
+    """
+
+    @staticmethod
+    def _test_job() -> dict:
+        return _load_workflow()["jobs"]["test"]
+
+    def test_python_315_is_in_the_test_matrix(self):
+        matrix = self._test_job()["strategy"]["matrix"]
+        assert "3.15" in matrix["python-version"], matrix["python-version"]
+
+    def test_the_only_excluded_leg_is_windows_315(self):
+        matrix = self._test_job()["strategy"]["matrix"]
+        assert matrix.get("exclude") == [{"os": "windows-latest", "python-version": "3.15"}], (
+            matrix.get("exclude"))
+
+    def test_no_separate_test_py315_job_remains(self):
+        assert "test-py315" not in _load_workflow()["jobs"]
+
+    def test_the_hdf5_headers_are_installed_on_the_315_leg_before_pip_builds_h5py(self):
+        steps = self._test_job()["steps"]
+        hdf5 = [i for i, s in enumerate(steps) if "libhdf5-dev" in str(s.get("run", ""))]
+        install = [s.get("name") for s in steps].index("Install dependencies")
+        assert len(hdf5) == 1 and hdf5[0] < install, (hdf5, install)
+        step = steps[hdf5[0]]
+        assert "sudo apt-get update" in step["run"], step["run"]
+        assert "sudo apt-get install -y libhdf5-dev pkg-config" in step["run"], step["run"]
+        assert step.get("if") == "matrix.python-version == '3.15' && env.QUALIFIED_BY == ''", (
+            step.get("if"))
+
+    def test_the_install_step_names_the_hdf5_pkgconfig_library(self):
+        steps = self._test_job()["steps"]
+        install = next(s for s in steps if s.get("name") == "Install dependencies")
+        assert install.get("env") == {"HDF5_PKGCONFIG_NAME": "hdf5-serial"}, install.get("env")
+
+    def test_setup_python_allows_prereleases_only_on_the_315_leg(self):
+        steps = self._test_job()["steps"]
+        setup = [s for s in steps if "setup-python" in str(s.get("uses", ""))]
+        assert len(setup) == 1, setup
+        assert setup[0]["with"]["allow-prereleases"] == "${{ matrix.python-version == '3.15' }}", (
+            setup[0]["with"])

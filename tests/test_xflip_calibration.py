@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 from scipy import stats
 
-import jnwb
 from jnwb.laminar import xflip
 from jnwb.testing import (
     synth_ar_noise,

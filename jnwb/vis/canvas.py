@@ -20,12 +20,14 @@ Enforces:
 
 from __future__ import annotations
 
+import json
 import logging
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import numpy as np
 import plotly.graph_objects as go
+import plotly.io as pio
 
 from .sidecar import EpistemicArgumentObject, serialize_argument_sidecar
 from .theme import (
@@ -47,6 +49,38 @@ STANDARD_LAYOUT_WIDTHS_MM = {
     "2col": 183.0,   # 691.65 px
 }
 MAX_HEIGHT_MM = 235.0  # 888.19 px
+
+# choreographer's message when a kaleido browser does not shut down within its time budget
+_BROWSER_SHUTDOWN_ERROR = "Couldn't close or kill browser subprocess"
+
+
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def _is_written(path: Path) -> bool:
+    """True when the file exists, is non-empty and reads as its format: the PNG signature, an
+    `<svg` or `<html` element in the first 4 KiB, or JSON that parses."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    data = path.read_bytes()
+    suffix = path.suffix.lower()
+    if suffix == ".png":
+        return data.startswith(_PNG_SIGNATURE)
+    if suffix in (".svg", ".html"):
+        return f"<{suffix[1:]}".encode() in data[:4096].lower()
+    if suffix == ".json":
+        try:
+            json.loads(data)
+        except ValueError:
+            return False
+    return True
+
+
+def _verify_written(paths: Dict[str, Path]) -> None:
+    """Raise unless every file in `paths` was written."""
+    for fmt, p in paths.items():
+        if not _is_written(p):
+            raise RuntimeError(f"Export verification failed: {fmt} file {p} was not written properly.")
 
 
 class PlotlyPublicationCanvas:
@@ -310,6 +344,34 @@ class PlotlyPublicationCanvas:
             )
         return cb_dict
 
+    def _write_images(self, svg_path: Path, png_path: Path, png_dpi: int) -> None:
+        """
+        Write the SVG and the PNG from one kaleido session.
+
+        kaleido opens the session and closes it in its own `async with`, on every exit path, so
+        no session outlives the call. A shutdown timeout raises unless both files were written:
+        once they are on disk, it becomes a warning and the exports are kept.
+        """
+        files = [svg_path, png_path]
+        try:
+            pio.write_images(
+                self.fig,
+                file=[str(p) for p in files],
+                format=["svg", "png"],
+                scale=[None, float(png_dpi) / 96.0],
+                width=self.width_px,
+                height=self.height_px,
+            )
+        except RuntimeError as err:
+            if _BROWSER_SHUTDOWN_ERROR not in str(err) or not all(_is_written(p) for p in files):
+                raise
+            warnings.warn(
+                f"kaleido's browser shutdown timed out after the exports were written; "
+                f"they are kept: {err}",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
     def save_and_seal(
         self,
         output_dir: Union[str, Path],
@@ -327,21 +389,26 @@ class PlotlyPublicationCanvas:
            needs a network connection to render)
         4. <basename>_argument.json (canonical 8-field epistemic argument sidecar)
 
+        The sidecar is written last, after the other three files are on disk and non-empty. An
+        export error raises and seals nothing. A browser shutdown that timed out after the SVG and
+        PNG were written keeps them and emits a RuntimeWarning.
+
         Returns:
             Dictionary mapping format key ('svg', 'png', 'html', 'argument') to output Path.
         """
+        # Validated before anything renders, so an incomplete argument writes no file.
+        if not isinstance(argument_object, EpistemicArgumentObject):
+            argument_object = EpistemicArgumentObject.from_dict(argument_object)
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-
-        results: Dict[str, Path] = {}
-
-        # 1. Epistemic Sidecar JSON
+        svg_path = out_dir / f"{basename}.svg"
+        png_path = out_dir / f"{basename}.png"
         sidecar_path = out_dir / f"{basename}_argument.json"
-        serialize_argument_sidecar(sidecar_path, argument_object)
-        results["argument"] = sidecar_path
-        log.info(f"Sealed Epistemic Sidecar: {sidecar_path}")
+        # Files from an earlier call would pass the written check and be sealed as this call's.
+        for stale in (sidecar_path, svg_path, png_path):
+            stale.unlink(missing_ok=True)
 
-        # 2. Interactive HTML (CDN plotly.js)
+        # 1. Interactive HTML (CDN plotly.js)
         html_path = out_dir / f"{basename}.html"
         self.fig.write_html(
             str(html_path),
@@ -349,36 +416,20 @@ class PlotlyPublicationCanvas:
             full_html=True,
             config=dict(responsive=True, displayModeBar=True),
         )
-        results["html"] = html_path
         log.info(f"Exported Interactive HTML: {html_path}")
 
-        # 3. Pure Vector SVG via Kaleido
-        svg_path = out_dir / f"{basename}.svg"
-        self.fig.write_image(
-            str(svg_path),
-            format="svg",
-            width=self.width_px,
-            height=self.height_px,
-        )
-        results["svg"] = svg_path
+        # 2. Pure Vector SVG and High-Resolution PNG via Kaleido, in one session
+        self._write_images(svg_path, png_path, png_dpi)
         log.info(f"Exported Vector SVG: {svg_path}")
-
-        # 4. High-Resolution PNG via Kaleido
-        scale_factor = float(png_dpi) / 96.0
-        png_path = out_dir / f"{basename}.png"
-        self.fig.write_image(
-            str(png_path),
-            format="png",
-            width=self.width_px,
-            height=self.height_px,
-            scale=scale_factor,
-        )
-        results["png"] = png_path
         log.info(f"Exported High-Res PNG ({png_dpi} DPI): {png_path}")
 
-        # Verify all files exist and have non-zero size
-        for fmt, p in results.items():
-            if not p.exists() or p.stat().st_size == 0:
-                raise RuntimeError(f"Export verification failed: {fmt} file {p} was not written properly.")
+        figures = {"html": html_path, "svg": svg_path, "png": png_path}
+        _verify_written(figures)
 
+        # 3. Epistemic Sidecar JSON, written last so it seals only a complete export
+        serialize_argument_sidecar(sidecar_path, argument_object)
+        log.info(f"Sealed Epistemic Sidecar: {sidecar_path}")
+
+        results: Dict[str, Path] = {"argument": sidecar_path, **figures}
+        _verify_written(results)
         return results

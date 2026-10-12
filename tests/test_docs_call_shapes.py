@@ -27,12 +27,10 @@ Those four constants are deliberately *not* computed from the corpus. A statemen
 from the thing it describes is satisfied by anything, including the empty corpus: that is the
 shape of defect this module exists to catch, so it must not be the shape of its own guard.
 
-What this still does not check: that a documented argument's *value* makes sense, or that a
-positional argument is the right kind of object. `plot_noise_vs_signal(lfp_segments,
-spike_trains)` passed two positionals to a `(units_df, figsize=...)` signature and bound
-cleanly; `assign_quality_tier(quality="good", ...)` names three real parameters and passes
-scalars where Series belong. Both were real defects and neither is a call *shape*. The
-signature is the oracle here, and the signature does not carry those facts.
+A call that binds can still pass the wrong kind of object: `plot_noise_vs_signal(lfp_segments,
+spike_trains)` bound to a `(units_df, figsize=...)` signature. The annotation oracle below checks
+each argument whose type it can read against the parameter's annotation; an argument it cannot
+type leaves the call unchecked. What it does not check is whether a value makes sense.
 """
 
 import ast
@@ -41,11 +39,16 @@ import importlib
 import inspect
 import re
 import tomllib
+import types
+import typing
 import warnings
 from collections import Counter
 from pathlib import Path
+from typing import NamedTuple
 
 import matplotlib
+import numpy as np
+import pandas as pd
 import pytest
 
 matplotlib.use("Agg")  # headless, as in the other test modules that draw
@@ -132,7 +135,8 @@ def _receiver_chain(func):
 
 
 def _collect_jnwb_imports(tree, into):
-    """Add `{bound name: (module, original name)}` for each `from jnwb... import ...`.
+    """Add `{bound name: (module, original name)}` for each `from jnwb... import ...` and for
+    each `import jnwb.<module> as <name>`.
 
     Accumulated per *page*, not per block. A documentation page imports once near the top
     and then uses the name in every later fence, so rebuilding this map per block made every
@@ -144,6 +148,30 @@ def _collect_jnwb_imports(tree, into):
         if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("jnwb"):
             for alias in node.names:
                 into[alias.asname or alias.name] = (node.module, alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname and alias.name.startswith("jnwb."):
+                    parent, _, child = alias.name.rpartition(".")
+                    into[alias.asname] = (parent, child)
+    return into
+
+
+def _collect_assignments(tree, into):
+    """Add `{name: [right-hand sides]}` for each name the tree binds.
+
+    A binding that is not a plain `name = value` (a tuple target, a loop variable, an annotated
+    name) adds `None`, which the oracle reads as an unknown value, never as a type.
+    """
+    plain = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)):
+            plain.add(id(node.targets[0]))
+            into.setdefault(node.targets[0].id, []).append(node.value)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del))
+                and id(node) not in plain):
+            into.setdefault(node.id, []).append(None)
     return into
 
 
@@ -164,53 +192,90 @@ def _resolve_root(root, imported):
     return None
 
 
-def _documented_calls():
+def _object_at(parts, imported):
+    """`(live object, form)` for a receiver chain whose root resolves, else None."""
+    found = _resolve_root(parts[0], imported)
+    if found is None:
+        return None
+    obj, form = found
+    for attr in parts[1:]:
+        obj = getattr(obj, attr, None)
+        if obj is None:
+            break
+    return obj, form
+
+
+class Documented(NamedTuple):
+    """One documented call, with the page's imports and assignments in force at it."""
+
+    rel: str
+    name: str
+    node: ast.Call
+    sig: inspect.Signature
+    form: str
+    obj: object
+    imported: dict
+    assigned: dict
+
+
+def _walk_page(rel, trees):
+    """Every call in one page's parsed blocks whose receiver resolves into the installed package.
+
+    Imports are read in order: one in a block is in force in the blocks after it. Assignments
+    are read for the whole page, so a name the page assigns anywhere is never a table name. The
+    imports are copied at each call, so a caller may keep them.
+    """
+    assigned = {}
+    for tree in trees:
+        _collect_assignments(tree, assigned)
+    imported = {}
+    for tree in trees:
+        _collect_jnwb_imports(tree, imported)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            parts = _receiver_chain(node.func)
+            if parts is None:
+                continue
+            found = _object_at(parts, imported)
+            if found is None:
+                continue
+            obj, form = found
+            # `jnwb.f` is one attribute past the root; anything longer went through a
+            # submodule or a class, which is the branch P-84 cause (b) did not have.
+            if form is FORM_TOP and len(parts) > 2:
+                form = FORM_DOTTED
+            elif form is FORM_IMPORTED and len(parts) > 1:
+                form = FORM_IMPORTED_ATTR
+            if not callable(obj):
+                continue
+            try:
+                sig = inspect.signature(obj)
+            except (TypeError, ValueError):
+                continue
+            if next(iter(sig.parameters), None) in ("self", "cls"):
+                # An unbound method reached through its class. The documented call is on
+                # an instance, so the receiver supplies the first parameter and binding
+                # the documented arguments against this signature would be off by one.
+                continue
+            yield Documented(rel, ".".join(parts), node, sig, form, obj, dict(imported), assigned)
+
+
+def _documented():
     """Every call in a ```python fence whose receiver resolves into the installed package."""
     for page in PAGES:
         rel = page.relative_to(ROOT).as_posix()
-        imported = {}
+        trees = []
         for index, body in enumerate(BLOCK.findall(page.read_text(encoding="utf-8"))):
             try:
-                tree = ast.parse(body)
+                trees.append(ast.parse(body))
             except SyntaxError as exc:
                 UNPARSEABLE.append(f"{rel} block {index}: {exc.msg} (line {exc.lineno})")
-                continue
-            _collect_jnwb_imports(tree, imported)
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                parts = _receiver_chain(node.func)
-                if parts is None:
-                    continue
-                resolved = _resolve_root(parts[0], imported)
-                if resolved is None:
-                    continue
-                obj, form = resolved
-                # `jnwb.f` is one attribute past the root; anything longer went through a
-                # submodule or a class, which is the branch P-84 cause (b) did not have.
-                if form is FORM_TOP and len(parts) > 2:
-                    form = FORM_DOTTED
-                elif form is FORM_IMPORTED and len(parts) > 1:
-                    form = FORM_IMPORTED_ATTR
-                for attr in parts[1:]:
-                    obj = getattr(obj, attr, None)
-                    if obj is None:
-                        break
-                if not callable(obj):
-                    continue
-                try:
-                    sig = inspect.signature(obj)
-                except (TypeError, ValueError):
-                    continue
-                if next(iter(sig.parameters), None) in ("self", "cls"):
-                    # An unbound method reached through its class. The documented call is on
-                    # an instance, so the receiver supplies the first parameter and binding
-                    # the documented arguments against this signature would be off by one.
-                    continue
-                yield rel, ".".join(parts), node, sig, form
+        yield from _walk_page(rel, trees)
 
 
-CALLS = list(_documented_calls())
+DOCUMENTED = list(_documented())
+CALLS = [(d.rel, d.name, d.node, d.sig, d.form) for d in DOCUMENTED]
 OBSERVED_PAGES = frozenset(page for page, _, _, _, _ in CALLS)
 OBSERVED_FORMS = Counter(form for _, _, _, _, form in CALLS)
 
@@ -632,3 +697,274 @@ def test_runnable_documentation_blocks_execute_outside_the_checkout(block, tmp_p
     monkeypatch.chdir(tmp_path)
     code = compile(block, "documentation", "exec")
     retry_browser_shutdown(lambda: exec(code, {"__name__": "__doc_block__"}))  # noqa: S102
+
+
+# --- the argument-type oracle ------------------------------------------------------------
+# A documented call binds to its signature (above). The oracle also asks whether each argument's
+# type fits the parameter's annotation. An argument's type comes from its text: a literal, or a
+# name the page assigns. An argument it cannot type, or a parameter without a readable annotation,
+# leaves the call unchecked: it is counted, never failed and never passed.
+
+#: The type of an argument the oracle cannot read from its text.
+UNKNOWN = object()
+_MAX_DEPTH = 8
+_LITERAL_TYPES = {ast.Tuple: tuple, ast.List: list, ast.Dict: dict, ast.Set: set}
+#: PEP 484's numeric tower: an int stands for a float, and an int or a float for a complex.
+_NUMERIC_TOWER = {float: (int,), complex: (int, float)}
+#: Types of names a page passes but never assigns, read from the name (ruled 2026-10-04: annotations
+#: plus a small table). A name absent here and unassigned stays unchecked.
+_NAME_TYPES = {"lfp_segments": np.ndarray, "spike_trains": list, "session_qc_list": list}
+
+
+def _node_type(node, imported, assigned, depth=0):
+    """The runtime type of an argument expression, or UNKNOWN."""
+    if node is None or depth > _MAX_DEPTH:
+        return UNKNOWN
+    if isinstance(node, ast.Constant):
+        return type(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        operand = node.operand
+        if isinstance(operand, ast.Constant) and isinstance(operand.value, (int, float)):
+            return int if isinstance(operand.value, bool) else type(operand.value)
+        return UNKNOWN
+    if type(node) in _LITERAL_TYPES:
+        return _LITERAL_TYPES[type(node)]
+    if isinstance(node, ast.Name) and node.id in assigned:
+        seen = {_node_type(rhs, imported, assigned, depth + 1) for rhs in assigned[node.id]}
+        return seen.pop() if len(seen) == 1 else UNKNOWN
+    if isinstance(node, ast.Name) and node.id in _NAME_TYPES:
+        return _NAME_TYPES[node.id]
+    if isinstance(node, ast.Call):
+        parts = _receiver_chain(node.func)
+        found = _object_at(parts, imported) if parts else None
+        if found is None:
+            return UNKNOWN
+        obj = found[0]
+        return obj if isinstance(obj, type) else _return_type(obj)
+    return UNKNOWN
+
+
+def _return_type(fn):
+    """The class that a callable's return annotation names, or UNKNOWN."""
+    try:
+        ret = typing.get_type_hints(fn).get("return", UNKNOWN)
+    except Exception:  # an annotation that does not resolve is unknown, not a pass
+        return UNKNOWN
+    if ret is None or ret is type(None):
+        return type(None)
+    if ret is typing.Any:  # a class in recent Pythons, but it names no type a value can have
+        return UNKNOWN
+    origin = typing.get_origin(ret) or ret
+    return origin if isinstance(origin, type) else UNKNOWN
+
+
+def _annotation_accepts(annotation, actual):
+    """Whether a value of runtime type `actual` fits `annotation`: True or False, or None for a
+    form this does not read."""
+    if annotation is typing.Any or annotation is object:
+        return True
+    if annotation is None or annotation is type(None):
+        return actual is type(None)
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union or origin is types.UnionType:
+        answers = [_annotation_accepts(arg, actual) for arg in typing.get_args(annotation)]
+        if True in answers:
+            return True
+        return None if None in answers else False
+    if origin is typing.Literal:
+        return any(actual is type(value) for value in typing.get_args(annotation))
+    try:
+        if origin is not None:
+            return issubclass(actual, origin) if isinstance(origin, type) else None
+        if isinstance(annotation, type):
+            return issubclass(actual, (annotation, *_NUMERIC_TOWER.get(annotation, ())))
+    except TypeError:  # a protocol that is not runtime-checkable
+        return None
+    return None
+
+
+def _check_call(call):
+    """`(status, details)` for one documented call. `status` is 'type' (an argument's type does
+    not fit its annotation), 'unchecked' (an argument or an annotation cannot be read), 'checked'
+    (every argument typed and fitting), 'empty' (no argument) or 'arity' (the call does not bind).
+    A call with a refused argument is 'type' whatever else it holds. `details` names each
+    argument that was refused or left unchecked, and why."""
+    node, sig = call.node, call.sig
+    if (any(isinstance(a, ast.Starred) for a in node.args)
+            or any(kw.arg is None for kw in node.keywords)):
+        return "unchecked", ["an argument written with * or ** has no type in the text"]
+    try:
+        bound = sig.bind(*node.args, **{kw.arg: kw.value for kw in node.keywords})
+    except TypeError as exc:
+        return "arity", [str(exc)]
+    target = call.obj.__init__ if inspect.isclass(call.obj) else call.obj
+    try:
+        hints = typing.get_type_hints(target)
+    except Exception as exc:  # an annotation that does not resolve leaves the call unchecked
+        return "unchecked", [f"annotations do not resolve: {exc}"]
+    refused, unchecked, checked = [], [], 0
+    for pname, value in bound.arguments.items():
+        kind = sig.parameters[pname].kind
+        if kind is inspect.Parameter.VAR_KEYWORD:
+            values = list(value.values())
+        elif kind is inspect.Parameter.VAR_POSITIONAL:
+            values = list(value)
+        else:
+            values = [value]
+        annotation = hints.get(pname, inspect.Parameter.empty)
+        if annotation is inspect.Parameter.empty:
+            unchecked.append(f"{pname} has no annotation to check against")
+            continue
+        for arg in values:
+            text = ast.unparse(arg)
+            actual = _node_type(arg, call.imported, call.assigned)
+            if actual is UNKNOWN:
+                unchecked.append(f"{pname}: `{text}` has no type the oracle can read")
+                continue
+            fits = _annotation_accepts(annotation, actual)
+            if fits is None:
+                reading = f"annotation {annotation!r} is not a form the oracle reads"
+                unchecked.append(f"{pname}: {reading}")
+            elif fits:
+                checked += 1
+            else:
+                reading = f"is annotated {annotation!r}; `{text}` is {actual.__name__}"
+                refused.append(f"{pname} {reading}")
+    if refused:
+        return "type", refused + unchecked
+    if unchecked:
+        return "unchecked", unchecked
+    if checked:
+        return "checked", []
+    return "empty", ["no argument to check"]
+
+
+def _oracle_verdicts(rel, trees):
+    """`(call, status, details)` for every documented call in one page's parsed blocks."""
+    return [(call, *_check_call(call)) for call in _walk_page(rel, trees)]
+
+
+def _live_verdicts():
+    """`(call, status, details)` for every call the sweep reads in the documentation."""
+    return [(call, *_check_call(call)) for call in DOCUMENTED]
+
+
+def _oracle_counts(verdicts):
+    """How many calls each status covers. The statuses partition the calls."""
+    return Counter(status for _, status, _ in verdicts)
+
+
+#: Calls the documentation carried before it was corrected. Each binds to its signature and passes
+#: a value of the wrong type. The text is pasted from the source lines, not retyped: the first two
+#: from `docs/09_decoding_and_visual_qc.md`, the last from `docs/02_paths_addressing_metadata.md`.
+RECORDED_WRONG_TYPE_CALLS = {
+    "dotted receiver, two positional arguments": (
+        "fig_noise = jnwb.visual_qc.plot_noise_vs_signal(lfp_segments, spike_trains)\n"
+    ),
+    "dotted receiver, one positional argument": (
+        "fig_comp = jnwb.visual_qc.compare_session_quality(session_qc_list)\n"
+    ),
+    "keyword scalars where Series belong": (
+        "tier = jnwb.assign_quality_tier(\n"
+        '    quality="good",\n'
+        "    trial_presence_fraction=0.95,\n"
+        "    snr=4.5\n"
+        ")\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("recorded", sorted(RECORDED_WRONG_TYPE_CALLS))
+def test_the_oracle_refuses_each_recorded_wrong_type_call(recorded):
+    verdicts = _oracle_verdicts("recorded", [ast.parse(RECORDED_WRONG_TYPE_CALLS[recorded])])
+    assert len(verdicts) == 1, f"{recorded}: the oracle read {len(verdicts)} calls, not one"
+    _, status, details = verdicts[0]
+    assert status == "type", f"{recorded}: expected a type failure, got '{status}': {details}"
+
+
+def test_an_import_alias_resolves_and_its_wrong_type_is_refused():
+    text = "import jnwb.visual_qc as vqc\nfig_comp = vqc.compare_session_quality(3.5)\n"
+    verdicts = _oracle_verdicts("alias", [ast.parse(text)])
+    assert [status for _, status, _ in verdicts] == ["type"], verdicts
+
+
+def test_a_name_the_page_assigns_is_typed_by_the_assignment():
+    text = (
+        "session_qc_list = {}\n"
+        "fig_comp = jnwb.visual_qc.compare_session_quality(session_qc_list)\n"
+    )
+    verdicts = _oracle_verdicts("assigned", [ast.parse(text)])
+    assert len(verdicts) == 1, f"the oracle read {len(verdicts)} calls, not one"
+    _, status, details = verdicts[0]
+    assert status == "type" and any("is dict" in d for d in details), (status, details)
+
+
+def test_an_untyped_argument_leaves_the_call_unchecked_not_failed_or_passed():
+    text = "fig_comp = jnwb.visual_qc.compare_session_quality(units_by_session)\n"
+    verdicts = _oracle_verdicts("unlisted", [ast.parse(text)])
+    assert [status for _, status, _ in verdicts] == ["unchecked"], verdicts
+
+
+def test_an_argument_of_the_annotated_type_passes():
+    text = (
+        "units_df = jnwb.get_all_units_metadata(nwb)\n"
+        "fig = jnwb.visual_qc.plot_noise_vs_signal(units_df, (12, 8))\n"
+    )
+    verdicts = _oracle_verdicts("passes", [ast.parse(text)])
+    plotted = [status for call, status, _ in verdicts if call.name.endswith("plot_noise_vs_signal")]
+    assert plotted == ["checked"], plotted
+
+
+def test_a_return_annotation_of_any_names_no_class():
+    def returns_anything() -> typing.Any:
+        return None
+
+    assert _return_type(returns_anything) is UNKNOWN
+
+
+@pytest.mark.parametrize(
+    "annotation, actual, expected",
+    [
+        (pd.DataFrame, list, False),
+        (pd.DataFrame, pd.DataFrame, True),
+        (tuple, list, False),
+        (tuple, tuple, True),
+        (float, int, True),
+        (int, float, False),
+        (typing.Optional[float], type(None), True),
+        (typing.Optional[float], str, False),
+        (typing.Collection[str], tuple, True),
+        (typing.Collection[str], int, False),
+        (typing.Any, dict, True),
+        (typing.Literal["a", "b"], str, True),
+        (typing.Literal["a"], int, False),
+    ],
+)
+def test_annotation_check_matches_python_on_forms_it_reads(annotation, actual, expected):
+    assert _annotation_accepts(annotation, actual) is expected
+
+
+#: A floor that may only rise: the fully typed and checked calls in the documentation today.
+CHECKED_FLOOR = 50
+
+
+def _counts_line(counts):
+    return (f"checked {counts['checked']}, unchecked {counts['unchecked']}, "
+            f"no argument {counts['empty']}, arity {counts['arity']}, type {counts['type']}")
+
+
+def test_no_documented_argument_is_of_a_type_its_annotation_refuses():
+    verdicts = _live_verdicts()
+    assert len(verdicts) > 150, f"only {len(verdicts)} documented calls were checked"
+    refused = [f"{call.rel}: {call.name}: {'; '.join(details)}"
+               for call, status, details in verdicts if status == "type"]
+    assert not refused, (
+        "documented calls whose argument type the annotation refuses:\n  " + "\n  ".join(refused))
+
+
+def test_the_fully_typed_calls_meet_the_floor_and_every_call_is_counted():
+    verdicts = _live_verdicts()
+    counts = _oracle_counts(verdicts)
+    line = _counts_line(counts)
+    assert sum(counts.values()) == len(CALLS), f"{line}; {len(CALLS)} calls were read"
+    assert counts["checked"] >= CHECKED_FLOOR, f"{line}; the floor is {CHECKED_FLOOR}"

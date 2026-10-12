@@ -1,4 +1,4 @@
-"""Comprehensive tests and numerical verification for jnwb.testing.synth generators."""
+"""Tests and numerical verification for jnwb.testing.synth generators."""
 
 import numpy as np
 import pytest

@@ -729,7 +729,7 @@ class TestLabelLayers:
 
 
 class TestVFlipRecoveryAndRejectionBroad:
-    """Comprehensive recovery and rejection test suite for vFLIP (0.2.2-05).
+    """Recovery and rejection test suite for vFLIP (0.2.2-05).
 
     Directly verifies:
       1. Known crossover recovery across varied probe depths.

@@ -181,6 +181,22 @@ def test_plot_unit_waveforms_refuses_a_masked_entry():
     plt.close("all")
 
 
+def test_plot_peak_channel_is_the_channel_waveform_features_reports():
+    from jnwb.unit_quality import waveform_features
+
+    # Channel 0 has the larger absolute deflection (4 against 3); channel 1 the larger
+    # peak-to-peak (3 - (-1.5) = 4.5 against 4). The two rules pick different channels.
+    template = np.array([[-4.0, 0.0, 0.0, 0.0], [2.0, 3.0, -1.5, 0.0]])
+    assert np.abs(template).max(axis=1).argmax() == 0, "fixture must split the two rules"
+    reported = waveform_features(template, 30000.0)["peak_channel"]
+    assert reported == 1
+    (fig,) = plot_unit_waveforms([7], {7: template}, channels="peak")
+    (line,) = fig.axes[0].get_lines()
+    assert line.get_label() == f"Channel {reported}"
+    np.testing.assert_array_equal(line.get_ydata(), template[reported])
+    plt.close(fig)
+
+
 def test_plot_unit_quality_distribution_returns_populated_figure():
     units = _units_df()
     fig = plot_unit_quality_distribution(units)
@@ -226,6 +242,26 @@ def test_a_unit_of_unknown_stability_is_in_neither_bar_and_counted_in_the_title(
     fig = plot_unit_quality_distribution(units)
     assert "2 unknown" in fig.axes[5].get_title()
     plt.close(fig)
+
+
+def test_a_non_boolean_stability_flag_raises_instead_of_plotting_every_unit_stable():
+    import pytest
+
+    # astype(bool) read every non-empty string as True, so "no" drew as Stable.
+    text = _units_df(n=3).drop(columns=["stable_plus"]).assign(is_stable=["yes", "no", "yes"])
+    with pytest.raises(ValueError, match=r"'is_stable'.*non-boolean values.*'no'"):
+        plot_unit_quality_distribution(text)
+    text = _units_df(n=3).drop(columns=["is_stable"]).assign(stable_plus=["stable", "x", "y"])
+    with pytest.raises(ValueError, match="'stable_plus'"):
+        plot_unit_quality_distribution(text)
+    # 0 and 1 are not booleans, so an integer flag is refused rather than read by its truth value.
+    ints = _units_df(n=3).drop(columns=["stable_plus"]).assign(is_stable=[1, 0, 1])
+    with pytest.raises(ValueError, match="'is_stable'"):
+        plot_unit_quality_distribution(ints)
+    plt.close("all")
+    # Python booleans in an object column, with one unit missing, are real booleans and count.
+    stable = pd.Series([True, None, False, True], dtype=object)
+    assert _stability_bars(stable) == [("Unstable", 1), ("Stable", 2)]
 
 
 def test_quality_distribution_skips_an_absent_metric_panel():

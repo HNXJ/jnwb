@@ -35,18 +35,19 @@ Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electro
 | Population & decoding | `jrsa`, `nested_cv_linear_svm`, `compute_population_trajectory` |
 | Connectivity | `granger`, `phase_slope_index`, `transfer_entropy`, `directed_network` |
 | Quality control | `channel_correlation_matrix`, `repair_lfp_trials`, `audit_units`, `audit_electrodes` |
-| Visualization | `raster_psth`, `setup_vector_graphics`, `save_figure_suite` |
+| Waveform classes | `waveform_features`, `normalize_waveforms`, `wavemap`, `wavemap_resolution_sweep` |
+| Visualization | `setup_vector_graphics`, `save_figure_suite`, plotting in `jnwb.vis` |
 
 ## Installation
 
-Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13 and 3.14.
+Requires Python **3.12 or newer**. Tested in CI on 3.12, 3.13, 3.14 and 3.15 on Linux, and on Windows for all but the last.
 
 ```bash
 pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.10`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.11`. To install it from a clone instead of from PyPI:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs,vis]" for development
@@ -138,6 +139,59 @@ units = jnwb.get_all_units_metadata("session.nwb")
 electrodes = jnwb.electrode_inventory("session.nwb")
 ```
 
+## More examples
+
+Each block plants a known effect in synthetic data and prints what jnwb recovers.
+
+Direction between two signals (`x` leads `y` by 3 samples):
+
+```python
+import numpy as np
+import jnwb
+
+rng = np.random.default_rng(0)
+x = rng.normal(size=5000)
+y = 0.6 * np.roll(x, 3) + rng.normal(size=5000)
+gc = jnwb.granger(x, y, order=5)
+print(f"x->y {gc.x_to_y:.3f} (p={gc.p_x_to_y:.3f}), y->x {gc.y_to_x:.3f} (p={gc.p_y_to_x:.3f})")
+# x->y 0.311 (p=0.000), y->x 0.001 (p=0.452)
+```
+
+A condition difference in time, tested with a cluster permutation (Maris & Oostenveld, 2007):
+
+```python
+import numpy as np
+import jnwb
+
+rng = np.random.default_rng(1)
+a = rng.normal(size=(20, 100))               # trials x time points
+b = rng.normal(size=(20, 100))
+b[:, 40:60] += 1.5                           # effect at points 40-59
+res = jnwb.cluster_permutation_test(a, b, n_permutations=500, rng=1)
+best = min(res["clusters"], key=lambda c: c["p_value"])
+span = np.flatnonzero(best["mask"])
+print(f"cluster {span.min()}-{span.max()}, p = {best['p_value']:.3f}")
+# cluster 39-59, p = 0.002
+```
+
+Decoding against a label-permutation null with a named scheme:
+
+```python
+import numpy as np
+import jnwb
+
+rng = np.random.default_rng(2)
+labels = np.repeat([0, 1], 40)
+X = rng.normal(size=(80, 30))                # trials x units
+X[labels == 1, :5] += 1.2                    # 5 informative units
+dec = jnwb.nested_cv_linear_svm(X, labels, n_splits=5, rng=2)
+shuffled = jnwb.permute_labels(labels, scheme="global", rng=3)
+null = jnwb.nested_cv_linear_svm(X, shuffled, n_splits=5, rng=2)
+print(f"accuracy {dec['accuracy']:.2f}, shuffled {null['accuracy']:.2f}, "
+      f"majority {dec['majority_baseline_accuracy']:.2f}")
+# accuracy 0.88, shuffled 0.42, majority 0.50
+```
+
 ## Documentation
 
 Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are on [Read the Docs](https://jnwb.readthedocs.io/).
@@ -145,7 +199,7 @@ Guides, the public API (every symbol in `jnwb.__all__`), and common mistakes are
 ## Contributing
 
 Setup, the checks to run, the branch model and the release procedure are in
-[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
+[CONTRIBUTING.md](https://github.com/HNXJ/jnwb/blob/main/.github/CONTRIBUTING.md). Work lands on `dev`; `main` holds releases.
 
 For AI agents: see [artifacts/agents.md](https://github.com/HNXJ/jnwb/blob/main/artifacts/agents.md).
 

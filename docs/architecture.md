@@ -175,7 +175,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 |--------|---------------------|------------------------------------------|
 | `paths` | Data root discovery & volume remap management | `paths` |
 | `nwb_inspect` | NWB file discovery: acquisitions, units, electrodes and interval tables | `inspect`, `unit_spike_times`, `acquisition_channel`, `resolve_acquisition` |
-| `nwb_integrity` | Read-only ragged-index checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused` |
+| `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `check_waveform_blocks`, `WaveformBlockReport` |
 | `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
 | `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning` |
@@ -184,6 +184,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
 | `metadata` | Unit quality classification, census, & SNR auditing | `get_all_units_metadata`, `classify_unit_quality`, `unit_census_report`, `get_snr_analysis`, `filter_by_criteria`, `audit_units`, `audit_electrodes`, `assign_quality_tier`, `electrode_inventory` |
 | `unit_quality` | Waveform and spike-train quality measures of one sorted unit | `waveform_features`, `waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`, `presence_ratio`, `isi_cv`, `refractory_contamination` |
+| `wavemap` | WaveMAP: Louvain clustering of normalized mean waveforms on the UMAP graph (`wavemap` extra) | `align_waveforms`, `normalize_waveforms`, `wavemap`, `wavemap_resolution_sweep`, `WaveMAPResult` |
 | `filtering` | Zero-phase & causal Butterworth bandpass and notch SOS filters | `bandpass_filter`, `notch_filter` |
 | `ontology` | Structured query objects and event referencing | `Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage` |
 | `jrsa` | Representational Similarity Analysis (RDMs, metrics) | `jrsa`, `JRSAResult` |

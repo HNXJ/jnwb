@@ -113,6 +113,10 @@ QC_ROUTES = (
     "jnwb.isi_cv", "jnwb.Lineage", "jnwb.presence_ratio", "jnwb.Provenance",
     "jnwb.refractory_contamination", "jnwb.Result", "jnwb.spatial_derivative_sharpness",
     "jnwb.visual_qc", "jnwb.waveform_features", "jnwb.waveform_flatness", "jnwb.waveform_snr",
+    "jnwb.align_waveforms", "jnwb.normalize_waveforms", "jnwb.wavemap",
+    "jnwb.wavemap_resolution_sweep", "jnwb.WaveMAPResult",
+    "jnwb.waveform_halfwidth", "jnwb.repolarization_slope", "jnwb.waveform_spread",
+    "jnwb.amplitude_cutoff",
 )
 
 
@@ -209,3 +213,64 @@ def test_openai_yaml_description_equals_the_skill_description(skill: str) -> Non
     )["interface"]["description"]
     assert isinstance(md, str) and isinstance(host, str)
     assert host == md, f"{skill}: openai.yaml says {host!r}; SKILL.md says {md!r}"
+
+
+#: The router's second table: one row for each task that needs several skills, naming them in the
+#: order a chain runs them. It has its own header, so the routing table that `docs/agents.md`
+#: copies is still the one `test_the_docs_skill_table_is_the_routers_table` compares.
+COMPOSITE_HEADER = "| Multi-skill task | Skills, in order |"
+
+#: Each task and the skill set it needs. A multi-skill task has to reach its whole set from one
+#: row: a reader who takes the first of several rows that each name part of it gets part of it.
+TASK_SKILL_SETS = {
+    "plotting supplied arrays": {"jnwb-figures", "jnwb-qc"},
+    "band comparison between conditions": {
+        "jnwb-nwb-data", "jnwb-paradigm", "jnwb-lfp-spectral", "jnwb-statistics",
+        "jnwb-figures", "jnwb-qc"},
+    "spike trains": {"jnwb-spiking"},
+    "bootstrap": {"jnwb-statistics"},
+    "linear svm decoding": {"jnwb-population"},
+    "directed coupling": {"jnwb-connectivity"},
+    "plotly multi-panel figures": {"jnwb-landmark-viz"},
+}
+
+
+def _router_rows(text: str) -> list[str]:
+    """The body rows of the router's routing table and, when it has one, its composite table."""
+    section = _routing_section(text)
+    rows = _table_rows(section, ROUTING_HEADER)
+    if COMPOSITE_HEADER in section:
+        rows += _table_rows(section, COMPOSITE_HEADER)
+    return rows
+
+
+def _task_skills(text: str, task: str) -> set[str]:
+    """The skills named by the one router row whose task cell holds `task`."""
+    hits = [row for row in _router_rows(text) if task in row.split("|")[1].lower()]
+    assert len(hits) == 1, f"{len(hits)} router rows route {task!r}; a task needs exactly one"
+    return set(re.findall(r"`(jnwb(?:-[\w-]+)?)`", hits[0].split("|")[2]))
+
+
+def test_the_task_skill_sets_name_only_skills_that_exist() -> None:
+    named = set().union(*TASK_SKILL_SETS.values())
+    assert named <= set(_skill_dirs()), f"no skills/ directory for {named - set(_skill_dirs())}"
+
+
+@pytest.mark.parametrize("task", sorted(TASK_SKILL_SETS))
+def test_a_task_reaches_its_whole_skill_set_from_one_row(task: str) -> None:
+    text = ROUTER.read_text(encoding="utf-8")
+    assert _task_skills(text, task) == TASK_SKILL_SETS[task]
+
+
+def test_a_task_split_over_two_rows_is_found() -> None:
+    """Two rows that each name part of a task are an error, whichever of them the reader takes."""
+    split = (
+        "## 2. Routing\n"
+        "| Task | Skill |\n|---|---|\n| Plotting supplied arrays | `jnwb-figures` |\n\n"
+        "| Multi-skill task | Skills, in order |\n|---|---|\n"
+        "| Plotting supplied arrays | `jnwb-figures`, `jnwb-qc` |\n\n## 3. X\n"
+    )
+    with pytest.raises(AssertionError, match="2 router rows"):
+        _task_skills(split, "plotting supplied arrays")
+    whole = split.replace("| Plotting supplied arrays | `jnwb-figures` |\n", "")
+    assert _task_skills(whole, "plotting supplied arrays") == {"jnwb-figures", "jnwb-qc"}

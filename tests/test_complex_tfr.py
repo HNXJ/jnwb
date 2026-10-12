@@ -1,4 +1,4 @@
-"""Comprehensive test suite and numerical probes for jnwb.tfr.complex_tfr.
+"""Test suite and numerical probes for jnwb.tfr.complex_tfr.
 
 Verifies all required mathematical probes:
 1. Sinusoid frequency localization (peak amplitude at target frequency)
@@ -20,8 +20,7 @@ import pytest
 import numpy as np
 from scipy import signal
 
-import jnwb
-from jnwb.tfr import complex_tfr, morlet_wavelet, ComplexTFR
+from jnwb.tfr import complex_tfr, morlet_wavelet
 from jnwb.tfr_accumulator import TFRAccumulator
 
 
@@ -274,7 +273,7 @@ class TestComplexTFRProbes:
         assert np.max(rel_err) < 1e-5
 
     def test_probe11_tfaccumulator_compatibility(self, fs, freqs):
-        """Probe 11: Direct seamless integration with TFRAccumulator."""
+        """Probe 11: Direct integration with TFRAccumulator."""
         n_ch = 4
         T = 800
         n_trials = 10

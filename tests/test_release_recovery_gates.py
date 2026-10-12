@@ -168,7 +168,7 @@ class TestReleaseGateCoverage:
         step = next(s for s in wf["jobs"]["test"]["steps"] if s.get("name") == "Install dependencies")
         ci = set(re.findall(r'pip install "\.\[([A-Za-z0-9_,-]+)\]"', step["run"])[0].split(","))
 
-        contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        contributing = (REPO_ROOT / ".github" / "CONTRIBUTING.md").read_text(encoding="utf-8")
         documented = re.findall(r'pip install -e "\.\[([A-Za-z0-9_,-]+)\]"', contributing)
         assert documented, "CONTRIBUTING.md no longer shows the development install"
         for spec in documented:

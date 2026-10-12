@@ -91,8 +91,9 @@ def test_the_external_branch_of_tutorial_00_is_exercised(tmp_path: Path):
 
     One correction to P-150's premise, measured rather than assumed: the stand-in is written
     with plain `pynwb`, not with jnwb's fixtures, so even the no-argument run is not jnwb
-    reading back its own bytes. Of the nine tutorials, five author through `write_synth_nwb`,
-    three touch no NWB at all, and this one authors through the reference implementation. What
+    reading back its own bytes. Of the ten other tutorials, five author through `write_synth_nwb`,
+    three touch no NWB at all, two read the open excerpt, and this one authors through the
+    reference implementation. What
     was genuinely untested is the *branch*, not the provenance -- and this runs it.
     """
     target = TUTORIAL_DIR / "00_your_own_file.py"

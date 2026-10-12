@@ -88,7 +88,13 @@ def _sample_column(ds: h5py.Dataset, n: int = _MAX_SAMPLES) -> list[Any]:
         if isinstance(item, (bytes, np.bytes_)):
             out.append(item.decode("utf-8", errors="replace"))
         elif isinstance(item, np.generic):
-            if np.isnan(item):
+            # `np.isnan` is defined only for floats and complex; calling it on a
+            # string, a compound row or an object scalar raises TypeError, which is how
+            # one nonnumeric interval column broke inspection of a whole real file. A NaN
+            # still reads as None. Every other dtype passes through untouched, so a
+            # malformed value stays visible as itself rather than being coerced into a
+            # plausible one.
+            if isinstance(item, (np.floating, np.complexfloating)) and np.isnan(item):
                 out.append(None)
             else:
                 out.append(item.item())

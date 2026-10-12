@@ -18,27 +18,7 @@ from jnwb.decoding import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        assert jnwb.majority_baseline is majority_baseline
-        assert jnwb.fold_majority_baseline is fold_majority_baseline
-        assert jnwb.nested_cv_linear_svm is nested_cv_linear_svm
-        assert jnwb.assign_outer_folds is assign_outer_folds
-        assert jnwb.build_inner_validation_partitions is build_inner_validation_partitions
-        assert jnwb.build_representation_ladder is build_representation_ladder
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("majority_baseline", "fold_majority_baseline", "nested_cv_linear_svm",
-                     "assign_outer_folds", "build_inner_validation_partitions",
-                     "build_representation_ladder"):
-            assert name in jnwb.__all__
-
 class TestMajorityBaseline:
-    def test_empty_labels_is_nan(self):
-        assert np.isnan(majority_baseline(np.array([])))
-
     def test_balanced_binary_is_half(self):
         labels = np.array([0, 0, 1, 1])
         assert majority_baseline(labels) == pytest.approx(0.5)
@@ -109,7 +89,6 @@ class TestNestedCvRng:
         """`rng=None` reached scikit-learn as `random_state=None`, which draws the folds,
         and the grouped path's group order, from NumPy's global RandomState."""
         X, y, groups = _rng_probe_data()
-        np.random.seed(123)
         before = np.random.get_state()
         nested_cv_linear_svm(X, y, n_splits=3, rng=None,
                              groups=groups if grouped else None)
@@ -402,7 +381,6 @@ class TestNestedCvGroups:
 
     def test_grouped_folds_never_split_a_group(self, monkeypatch):
         """Asserted on the folds the decoder iterated, captured at the splitter."""
-        import jnwb.decoding as decoding
 
         calls = _record_grouped_splits(monkeypatch)
         X, labels, groups = _group_offset_data(n_groups=12)

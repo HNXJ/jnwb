@@ -18,6 +18,9 @@ What the excerpt keeps, all copied without resampling or unit conversion:
 
 - the probe's electrodes, with their source ids, and every units row whose peak channel is on
   that probe, with the source's quality metrics;
+- for each of those units, one mean waveform: the channel row of its own ``waveform_mean``
+  block with the largest peak-to-peak, in the source's dtype, sample count and unit (the block
+  holds one row per source channel, and the excerpt keeps no other row);
 - spikes in three windows: the first ``--edge-s`` seconds after the probe's first spike, one
   stimulus block padded by ``--pad-s``, and the last ``--edge-s`` seconds before its last spike.
   Each unit's ``obs_intervals`` names those windows, so a gap between them reads as unobserved
@@ -87,6 +90,9 @@ UNIT_COLUMNS = ("cluster_id", "peak_channel_id", "quality", "snr", "isi_violatio
                 "presence_ratio", "amplitude_cutoff")
 GRATING_COLUMNS = ("stimulus_name", "stimulus_block", "stimulus_index", "orientation",
                    "contrast", "spatial_frequency", "temporal_frequency")
+WAVEFORM = "waveform_mean"
+WAVEFORM_DESCRIPTION = ("Mean waveform of the channel with the largest peak-to-peak in this "
+                        "unit's source waveform_mean block, in the source's dtype and unit")
 
 
 def _text(values) -> np.ndarray:
@@ -104,6 +110,12 @@ def sha256_of(path: Path) -> str:
         for block in iter(lambda: handle.read(1 << 24), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _dataset_sha256(path: Path, name: str) -> str:
+    """SHA-256 of one dataset's values as C-ordered bytes."""
+    with h5py.File(path, "r") as h:
+        return hashlib.sha256(np.ascontiguousarray(h[name][()]).tobytes()).hexdigest()
 
 
 def verify_source(path: Path, expected: dict) -> str:
@@ -168,7 +180,48 @@ def read_units(path: Path, probe: str) -> dict:
         unit_ids = u["id"][:][rows]
     return {"electrodes": electrodes, "unit_ids": unit_ids, "trains": trains,
             "columns": columns, "gratings": gratings, "subject": subject,
-            "session": session, "declared": declared}
+            "session": session, "declared": declared, "rows": rows}
+
+
+def read_mean_waveforms(path: Path, rows: np.ndarray) -> dict:
+    """One mean waveform per unit, from the source's ragged `waveform_mean` blocks.
+
+    A unit's block is the run of rows that `waveform_mean_index` (end offsets) names for it,
+    one row per source channel. The row with the largest peak-to-peak (maximum minus minimum
+    over samples) is copied, unchanged in dtype and unit. Ties go to the first row, and a row
+    with a non-finite value is never chosen; a block with no finite row is refused.
+    """
+    with h5py.File(path, "r") as h:
+        u = h["units"]
+        block = u[WAVEFORM]
+        if f"{WAVEFORM}_index" not in u or block.ndim != 2:
+            raise SystemExit(f"{path.name}: units/{WAVEFORM} is not the ragged (rows, samples) "
+                             "layout this builder reads")
+        end = u[f"{WAVEFORM}_index"][:].astype(np.int64)
+        if end.size != u["id"].shape[0] or end[-1] != block.shape[0]:
+            raise SystemExit(f"{path.name}: units/{WAVEFORM}_index does not end at the "
+                             f"{block.shape[0]} rows of units/{WAVEFORM}")
+        start = np.r_[0, end[:-1]]
+        unit_label = str(block.attrs.get("unit", ""))
+        dtype, n_samples = block.dtype, int(block.shape[1])
+        values, channel_rows = [], []
+        for i in rows:
+            data = np.asarray(block[start[i]:end[i], :])
+            peak_to_peak = data.max(axis=1) - data.min(axis=1)
+            score = np.where(np.isfinite(peak_to_peak), peak_to_peak, -np.inf)
+            k = int(np.argmax(score))
+            if not np.isfinite(score[k]):
+                raise SystemExit(f"{path.name}: unit row {int(i)} has no channel with finite "
+                                 "waveform values")
+            values.append(data[k])
+            channel_rows.append(k)
+        rows_per_block = sorted({int(end[i] - start[i]) for i in rows})
+    return {"values": np.asarray(values, dtype=dtype), "channel_row": channel_rows,
+            "channel_rows_per_block": rows_per_block, "n_samples": n_samples,
+            "dtype": str(dtype), "unit_label_in_source": unit_label,
+            "selection": ("per unit, the row of its source block with the largest peak-to-peak "
+                          "(maximum minus minimum over samples); ties to the first row; a row "
+                          "with a non-finite value is never selected")}
 
 
 def _py(value):
@@ -189,6 +242,8 @@ def build(source_dir: Path, out: Path, probe: str, area_prefix: str, channel_str
             print(f"verified {path.name}: sha256 {digests[key]}")
 
     src = read_units(units_path, probe)
+    waveforms = read_mean_waveforms(units_path, src["rows"])
+    src["mean_waveforms"] = waveforms.pop("values")
     trains = src["trains"]
     nonempty = [t for t in trains if t.size]
     first_spike = min(float(t[0]) for t in nonempty)
@@ -273,6 +328,15 @@ def build(source_dir: Path, out: Path, probe: str, area_prefix: str, channel_str
         "windows_spike_clock_s": {"start": list(windows_s[0]), "window": list(windows_s[1]),
                                   "end": list(windows_s[2])},
         "lfp_sample_ranges": {k: list(v) for k, v in sample_ranges.items()},
+        "waveform_mean": {
+            **waveforms,
+            "source_asset": ASSETS["units"]["path"],
+            "source_dataset": f"units/{WAVEFORM}",
+            "source_index": f"units/{WAVEFORM}_index",
+            "excerpt_dataset": f"units/{WAVEFORM}",
+            "excerpt_shape": [len(trains), waveforms["n_samples"]],
+            "excerpt_column_sha256": _dataset_sha256(out, f"units/{WAVEFORM}"),
+        },
         "source_values": {
             "lfp_n_samples": n,
             "lfp_first_timestamp": first_tick,
@@ -363,10 +427,12 @@ def _write_nwb(out: Path, src: dict, windows_s, keep_rows, lfp: dict, lfp_ids, l
     }
     for name in UNIT_COLUMNS:
         nwb.add_unit_column(name=name, description=col_desc[name])
+    nwb.add_unit_column(name=WAVEFORM, description=WAVEFORM_DESCRIPTION)
     obs = [list(w) for w in windows_s]
     for j, train in enumerate(src["trains"]):
         kept = np.concatenate([train[(train >= a) & (train <= b)] for a, b in windows_s])
         row = {name: _py(src["columns"][name][j]) for name in UNIT_COLUMNS}
+        row[WAVEFORM] = src["mean_waveforms"][j]
         nwb.add_unit(id=int(src["unit_ids"][j]), spike_times=kept, obs_intervals=obs, **row)
 
     g = src["gratings"]

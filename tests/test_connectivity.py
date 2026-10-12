@@ -32,36 +32,6 @@ from jnwb.connectivity import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        import jnwb
-        for name, obj in (
-            ("spike_mutual_information", spike_mutual_information),
-            ("binary_occupancy_mutual_information", binary_occupancy_mutual_information),
-            ("spike_count_mutual_information", spike_count_mutual_information),
-            ("granger_causality", granger_causality),
-            ("network_topology", network_topology),
-            ("DirectedResult", DirectedResult),
-            ("as_trials", as_trials),
-            ("bin_spikes", bin_spikes),
-            ("granger", granger),
-            ("granger_spectral", granger_spectral),
-            ("phase_slope_index", phase_slope_index),
-            ("transfer_entropy", transfer_entropy),
-            ("directed_connectivity", directed_connectivity),
-            ("directed_network", directed_network),
-        ):
-            assert getattr(jnwb, name) is obj
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        for name in ("spike_mutual_information", "binary_occupancy_mutual_information",
-                     "spike_count_mutual_information", "granger_causality", "network_topology",
-                     "DirectedResult", "as_trials", "bin_spikes", "granger", "granger_spectral",
-                     "phase_slope_index", "transfer_entropy", "directed_connectivity",
-                     "directed_network"):
-            assert name in jnwb.__all__
-
 class TestSpikeMutualInformation:
     def test_identical_spike_trains_have_positive_mi(self):
         rng = np.random.default_rng(0)

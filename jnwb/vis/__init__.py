@@ -42,6 +42,7 @@ from . import spectral
 from . import spiking
 from . import state_space
 from . import theme
+from . import wavemap
 
 # High-level plotting function aliases
 from .hierarchy import plot_hierarchy_regression
@@ -49,6 +50,7 @@ from .laminar import plot_csd, plot_opposing_gradients, plot_spectrolaminar_map
 from .spectral import plot_granger_spectra, plot_spectral_modulation_matrix
 from .spiking import plot_multi_condition_raster_psth, plot_sorted_heatmap
 from .state_space import plot_decoding_timecourse, plot_rsm_heatmap
+from .wavemap import plot_wavemap
 
 __all__ = [
     # Canvas & Layout
@@ -72,6 +74,7 @@ __all__ = [
     "hierarchy",
     "spectral",
     "state_space",
+    "wavemap",
     # High-level primitives
     "plot_spectrolaminar_map",
     "plot_opposing_gradients",
@@ -83,4 +86,5 @@ __all__ = [
     "plot_granger_spectra",
     "plot_decoding_timecourse",
     "plot_rsm_heatmap",
+    "plot_wavemap",
 ]

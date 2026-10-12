@@ -13,7 +13,7 @@ Simple, single-domain reference lookups may route directly to domain skills. All
 ## 2. Mandatory Authority Loading Order
 Before inspecting or altering code, an agent MUST load the authorities listed in **`AGENTS.md` §3 Prepare, in the order given there**. That is the sole loading-order authority; this skill carries no list of its own.
 
-That order reaches every slot of $X$, which `AGENTS.md` §2 defines. A loading order leaving a slot unreachable is not a shorter version of this one — it is a different one, and it cannot rank what it never loads.
+That order reaches every project-state slot `AGENTS.md` §2 defines (goal, state, fact, problem, todo). A loading order leaving a slot unreachable is not a shorter version of this one — it is a different one, and it cannot rank what it never loads.
 
 Ruled 2026-09-19 (06-61, candidate C). This section previously enumerated five sources of its own. The enumeration drifted from `AGENTS.md` §3, which by then named eight, leaving `goal`, `state` and `problem` unreachable to any packet that followed this file — recorded as P-14. The repair is not a corrected copy: a second copy is the mechanism that produced the drift, so there is now one authority and a pointer to it.
 
@@ -56,8 +56,8 @@ The execution loop formalizes $W = P(RG)^N S$:
 ### S — Seal & Reconcile
 - Reconcile the todo stack: delete completed items from `artifacts/todo_stack.md`.
 - Keep documentation, skills, and gates synchronized.
-- Run `python scripts/harness_gate.py` and `python -m pytest tests/ -q`.
-- Commit validated checkpoints on `dev`, push to `origin/dev`, and verify clean status.
+- Run `python scripts/harness_gate.py`, and the suite through the wrapper `AGENTS.md` section 6 names.
+- Commit validated checkpoints on `dev`, push only through the push wrapper `AGENTS.md` section 6 names, and verify clean status.
 
 ## 5. Delegation Protocol (Role ⊥ Domain)
 When delegating sub-tasks to separate subagents or roles, decouple the role from the domain skill. Every delegated packet must follow the standard contract:

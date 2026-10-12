@@ -8,7 +8,8 @@ file. Each fact's ``Held by`` cell names its holders:
   ``test:PATH``       resolves when that test module exists; ``test:PATH::NAME`` when that test
                       function (``Class::name`` inside a class, or a whole ``Class``) exists
   ``computed:NAME``   a predicate below, evaluated on the fact graph
-  ``todo:ITEM``       the fact is UNHELD, and ITEM must be a live todo item
+  ``todo:ITEM``       the fact is UNHELD, and ITEM must be a live todo item: one in the
+                      todo stack or a readable row of ``artifacts/roadmap.md``
 
 A fact is VIOLATED when a computed predicate is false, a holder does not resolve, a ``todo:``
 names no live item, or it names no holder at all; UNHELD when it names a live ``todo:`` item;
@@ -31,6 +32,14 @@ Computed predicates:
   routes      every routing target starts at an export of ``jnwb.__all__`` and its whole dotted
               path resolves on the package. Only the two routing forms the graph builder reads
               are seen.
+  partition   no routed operation belongs to two shipped domain skills (every skill but the
+              router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
+              operation does not share it with the domain skill that owns it.
+
+  global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
+  rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
+                   takes an ``rng`` parameter (the graph's ``rng_parameters``)
+  db_averages      no average in ``jnwb/`` takes a dB value (the graph's ``db_averages``)
 
 Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
@@ -46,8 +55,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import build_fact_graph  # noqa: E402
+from scripts.release_gate import ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
+ROADMAP_PATH = REPO_ROOT / _ROADMAP
 _ITEM_HEADING = re.compile(r"^### (\d{2}-\d{2,3})\b", re.M)
 
 HELD, VIOLATED, UNHELD = "HELD", "VIOLATED", "UNHELD"
@@ -56,8 +67,9 @@ Graph = Dict[str, Any]
 Constants = Dict[str, List[str]]
 
 
-def live_items(todo_text: str) -> List[str]:
-    return _ITEM_HEADING.findall(todo_text)
+def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
+    """Item ids in the todo stack, then those of the roadmap's readable rows."""
+    return _ITEM_HEADING.findall(todo_text) + [i for i, _ in roadmap_rows(roadmap_text)[0]]
 
 
 # ------------------------------------------------------------------------ computed predicates
@@ -130,9 +142,76 @@ def routes(graph: Graph, constants: Constants) -> List[str]:
     return found
 
 
+ROUTER_SKILL = "jnwb"
+
+
+def _owners(graph: Graph) -> Dict[str, set]:
+    """Each routed target and the domain skills that route it."""
+    domain = [skill for skill in graph["entities"]["skill"] if skill != ROUTER_SKILL]
+    owners: Dict[str, set] = {}
+    for skill, target in graph["relations"]["routes"]:
+        if skill in domain:
+            owners.setdefault(target, set()).add(skill)
+    return owners
+
+
+def exclusive_counts(graph: Graph) -> Dict[str, int]:
+    """Each domain skill's count of routed targets that no other domain skill routes."""
+    domain = [skill for skill in graph["entities"]["skill"] if skill != ROUTER_SKILL]
+    owners = _owners(graph)
+    counts = {skill: 0 for skill in domain}
+    for owning in owners.values():
+        if len(owning) == 1:
+            counts[next(iter(owning))] += 1
+    return counts
+
+
+def partition(graph: Graph, constants: Constants) -> List[str]:
+    """Each operation two domain skills route, and each domain skill owning fewer than ``k``
+    exclusive operations; no domain skill at all is itself a failure, never an empty pass."""
+    if "k" not in constants:
+        raise ValueError("the constants name no k, the skill-partition floor")
+    floor = int(constants["k"][0])
+    counts = exclusive_counts(graph)
+    if not counts:
+        return ["the graph names no domain skill"]
+    shared = [f"{target} is routed by {', '.join(sorted(owning))}"
+              for target, owning in sorted(_owners(graph).items()) if len(owning) > 1]
+    return shared + [f"{skill} owns {count} exclusive operations, fewer than {floor}"
+                     for skill, count in sorted(counts.items()) if count < floor]
+
+
+def global_seeds(graph: Graph, constants: Constants) -> List[str]:
+    """Each call, in any tracked file, that seeds the global random state."""
+    if not graph["entities"].get("python"):
+        return ["the graph reads no python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["global_seeds"]]
+
+
+def rng_parameters(graph: Graph, constants: Constants) -> List[str]:
+    """Each function in ``jnwb/`` or ``scripts/`` that draws from a random module and takes no
+    parameter named ``rng``."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.SCANNED_FOR_RNG) for path in python):
+        return ["the graph reads no jnwb or scripts python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["rng_parameters"]]
+
+
+def db_averages(graph: Graph, constants: Constants) -> List[str]:
+    """Each average in ``jnwb/`` of a dB value, or of a name a dB conversion was assigned to."""
+    python = graph["entities"].get("python", [])
+    if not any(path.startswith(build_fact_graph.DB_PACKAGE) for path in python):
+        return ["the graph reads no jnwb python file"]
+    return [f"{path}: {reason}" for path, reason in graph["relations"]["db_averages"]]
+
+
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
+    "partition": partition,
+    "global_seeds": global_seeds,
+    "rng_parameters": rng_parameters,
+    "db_averages": db_averages,
 }
 
 
@@ -190,14 +269,18 @@ def evaluate(facts: Sequence[Dict[str, Any]], constants: Constants, graph: Graph
 
 
 def run(package: Any = None, root: Path = REPO_ROOT, facts_path: Optional[Path] = None,
-        todo_path: Path = TODO_PATH, graph: Optional[Graph] = None):
-    """Build the fact graph (unless given) and evaluate every fact of the fact source."""
+        todo_path: Path = TODO_PATH, graph: Optional[Graph] = None,
+        roadmap_path: Path = ROADMAP_PATH):
+    """Build the fact graph (unless given) and evaluate every fact of the fact source. A missing
+    roadmap holds no item, so a ``todo:`` holder naming one is VIOLATED."""
     source = facts_path or build_fact_graph.FACT_STACK
     facts = build_fact_graph.load_facts(source)
     constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
     if graph is None:
         graph = build_fact_graph.build(package, root, source)
-    results = evaluate(facts, constants, graph, live_items(todo_path.read_text(encoding="utf-8")))
+    roadmap = roadmap_path.read_text(encoding="utf-8") if roadmap_path.is_file() else ""
+    results = evaluate(facts, constants, graph,
+                       live_items(todo_path.read_text(encoding="utf-8"), roadmap))
     return source, results
 
 

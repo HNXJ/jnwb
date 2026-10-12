@@ -19,6 +19,7 @@ Multi-panel publication figures in Plotly: spectrolaminar maps, laminar gradient
 | Decoding timecourse, RSM heatmap | `state_space` |
 | Spectral modulation matrix, Granger spectra | `spectral` |
 | Hierarchy regression | `hierarchy` |
+| WaveMAP embedding and cluster means | `wavemap` |
 | Publication theme and axis configuration | `theme` |
 
 ### Panel functions
@@ -33,6 +34,7 @@ Each takes the `canvas` and the `row` and `col` of its panel first; the rows nam
 - `jnwb.vis.spectral.plot_spectral_modulation_matrix(canvas, row, col, delta_db_matrix, areas, bands)`: ΔdB by area and band.
 - `jnwb.vis.spectral.plot_granger_spectra(canvas, row, col, freqs, gc_ff, gc_fb)`: the two directed spectra.
 - `jnwb.vis.hierarchy.plot_hierarchy_regression(canvas, row, col, hierarchy_ranks, values, ci_low, ci_high, area_labels, *, y_label)`: values against hierarchy rank.
+- `jnwb.vis.wavemap.plot_wavemap(result, waveforms, *, layout, height_mm)`: builds its own two-panel canvas, the `jnwb.wavemap` embedding by cluster beside each cluster's mean normalized waveform; `waveforms` are the rows the result clustered, in that order.
 - `jnwb.vis.sidecar.serialize_argument_sidecar(output_path, argument_data)`: writes the argument sidecar for a figure built without `save_and_seal`.
 
 ### Rendering and export

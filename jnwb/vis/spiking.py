@@ -8,14 +8,14 @@ jnwb.vis.spiking -- Raster, PSTH and population heatmap panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
 
 from .._bins import whole_bin_count
 from .canvas import PlotlyPublicationCanvas
-from .theme import COLORS, FONT_FAMILY, FONT_SIZES, configure_axis, required_text, unit_label
+from .theme import COLORS, FONT_FAMILY, FONT_SIZES, checked_colorbar_label, configure_axis
 
 
 def plot_multi_condition_raster_psth(
@@ -259,19 +259,27 @@ def plot_sorted_heatmap(
         rate_matrix: 2D array of shape [n_units, n_times], in ``value_unit``.
         time_ms: 1D array of time points relative to event.
         sort_idx: Optional 1D sorting indices (e.g. by latency or response category).
-        category_labels: Optional labels for unit groups.
+        category_labels: Reserved. A non-None value raises ``ValueError``: the labels name unit
+            groups, and no argument maps them to rows.
         cmap: Colormap name.
         title: Panel title.
         colorbar_title: Name of the quantity on the colorbar, for example ``"Rate"``; the
             colorbar reads ``"<colorbar_title> (<value_unit>)"``. None labels it with
-            ``value_unit`` alone.
+            ``value_unit`` alone. A blank title, or one that names ``value_unit``, raises: the
+            unit is written once, by ``value_unit``.
         value_unit: Unit of ``rate_matrix``, for example ``"spikes/s"`` or ``"z"``. Required;
             it labels the colorbar and the hover text.
 
     Raises:
-        ValueError: ``value_unit`` is not a non-empty string.
+        ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
+            names ``value_unit``, or ``category_labels`` is given.
     """
-    colorbar_label = unit_label(colorbar_title, required_text("value_unit", value_unit))
+    colorbar_label = checked_colorbar_label(colorbar_title, value_unit)
+    if category_labels is not None:
+        raise ValueError(
+            "plot_sorted_heatmap: category_labels cannot be drawn, because the argument has no "
+            "defined mapping from labels to rows. Pass category_labels=None."
+        )
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rate_matrix = np.asarray(rate_matrix, dtype=float)

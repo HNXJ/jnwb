@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import jnwb
 from jnwb.laminar import XFlipResult, xflip
 from jnwb.testing import synth_ar_noise, synth_correlation_blocks, synth_white_noise
 

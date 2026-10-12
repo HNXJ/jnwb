@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -540,7 +540,7 @@ def build_canonical_tutorial_nwb(
     n_trials: int = 20,
     seed: RNGLike = 42,
 ) -> Tuple[Any, Dict[str, Any]]:
-    """Build a comprehensive, self-contained synthetic NWB file for executable tutorials.
+    """Build a self-contained synthetic NWB file for executable tutorials.
 
     Assembles:
     - 24-contact linear probe geometry with laminar coordinates

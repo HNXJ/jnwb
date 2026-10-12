@@ -18,11 +18,12 @@ git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@gith
 cd jnwb
 python -m venv .venv
 .venv/Scripts/activate        # Windows;  source .venv/bin/activate  elsewhere
-pip install -e ".[test,docs,vis]"
+pip install -e ".[test,docs,vis,wavemap]"
 ```
 
 These are the extras CI installs for the suite; collection imports `jnwb.vis`, which needs
-Plotly from `vis`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
+Plotly from `vis`, and `tests/test_wavemap.py` clusters with umap-learn and networkx from
+`wavemap`. Optional extras: `mcp` (the MCP server), `torch` and `gpu` (CuPy) for the
 accelerated paths, `all` for everything. kaleido 1.x renders the SVG and PNG exports in a
 Chrome it does not bundle: install one with `kaleido_get_chrome` (or `kaleido.get_chrome_sync()`
 in Python), or point `BROWSER_PATH` at an existing Chrome or Chromium. The GPU paths fall back
@@ -37,7 +38,12 @@ python -m pytest tests/ -q
 
 Run `python -m pytest tests/ -q` before pushing; all tests should pass on your interpreter.
 CI exercises every version `pyproject.toml` declares, so a version the package claims is a
-version CI runs. A test that needs an optional extra skips when the extra is absent and names
+version CI runs. On Windows, pytest's temporary directory must sit on the same drive as the
+checkout: pass `--basetemp` pointing outside the repo on that drive, since a cross-drive
+temporary directory makes tests that clone the tree fail with "Improper link". Do not set
+it through the `PYTEST_ADDOPTS` environment variable instead: that value reaches every
+pytest the harness spawns as a subprocess, including the mutation-harness runs, and breaks
+them. Pass it as an explicit command-line argument. A test that needs an optional extra skips when the extra is absent and names
 it; `release_gate.py` refuses to run without every extra the suite uses, so no such skip
 reaches a release.
 
@@ -135,7 +141,7 @@ Stage exact paths. `git add .` sweeps in build output and scratch files.
 - **Docs and skills in lockstep.** Changing a public symbol means updating `docs/` and
   `skills/` in the same commit.
 - **A changelog fragment** for anything a user would notice: one file,
-  `changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
+  `artifacts/changelog.d/<name>.<category>.md`, holding `- ` bullets in the form of `CHANGELOG.md`, with
   `<category>` one of `breaking`, `added`, `changed`, `deprecated`, `removed`, `fixed`,
   `security` or `documentation`. Two changes then touch two files and merge without conflict.
   Breaking changes say what breaks and how to keep the old behaviour.
@@ -330,7 +336,7 @@ jnwb/
 
 ### Permitted Root Entries (Allowlist)
 - **Source & Tests**: `jnwb/`, `tests/`, `examples/`, `docs/`, `skills/`, `scripts/`
-- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
+- **Configuration & Metadata**: `pyproject.toml`, `README.md`, `CHANGELOG.md`, `LICENSE`, `.gitignore`, `mkdocs.yml`, `.readthedocs.yaml`, and the repository's policy files
 
 The authoritative list is `ALLOWED_ROOT_DIRS` / `ALLOWED_ROOT_FILES` in `scripts/harness_gate.py`, enforced by Gate 4.
 - **CI / VCS**: `.git/`, `.github/`

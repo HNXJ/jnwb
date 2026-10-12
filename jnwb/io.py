@@ -9,10 +9,9 @@ from __future__ import annotations
 import functools
 import io
 import itertools
-import os
 import zipfile
 from pathlib import Path
-from typing import Sequence, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 

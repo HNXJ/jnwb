@@ -65,5 +65,27 @@ over `jnwb_ext/`, `scripts/`, `context/figures/fig03_unit_census/`, and for
 | Item | Why open |
 |---|---|
 | D1, D3 (the lab pipeline's own rule) and D9 | absent from `E:/omission` at `c3d69375`; they live in the cited lab pipeline (`yihan777/alpha_beta_mechanism` at `826e540`), which was not read, so confirming them needs its owner's access |
-| D10's amplitude cut-off, half-width, repolarisation slope and spread | published ecephys metrics jnwb does not compute; candidates for a todo item, not code here |
 | The source of F1, F2, F3, F11 and F12 defaults | none is cited in the code, its docstrings, `skills/jnwb-nwb-data/SKILL.md`, `docs/references.md`, `docs/common_mistakes.md` or `artifacts/rulings/`; filed as P-360 and P-361 |
+
+## D. The four published measures (10-15)
+
+Ruled 2026-10-11: each a public operation in the form AllenInstitute `ecephys_spike_sorting`
+computes it, matching it exactly, the amplitude cut-off cited as Allen's form after Hill et al.
+(2011) (`artifacts/rulings/2026-10-11.md`). Read at commit `919992748a5324724ba87169ecdcf9eb6e3b9973`, 2026-10-11:
+`modules/mean_waveforms/waveform_metrics.py`, `modules/mean_waveforms/_schemas.py`,
+`modules/quality_metrics/metrics.py`, `common/schemas.py` and both module READMEs. Neither paper
+was read: the publisher and PMC pages refused automated access (HTTP 403, a CAPTCHA). Agreement
+with the source functions, run on the same inputs with no correction factor: 300 synthetic units
+(82 samples at 30 kHz, 40 channels, 92 with channel 0 a candidate site) give half-width within
+1.6e-15 and slope within 8.4e-16 relative, spread within 5.7e-14 µm; 300 synthetic truncated
+Gaussian amplitude sets (134 at the cap) give the amplitude cut-off identically.
+
+| Measure | jnwb | Source | Unusual in the source, kept |
+|---|---|---|---|
+| Half-width | `waveform_halfwidth(waveform, fs, *, upsampling_factor=200/82)`, ms | `calculate_waveform_halfwidth`, `waveform_metrics.py:154-193`; resampling `:63-69`; factor `_schemas.py:11` | time is `linspace(0, n / fs, m)` (`:69`), an interval `n / (fs (m - 1))`, longer than the resampled trace's by `m / (m - 1)`, 0.5 % at 82 samples; the width starts at the first sample before the extremum beyond half its height |
+| Repolarization slope | `repolarization_slope(waveform, fs, *, upsampling_factor=200/82, window_samples=20)`, waveform unit per ms | `calculate_waveform_repolarization_slope`, `:220-244`; window `:220`; V/s from µV `:244` | the same axis; µV/ms is 1000 times its V/s |
+| Spread | `waveform_spread(waveform, *, site_spacing_um, threshold=0.12, site_range=16, site_step=2, outlier_z=1.5)`, µm | `calculate_2D_features`, `:284-346`; step 2 `:309`; strict threshold `:331`; outliers `isnot_outlier`, `:397-433`; spacing default 20e-6 m, `common/schemas.py:11` | `sites_to_sample > 0` (`:311`) drops channel 0, even as the peak; the spacing has no default, since it is the probe's |
+| Amplitude cut-off | `amplitude_cutoff(amplitudes, *, num_histogram_bins=500, histogram_smoothing_value=3.0)`, unitless | `amplitude_cutoff`, `metrics.py:712-747`, which calls itself "inspired by" Hill et al. (2011) (`:718`) | the symmetric-histogram estimate, not a fitted Gaussian; capped at 0.5 (`:745`) |
+
+All four are in `jnwb.unit_quality`; their exports in `jnwb/__init__.py`, `jnwb/_lazy_exports.py`
+and `docs/api.md` are wired separately.

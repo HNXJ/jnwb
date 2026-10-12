@@ -52,13 +52,17 @@ def _positive_finite(value, name: str, func_name: str) -> float:
     return v
 
 
-def _peak_channel(w: np.ndarray, func_name: str):
+def _peak_channel(w: np.ndarray, func_name: str, *, flat_ok: bool = False):
     """``(peak channel, per-channel amplitudes)``: the channel of largest peak-to-trough
-    amplitude ``max - min``, the first of tied channels. A waveform of zero amplitude on every
-    channel has no peak channel and raises."""
-    amplitudes = w.max(axis=1) - w.min(axis=1)
+    amplitude ``max - min``, the first of tied channels. Non-finite samples are left out of a
+    channel's extremes, so a channel with no finite sample has amplitude -inf and never wins. A
+    waveform of zero amplitude on every channel has no peak channel and raises, unless `flat_ok`
+    (a drawing), which takes the first channel."""
+    finite = np.isfinite(w)
+    amplitudes = (np.where(finite, w, -np.inf).max(axis=1)
+                  - np.where(finite, w, np.inf).min(axis=1))
     peak = int(np.argmax(amplitudes))
-    if amplitudes[peak] <= 0:
+    if amplitudes[peak] <= 0 and not flat_ok:
         raise ValueError(
             f"{func_name}: the waveform has zero amplitude on every channel, so it has no "
             "peak channel."
@@ -139,6 +143,226 @@ def waveform_features(waveform, fs: float) -> Dict[str, Any]:
         "peak_trough_ratio": float(ratio),
         "polarity": polarity,
     }
+
+
+#: The defaults below are those of ``ecephys_spike_sorting`` (AllenInstitute) at commit
+#: 919992748a5324724ba87169ecdcf9eb6e3b9973; each cites the file and line that fixes it.
+#: Upsampling factor of the peak-channel trace before the 1-D measures
+#: (``modules/mean_waveforms/_schemas.py:11``).
+_UPSAMPLING_FACTOR = 200 / 82
+
+
+def _upsampled_peak_trace(waveform, fs, upsampling_factor, func_name):
+    """The peak-channel trace Fourier-resampled by `upsampling_factor` to
+    ``m = int(n_samples * upsampling_factor)`` samples, and the interval in ms of the time axis
+    ``linspace(0, n_samples / fs, m)`` that ``ecephys_spike_sorting`` gives it
+    (``waveform_metrics.py:63-69``): ``n_samples / (fs * (m - 1))``, longer than the resampled
+    trace's own ``n_samples / (fs * m)`` by ``m / (m - 1)``, kept to match the source."""
+    from scipy.signal import resample
+
+    fs = _positive_finite(fs, "fs", func_name)
+    factor = _positive_finite(upsampling_factor, "upsampling_factor", func_name)
+    if factor < 1:
+        raise ValueError(f"{func_name}: upsampling_factor must be 1 or more; got {upsampling_factor!r}.")
+    w = _mean_waveform(waveform, func_name)
+    peak, _ = _peak_channel(w, func_name)
+    trace = w[peak]
+    n = trace.size
+    m = int(n * factor)
+    if m != n:
+        trace = resample(trace, m)
+    return trace, n * 1000.0 / (fs * (m - 1))
+
+
+def waveform_halfwidth(waveform, fs: float, *,
+                       upsampling_factor: float = _UPSAMPLING_FACTOR) -> float:
+    """Width of the largest deflection at half its height, in ms (Jia et al. 2019).
+
+    Input class: the unit's mean waveform ``(n_channels, n_samples)``, baseline zero, in any
+    voltage unit, sampled at `fs` Hz. The measure is read on the peak channel of
+    `waveform_features`, Fourier-resampled to ``int(n_samples * upsampling_factor)`` samples
+    over the same span, in the form ``calculate_waveform_halfwidth`` of
+    ``ecephys_spike_sorting`` computes it (``modules/mean_waveforms/waveform_metrics.py:154-193``
+    at commit 919992748a53). The extremum is the maximum when it exceeds ``|min|``, else the
+    minimum (the minimum on a tie), and the half level is half its value. The width runs from
+    the first sample before the extremum that lies beyond the half level (above it for a
+    maximum, below it for a minimum) to the first sample at or after the extremum that lies
+    back within it, strictly in both cases. Time is the source's axis
+    ``linspace(0, n_samples / fs, m)`` with ``m = int(n_samples * upsampling_factor)``, so the
+    width is a whole number of intervals ``n_samples / (fs * (m - 1))``: longer than the
+    resampled trace's own interval by ``m / (m - 1)`` (0.5 % at 82 samples), as in the source.
+    ``upsampling_factor=1`` reads the trace as given, on the same axis. The peak channel is
+    the mean waveform's channel of largest amplitude; the source takes it from the sorter's
+    template (``extract_waveforms.py:89``), so the two can differ where template and mean
+    disagree. A NaN sample or a waveform flat on every channel is refused, where the source
+    returns a number or NaN.
+
+    Args:
+        waveform: Mean waveform ``(n_channels, n_samples)``; rows are channels.
+        fs: Sampling rate in Hz.
+        upsampling_factor: Resampling factor, 1 or more; 200/82 in the source.
+
+    Returns:
+        The half-width in ms. NaN when no sample before the extremum lies beyond the half
+        level, or none after it returns within it, as for an extremum on the first sample.
+
+    Raises:
+        ValueError: If the waveform is not 2-D with at least one channel and two samples,
+            holds a NaN or an infinity, or has zero amplitude on every channel; or if `fs` is
+            not finite and positive or `upsampling_factor` is below 1 or not finite.
+
+    References:
+        Jia, X., et al. (2019). High-density extracellular probes reveal dendritic
+        backpropagation and facilitate neuron classification. Journal of Neurophysiology
+        121(5), 1831-1847. doi:10.1152/jn.00680.2018
+    """
+    trace, dt_ms = _upsampled_peak_trace(waveform, fs, upsampling_factor, "waveform_halfwidth")
+    hi_i, lo_i = int(np.argmax(trace)), int(np.argmin(trace))
+    if trace[hi_i] > -trace[lo_i]:
+        ext, sign = hi_i, 1.0
+    else:
+        ext, sign = lo_i, -1.0
+    half = 0.5 * trace[ext]
+    before = np.flatnonzero(sign * trace[:ext] > sign * half)
+    after = np.flatnonzero(sign * trace[ext:] < sign * half)
+    if before.size == 0 or after.size == 0:
+        return float("nan")
+    return float((ext + after[0] - before[0]) * dt_ms)
+
+
+def repolarization_slope(waveform, fs: float, *,
+                         upsampling_factor: float = _UPSAMPLING_FACTOR,
+                         window_samples: int = 20) -> float:
+    """Slope of the return towards baseline after the largest deflection (Jia et al. 2019).
+
+    Input class: as `waveform_halfwidth`; the peak channel, chosen and resampled the same way,
+    and the refusals are as there. The
+    form is that of ``calculate_waveform_repolarization_slope`` of ``ecephys_spike_sorting``
+    (``modules/mean_waveforms/waveform_metrics.py:220-244`` at commit 919992748a53): the
+    extremum is the first sample of largest ``|w|``; the trace is negated when that sample is
+    positive, so the extremum is always a trough; the slope is the least-squares line through
+    the `window_samples` resampled samples from the extremum on (fewer at the trace's end),
+    against time. It is in the waveform's unit per ms: µV/ms for a waveform in µV, which is
+    1000 times the V/s the source reports for the same waveform. Time is the source's axis, as
+    in `waveform_halfwidth`, which makes the slope lower than on the resampled trace's own
+    interval by ``(m - 1) / m``. On an exact tie of ``max``
+    and ``|min|`` the extremum is whichever comes first, unlike `waveform_halfwidth`. The
+    window is a number of resampled samples, so its duration changes with `fs` and
+    `upsampling_factor`: 20 samples of a 30 kHz trace resampled by 200/82 last 0.27 ms.
+
+    Args:
+        waveform: Mean waveform ``(n_channels, n_samples)``; rows are channels.
+        fs: Sampling rate in Hz.
+        upsampling_factor: Resampling factor, 1 or more; 200/82 in the source.
+        window_samples: Samples in the fit, 2 or more; 20 in the source
+            (``waveform_metrics.py:220``).
+
+    Returns:
+        The slope in the waveform's unit per ms; positive for a return towards baseline. NaN
+        when fewer than two samples remain from the extremum on.
+
+    Raises:
+        ValueError: As `waveform_halfwidth`, and if `window_samples` is not an integer of 2
+            or more.
+
+    References:
+        Jia, X., et al. (2019). High-density extracellular probes reveal dendritic
+        backpropagation and facilitate neuron classification. Journal of Neurophysiology
+        121(5), 1831-1847. doi:10.1152/jn.00680.2018
+    """
+    name = "repolarization_slope"
+    if isinstance(window_samples, bool) or not isinstance(window_samples, (int, np.integer)) \
+            or window_samples < 2:
+        raise ValueError(f"{name}: window_samples must be an integer of 2 or more; got "
+                         f"{window_samples!r}.")
+    trace, dt_ms = _upsampled_peak_trace(waveform, fs, upsampling_factor, name)
+    ext = int(np.argmax(np.abs(trace)))
+    y = -np.sign(trace[ext]) * trace[ext:ext + int(window_samples)]
+    if y.size < 2:
+        return float("nan")
+    t = np.arange(y.size) * dt_ms
+    tc = t - t.mean()
+    return float(np.dot(tc, y - y.mean()) / np.dot(tc, tc))
+
+
+def waveform_spread(waveform, *, site_spacing_um: float, threshold: float = 0.12,
+                    site_range: int = 16, site_step: int = 2,
+                    outlier_z: float = 1.5) -> float:
+    """Extent along the probe of the channels that carry the unit, in µm (Jia et al. 2019).
+
+    Input class: the unit's mean waveform ``(n_channels, n_samples)`` in any voltage unit,
+    rows in the probe's channel order, and the vertical distance `site_spacing_um` that one
+    step of `site_step` channels covers. The form is that of ``calculate_2D_features`` of
+    ``ecephys_spike_sorting`` (``modules/mean_waveforms/waveform_metrics.py:284-346`` at commit
+    919992748a53). The sites are every `site_step`-th channel within `site_range` channels of
+    the peak channel of `waveform_features`, on the probe, leaving out channel 0 as the source
+    does (``sites_to_sample > 0``, line 311). A site carries the unit when its amplitude
+    (maximum minus minimum) exceeds `threshold` times the largest site amplitude, strictly;
+    that is the peak channel's unless channel 0 is the peak. When more than one site does, a
+    site is dropped as an outlier when the modified z-score of its position,
+    ``0.6745 |x - median| / MAD`` (``isnot_outlier``, lines 397-433), exceeds `outlier_z`. The
+    spread is the number of sites kept times `site_spacing_um`; the source multiplies a spacing
+    in metres by 1e6, so the two agree to rounding (about 3e-14 µm), not bit for bit. The
+    source's spacing is the probe's vertical site spacing, 20 µm by default
+    (``common/schemas.py:11``), with two channels per row. The peak channel is the mean
+    waveform's channel of largest amplitude; the source takes it from the sorter's template
+    (``extract_waveforms.py:89``). A NaN sample or a waveform flat on every channel is
+    refused, where the source returns a number or NaN.
+
+    Args:
+        waveform: Mean waveform ``(n_channels, n_samples)``; rows in probe order.
+        site_spacing_um: Distance in µm between consecutive sites; required, finite, positive.
+        threshold: Fraction of the peak amplitude a site must exceed; 0.12 in the source
+            (line 284).
+        site_range: Channels on each side of the peak channel; 16 in the source (line 284).
+        site_step: Channels between sites; 2 in the source (line 309).
+        outlier_z: Modified z-score above which a site is an outlier; 1.5 in the source
+            (line 397).
+
+    Returns:
+        The spread in µm, at least `site_spacing_um` (the site of largest amplitude always
+        carries the unit).
+
+    Raises:
+        ValueError: If the waveform is not 2-D with at least one channel and two samples,
+            holds a NaN or an infinity, or has zero amplitude on every channel; no site
+            above channel 0 is in range;
+            `site_spacing_um` is not finite and positive; `threshold` is not in ``[0, 1)``;
+            `site_step` is not a positive integer; `site_range` is not a non-negative
+            multiple of `site_step`; or `outlier_z` is not finite and positive.
+
+    References:
+        Jia, X., et al. (2019). High-density extracellular probes reveal dendritic
+        backpropagation and facilitate neuron classification. Journal of Neurophysiology
+        121(5), 1831-1847. doi:10.1152/jn.00680.2018
+    """
+    name = "waveform_spread"
+    spacing = _positive_finite(site_spacing_um, "site_spacing_um", name)
+    z_max = _positive_finite(outlier_z, "outlier_z", name)
+    thr = float(threshold)
+    if not (np.isfinite(thr) and 0 <= thr < 1):
+        raise ValueError(f"{name}: threshold must be a fraction in [0, 1); got {threshold!r}.")
+    for label, value in (("site_step", site_step), ("site_range", site_range)):
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise ValueError(f"{name}: {label} must be an integer; got {value!r}.")
+    if site_step < 1 or site_range < 0 or site_range % site_step:
+        raise ValueError(
+            f"{name}: site_step must be positive and site_range a non-negative multiple of it; "
+            f"got site_step={site_step!r}, site_range={site_range!r}."
+        )
+    w = _mean_waveform(waveform, name)
+    peak, amplitudes = _peak_channel(w, name)
+    sites = peak + np.arange(-site_range, site_range + 1, site_step)
+    sites = sites[(sites > 0) & (sites < w.shape[0])]  # the source's `> 0` drops channel 0
+    if sites.size == 0:
+        raise ValueError(f"{name}: no site is left once channel 0 is dropped, as the source "
+                         "drops it; the waveform needs a channel above 0 within site_range.")
+    site_amplitudes = amplitudes[sites]
+    carrying = np.flatnonzero(site_amplitudes > thr * site_amplitudes.max())
+    if carrying.size > 1:
+        deviation = np.abs(carrying - np.median(carrying))
+        carrying = carrying[0.6745 * deviation / np.median(deviation) <= z_max]
+    return float(carrying.size * spacing)
 
 
 def waveform_snr(spike_waveforms) -> float:
@@ -380,8 +604,11 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
     and ``f`` is its smaller root, ``(1 - sqrt(1 - 2 r T / ((tau_R - tau_C) N^2))) / 2``. A
     violation is an inter-spike interval between consecutive spikes shorter than ``tau_R``;
     an interval within 1 ns of ``tau_R`` counts as equal to it, so spike times on a sample grid
-    compare exactly. The derivation is restated by Llobet et al. (2022). The result is
-    unitless, between 0 and 1/2.
+    compare exactly. Llobet et al. (2022) derive the same count (their eq. 1) and root (their
+    eq. 4, ``C'``) for a single contaminating unit, with ``T`` less the censored time. For
+    contamination from many units or noise they add contaminant-to-contaminant violations and
+    use their eq. 3 instead, which gives a lower contamination for the same ``r``; this
+    function computes Hill's. The result is unitless, between 0 and 1/2.
 
     Args:
         spike_times: 1-D spike times in seconds. Duplicate spike times are the caller's to
@@ -453,3 +680,62 @@ def refractory_contamination(spike_times, *, duration_s: float, refractory_ms: f
         return result
     result["contamination"] = 0.5 * (1.0 - float(np.sqrt(discriminant)))
     return result
+
+
+def amplitude_cutoff(amplitudes, *, num_histogram_bins: int = 500,
+                     histogram_smoothing_value: float = 3.0) -> float:
+    """Fraction of a unit's spikes missing below the detection threshold, from its amplitudes.
+
+    The form of ``amplitude_cutoff`` in ``ecephys_spike_sorting`` (AllenInstitute,
+    ``modules/quality_metrics/metrics.py:712-747`` at commit 919992748a53), after Hill et al.
+    (2011). Input class: one unit's spike amplitudes, any unit. It assumes the amplitude
+    distribution is symmetric about its mode and that detection cut off its lower tail, so
+    the missing lower tail equals the observed upper tail beyond the amplitude whose density
+    matches that of the lowest amplitudes; drift breaks the assumption. Steps: a histogram of
+    `num_histogram_bins` equal bins over the amplitudes' range, normalized to unit area;
+    smoothed by a Gaussian of `histogram_smoothing_value` bins (``scipy.ndimage.gaussian_filter1d``
+    with its defaults, reflecting edges and a kernel truncated at 4 standard deviations); from
+    its peak bin on, the first bin whose smoothed density is closest to the first bin's; the
+    sum of the smoothed density from that bin on, times the bin width. The result is unitless,
+    capped at 0.5, the most a symmetric distribution can hide.
+
+    Args:
+        amplitudes: 1-D spike amplitudes; at least one, all finite.
+        num_histogram_bins: Histogram bins; 500 in the source (line 712).
+        histogram_smoothing_value: Standard deviation of the smoothing Gaussian in bins; 3 in
+            the source (line 712).
+
+    Returns:
+        The missing fraction, between 0 and 0.5.
+
+    Raises:
+        ValueError: If `amplitudes` is not 1-D, is empty or holds a NaN or an infinity; if
+            `num_histogram_bins` is not an integer of 2 or more (one bin has no width in
+            the source); or if
+            `histogram_smoothing_value` is not finite and positive.
+
+    References:
+        Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike
+        sorting of extracellular signals. Journal of Neuroscience 31(24), 8699-8705.
+        doi:10.1523/JNEUROSCI.0971-11.2011
+    """
+    from scipy.ndimage import gaussian_filter1d
+
+    name = "amplitude_cutoff"
+    if isinstance(num_histogram_bins, bool) or not isinstance(num_histogram_bins, (int, np.integer)) \
+            or num_histogram_bins < 2:
+        raise ValueError(f"{name}: num_histogram_bins must be an integer of 2 or more; got "
+                         f"{num_histogram_bins!r}.")
+    sigma = _positive_finite(histogram_smoothing_value, "histogram_smoothing_value", name)
+    a = np.asarray(amplitudes, dtype=float)
+    if a.ndim != 1 or a.size == 0:
+        raise ValueError(f"{name}: amplitudes must be a non-empty 1-D array; got shape {a.shape}.")
+    if not np.all(np.isfinite(a)):
+        raise ValueError(f"{name}: amplitudes holds {int(np.sum(~np.isfinite(a)))} NaN or "
+                         "infinite value(s).")
+    density, edges = np.histogram(a, int(num_histogram_bins), density=True)
+    smoothed = gaussian_filter1d(density, sigma)
+    mode = int(np.argmax(smoothed))
+    match = mode + int(np.argmin(np.abs(smoothed[mode:] - smoothed[0])))
+    width = float(np.mean(np.diff(edges[:-1])))  # the source's mean step of the left edges
+    return float(min(float(np.sum(smoothed[match:])) * width, 0.5))

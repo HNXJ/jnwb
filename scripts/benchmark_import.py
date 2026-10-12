@@ -22,7 +22,6 @@ import argparse
 import json
 import os
 import platform
-import re
 import statistics
 import subprocess
 import sys

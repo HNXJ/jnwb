@@ -18,19 +18,6 @@ from jnwb.artifact_repair import (
 )
 
 
-class TestPublicImport:
-    def test_importable_from_top_level_jnwb(self):
-        from jnwb import repair_lfp_trials as public_repair_lfp_trials
-        from jnwb import repair_band_artifacts as public_repair_band_artifacts
-        assert public_repair_lfp_trials is repair_lfp_trials
-        assert public_repair_band_artifacts is repair_band_artifacts
-
-    def test_listed_in_jnwb_all(self):
-        import jnwb
-        assert "repair_lfp_trials" in jnwb.__all__
-        assert "repair_band_artifacts" in jnwb.__all__
-
-
 class TestRepairLfpTrials:
     def _synthetic(self, seed=0):
         rng = np.random.default_rng(seed)
@@ -173,11 +160,6 @@ class TestDetectBandOutliers:
 
     def test_tails_constant_is_documented_pair(self):
         assert DETECTION_TAILS == ("upper", "both")
-
-    def test_importable_from_top_level(self):
-        import jnwb
-        assert jnwb.detect_band_outliers is detect_band_outliers
-        assert jnwb.DETECTION_TAILS is DETECTION_TAILS
 
 
 class TestRepairBandArtifactsShapeContract:

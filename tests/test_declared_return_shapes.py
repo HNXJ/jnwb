@@ -12,16 +12,17 @@ these are fixtures, and the dimensions are chosen mutually distinct -- 7 trials,
 512 samples, 5 channels -- so that no two axes can be confused for one another and a
 transposed return would fail rather than coincide.
 
-Five exported functions declare a named shape in a `Returns:` block.
+Nine exported functions declare a named shape in a `Returns:` block.
 `build_time_resolved_matrix` and `compute_population_trajectory` each take a live NWB
 session and are not constructible here; `TestTheUncoveredTwoAreNamed` keeps that gap stated
-rather than implied by their absence. The third, `laplacian_reference`, is pinned in
+rather than implied by their absence. `laplacian_reference` is pinned in
 `tests/test_axis_convention_matches_the_specification.py`, where its axis order is the
-subject.
+subject; the other six are checked below.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import inspect
 import re
 
@@ -120,6 +121,26 @@ class TestSpikingPopulationMeasures:
         assert out["counts"].shape == (2, 3)
 
 
+class TestNormalizeWaveforms:
+    def test_it_declares_and_returns_units_by_samples(self):
+        """Three units of 48 samples: 3 and 48 cannot be swapped."""
+        assert ("n_units", "n_samples") in declared_shapes(jnwb.normalize_waveforms)
+        rng = np.random.default_rng(0)
+        assert jnwb.normalize_waveforms(rng.standard_normal((3, 48))).shape == (3, 48)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("umap") is None
+                    or importlib.util.find_spec("networkx") is None,
+                    reason="needs the wavemap extra: pip install jnwb[wavemap]")
+class TestWavemapResolutionSweep:
+    def test_it_declares_and_returns_runs_by_subset(self):
+        """Three runs of 30 of 60 units: 3 and 30 cannot be swapped."""
+        assert ("n_runs", "n_subset") in declared_shapes(jnwb.wavemap_resolution_sweep)
+        x = jnwb.normalize_waveforms(np.random.default_rng(0).standard_normal((60, 48)))
+        out = jnwb.wavemap_resolution_sweep(x, [1.0], n_runs=3, fraction=0.5, rng=0)
+        assert out["units"].shape == (3, 30)
+
+
 class TestTheUncoveredTwoAreNamed:
     """A gap that is stated cannot be mistaken later for a dimension that was checked."""
 
@@ -143,7 +164,8 @@ class TestTheListOfDeclaringFunctionsIsComplete:
     def test_every_function_declaring_a_return_shape_is_accounted_for(self):
         """A new declaration must be covered or named, not silently join the gap."""
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
-                   "spike_count_correlation", "fano_factor", *NEEDS_A_SESSION}
+                   "spike_count_correlation", "fano_factor", "normalize_waveforms",
+                   "wavemap_resolution_sweep", *NEEDS_A_SESSION}
         declaring = {
             name for name in jnwb.__all__
             if callable(getattr(jnwb, name, None))

@@ -511,7 +511,7 @@ class TestEveryReturnsLineHasTheRightArity:
 
 
 #: Where a contributor or an agent is told how many gates there are.
-GATE_COUNT_SURFACES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "artifacts/agents.md")
+GATE_COUNT_SURFACES = ("AGENTS.md", ".github/CONTRIBUTING.md", "README.md", "artifacts/agents.md")
 GATE_COUNT_GLOBS = ("artifacts/agents/*.md",)
 
 #: "Gates 1-16" (any dash) and "18 repository gates" / "18 gates". A count written as a word, a

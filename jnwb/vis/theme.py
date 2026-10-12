@@ -14,7 +14,8 @@ spines, and there is no dark variant. On a dark page a figure shows as a white p
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+import re
+from typing import Any, Dict, List
 import plotly.graph_objects as go
 
 
@@ -160,6 +161,23 @@ def required_text(name: str, value: Any) -> str:
 def unit_label(quantity: str | None, unit: str) -> str:
     """``"<quantity> (<unit>)"``, or ``unit`` alone when no quantity is named."""
     return f"{quantity} ({unit})" if quantity else unit
+
+
+def checked_colorbar_label(colorbar_title: str | None, value_unit: str) -> str:
+    """Colorbar label for a quantity in ``value_unit``, or ``ValueError``.
+
+    The colorbar carries the unit once. A ``colorbar_title`` that is given must be non-blank and
+    must not name ``value_unit``; ``None`` labels the colorbar with ``value_unit`` alone.
+    """
+    value_unit = required_text("value_unit", value_unit)
+    if colorbar_title is not None:
+        required_text("colorbar_title", colorbar_title)
+        if re.search(rf"(?<![\w/]){re.escape(value_unit)}(?![\w/])", colorbar_title):
+            raise ValueError(
+                f"colorbar_title {colorbar_title!r} names the unit {value_unit!r}, which the "
+                "colorbar already carries; pass the quantity alone, for example colorbar_title='CSD'."
+            )
+    return unit_label(colorbar_title, value_unit)
 
 
 def configure_axis(

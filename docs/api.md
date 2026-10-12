@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 186 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 197 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -150,7 +150,7 @@ All 186 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.classify_unit_quality | function | `(units_df: pandas.DataFrame, thresholds: Dict[str, float] | None = None) -> pandas.DataFrame`<br>*Classify units by quality based on metrics.* |
 | jnwb.electrode_inventory | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], on_read_error: Literal['skip', 'raise'] = 'skip') -> pandas.DataFrame`<br>*Build inventory of electrodes, mapping to units and areas.* |
 | jnwb.filter_by_criteria | function | `(df: pandas.DataFrame, criteria: Dict, *, unknown: Literal['ignore', 'raise'] = 'ignore') -> pandas.DataFrame`<br>*Apply a criteria dict to a DataFrame (units, electrodes, or any other table).* |
-| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | List[str | pathlib.Path], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean')) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
+| jnwb.get_all_units_metadata | function | `(nwb_paths: str | pathlib.Path | pynwb.file.NWBFile | List[str | pathlib.Path | pynwb.file.NWBFile], filter_quality: bool = False, quality_threshold: float = 1.0, on_read_error: Literal['skip', 'raise'] = 'skip', *, stable_threshold: float = 1.0, stable_labels: typing.Collection = ('good', 'sua', 'single', 'stable', 'clean'), allow_missing: typing.Sequence | str | None = None) -> pandas.DataFrame`<br>*Extract all units and metadata from one or more NWB files.* |
 | jnwb.get_snr_analysis | function | `(units_df: pandas.DataFrame, snr_threshold: float = 1.0, detail: bool = False) -> Dict`<br>*Analyze SNR distribution and quality.* |
 | jnwb.unit_census_report | function | `(units_df: pandas.DataFrame, group_by: List[str] | None = None) -> pandas.DataFrame`<br>*Generate a census/summary report of units grouped by session, area and depth class.* |
 
@@ -190,7 +190,9 @@ All 186 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.RaggedIndexRepair | class | *Outcome of ``repair_ragged_index``. ``written`` is False for a dry run and True only after the written index was re-read, checked and moved into place; ``output_path`` is the file that holds it (``None`` for a dry run).* |
 | jnwb.RaggedIndexRepairRefused | class | *``repair_ragged_index`` found a condition under which it must not write.* |
 | jnwb.RaggedIndexReport | class | *All ragged columns of one table. ``unlisted_ragged_columns`` are datasets that have a ``<name>_index`` partner but are absent from the table's ``colnames`` attribute, which makes pynwb hide them. ``ok`` is every column ``ok`` and no unlisted column.* |
+| jnwb.WaveformBlockReport | class | *Every unit's waveform block of one table. ``ok`` is every unit ``"owned"``: an ``"unknown"`` is explicit uncertainty, not a pass. ``rtol``/``atol`` echo the tolerances the verdicts were computed with.* |
 | jnwb.check_ragged_indices | function | `(path: 'str | Path', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None) -> 'RaggedIndexReport'`<br>*Check every ``<column>_index`` of one table of an NWB file, without writing.* |
+| jnwb.check_waveform_blocks | function | `(path: 'str | Path', *, table: 'str' = 'units', rtol: 'float', atol: 'float' = 0.0) -> 'WaveformBlockReport'`<br>*Check every unit's ``waveform_mean`` block against its stored ``amplitude``.* |
 | jnwb.repair_ragged_index | function | `(path: 'str | Path', column: 'str', *, table: 'str' = 'units', probe_starts: 'Sequence[int] | None' = None, probe_column: 'str | None' = None, dry_run: 'bool' = True, output_path: 'str | Path | None' = None, in_place: 'bool' = False, backup_path: 'str | Path | None' = None) -> 'RaggedIndexRepair'`<br>*Correct one ragged index that carries the multi-probe offset defect.* |
 
 ## Module: jnwb.nwb_io
@@ -332,13 +334,17 @@ All 186 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.amplitude_cutoff | function | `(amplitudes, *, num_histogram_bins: 'int' = 500, histogram_smoothing_value: 'float' = 3.0) -> 'float'`<br>*Fraction of a unit's spikes missing below the detection threshold, from its amplitudes.* |
 | jnwb.isi_cv | function | `(spike_times) -> 'float'`<br>*Coefficient of variation of the inter-spike intervals (Shinomoto et al. 2009, eq. 1).* |
 | jnwb.presence_ratio | function | `(spike_times, blocks) -> 'float'`<br>*Fraction of caller-given blocks that hold at least one spike (Siegle et al. 2021).* |
 | jnwb.refractory_contamination | function | `(spike_times, *, duration_s: 'float', refractory_ms: 'float', censored_ms: 'float') -> 'Dict[str, Any]'`<br>*Fraction of a unit's spikes that come from a contaminating source (Hill et al. 2011).* |
+| jnwb.repolarization_slope | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024, window_samples: 'int' = 20) -> 'float'`<br>*Slope of the return towards baseline after the largest deflection (Jia et al. 2019).* |
 | jnwb.spatial_derivative_sharpness | function | `(waveform, channel_positions, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*How sharply amplitude falls from the peak channel to its nearest channels.* |
 | jnwb.waveform_features | function | `(waveform, fs: 'float') -> 'Dict[str, Any]'`<br>*Peak channel, amplitude, trough-to-peak duration, peak-trough ratio and polarity.* |
 | jnwb.waveform_flatness | function | `(waveform, *, threshold: 'float') -> 'Dict[str, Any]'`<br>*Whether a mean waveform is flat: its peak-channel amplitude is below `threshold`.* |
+| jnwb.waveform_halfwidth | function | `(waveform, fs: 'float', *, upsampling_factor: 'float' = 2.4390243902439024) -> 'float'`<br>*Width of the largest deflection at half its height, in ms (Jia et al. 2019).* |
 | jnwb.waveform_snr | function | `(spike_waveforms) -> 'float'`<br>*Signal-to-noise ratio of one unit on one channel (Siegle et al. 2021, Methods).* |
+| jnwb.waveform_spread | function | `(waveform, *, site_spacing_um: 'float', threshold: 'float' = 0.12, site_range: 'int' = 16, site_step: 'int' = 2, outlier_z: 'float' = 1.5) -> 'float'`<br>*Extent along the probe of the channels that carry the unit, in µm (Jia et al. 2019).* |
 
 ## Module: jnwb.viz
 
@@ -349,3 +355,13 @@ All 186 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.resample_onsets | function | `(onsets: numpy.ndarray, target_n: int = 100, rng: int | numpy.random._generator.Generator | None = 42, *, random_state: typing.Any = 42) -> numpy.ndarray`<br>*Resample a trial-onset array to exactly ``target_n`` onsets (with replacement if there are fewer than ``target_n`` available), for a consistent raster trial count across units with different trial counts.* |
 | jnwb.save_figure_suite | function | `(figures: List[matplotlib.figure.Figure], output_dir: str | pathlib.Path, basename: str, dpi: int = 300, formats: List[str] = ['png', 'pdf']) -> None`<br>*Save a suite of figures to disk with consistent naming.* |
 | jnwb.setup_vector_graphics | function | `()`<br>*Enforce editable vector SVG font rendering in Adobe Illustrator / Inkscape.* |
+
+## Module: jnwb.wavemap
+
+| Symbol | Type | Signature / Description |
+|---|---|---|
+| jnwb.WaveMAPResult | class | *What `wavemap` returns.* |
+| jnwb.align_waveforms | function | `(waveforms, fs: 'float', *, pre_s: 'float' = 0.0004, post_s: 'float' = 0.0012) -> 'Tuple[np.ndarray, np.ndarray]'`<br>*Cut each mean waveform to the window ``[trough - pre_s, trough + post_s)``.* |
+| jnwb.normalize_waveforms | function | `(waveforms, *, subtract_mean: 'bool' = True) -> 'np.ndarray'`<br>*Scale each row so its largest absolute value is 1, after removing its mean.* |
+| jnwb.wavemap | function | `(waveforms, *, resolution: 'float', n_neighbors: 'int' = 20, min_dist: 'float' = 0.1, metric: 'str' = 'euclidean', embedding: 'bool' = True, rng: 'RNGLike' = 42) -> 'WaveMAPResult'`<br>*Cluster normalized mean waveforms on their UMAP graph with Louvain (Lee et al. 2021).* |
+| jnwb.wavemap_resolution_sweep | function | `(waveforms, resolutions: 'Sequence[float]', *, n_runs: 'int' = 25, fraction: 'float' = 0.8, n_neighbors: 'int' = 20, metric: 'str' = 'euclidean', rng: 'RNGLike' = 42) -> 'Dict[str, np.ndarray]'`<br>*Modularity and cluster count across resolutions, over random subsets of units.* |

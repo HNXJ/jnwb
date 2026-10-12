@@ -23,6 +23,7 @@ S = jnwb.StatisticalAnalysis
 #: (skill, phrase in its SKILL.md, callable, parameter, stated default). A callable of None
 #: marks a claim about the whole surface, checked by `_n_jobs_is_one_everywhere`.
 CLAIMS = [
+    ("jnwb-qc", "48 samples at 30 kHz by default", jnwb.align_waveforms, "pre_s", 0.0004),
     ("jnwb-connectivity", "the default is not the lag search", jnwb.cross_modal_comparison,
      "bin_ms", None),
     ("jnwb-lfp-spectral", "`normalize` defaults to **True**", jnwb.band_power, "normalize", True),

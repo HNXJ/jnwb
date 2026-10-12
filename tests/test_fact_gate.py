@@ -134,6 +134,13 @@ def test_a_todo_holder_is_unheld_only_while_its_item_is_live():
         "VIOLATED", [f"todo:{ITEM} is not a live item"])
 
 
+def test_a_todo_holder_naming_a_roadmap_row_is_unheld():
+    roadmap = ("| ID | Theme | Defect | Waits | Release |\n|---|---|---|---|---|\n"
+               "| 12-09 | a theme | a defect | a reason | deferred-99.0.0 |\n")
+    items = fact_gate.live_items(f"### {ITEM} An item\n", roadmap)
+    assert status(graph(), "todo:12-09", items=items) == ("UNHELD", ["held by todo 12-09"])
+
+
 def test_a_test_reaches_an_export_only_through_an_import_of_the_package():
     source = (
         "import jnwb.ontology as O\n"
@@ -271,3 +278,194 @@ def test_the_harness_gate_fails_on_a_violated_fact_and_names_the_source(monkeypa
     monkeypatch.setattr(fact_gate, "run", lambda: (REPO_ROOT / "facts.md", results))
     assert harness_gate.check_fact_predicates() == ["X1: planted"]
     assert "facts.md" in harness_gate._fact_pass_line()
+
+
+PARTITION_CONSTANTS = {**CONSTANTS, "k": ["3"]}
+
+
+def skill_graph(routes):
+    """Shipped skills, each with the routing targets it names, as the graph records them."""
+    return {
+        "entities": {"skill": sorted(routes)},
+        "relations": {"routes": [[skill, t] for skill in sorted(routes) for t in routes[skill]]},
+    }
+
+
+def partition_status(routes, constants=PARTITION_CONSTANTS):
+    return status(skill_graph(routes), "computed:partition", constants=constants)
+
+
+def exclusive_to(routes, skill):
+    """The targets `skill` routes that no other domain skill routes; the router is outside."""
+    others = {t for s, ts in routes.items() if s not in ("jnwb", skill) for t in ts}
+    return sorted(set(routes[skill]) - others)
+
+
+def test_a_domain_skill_with_two_exclusive_operations_is_violated():
+    routes = {
+        "jnwb": ["a", "x"],
+        "jnwb-two": ["x", "y"],
+        "jnwb-three": ["p", "q", "r"],
+    }
+    assert exclusive_to(routes, "jnwb-two") == ["x", "y"], "fixture must give jnwb-two two exclusive operations"
+    assert exclusive_to(routes, "jnwb-three") == ["p", "q", "r"]
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: jnwb-two owns 2 exclusive operations, fewer than 3"])
+
+
+def test_every_domain_skill_with_three_exclusive_operations_is_held():
+    routes = {
+        "jnwb": ["a", "p", "x"],
+        "jnwb-one": ["p", "q", "r"],
+        "jnwb-two": ["x", "y", "z"],
+    }
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [3, 3]
+    assert partition_status(routes) == ("HELD", [])
+
+
+def test_an_operation_two_domain_skills_route_breaks_the_partition():
+    routes = {"jnwb-one": ["p", "q", "r", "shared"], "jnwb-two": ["x", "y", "z", "shared"]}
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [3, 3], (
+        "fixture must meet the floor, so only the shared operation can fail it")
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: shared is routed by jnwb-one, jnwb-two"])
+
+
+def test_the_floor_is_read_from_the_k_constant():
+    routes = {"jnwb-one": ["p", "q"], "jnwb-two": ["x", "y"]}
+    assert [len(exclusive_to(routes, s)) for s in ("jnwb-one", "jnwb-two")] == [2, 2]
+    assert partition_status(routes) == ("VIOLATED", [
+        "computed:partition: jnwb-one owns 2 exclusive operations, fewer than 3",
+        "computed:partition: jnwb-two owns 2 exclusive operations, fewer than 3"])
+    assert partition_status(routes, constants={**CONSTANTS, "k": ["2"]}) == ("HELD", [])
+
+
+def test_a_domain_skill_that_routes_nothing_is_violated():
+    routes = {"jnwb": ["a"], "jnwb-one": ["p", "q", "r"], "jnwb-silent": []}
+    assert exclusive_to(routes, "jnwb-silent") == []
+    assert partition_status(routes) == (
+        "VIOLATED", ["computed:partition: jnwb-silent owns 0 exclusive operations, fewer than 3"])
+    assert partition_status({"jnwb": ["a"]}) == (
+        "VIOLATED", ["computed:partition: the graph names no domain skill"])
+
+
+def test_the_skill_partition_needs_the_k_constant():
+    with pytest.raises(ValueError, match="name no k"):
+        partition_status({"jnwb-one": ["p"]}, constants=CONSTANTS)
+
+
+def test_the_live_tree_gives_every_domain_skill_its_floor_of_exclusive_operations(live):
+    source, g = live
+    constants = build_fact_graph.read_constants(source.read_text(encoding="utf-8"))
+    counts = fact_gate.exclusive_counts(g)
+    assert counts, "no domain skill was read from the live graph"
+    assert set(counts) == set(g["entities"]["skill"]) - {"jnwb"}
+    assert fact_gate.partition(g, constants) == [], counts
+    _, results = fact_gate.run(facts_path=source, graph=g)
+    assert {f: s for f, s, _ in results}["K1"] == "HELD"
+
+
+GLOBAL_SEEDED = "import numpy as np\n\ndef f():\n    np.random.seed(0)\n    return np.random.rand()\n"
+GLOBAL_SEEDED_FROM_IMPORT = "from random import seed\n\nseed(3)\n"
+GENERATOR_ONLY = (
+    "import random\nimport numpy as np\n\n"
+    "def f(rng):\n    return rng.integers(4)\n\n"
+    "local = random.Random(0)\nlocal.seed(5)\nrng = np.random.default_rng(0)\n"
+)
+UNNAMED_RNG = "import numpy as np\n\ndef f(x):\n    return np.random.default_rng(0).normal(size=x)\n"
+NAMED_RNG = "import numpy as np\n\ndef f(x, rng):\n    return rng.normal(size=x)\n"
+DB_AVERAGE = "import numpy as np\n\ndef f(p):\n    return np.mean(10 * np.log10(p))\n"
+DB_AVERAGE_BY_NAME = ("import numpy as np\n\ndef f(p):\n    db = 10 * np.log10(p)\n"
+                      "    return np.nanmean(db, axis=0)\n")
+DB_SUM_OVER_COUNT = "import numpy as np\n\ndef f(p):\n    return np.sum(10 * np.log10(p)) / p.size\n"
+DB_MEDIAN = "import numpy as np\n\ndef f(p):\n    return np.median(10 * np.log10(p))\n"
+RAW_AVERAGE_THEN_LOG = "import numpy as np\n\ndef f(p):\n    m = np.mean(p)\n    return 10 * np.log10(m)\n"
+LIVE_CONSTANTS = build_fact_graph.read_constants(build_fact_graph.FACT_STACK.read_text(encoding="utf-8"))
+SCAN_RELATIONS = ("global_seeds", "rng_parameters", "db_averages")
+
+
+def scanned(python=("jnwb/a.py", "scripts/b.py"), **relations):
+    """A graph whose files are read, holding the scan relations the caller names."""
+    return {"entities": {"python": list(python)},
+            "relations": {name: relations.get(name, []) for name in SCAN_RELATIONS}}
+
+
+def test_a_global_seed_call_is_violated():
+    assert "np.random.seed(0)" in GLOBAL_SEEDED, "fixture must seed the global state"
+    assert build_fact_graph.global_seed_calls(GLOBAL_SEEDED) == ["line 4: np.random.seed"]
+    assert "seed(3)" in GLOBAL_SEEDED_FROM_IMPORT, "fixture must call the imported seed"
+    assert build_fact_graph.global_seed_calls(GLOBAL_SEEDED_FROM_IMPORT) == ["line 3: seed"]
+
+
+@pytest.mark.parametrize("source, spelled", [
+    ("import numpy.random as nr\nnr.seed(1)\n", "nr.seed"),
+    ("from numpy import random as npr\nnpr.seed(1)\n", "npr.seed"),
+    ("from numpy.random import seed as s\ns(1)\n", "s"),
+    ("import random as r\nr.seed(1)\n", "r.seed"),
+])
+def test_a_global_seed_reached_through_an_alias_is_violated(source, spelled):
+    assert f"{spelled}(1)" in source, "fixture must call the seed"
+    assert build_fact_graph.global_seed_calls(source) == [f"line 2: {spelled}"]
+
+
+def test_a_generator_and_a_local_instance_are_held():
+    assert "default_rng(0)" in GENERATOR_ONLY and "local.seed(5)" in GENERATOR_ONLY, (
+        "fixture must build a generator and seed a local instance")
+    assert build_fact_graph.global_seed_calls(GENERATOR_ONLY) == []
+
+
+def test_a_global_seed_anywhere_in_the_tree_is_violated_and_an_unread_tree_is_not_a_pass():
+    seeded = [["tests/t.py", "line 2: np.random.seed"]]
+    assert status(scanned(global_seeds=seeded), "computed:global_seeds") == (
+        "VIOLATED", ["computed:global_seeds: tests/t.py: line 2: np.random.seed"])
+    assert status(scanned(), "computed:global_seeds") == ("HELD", [])
+    assert status(scanned(python=()), "computed:global_seeds") == (
+        "VIOLATED", ["computed:global_seeds: the graph reads no python file"])
+
+
+def test_a_consumer_without_an_rng_parameter_is_violated():
+    assert "default_rng(0)" in UNNAMED_RNG, "fixture must draw from a numpy generator"
+    assert build_fact_graph.rng_violations(UNNAMED_RNG) == [
+        "line 3: f draws without an rng parameter"]
+    assert "rng.normal" in NAMED_RNG, "fixture must draw from the generator it takes"
+    assert build_fact_graph.rng_violations(NAMED_RNG) == []
+
+
+def test_the_rng_rule_is_read_from_the_jnwb_and_scripts_files():
+    violated = [["scripts/s.py", "line 3: f draws without an rng parameter"]]
+    assert status(scanned(rng_parameters=violated), "computed:rng_parameters") == (
+        "VIOLATED", ["computed:rng_parameters: scripts/s.py: line 3: f draws without an rng parameter"])
+    assert status(scanned(), "computed:rng_parameters") == ("HELD", [])
+    assert status(scanned(python=("docs/x.py",)), "computed:rng_parameters") == (
+        "VIOLATED", ["computed:rng_parameters: the graph reads no jnwb or scripts python file"])
+
+
+@pytest.mark.parametrize("source, expected", [
+    (DB_AVERAGE, ["line 4: np.mean over a dB value"]),
+    (DB_AVERAGE_BY_NAME, ["line 5: np.nanmean over a dB value"]),
+    (DB_SUM_OVER_COUNT, ["line 4: np.sum over a dB value divided by a count"]),
+])
+def test_an_average_of_dB_values_is_violated(source, expected):
+    assert "log10" in source, "fixture must convert to dB"
+    assert build_fact_graph.db_average_violations(source, LIVE_CONSTANTS) == expected
+
+
+@pytest.mark.parametrize("source", [DB_MEDIAN, RAW_AVERAGE_THEN_LOG])
+def test_a_median_of_dB_values_and_an_average_of_raw_power_are_not_flagged(source):
+    assert "log10" in source, "fixture must convert to dB"
+    assert build_fact_graph.db_average_violations(source, LIVE_CONSTANTS) == []
+
+
+def test_the_dB_rule_is_read_from_the_jnwb_files():
+    flagged = [["jnwb/a.py", "line 4: np.mean over a dB value"]]
+    assert status(scanned(db_averages=flagged), "computed:db_averages") == (
+        "VIOLATED", ["computed:db_averages: jnwb/a.py: line 4: np.mean over a dB value"])
+    assert status(scanned(), "computed:db_averages") == ("HELD", [])
+    assert status(scanned(python=("scripts/s.py",)), "computed:db_averages") == (
+        "VIOLATED", ["computed:db_averages: the graph reads no jnwb python file"])
+
+
+def test_the_live_graph_reads_the_python_files_the_scans_need(live):
+    _, g = live
+    python = g["entities"]["python"]
+    assert python and any(p.startswith("jnwb/") for p in python), "the graph read no jnwb file"

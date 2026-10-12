@@ -1,8 +1,6 @@
 """Regression tests from independent_audit_0.1.7 — discriminating probes per finding."""
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pytest
 
@@ -132,7 +130,7 @@ class TestSpikeMIBinGrid:
 
 class TestGrangerAutoOrder:
     def test_auto_order_matches_select_optimal_lag(self):
-        from jnwb.connectivity import granger, select_optimal_lag
+        from jnwb.connectivity import select_optimal_lag
 
         rng = np.random.default_rng(1)
         x = rng.normal(size=400)

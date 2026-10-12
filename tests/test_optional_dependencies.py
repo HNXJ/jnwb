@@ -1,5 +1,4 @@
 """Test clean import and feature-use isolation for optional dependencies."""
-import importlib
 import pytest
 import unittest
 from unittest.mock import patch

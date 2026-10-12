@@ -70,8 +70,37 @@ Each function draws into one `(row, col)` of a canvas.
 | `plot_spectral_modulation_matrix` | area x band modulation, with FDR-corrected markers |
 | `plot_granger_spectra` | directed Granger spectra, with a shuffle-null ribbon |
 | `plot_hierarchy_regression` | values over hierarchy rank with supplied error bars and null; computes a least-squares line; `y_label=` names the quantity |
-| `plot_decoding_timecourse` | cross-validated decoding over time, with a CI ribbon |
+| `plot_decoding_timecourse` | cross-validated decoding over time, with a CI ribbon, drawn only when both `ci_low` and `ci_high` are given |
 | `plot_rsm_heatmap` | a representational similarity or dissimilarity matrix |
 
 Every other interval, null and correction is an input: compute it with the jnwb operation
 that estimates it and pass the result in. Signatures are on [Public API](api.md).
+
+## WaveMAP display
+
+`plot_wavemap` draws one `WaveMAPResult` from `jnwb.wavemap`: the 2-d UMAP embedding, one trace
+per cluster (panel A), and each cluster's mean of the normalized waveforms in the same color
+(panel B). It takes no canvas and is called as `plot_wavemap(result, waveforms)`; `layout` and
+`height_mm` are keyword-only options. It builds a one-row, two-panel canvas and returns it, so the
+figure is written with `canvas.fig` or sealed with `save_and_seal`. The mean is the only value
+it computes; the embedding and the labels are the result's. It refuses a result whose
+`embedding` is `None` (call `wavemap(..., embedding=True)`), labels or an embedding whose length
+differs from the waveform rows, a result or waveform set with no units, and a row with no finite
+normalized value.
+
+```python
+import numpy as np
+import jnwb
+from jnwb import vis
+
+rng = np.random.default_rng(0)
+mean_waveforms = rng.normal(size=(60, 82))           # units x samples, synthetic
+mean_waveforms[:, 30] -= 5.0                         # a trough at sample 30 in every unit
+
+aligned, valid = jnwb.align_waveforms(mean_waveforms, fs=30000.0)
+x = jnwb.normalize_waveforms(aligned[valid])
+result = jnwb.wavemap(x, resolution=1.5, rng=0)
+
+canvas = vis.plot_wavemap(result, aligned[valid])
+canvas.fig.write_html("wavemap.html", include_plotlyjs="cdn")
+```

@@ -117,6 +117,7 @@ nav:
       - Ensembles & Decoding: tutorials/07_ensembles.md
       - End-to-End Workflow: tutorials/08_end_to_end_pipeline.md
       - Open Data: tutorials/09_open_data.md
+      - WaveMAP: tutorials/10_wavemap.md
 
   # The agent and design readers share one group: rule N2 forbids a group of one page, and
   # each arrival has one page of its own.

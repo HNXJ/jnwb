@@ -1,6 +1,6 @@
 ---
 name: jnwb-qc
-description: Quality control of unit and electrode tables and of results -- unit-quality measures and classes, table audits, unit-quality plots for inspection, and the record of what ran, on what inputs, with which parameters.
+description: Quality control of unit and electrode tables and of results -- unit-quality measures and classes, WaveMAP waveform clustering, table audits, unit-quality plots for inspection, and the record of what ran, on what inputs, with which parameters.
 ---
 
 # `jnwb-qc` — Table Audits, Unit-Quality Plots & Result Records
@@ -22,11 +22,24 @@ parameters and seed, and the inputs the result came from. Reading the tables rou
 Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_onset_dynamics.md` section 5 defines them.
 
 - `jnwb.waveform_features(waveform, fs)`: Peak channel, amplitude, trough-to-peak duration in ms, peak-trough ratio and polarity of a mean waveform `(n_channels, n_samples)`. `fs` in Hz is required: request it when the file does not give it.
+- `jnwb.waveform_halfwidth(waveform, fs, *, upsampling_factor=...)` and `jnwb.repolarization_slope(waveform, fs, *, upsampling_factor=..., window_samples=20)`: Half-width in ms and repolarization slope in the waveform's unit per ms (for a waveform in µV, the value in µV/ms is 1000 times the value `ecephys_spike_sorting` reports in V/s), on the peak channel resampled by 200/82, as `ecephys_spike_sorting` computes them (Jia et al. 2019). `fs` in Hz is required: request it. Either is NaN when the trace leaves no sample to measure; `upsampling_factor=1` reads the trace as given.
+- `jnwb.waveform_spread(waveform, *, site_spacing_um, threshold=0.12, site_range=16, site_step=2, outlier_z=1.5)`: Extent in µm of the sites, every second channel within 16 of the peak channel, whose amplitude exceeds 12 % of the peak's, outliers dropped, channel 0 never a site (Jia et al. 2019, in the form of `ecephys_spike_sorting`). The rows must be in probe order and `site_spacing_um` is required: request the probe geometry.
 - `jnwb.waveform_snr(spike_waveforms)`: SNR of one unit on one channel from its `(n_spikes, n_samples)` waveforms; NaN for one spike or identical spikes.
 - `jnwb.waveform_flatness(waveform, *, threshold)` and `jnwb.spatial_derivative_sharpness(waveform, channel_positions, *, threshold)`: Flat and sharp flags against a `threshold` the caller gives; neither has a default or a published value, so state it with every flag. The sharpness needs two or more channels and their positions: request the geometry when the waveform has one channel or no positions.
 - `jnwb.presence_ratio(spike_times, blocks)`: Fraction of the caller's `[start, stop)` blocks, in seconds, that hold a spike.
 - `jnwb.isi_cv(spike_times)`: Coefficient of variation of the intervals; NaN under three spikes.
-- `jnwb.refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)`: Contaminating fraction after Hill et al. (2011). The duration and both periods are required: request them. `contamination` is NaN, with a `reason`, for an empty train, a zero duration or an equation with no real root.
+- `jnwb.refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)`: Contaminating fraction after Hill et al. (2011). The duration and both periods are required: request them. `contamination` is NaN, with a `reason`, for an empty train or an equation with no real root. A zero `duration_s` with spikes whose span exceeds it raises `ValueError`.
+- `jnwb.amplitude_cutoff(amplitudes, *, num_histogram_bins=500, histogram_smoothing_value=3.0)`: Fraction of spikes missing below the detection threshold, from one unit's amplitudes, in the form of `ecephys_spike_sorting` after Hill et al. (2011), capped at 0.5. It assumes a symmetric amplitude distribution, which drift breaks: report drift beside it.
+
+### Waveform clustering (WaveMAP)
+
+Lee et al. (2021) and the protocol of Lee et al. (2023): normalized mean waveforms clustered with Louvain on UMAP's nearest-neighbor graph. `wavemap` and `wavemap_resolution_sweep` need the `wavemap` extra (`pip install jnwb[wavemap]`) and raise `ImportError` naming it; the other two need only NumPy. `docs/06_spikes_psth_and_onset_dynamics.md` section 6 walks through it.
+
+- `jnwb.align_waveforms(waveforms, fs, *, pre_s=0.0004, post_s=0.0012)`: Cuts each row of `(n_units, n_samples)` mean waveforms, one channel per unit, to the window around its trough (whole samples; 48 samples at 30 kHz by default). A row whose window leaves its samples, or that holds a NaN, comes back NaN and False in the returned mask, never padded: drop it, and report how many were dropped.
+- `jnwb.normalize_waveforms(waveforms, *, subtract_mean=True)`: Per unit, subtracts the mean and divides by the largest absolute value; a non-finite row, a row of zeros and, with `subtract_mean=True`, a constant row are NaN.
+- `jnwb.wavemap(waveforms, *, resolution, n_neighbors=20, min_dist=0.1, metric="euclidean", embedding=True, rng=...)`: Louvain labels (0 the largest cluster), `n_clusters`, `modularity`, the UMAP `graph`, the display-only `embedding` and the seeds used, as a `WaveMAPResult`. `resolution` is required and follows the published Markov-time convention, larger meaning fewer clusters; the published value 1.5 was chosen on its own data, so choose one with the sweep and state it. Refuses NaN rows and `n_units <= n_neighbors` with `ValueError`.
+- `jnwb.WaveMAPResult(labels, n_clusters, modularity, resolution, embedding, graph, parameters)`: The frozen record `wavemap` builds; read it, do not build one by hand. `labels[i]` is the cluster of input row `i`, so keep the mask `align_waveforms` returns to map clusters back to units, and report `parameters` (the seeds) with every clustering.
+- `jnwb.wavemap_resolution_sweep(waveforms, resolutions, *, n_runs=25, fraction=0.8, n_neighbors=20, metric="euclidean", rng=...)`: `modularity`, `n_clusters` and `min_cluster_size` per resolution and run, each run on a fresh random subset and UMAP seed (Lee et al. 2021, Fig. 3B), so the paper's rule (the largest modularity with every cluster above 20 units) can be applied and reported; `units`, `umap_seed` and `louvain_seed` record each run's subset and seeds, so a run with `rng=None` can be repeated.
 
 ### Unit-quality classes and tiers
 
@@ -68,15 +81,23 @@ Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_
    value to screen against. No measure here, and no agreement with a label, shows that a unit
    is a single neuron, and a request to call a unit a single neuron from quality measures alone
    is declined. A measure or class that the input cannot support (NaN, `'Unknown'`) is reported
-   as not estimable, never as a plausible number. State every cut-off with the class or flag
+   as not estimable, never as a plausible number. The one exception is `classify_unit_quality`: a unit with a measured `quality` or `snr` failure is `'Poor'` even when another metric is undefined. State every cut-off with the class or flag
    it produced.
-6. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are
+6. **A waveform cluster is not a cell type**: a WaveMAP cluster groups units by mean-waveform
+   shape on one dataset, at one resolution and seed. Resample the units (`wavemap_resolution_sweep`; a
+   new `rng` alone leaves the graph unchanged below 4096 units) and report how well the labels
+   agree before naming a cluster; decline to call a cluster a cell
+   type, or to equate clusters across datasets recorded or filtered differently, from shape
+   alone.
+7. **Outcomes**: compose and execute when the tables, or a result's inputs and parameters, are
    at hand; request the provenance and lineage a `Result` refuses to be built without; report
    failure for a version claim that does not match execution; decline a verdict on correctness
    drawn from a record or an audit count. For unit quality: execute the measures on the
    waveforms, spike times and cut-offs at hand; request the waveforms, `fs` or geometry a
    measure lacks; report a measure or class the input cannot support as not estimable;
-   decline "this unit is a single neuron" from quality measures alone.
+   decline "this unit is a single neuron" from quality measures alone. For WaveMAP: execute
+   on aligned, normalized waveforms with a stated resolution; request `fs`, or a resolution
+   when none was chosen; decline a cell-type label from a cluster alone.
 
 ## 4. Minimal Workflow
 ```python

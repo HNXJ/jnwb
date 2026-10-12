@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 import tempfile
-from contextlib import contextmanager
 from datetime import datetime
 
 import h5py

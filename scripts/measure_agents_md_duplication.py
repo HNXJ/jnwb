@@ -44,7 +44,7 @@ NAMED = [
     "artifacts/problem_stack.md",
     "artifacts/todo_stack.md",
     "artifacts/direction.md",
-    "CONTRIBUTING.md",
+    ".github/CONTRIBUTING.md",
     "docs/documentation_form.md",
     # The published agent page holds the only table of shipped skills; section 7 points to it.
     "docs/agents.md",

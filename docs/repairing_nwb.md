@@ -55,8 +55,7 @@ verified file. `in_place=True` with a `backup_path` replaces the input instead, 
 verified copy and an atomic `os.replace`; the backup holds the old index. A new `output_path` is
 claimed exclusively just before the move, so a file that appears there meanwhile is refused. A
 dry run writes nothing and ignores `backup_path`. A failure at any step
-leaves the input byte-identical. The refusal is the useful behavior: a file that is wrong in a
-different way stays unchanged and reported.
+leaves the input byte-identical, so a file wrong in another way stays unchanged and reported.
 
 **Also check:** a ragged column whose data and `_index` exist but whose name is missing from the
 table's `colnames` attribute is hidden by pynwb (`units["spike_times"]` raises `KeyError`).
@@ -66,6 +65,35 @@ table's `colnames` attribute is hidden by pynwb (`units["spike_times"]` raises `
 dense spiking, or a waveform table with one row per channel per unit, can exceed it, and a writer
 that wraps silently produces a decreasing index. `length_fits` and `monotonic` catch both; the
 fix is rewriting the file with a wider integer type, not editing the index.
+
+## Waveform block ownership
+
+A unit's `waveform_mean` block is sliced by `waveform_mean_index`, or, with no index, is
+`waveform_mean[unit]` of shape `(units, samples, channels)`. Nothing ties the block to the
+unit: blocks stored out of unit order read as another unit's through pynwb, silently. `check_waveform_blocks` compares each block's row amplitudes against the
+unit's stored `amplitude`:
+
+```python
+import jnwb
+
+report = jnwb.check_waveform_blocks("session.nwb", rtol=1e-6)
+print(report.n_owned, report.n_unowned, report.n_unknown)
+```
+
+| Verdict | Meaning |
+|---|---|
+| `owned` | some row's peak-to-peak matches within tolerance |
+| `unowned` | the block is complete and no row matches |
+| `unknown` | the block is empty (dense: has no samples), or the amplitude is missing, NaN or infinite |
+
+`rtol` is required because no tolerance suits every writer. `peak_channel_id` travels
+with each verdict for the caller's own join against the electrodes table; the check never
+uses it. The check repairs and reassigns nothing:
+a match is evidence, not proof, and `report.ok` holds only when every unit is owned.
+
+When the median ratio of amplitude to largest block peak-to-peak, over units with a nonzero
+amplitude and a finite, nonflat block, is 1000 or more, or 1/1000 or less, the check raises
+`ValueError` for a unit mismatch (microvolts against volts, say) and judges no unit.
 
 ## Units schema across sessions
 

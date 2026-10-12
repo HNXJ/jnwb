@@ -662,6 +662,9 @@ ACCEPTED_CHAIN_ELSE = {
 }
 
 ACCEPTED_HANDLER_RECOVERY = {
+    ("vis/canvas.py", "_is_written", "ValueError", (), True, 1):
+        "A sidecar that does not parse as JSON returns False, and _verify_written raises on it, "
+        "so the handler turns a corrupt file into a refusal, never into a substitute value.",
     ("analyzers.py", "UnitAnalyzer._acg_vectorized", "Exception", ("acg",), False, 1):
         "The handler sets acg = None. Absence, not a plausible substitute.",
     ("analyzers.py", "PopulationAnalyzer.population_trajectory", "Exception",

@@ -11,14 +11,14 @@ Changes vs. previous version:
 """
 
 import logging
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
 from ._bins import bins_within, onset_locked_counts, onset_window, whole_bin_count
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
 import pandas as pd
-from scipy import signal, stats
+from scipy import stats
 import matplotlib.pyplot as plt
 
 from .statistics import StatisticalAnalysis

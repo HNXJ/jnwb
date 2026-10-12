@@ -7,7 +7,7 @@ jnwb.vis.hierarchy -- Cortical hierarchy panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import plotly.graph_objects as go

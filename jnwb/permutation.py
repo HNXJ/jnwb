@@ -6,9 +6,7 @@ statistic and its null. This module provides a single, shared, explicit-scheme p
 grouped nulls cannot silently fall back to ungrouped shuffles.
 
 Every call site MUST name a `scheme` explicitly -- there is no default. A bare
-`rng.permutation(y)` inside grouped/session-structured decoding produces that mismatch;
-`tests/test_permutation_lint.py` greps the decoding-relevant modules and fails if one shows up
-outside this module's own `scheme="global"` path.
+`rng.permutation(y)` inside grouped/session-structured decoding produces that mismatch.
 """
 from __future__ import annotations
 

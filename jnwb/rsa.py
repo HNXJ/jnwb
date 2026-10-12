@@ -7,8 +7,7 @@ representations, modalities, models, or time points.
 from __future__ import annotations
 
 import logging
-import warnings
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Tuple
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform

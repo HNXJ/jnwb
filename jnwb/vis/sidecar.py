@@ -16,9 +16,9 @@ figure jnwb.vis exports. It holds eight fields:
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Union
 
 
 @dataclass

@@ -1447,6 +1447,20 @@ class TestCausalFilterDelayIsScopedToAThresholdCrossing:
         giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
         assert len(giving) == 2, giving
 
+    @pytest.mark.parametrize("instruction", [
+        "Remove the group delay from every onset before comparing conditions.",
+        "Remove the filter delay from every onset before comparing conditions.",
+    ])
+    def test_a_paraphrase_naming_group_or_remove_is_seen(self, instruction):
+        """Two branches of `_delay_sentences` no test pinned: `group` as the delay's name and
+        `remove` as the removal verb. Deleting either from the pattern lets these paraphrases
+        through unseen, and no test above names either branch."""
+        from jnwb.onset_fitting import causal_exp_smooth
+
+        mutant = causal_exp_smooth.__doc__ + f"\n    {instruction}\n"
+        giving = [s for s in _delay_sentences(mutant) if "fit_exponential_onset" not in s]
+        assert len(giving) == 2, giving
+
     def test_tau_ms_is_still_held_fixed_across_compared_conditions(self):
         """The half of the original safeguard that was correct and is load-bearing."""
         fixed = [
@@ -1729,7 +1743,10 @@ class TestRowsAgainstTheLiveCall:
             ax.plot([0.0, 5.0, 10.0], [-1.0, 1.0, 0.5])
             jnwb.apply_tight_auto_axis(ax, x_span=(0.0, 10.0))
             assert ax.get_xlim() == (0.0, 10.0)
-            assert ax.get_ylim()[0] == 0.0, "the lower y-limit is no longer floored at 0"
+            assert ax.get_ylim()[0] < -1.0, "a negative value is drawn outside the axes"
+            ax.lines[0].set_ydata([0.0, 1.0, 0.5])  # the margin reaches below 0
+            jnwb.apply_tight_auto_axis(ax, x_span=(0.0, 10.0))
+            assert ax.get_ylim()[0] == 0.0, "non-negative data is no longer floored at 0"
             jnwb.apply_tight_auto_axis(ax)
             assert ax.get_xlim() == (-500.0, 4124.0), "x is no longer pinned to x_span"
         finally:
@@ -1853,7 +1870,7 @@ class TestRowsAgainstTheLiveCall:
         assert unrouted == [], f"chance sentences that do not route to the baseline: {unrouted}"
 
 
-CONTRIBUTING = ROOT_DIR / "CONTRIBUTING.md"
+CONTRIBUTING = ROOT_DIR / ".github" / "CONTRIBUTING.md"
 
 
 def _skill_template() -> List[str]:
@@ -1997,3 +2014,125 @@ def test_a_restatement_differing_only_in_punctuation_is_found():
     a = "7. **Delay**: unsigned coupling does not determine direction; direction needs a sign."
     b = "4. **Delay**: Unsigned coupling does not determine direction. Direction needs a sign."
     assert list(_lines_in_two_skills({"a": a, "b": b}).values()) == [["a", "b"]]
+
+
+#: Method names as docs/references.md writes them. The check below holds each to that file, so a
+#: name the repository does not cite cannot be used to exempt a sentence from the check.
+_REFERENCED_METHODS = (
+    "Granger", "phase slope index", "transfer entropy", "wPLI", "imaginary part of coherency",
+    "cone of influence", "Welch", "multitaper", "Morlet", "aperiodic",
+)
+#: A sentence that says what a method measures or what it equals.
+_DEFINES = re.compile(
+    r"\b(?:measures?|is defined|are defined|equals?|is the|are the|gives|quantif(?:y|ies)|estimates)\b",
+    re.I)
+#: A formula written out in `$` math, the form a definition takes on the page.
+_FORMULA = re.compile(r"\$[^$]+\$")
+#: The two skills whose safeguards section is held to the reference rule.
+_POINTER_SKILLS = ("jnwb-connectivity", "jnwb-lfp-spectral")
+
+
+def _safeguards_section(skill: str) -> str:
+    """The text of a skill's safeguards section, failing if the heading has moved."""
+    text = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+    heading = "## 3. Invariants & Safeguards"
+    assert heading in text, f"{skill} has no {heading!r} section; a check on it would be vacuous"
+    return text.split(heading, 1)[1].split("\n## ", 1)[0]
+
+
+def _safeguard_sentences(section: str) -> List[str]:
+    """Sentences of a safeguards section, split per numbered item first.
+
+    The items are numbered lines with no blank line between them, and `_sentence_units` breaks
+    only at a period before a capital, so without the item split the last sentence of one item
+    and the first of the next would form one unit and be read as one claim.
+    """
+    items = [item.strip() for item in re.split(r"\n(?=\d+\. )", section) if item.strip()]
+    return [sentence for item in items for sentence in _sentence_units(item)]
+
+
+def _restated_definitions(section: str) -> List[str]:
+    """Safeguard sentences that name a cited method and say what it measures or equals.
+
+    A safeguard may give a reason, a precondition or a consequence in terms of a method. It may
+    not restate what the method is: that has one home, the row in docs/references.md that cites
+    it, and a pointer there keeps the two from drifting. A sentence that names no cited method is
+    not held here, because it may have no row to point at (a delay identity, a dB convention).
+    """
+    return [
+        s for s in _safeguard_sentences(section)
+        if any(m.casefold() in s.casefold() for m in _REFERENCED_METHODS)
+        and (_DEFINES.search(s) or _FORMULA.search(s))
+    ]
+
+
+class TestSafeguardsPointToTheReferenceRow:
+    def test_no_safeguard_restates_a_cited_method(self):
+        examined = 0
+        found = []
+        for skill in _POINTER_SKILLS:
+            section = _safeguards_section(skill)
+            examined += len(_safeguard_sentences(section))
+            found += [f"{skill}: {s}" for s in _restated_definitions(section)]
+        assert examined >= 10, f"only {examined} safeguard sentences were examined"
+        assert found == [], (
+            "these safeguards restate a cited method's definition; cut each to a pointer to "
+            f"its row in docs/references.md: {found}"
+        )
+
+    def test_the_connectivity_safeguards_point_to_the_directed_connectivity_rows(self):
+        assert "docs/references.md#directed-connectivity" in _safeguards_section("jnwb-connectivity")
+
+    def test_every_cited_method_name_occurs_in_the_references(self):
+        refs = (DOCS_DIR / "references.md").read_text(encoding="utf-8").casefold()
+        missing = [m for m in _REFERENCED_METHODS if m.casefold() not in refs]
+        assert missing == [], f"these names are not cited in docs/references.md: {missing}"
+
+    def test_the_check_flags_a_planted_definition(self):
+        planted = "Granger causality measures temporal-lag asymmetry under an observational model."
+        assert _restated_definitions(planted) == [planted]
+
+    @pytest.mark.parametrize("verb", ["gives", "quantifies", "estimates"])
+    def test_the_check_flags_each_defining_verb(self, verb):
+        planted = f"Granger causality {verb} temporal-lag asymmetry under an observational model."
+        assert _restated_definitions(planted) == [planted]
+
+    def test_the_check_passes_a_pointer(self):
+        pointer = ("For what Granger causality computes, see "
+                   "[`docs/references.md`](../../docs/references.md#directed-connectivity).")
+        assert _restated_definitions(pointer) == []
+
+
+def test_published_nonparametric_granger_values_are_declined_with_the_estimator_named():
+    """A request to match published nonparametric Granger values gets a decline, not a number.
+
+    The difference is the repository's own fact. The `granger_spectral` docstring says it is the
+    parametric route and that the nonparametric variant is not implemented; the `granger`
+    docstring names the VAR order it fits. The connectivity safeguards must state that difference
+    as a decline or a qualification, so an agent asked for the published values does not present
+    VAR values under their name.
+    """
+    spectral = jnwb.granger_spectral.__doc__ or ""
+    time_domain = jnwb.granger.__doc__ or ""
+    assert "*parametric* route" in spectral and "is not implemented" in spectral, (
+        "granger_spectral no longer documents the parametric route and an unimplemented "
+        "nonparametric variant, so the skill would state a difference the code does not have"
+    )
+    assert "VAR" in spectral and "VAR" in time_domain, (
+        "the Granger docstrings no longer name the VAR they fit"
+    )
+    sentences = _safeguard_sentences(_safeguards_section("jnwb-connectivity"))
+    stated = [
+        s for s in sentences
+        if re.search(r"nonparametric", s, re.I)
+        and re.search(r"declin|not implemented|qualif", s, re.I)
+    ]
+    assert stated, (
+        "the connectivity safeguards state no estimator difference as a decline or a "
+        "qualification, so a request for published nonparametric Granger values meets nothing"
+    )
+    parametric = [
+        s for s in sentences
+        if re.search(r"\bparametric\b", s) and "granger_spectral" in s and "VAR" in s
+    ]
+    assert parametric, "the connectivity safeguards no longer say granger_spectral fits a VAR"

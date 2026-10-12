@@ -325,6 +325,11 @@ class StatisticalAnalysis:
                 }
             if run_nonparam:
                 u_stat, u_pval = stats.mannwhitneyu(valid1, valid2, alternative="two-sided")
+                # Every value tied: the ranks carry no order, scipy 1.17 returns p 1.0 and 1.18
+                # NaN. The p reads NaN on both, as the Wilcoxon branch above does.
+                if (len(valid1) and len(valid2) and _is_constant(valid1) and _is_constant(valid2)
+                        and valid1[0] == valid2[0]):
+                    u_pval = float("nan")
                 result["non_parametric"] = {
                     "test": "mann_whitney_u",
                     "statistic": float(u_stat),

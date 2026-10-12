@@ -1,6 +1,5 @@
 import importlib
 import re
-import tempfile
 import pathlib
 import pytest
 import numpy as np

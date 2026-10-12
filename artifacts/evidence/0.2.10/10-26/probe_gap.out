@@ -1,6 +1,0 @@
-jnwb from C:\workspace\jnwb-lanes\h-10-26\jnwb\__init__.py
-cupy 14.0.1 devices 1
-gap=1.5e-05 realized=1.50e-05..1.50e-05 max|dload| comps1-2 median=0.003421 min=7.275e-05 max=0.008554 | comp3 max=3.58e-07
-gap=1.0e-04 realized=1.00e-04..1.00e-04 max|dload| comps1-2 median=0.0001073 min=1.79e-05 max=0.0003671 | comp3 max=2.83e-07
-gap=1.0e-03 realized=1.00e-03..1.00e-03 max|dload| comps1-2 median=1.573e-05 min=1.49e-07 max=9.694e-05 | comp3 max=1.83e-07
-gap=1.0e-02 realized=1.00e-02..1.00e-02 max|dload| comps1-2 median=2.019e-06 min=5.96e-07 max=6.735e-06 | comp3 max=2.31e-07

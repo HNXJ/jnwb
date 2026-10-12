@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.10'
-__release_date__ = '2026-10-07'
+__version__ = '0.2.11'
+__release_date__ = '2026-10-11'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -41,6 +41,15 @@ log = logging.getLogger(__name__)
 # ============================================================================
 from .jrsa import jrsa, JRSAResult
 from .rsa import rdm, rdm_similarity
+# Imported eagerly, as jrsa is, so the function `wavemap` and not its module is bound to the
+# name; the module needs only NumPy until a clustering function is called.
+from .wavemap import (
+    WaveMAPResult,
+    align_waveforms,
+    normalize_waveforms,
+    wavemap,
+    wavemap_resolution_sweep,
+)
 
 # Central path resolution. `jnwb.paths.describe()` reports every root
 # and whether it currently resolves -- run it first after any drive remap.
@@ -79,7 +88,9 @@ from .nwb_integrity import (
     RaggedIndexRepair,
     RaggedIndexReport,
     RaggedIndexRepairRefused,
+    WaveformBlockReport,
     check_ragged_indices,
+    check_waveform_blocks,
     repair_ragged_index,
 )
 from .nwb_validate import NWBValidationReport, validate_nwb
@@ -307,10 +318,12 @@ __all__ = [
     'ColumnNotFoundError',
     'InvalidOnsetValueError',
     'check_ragged_indices',
+    'check_waveform_blocks',
     'repair_ragged_index',
     'RaggedIndexReport',
     'RaggedIndexRepair',
     'RaggedIndexRepairRefused',
+    'WaveformBlockReport',
     'validate_nwb',
     'NWBValidationReport',
     'epoch_continuous',
@@ -399,12 +412,23 @@ __all__ = [
 
     # Unit quality measures
     'waveform_features',
+    'waveform_halfwidth',
+    'repolarization_slope',
+    'waveform_spread',
+    'amplitude_cutoff',
     'waveform_snr',
     'waveform_flatness',
     'spatial_derivative_sharpness',
     'presence_ratio',
     'isi_cv',
     'refractory_contamination',
+
+    # Waveform clustering (WaveMAP; UMAP and Louvain need the wavemap extra)
+    'WaveMAPResult',
+    'align_waveforms',
+    'normalize_waveforms',
+    'wavemap',
+    'wavemap_resolution_sweep',
 
     # Digital filtering
     'bandpass_filter',

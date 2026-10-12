@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 import warnings
-from typing import Callable, Iterable, List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
 import numpy as np
 

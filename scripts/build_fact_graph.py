@@ -13,6 +13,7 @@ Entities come from the tree itself:
           the whole dotted path resolves on the package (``StatisticalAnalysis.fdr_correct``)
   test    every ``tests/test_*.py`` file and the test functions it defines
   gate    every entry of ``scripts/harness_gate.py`` ``GATES``, by number
+  python  every tracked ``*.py`` file of the repository (``git ls-files``)
   fact    every typed row of ``artifacts/fact_stack.md``, with the holders its ``Held by``
           cell names
 
@@ -29,6 +30,13 @@ Relations, each a sorted list of ``[source, target]`` pairs:
   verifies    test file -> export it reaches: ``from jnwb... import NAME``, or ``NAME`` read as
               an attribute of an imported ``jnwb`` module
   constrains  holder -> fact it holds
+  global_seeds  file -> a call that seeds NumPy's or the standard library's global random state
+              (``global_seed_calls``), in every tracked file
+  rng_parameters  file -> a function in ``jnwb/`` or ``scripts/`` that draws from a random module
+              and takes no parameter named ``rng`` (``rng_violations``)
+  db_averages  file -> an average in ``jnwb/`` of a dB conversion, or of a name a dB conversion
+              was assigned to in the same function (``db_average_violations``; the lexicon is the
+              ``dB log forms`` and ``dB averaging forms`` constants of the fact stack)
 
 The facts are the only owned part; everything else is regenerated. The output is a pure
 function of the tree: sorted keys and lists, LF endings, no timestamp, and object addresses
@@ -201,6 +209,207 @@ def read_constants(text: str) -> Dict[str, List[str]]:
         for row in rows:
             constants[row[0].strip("`")] = _BACKTICKED.findall(row[1])
     return constants
+
+
+# ------------------------------------------------------------------------ source scans
+
+#: The global random state's seed, under the dotted names NumPy and the standard library export.
+GLOBAL_SEEDS = ("numpy.random.seed", "random.seed")
+#: Calls into the random modules that draw nothing and create no stream.
+RNG_BOOKKEEPING = ("numpy.random.SeedSequence", "numpy.random.Generator",
+                   "numpy.random.BitGenerator")
+RNG_PARAMETER = "rng"
+#: The trees whose functions take an ``rng`` parameter when they draw from a random module.
+SCANNED_FOR_RNG = ("jnwb/", "scripts/")
+#: The package whose averages of dB values the dB rule reads.
+DB_PACKAGE = "jnwb/"
+
+
+def _dotted(node: ast.AST) -> str:
+    """The dotted spelling of a name or attribute chain, or ``""`` for any other expression."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return ""
+    parts.append(node.id)
+    return ".".join(reversed(parts))
+
+
+def _final(node: ast.AST) -> str:
+    """The last name of a spelling: ``mean`` for ``np.mean``."""
+    return _dotted(node).rpartition(".")[2]
+
+
+def _bindings(tree: ast.AST) -> Dict[str, str]:
+    """Each name an import binds, mapped to the dotted path it stands for."""
+    bound: Dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    bound[alias.asname] = alias.name
+                else:
+                    top = alias.name.split(".")[0]
+                    bound[top] = top
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for alias in node.names:
+                bound[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return bound
+
+
+def _target(node: ast.AST, bound: Dict[str, str]) -> str:
+    """The dotted path a callee stands for, read through the module's own imports."""
+    head, dot, rest = _dotted(node).partition(".")
+    return bound.get(head, head) + dot + rest
+
+
+def global_seed_calls(source: str) -> List[str]:
+    """Each call that seeds the global random state, read through the module's own imports:
+    ``np.random.seed``, ``random.seed``, and the same seed reached by an alias or a ``from``
+    import. A seeded instance (``random.Random(0).seed``) is not the global state."""
+    tree = ast.parse(source)
+    bound = _bindings(tree)
+    hits = sorted((node.lineno, _dotted(node.func)) for node in ast.walk(tree)
+                  if isinstance(node, ast.Call) and _target(node.func, bound) in GLOBAL_SEEDS)
+    return [f"line {line}: {spelled}" for line, spelled in hits]
+
+
+def _own_calls(fn: ast.AST):
+    """The calls in a function's own statements, not in the functions and lambdas it defines."""
+    pending = list(fn.body)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.Call):
+            yield node
+        pending.extend(ast.iter_child_nodes(node))
+
+
+def _parameters(fn: ast.AST) -> set:
+    args = fn.args
+    named = args.posonlyargs + args.args + args.kwonlyargs + [args.vararg, args.kwarg]
+    return {arg.arg for arg in named if arg is not None}
+
+
+def _draws(target: str) -> bool:
+    """Whether a callee draws from, or constructs, a stream of NumPy's or the standard library's
+    random module; bookkeeping such as ``SeedSequence`` does not."""
+    return target.startswith(("numpy.random.", "random.")) and target not in RNG_BOOKKEEPING
+
+
+def rng_violations(source: str) -> List[str]:
+    """Each function that draws from a random module and takes no parameter named ``rng``. Code
+    outside any function, such as a script's self-test, is not a function and is not read."""
+    tree = ast.parse(source)
+    bound = _bindings(tree)
+    found = []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        draws = any(_draws(_target(call.func, bound)) for call in _own_calls(fn))
+        if draws and RNG_PARAMETER not in _parameters(fn):
+            found.append((fn.lineno, fn.name))
+    return [f"line {line}: {name} draws without an rng parameter" for line, name in sorted(found)]
+
+
+def _lexicon(forms: Sequence[str]) -> Tuple[set, set, set]:
+    """The call names, the name suffixes and the sum numerators that a lexicon's forms name:
+    ``10*log10`` names ``log10``, ``*_db`` names any name ending in ``_db``, ``sum / count``
+    names the numerator ``sum``."""
+    names, suffixes, numerators = set(), set(), set()
+    for form in forms:
+        if " / " in form:
+            numerators.add(form.split(" / ")[0].strip())
+        elif form.startswith("*"):
+            suffixes.add(form[1:])
+        else:
+            names.add(form.split("*")[-1])
+    return names, suffixes, numerators
+
+
+def db_average_violations(source: str, constants: Dict[str, List[str]]) -> List[str]:
+    """Each average in one module of a dB value: an averaging call, or a sum divided by a count,
+    whose input is a dB conversion or holds a name assigned from one in the same function. A
+    median of dB values is not an average, and an average taken before the log is not read here.
+    """
+    for key in ("dB log forms", "dB averaging forms"):
+        if key not in constants:
+            raise ValueError(f"the constants name no {key}")
+    log_names, log_suffixes, _ = _lexicon(constants["dB log forms"])
+    avg_names, _, numerators = _lexicon(constants["dB averaging forms"])
+    tree = ast.parse(source)
+
+    def is_log(call: ast.Call) -> bool:
+        name = _final(call.func)
+        return name in log_names or any(name.endswith(suffix) for suffix in log_suffixes)
+
+    def dB_valued(expr: ast.AST, tainted: set) -> bool:
+        return any((isinstance(n, ast.Call) and is_log(n))
+                   or (isinstance(n, ast.Name) and n.id in tainted) for n in ast.walk(expr))
+
+    def averaged(node: ast.AST):
+        """The inputs of an averaging node and its wording, or None."""
+        if isinstance(node, ast.Call) and _final(node.func) in avg_names:
+            inputs = list(node.args)
+            if isinstance(node.func, ast.Attribute):
+                inputs.append(node.func.value)  # the method form: ``x.mean()``
+            return inputs, f"{_dotted(node.func)} over a dB value"
+        if (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
+                and isinstance(node.left, ast.Call) and _final(node.left.func) in numerators):
+            return [node.left], f"{_dotted(node.left.func)} over a dB value divided by a count"
+        return None
+
+    def named_dB(fn: ast.AST) -> set:
+        """The names a function assigns a dB value, to a fixpoint through other such names."""
+        tainted: set = set()
+        assigns = [n for n in ast.walk(fn) if isinstance(n, ast.Assign)]
+        grew = True
+        while grew:
+            grew = False
+            for assign in assigns:
+                if not dB_valued(assign.value, tainted):
+                    continue
+                for target in assign.targets:
+                    for name in ast.walk(target):
+                        if isinstance(name, ast.Name) and name.id not in tainted:
+                            tainted.add(name.id)
+                            grew = True
+        return tainted
+
+    scopes = [(tree, set())] + [(fn, named_dB(fn)) for fn in ast.walk(tree)
+                                if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    found = set()
+    for scope, tainted in scopes:
+        for node in ast.walk(scope):
+            hit = averaged(node)
+            if hit and any(dB_valued(expr, tainted) for expr in hit[0]):
+                found.add((node.lineno, hit[1]))
+    return [f"line {line}: {wording}" for line, wording in sorted(found)]
+
+
+def _tracked_python(root: Path) -> List[str]:
+    """Every tracked Python file of the repository, as sorted posix paths."""
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "--", "*.py"],
+                            capture_output=True, text=True, encoding="utf-8", check=True)
+    return sorted(line for line in listed.stdout.splitlines() if line)
+
+
+def _source_scans(root: Path, python: Sequence[str], constants: Dict[str, List[str]]):
+    """Each scan's violations as sorted [file, reason] pairs."""
+    scans: Dict[str, List[List[str]]] = {"global_seeds": [], "rng_parameters": [],
+                                         "db_averages": []}
+    for rel in python:
+        text = (root / rel).read_text(encoding="utf-8")
+        scans["global_seeds"].extend([rel, reason] for reason in global_seed_calls(text))
+        if rel.startswith(SCANNED_FOR_RNG):
+            scans["rng_parameters"].extend([rel, reason] for reason in rng_violations(text))
+        if rel.startswith(DB_PACKAGE):
+            scans["db_averages"].extend(
+                [rel, reason] for reason in db_average_violations(text, constants))
+    return {name: sorted(pairs) for name, pairs in scans.items()}
 
 
 # ------------------------------------------------------------------------ generated graph
@@ -471,6 +680,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
 
     source = facts_path or FACT_STACK
     facts = load_facts(source)
+    python = _tracked_python(root)
+    scans = _source_scans(root, python, read_constants(source.read_text(encoding="utf-8")))
 
     exports, implements = _exports(package, root, EXECUTION_PARAMETERS)
     names = sorted(exports)
@@ -485,6 +696,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
         "entities": {
             "export": exports,
             "page": [_rel(p, root) for p in pages],
+            "python": python,
             "skill": skills,
             "route_target": _route_targets(package, exports, routes),
             "test": tests,
@@ -497,6 +709,7 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "routes": sorted(routes),
             "verifies": sorted(verifies),
             "constrains": constrains,
+            **scans,
         },
     }
 

@@ -256,6 +256,7 @@ def _rng_probes():
     j1, j2 = g.normal(size=(6, 5, 30)), g.normal(size=(6, 5, 30))
     xs, labs = g.normal(size=(40, 5)), np.arange(40) % 2
     x6, z4 = g.normal(size=(6, 200)), g.normal(size=(4, 2000))
+    w30 = jnwb.normalize_waveforms(g.normal(size=(30, 48)))
     sa = jnwb.StatisticalAnalysis
     return {
         "StatisticalAnalysis.bootstrap_ci": lambda r: sa.bootstrap_ci(a, n_bootstrap=20, rng=r),
@@ -306,7 +307,21 @@ def _rng_probes():
             seed=r, duration_s=2.0, n_trials=2),
         "testing.SynthNWBBuildOptions": lambda r: build_synth_nwb(
             SynthNWBBuildOptions(seed=r, n_events_per_table=3)),
+        "wavemap": lambda r: _without_the_extra(
+            lambda: jnwb.wavemap(w30, resolution=1.5, embedding=False, rng=r)),
+        "wavemap_resolution_sweep": lambda r: _without_the_extra(
+            lambda: jnwb.wavemap_resolution_sweep(w30, [1.5], n_runs=1, fraction=1.0, rng=r)),
     }
+
+
+def _without_the_extra(call):
+    """`wavemap` resolves `rng` before it imports the `wavemap` extra, so without the extra a
+    value that reaches the ImportError was accepted; with it (CI) the full call runs."""
+    try:
+        return call()
+    except ImportError as exc:
+        assert "jnwb[wavemap]" in str(exc), exc
+        return None
 
 
 #: How each kind of value is spelled in the table, and one instance of it.
