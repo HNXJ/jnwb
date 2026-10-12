@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -562,6 +563,55 @@ class TestInstalledArtifactVerification:
         local = set(re.findall(r'"(\w+)"', local.group(1)))
         assert {"vis", "wavemap"} <= ci, f"fixture: CI installs {sorted(ci)}"
         assert {"vis", "wavemap"} <= local, f"STEP 8 installs {sorted(local)}"
+
+    def test_step8_check_fails_when_jnwb_resolves_outside_purelib(self, tmp_path):
+        """With JNWB_EXPECTED_PACKAGE_ROOT dropped, `import jnwb` lands in the checkout, outside
+        purelib. STEP 8 must check that before the tutorial loop and fail, naming both paths."""
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        call = gate.find("check_resolves_under(resolved, purelib)")
+        loop = gate.find("for tutorial in tutorials:")
+        assert 0 <= call < loop, "STEP 8 must check where jnwb resolves before the tutorial loop"
+
+        from scripts.release_gate import check_resolves_under
+
+        purelib = tmp_path / "site-packages"
+        installed = purelib / "jnwb" / "__init__.py"
+        checkout = tmp_path / "checkout" / "jnwb" / "__init__.py"
+        assert installed.is_relative_to(purelib), "fixture: the installed path is under purelib"
+        assert not checkout.is_relative_to(purelib), "fixture: the fallback path is outside purelib"
+
+        check_resolves_under(str(installed), str(purelib))
+        with pytest.raises(SystemExit) as failure:
+            check_resolves_under(str(checkout), str(purelib))
+        message = str(failure.value.code)
+        assert str(checkout) in message and str(purelib) in message, message
+
+    def test_step8_refuses_an_empty_purelib_or_an_unknown_resolution(self, tmp_path):
+        """An empty purelib makes Path("") the cwd, so a file under the cwd passes the old check.
+        An empty or "None" resolution is no evidence, so it is refused with its own message."""
+        from scripts.release_gate import check_resolves_under
+
+        cwd_file = Path.cwd() / "jnwb" / "__init__.py"
+        assert cwd_file.is_relative_to(Path.cwd()), "fixture: a file under the cwd, which an empty purelib resolves to"
+        with pytest.raises(SystemExit, match="cannot verify"):
+            check_resolves_under(str(cwd_file), "")
+        for resolved in ("", "None"):
+            with pytest.raises(SystemExit, match="cannot verify"):
+                check_resolves_under(resolved, str(tmp_path / "site-packages"))
+
+    def test_step8_probe_failure_exits_with_the_probes_stderr(self, tmp_path, monkeypatch):
+        """A failing `import jnwb` probe must surface its stderr, not a bare CalledProcessError."""
+        import subprocess
+
+        from scripts import release_gate
+
+        failing = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'jnwb'")
+        monkeypatch.setattr(release_gate.subprocess, "run", lambda *args, **kwargs: failing)
+        assert failing.returncode != 0, "fixture: the probe fails"
+        with pytest.raises(SystemExit) as failure:
+            release_gate.probe_jnwb_file("python", str(tmp_path), {})
+        assert "No module named 'jnwb'" in str(failure.value.code), failure.value.code
 
     @staticmethod
     def _pinned_version_literals(source):
