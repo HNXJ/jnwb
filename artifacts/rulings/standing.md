@@ -141,3 +141,90 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Push onto a red `dev` | `JNWB_PUSH_OVER_RED=1` is allowed only for the push that fixes the failing run: its commit message names the run, and the local suite and gates pass on that HEAD | 2026-10-10 | none |
 | `vflip` | Keeps its name; the docstring and the laminar page state how it differs from the published vFLIP; a `contact_spacing` that disagrees with `nominal_pitch` raises | 2026-09-26, 2026-09-29 | `jnwb/laminar/`; 10-04 for the page |
 | `xflip` | The partition objective is the per-block sum of within-block similarity squared over its pair count; under `n_blocks=None` the count is the smallest surrogate p with the selection repeated on each surrogate, ties by contrast in surrogate SDs then the smaller count, and count 2 with nothing accepted when there are no surrogates; the null rate is calibrated to a stated bound at or below alpha | 2026-09-26, 2026-09-27, 2026-09-28 | `jnwb/laminar/`, `tests/test_xflip.py`, `tests/test_xflip_calibration.py` |
+
+## Moved from `AGENTS.md` on 2026-10-12: sections 11 and 12, verbatim
+
+## 11. Release acceptance
+
+Ruled 2026-09-19 for releases from 0.2.6 on; amended 2026-09-21 and 2026-09-23. A release opens
+only when all three hold at once:
+
+1. **Documentation is low-verbosity and consistently formed**: each thing said once; tables for
+   comparable facts, lists for enumerations, paragraphs for reasoning, figures for structure;
+   figures theme-matched in light and dark; one term per concept; the menu ordered by how a
+   reader arrives.
+2. **Code is low-complexity and switchable**: each operation at the best order its problem
+   admits, recorded where not obvious; 32/64-bit precision through one mechanism; CPU, parallel
+   CPU, CUDA and JAX Metal through one mechanism; the first three exercised here, Metal
+   implemented and declared unverified.
+3. **The problem stack is empty, no required item remains, and an independent blocker-focused
+   closure pass finds no new blocker.** A finding that blocks nothing waits in the todo stack.
+
+A problem leaves the stack repaired, shown false (evidence that survives a hostile reader in the
+commit message), or moved to the todo stack marked `Release: required-<cycle>` if it meets the
+blocker predicate, else `Release: deferred-<next>`; `scripts/release_gate.py` derives both from the
+declared version. Never delete a row because its repair is inconvenient.
+
+**Required** if any holds: shipped scientific or API behaviour can be wrong; public docs or skills
+can cause scientifically wrong use; a boundary or release claim is materially false; a test,
+harness or CI defect can invalidate required acceptance evidence; packaging, install or provenance
+can make qualification test the wrong artifact; required evidence is missing or unreliable; an
+unresolved human ruling changes shipped semantics.
+
+**Deferred** only when all are established: shipped behaviour is unchanged; public users and
+agents are not materially misled; no evidence relied on can be invalidated; no required gate
+becomes unknown; the defect and its reason to wait are in its `deferred-<next>` entry.
+
+- **Path is not a classifier**: a defect in `tests/`, `scripts/` or `artifacts/` blocks as hard
+  as one in `jnwb/` when it can invalidate release evidence.
+- **The fixpoint is blocker-focused**: a next-cycle finding of the final pass becomes a
+  `deferred-<next>` entry and does not reset closure.
+- **No backlog laundering**: semantics land before classification; an independent critic
+  classifies; a second pass asks of each deferral whether it could make qualifying evidence
+  falsely pass, and if so it becomes `required-<cycle>`.
+- **Conformance to an official reference suffices**: where an implementation matches its
+  method's official documentation, citing it proves correctness without re-derivation; existing
+  and regression tests stay.
+- **A red harness proves nothing about the rest**: report every gate as `PASS`, `FAIL`,
+  `NOT RUN` or `ERROR`, never "not my defect" because the first failure was not yours.
+
+## 12. Autonomy
+
+Ruled 2026-09-19. Autonomy sets **who drives §3 and when Hamm intervenes**;
+`autonomy != authority`. At `max`, an agent needing an authority it lacks stops, as at `none`.
+
+| Level | The agent | Hamm |
+|---|---|---|
+| `none` | Reviews and proposes; mutates no project state unless that exact action is authorised | Leads every consequential step |
+| `mid` | Runs one authorised packet end to end, committing and pushing where already authorised; stops at scope expansion, consequential ambiguity, a new scientific or API decision, or an authority conflict | Defines packets, resolves exceptions |
+| `max` | Actor and critic choose, sequence and route the work and continue unasked to a fixpoint or decision boundary | Defines goal, acceptance, invariants; rules decision points |
+
+The `max` loop is `actor -> critic -> actor -> verifier`, repeating: reproduce before changing,
+repair minimally, let the critic attack the repair, its tests and its completion claim, resolve
+what it demonstrates, verify independently, reconcile `problem` and `todo`, commit and push where
+authorised.
+
+**Stops even at `max`**: more than one defensible scientific meaning; a consequential public API
+choice; a change of package scope or boundary; a change of acceptance criteria; an unauthorised
+irreversible external action; evidence against a higher authority; two valid alternatives with a
+material trade-off, neither dominant; missing evidence or capability.
+
+**Not stops**: a failing test, wrong audit claim, surviving mutant, repair that opens a defect,
+CI environment bug, stale item, unsupported plan, new todo, failed first attempt.
+
+**Decision grades** (ruled 2026-09-25), by confidence an option is logical, valid and sensible;
+the stops bind at every grade:
+
+| Grade | Confidence | Action |
+|---|---|---|
+| obvious | 95+ | do it |
+| highly recommended | 80–95 | do it; record it in `artifacts/rulings/<date>.md` |
+| recommended | 60–80 | build the minimal base; the full option becomes a todo |
+| minimal expandable | 40–60 | build the smallest version that keeps choices open; the rest a todo |
+| skip | <40 | a todo with its reason; build nothing |
+
+Skeleton first. Two defensible options with a material trade-off grade at most recommended:
+build their shared base and ask, options graded highest first.
+
+`AUTONOMY: none | mid | max` inherits project default, batch, packet; **the narrowest scope wins**.
+The default is `max`, inherited by an item with no `AUTONOMY:` line; human rulings and the release item carry `none`.
