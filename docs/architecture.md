@@ -165,9 +165,9 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 * Statistical tests and degrees of freedom must declare their exact inferential unit: unit, channel, trial, or session/subject.
 * When trials nest within sessions or subjects, exchangeability schemes (`within_group` permutations, grouped CV) must respect that structure; hierarchical or cluster-bootstrap analyses are the project's choice when the inferential unit is above the trial.
 
-### Valid nulls and no synthetic science
+### Valid nulls and synthetic signals
 * A null finding ($p \ge \alpha$) is an observation, not an error. Parameters, frequency bands and windows are never retrofitted to reach significance.
-* Outputs hold no synthetic or placeholder values. Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
+* Synthetic signals exist for verification, in `jnwb.testing`, and are never presented as measurements.
 
 ## Module Map
 
@@ -183,7 +183,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `io` | Slices of NPZ arrays read without loading the whole archive | `io`, `stream_npz_array` |
 | `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |
 | `metadata` | Unit quality classification, census, & SNR auditing | `get_all_units_metadata`, `classify_unit_quality`, `unit_census_report`, `get_snr_analysis`, `filter_by_criteria`, `audit_units`, `audit_electrodes`, `assign_quality_tier`, `electrode_inventory` |
-| `unit_quality` | Waveform and spike-train quality measures of one sorted unit | `waveform_features`, `waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`, `presence_ratio`, `isi_cv`, `refractory_contamination` |
+| `unit_quality` | Waveform and spike-train quality measures of one sorted unit | `waveform_features`, `waveform_halfwidth`, `repolarization_slope`, `waveform_spread`, `amplitude_cutoff`, `waveform_snr`, `waveform_flatness`, `spatial_derivative_sharpness`, `presence_ratio`, `isi_cv`, `refractory_contamination` |
 | `wavemap` | WaveMAP: Louvain clustering of normalized mean waveforms on the UMAP graph (`wavemap` extra) | `align_waveforms`, `normalize_waveforms`, `wavemap`, `wavemap_resolution_sweep`, `WaveMAPResult` |
 | `filtering` | Zero-phase & causal Butterworth bandpass and notch SOS filters | `bandpass_filter`, `notch_filter` |
 | `ontology` | Structured query objects and event referencing | `Query`, `Dataset`, `AlignedDataset`, `Alignment`, `EpochCollection`, `Question`, `Result`, `Interpretation`, `Figure`, `Provenance`, `Lineage` |
