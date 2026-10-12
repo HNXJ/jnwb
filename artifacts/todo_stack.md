@@ -79,7 +79,7 @@ Accept: the check passes. Stop: a rewording changes what an entry says shipped.
 Release: deferred-0.2.12.
 Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
 Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `skills/jnwb-lfp-spectral/SKILL.md`.
-- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Signature ruled 2026-10-12: `map_peak_channel_to_layer(units_df, curation)` returns one label or "na" per unit. Waits: new public API, announced in the changelog with its tests.
+- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Signature ruled 2026-10-12, amended the same day because `LaminarCurationResult.labels` are positional: `map_peak_channel_to_layer(units_df, curation, channel_ids)`, with `channel_ids` the electrode ids in the LFP row order passed to `curate_and_label`, returns one label or "na" per unit. Waits: new public API, announced in the changelog with its tests.
 Accept: the check passes.
 
 ### 12-19 A causal Gaussian smoother that states its lag
