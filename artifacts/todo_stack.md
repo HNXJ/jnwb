@@ -36,6 +36,7 @@ lines.
 |---|---|---|---|
 | K docs reductions | 12-14 | 1 h: rebase `lane-k1` onto the release and rerun its checks | the files 12-14 names |
 | G release gate | 12-16 | 20 min | the files 12-16 names |
+| C changelog vocabulary | 12-17 | 1 h, after 12-14 moves the old sections | the files 12-17 names |
 
 ### 12-14 The audit's docs and CHANGELOG reductions
 
@@ -52,4 +53,12 @@ Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `scripts/release_gate.py`, `tests/test_workflow_release_policy.py`.
 - `release_gate.py` STEP 8 sets `JNWB_EXPECTED_PACKAGE_ROOT` but, unlike CI's tutorial step (`workflow.yml`, `assert 'clean_env' in jnwb.__file__`), never checks where `jnwb` resolves, so a tutorial that fell back to the checkout would pass. Check: before the loop, the venv run of `import jnwb` with `tutorial_env` from the staging dir prints a path under `purelib`, and a test that drops the variable makes STEP 8's check fail. Waits: no path makes a tutorial fall back today; the guard stands aside whenever the variable is set (review of `424a11be`, 2026-10-11).
 Accept: the check passes.
+
+### 12-17 Internal vocabulary leaves `CHANGELOG.md`
+
+Release: deferred-0.2.12.
+Role: jnwb-developer. Skill: none. Blocked by: 12-14.
+Writes: `CHANGELOG.md`, `scripts/harness_gate.py`, `tests/test_harness_gate.py`.
+- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Added, Changed, Deprecated, Removed, Fixed, Breaking, Documentation. Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
+Accept: the check passes. Stop: a rewording changes what an entry says shipped.
 
