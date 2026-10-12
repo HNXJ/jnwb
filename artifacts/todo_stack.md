@@ -39,27 +39,18 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 1 | U consumer API | 12-18, 12-19 | the files each names, `jnwb/__init__.py`, `docs/api.md` | none |
-| 1 | K docs reductions | 12-14 | the files 12-14 names | none |
-| 2 | C changelog | 12-17 | the files 12-17 names | K |
-| 2 | P pandas 3 | 12-20 | the files 12-20 names | K |
+| 2 | C changelog | 12-17 | the files 12-17 names | none |
+| 2 | P pandas 3 | 12-20 | the files 12-20 names | none |
 | 2 | Q closure findings | 12-15, then 12-12 (roadmap rows) | the files each names | U |
 | 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | P |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 
 The integrator writes `CHANGELOG.md` entries for U after C lands, in the template 12-17 enforces.
 
-### 12-14 The audit's docs and CHANGELOG reductions
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `README.md`, `CHANGELOG.md`, `docs/common_mistakes.md`, `docs/06_spikes_psth_and_onset_dynamics.md`, `docs/documentation_form.md`, `docs/install.md`, `docs/quickstart.md`, `docs/tutorials/00_your_own_file.md`, `.github/CONTRIBUTING.md`, `tests/test_prose_version_claims_are_live.py`, `artifacts/archive/changelog_0.1.0-0.2.9.md`.
-- Steps 1 and 2 of the 2026-10-11 compression audit, built on branch `lane-k1` at `dae02ac0` and not landed before 0.2.11 shipped; duplicated docs passages become links (568 words), stale `CONTRIBUTING.md` paths, the version-claim test reads `docs/**`, and CHANGELOG blocks 0.2.9, 0.2.8, 0.2.4 and 0.1.0 to 0.1.7 move to an archive (816 lines). Check: on the rebased branch the docs tests, `scripts/docs_build.py` and the harness pass, and a script shows every moved CHANGELOG line exactly once. Waits: documentation only; no shipped number changes.
-Accept: the check passes. Stop: a cut drops a fact, ruling or receipt a file cites.
-
 ### 12-17 Internal vocabulary leaves `CHANGELOG.md`
 
 Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: none. Blocked by: 12-14.
+Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `CHANGELOG.md`, `scripts/harness_gate.py`, `tests/test_harness_gate.py`.
 - `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Breaking, Added, Changed, Deprecated, Removed, Fixed. The same check holds the shared template of meet 204dfdaa (adopted by Hamm 2026-10-12, with the last five releases kept and older ones archived): one line per change of at most about 120 characters naming its test or file, and a `[results change]` marker that names the seed kind affected (int seed or Generator). Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
 Accept: the check passes. Stop: a rewording changes what an entry says shipped.
