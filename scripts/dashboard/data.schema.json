@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "jnwb dashboard data",
+  "description": "Written by scripts/build_dashboard.py from committed records only. The page renders this file and computes no value of its own; a section whose source is missing is null, never filled in.",
+  "type": "object",
+  "required": ["generated", "sources", "release", "releases", "ci", "api", "verified", "performance", "order", "references", "figures"],
+  "properties": {
+    "generated": {
+      "type": "object",
+      "required": ["commit", "date"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "date": {"type": "string", "description": "UTC, ISO 8601, from the commit, not the clock"}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "description": "Section name -> repository path it was read from",
+      "additionalProperties": {"type": "array", "items": {"type": "string"}}
+    },
+    "release": {
+      "type": "object",
+      "required": ["version", "date", "python", "links"],
+      "properties": {
+        "version": {"type": "string"},
+        "date": {"type": "string"},
+        "python": {"type": "array", "items": {"type": "string"}, "description": "pyproject classifiers"},
+        "links": {
+          "type": "object",
+          "properties": {
+            "pypi": {"type": "string"}, "docs": {"type": "string"},
+            "repo": {"type": "string"}, "changelog": {"type": "string"}
+          }
+        }
+      }
+    },
+    "releases": {
+      "type": "array",
+      "description": "CHANGELOG.md sections, newest first; [Unreleased] excluded",
+      "items": {
+        "type": "object",
+        "required": ["version", "date", "counts", "entries"],
+        "properties": {
+          "version": {"type": "string"},
+          "date": {"type": "string"},
+          "counts": {"type": "object", "additionalProperties": {"type": "integer"}, "description": "subsection heading -> bullet count"},
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "text"],
+              "properties": {"kind": {"type": "string"}, "text": {"type": "string", "description": "the bullet as Markdown"}}
+            }
+          }
+        }
+      }
+    },
+    "ci": {
+      "type": ["object", "null"],
+      "description": "From .github/workflows/workflow.yml",
+      "properties": {
+        "legs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["python", "os"],
+            "properties": {"python": {"type": "string"}, "os": {"type": "string"}, "note": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "api": {
+      "type": ["object", "null"],
+      "required": ["total", "groups"],
+      "properties": {
+        "total": {"type": "integer", "description": "len(jnwb.__all__)"},
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["module", "symbols"],
+            "properties": {
+              "module": {"type": "string"},
+              "extra": {"type": ["string", "null"], "description": "optional extra the module needs"},
+              "symbols": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
+    "verified": {
+      "type": ["object", "null"],
+      "description": "artifacts/frozen_validated.json",
+      "properties": {
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["file", "qualname", "verified_at", "tests"],
+            "properties": {
+              "file": {"type": "string"}, "qualname": {"type": "string"},
+              "verified_at": {"type": "string"}, "tests": {"type": "array", "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": ["object", "null"],
+      "properties": {
+        "baseline": {
+          "type": "array",
+          "description": "artifacts/benchmarks/baseline_performance.json",
+          "items": {
+            "type": "object",
+            "required": ["name", "time_ms", "peak_mb", "scale"],
+            "properties": {"name": {"type": "string"}, "time_ms": {"type": "number"}, "peak_mb": {"type": "number"}, "scale": {"type": "string"}}
+          }
+        },
+        "peak_memory": {
+          "type": ["object", "null"],
+          "description": "artifacts/benchmarks/peak_memory.json, fields copied as recorded",
+          "properties": {
+            "jnwb_version": {"type": "string"}, "commit": {"type": "string"},
+            "python": {"type": "string"}, "platform": {"type": "string"}, "unit": {"type": "string"},
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "peak_mib", "added_mib", "added_is"],
+                "properties": {"name": {"type": "string"}, "peak_mib": {"type": "number"}, "added_mib": {"type": "number"}, "added_is": {"type": "string"}}
+              }
+            }
+          }
+        },
+        "import": {"type": ["object", "null"], "description": "artifacts/benchmarks/import_breakdown.json, as recorded"}
+      }
+    },
+    "order": {
+      "type": ["array", "null"],
+      "description": "Per-export computational order rows from the computational-order record",
+      "items": {
+        "type": "object",
+        "required": ["export", "order"],
+        "properties": {"export": {"type": "string"}, "order": {"type": "string"}, "evidence": {"type": "string"}}
+      }
+    },
+    "references": {
+      "type": ["array", "null"],
+      "description": "docs/references.md entries",
+      "items": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {"text": {"type": "string"}, "url": {"type": ["string", "null"]}}
+      }
+    },
+    "figures": {
+      "type": "array",
+      "description": "docs/assets/figures pairs; paths relative to the built site",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "light", "dark"],
+        "properties": {
+          "id": {"type": "string"}, "title": {"type": "string"},
+          "light": {"type": "string"}, "dark": {"type": "string"},
+          "docs_page": {"type": ["string", "null"], "description": "Read the Docs page that explains the figure"}
+        }
+      }
+    }
+  }
+}
