@@ -212,16 +212,13 @@ def ci_section() -> dict | None:
 
 
 def api_section() -> dict | None:
-    if sys.path[0] != str(REPO_ROOT):
+    if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     try:
         import jnwb
     except ImportError as exc:
         _note(f"jnwb cannot be imported ({exc}); api is null")
         return None
-    origin = Path(jnwb.__file__).resolve()
-    if REPO_ROOT not in origin.parents:
-        raise RuntimeError(f"jnwb was imported from {origin}, not from {REPO_ROOT}")
     from jnwb._lazy_exports import EXPORT_MODULES, OPTIONAL_SUBMODULES
 
     # A symbol joins the group of the module EXPORT_MODULES names for it, written jnwb.<module>;

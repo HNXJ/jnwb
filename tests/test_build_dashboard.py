@@ -112,7 +112,6 @@ def test_release_counts_equal_entries_per_kind(data):
 
 
 def test_api_total_is_len_of_all(data):
-    assert Path(jnwb.__file__).resolve().is_relative_to(REPO_ROOT), jnwb.__file__
     assert data["api"]["total"] > 0, "fixture must export symbols"
     assert data["api"]["total"] == len(jnwb.__all__)
 

@@ -53,6 +53,11 @@ def test_triggers_are_push_to_main_and_manual_dispatch_only():
     assert on["push"]["branches"] == ["main"]
 
 
+def test_a_manual_run_publishes_only_from_main():
+    """workflow_dispatch can run on any branch; the job guard keeps other branches off gh-pages."""
+    assert _job(_workflow()).get("if") == "github.ref == 'refs/heads/main'"
+
+
 def test_contents_write_is_granted_on_the_job_only():
     doc = _workflow()
     assert (doc.get("permissions") or {}).get("contents") != "write"
