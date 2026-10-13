@@ -815,10 +815,15 @@ class StatisticalAnalysis:
 
     @staticmethod
     def clopper_pearson_ci(k: int, n: int, alpha: float = 0.05) -> Tuple[float, float]:
-        """Older spelling of `clopper_pearson`, kept for callers that used it.
+        """Deprecated spelling of `clopper_pearson`, kept for callers that used it.
 
         Forwards to the module-level `clopper_pearson`, same as the method it aliases.
         """
+        warnings.warn(
+            "clopper_pearson_ci is deprecated; use clopper_pearson.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return clopper_pearson(k, n, alpha=alpha)
 
     @staticmethod

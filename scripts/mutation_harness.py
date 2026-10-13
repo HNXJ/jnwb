@@ -1243,17 +1243,6 @@ class MutationSession:
         return self.report
 
 
-def run_cases(
-    cases: Sequence[MutationCase],
-    worktree: Path,
-    state_root: Path | None = None,
-    declared_modifications: Sequence[str] = (),
-) -> SuiteReport:
-    """One session, every case, digests verified on the way out. ``worktree`` is required."""
-    with MutationSession(worktree, state_root, declared_modifications) as session:
-        return session.run_suite(cases)
-
-
 def load_cases(path: Path) -> list[MutationCase]:
     """Read cases from JSON. Each object carries exactly the fields of :class:`MutationCase`."""
     raw = json.loads(Path(path).read_text(encoding="utf-8"))

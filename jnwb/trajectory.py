@@ -13,7 +13,7 @@ import pandas as pd
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
 from ._bins import bin_edges, right_open_counts, whole_bin_count
 from ._spread import zscore
-from .gpu_pca import pin_component_signs
+from .gpu_pca import _svd_numpy, pin_component_signs
 
 log = logging.getLogger(__name__)
 
@@ -179,11 +179,6 @@ def compute_population_trajectory(
 
     actual_components = min(n_components, X_flat.shape[0], n_units)
 
-    def _svd_numpy():
-        U, S, Vt = np.linalg.svd(X_scaled, full_matrices=False)
-        proj = X_scaled @ Vt[:actual_components, :].T
-        return proj, Vt[:actual_components, :], S
-
     resolved = resolve_device(device, context="compute_population_trajectory", prefer="torch", stacklevel=3)
 
     # Run SVD
@@ -203,9 +198,9 @@ def compute_population_trajectory(
             warn_device_fallback("compute_population_trajectory", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
             resolved = CPU
-            proj_np, V_np, S_np = _svd_numpy()
+            proj_np, V_np, S_np = _svd_numpy(X_scaled, actual_components)
     else:
-        proj_np, V_np, S_np = _svd_numpy()
+        proj_np, V_np, S_np = _svd_numpy(X_scaled, actual_components)
 
     # Intentional change of a returned value: with exactly zero total variance the
     # trajectory is NaN, like the variances and as in PopulationAnalyzer.population_trajectory;

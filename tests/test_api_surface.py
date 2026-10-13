@@ -4,12 +4,18 @@ from __future__ import annotations
 import ast
 import importlib
 import re
+import sys
 import types
 from pathlib import Path
 
 import jnwb
-from jnwb._api_surface import MODULE_DISPOSITION, NON_PUBLIC_MODULES
-from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES
+
+# Appended, not prepended: an installed copy must not be shadowed by the source tree.
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from tests._api_surface import MODULE_DISPOSITION, NON_PUBLIC_MODULES  # noqa: E402
+from jnwb._lazy_exports import EXPORT_MODULES, SUBMODULES  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JNWB_DIR = REPO_ROOT / "jnwb"
@@ -55,6 +61,12 @@ def test_non_public_modules_are_not_exported():
 def test_lazy_export_modules_are_public():
     for module_name in set(EXPORT_MODULES.values()):
         assert MODULE_DISPOSITION.get(module_name) == "public", module_name
+
+
+def test_the_disposition_registry_lives_under_tests():
+    """The registry describes the package and only tests read it, so it sits in tests/."""
+    assert not (JNWB_DIR / "_api_surface.py").exists()
+    assert (REPO_ROOT / "tests" / "_api_surface.py").exists()
 
 
 # --------------------------------------------------------------------------- module map

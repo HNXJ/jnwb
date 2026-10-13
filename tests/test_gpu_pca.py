@@ -118,3 +118,22 @@ def test_gpu_pca_zero_samples():
     assert proj.shape == (0, 3)
     assert comp.shape == (3, 10)
     assert var_exp == 0.0
+
+
+def test_gpu_pca_and_the_trajectory_share_one_svd_fallback():
+    """The NumPy SVD fallback is one private helper, in `jnwb.gpu_pca`, that both call."""
+    import jnwb.gpu_pca as gpu_module
+    import jnwb.trajectory as trajectory_module
+
+    assert trajectory_module._svd_numpy is gpu_module._svd_numpy
+
+
+def test_the_svd_fallback_helper_is_the_explicit_svd_bit_for_bit():
+    from jnwb.gpu_pca import _svd_numpy
+
+    scaled = np.random.default_rng(7).standard_normal((40, 6))
+    proj, V_top, S = _svd_numpy(scaled, 3)
+    _, S_ref, Vt = np.linalg.svd(scaled, full_matrices=False)
+    np.testing.assert_array_equal(V_top, Vt[:3, :])
+    np.testing.assert_array_equal(proj, scaled @ Vt[:3, :].T)
+    np.testing.assert_array_equal(S, S_ref)
