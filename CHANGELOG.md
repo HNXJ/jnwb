@@ -13,6 +13,7 @@ Releases 0.2.9, 0.2.8, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verbatim, i
 - `map_peak_channel_to_layer` gives each unit its peak channel's curated layer; tests/test_laminar_curation.py
 - `causal_gaussian_smooth` returns a causal smooth and its kernel's mean lag in bins; tests/test_onset_fitting.py
 - A non-blocking CI job runs the suite on pandas 3; docs/install.md gives the install step for it.
+- The dashboard's OpenScope GLO tab: one card per work, its replications as rows; scripts/build_dashboard.py
 
 ### Changed
 
