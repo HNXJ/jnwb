@@ -35,6 +35,9 @@ Computed predicates:
   partition   no routed operation belongs to two shipped domain skills (every skill but the
               router, ``jnwb``), and each owns at least ``k`` of them. A router row naming an
               operation does not share it with the domain skill that owns it.
+   routed_citations  every routing target that is a public function (export kind
+               function/class) is cited by a reference: it has a ``cites`` edge. Utility
+               exports are listed like the rest; no name is excluded.
 
   global_seeds     no tracked file seeds the global random state (the graph's ``global_seeds``)
   rng_parameters   every function in ``jnwb/`` or ``scripts/`` that draws from a random module
@@ -206,10 +209,37 @@ def db_averages(graph: Graph, constants: Constants) -> List[str]:
     return [f"{path}: {reason}" for path, reason in graph["relations"]["db_averages"]]
 
 
+def routed_citations(graph: Graph, constants: Constants) -> List[str]:
+    """Each routing target that is a public function (export kind function/class) and has no
+    ``cites`` edge, with the skills that route it. Utility exports are listed like the rest;
+    no name is excluded."""
+    exports = graph["entities"].get("export", {})
+    targets = graph["entities"].get("route_target", {})
+    if not targets:
+        return ["the graph has no routing targets, so no citation could be checked"]
+    cited = {name for name, _ in graph["relations"].get("cites", [])}
+    # A class is cited through any of its methods (`StatisticalAnalysis.fdr_correct`).
+    cited |= {name.split(".")[0] for name in cited if "." in name}
+    skills: Dict[str, List[str]] = {}
+    for skill, target in graph["relations"].get("routes", []):
+        skills.setdefault(target, []).append(skill)
+    found = []
+    for target in sorted(targets):
+        head = targets[target].get("export")
+        if head is None or exports.get(head, {}).get("kind") not in ("function", "class"):
+            continue
+        if target in cited:
+            continue
+        found.append(f"{target}: routed by {', '.join(sorted(skills.get(target, [])))} "
+                     "and cites no reference")
+    return found
+
+
 COMPUTED: Dict[str, Callable[[Graph, Constants], List[str]]] = {
     "lifecycle": lifecycle,
     "routes": routes,
     "partition": partition,
+    "routed_citations": routed_citations,
     "global_seeds": global_seeds,
     "rng_parameters": rng_parameters,
     "db_averages": db_averages,

@@ -16,6 +16,8 @@ Entities come from the tree itself:
   python  every tracked ``*.py`` file of the repository (``git ls-files``)
   fact    every typed row of ``artifacts/fact_stack.md``, with the holders its ``Held by``
           cell names
+  reference  every DOI of the method and pitfall tables of ``docs/references.md``, with the
+          section it sits under and the functions its row lists
 
 Relations, each a sorted list of ``[source, target]`` pairs:
 
@@ -29,6 +31,9 @@ Relations, each a sorted list of ``[source, target]`` pairs:
               the module before it, not a route). A route written in any other form is not seen.
   verifies    test file -> export it reaches: ``from jnwb... import NAME``, or ``NAME`` read as
               an attribute of an imported ``jnwb`` module
+  cites      function -> the DOI of the method row listing it (one per backticked name in the
+              row's Functions cell)
+  concerns   function -> the DOI of the pitfall row naming it, the same way
   constrains  holder -> fact it holds
   global_seeds  file -> a call that seeds NumPy's or the standard library's global random state
               (``global_seed_calls``), in every tracked file
@@ -209,6 +214,89 @@ def read_constants(text: str) -> Dict[str, List[str]]:
         for row in rows:
             constants[row[0].strip("`")] = _BACKTICKED.findall(row[1])
     return constants
+
+
+# ------------------------------------------------------------------------ references page
+
+
+#: A method table's functions implement the row's result; a pitfall table's are those its
+#: pitfall concerns. No other table header is allowed, so a new form cannot escape either
+#: check. ``tests/test_references_resolve.py`` imports this parser, so one parser exists.
+METHOD_HEADER = ("Reference", "Result implemented", "Functions")
+PITFALL_HEADER = ("Reference", "Pitfall stated", "Functions it concerns")
+#: A DOI link on the references page. The target may hold one level of balanced parentheses,
+#: as Markdown allows and the SICI-style DOI of Torrence & Compo (1998) needs.
+PAGE_LINK = re.compile(r"\[doi:([^\]]+)\]\(https://doi\.org/((?:[^()\s]|\([^()\s]*\))+)\)")
+
+
+def normalize_doi(doi: str) -> str:
+    """DOIs compare case-insensitively; a sentence may end right after one."""
+    return doi.rstrip(".,").lower()
+
+
+def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str, str]]:
+    """``(header, section, reference, result, functions)`` for every body row of every
+    references table, under the ``##`` heading each table sits under."""
+    rows = []
+    header = None
+    section = ""
+    for line in text.splitlines():
+        if line.startswith("## "):
+            section = line[3:].strip()
+        line = line.strip()
+        if not line.startswith("|") or set(line) <= set("|- "):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if cells and cells[0] == "Reference":
+            header = tuple(cells)
+            assert header in (METHOD_HEADER, PITFALL_HEADER), f"unknown table header: {line}"
+            continue
+        assert len(cells) == 3, f"a references row does not have three cells: {line[:80]}"
+        assert header is not None, f"a references row sits under no header: {line[:80]}"
+        rows.append((header, section, cells[0], cells[1], cells[2]))
+    return rows
+
+
+def reference_rows(text: str, header: Optional[Tuple[str, ...]] = None
+                   ) -> List[Tuple[str, str, str]]:
+    """``(reference, result, functions)`` for the rows under ``header``, or under any header."""
+    return [(reference, result, functions)
+            for under, _, reference, result, functions in reference_table_rows(text)
+            if header is None or under == header]
+
+
+def reference_row_doi(reference_cell: str) -> str:
+    """The row's DOI, lowercased; the link text and the link target naming the same DOI is
+    checked in ``tests/test_references_resolve.py``."""
+    links = PAGE_LINK.findall(reference_cell)
+    assert len(links) == 1, f"a row must carry exactly one DOI link: {reference_cell[:80]}"
+    return normalize_doi(links[0][0])
+
+
+def reference_functions(functions_cell: str) -> List[str]:
+    """Every backticked name of a Functions cell, in the order written."""
+    return _BACKTICKED.findall(functions_cell)
+
+
+def read_references(text: str) -> Tuple[Dict[str, Dict[str, Any]], List[List[str]],
+                                        List[List[str]]]:
+    """The references page as (reference entities, ``cites`` edges, ``concerns`` edges).
+
+    Each method row cites its DOI from every function its Functions cell lists; each pitfall
+    row concerns it instead. A DOI named twice keeps its first section and merges the
+    functions of both rows, in the order written.
+    """
+    references: Dict[str, Dict[str, Any]] = {}
+    cited, concerned = set(), set()
+    for header, section, reference, _, functions in reference_table_rows(text):
+        doi = reference_row_doi(reference)
+        names = reference_functions(functions)
+        entry = references.setdefault(doi, {"section": section, "functions": []})
+        entry["functions"].extend(n for n in names if n not in entry["functions"])
+        edges = cited if header == METHOD_HEADER else concerned
+        edges.update((name, doi) for name in names)
+    return (references, [list(pair) for pair in sorted(cited)],
+            [list(pair) for pair in sorted(concerned)])
 
 
 # ------------------------------------------------------------------------ source scans
@@ -693,6 +781,8 @@ def build(package: Any = None, root: Path = REPO_ROOT,
     skills, routes = _routes(root)
     tests, verifies = _tests(root, names)
     constrains = sorted([holder, fact["id"]] for fact in facts for holder in fact["holders"])
+    references, cites, concerns = read_references(
+        (root / "docs" / "references.md").read_text(encoding="utf-8"))
 
     return {
         "head": _head(root),
@@ -706,12 +796,15 @@ def build(package: Any = None, root: Path = REPO_ROOT,
             "test": tests,
             "gate": _gates(),
             "fact": {f["id"]: {"table": f["table"], "holders": f["holders"]} for f in facts},
+            "reference": references,
         },
         "relations": {
             "implements": sorted(implements),
             "documents": sorted(_documents(pages, names, root)),
             "routes": sorted(routes),
             "verifies": sorted(verifies),
+            "cites": cites,
+            "concerns": concerns,
             "constrains": constrains,
             **scans,
         },

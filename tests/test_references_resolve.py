@@ -26,12 +26,26 @@ from __future__ import annotations
 import ast
 import inspect
 import re
+import sys
 import urllib.parse
 from pathlib import Path
 
 import pytest
 
 import jnwb
+
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from scripts.build_fact_graph import (  # noqa: E402
+    METHOD_HEADER,
+    PAGE_LINK,
+    PITFALL_HEADER,
+    normalize_doi as _norm,
+    reference_functions,
+    reference_row_doi as _row_doi,
+    reference_rows as _rows,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "docs" / "references.md"
@@ -40,58 +54,12 @@ PACKAGE = ROOT / "jnwb"
 #: Crossref's pattern for modern DOIs, widened by ``<`` and ``>``, which the SICI-style DOI of
 #: Torrence & Compo (1998) carries.
 DOI_SHAPE = re.compile(r"^10\.\d{4,9}/[-._;()/:<>A-Za-z0-9]+$")
-#: The target may hold one level of balanced parentheses, as Markdown allows and the SICI DOI needs.
-PAGE_LINK = re.compile(r"\[doi:([^\]]+)\]\(https://doi\.org/((?:[^()\s]|\([^()\s]*\))+)\)")
 SOURCE_DOI = re.compile(r"doi:(10\.[^\s`'\"]+)")
-CODE_SPAN = re.compile(r"`([^`]+)`")
 #: A surname, optionally followed by "et al." or "& Coauthor", then a year.
 AUTHOR_YEAR = re.compile(
     r"\b([A-Z][\w'-]+)(?:\s+et al\.?|\s+(?:&|and)\s+[A-Z][\w'-]+)?,?\s+\(?((?:19|20)\d{2})\b"
 )
 ROW_YEAR = re.compile(r"\(((?:19|20)\d{2})\)")
-#: A method table's functions implement the row's result; a pitfall table's are those its
-#: pitfall concerns. No other table header is allowed, so a new form cannot escape both checks.
-METHOD_HEADER = ("Reference", "Result implemented", "Functions")
-PITFALL_HEADER = ("Reference", "Pitfall stated", "Functions it concerns")
-
-
-def _norm(doi: str) -> str:
-    """DOIs compare case-insensitively; a sentence may end right after one."""
-    return doi.rstrip(".,").lower()
-
-
-def _table_rows(text: str) -> list[tuple[tuple[str, ...], str, str, str]]:
-    """``(header, reference, result, functions)`` for every body row of every references table."""
-    rows = []
-    header = None
-    for line in text.splitlines():
-        line = line.strip()
-        if not line.startswith("|") or set(line) <= set("|- "):
-            continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
-        if cells and cells[0] == "Reference":
-            header = tuple(cells)
-            assert header in (METHOD_HEADER, PITFALL_HEADER), f"unknown table header: {line}"
-            continue
-        assert len(cells) == 3, f"a references row does not have three cells: {line[:80]}"
-        assert header is not None, f"a references row sits under no header: {line[:80]}"
-        rows.append((header, cells[0], cells[1], cells[2]))
-    return rows
-
-
-def _rows(text: str, header: tuple[str, ...] | None = None) -> list[tuple[str, str, str]]:
-    """``(reference, result, functions)`` for the rows under `header`, or under any header."""
-    return [
-        (reference, result, functions)
-        for under, reference, result, functions in _table_rows(text)
-        if header is None or under == header
-    ]
-
-
-def _row_doi(reference_cell: str) -> str:
-    links = PAGE_LINK.findall(reference_cell)
-    assert len(links) == 1, f"a row must carry exactly one DOI link: {reference_cell[:80]}"
-    return _norm(links[0][0])
 
 
 def _resolve(name: str):
@@ -173,7 +141,7 @@ def test_every_row_names_the_result_it_implements(rows):
 def test_every_listed_function_cites_its_row(method_rows):
     for reference, _, functions in method_rows:
         doi = _row_doi(reference)
-        names = CODE_SPAN.findall(functions)
+        names = reference_functions(functions)
         assert names, f"the row for doi:{doi} lists no function"
         for name in names:
             try:
@@ -190,7 +158,7 @@ def test_a_pitfall_row_names_functions_and_no_source_cites_it(pitfall_rows):
     cited = {_norm(doi) for doi in SOURCE_DOI.findall(source)}
     for reference, _, functions in pitfall_rows:
         doi = _row_doi(reference)
-        names = CODE_SPAN.findall(functions)
+        names = reference_functions(functions)
         assert names, f"the pitfall row for doi:{doi} lists no function"
         for name in names:
             try:
@@ -216,7 +184,7 @@ def test_every_doi_in_the_package_is_on_the_page(page):
 def test_every_citing_function_is_listed_on_its_row(rows):
     listed: dict[str, set[str]] = {}
     for reference, _, functions in rows:
-        listed[_row_doi(reference)] = set(CODE_SPAN.findall(functions))
+        listed[_row_doi(reference)] = set(reference_functions(functions))
     checked = 0
     for name, obj in _public_callables():
         for doi in _doc_dois(obj):

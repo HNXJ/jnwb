@@ -113,6 +113,75 @@ def test_a_routing_target_off_the_public_surface_is_violated(record, reason):
     assert status(graph(routed=("op.member",)), "computed:routes") == ("HELD", [])
 
 
+REFERENCES_FIXTURE = (
+    "## Methods\n\n"
+    "| Reference | Result implemented | Functions |\n"
+    "|---|---|---|\n"
+    "| Doe, J. (2020). A method with several words. "
+    "[doi:10.1000/method](https://doi.org/10.1000/method) "
+    "| The result this row implements takes several words | `op`, `other` |\n"
+    "\n"
+    "## Pitfalls\n\n"
+    "| Reference | Pitfall stated | Functions it concerns |\n"
+    "|---|---|---|\n"
+    "| Roe, J. (2021). A pitfall with several words. "
+    "[doi:10.1000/pitfall](https://doi.org/10.1000/pitfall) "
+    "| The pitfall this row states takes several words | `op` |\n"
+)
+
+
+def test_a_method_row_and_a_pitfall_row_yield_reference_cites_and_concerns():
+    references, cites, concerns = build_fact_graph.read_references(REFERENCES_FIXTURE)
+    assert references == {
+        "10.1000/method": {"section": "Methods", "functions": ["op", "other"]},
+        "10.1000/pitfall": {"section": "Pitfalls", "functions": ["op"]},
+    }
+    assert cites == [["op", "10.1000/method"], ["other", "10.1000/method"]]
+    assert concerns == [["op", "10.1000/pitfall"]]
+
+
+def cited_graph(cites):
+    """The ``graph`` fixture with the ``cites`` edges the caller names."""
+    g = graph()
+    g["relations"]["cites"] = [list(edge) for edge in cites]
+    return g
+
+
+def test_a_routed_function_with_no_citation_is_flagged():
+    found, reasons = status(cited_graph([]), "computed:routed_citations")
+    assert found == "VIOLATED"
+    assert reasons == ["computed:routed_citations: op: routed by jnwb-demo and cites no reference"]
+
+
+def test_a_routed_function_with_a_citation_is_held():
+    assert status(cited_graph([["op", "10.1000/method"]]),
+                   "computed:routed_citations") == ("HELD", [])
+
+
+def test_a_graph_with_no_routing_targets_is_not_held():
+    g = cited_graph([])
+    g["entities"]["route_target"] = {}
+    assert status(g, "computed:routed_citations")[0] == "VIOLATED"
+
+
+def test_every_live_citation_names_an_export(live):
+    import jnwb
+
+    _, g = live
+    cites = g["relations"]["cites"]
+    assert cites, "the live graph cites no reference"
+    assert cites == sorted(cites), "the live cites edges are not sorted"
+    exports = g["entities"]["export"]
+    references = g["entities"]["reference"]
+    for name, doi in cites:
+        head = name.split(".")[0]
+        assert head in exports, f"{name} cites doi:{doi} but {head} is no export"
+        obj = jnwb
+        for part in name.split("."):
+            obj = getattr(obj, part)
+        assert doi in references, f"{name} cites doi:{doi}, which the graph names no reference for"
+
+
 @pytest.mark.parametrize("holders, reason", [
     (("gate:99",), "gate:99 does not resolve"),
     (("test:tests/test_absent.py",), "test:tests/test_absent.py does not resolve"),
