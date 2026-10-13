@@ -2,8 +2,9 @@
 
 A bullet is a line starting with ``- `` together with the non-blank lines after it that start
 with two spaces (its continuation lines). It ends at a blank line, a heading line (up to three
-spaces, one to six ``#``, then whitespace or end of line) or any other line. A bullet is addressed by an exact prefix of its first line; the prefix must be
-delimited (it may not stop inside a token, so ``- A-2`` never matches ``- A-20``) and must match
+spaces, one or more ``#``, then whitespace or end of line; the rule ``scripts/stack_parse.py``
+shares with the gates) or any other line. A bullet is addressed by an exact prefix of its first
+line; the prefix must be delimited (it may not stop inside a token, so ``- A-2`` never matches ``- A-20``) and must match
 exactly one bullet, optionally within one heading's section.
 
 Every operation runs on an in-memory copy and is checked before anything is written. The result
@@ -34,12 +35,21 @@ import pathlib
 import re
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
 
-_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
-_HEADING_LIKE = re.compile(r"^ {0,3}#{1,6}(\s|$)")
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.append(str(_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
+# The heading rule is the gate's, so a section the editor finds is a section the gate reads.
+from scripts.stack_parse import HEADING  # noqa: E402
+
 _THEMATIC_BREAK = re.compile(r"^ {0,3}-(?: *-){2,} *$")
+# ``os.replace`` can fail with WinError 5 (access denied) while another process holds the file for
+# a moment. Only that error is retried, a few times, with a growing pause.
+REPLACE_ATTEMPTS = 5
+REPLACE_DELAY_S = 0.2
 _TOKEN = re.compile(r"[\w-]")
 
 
@@ -107,7 +117,7 @@ def _is_bullet(line: str) -> bool:
 
 
 def _is_continuation(line: str) -> bool:
-    return line.startswith("  ") and line.strip() != "" and not _HEADING_LIKE.match(line)
+    return line.startswith("  ") and line.strip() != "" and not HEADING.match(line)
 
 
 def _fenced(lines: Sequence[str]) -> list:
@@ -124,9 +134,9 @@ def _fenced(lines: Sequence[str]) -> list:
 
 def _parse_heading(text: str) -> tuple:
     text = text.strip()
-    m = re.match(r"^(#{1,6})\s+(.*?)\s*$", text)
+    m = HEADING.match(text)
     if m:
-        return len(m.group(1)), m.group(2)
+        return len(m.group(1)), (m.group(2) or "").strip()
     return None, text
 
 
@@ -138,9 +148,9 @@ def section_range(lines: Sequence[str], heading: Optional[str]) -> tuple:
     fenced = _fenced(lines)
     heads = []
     for i, line in enumerate(lines):
-        m = _HEADING.match(line)
+        m = HEADING.match(line)
         if m and not fenced[i]:
-            heads.append((i, len(m.group(1)), m.group(2)))
+            heads.append((i, len(m.group(1)), (m.group(2) or "").strip()))
     hits = [
         (i, lvl) for i, lvl, text in heads
         if text == want and (want_level is None or lvl == want_level)
@@ -170,7 +180,7 @@ def unit_end(lines: Sequence[str], i: int) -> int:
     k = j
     while k < len(lines) and lines[k].strip() == "":
         k += 1
-    if k < len(lines) and lines[k][:1] in (" ", "\t") and not _HEADING_LIKE.match(lines[k]):
+    if k < len(lines) and lines[k][:1] in (" ", "\t") and not HEADING.match(lines[k]):
         raise StackEditError(
             f"bullet at line {i + 1} is followed by an indented line that is not a two-space "
             f"continuation (line {k + 1}); its extent is ambiguous"
@@ -286,6 +296,11 @@ def delete(doc: Doc, prefix: str, section: Optional[str] = None) -> None:
 
 def replace(doc: Doc, prefix: str, new: list, section: Optional[str] = None) -> None:
     start, stop = find(doc.lines, prefix, section)
+    # check_region refuses a fence inside the new text, so a bullet that holds one can only be
+    # replaced by losing it. `delete` refuses the same case; this refusal says so before it writes.
+    if any(_is_fence(line) for line in doc.lines[start:stop]):
+        raise StackEditError(
+            f"bullet {prefix!r} holds a code fence; replacing it would remove the fence")
     doc.lines[start:stop] = list(new)
     check_region(doc.lines, start, start + len(new))
 
@@ -319,6 +334,18 @@ def diff(doc: Doc) -> str:
     )
 
 
+def _replace(tmp, path) -> None:
+    """``os.replace``, retried on WinError 5 up to REPLACE_ATTEMPTS times; other errors raise."""
+    for attempt in range(1, REPLACE_ATTEMPTS + 1):
+        try:
+            os.replace(tmp, path)
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) != 5 or attempt == REPLACE_ATTEMPTS:
+                raise
+            time.sleep(REPLACE_DELAY_S * attempt)
+
+
 def edit(path, ops: Sequence[Callable[[Doc], None]], dry_run: bool = False) -> Doc:
     """Apply ``ops`` in order to ``path``; write once, only if every op and check passes."""
     doc = load(path)
@@ -338,7 +365,7 @@ def edit(path, ops: Sequence[Callable[[Doc], None]], dry_run: bool = False) -> D
         check_newlines(written, doc.newline)
         if path.read_bytes() != doc.original:
             raise StackEditError(f"{path} changed on disk during the edit")
-        os.replace(tmp, path)
+        _replace(tmp, path)
     except BaseException:
         if os.path.exists(tmp):
             os.unlink(tmp)

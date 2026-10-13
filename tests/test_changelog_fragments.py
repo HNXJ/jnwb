@@ -41,6 +41,9 @@ from scripts.assemble_changelog import (  # noqa: E402
 from scripts.release_gate import unreleased_entry_lines  # noqa: E402
 
 CHANGELOG_TEXT = (ROOT / "CHANGELOG.md").read_bytes().decode("utf-8")
+# Released blocks older than the ones CHANGELOG.md keeps sit in the archive, after its preface.
+ARCHIVE_TEXT = (ROOT / "artifacts" / "archive" / "changelog_0.1.0-0.2.9.md").read_bytes().decode("utf-8")
+RELEASED_TEXT = CHANGELOG_TEXT + ARCHIVE_TEXT[ARCHIVE_TEXT.index("## ["):]
 HEADING_TO_CATEGORY = {heading: category for category, heading in CATEGORIES.items()}
 
 
@@ -90,7 +93,7 @@ def _write_fragments(directory: Path, bullets) -> None:
 
 @pytest.mark.parametrize("version, date", [("0.2.6.1", "2026-09-25"), ("0.1.8", "2026-09-11")])
 def test_assembly_reproduces_a_hand_written_release(tmp_path, version, date):
-    without, expected, bullets = _split_release(CHANGELOG_TEXT, version)
+    without, expected, bullets = _split_release(RELEASED_TEXT, version)
     assert len({cat for cat, _ in bullets}) >= 2, "the case needs more than one category"
     assert without != expected
     _write_fragments(tmp_path / "artifacts" / "changelog.d", bullets)

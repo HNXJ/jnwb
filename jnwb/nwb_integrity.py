@@ -108,7 +108,7 @@ class RaggedIndexRepair:
     output_path: str | None = None
 
 
-def _decode(x) -> str:
+def _decode_bytes_strict_or_str(x) -> str:
     return x.decode() if isinstance(x, bytes) else str(x)
 
 
@@ -242,7 +242,7 @@ def check_ragged_indices(path: str | Path, *, table: str = "units",
     with h5py.File(path, "r") as f:
         g = _group(f, table)
         cols = _check_group(g, probe_starts, probe_column)
-        listed = {_decode(c) for c in g.attrs.get("colnames", [])}
+        listed = {_decode_bytes_strict_or_str(c) for c in g.attrs.get("colnames", [])}
         unlisted = tuple(c.column for c in cols
                          if c.column not in listed and f"{c.column}_index" not in listed)
         n_rows = int(g["id"].shape[0]) if "id" in g else 0

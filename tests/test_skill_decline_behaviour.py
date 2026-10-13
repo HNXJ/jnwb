@@ -214,7 +214,7 @@ def _linear_geometry(n_contacts, pitch_um):
     return jnwb.probe_geometry(electrodes, units="um")
 
 
-@case("jnwb-spectrolaminar-work-bastos", "supported")
+@case("jnwb-laminar", "supported")
 def _():
     # The odd and even subsets are probes of their own at twice the pitch; on the full-probe
     # frame their crossovers agree with the whole probe's within one subset spacing.
@@ -229,14 +229,14 @@ def _():
     assert max(abs(v - depths["all"]) for v in depths.values()) < 200.0
 
 
-@case("jnwb-spectrolaminar-work-bastos", "request")
+@case("jnwb-laminar", "request")
 def _():
     lfp = np.random.default_rng(0).normal(size=(16, 4, 600))
     with pytest.raises(TypeError, match="pitch_um"):
         jnwb.curate_and_label(lfp, 1000.0)
 
 
-@case("jnwb-spectrolaminar-work-bastos", "failure")
+@case("jnwb-laminar", "failure")
 def _():
     # A probe with no motif gets no anchor: the fit is rejected and no layer is imputed.
     geom = _linear_geometry(16, 100.0)
@@ -245,14 +245,14 @@ def _():
     assert set(jnwb.label_layers(fit, geom).values()) == {"na"}
 
 
-@case("jnwb-spectrolaminar-work-bastos", "decline")
+@case("jnwb-laminar", "decline")
 def _():
-    # A vflip crossover is never reported as a vFLIP2 crossover, and the vFLIP2 omega tiers are
-    # never applied to it: the result carries no omega or G to apply them to.
-    assert_states("jnwb-spectrolaminar-work-bastos", "`vflip` is not vFLIP2",
-                  "never apply to `support_score`")
-    fields = jnwb.VFlipResult.__dataclass_fields__
-    assert not [f for f in fields if f.lower() in ("omega", "g", "goodness_of_fit")]
+    # The skill keeps jnwb's support score apart from vFLIP2's omega, and it routes no
+    # acceptance tier jnwb does not compute.
+    assert_states("jnwb-laminar", "`support_score` is not vFLIP2's omega",
+                  "vFLIP2's acceptance tiers never apply to it")
+    text = skill_text("jnwb-laminar")
+    assert "omega >" not in text and "|G|" not in text
 
 
 # ----------------------------------------------------------------------------- connectivity

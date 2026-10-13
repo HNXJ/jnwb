@@ -31,9 +31,10 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+import pandas as pd
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 
@@ -60,7 +61,7 @@ CORRELATION_FS_HZ: float = 100.0
 #: span, so it needs ``fs`` above 300 Hz. A working value.
 POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 
-def _robust_z(values: np.ndarray) -> np.ndarray:
+def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
     values = np.asarray(values, dtype=float)
     med = np.nanmedian(values)
@@ -178,7 +179,7 @@ def detect_bad_channels(
     local = np.full(n, np.nan)
     for _ in range(int(max_iterations)):
         local = _local_neighbor_correlation(corr, bad, int(neighbor_contacts))
-        new = (_robust_z(local) < min_neighbor_corr_z) | (np.abs(_robust_z(log_power)) > max_power_z) \
+        new = (_robust_z_std_fallback(local) < min_neighbor_corr_z) | (np.abs(_robust_z_std_fallback(log_power)) > max_power_z) \
             | ~np.isfinite(local)
         if np.array_equal(new, bad):
             break
@@ -802,7 +803,7 @@ def curate_and_label(
             r = np.corrcoef(reduced[ci])
             dd = np.full(n, np.nan)
             dd[ci[:-1]] = 1 - np.diag(r, 1)
-            zj = _robust_z(dd)
+            zj = _robust_z_std_fallback(dd)
             top = idx[::-1] if sup_up else idx
             outer = top[: max(1, int(edge_fraction * n))]
             jumps = [i for i in outer if np.isfinite(zj[i]) and zj[i] > edge_jump_z]
@@ -853,3 +854,69 @@ def curate_and_label(
         crossings_um=tuple(c * pitch for c, _ in crossings), vflip=v,
         xflip_distance_um=fused["distance_um"]["xflip"], csd_distance_um=fused["distance_um"]["csd"], csd=csd,
         xflip=xr)
+
+
+def _electrode_key(value: Any, name: str) -> Optional[int]:
+    """The integer electrode id of ``value``, or None for NaN. A value that is not one raises."""
+    if pd.isna(value):
+        return None
+    message = (f"map_peak_channel_to_layer: {name} holds {value!r}, which is not an integer "
+               "electrode id")
+    # A bool or a string would pass float(): True as id 1, "1e1" as id 10.
+    if isinstance(value, (bool, np.bool_, str, bytes)):
+        raise ValueError(message)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(message) from None
+    if not (np.isfinite(number) and number.is_integer()):
+        raise ValueError(message)
+    return int(number)
+
+
+def map_peak_channel_to_layer(units_df: pd.DataFrame, curation: LaminarCurationResult,
+                              channel_ids: Sequence) -> np.ndarray:
+    """One curated layer label per unit: the label of the unit's peak channel.
+
+    ``curation.labels`` is positional, in the order the LFP rows were given to
+    :func:`curate_and_label`, and the result stores no channel identifiers. ``channel_ids``
+    gives the electrode id of each of those rows, so a unit's ``peak_channel_id`` is looked up
+    in it and never read as a row position. An id that is absent from ``channel_ids`` or NaN
+    gets ``"na"``.
+
+    Args:
+        units_df: Units table with a ``peak_channel_id`` column.
+        curation: The :class:`LaminarCurationResult` of the LFP.
+        channel_ids: Electrode id of each LFP row, in the order given to :func:`curate_and_label`.
+
+    Returns:
+        ``(n_units,)`` object array of str, in the row order of ``units_df``.
+
+    Raises:
+        ValueError: If ``units_df`` has no ``peak_channel_id`` column, ``channel_ids`` and
+            ``curation.labels`` differ in length, an id is not an integer, or an id is listed twice.
+    """
+    if "peak_channel_id" not in units_df.columns:
+        raise ValueError("map_peak_channel_to_layer: units_df has no 'peak_channel_id' column, so no "
+                         "unit has a peak channel to place")
+    labels = np.asarray(curation.labels)
+    ids = list(channel_ids)
+    if len(ids) != labels.shape[0]:
+        raise ValueError(f"map_peak_channel_to_layer: channel_ids has {len(ids)} entries but "
+                         f"curation.labels has {labels.shape[0]}; pass the electrode id of each LFP row, "
+                         "in the order given to curate_and_label")
+    position: Dict[int, int] = {}
+    for pos, cid in enumerate(ids):
+        key = _electrode_key(cid, "channel_ids")
+        if key is None:
+            raise ValueError("map_peak_channel_to_layer: channel_ids holds NaN, which is not an "
+                             "electrode id")
+        if key in position:
+            raise ValueError(f"map_peak_channel_to_layer: channel id {key} appears twice in channel_ids")
+        position[key] = pos
+    out = np.full(len(units_df), "na", dtype=object)
+    for i, peak in enumerate(units_df["peak_channel_id"].to_numpy()):
+        key = _electrode_key(peak, "peak_channel_id")
+        if key is not None and key in position:
+            out[i] = str(labels[position[key]])
+    return out

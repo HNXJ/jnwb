@@ -84,6 +84,10 @@ gallery_src/
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json
 !tests/fixtures/dashboard_data.json
+!tests/fixtures/showcase_record.json
+# The OpenScope GLO showcase record and its figures, which the dashboard build reads.
+!artifacts/showcases/openscope_glo.json
+!artifacts/showcases/openscope_glo/figures/*.png
 *.asv
 *.mexw64
 *.mlx

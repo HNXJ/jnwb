@@ -1,0 +1,8 @@
+interface:
+  display_name: jnwb-laminar
+  description: Laminar alignment of linear-probe LFP by the spectrolaminar motif. Tests
+    each probe for the alpha-beta and gamma relative-power motif, aligns grand averages on
+    each probe's crossover with superficial up, and aligns the stimulus-evoked CSD on that
+    crossover.
+policy:
+  allow_implicit_invocation: true

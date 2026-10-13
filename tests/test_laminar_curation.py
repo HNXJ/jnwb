@@ -1,7 +1,10 @@
 """Tests for jnwb.laminar_curation: bad contacts, interpolation, CSD sink, fusion, labelling."""
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
+import pandas as pd
 import pytest
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d
@@ -600,3 +603,72 @@ class TestGradeBoundaries:
         out = jnwb.fuse_laminar_anchors(**{source: 600.0}, window_um=self.WIN,
                                         consistency_deep=0.95, consistency_superficial=cmin)
         assert out["stable"] and out["consistency"] == cmin and out["grade"] == grade
+
+
+class TestMapPeakChannelToLayer:
+    """A unit's layer is the curated label of its peak channel (item 12-18)."""
+
+    @staticmethod
+    def _curation(labels, base):
+        return dataclasses.replace(base, labels=np.array(labels, dtype=str))
+
+    def test_each_unit_takes_the_label_of_its_peak_channel(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input", "deep", "WM"], base)
+        assert len(set(curation.labels)) == 4, "fixture must give each contact a distinct label"
+        units = pd.DataFrame({"peak_channel_id": [13, 10, 12, 11]})
+        out = jnwb.map_peak_channel_to_layer(units, curation, [10, 11, 12, 13])
+        assert list(out) == ["WM", "superficial", "deep", "input"]
+
+    def test_a_channel_the_result_does_not_hold_is_na(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input", "deep"], base)
+        assert 11 not in [10, 12, 14], "fixture must place a unit on a channel absent from the result"
+        units = pd.DataFrame({"peak_channel_id": [11, 12]})
+        out = jnwb.map_peak_channel_to_layer(units, curation, [10, 12, 14])
+        assert list(out) == ["na", "input"]
+
+    def test_labels_follow_the_ids_when_the_rows_are_reordered(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input", "deep", "WM"], base)
+        ids = [13, 12, 11, 10]
+        assert ids != sorted(ids), "fixture must reorder the ids"
+        units = pd.DataFrame({"peak_channel_id": [13, 10]})
+        assert list(jnwb.map_peak_channel_to_layer(units, curation, ids)) == ["superficial", "WM"]
+
+    def test_a_nan_peak_channel_is_na(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input"], base)
+        units = pd.DataFrame({"peak_channel_id": [10.0, np.nan]})
+        assert units["peak_channel_id"].isna().sum() == 1, "fixture must hold one NaN peak channel"
+        assert list(jnwb.map_peak_channel_to_layer(units, curation, [10, 11])) == ["superficial", "na"]
+
+    def test_a_units_table_without_a_peak_channel_column_is_refused_by_name(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input"], base)
+        units = pd.DataFrame({"unit_id": [1, 2]})
+        assert "peak_channel_id" not in units.columns, "fixture must lack the peak-channel column"
+        with pytest.raises(ValueError, match="peak_channel_id"):
+            jnwb.map_peak_channel_to_layer(units, curation, [10, 11])
+
+    def test_channel_ids_must_match_the_labels_in_length(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input", "deep", "WM"], base)
+        units = pd.DataFrame({"peak_channel_id": [10]})
+        with pytest.raises(ValueError, match="channel_ids has 3 entries"):
+            jnwb.map_peak_channel_to_layer(units, curation, [10, 11, 12])
+
+    def test_a_channel_id_listed_twice_is_refused(self, clean):
+        _, base = clean
+        curation = self._curation(["superficial", "input", "deep"], base)
+        units = pd.DataFrame({"peak_channel_id": [10]})
+        with pytest.raises(ValueError, match="appears twice"):
+            jnwb.map_peak_channel_to_layer(units, curation, [10, 10, 12])
+
+    @pytest.mark.parametrize("peak", ["ch3", 11.5, "11", "1e1", True])
+    def test_a_peak_channel_that_is_not_an_integer_id_is_refused_by_name(self, clean, peak):
+        _, base = clean
+        curation = self._curation(["superficial", "input"], base)
+        units = pd.DataFrame({"peak_channel_id": [peak]}, dtype=object)
+        with pytest.raises(ValueError, match="peak_channel_id holds .* not an integer electrode id"):
+            jnwb.map_peak_channel_to_layer(units, curation, [10, 11])

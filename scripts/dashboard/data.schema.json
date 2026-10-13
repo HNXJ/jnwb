@@ -3,7 +3,7 @@
   "title": "jnwb dashboard data",
   "description": "Written by scripts/build_dashboard.py from committed records only. The page renders this file and computes no value of its own; a section whose source is missing is null, never filled in.",
   "type": "object",
-  "required": ["generated", "sources", "release", "releases", "ci", "api", "verified", "performance", "order", "references", "figures"],
+  "required": ["generated", "sources", "release", "releases", "ci", "api", "verified", "performance", "order", "references", "figures", "showcases"],
   "properties": {
     "generated": {
       "type": "object",
@@ -166,6 +166,132 @@
           "docs_page": {"type": ["string", "null"], "description": "Read the Docs page that explains the figure"}
         }
       }
+    },
+    "showcases": {
+      "type": ["object", "null"],
+      "description": "artifacts/showcases/openscope_glo.json, as recorded; null while no record exists. Figure paths are relative to the built site.",
+      "required": ["entries"],
+      "additionalProperties": false,
+      "properties": {
+        "entries": {"type": "array", "items": {"$ref": "#/$defs/showcase"}}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "figure_file": {"type": "string", "pattern": "^assets/showcases/[A-Za-z0-9_.-]+\\.png$", "description": "a path under assets/showcases/ in the built site"},
+    "showcase": {
+      "type": "object",
+      "required": ["id", "title", "question", "relation_to_published", "species", "status", "origin", "dandi", "jnwb", "figures", "result", "interpretation", "limitations", "code", "receipts", "replications", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "question": {"type": "string"},
+        "relation_to_published": {"type": "string"},
+        "species": {"enum": ["mouse", "macaque"]},
+        "status": {"enum": ["published", "exploratory", "verified"]},
+        "origin": {
+          "type": "object",
+          "required": ["kind", "author", "issue"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"enum": ["showcase", "contributor"]},
+            "author": {"type": "string"},
+            "issue": {"type": ["string", "null"]}
+          }
+        },
+        "dandi": {
+          "type": "object",
+          "required": ["id", "version", "assets"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {"type": "string"},
+            "version": {"type": "string"},
+            "assets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["asset_id", "sha256"],
+                "additionalProperties": false,
+                "properties": {"asset_id": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}
+              }
+            }
+          }
+        },
+        "jnwb": {
+          "type": "object",
+          "required": ["commit", "functions"],
+          "additionalProperties": false,
+          "properties": {
+            "commit": {"$ref": "#/$defs/commit"},
+            "functions": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "figures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["light", "dark", "caption", "units", "controls", "uncertainty"],
+            "additionalProperties": false,
+            "properties": {
+              "light": {"$ref": "#/$defs/figure_file"},
+              "dark": {"$ref": "#/$defs/figure_file"},
+              "caption": {"type": "string"},
+              "units": {"type": "string"},
+              "controls": {"type": "string"},
+              "uncertainty": {"type": "string"}
+            }
+          }
+        },
+        "result": {"type": "string"},
+        "interpretation": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "code": {
+          "type": "object",
+          "required": ["location", "commit"],
+          "additionalProperties": false,
+          "properties": {"location": {"type": "string"}, "commit": {"$ref": "#/$defs/commit"}}
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "sha256"],
+            "additionalProperties": false,
+            "properties": {"name": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}
+          }
+        },
+        "replications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["by", "date", "scope", "verdict", "seed", "report_sha256", "note"],
+            "additionalProperties": false,
+            "properties": {
+              "by": {"type": "string"},
+              "date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+              "scope": {"type": "string"},
+              "verdict": {"enum": ["reproduces", "partial", "does_not"]},
+              "seed": {"type": ["string", "null"]},
+              "report_sha256": {"$ref": "#/$defs/sha256"},
+              "note": {"type": "string"}
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "url"],
+            "additionalProperties": false,
+            "properties": {"label": {"type": "string"}, "url": {"type": "string"}}
+          }
+        }
+      },
+      "if": {"properties": {"status": {"const": "verified"}}, "required": ["status"]},
+      "then": {"properties": {"replications": {"contains": {"type": "object", "required": ["verdict"], "properties": {"verdict": {"const": "reproduces"}}}}}}
     }
   }
 }
