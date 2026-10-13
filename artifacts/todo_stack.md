@@ -37,15 +37,14 @@ Three lanes run at once; a wave opens when the lanes it depends on have merged. 
 one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 covers
-cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for 12-21 and for pull request #31 (`jnwb-laminar`), not for the
-contributed dashboard cards.
+cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for 12-21, not for the contributed dashboard cards; pull request #31
+(`jnwb-laminar`) merged into `dev` on 2026-10-13.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
-| 3 | P pull request #31 | `jnwb-laminar`: suite, second review, push to its branch, merge into `dev` (ruled 2026-10-13) | the files the pull request names | none |
 | 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
-| 4 | K skills split | 12-22 | `skills/` | P |
+| 4 | K skills split | 12-22 | `skills/` | none |
 | 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 | any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
