@@ -62,6 +62,12 @@ class TestBandpassFilter:
         with pytest.raises(ValueError, match="NaN"):
             bandpass_filter(d, fs=1000, low_cut=10, high_cut=20)
 
+    def test_inf_is_refused_like_nan(self):
+        d = np.ones(1000)
+        d[500] = np.inf
+        with pytest.raises(ValueError, match="finite"):
+            bandpass_filter(d, fs=1000, low_cut=10, high_cut=20)
+
     def test_short_signal_raises(self):
         d = np.ones(10)
         with pytest.raises(ValueError, match="too short"):
@@ -79,4 +85,10 @@ class TestNotchFilter:
         band10_pwr = jnwb.band_power(filtered[1000:-1000], fs=fs, freq_range=(8, 12), normalize=False)
         band60_pwr = jnwb.band_power(filtered[1000:-1000], fs=fs, freq_range=(59, 61), normalize=False)
         assert band60_pwr < band10_pwr * 0.01
+
+    def test_inf_is_refused_like_nan(self):
+        d = np.ones(1000)
+        d[500] = np.inf
+        with pytest.raises(ValueError, match="finite"):
+            notch_filter(d, fs=1000.0)
 
