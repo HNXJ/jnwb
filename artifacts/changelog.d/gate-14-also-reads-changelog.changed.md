@@ -1,0 +1,1 @@
+- Gate 14 also reads CHANGELOG.md: no process terms, six kind headings, one named file per entry line.

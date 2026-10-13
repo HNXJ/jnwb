@@ -36,17 +36,22 @@ lines.
 Three lanes run at once; a wave opens when the lanes it depends on have merged. Full suites run
 one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
+Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 covers
+cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for 12-21 and for pull request #31 (`jnwb-laminar`), not for the
+contributed dashboard cards.
+
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 3 | R release tooling | 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | none |
-| 3 | S code reductions | 12-13, then 12-22 (roadmap rows) | the files each names, `skills/` | none |
-| 4 | H harness | 12-05, 12-01 (roadmap rows) | `scripts/harness_gate.py`, process tests | R |
-| 4 | M docs restructure | the menu by reader arrival, overlapping pages merged, every page under its ceiling | `docs/`, `mkdocs.yml` | S |
-| 5 | F figures and citations | 14-01 to 14-05, 12-08 (roadmap rows) | `docs/`, `examples/tutorials/` | M |
+| 3 | R release tooling | 12-02 (running), 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
+| 3 | P pull request #31 | `jnwb-laminar`: suite, push to its branch, ABastos approves, merge | the files the pull request names | none |
+| 3 | U new-function refusals | 12-25 | `jnwb/onset_fitting.py`, `jnwb/laminar_curation.py` and their tests | none |
+| 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
+| 4 | K skills split | 12-22 | `skills/` | P |
+| 4 | M docs restructure | 12-26 | `docs/`, `mkdocs.yml` | none |
+| 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | M |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
-
-Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 is the full
-release. Its last step rewrites the GLO showcase records as replication rows.
+| any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
+| last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
 ### 12-21 A jaxfne simulation as jnwb ground truth
 

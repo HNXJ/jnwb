@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional, Tuple
 import numpy as np
 from .._units import resolve_unit_alias
@@ -107,7 +108,13 @@ def binary_occupancy_mutual_information(
     *,
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Explicit alias for binary occupancy MI. `time_window_s` is in seconds."""
+    """Deprecated alias for binary occupancy MI. `time_window_s` is in seconds."""
+    warnings.warn(
+        "binary_occupancy_mutual_information is deprecated; use "
+        "spike_mutual_information(..., estimator='binary_occupancy').",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
                      "binary_occupancy", time_window, "binary_occupancy_mutual_information")
 
@@ -120,6 +127,12 @@ def spike_count_mutual_information(
     *,
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
+    """Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
+    warnings.warn(
+        "spike_count_mutual_information is deprecated; use "
+        "spike_mutual_information(..., estimator='spike_count').",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms,
                      "spike_count", time_window, "spike_count_mutual_information")
