@@ -119,6 +119,7 @@ from .laminar_curation import (
     fuse_laminar_anchors,
     interpolate_channel_runs,
     LaminarCurationResult,
+    map_peak_channel_to_layer,
 )
 
 #: `__version__` is a literal, so two copies carry the same string whether or not they carry
@@ -350,6 +351,7 @@ __all__ = [
     'fuse_laminar_anchors',
     'interpolate_channel_runs',
     'LaminarCurationResult',
+    'map_peak_channel_to_layer',
 
     # Analyzers
     'TFRAnalyzer',
@@ -396,6 +398,7 @@ __all__ = [
 
     # Onset-latency fitting
     'causal_exp_smooth',
+    'causal_gaussian_smooth',
     'fit_exponential_onset',
     'onset_model',
 
