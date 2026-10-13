@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "4263c70c9538692a616de08a665986d402702789",
-    "date": "2026-10-13T18:04:55Z"
+    "commit": "f1ed2d56ca4b07d8b714741313d6fa22368f1c68",
+    "date": "2026-10-13T19:34:17Z"
   },
   "sources": {
     "generated": [
@@ -37,15 +37,15 @@
     ],
     "figures": [
       "docs/assets/figures",
-      "docs/https://jnwb.readthedocs.io/en/latest/02_paths_addressing_metadata.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/03_representational_similarity_jrsa.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/05_artifact_detection_and_repair.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/07_statistical_inference_and_nulls.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/08_directed_connectivity_and_information.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/09_decoding_and_visual_qc.md",
-      "docs/https://jnwb.readthedocs.io/en/latest/coherence_and_tfr.md"
+      "docs/02_paths_addressing_metadata.md",
+      "docs/03_representational_similarity_jrsa.md",
+      "docs/04_spectral_analysis_and_tfr.md",
+      "docs/05_artifact_detection_and_repair.md",
+      "docs/06_spikes_psth_and_onset_dynamics.md",
+      "docs/07_statistical_inference_and_nulls.md",
+      "docs/08_directed_connectivity_and_information.md",
+      "docs/09_decoding_and_visual_qc.md",
+      "docs/coherence_and_tfr.md"
     ],
     "showcases": [
       "artifacts/showcases/openscope_glo.json"
@@ -3829,6 +3829,10 @@
       "url": "https://doi.org/10.1038/s41593-020-00744-x"
     },
     {
+      "text": "Virtanen, P., et al. (2020). SciPy 1.0: fundamental algorithms for scientific computing in Python. *Nature Methods* 17(3), 261-272. [doi:10.1038/s41592-019-0686-2](https://doi.org/10.1038/s41592-019-0686-2)",
+      "url": "https://doi.org/10.1038/s41592-019-0686-2"
+    },
+    {
       "text": "Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of local field potential power across the primate cortex. *Nature Neuroscience* 27(3), 547-560. [doi:10.1038/s41593-023-01554-7](https://doi.org/10.1038/s41593-023-01554-7)",
       "url": "https://doi.org/10.1038/s41593-023-01554-7"
     },
@@ -3865,6 +3869,10 @@
       "url": "https://doi.org/10.1073/pnas.2014868117"
     },
     {
+      "text": "Berens, P. (2009). CircStat: a MATLAB toolbox for circular statistics. *Journal of Statistical Software* 31(10). [doi:10.18637/jss.v031.i10](https://doi.org/10.18637/jss.v031.i10)",
+      "url": "https://doi.org/10.18637/jss.v031.i10"
+    },
+    {
       "text": "Granger, C. W. J. (1969). Investigating causal relations by econometric models and cross-spectral methods. *Econometrica* 37(3), 424. [doi:10.2307/1912791](https://doi.org/10.2307/1912791)",
       "url": "https://doi.org/10.2307/1912791"
     },
@@ -3893,6 +3901,10 @@
       "url": "https://doi.org/10.1140/epjb/e2002-00379-2"
     },
     {
+      "text": "Shannon, C. E. (1948). A mathematical theory of communication. *Bell System Technical Journal* 27(3), 379-423. [doi:10.1002/j.1538-7305.1948.tb01338.x](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x)",
+      "url": "https://doi.org/10.1002/j.1538-7305.1948.tb01338.x"
+    },
+    {
       "text": "Maris, E., & Oostenveld, R. (2007). Nonparametric statistical testing of EEG- and MEG-data. *Journal of Neuroscience Methods* 164(1), 177-190. [doi:10.1016/j.jneumeth.2007.03.024](https://doi.org/10.1016/j.jneumeth.2007.03.024)",
       "url": "https://doi.org/10.1016/j.jneumeth.2007.03.024"
     },
@@ -3917,6 +3929,18 @@
       "url": "https://doi.org/10.1093/biomet/26.4.404"
     },
     {
+      "text": "Pitman, E. J. G. (1937). Significance tests which may be applied to samples from any populations. *Journal of the Royal Statistical Society Series B* 4(1), 119-130. [doi:10.2307/2984124](https://doi.org/10.2307/2984124)",
+      "url": "https://doi.org/10.2307/2984124"
+    },
+    {
+      "text": "Mann, H. B., & Whitney, D. R. (1947). On a test of whether one of two random variables is stochastically larger than the other. *The Annals of Mathematical Statistics* 18(1), 50-60. [doi:10.1214/aoms/1177730491](https://doi.org/10.1214/aoms/1177730491)",
+      "url": "https://doi.org/10.1214/aoms/1177730491"
+    },
+    {
+      "text": "Efron, B. (1979). Bootstrap methods: another look at the jackknife. *The Annals of Statistics* 7(1). [doi:10.1214/aos/1176344552](https://doi.org/10.1214/aos/1176344552)",
+      "url": "https://doi.org/10.1214/aos/1176344552"
+    },
+    {
       "text": "Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619)",
       "url": "https://doi.org/10.1037/h0031619"
     },
@@ -3931,6 +3955,14 @@
     {
       "text": "Wagenaar, D. A., Pine, J., & Potter, S. M. (2006). An extremely rich repertoire of bursting patterns during the development of cortical cultures. *BMC Neuroscience* 7, 11. [doi:10.1186/1471-2202-7-11](https://doi.org/10.1186/1471-2202-7-11)",
       "url": "https://doi.org/10.1186/1471-2202-7-11"
+    },
+    {
+      "text": "Gerstein, G. L., & Kiang, N. Y.-S. (1960). An approach to the quantitative analysis of electrophysiological data from single neurons. *Biophysical Journal* 1(1), 15-28. [doi:10.1016/s0006-3495(60)86872-5](https://doi.org/10.1016/s0006-3495(60)86872-5)",
+      "url": "https://doi.org/10.1016/s0006-3495(60)86872-5"
+    },
+    {
+      "text": "Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation of neuronal firing rates: from single-neuron spike trains to population activity. *Journal of Neuroscience Methods* 94(1), 81-92. [doi:10.1016/s0165-0270(99)00127-2](https://doi.org/10.1016/s0165-0270(99)00127-2)",
+      "url": "https://doi.org/10.1016/s0165-0270(99)00127-2"
     },
     {
       "text": "Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x)",
@@ -3991,6 +4023,26 @@
     {
       "text": "Székely, G. J., Rizzo, M. L., & Bakirov, N. K. (2007). Measuring and testing dependence by correlation of distances. *The Annals of Statistics* 35(6). [doi:10.1214/009053607000000505](https://doi.org/10.1214/009053607000000505)",
       "url": "https://doi.org/10.1214/009053607000000505"
+    },
+    {
+      "text": "Cunningham, J. P., & Yu, B. M. (2014). Dimensionality reduction for large-scale neural recordings. *Nature Neuroscience* 17(11), 1500-1509. [doi:10.1038/nn.3776](https://doi.org/10.1038/nn.3776)",
+      "url": "https://doi.org/10.1038/nn.3776"
+    },
+    {
+      "text": "Varma, S., & Simon, R. (2006). Bias in error estimation when using cross-validation for model selection. *BMC Bioinformatics* 7(1). [doi:10.1186/1471-2105-7-91](https://doi.org/10.1186/1471-2105-7-91)",
+      "url": "https://doi.org/10.1186/1471-2105-7-91"
+    },
+    {
+      "text": "Cortes, C., & Vapnik, V. (1995). Support-vector networks. *Machine Learning* 20(3), 273-297. [doi:10.1007/bf00994018](https://doi.org/10.1007/bf00994018)",
+      "url": "https://doi.org/10.1007/bf00994018"
+    },
+    {
+      "text": "Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized preprocessing for large-scale EEG analysis. *Frontiers in Neuroinformatics* 9. [doi:10.3389/fninf.2015.00016](https://doi.org/10.3389/fninf.2015.00016)",
+      "url": "https://doi.org/10.3389/fninf.2015.00016"
+    },
+    {
+      "text": "Leys, C., et al. (2013). Detecting outliers: do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology* 49(4), 764-766. [doi:10.1016/j.jesp.2013.03.013](https://doi.org/10.1016/j.jesp.2013.03.013)",
+      "url": "https://doi.org/10.1016/j.jesp.2013.03.013"
     }
   ],
   "figures": [

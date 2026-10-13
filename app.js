@@ -114,7 +114,7 @@
   }
 
   function symbolModules(data) {
-    var modules = {};
+    var modules = Object.create(null);  // no prototype: a symbol named `constructor` stays unmapped
     var groups = lookup(data, 'api.groups');
     (Array.isArray(groups) ? groups : []).forEach(function (group) {
       (Array.isArray(group.symbols) ? group.symbols : []).forEach(function (symbol) {
