@@ -122,7 +122,7 @@ $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{estimator}}(\tau, \Delta t)
 
 ## 3. Causality-Bounded Exponential Onset Fitting (`jnwb.onset_fitting`)
 
-`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the takeoff time $t_0$ of the trace it is given; on a smoothed trace with a graded rise, $t_0$ moves with `tau_ms`:
+`jnwb.fit_exponential_onset` fits a parameterized rise model (`jnwb.onset_model`) to estimate the takeoff time $t_0$ of the trace it is given:
 
 $$y(t) = \begin{cases} \text{baseline}, & t < t_0 \\ \text{baseline} + \text{amplitude} \cdot \left(1 - e^{-(t - t_0)/\tau}\right), & t \ge t_0 \end{cases}$$
 
@@ -149,8 +149,7 @@ print(f"Optimizer Bound Status: {fit['bound_status']}")
 ![Causal Exponential Smoothing and Onset Latency Fit](assets/figures/fig03_onset_fitting.dark.png#only-dark)
 
 That figure draws one `jnwb.fit_exponential_onset` result over the causally smoothed synthetic rate it
-was fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from. The
-gap between the two lines is the fit's bias on this rise; it depends on the rise as well as $\tau$, so it is not a filter delay to subtract.
+was fitted to, with the recovered $t_0$ beside the ground-truth $t_0$ the signal was built from.
 
 ### Boundary Status & Censoring Flags (`bound_status`)
 When an onset lies outside the search interval (e.g. pre-stimulus noise or unconstrained drift), nonlinear least squares pins $t_0$ against the outer bounds while reporting `converged: True`. `bound_status` reports whether $t_0$ sits at an end of `t0_bounds_ms`. It checks $t_0$ alone: `tau`, `amplitude` and the quality of the fit do not enter it.

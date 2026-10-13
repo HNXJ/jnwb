@@ -77,11 +77,7 @@ onsets = jnwb.event_onsets(
 )
 ```
 
-`codes` is jnwb's default column name, not an NWB requirement — a file from another lab
-usually names it something else, which is why the column comes from `inspect` rather than
-from habit. Naming a column that does not exist raises `ColumnNotFoundError` listing the
-columns that do. On a table with no `codes` column, `events` returns the onsets and warns;
-`event_onsets` without `codes=` returns them silently.
+The `codes` default, and the errors for a missing column, are on the [Errors](https://jnwb.readthedocs.io/en/latest/errors/) page. On a table with no `codes` column, `events` returns the onsets and warns; `event_onsets` without `codes=` returns them silently.
 
 Executable walkthroughs: [Read the Docs tutorials](https://jnwb.readthedocs.io/) or `examples/tutorials/`.
 
