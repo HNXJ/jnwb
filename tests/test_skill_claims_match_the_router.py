@@ -33,10 +33,12 @@ PHASE_MEASURES = {"wpli", "imaginary_coherency"}
 
 def _rows() -> list[tuple[str, str, set[str]]]:
     out = []
-    for page in sorted(SKILLS.rglob("SKILL.md")):
-        for line in page.read_text(encoding="utf-8").splitlines():
-            if line.lstrip().startswith("- "):
-                out.append((page.parent.name, line, set(CALL.findall(line))))
+    for skill_dir in sorted(p for p in SKILLS.iterdir() if (p / "SKILL.md").is_file()):
+        pages = [skill_dir / "SKILL.md"] + sorted((skill_dir / "references").glob("*.md"))
+        for page in pages:
+            for line in page.read_text(encoding="utf-8").splitlines():
+                if line.lstrip().startswith("- "):
+                    out.append((skill_dir.name, line, set(CALL.findall(line))))
     assert len(out) >= 100, f"only {len(out)} routing rows found; the parser stopped matching"
     return out
 

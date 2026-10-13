@@ -50,10 +50,13 @@ FIXTURES = {"session.nwb": _write_synth_session}
 
 def _blocks() -> list[tuple[str, int, str]]:
     out = []
-    for md in sorted(SKILLS.glob("*/SKILL.md")):
+    pages = [(md.parent.name, md) for md in sorted(SKILLS.glob("*/SKILL.md"))]
+    pages += [(f"{md.parent.parent.name}/{md.stem}", md)
+              for md in sorted(SKILLS.glob("*/references/*.md"))]
+    for name, md in pages:
         text = md.read_text(encoding="utf-8").replace("\r\n", "\n")
         for index, body in enumerate(_BLOCK.findall(text)):
-            out.append((md.parent.name, index, body))
+            out.append((name, index, body))
     return out
 
 

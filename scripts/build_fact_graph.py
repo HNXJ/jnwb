@@ -535,8 +535,12 @@ def _routes(root: Path) -> Tuple[List[str], List[List[str]]]:
     for path in sorted((root / "skills").glob("*/SKILL.md")):
         skill = path.parent.name
         skills.append(skill)
+        parts = [path.read_text(encoding="utf-8")]
+        refdir = path.parent / "references"
+        if refdir.is_dir():
+            parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
         edges.extend([skill, target]
-                     for target in sorted(set(routing_targets(path.read_text(encoding="utf-8")))))
+                     for target in sorted(set(routing_targets("\n".join(parts)))))
     return skills, edges
 
 

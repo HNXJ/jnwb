@@ -208,10 +208,13 @@ def test_skill_routes_to_public_nwb_api():
     # Each symbol is read from the routing row of the skill that owns it. A mention in
     # `jnwb-nwb-data` stood in for the `jnwb.events` row, which `jnwb-paradigm` holds.
     owners: dict[str, list[tuple[str, str]]] = {}
-    for path in sorted(SKILL.parents[1].glob("*/SKILL.md")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            for op in set(_routed_operations(line)):
-                owners.setdefault(op, []).append((path.parent.name, line))
+    skill_dirs = sorted(p for p in SKILL.parents[1].iterdir() if (p / "SKILL.md").is_file())
+    for skill_dir in skill_dirs:
+        pages = [skill_dir / "SKILL.md"] + sorted((skill_dir / "references").glob("*.md"))
+        for path in pages:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                for op in set(_routed_operations(line)):
+                    owners.setdefault(op, []).append((skill_dir.name, line))
     for symbol, owner in (
         ("jnwb.inspect", "jnwb-nwb-data"),
         ("jnwb.events", "jnwb-paradigm"),
@@ -223,7 +226,12 @@ def test_skill_routes_to_public_nwb_api():
         assert [skill for skill, _ in rows] == [owner], (symbol, rows)
         assert f"`{symbol}(" in rows[0][1], (symbol, rows[0][1])
 
-    text = SKILL.read_text(encoding="utf-8")
+    skill_dir = SKILL.parent
+    parts = [SKILL.read_text(encoding="utf-8")]
+    refdir = skill_dir / "references"
+    if refdir.is_dir():
+        parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+    text = "\n".join(parts)
     assert "paths.describe()" in text
     assert "not a substitute for `jnwb.inspect" in text
     # Routing rows look like "- `jnwb.inspect(path_or_nwb)`". The MCP tools are named

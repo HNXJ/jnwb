@@ -331,17 +331,19 @@ def check_nwb_onboarding_alignment(repo_root: Optional[Path] = None) -> List[str
         span = re.match(r"- `[^`]*`\S*", line)
         return span.group() if span else line
 
-    skill_files = sorted((root / "skills").glob("*/SKILL.md"))
-    if not skill_files:
+    pages = [(p.parent.name, p) for p in sorted((root / "skills").glob("*/SKILL.md"))]
+    pages += [(p.parent.parent.name, p)
+              for p in sorted((root / "skills").glob("*/references/*.md"))]
+    if not pages:
         violations.append("NWB_ONBOARDING: no skills/*/SKILL.md to route the NWB symbols")
     rows = [
-        (path.parent.name, line)
-        for path in skill_files
+        (skill, line)
+        for skill, path in pages
         for line in path.read_text(encoding="utf-8").splitlines()
     ]
     for symbol in NWB_ONBOARDING_SYMBOLS:
         routing = [(skill, line) for skill, line in rows if symbol in _routed_operations(line)]
-        if skill_files and not routing:
+        if pages and not routing:
             violations.append(f"NWB_ONBOARDING: no skill has a routing row for {symbol}")
         for skill, line in routing:
             if f"`{symbol}(" not in _row_head(line):

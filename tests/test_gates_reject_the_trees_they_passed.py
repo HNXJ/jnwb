@@ -446,6 +446,9 @@ class TestGate13ChecksBehaviourNotPresence:
             "This skill knows about " + ", ".join(NWB_ONBOARDING_SYMBOLS) + ".\n",
             encoding="utf-8",
         )
+        # The routing rows live in references/, so a prose-only skill must lose
+        # them too; otherwise the mutant names the symbols and still routes them.
+        shutil.rmtree(root / "skills" / "jnwb-nwb-data" / "references")
         violations = check_nwb_onboarding_alignment(root)
         assert "NWB_ONBOARDING: no skill has a routing row for jnwb.inspect" in violations, violations
 
@@ -479,7 +482,7 @@ class TestGate13ChecksBehaviourNotPresence:
     def test_a_call_in_the_description_does_not_stand_in_for_the_head(self, tmp_path, head):
         """The row names `jnwb.inspect` and calls it only after the colon or the arrow."""
         root = self._tree(tmp_path)
-        skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
+        skill = root / "skills" / "jnwb-nwb-data" / "references" / "per_file_discovery_and_events.md"
         text = skill.read_text(encoding="utf-8")
         row = "- `jnwb.inspect(path_or_nwb)` →"
         assert text.count(row) == 1
@@ -502,7 +505,7 @@ class TestGate13ChecksBehaviourNotPresence:
     ])
     def test_the_row_head_is_read_whatever_the_separator(self, tmp_path, row, rejected):
         root = self._tree(tmp_path)
-        skill = root / "skills" / "jnwb-nwb-data" / "SKILL.md"
+        skill = root / "skills" / "jnwb-nwb-data" / "references" / "per_file_discovery_and_events.md"
         text = skill.read_text(encoding="utf-8")
         line = "- `jnwb.inspect(path_or_nwb)` → structured `dict` listing acquisitions, electrodes, units,"
         assert text.count(line) == 1

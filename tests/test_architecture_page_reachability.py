@@ -172,6 +172,7 @@ def test_no_page_makes_an_agent_a_precondition():
 def test_no_page_or_skill_makes_a_skill_the_authority_over_an_operation():
     offenders = []
     sources = _maintained_pages() + sorted((REPO_ROOT / "skills").glob("*/SKILL.md"))
+    sources += sorted((REPO_ROOT / "skills").glob("*/references/*.md"))
     for page in sources:
         text = re.sub(r"\s+", " ", page.read_text(encoding="utf-8"))
         for m in SKILL_AUTHORITY.finditer(text):

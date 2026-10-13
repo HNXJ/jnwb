@@ -1,0 +1,3 @@
+### Table audits
+
+- `jnwb.audit_units(units_df, *, quality_threshold=1.0, snr_threshold=1.0, stable_labels=("good",))` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables. `good_count` uses the cut-offs, or `stable_labels` when quality is text, matched case-insensitively with whitespace kept and narrower here than in `enrich_units_dataframe`; a one-value standard deviation is NaN, which `json.dumps` writes as non-strict JSON; a NaN or infinite cut-off, or a column it reads that occurs twice, raises `ValueError`.

@@ -29,6 +29,16 @@ def _skill_dirs() -> list[str]:
     return names
 
 
+def _skill_corpus(skill: str) -> str:
+    """The whole skill text an agent reads: SKILL.md plus its references files."""
+    base = SKILLS / skill
+    parts = [(base / "SKILL.md").read_text(encoding="utf-8")]
+    refdir = base / "references"
+    if refdir.is_dir():
+        parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+    return "\n".join(parts)
+
+
 def _routing_section(text: str) -> str:
     """The router's section 2, up to the next level-2 heading."""
     match = re.search(r"^## 2\. .*$", text, re.M)
@@ -80,7 +90,7 @@ def test_each_operation_has_one_routing_row() -> None:
     """`raster_psth` had a row in both `jnwb-spiking` and `jnwb-figures`, saying different things."""
     owners: dict[str, list[str]] = {}
     for skill in _skill_dirs():
-        for op in _routed_operations((SKILLS / skill / "SKILL.md").read_text(encoding="utf-8")):
+        for op in _routed_operations(_skill_corpus(skill)):
             owners.setdefault(op, []).append(skill)
     assert owners, "no routing row was found; this test checks nothing"
     shared = {op: skills for op, skills in owners.items() if len(skills) > 1}
@@ -97,9 +107,9 @@ PARADIGM_ROUTES = (
 
 def test_the_paradigm_rows_live_in_one_skill() -> None:
     """Each row `jnwb-paradigm` took is routed there once, and has left `jnwb-nwb-data`."""
-    taken = _routed_operations((SKILLS / "jnwb-paradigm" / "SKILL.md").read_text(encoding="utf-8"))
+    taken = _routed_operations(_skill_corpus("jnwb-paradigm"))
     assert sorted(taken) == sorted(PARADIGM_ROUTES), f"jnwb-paradigm routes {sorted(taken)}"
-    left = set(_routed_operations((SKILLS / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")))
+    left = set(_routed_operations(_skill_corpus("jnwb-nwb-data")))
     assert left, "no row of jnwb-nwb-data was read; the second check would pass on nothing"
     assert not left & set(PARADIGM_ROUTES), f"still routed by jnwb-nwb-data: {left & set(PARADIGM_ROUTES)}"
 
@@ -122,10 +132,10 @@ QC_ROUTES = (
 
 def test_the_qc_rows_live_in_one_skill() -> None:
     """Each row `jnwb-qc` routes is there once, and has left the skills it came from."""
-    taken = _routed_operations((SKILLS / "jnwb-qc" / "SKILL.md").read_text(encoding="utf-8"))
+    taken = _routed_operations(_skill_corpus("jnwb-qc"))
     assert sorted(taken) == sorted(QC_ROUTES), f"jnwb-qc routes {sorted(taken)}"
     for source in ("jnwb-nwb-data", "jnwb-figures"):
-        left = set(_routed_operations((SKILLS / source / "SKILL.md").read_text(encoding="utf-8")))
+        left = set(_routed_operations(_skill_corpus(source)))
         assert left, f"no row of {source} was read; the check would pass on nothing"
         assert not left & set(QC_ROUTES), f"still routed by {source}: {left & set(QC_ROUTES)}"
     for symbol in QC_ROUTES:

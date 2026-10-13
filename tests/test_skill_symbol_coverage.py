@@ -153,7 +153,13 @@ EXCLUDED = {
 
 
 def _pages() -> dict[str, str]:
-    pages = {p.parent.name: p.read_text(encoding="utf-8") for p in sorted(SKILLS.rglob("SKILL.md"))}
+    pages = {}
+    for skill_dir in sorted(p for p in SKILLS.iterdir() if (p / "SKILL.md").is_file()):
+        parts = [(skill_dir / "SKILL.md").read_text(encoding="utf-8")]
+        refdir = skill_dir / "references"
+        if refdir.is_dir():
+            parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+        pages[skill_dir.name] = "\n".join(parts)
     assert len(pages) >= 7, f"only {len(pages)} skill pages found under {SKILLS}"
     return pages
 

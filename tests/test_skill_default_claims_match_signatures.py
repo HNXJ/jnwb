@@ -17,6 +17,16 @@ from pathlib import Path
 import jnwb
 
 SKILLS = Path(__file__).resolve().parents[1] / "skills"
+
+
+def _skill_corpus(skill: str) -> str:
+    """The whole skill text an agent reads: SKILL.md plus its references files."""
+    base = SKILLS / skill
+    parts = [(base / "SKILL.md").read_text(encoding="utf-8")]
+    refdir = base / "references"
+    if refdir.is_dir():
+        parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+    return "\n".join(parts)
 NO_DEFAULT = inspect.Parameter.empty
 S = jnwb.StatisticalAnalysis
 
@@ -106,13 +116,13 @@ def test_every_default_a_skill_states_is_the_signature_default():
     wrong, phrases = [], {}
     for skill, phrase, fn, param, expected in CLAIMS:
         phrases.setdefault(skill, []).append(phrase)
-        if phrase not in (SKILLS / skill / "SKILL.md").read_text(encoding="utf-8"):
+        if phrase not in _skill_corpus(skill):
             wrong.append(f"{skill} no longer says {phrase!r}; update its CLAIMS row")
         elif not (_n_jobs_is_one_everywhere() if fn is None else _holds(fn, param, expected)):
             wrong.append(f"{skill}: {phrase!r} disagrees with the signature of {param}")
-    for skill_md in sorted(SKILLS.glob("*/SKILL.md")):
-        found = _uncovered(skill_md.read_text(encoding="utf-8"), phrases.get(skill_md.parent.name, []))
-        wrong += [f"{skill_md.parent.name}:{f} has no CLAIMS row" for f in found]
+    for skill_dir in sorted(p for p in SKILLS.iterdir() if (p / "SKILL.md").is_file()):
+        found = _uncovered(_skill_corpus(skill_dir.name), phrases.get(skill_dir.name, []))
+        wrong += [f"{skill_dir.name}:{f} has no CLAIMS row" for f in found]
     assert not wrong, wrong
 
 

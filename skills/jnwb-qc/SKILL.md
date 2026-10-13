@@ -13,57 +13,17 @@ parameters and seed, and the inputs the result came from. Reading the tables rou
 
 ## 2. Routing
 
-### Table audits
+The "Table audits" routing rows live in [`references/table_audits.md`](references/table_audits.md).
 
-- `jnwb.audit_units(units_df, *, quality_threshold=1.0, snr_threshold=1.0, stable_labels=("good",))` and `jnwb.audit_electrodes(elec_df, units_df=None)`: Spike-time coverage and quality summaries, and electrode configuration with unit-to-electrode mapping coverage. Run both before trusting a session's tables. `good_count` uses the cut-offs, or `stable_labels` when quality is text, matched case-insensitively with whitespace kept and narrower here than in `enrich_units_dataframe`; a one-value standard deviation is NaN, which `json.dumps` writes as non-strict JSON; a NaN or infinite cut-off, or a column it reads that occurs twice, raises `ValueError`.
+The "Unit-quality measures" routing rows live in [`references/unit_quality_measures.md`](references/unit_quality_measures.md).
 
-### Unit-quality measures
+The "Waveform clustering (WaveMAP)" routing rows live in [`references/waveform_clustering.md`](references/waveform_clustering.md).
 
-Each measure reads one unit and keeps or rejects none; `docs/06_spikes_psth_and_onset_dynamics.md` section 5 defines them.
+The "Unit-quality classes and tiers" routing rows live in [`references/unit_quality_classes_and_tiers.md`](references/unit_quality_classes_and_tiers.md).
 
-- `jnwb.waveform_features(waveform, fs)`: Peak channel, amplitude, trough-to-peak duration in ms, peak-trough ratio and polarity of a mean waveform `(n_channels, n_samples)`. `fs` in Hz is required: request it when the file does not give it.
-- `jnwb.waveform_halfwidth(waveform, fs, *, upsampling_factor=...)` and `jnwb.repolarization_slope(waveform, fs, *, upsampling_factor=..., window_samples=20)`: Half-width in ms and repolarization slope in the waveform's unit per ms (for a waveform in µV, the value in µV/ms is 1000 times the value `ecephys_spike_sorting` reports in V/s), on the peak channel resampled by 200/82, as `ecephys_spike_sorting` computes them (Jia et al. 2019). `fs` in Hz is required: request it. Either is NaN when the trace leaves no sample to measure; `upsampling_factor=1` reads the trace as given.
-- `jnwb.waveform_spread(waveform, *, site_spacing_um, threshold=0.12, site_range=16, site_step=2, outlier_z=1.5)`: Extent in µm of the sites, every second channel within 16 of the peak channel, whose amplitude exceeds 12 % of the peak's, outliers dropped, channel 0 never a site (Jia et al. 2019, in the form of `ecephys_spike_sorting`). The rows must be in probe order and `site_spacing_um` is required: request the probe geometry.
-- `jnwb.waveform_snr(spike_waveforms)`: SNR of one unit on one channel from its `(n_spikes, n_samples)` waveforms; NaN for one spike or identical spikes.
-- `jnwb.waveform_flatness(waveform, *, threshold)` and `jnwb.spatial_derivative_sharpness(waveform, channel_positions, *, threshold)`: Flat and sharp flags against a `threshold` the caller gives; neither has a default or a published value, so state it with every flag. The sharpness needs two or more channels and their positions: request the geometry when the waveform has one channel or no positions.
-- `jnwb.presence_ratio(spike_times, blocks)`: Fraction of the caller's `[start, stop)` blocks, in seconds, that hold a spike.
-- `jnwb.isi_cv(spike_times)`: Coefficient of variation of the intervals; NaN under three spikes.
-- `jnwb.refractory_contamination(spike_times, *, duration_s, refractory_ms, censored_ms)`: Contaminating fraction after Hill et al. (2011). The duration and both periods are required: request them. `contamination` is NaN, with a `reason`, for an empty train or an equation with no real root. A zero `duration_s` with spikes whose span exceeds it raises `ValueError`.
-- `jnwb.amplitude_cutoff(amplitudes, *, num_histogram_bins=500, histogram_smoothing_value=3.0)`: Fraction of spikes missing below the detection threshold, from one unit's amplitudes, in the form of `ecephys_spike_sorting` after Hill et al. (2011), capped at 0.5. It assumes a symmetric amplitude distribution, which drift breaks: report drift beside it.
+The "Unit-quality plots" routing rows live in [`references/unit_quality_plots.md`](references/unit_quality_plots.md).
 
-### Waveform clustering (WaveMAP)
-
-Lee et al. (2021) and the protocol of Lee et al. (2023): normalized mean waveforms clustered with Louvain on UMAP's nearest-neighbor graph. `wavemap` and `wavemap_resolution_sweep` need the `wavemap` extra (`pip install jnwb[wavemap]`) and raise `ImportError` naming it; the other two need only NumPy. `docs/06_spikes_psth_and_onset_dynamics.md` section 6 walks through it.
-
-- `jnwb.align_waveforms(waveforms, fs, *, pre_s=0.0004, post_s=0.0012)`: Cuts each row of `(n_units, n_samples)` mean waveforms, one channel per unit, to the window around its trough (whole samples; 48 samples at 30 kHz by default). A row whose window leaves its samples, or that holds a NaN, comes back NaN and False in the returned mask, never padded: drop it, and report how many were dropped.
-- `jnwb.normalize_waveforms(waveforms, *, subtract_mean=True)`: Per unit, subtracts the mean and divides by the largest absolute value; a non-finite row, a row of zeros and, with `subtract_mean=True`, a constant row are NaN.
-- `jnwb.wavemap(waveforms, *, resolution, n_neighbors=20, min_dist=0.1, metric="euclidean", embedding=True, rng=...)`: Louvain labels (0 the largest cluster), `n_clusters`, `modularity`, the UMAP `graph`, the display-only `embedding` and the seeds used, as a `WaveMAPResult`. `resolution` is required and follows the published Markov-time convention, larger meaning fewer clusters; the published value 1.5 was chosen on its own data, so choose one with the sweep and state it. Refuses NaN rows and `n_units <= n_neighbors` with `ValueError`.
-- `jnwb.WaveMAPResult(labels, n_clusters, modularity, resolution, embedding, graph, parameters)`: The frozen record `wavemap` builds; read it, do not build one by hand. `labels[i]` is the cluster of input row `i`, so keep the mask `align_waveforms` returns to map clusters back to units, and report `parameters` (the seeds) with every clustering.
-- `jnwb.wavemap_resolution_sweep(waveforms, resolutions, *, n_runs=25, fraction=0.8, n_neighbors=20, metric="euclidean", rng=...)`: `modularity`, `n_clusters` and `min_cluster_size` per resolution and run, each run on a fresh random subset and UMAP seed (Lee et al. 2021, Fig. 3B), so the paper's rule (the largest modularity with every cluster above 20 units) can be applied and reported; `units`, `umap_seed` and `louvain_seed` record each run's subset and seeds, so a run with `rng=None` can be repeated.
-
-### Unit-quality classes and tiers
-
-- `jnwb.classify_unit_quality(units_df, thresholds=None)`: Flags each unit whose metric is below its threshold; `quality_class` is `'Good'`, `'Fair'`, `'Poor'` (a `quality` or `snr` failure) or `'Unknown'` (a metric missing, not a number, or absent from the frame), and `is_valid` is True only with no flag. `thresholds=None` uses `{'quality': 1.0, 'snr': 1.0, 'firing_rate': 0.1}`, a convention with no cited source, and so marks every unit of a frame without `firing_rate` `'Unknown'`. Empty `thresholds`, a NaN or infinite threshold, or a threshold column that occurs twice raises `ValueError`.
-- `jnwb.enrich_units_dataframe(units_df, electrodes_df, *, stable_threshold=1.0, stable_labels=("good", "sua", "single", "stable", "clean"))`: Writes the geometric depth class ('Deep' / 'Superficial' / 'Unknown') to `depth_class`; no `layer` column is written, so read `depth_class`. `get_all_units_metadata` emits it the same way. `is_stable` (pandas `"boolean"` dtype) is `quality >= stable_threshold` for numeric quality and membership in `stable_labels` for text labels (the signature's values are a convention with no cited source; a bare-string `stable_labels` raises `TypeError`; an empty one, a NaN or infinite `stable_threshold`, or a column it reads that occurs twice raises `ValueError`), `<NA>` for a unit with no usable or an infinite `quality`, and absent when no unit has one; `filter_quality=True` excludes `<NA>` units.
-- `jnwb.assign_quality_tier(quality, trial_presence_fraction, snr, presence_threshold=0.98, snr_threshold=0.5, *, stable_threshold=1.0, stable_labels=("good", "sua", "single", "stable", "clean"))`: Tiers a unit `'mua'` / `'stable'` / `'unstable'` / `'unknown'` from quality, trial presence and SNR, reading quality by the `is_stable` rule of `enrich_units_dataframe`. A candidate (quality at or above `stable_threshold`, or a label in `stable_labels`) is `'stable'` only when presence and SNR both strictly exceed their thresholds, and `'unstable'` otherwise, including a missing presence or SNR. A non-candidate is `'mua'` only when declared so, as code 0 or the label `'mua'`; any other value (missing, infinite, -1, 0.5, `'noise'`, `'unsorted'`, a boolean, a date or a duration) is `'unknown'`. Presence and SNR are Series aligned to `quality` by unit label in any order, extra labels ignored, except when `quality` has the index `0..n-1`, which pandas gives a filter followed by `reset_index`, `head()` and `iloc[:k]` alike; those labels may be positions rather than unit labels, so aligning could pair the wrong units, and it raises: pass presence and SNR selected the same way as `quality`. They may also be arrays of its length read by position; a label of `quality` missing from them, a repeated label, a scalar, or a masked array with a masked entry raises `ValueError`, as does a NaN or infinite cut-off or an empty `stable_labels`. State the thresholds wherever the tier is reported; they are a choice, not a property of the unit.
-- `jnwb.get_snr_analysis(units_df, snr_threshold=1.0, detail=False)`: SNR distribution and quality breakdown across a units table.
-
-### Unit-quality plots
-
-- `jnwb.visual_qc`: Submodule of unit-quality plots -- waveforms, quality distributions, noise against signal, and quality compared across sessions (import `jnwb.visual_qc`).
-
-### Result records
-
-- `jnwb.Result(question, statistics, provenance, lineage)`: An immutable analysis output that
-  carries its question, provenance and lineage; it cannot be built without all four.
-  `to_dict()` returns a plain nested `dict` and converts no value, so `json.dumps` of NumPy
-  statistics needs a hook such as `lambda o: o.tolist()`.
-- `jnwb.Provenance(software_version, backend, timestamp, random_seed, git_commit, parameters, environment)`:
-  What ran. `jnwb_version` and `jnwb_path` are read from the executing package and cannot be
-  passed; `software_version` is the caller's claim, and `version_claim_matches_execution` says
-  whether the two agree.
-- `jnwb.Lineage(source_type, source_id, parents, operation)`: Where an output came from: its
-  source, the identifiers of its parents and the operation that made it.
+The "Result records" routing rows live in [`references/result_records.md`](references/result_records.md).
 
 ## 3. Invariants & Safeguards
 1. **An audit counts; it does not certify**: the audits count and summarize columns under the

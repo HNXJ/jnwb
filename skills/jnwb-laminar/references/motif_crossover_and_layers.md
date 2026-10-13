@@ -1,0 +1,30 @@
+### Motif, crossover and layers
+- `jnwb.vflip(psd, freqs, *, band_low=(8.0, 30.0), band_high=(50.0, 150.0), min_support_score=3.75, device="cpu", depth_axis=None, shallow_end=None)` and `jnwb.vflip_from_lfp(lfp, fs, *, band_low=(8.0, 30.0), band_high=(50.0, 150.0), depth_axis=None, shallow_end=None)`: the frequency-layer inversion depth, from a channels-by-frequency PSD or from a channels-by-time LFP.
+  - For finite input, `vflip_from_lfp(lfp, fs)` equals `vflip(psd, freqs)` with `freqs, psd = compute_psd(lfp, fs, axis=-1)`. Note the reversed order and the `axis`.
+  - For NaN or Inf input, `compute_psd` raises, while `vflip_from_lfp` returns a result with `accepted=False`.
+  - Returns `VFlipResult`. Below the support threshold it returns `accepted=False` and `crossover_contact=None`.
+  - `crossover_depth_um` is `crossover_contact` times the contact spacing, the frame `label_layers(depth_range_um=)` uses. With a `probe_geometry`, a `contact_spacing` that disagrees with its `nominal_pitch` raises.
+  - `crossover_z_um` is the geometry's absolute z. It is `None` without a geometry whose z varies along the shaft.
+  - Without `depth_axis`, depth runs from the table's first row (`depth_anchor="row_order"`). Declare `depth_axis="z"` and `shallow_end="min"` or `"max"` to measure it from the shallow contact whatever the row order (`depth_anchor="shallowest"`).
+  - A motif that puts the deep layers at the declared shallow end rejects the fit. The reason reads `rejection_reason="declaration_contradicted"` only when the fit passes every other acceptance test; a weaker fit reports its own reason.
+  - A declaration with `orientation="deep_to_superficial"` raises `ValueError` before any fit.
+- `jnwb.label_layers(vflip_result, probe_geometry, *, granular_thickness_um=400.0, depth_axis=None, shallow_end=None)`: layer labels relative to a verified crossover contact.
+  - Every channel is `'na'` when `vflip_result.accepted` is False: layers are never imputed onto a rejected fit.
+  - Pass the same `depth_axis` and `shallow_end` the fit used; a different declaration raises.
+- `jnwb.curate_and_label(lfp, fs, *, pitch_um, erp=None, erp_times_ms=None)`: bad-contact detection, short-run interpolation and graded layer labels for epoched LFP `(n_channels, n_epochs, n_samples)`. Every width is in micrometers.
+  - Returns `LaminarCurationResult`. Read `grade` before `labels`:
+    - A and B carry a laminar claim;
+    - C (unstable or inconsistent) and D (vFLIP rejected, motif crossing alone) are sensitivity checks;
+    - F sets every label to `"na"`.
+  - xFLIP and the evoked CSD are reported as distances to the anchor and never move it. The xFLIP distance is NaN when `xflip.accepted` is False.
+  - `band_low_hz` and `band_high_hz` shape the motif profiles, not the vFLIP anchor. Bands must end below `fs / 2`.
+  - One cortical sheet is assumed: `n_crossings` above 1 means the shaft needs splitting.
+  - The probe, not the contact, is the unit of inference.
+- `jnwb.map_peak_channel_to_layer(units_df, curation, channel_ids)`: one curated layer label per unit, from the label of its `peak_channel_id`.
+  - `channel_ids` gives the electrode id of each LFP row, in the order passed to `curate_and_label`, and must match `curation.labels` in length.
+  - An id that is absent or NaN gets `'na'`. A units table without a `peak_channel_id` column is refused by name.
+- The parts of `curate_and_label`:
+  - `jnwb.detect_bad_channels(data, fs)`;
+  - `jnwb.interpolate_channel_runs(data, bad_mask)`;
+  - `jnwb.evoked_csd_sink(erp, times_ms, *, pitch_um)`; the `erp` must be aligned to the stimulus itself;
+  - `jnwb.fuse_laminar_anchors()`, which grades an anchor from per-window estimates.

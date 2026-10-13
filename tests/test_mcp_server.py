@@ -401,7 +401,12 @@ class TestTheDocumentedSurfaceIsTheLiveSurface(unittest.TestCase):
 
     def test_the_data_skill_names_every_registered_tool(self):
         """`jnwb-nwb-data` named two of the three tools after `prepare_signal_reference` landed."""
-        skill = (ROOT / "skills" / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")
+        base = ROOT / "skills" / "jnwb-nwb-data"
+        parts = [(base / "SKILL.md").read_text(encoding="utf-8")]
+        refdir = base / "references"
+        if refdir.is_dir():
+            parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+        skill = "\n".join(parts)
         unnamed = sorted(name for name in self._live_tool_names() if f"`{name}`" not in skill)
         self.assertEqual(unnamed, [], f"jnwb-nwb-data never names the MCP tools {unnamed}")
 

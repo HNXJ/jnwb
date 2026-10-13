@@ -63,8 +63,12 @@ def case(skill: str, outcome: str):
 
 def skill_text(name: str) -> str:
     """The skill's text with every run of whitespace collapsed, so line wrapping is irrelevant."""
-    raw = (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
-    return re.sub(r"\s+", " ", raw)
+    base = SKILLS_DIR / name
+    parts = [(base / "SKILL.md").read_text(encoding="utf-8")]
+    refdir = base / "references"
+    if refdir.is_dir():
+        parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+    return re.sub(r"\s+", " ", "\n".join(parts))
 
 
 def assert_states(skill: str, *phrases: str) -> None:

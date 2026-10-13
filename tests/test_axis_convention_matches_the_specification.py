@@ -217,6 +217,7 @@ class TestTheCompositionSweepFindsWhatItIsFor:
 HOP_SCAN_FILES = sorted(
     p.relative_to(REPO_ROOT).as_posix()
     for p in list(REPO_ROOT.glob("skills/*/SKILL.md"))
+    + list(REPO_ROOT.glob("skills/*/references/*.md"))
     + list(REPO_ROOT.glob("examples/**/*.py"))
     + source_files())
 

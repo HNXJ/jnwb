@@ -55,6 +55,22 @@ DOCS_DIR = ROOT_DIR / "docs"
 PROCESS_SKILL = ROOT_DIR / "artifacts" / "skills" / "jnwb-fact-action" / "SKILL.md"
 
 
+def _skill_pages(skill_name: str) -> List[Tuple[str, str]]:
+    """(page label, text) for SKILL.md plus its references files, in sorted order."""
+    base = SKILLS_DIR / skill_name
+    pages = [("SKILL.md", (base / "SKILL.md").read_text(encoding="utf-8"))]
+    refdir = base / "references"
+    if refdir.is_dir():
+        pages += [(f"references/{p.name}", p.read_text(encoding="utf-8"))
+                  for p in sorted(refdir.glob("*.md"))]
+    return pages
+
+
+def _skill_corpus(skill_name: str) -> str:
+    """The whole skill text an agent reads: SKILL.md plus its references files."""
+    return "\n".join(text for _, text in _skill_pages(skill_name))
+
+
 def _executable_source(text: str) -> str:
     """`text` with comments and docstrings removed, so a probe reads code and not prose.
 
@@ -330,7 +346,7 @@ def test_skill_routing_signatures_match_runtime():
     checked = 0
     skipped = 0
     for skill_name in CANONICAL_SKILLS:
-        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        content = _skill_corpus(skill_name)
         for func_name, args_str in _routing_calls(content):
             if func_name.startswith("vis.") and importlib.util.find_spec("plotly") is None:
                 # `jnwb.vis` raises ImportError without the optional extra; its rows are
@@ -416,7 +432,7 @@ def test_every_inline_routing_call_is_reached_by_the_parser():
     divergences = []
     total_found = 0
     for skill_name in sorted(CANONICAL_SKILLS):
-        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        content = _skill_corpus(skill_name)
         found = len(_CALL_OPENING.findall(content))
         parsed = len(list(_routing_calls(content)))
         total_found += found
@@ -468,7 +484,7 @@ def test_all_referenced_symbols_exist():
     checked = 0
     breaches = set()
     for skill_name in sorted(CANONICAL_SKILLS):
-        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        content = _skill_corpus(skill_name)
         for symbol in pattern.findall(content):
             if _PACKAGE_METADATA.match(symbol):
                 continue
@@ -822,30 +838,30 @@ def _is_record(obj) -> bool:
 
 
 def _return_content_claims():
-    """(skill, line, symbol, kind, payload) for every claim a row makes about its return."""
+    """(skill, page, line, symbol, kind, payload) for every claim a row makes about its return."""
     for skill_name in sorted(CANONICAL_SKILLS):
-        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
-        for line_no, line in _logical_rows(content):
-            head = re.match(r"- `jnwb\.((?:\w+\.)*\w+)\(", line)
-            if not head:
-                continue
-            sym = head.group(1)
-            for m in _CLAIM_RETURN_TYPE.finditer(line):
-                fields = re.findall(r"`(\w+)`", m.group(2)) if m.group(2) else []
-                yield skill_name, line_no, sym, "type", (m.group(1), fields)
-            if _CLAIM_CARRIES.search(line):
-                yield skill_name, line_no, sym, "carries", None
-            if _CLAIM_BARE_ARRAY.search(line):
-                yield skill_name, line_no, sym, "bare", None
-            for m in _CLAIM_RECORDS_NO.finditer(line):
-                yield skill_name, line_no, sym, "records_no", m.group(1)
-            arrow_type = _CLAIM_ARROW_TYPE.search(line)
-            if arrow_type:
-                yield skill_name, line_no, sym, "arrow_type", arrow_type.group(1)
-            arrow_tuple = _CLAIM_ARROW_TUPLE.search(line)
-            if arrow_tuple:
-                names = [p.strip() for p in arrow_tuple.group(1).split(",") if p.strip()]
-                yield skill_name, line_no, sym, "arrow_tuple", names
+        for page, content in _skill_pages(skill_name):
+            for line_no, line in _logical_rows(content):
+                head = re.match(r"- `jnwb\.((?:\w+\.)*\w+)\(", line)
+                if not head:
+                    continue
+                sym = head.group(1)
+                for m in _CLAIM_RETURN_TYPE.finditer(line):
+                    fields = re.findall(r"`(\w+)`", m.group(2)) if m.group(2) else []
+                    yield skill_name, page, line_no, sym, "type", (m.group(1), fields)
+                if _CLAIM_CARRIES.search(line):
+                    yield skill_name, page, line_no, sym, "carries", None
+                if _CLAIM_BARE_ARRAY.search(line):
+                    yield skill_name, page, line_no, sym, "bare", None
+                for m in _CLAIM_RECORDS_NO.finditer(line):
+                    yield skill_name, page, line_no, sym, "records_no", m.group(1)
+                arrow_type = _CLAIM_ARROW_TYPE.search(line)
+                if arrow_type:
+                    yield skill_name, page, line_no, sym, "arrow_type", arrow_type.group(1)
+                arrow_tuple = _CLAIM_ARROW_TUPLE.search(line)
+                if arrow_tuple:
+                    names = [p.strip() for p in arrow_tuple.group(1).split(",") if p.strip()]
+                    yield skill_name, page, line_no, sym, "arrow_tuple", names
 
 
 def test_skill_return_contents_claims_match_runtime():
@@ -868,7 +884,7 @@ def test_skill_return_contents_claims_match_runtime():
         f"a claim pattern that stops matching passes this test by finding nothing"
     )
 
-    uncovered = sorted({c[2] for c in claims} - set(_RETURN_CONTENT_PROBES))
+    uncovered = sorted({c[3] for c in claims} - set(_RETURN_CONTENT_PROBES))
     assert uncovered == [], (
         f"these routed symbols claim something about their return and no probe calls them, "
         f"so the claim is unverified: {uncovered}"
@@ -876,9 +892,9 @@ def test_skill_return_contents_claims_match_runtime():
 
     live = {name: probe() for name, probe in _RETURN_CONTENT_PROBES.items()}
 
-    for skill_name, line_no, sym, kind, payload in claims:
+    for skill_name, page, line_no, sym, kind, payload in claims:
         out = live[sym]
-        where = f"{skill_name}/SKILL.md:{line_no} jnwb.{sym}"
+        where = f"{skill_name}/{page}:{line_no} jnwb.{sym}"
         if kind == "type":
             claimed_type, claimed_fields = payload
             assert type(out).__name__ == claimed_type, (
@@ -951,13 +967,13 @@ def test_every_arrow_row_states_a_return_the_harness_executes():
     being read is named, instead of quietly leaving the corpus.
     """
     claimed = {
-        (skill, sym) for skill, _, sym, kind, _ in _return_content_claims()
+        (skill, sym) for skill, _, _, sym, kind, _ in _return_content_claims()
         if kind in ("arrow_type", "arrow_tuple")
     }
     silent = set()
     arrow_rows = 0
     for skill_name in sorted(CANONICAL_SKILLS):
-        content = (SKILLS_DIR / skill_name / "SKILL.md").read_text(encoding="utf-8")
+        content = _skill_corpus(skill_name)
         for line_no, line in _logical_rows(content):
             row = _ARROW_ROW.match(line)
             if not row:
@@ -981,8 +997,7 @@ def test_all_referenced_docs_paths_exist():
     pattern = re.compile(r"docs/(\d\d_[a-zA-Z0-9_]+\.md)")
 
     for skill_name in CANONICAL_SKILLS:
-        skill_md = SKILLS_DIR / skill_name / "SKILL.md"
-        content = skill_md.read_text(encoding="utf-8")
+        content = _skill_corpus(skill_name)
         matches = pattern.findall(content)
 
         for doc_file in matches:
@@ -1010,8 +1025,7 @@ def test_no_omission_leakage_in_generic_skills():
     ]
 
     for skill_name in CANONICAL_SKILLS:
-        skill_md = SKILLS_DIR / skill_name / "SKILL.md"
-        content = skill_md.read_text(encoding="utf-8").lower()
+        content = _skill_corpus(skill_name).lower()
         for term in forbidden_terms:
             assert term.lower() not in content, f"Forbidden term '{term}' leaked into generic skill {skill_name}"
 
@@ -1084,6 +1098,7 @@ class TestSkillsDoNotCarryDriftingCounts:
 
     def _skill_files(self):
         files = sorted(self.SKILL_ROOT.glob("*/SKILL.md"))
+        files += sorted(self.SKILL_ROOT.glob("*/references/*.md"))
         assert files, "no skill files found; this test would pass vacuously"
         return files
 
@@ -1095,9 +1110,10 @@ class TestSkillsDoNotCarryDriftingCounts:
         ]
         offenders = []
         for path in self._skill_files():
+            label = path.relative_to(self.SKILL_ROOT).as_posix()
             for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 if any(p.search(line) for p in patterns):
-                    offenders.append(f"{path.parent.name}/SKILL.md:{line_no}: {line.strip()}")
+                    offenders.append(f"{label}:{line_no}: {line.strip()}")
         assert offenders == [], (
             "skill files must not state counts; run the check and let jnwb.__all__ be the "
             "source of truth: " + "; ".join(offenders)
@@ -1111,7 +1127,7 @@ class TestSkillsDoNotCarryDriftingCounts:
         for path in self._skill_files():
             text = path.read_text(encoding="utf-8")
             if "sphinx" in text.lower() and not has_sphinx:
-                offenders.append(path.parent.name)
+                offenders.append(path.relative_to(self.SKILL_ROOT).as_posix())
         assert offenders == [], (
             f"these skills reference sphinx, which this repo no longer builds: {offenders}"
         )
@@ -1486,7 +1502,7 @@ class TestClaimsTheSignatureCannotCarry:
     """
 
     def _skill(self, name: str) -> str:
-        return (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
+        return _skill_corpus(name)
 
     def test_a_single_figure_is_not_a_figure_suite(self, tmp_path: Path):
         """`save_figure_suite` iterates `figures`; the row used to say "one or more".
@@ -1612,8 +1628,7 @@ class TestClaimsTheSignatureCannotCarry:
 
 def _row_text(skill: str, symbol: str) -> str:
     """The one routing row in `skill` whose call opens with `jnwb.<symbol>(`, joined."""
-    content = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
-    rows = [text for _, text in _logical_rows(content)
+    rows = [text for _, text in _logical_rows(_skill_corpus(skill))
             if re.match(rf"- `jnwb\.{re.escape(symbol)}\(", text)]
     assert len(rows) == 1, f"{skill}: expected one routing row for jnwb.{symbol}, found {len(rows)}"
     return rows[0]
@@ -1628,7 +1643,7 @@ def test_the_continuous_keys_the_skill_lists_are_the_live_ones():
     """
     from jnwb.nwb_inspect import CONTINUOUS_KEYS
 
-    text = (SKILLS_DIR / "jnwb-nwb-data" / "SKILL.md").read_text(encoding="utf-8")
+    text = _skill_corpus("jnwb-nwb-data")
     sentence = re.search(r"Every continuous entry always carries(.*?)when unknown", text, re.S)
     assert sentence, "the sentence listing the continuous-entry keys is gone"
     listed = re.findall(r"`(\w+)`", sentence.group(1))
@@ -1848,7 +1863,7 @@ class TestRowsAgainstTheLiveCall:
         tells a reader that `fdr_correct` controls the error rate it does not."""
         texts = {}
         for skill in sorted(CANONICAL_SKILLS):
-            texts[f"{skill}/SKILL.md"] = (SKILLS_DIR / skill / "SKILL.md").read_text(encoding="utf-8")
+            texts[f"{skill}/SKILL.md"] = _skill_corpus(skill)
             texts[f"{skill}/agents/openai.yaml"] = (
                 SKILLS_DIR / skill / "agents" / "openai.yaml"
             ).read_text(encoding="utf-8")
@@ -1993,7 +2008,7 @@ def _lines_in_two_skills(texts: dict) -> dict:
 def test_no_skill_line_is_stated_in_a_second_skill():
     """A rule written in two skills is edited in one and then disagrees with itself; the second
     skill links to the first instead. Links into ``docs/`` are shared on purpose and skipped."""
-    texts = {s: (SKILLS_DIR / s / "SKILL.md").read_text(encoding="utf-8") for s in CANONICAL_SKILLS}
+    texts = {s: _skill_corpus(s) for s in CANONICAL_SKILLS}
     assert sum(len(_normalised_lines(t)) for t in texts.values()) >= 200, "the reader stopped reading"
     shared = _lines_in_two_skills(texts)
     assert not shared, f"lines stated in more than one skill: {shared}"

@@ -23,7 +23,12 @@ SKILLS = Path(__file__).resolve().parents[1] / "skills"
 
 
 def _skill(name: str) -> str:
-    return (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
+    base = SKILLS / name
+    parts = [(base / "SKILL.md").read_text(encoding="utf-8")]
+    refdir = base / "references"
+    if refdir.is_dir():
+        parts += [p.read_text(encoding="utf-8") for p in sorted(refdir.glob("*.md"))]
+    return "\n".join(parts)
 
 
 def test_swapping_the_paired_fire_arguments_negates_the_effect_without_raising():
