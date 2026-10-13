@@ -428,6 +428,14 @@ class TestGaussianSmoothRate:
         with pytest.raises(ValueError, match="strictly positive"):
             gaussian_smooth_rate(trace, bin_ms=0.0)
 
+    @pytest.mark.parametrize("bad", [np.nan, np.inf])
+    def test_a_non_finite_sigma_or_bin_is_refused_by_name(self, bad):
+        trace = np.ones(10)
+        with pytest.raises(ValueError, match="sigma_ms must be finite"):
+            gaussian_smooth_rate(trace, bin_ms=5.0, sigma_ms=bad)
+        with pytest.raises(ValueError, match="bin_ms must be finite"):
+            gaussian_smooth_rate(trace, bin_ms=bad, sigma_ms=20.0)
+
 
 
 class TestResponseMetricsDoNotManufactureResponses:

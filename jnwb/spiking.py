@@ -566,10 +566,12 @@ def gaussian_smooth_rate(
         Smoothed array of the same shape and float dtype as `rate`.
 
     Raises:
-        ValueError: If `bin_ms <= 0`.
+        ValueError: If `bin_ms` is not finite and positive, or `sigma_ms` is not finite.
     """
-    if bin_ms <= 0:
-        raise ValueError(f"bin_ms must be strictly positive; got {bin_ms}.")
+    if not (np.isfinite(bin_ms) and bin_ms > 0):
+        raise ValueError(f"bin_ms must be finite and strictly positive; got {bin_ms}.")
+    if not np.isfinite(sigma_ms):
+        raise ValueError(f"gaussian_smooth_rate: sigma_ms must be finite; got {sigma_ms}.")
     arr = np.asarray(rate, dtype=float)
     if sigma_ms <= 0:
         return arr.copy()
