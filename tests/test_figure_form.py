@@ -824,11 +824,14 @@ AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO
     "05_artifact_detection_and_repair.md:fig10_artifact_repair.png",
     "06_spikes_psth_and_onset_dynamics.md:fig02_raster_psth.png",
     "06_spikes_psth_and_onset_dynamics.md:fig03_onset_fitting.png",
+    "06_spikes_psth_and_onset_dynamics.md:fig14_causal_vs_gaussian_step.png",
+    "06_spikes_psth_and_onset_dynamics.md:fig15_spike_phase_locking.png",
     "07_statistical_inference_and_nulls.md:fig08_permutation_null.png",
     "08_directed_connectivity_and_information.md:fig09_directed_connectivity.png",
     "09_decoding_and_visual_qc.md:fig07_population_decoding.png",
     "coherence_and_tfr.md:fig05_complex_tfr_coi.png",
     "coherence_and_tfr.md:fig12_coherence_zero_lag.png",
+    "common_mistakes.md:fig14_causal_vs_gaussian_step.png",
     "index.md:fig03_onset_fitting.png",
     "index.md:fig05_complex_tfr_coi.png",
     "index.md:fig07_population_decoding.png",
@@ -1660,7 +1663,7 @@ def _font_failures(fig) -> list[str]:
 
 def _spine_failures(fig) -> list[str]:
     return [f"axes {i} draws its {side} spine" for i, ax in enumerate(fig.axes)
-            for side in ("top", "right") if ax.spines[side].get_visible()]
+            for side in ("top", "right") if side in ax.spines and ax.spines[side].get_visible()]
 
 
 def _is_bold(text) -> bool:

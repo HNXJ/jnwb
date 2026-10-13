@@ -239,6 +239,11 @@ A causal filter introduces a deterministic group delay:
 
 $$t_{\text{observed}} = t_{\text{signal}} + t_{\text{filter}}(\tau, \Delta t)$$
 
+![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.png#only-light)
+![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.dark.png#only-dark)
+
+The figure is synthetic: with tau = 50 ms, `jnwb.causal_exp_smooth` puts the 50% crossing of a 5-to-40 Hz step 33.3 ms after its onset at 1 ms bins, against tau ln 2 = 34.7 ms for the continuous filter, and `jnwb.gaussian_smooth_rate` (sigma = 20 ms) reaches its 10% level 26.1 ms before the onset.
+
 ### The Correct Pattern
 1. Fix $\tau$ and $\Delta t$ uniformly across all conditions being compared.
 2. Use causality-bounded parametric fitting (`jnwb.fit_exponential_onset`), which fits $t_0$ to the whole rise rather than to one threshold crossing. On a graded rise the fitted $t_0$ still moves with `tau_ms`, which is why step 1 fixes it; no fixed filter-delay correction applies to it.
