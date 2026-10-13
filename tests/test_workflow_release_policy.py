@@ -1067,3 +1067,65 @@ class TestContinueOnErrorJobsAreNotRequired:
         assert len(names) == len(BASELINE_REQUIRED_JOBS) and names, names
         assert not any(name.startswith("Test (pandas 3") for name in names), names
         assert sorted(names) == BASELINE_REQUIRED_JOBS, sorted(set(names) ^ set(BASELINE_REQUIRED_JOBS))
+
+
+#: P-328: the actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
+#: resolved from in a trailing comment. An action not listed here is refused by name.
+ALLOWED_ACTIONS = frozenset({
+    "actions/checkout",
+    "actions/download-artifact",
+    "actions/setup-python",
+    "actions/upload-artifact",
+    "pypa/gh-action-pypi-publish",
+})
+_USES_LINE = re.compile(r"^\s*(?:-\s+)?uses:\s*(\S+)(.*)$")
+_TAG_COMMENT = re.compile(r"\s+#\s*v\d+(?:\.\d+)*\s*")
+
+
+def _uses_violations(text):
+    """Each `uses:` line that is not an allow-listed action at a full commit SHA with its tag."""
+    found = []
+    for line in text.splitlines():
+        match = _USES_LINE.match(line)
+        if match is None:
+            continue
+        ref, rest = match.groups()
+        action, _, pin = ref.partition("@")
+        if action not in ALLOWED_ACTIONS:
+            found.append(f"not allow-listed: {ref}")
+        elif re.fullmatch(r"[0-9a-f]{40}", pin) is None:
+            found.append(f"not pinned to a full commit SHA: {ref}")
+        elif _TAG_COMMENT.fullmatch(rest) is None:
+            found.append(f"no trailing tag comment: {ref}")
+    return found
+
+
+class TestActionsArePinnedToFullShas:
+    def test_every_uses_line_in_every_workflow_is_allow_listed_and_pinned(self):
+        """A tag can move, so `@v4` runs whatever it names that day. The scan counts the lines it
+        examined, so an empty scan cannot pass."""
+        paths = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
+        assert paths, "no workflow file found"
+        examined = 0
+        problems = []
+        for path in paths:
+            text = path.read_text(encoding="utf-8")
+            examined += sum(1 for line in text.splitlines() if _USES_LINE.match(line))
+            problems += [f"{path.name}: {found}" for found in _uses_violations(text)]
+        assert examined > 0, "no `uses:` line was examined"
+        assert not problems, "\n".join(problems)
+
+    def test_an_unpinned_or_unlisted_action_is_refused(self):
+        """One fixture line per refusal and one that passes, so each message is shown to fire."""
+        sha = "11d5960a326750d5838078e36cf38b85af677262"
+        fixture = "\n".join([
+            "      - uses: actions/checkout@v4",
+            f"      - uses: actions/checkout@{sha}",
+            f"      - uses: evil/action@{sha}  # v1",
+            f"      - uses: actions/checkout@{sha}  # v4",
+        ])
+        assert _uses_violations(fixture) == [
+            "not pinned to a full commit SHA: actions/checkout@v4",
+            f"no trailing tag comment: actions/checkout@{sha}",
+            f"not allow-listed: evil/action@{sha}",
+        ]

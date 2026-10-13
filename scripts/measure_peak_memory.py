@@ -19,8 +19,9 @@ and nothing else, so its ``added_mib`` shows the instrument resolves an allocati
 the child, because ``exec`` keeps the pre-exec high-water mark: under a large parent it reports
 no growth at all.
 
-No threshold is applied: the record is the cost measured before a release. The release gate
-runs this without ``--write``; the committed record is refreshed before the closure pass.
+The release gate runs this without ``--write`` and fails when an operation's peak is above
+``PEAK_THRESHOLD_MIB``, the 0.2.7 peak plus a fixed margin (RP-7). The committed record is
+refreshed before the closure pass.
 
     python scripts/measure_peak_memory.py            # print the record
     python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/peak_memory.json
@@ -41,6 +42,11 @@ MIB = 2 ** 20
 CONTROL_BYTES = 256 * MIB
 PROC_STATUS = "/proc/self/status"
 PROC_CLEAR_REFS = "/proc/self/clear_refs"
+#: RP-7: the 0.2.7 record (commit 66766b2a, artifacts/benchmarks/peak_memory.json) holds the
+#: largest peak of the fixed set, its control row. The threshold is that peak plus the margin.
+PEAK_BASELINE_0_2_7_MIB = 404.7
+PEAK_MARGIN = 0.25
+PEAK_THRESHOLD_MIB = PEAK_BASELINE_0_2_7_MIB * (1 + PEAK_MARGIN)
 
 
 def _proc_status_bytes() -> Optional[Tuple[int, int]]:
@@ -269,6 +275,14 @@ def main(argv=None) -> int:
         with open(RECORD_PATH, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps(record, indent=2) + "\n")
         print(f"wrote {RECORD_PATH.relative_to(REPO_ROOT).as_posix()}")
+    over = [(name, row["peak_mib"]) for name, row in record["operations"].items()
+            if row["peak_mib"] > PEAK_THRESHOLD_MIB]
+    for name, peak in over:
+        print(f"FAIL: {name} peaked at {peak:.1f} MiB, "
+              f"above the {PEAK_THRESHOLD_MIB:.3f} MiB threshold")
+    if over:
+        return 1
+    print(f"PASS: every operation peaked at or below the {PEAK_THRESHOLD_MIB:.3f} MiB threshold")
     return 0
 
 

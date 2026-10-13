@@ -199,8 +199,18 @@ class TestReleaseGateOrder:
     def test_the_suite_runs_after_the_smoke_script_and_the_tutorials(self):
         main = self._main_source()
         suite = main.index('"pytest"')
-        for cheaper in ("harness_gate.py", '"build"', "INSTALLED_SMOKE", "=== STEP 8"):
+        for cheaper in ("harness_gate.py", '"build"', "smoke_installed.py", "=== STEP 8"):
             assert main.index(cheaper) < suite, f"{cheaper} runs after the suite"
+
+    def test_step_7_runs_the_installed_smoke_script_as_ci_does(self):
+        """Hamm 2026-10-13: one installed smoke. STEP 7 runs scripts/smoke_installed.py with the
+        arguments CI passes, from the staging directory, with PYTHONPATH stripped."""
+        main = self._main_source()
+        step_7 = main[main.index("=== STEP 7"):main.index("=== STEP 8")]
+        assert "smoke_installed.py" in step_7, "STEP 7 does not run scripts/smoke_installed.py"
+        assert "--expected-version" in step_7 and "--not-under" in step_7, step_7
+        assert 'k != "PYTHONPATH"' in step_7 and "env=smoke_env" in step_7, step_7
+        assert "INSTALLED_SMOKE" not in main, "STEP 7 still builds its own smoke script"
 
     @staticmethod
     def _repository(root: Path) -> str:
@@ -296,41 +306,48 @@ class TestTheInstalledSmokeScriptRunsInTheSuite:
     checkout. It must get through its checks before the installed-location check and refuse the
     checkout there, so a stale line fails the suite rather than the release."""
 
-    @staticmethod
-    def _run(script: str, tmp_path: Path):
-        import os
+    SMOKE = REPO_ROOT / "scripts" / "smoke_installed.py"
 
-        from scripts.release_gate import jnwb_source_version
+    @classmethod
+    def _run(cls, tmp_path: Path, script: Path, *args: str):
+        import os
 
         shadow = tmp_path / "shadow"
         shadow.mkdir()
         # `omission` absent, as the script requires of the environment it is written for.
         (shadow / "omission.py").write_text(
             'raise ModuleNotFoundError("absent in this test")\n', encoding="utf-8")
-        (tmp_path / "smoke_test.py").write_text(
-            f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + script, encoding="utf-8")
         env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(shadow), str(REPO_ROOT)]))
-        return subprocess.run([sys.executable, "smoke_test.py"], cwd=tmp_path, env=env,
+        return subprocess.run([sys.executable, str(script), *args], cwd=tmp_path, env=env,
                               capture_output=True, text=True, timeout=300)
 
-    def test_the_script_runs_its_checks_up_to_the_location_check(self, tmp_path):
-        from scripts.release_gate import INSTALLED_SMOKE
+    @staticmethod
+    def _checkout_args() -> list:
+        """What the suite passes: the source version, and the checkout as the place the package
+        must not be imported from."""
+        from scripts.release_gate import jnwb_source_version
 
-        result = self._run(INSTALLED_SMOKE, tmp_path)
+        return ["--expected-version", jnwb_source_version(), "--not-under", str(REPO_ROOT)]
+
+    def test_the_script_runs_its_checks_up_to_the_location_check(self, tmp_path):
+        result = self._run(tmp_path, self.SMOKE, *self._checkout_args())
         assert "PASS: omission is strictly absent" in result.stdout, result.stderr
-        assert "PASS: import jnwb successful" in result.stdout, result.stderr
+        assert "PASS: workflow checks completed" in result.stdout, result.stderr
         assert result.returncode != 0, result.stdout
-        assert "expected installed location" in result.stderr, result.stderr
+        assert "FAIL: jnwb was imported from" in result.stderr, result.stderr
+        assert f"inside {REPO_ROOT}" in result.stderr, result.stderr
 
     def test_a_stale_line_fails_before_the_location_check(self, tmp_path):
-        """A mutant whose version check names a variable that no longer exists: the run must fail
-        on that line, which is the failure the suite run above would report."""
-        from scripts.release_gate import INSTALLED_SMOKE
-
-        anchor = "assert jnwb.__version__ == EXPECTED_VERSION"
-        assert INSTALLED_SMOKE.count(anchor) == 1, "the mutant's anchor did not apply exactly once"
-        stale = INSTALLED_SMOKE.replace(anchor, "assert jnwb.__version__ == EXPECTED_VERSION_STALE")
-        result = self._run(stale, tmp_path)
+        """A mutant whose workflow check names a constant that no longer exists: the run must fail
+        on that line, before the location check that would refuse the checkout."""
+        source = self.SMOKE.read_text(encoding="utf-8")
+        anchor = "assert spikes.size > 0 and lfp.size > 0 and fs_hz == receipt.fs_hz"
+        assert source.count(anchor) == 1, "the mutant's anchor did not apply exactly once"
+        mutant = tmp_path / "smoke_mutant.py"
+        mutant.write_text(source.replace(anchor, anchor.replace("receipt.fs_hz", "FS_HZ_STALE")),
+                          encoding="utf-8")
+        result = self._run(tmp_path, mutant, *self._checkout_args())
         assert result.returncode != 0, result.stdout
         assert "NameError" in result.stderr, result.stderr
-        assert "expected installed location" not in result.stderr, result.stderr
+        assert "PASS: workflow checks completed" not in result.stdout, result.stdout
+        assert "FAIL: jnwb was imported from" not in result.stderr, result.stderr

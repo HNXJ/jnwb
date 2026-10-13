@@ -264,3 +264,37 @@ def test_the_release_gate_records_peak_memory_beside_the_suite_wall_time():
                      r"\"measure_peak_memory\.py\"\)\]\)", step_1)
     assert call, "STEP 1 does not run scripts/measure_peak_memory.py"
     assert "--write" not in step_1, "STEP 1 writes the peak memory record into the tree"
+
+
+def _peak_record(peak_mib):
+    """A record of the fixed set, as build_record makes one, whose control peak is `peak_mib`."""
+    row = {"peak_mib": peak_mib, "added_mib": 0.0, "added_is": "exact"}
+    return {"jnwb_version": "0.2.12", "python": "3.14.3", "platform": "test", "unit": "MiB",
+            "operations": {"control_256mib": row}}
+
+
+def test_the_threshold_is_the_0_2_7_peak_plus_the_fixed_margin():
+    """RP-7: the 0.2.7 record (commit 66766b2a) holds the largest peak of the fixed set, the
+    control's 404.7 MiB, and the margin is a quarter of it."""
+    from scripts.measure_peak_memory import PEAK_BASELINE_0_2_7_MIB, PEAK_MARGIN, PEAK_THRESHOLD_MIB
+
+    assert PEAK_BASELINE_0_2_7_MIB == 404.7
+    assert PEAK_MARGIN == 0.25
+    assert PEAK_THRESHOLD_MIB == pytest.approx(505.875)
+
+
+def test_a_peak_just_under_the_threshold_passes(monkeypatch, capsys):
+    from scripts import measure_peak_memory
+
+    assert 505.8 < 505.875 < 505.9, "fixture: the two cases must straddle the threshold"
+    monkeypatch.setattr(measure_peak_memory, "build_record", lambda: _peak_record(505.8))
+    assert measure_peak_memory.main([]) == 0, capsys.readouterr().out
+
+
+def test_a_peak_just_over_the_threshold_fails_and_names_the_operation(monkeypatch, capsys):
+    from scripts import measure_peak_memory
+
+    assert 505.8 < 505.875 < 505.9, "fixture: the two cases must straddle the threshold"
+    monkeypatch.setattr(measure_peak_memory, "build_record", lambda: _peak_record(505.9))
+    assert measure_peak_memory.main([]) == 1, capsys.readouterr().out
+    assert "FAIL: control_256mib peaked at 505.9 MiB" in capsys.readouterr().out
