@@ -114,6 +114,16 @@ def test_release_counts_equal_entries_per_kind(data):
         assert release["counts"] == per_kind, release["version"]
 
 
+def test_docs_links_carry_the_read_the_docs_version_path(data):
+    """The bare Read the Docs host serves only its root; a page link built on it, or relative to
+    the dashboard, is a 404."""
+    docs = data["release"]["links"]["docs"]
+    assert docs.startswith("https://") and "/en/" in docs, docs
+    pages = [f["docs_page"] for f in data["figures"] if f["docs_page"]]
+    assert pages, "fixture must link at least one figure to its page"
+    assert all(page.startswith(docs) and page.endswith("/") for page in pages), pages
+
+
 def test_api_total_is_len_of_all(data):
     assert data["api"]["total"] > 0, "fixture must export symbols"
     assert data["api"]["total"] == len(jnwb.__all__)

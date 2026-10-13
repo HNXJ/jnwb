@@ -55,6 +55,8 @@ _RULE_CELL = re.compile(r":?-{3,}:?")
 _ORDER_COLUMNS = ["spec", "parameter", "sizes", "median times (ms)", "exp", "r2", "t-span",
                   "achieved", "admissible", "cls", "gap"]
 _MODULE_HEADING = re.compile(r"^### `(jnwb\.[^`]+)`")
+#: The Read the Docs version the dashboard links: the newest build of the default branch.
+DOCS_VERSION_PATH = "en/latest/"
 
 
 def _rel(path: Path) -> str:
@@ -157,6 +159,16 @@ def parse_changelog(path: Path) -> list[dict]:
     return releases
 
 
+def docs_base() -> str | None:
+    """The Read the Docs address pages hang from. The bare host redirects only its root; every
+    other page lives under a version path, so a link built on the host is a 404."""
+    url = tomllib.loads(_read(PYPROJECT))["project"].get("urls", {}).get("Documentation")
+    if url is None:
+        return None
+    url = url.rstrip("/") + "/"
+    return url if "/en/" in url else url + DOCS_VERSION_PATH
+
+
 def release_section(releases: list[dict]) -> dict:
     project = tomllib.loads(_read(PYPROJECT))
     attr = project["tool"]["setuptools"]["dynamic"]["version"]["attr"]
@@ -172,8 +184,8 @@ def release_section(releases: list[dict]) -> dict:
     name = project["project"]["name"]
     urls = project["project"].get("urls", {})
     links = {"pypi": f"https://pypi.org/project/{name}/{version}/"}
-    if "Documentation" in urls:
-        links["docs"] = urls["Documentation"]
+    if docs_base() is not None:
+        links["docs"] = docs_base()
     if "Homepage" in urls:
         links["repo"] = urls["Homepage"]
         links["changelog"] = f"{urls['Homepage']}/blob/main/CHANGELOG.md"
@@ -380,6 +392,7 @@ def figures_section() -> list[dict]:
     if not FIGURES.is_dir():
         raise FileNotFoundError(f"{_rel(FIGURES)} is missing; figures cannot be null")
     pairs: list[dict] = []
+    base = docs_base()
     for light in sorted(FIGURES.glob("*.png")):
         if light.name.endswith(".dark.png"):
             continue
@@ -390,7 +403,7 @@ def figures_section() -> list[dict]:
         page = _explaining_page(light.name)
         pairs.append({"id": light.stem, "title": light.stem, "light": f"assets/{light.name}",
                       "dark": f"assets/{dark.name}",
-                      "docs_page": f"{page.stem}/" if page else None})
+                      "docs_page": f"{base}{page.stem}/" if page and base else None})
     return pairs
 
 

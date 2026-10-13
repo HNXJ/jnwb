@@ -107,6 +107,23 @@
     return /\/$/.test(docs) ? docs : docs + '/';
   }
 
+  // The API page anchors modules, not symbols: `jnwb.laminar` is `#module-jnwblaminar`.
+  function apiUrl(docs, module) {
+    var anchor = module ? '#module-' + encodeURIComponent(String(module).replace(/\./g, '').toLowerCase()) : '';
+    return docs + 'api/' + anchor;
+  }
+
+  function symbolModules(data) {
+    var modules = {};
+    var groups = lookup(data, 'api.groups');
+    (Array.isArray(groups) ? groups : []).forEach(function (group) {
+      (Array.isArray(group.symbols) ? group.symbols : []).forEach(function (symbol) {
+        modules[String(symbol)] = group.module;
+      });
+    });
+    return modules;
+  }
+
   function column(rows, key) {
     return rows.map(function (row) {
       return isMissing(row[key]) ? null : row[key];
@@ -963,7 +980,7 @@
         var item = make('li');
         if (docs) {
           var link = make('a', '', name);
-          link.setAttribute('href', docs + 'api/#' + encodeURIComponent(name.toLowerCase()));
+          link.setAttribute('href', apiUrl(docs, group.module));
           item.appendChild(link);
         } else {
           item.textContent = name;
@@ -1160,7 +1177,7 @@
     parent.appendChild(wrap);
   }
 
-  function showcaseCard(entry, docs) {
+  function showcaseCard(entry, docs, modules) {
     var card = make('article', 'panel');
     var title = make('h5');
     setText(title, entry.title);
@@ -1198,7 +1215,7 @@
     var jnwb = entry.jnwb || {};
     showcaseRow(card, 'jnwb commit', jnwb.commit, true);
     showcaseList(card, 'jnwb functions', jnwb.functions, function (li, name) {
-      var url = docs ? docs + 'api/#' + encodeURIComponent(String(name).toLowerCase()) : null;
+      var url = docs ? apiUrl(docs, modules[String(name)]) : null;
       linkOrText(li, name, url);
     });
 
@@ -1227,6 +1244,7 @@
     var entries = record && Array.isArray(record.entries) ? record.entries : null;
     var status = document.getElementById('showcase-status');
     var docs = docsBase(data);
+    var modules = symbolModules(data);
     status.hidden = entries !== null;
     status.textContent = entries === null ? NO_SHOWCASES : '';
     SHOWCASE_GROUPS.forEach(function (group) {
@@ -1245,7 +1263,7 @@
           block.appendChild(emptyNote(NONE_RECORDED));
         }
         rows.forEach(function (entry) {
-          block.appendChild(showcaseCard(entry, docs));
+          block.appendChild(showcaseCard(entry, docs, modules));
         });
         box.appendChild(block);
       });
