@@ -21,7 +21,7 @@ The "Motif, crossover and layers" routing rows live in [`references/motif_crosso
 The "The workflow, step by step" routing rows live in [`references/workflow_step_by_step.md`](references/workflow_step_by_step.md).
 
 ## 3. Invariants & Safeguards
-1. **`support_score` is not vFLIP2's omega.** `VFlipResult.support_score` is documented as "Omega" (`jnwb/laminar/_vflip.py`). It is jnwb's own score, not the omega of the published vFLIP2 code, so vFLIP2's acceptance tiers never apply to it. Say which estimator placed every anchor.
+1. **`support_score` is not vFLIP2's omega.** `VFlipResult.support_score` (`jnwb/laminar/_vflip.py`) is jnwb's own score, with no published source, not the omega of the published vFLIP2 code, so vFLIP2's acceptance tiers never apply to it. Say which estimator placed every anchor.
 2. **The parity artifact.** An odd neighboring-channel separation pairs each channel with channels of the other parity. Any gain or offset difference between odd and even channels then enters the CSD as a term that alternates in sign from row to row. A CSD that alternates on all channels, while the odd-only and even-only CSDs are smooth, shows that mismatch and not laminar structure. Report the single-parity CSDs beside the all-channel one, with per-probe odd/even ERP amplitude ratios.
 3. **What the code refuses.**
    - Below the support threshold, `vflip` returns `accepted=False` and `crossover_contact=None` (`jnwb/laminar/_vflip.py`).

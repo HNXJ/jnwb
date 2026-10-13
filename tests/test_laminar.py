@@ -1237,8 +1237,16 @@ class TestVFlipRecoveryAndRejectionBroad:
             f"got profile[{c_cross}]={res.profile[c_cross]:.2f} < profile[{c_cross+1}]={res.profile[c_cross+1]:.2f}"
         )
 
+    def test_vflip_never_names_its_score_omega(self):
+        """Omega is vFLIP2's published statistic (Major et al. 2025); `vflip`'s score is jnwb's."""
+        import jnwb.laminar._vflip as module
+
+        source = pathlib.Path(module.__file__).read_text(encoding="utf-8")
+        assert "support_score" in source, "the module must define the score this test is about"
+        assert "Omega" not in source
+
     def test_vflip_support_score_density_invariance(self):
-        """Support score Omega must be invariant to electrode contact density (0.2.3-REV-03)."""
+        """The support score must be invariant to electrode contact density (0.2.3-REV-03)."""
         freqs = np.linspace(2.0, 150.0, 100)
 
         # 1. Physical equivalence: same 1200 um column sampled at 16 vs 64 contacts
@@ -1256,8 +1264,8 @@ class TestVFlipRecoveryAndRejectionBroad:
             assert res.accepted is True
             scores[n_ch] = res.support_score
 
-        # Unnormalized Omega would drift by 1.5 * ln(64 / 16) = 2.08.
-        # Density-normalized Omega should remain within 0.3 across sampling densities.
+        # An unnormalized score would drift by 1.5 * ln(64 / 16) = 2.08.
+        # The density-normalized score should remain within 0.3 across sampling densities.
         assert abs(scores[64] - scores[16]) < 0.3, f"Score drift across 4x density: {scores[64]} vs {scores[16]}"
 
         # 2. Low contact count (N=8) with clear motif must pass default threshold 6.0

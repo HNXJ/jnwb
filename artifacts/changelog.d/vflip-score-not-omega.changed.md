@@ -1,0 +1,1 @@
+- jnwb/laminar/_vflip.py: `vflip` no longer calls its support score Omega, the name of vFLIP2's statistic
