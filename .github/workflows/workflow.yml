@@ -386,6 +386,9 @@ jobs:
           # The version the wheel's file name carries (PEP 427: name-version-...).
           version=$(basename dist/*.whl | cut -d- -f2)
           cd /tmp
+          # PYTHONPATH is cleared, as in the tutorial step below, so the checkout cannot satisfy the
+          # import.
+          unset PYTHONPATH
           # The same script the TestPyPI verify job runs; from /tmp, so the import is the wheel's.
           /tmp/clean_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
             --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
@@ -538,6 +541,9 @@ jobs:
           /tmp/testpypi_env/bin/pip install --no-cache-dir "${wheels[0]}"
           /tmp/testpypi_env/bin/pip check
           cd /tmp
+          # PYTHONPATH is cleared, as in the tutorial step of the build job, so the checkout cannot
+          # satisfy the import.
+          unset PYTHONPATH
           /tmp/testpypi_env/bin/python "$GITHUB_WORKSPACE/scripts/smoke_installed.py" \
             --expected-version "$version" --not-under "$GITHUB_WORKSPACE"
 
@@ -606,6 +612,11 @@ jobs:
           count=0
           for file in dist/*; do
             name=$(basename "$file")
+            # A yanked file stays listed with its digest, so the comparison below would pass it.
+            if jq -e --arg name "$name" 'any(.urls[]; .filename == $name and .yanked == true)' /tmp/testpypi.json > /dev/null; then
+              echo "::error::$name is yanked on TestPyPI's jnwb $version, so it is not the file to upload"
+              exit 1
+            fi
             want=$(jq -r --arg name "$name" '[.urls[] | select(.filename == $name) | .digests.sha256] | if length == 1 then .[0] else "" end' /tmp/testpypi.json)
             have=$(sha256sum "$file" | cut -d' ' -f1)
             if [ -z "$want" ] || [ "$want" != "$have" ]; then

@@ -178,6 +178,9 @@ FORBIDDEN_COMPONENTS = frozenset({
     # exists; the old rule caught it only because `.lab` was a substring match.
     "dist", ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
     ".lab", ".lab_bundle_build", "outputs",
+    # The repository's example scripts and data, which neither a wheel nor an sdist may carry. No
+    # package directory is named `examples` or `data`; one added later would be refused here.
+    "examples", "data",
     # The repository's working rules and the skills about working on this repository. All
     # stay out of the sdist; a component match on the file and folder names catches each
     # one wherever a manifest change puts it.
@@ -1503,6 +1506,14 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
 
 #: The action every PyPI publication step uses. A job with a step that uses it publishes.
 PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+#: A run that uploads with twine, by any interpreter: ``twine upload`` or ``python -m twine upload``.
+_TWINE_UPLOAD = re.compile(r"\btwine\s+upload\b")
+
+
+def _publishes(step: dict) -> bool:
+    """Whether one step uploads a distribution: the PyPI action, or a twine upload in its run."""
+    return (str(step.get("uses") or "").startswith(PUBLISH_ACTION)
+            or _TWINE_UPLOAD.search(str(step.get("run") or "")) is not None)
 
 
 def _continues_on_error(value) -> bool:
@@ -1513,8 +1524,10 @@ def _continues_on_error(value) -> bool:
 def publication_continue_on_error(workflow: str) -> List[str]:
     """Each publication job, and each step of one, that continues on error.
 
-    A publication job is one with a step that uses :data:`PUBLISH_ACTION`. A failed upload in one
-    would read as a passing release. ``continue-on-error`` on any other job is not refused: the
+    A publication job has a step that uses :data:`PUBLISH_ACTION` or runs ``twine upload``. A job
+    that calls a reusable workflow counts too: that workflow's steps are in a file this check does
+    not read, so the call is refused as publication rather than taken as none. A failed upload in
+    one would read as a passing release. ``continue-on-error`` on any other job is not refused: the
     pandas 3 job reports and does not gate, and :func:`required_ci_jobs` skips it for that reason.
     """
     import yaml
@@ -1525,7 +1538,7 @@ def publication_continue_on_error(workflow: str) -> List[str]:
         if not isinstance(job, dict):
             continue
         steps = [s for s in (job.get("steps") or []) if isinstance(s, dict)]
-        if not any(str(s.get("uses") or "").startswith(PUBLISH_ACTION) for s in steps):
+        if not (job.get("uses") or any(_publishes(s) for s in steps)):
             continue
         if _continues_on_error(job.get("continue-on-error")):
             found.append(f"publication job {job_id!r} continues on error, so a failed upload "
@@ -2194,7 +2207,10 @@ def main() -> None:
         smoke_script.write_text(
             f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + INSTALLED_SMOKE, encoding="utf-8")
 
-        res = subprocess.run([venv_python, str(smoke_script)], cwd=str(staging_dir), capture_output=True, text=True)
+        # PYTHONPATH is stripped, as for the tutorials below: the checkout must not satisfy `import jnwb`.
+        smoke_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        res = subprocess.run([venv_python, str(smoke_script)], cwd=str(staging_dir), env=smoke_env,
+                             capture_output=True, text=True)
         if res.returncode != 0:
             log.error(f"Smoke test failed in isolated environment:\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
             sys.exit(res.returncode)

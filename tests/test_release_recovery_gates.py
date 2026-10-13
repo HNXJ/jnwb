@@ -288,3 +288,49 @@ class TestCiRunSelection:
         outcome = check_ci_conclusion(self.SHA, required=["Test"],
                                       runner=self._gh(runs, json.dumps({})))
         assert outcome.status == CI_UNRESOLVED and "in_progress" in outcome.detail, outcome
+
+
+class TestTheInstalledSmokeScriptRunsInTheSuite:
+    """P-352: the installed-package smoke script ran only at STEP 7, so an exact key set that went
+    stale in it passed a whole cycle of green suites. The suite runs the same script against the
+    checkout. It must get through its checks before the installed-location check and refuse the
+    checkout there, so a stale line fails the suite rather than the release."""
+
+    @staticmethod
+    def _run(script: str, tmp_path: Path):
+        import os
+
+        from scripts.release_gate import jnwb_source_version
+
+        shadow = tmp_path / "shadow"
+        shadow.mkdir()
+        # `omission` absent, as the script requires of the environment it is written for.
+        (shadow / "omission.py").write_text(
+            'raise ModuleNotFoundError("absent in this test")\n', encoding="utf-8")
+        (tmp_path / "smoke_test.py").write_text(
+            f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + script, encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(shadow), str(REPO_ROOT)]))
+        return subprocess.run([sys.executable, "smoke_test.py"], cwd=tmp_path, env=env,
+                              capture_output=True, text=True, timeout=300)
+
+    def test_the_script_runs_its_checks_up_to_the_location_check(self, tmp_path):
+        from scripts.release_gate import INSTALLED_SMOKE
+
+        result = self._run(INSTALLED_SMOKE, tmp_path)
+        assert "PASS: omission is strictly absent" in result.stdout, result.stderr
+        assert "PASS: import jnwb successful" in result.stdout, result.stderr
+        assert result.returncode != 0, result.stdout
+        assert "expected installed location" in result.stderr, result.stderr
+
+    def test_a_stale_line_fails_before_the_location_check(self, tmp_path):
+        """A mutant whose version check names a variable that no longer exists: the run must fail
+        on that line, which is the failure the suite run above would report."""
+        from scripts.release_gate import INSTALLED_SMOKE
+
+        anchor = "assert jnwb.__version__ == EXPECTED_VERSION"
+        assert INSTALLED_SMOKE.count(anchor) == 1, "the mutant's anchor did not apply exactly once"
+        stale = INSTALLED_SMOKE.replace(anchor, "assert jnwb.__version__ == EXPECTED_VERSION_STALE")
+        result = self._run(stale, tmp_path)
+        assert result.returncode != 0, result.stdout
+        assert "NameError" in result.stderr, result.stderr
+        assert "expected installed location" not in result.stderr, result.stderr
