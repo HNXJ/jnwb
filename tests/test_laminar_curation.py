@@ -665,7 +665,7 @@ class TestMapPeakChannelToLayer:
         with pytest.raises(ValueError, match="appears twice"):
             jnwb.map_peak_channel_to_layer(units, curation, [10, 10, 12])
 
-    @pytest.mark.parametrize("peak", ["ch3", 11.5])
+    @pytest.mark.parametrize("peak", ["ch3", 11.5, "11", "1e1", True])
     def test_a_peak_channel_that_is_not_an_integer_id_is_refused_by_name(self, clean, peak):
         _, base = clean
         curation = self._curation(["superficial", "input"], base)

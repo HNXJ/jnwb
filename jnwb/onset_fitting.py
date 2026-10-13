@@ -81,8 +81,9 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     ``causal_exp_smooth``, so the output at bin t depends on rate[t], rate[t-1], ... only.
 
     mean_lag_bins is the exact centroid of the kernel applied, sum(j w[j]) / sum(w[j]). It
-    approaches sigma * sqrt(2/pi), about 0.798 sigma bins, for large sigma and differs from that
-    by at most about 1/pi bin: sigma = 7.5 gives a centroid of about 5.7 bins against 5.98. A
+    is close to sigma * sqrt(2/pi), about 0.798 sigma bins: up to sigma = 20 it is within about
+    1/pi bin of it (sigma = 7.5 gives about 5.7 bins against 5.98), and beyond that the 4-sigma
+    truncation widens the gap slowly (0.34 bin at sigma = 100, 0.54 at sigma = 1000). A
     step's half-rise on the smoothed trace falls at the kernel's median, about 0.674 sigma bins,
     not at this centroid: at sigma 20 it is 13 bins against a centroid of 15.6. The two differ
     by about 0.12 sigma bins, so report a step's half-rise and the mean lag as separate numbers.

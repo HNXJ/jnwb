@@ -862,6 +862,9 @@ def _electrode_key(value: Any, name: str) -> Optional[int]:
         return None
     message = (f"map_peak_channel_to_layer: {name} holds {value!r}, which is not an integer "
                "electrode id")
+    # A bool or a string would pass float(): True as id 1, "1e1" as id 10.
+    if isinstance(value, (bool, np.bool_, str, bytes)):
+        raise ValueError(message)
     try:
         number = float(value)
     except (TypeError, ValueError):
