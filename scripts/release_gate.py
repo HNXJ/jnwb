@@ -734,7 +734,8 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
 
 def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Optional[str]]:
-    """``(run, None)`` or ``(None, reason)`` for the newest run whose head is ``sha``.
+    """``(run, None)`` or ``(None, reason)`` for the newest concluded run whose head is ``sha``, or
+    the newest run of it when none has concluded.
 
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
@@ -759,8 +760,12 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
             f"{len(payload)} run(s) for {seen or 'no commit'}. Push this commit and let CI "
             f"run before tagging it."
         )
-    # Newest first is gh's order; databaseId is monotonic, so re-derive rather than assume.
-    return max(matching, key=lambda r: r.get("databaseId") or 0), None
+    # A run still executing does not decide the commit while another run of it has concluded: a
+    # pull-request run in progress beside the push run that passed is not a failure. The newest
+    # concluded run decides; a commit with none is held by its newest run. Newest first is gh's
+    # order; databaseId is monotonic, so re-derive rather than assume.
+    concluded = [r for r in matching if r.get("status") == "completed"]
+    return max(concluded or matching, key=lambda r: r.get("databaseId") or 0), None
 
 
 class JobVerdict(NamedTuple):
@@ -1362,7 +1367,8 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
 
 def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     """Every path whose working copy differs from HEAD -- modified, staged, deleted, renamed or
-    untracked and not ignored -- sorted, or ``None`` when git cannot say.
+    untracked and not ignored, or marked assume-unchanged or skip-worktree -- sorted, or ``None``
+    when git cannot say.
 
     The whole tree, not only :data:`STEP_0A_PATHS`: the build in STEP 3 packages the working
     copy, so uncommitted code would ship under a receipt that names a commit without it.
@@ -1379,6 +1385,16 @@ def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
         named.add(entry[3:])
         if "R" in entry[:2] or "C" in entry[:2]:
             named.add(next(entries, ""))
+    # `git status` does not report a file marked assume-unchanged or skip-worktree, however it was
+    # edited. `ls-files -v` tags such a file with a lowercase letter or `S`, and every other
+    # tracked file with `H`, so any other tag names the file.
+    tags = subprocess.run(["git", "ls-files", "-v", "-z"], cwd=root, capture_output=True,
+                          text=True)
+    if tags.returncode != 0:
+        return None
+    for entry in filter(None, tags.stdout.split("\0")):
+        if entry[:1] != "H":
+            named.add(entry[2:])
     return sorted(filter(None, named))
 
 
@@ -1485,6 +1501,42 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     return violations
 
 
+#: The action every PyPI publication step uses. A job with a step that uses it publishes.
+PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+
+
+def _continues_on_error(value) -> bool:
+    """Whether a ``continue-on-error`` value lets a failure pass: anything but absent or false."""
+    return value is not None and value is not False and str(value).strip().lower() != "false"
+
+
+def publication_continue_on_error(workflow: str) -> List[str]:
+    """Each publication job, and each step of one, that continues on error.
+
+    A publication job is one with a step that uses :data:`PUBLISH_ACTION`. A failed upload in one
+    would read as a passing release. ``continue-on-error`` on any other job is not refused: the
+    pandas 3 job reports and does not gate, and :func:`required_ci_jobs` skips it for that reason.
+    """
+    import yaml
+
+    document = yaml.safe_load(workflow) or {}
+    found = []
+    for job_id, job in (document.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        steps = [s for s in (job.get("steps") or []) if isinstance(s, dict)]
+        if not any(str(s.get("uses") or "").startswith(PUBLISH_ACTION) for s in steps):
+            continue
+        if _continues_on_error(job.get("continue-on-error")):
+            found.append(f"publication job {job_id!r} continues on error, so a failed upload "
+                         "would not fail the release")
+        for step in steps:
+            if _continues_on_error(step.get("continue-on-error")):
+                found.append(f"a step of publication job {job_id!r} continues on error, so a "
+                             "failed upload would not fail the release")
+    return found
+
+
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
                             head: Optional[str] = None) -> List[str]:
     """AGENTS.md section 11 condition 3, as amended 2026-09-23.
@@ -1506,6 +1558,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          and every one deleted since is one the receipt records as finished;
       4. the committed peak-memory record names the version HEAD declares;
       5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
+      6. the workflow at HEAD exists, and no publication job in it continues on error, so a failed
+         upload cannot read as a release.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1553,7 +1607,7 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     items, unreadable = _parse_todo_stack(todo) if todo is not None else ([], [])
     # A value other than this cycle's `required-` is named, so a release step or a deferral
     # written for the wrong cycle says why it still counts.
-    required = [f"{i} {t[:34]}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
+    required = [f"{i} {t}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
                 for i, t, r in items if r not in (DEFERRED_VALUE, RELEASE_STEP_VALUE)]
     if required:
         violations.append(
@@ -1618,6 +1672,18 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"{len(leftover)} file(s) in artifacts/changelog.d/ at HEAD are not assembled into "
             f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
             + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
+
+    # 6. no publication job continues on error, so a failed upload cannot read as a release
+    workflow = _text_at(root, "HEAD", CI_WORKFLOW_PATH)
+    if workflow is None:
+        violations.append(f"{CI_WORKFLOW_PATH} is missing at HEAD, so whether a publication job "
+                          "continues on error is unknown")
+    else:
+        try:
+            violations.extend(publication_continue_on_error(workflow))
+        except Exception as exc:  # noqa: BLE001 - an unreadable workflow is unknown, not clean
+            violations.append(f"{CI_WORKFLOW_PATH} at HEAD cannot be read, so whether a "
+                              f"publication job continues on error is unknown: {exc}")
     return violations
 
 

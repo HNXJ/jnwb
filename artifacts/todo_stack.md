@@ -42,7 +42,7 @@ contributed dashboard cards.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 3 | R release tooling | 12-02 (running), 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
+| 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
 | 3 | P pull request #31 | `jnwb-laminar`: suite, push to its branch, ABastos approves, merge | the files the pull request names | none |
 | 3 | U new-function refusals | 12-25 | `jnwb/onset_fitting.py`, `jnwb/laminar_curation.py` and their tests | none |
 | 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |

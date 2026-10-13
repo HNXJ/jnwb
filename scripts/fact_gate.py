@@ -45,7 +45,6 @@ Exit code 0 when no fact is VIOLATED, 1 otherwise.
 """
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
@@ -56,10 +55,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts import build_fact_graph  # noqa: E402
 from scripts.release_gate import ROADMAP_PATH as _ROADMAP, roadmap_rows  # noqa: E402
+from scripts.stack_parse import parse_todo_stack  # noqa: E402
 
 TODO_PATH = REPO_ROOT / "artifacts" / "todo_stack.md"
 ROADMAP_PATH = REPO_ROOT / _ROADMAP
-_ITEM_HEADING = re.compile(r"^### (\d{2}-\d{2,3})\b", re.M)
 
 HELD, VIOLATED, UNHELD = "HELD", "VIOLATED", "UNHELD"
 
@@ -68,8 +67,10 @@ Constants = Dict[str, List[str]]
 
 
 def live_items(todo_text: str, roadmap_text: str = "") -> List[str]:
-    """Item ids in the todo stack, then those of the roadmap's readable rows."""
-    return _ITEM_HEADING.findall(todo_text) + [i for i, _ in roadmap_rows(roadmap_text)[0]]
+    """Item ids in the todo stack, read by the shared stack parser at every heading form, then those
+    of the roadmap's readable rows."""
+    return ([i for i, _, _ in parse_todo_stack(todo_text)[0]]
+            + [i for i, _ in roadmap_rows(roadmap_text)[0]])
 
 
 # ------------------------------------------------------------------------ computed predicates
