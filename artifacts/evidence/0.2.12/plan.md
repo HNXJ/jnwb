@@ -35,5 +35,7 @@ Work that omission and jaxfne asked for, and the release tooling that showed def
   become stack items only after Hamm approves the plan at Gate B.
 - JNWB-013 (length-1 device attributes) closed on omission's side on 2026-10-12: its repaired NWBs
   store those attributes as scalars (h5py, all 10 sub-V182o files); jnwb runs no test for it.
+- 12-20's pandas 3 job first ran on dev at `9fd2e7e0` (run 38300465743): success, with every other
+  job of the run green.
 - Omission runs 0.2.11 (`b5ee25f7`) and offers itself as a consumer test bed: before the 0.2.12 tag,
   send it the candidate commit for its units-table identity gates and the Fig03/Fig04 producers.
