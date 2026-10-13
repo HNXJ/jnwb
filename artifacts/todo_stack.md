@@ -43,7 +43,7 @@ contributed dashboard cards.
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
-| 3 | P pull request #31 | `jnwb-laminar`: suite, push to its branch, ABastos approves, merge | the files the pull request names | none |
+| 3 | P pull request #31 | `jnwb-laminar`: suite, second review, push to its branch, merge into `dev` (ruled 2026-10-13) | the files the pull request names | none |
 | 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
 | 4 | K skills split | 12-22 | `skills/` | P |
 | 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
