@@ -59,6 +59,17 @@ def pin_component_signs(
     return components * signs[:, None], projections * signs[None, :]
 
 
+def _svd_numpy(matrix: np.ndarray, n_components: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The NumPy SVD fallback shared by `gpu_pca` and `compute_population_trajectory`.
+
+    Returns the projections onto the top ``n_components`` right singular vectors, those
+    vectors, and every singular value.
+    """
+    _, S, Vt = np.linalg.svd(matrix, full_matrices=False)
+    V_top = Vt[:n_components, :]
+    return matrix @ V_top.T, V_top, S
+
+
 def gpu_pca(
     matrix: np.ndarray,
     n_components: int = 3,
@@ -110,11 +121,6 @@ def gpu_pca(
 
     actual_components = min(n_components, n_samples, n_features)
 
-    def _svd_numpy():
-        U, S, Vt = np.linalg.svd(scaled, full_matrices=False)
-        V_top = Vt[:actual_components, :]
-        return scaled @ V_top.T, V_top, S
-
     # Resolved once, before any arithmetic. Note the default is device="cuda", so on a
     # CPU-only machine this warns -- deliberately: a function named gpu_pca that quietly
     # returns CPU results is exactly the silence this consolidation exists to remove.
@@ -136,12 +142,12 @@ def gpu_pca(
             # Wholesale, not partial: discard the GPU attempt entirely and redo it.
             warn_device_fallback("gpu_pca", e, stacklevel=3)
             log.warning(f"PyTorch SVD failed: {e}. Falling back to NumPy SVD.")
-            proj_np, V_np, S_np = _svd_numpy()
+            proj_np, V_np, S_np = _svd_numpy(scaled, actual_components)
     else:
         # Previously the cuda branch fell back to torch-on-CPU in float32 while this
         # branch used float64 NumPy, so "cpu" meant two different precisions depending
         # on which device string was passed. One CPU path now, in float64.
-        proj_np, V_np, S_np = _svd_numpy()
+        proj_np, V_np, S_np = _svd_numpy(scaled, actual_components)
 
     V_np, proj_np = pin_component_signs(V_np, proj_np)
 
