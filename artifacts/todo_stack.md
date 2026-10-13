@@ -38,9 +38,7 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 2 | D dashboard | the GLO tab, one card per work with its replications nested | `scripts/dashboard/`, `scripts/build_dashboard.py` and their tests | none |
-| 2 | Q closure findings | 12-12 (roadmap row) | the files each names | none |
-| 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | none |
+| 3 | R release tooling | 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | none |
 | 3 | S code reductions | 12-13, then 12-22 (roadmap rows) | the files each names, `skills/` | none |
 | 4 | H harness | 12-05, 12-01 (roadmap rows) | `scripts/harness_gate.py`, process tests | R |
 | 4 | M docs restructure | the menu by reader arrival, overlapping pages merged, every page under its ceiling | `docs/`, `mkdocs.yml` | S |

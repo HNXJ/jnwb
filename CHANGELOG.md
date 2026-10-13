@@ -20,6 +20,8 @@ Releases 0.2.9, 0.2.8, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verbatim, i
 - Gate 14 also reads CHANGELOG.md: no process terms, six kind headings, one named file per entry line.
 - Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.8 to 0.1.0 move to artifacts/archive/changelog_0.1.0-0.2.9.md.
 - `scripts/release_gate.py` step 8 checks that the tutorials import the built wheel.
+- scripts/stack_parse.py: gates 15, 17 and STEP 0a share one stack reader; HTML and deep headings read.
+- Private helpers that shared a name now state their rule; tests/test_helper_rule_names.py
 - docs/architecture.md drops its claim that no synthetic value enters the library.
 
 ### Fixed
