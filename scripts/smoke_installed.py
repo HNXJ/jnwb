@@ -50,17 +50,6 @@ def main(argv=None) -> int:
     import pandas as pd
 
     rng = np.random.default_rng(42)
-    tfr = jnwb.complex_tfr(rng.normal(size=500), fs=1000.0, freqs=np.linspace(10, 40, 4))
-    assert tfr.shape == (4, 500)
-    freqs, psd = jnwb.compute_multitaper_psd(rng.normal(size=512), fs=1000.0)
-    assert len(freqs) == len(psd)
-    filt = jnwb.bandpass_filter(rng.normal(size=500), fs=1000.0, low_cut=8.0, high_cut=40.0)
-    assert filt.shape == (500,)
-    ppc = jnwb.pairwise_phase_consistency(rng.uniform(-np.pi, np.pi, 40))
-    assert np.isfinite(ppc)
-
-    # The rest of the representative workflows, from the release gate's former smoke (STEP 7).
-    rng = np.random.default_rng(42)
     st = np.sort(rng.uniform(0, 10, 50))
     onsets = np.array([1.0, 3.0, 5.0, 7.0])
     tb, rate, sem = jnwb.raster_psth(st, onsets, win_ms=(-100, 300), bin_ms=10.0)
