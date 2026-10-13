@@ -1032,6 +1032,226 @@
     });
   }
 
+  // ---- OpenScope GLO showcases --------------------------------------------
+
+  // Each group holds one block per species, so mouse and macaque results are never mixed.
+  var SHOWCASE_GROUPS = [
+    { status: 'published', id: 'showcase-published' },
+    { status: 'exploratory', id: 'showcase-exploratory' },
+    { status: 'verified', id: 'showcase-verified' }
+  ];
+  var SHOWCASE_SPECIES = [
+    { species: 'mouse', label: 'Mouse' },
+    { species: 'macaque', label: 'Macaque' }
+  ];
+  var NO_SHOWCASES = 'No showcase records yet';
+
+  // A value as text, or as a code span for digests and commits.
+  function textInto(parent, value, asCode) {
+    var node = make(asCode ? 'code' : 'span');
+    setText(node, value);
+    parent.appendChild(node);
+  }
+
+  // Text as a link when the URL is safe, as plain text otherwise.
+  function linkOrText(parent, text, url) {
+    if (isBlank(url) || !isSafeUrl(url)) {
+      textInto(parent, text);
+      return;
+    }
+    var link = make('a', '', String(text));
+    link.setAttribute('href', String(url));
+    link.setAttribute('rel', 'noopener noreferrer');
+    parent.appendChild(link);
+  }
+
+  function showcaseRow(parent, label, value, asCode) {
+    var row = make('p');
+    row.appendChild(make('strong', '', label + ': '));
+    textInto(row, value, asCode);
+    parent.appendChild(row);
+  }
+
+  // A labelled list of record items; build(element, item) fills the element for each item.
+  function showcaseList(parent, label, items, build) {
+    var head = make('p');
+    head.appendChild(make('strong', '', label + ':'));
+    parent.appendChild(head);
+    if (!Array.isArray(items) || !items.length) {
+      parent.appendChild(emptyNote(emptyText(items)));
+      return;
+    }
+    var list = make('ul');
+    items.forEach(function (item) {
+      var li = make('li');
+      build(li, item);
+      list.appendChild(li);
+    });
+    parent.appendChild(list);
+  }
+
+  function showcaseFigures(parent, figures) {
+    if (!Array.isArray(figures) || !figures.length) {
+      parent.appendChild(emptyNote(emptyText(figures)));
+      return;
+    }
+    var gallery = make('div', 'gallery');
+    figures.forEach(function (figure) {
+      var node = make('figure');
+      var img = make('img');
+      img.alt = String(figure.caption);
+      img.loading = 'lazy';
+      img.dataset.light = figure.light;
+      img.dataset.dark = figure.dark;
+      node.appendChild(img);
+      var caption = make('figcaption');
+      var line = make('p');
+      setText(line, figure.caption);
+      caption.appendChild(line);
+      showcaseRow(caption, 'Units', figure.units);
+      showcaseRow(caption, 'Controls', figure.controls);
+      showcaseRow(caption, 'Uncertainty', figure.uncertainty);
+      node.appendChild(caption);
+      gallery.appendChild(node);
+      figureImages.push(img);
+    });
+    parent.appendChild(gallery);
+  }
+
+  // One row per independent replication of the work. The verdict and the other fields are shown
+  // as recorded; a digest shows its first characters, with the full value in the cell's title.
+  var REPLICATION_COLUMNS = ['Verdict', 'By', 'Date', 'Scope', 'Seed', 'Report sha256', 'Note'];
+  var DIGEST_CHARS = 12;
+
+  function showcaseReplications(parent, rows) {
+    var head = make('p');
+    head.appendChild(make('strong', '', 'Replications:'));
+    parent.appendChild(head);
+    if (!Array.isArray(rows) || !rows.length) {
+      parent.appendChild(emptyNote(emptyText(rows)));
+      return;
+    }
+    var table = make('table');
+    var header = make('tr');
+    REPLICATION_COLUMNS.forEach(function (label) {
+      header.appendChild(make('th', '', label));
+    });
+    table.appendChild(header);
+    rows.forEach(function (row) {
+      var tr = make('tr');
+      tr.appendChild(cellWith(row.verdict));
+      tr.appendChild(cellWith(row.by));
+      tr.appendChild(cellWith(row.date));
+      tr.appendChild(cellWith(row.scope));
+      tr.appendChild(cellWith(row.seed === null ? 'none' : row.seed));
+      var digest = make('td');
+      var prefix = isMissing(row.report_sha256) ? row.report_sha256
+        : String(row.report_sha256).slice(0, DIGEST_CHARS);
+      textInto(digest, prefix, true);
+      if (!isMissing(row.report_sha256)) {
+        digest.title = String(row.report_sha256);
+      }
+      tr.appendChild(digest);
+      tr.appendChild(cellWith(row.note));
+      table.appendChild(tr);
+    });
+    var wrap = make('div', 'table-wrap');
+    wrap.appendChild(table);
+    parent.appendChild(wrap);
+  }
+
+  function showcaseCard(entry, docs) {
+    var card = make('article', 'panel');
+    var title = make('h5');
+    setText(title, entry.title);
+    card.appendChild(title);
+    card.appendChild(make('span', 'tag', String(entry.id)));
+
+    var origin = entry.origin || {};
+    var originRow = make('p');
+    originRow.appendChild(make('strong', '', 'Origin: '));
+    textInto(originRow, origin.kind);
+    originRow.appendChild(document.createTextNode(' by '));
+    textInto(originRow, origin.author);
+    originRow.appendChild(document.createTextNode(', issue '));
+    textInto(originRow, origin.issue === null ? 'none' : origin.issue);
+    card.appendChild(originRow);
+
+    showcaseRow(card, 'Question', entry.question);
+    showcaseRow(card, 'Relation to published work', entry.relation_to_published);
+    showcaseRow(card, 'Result', entry.result);
+    showcaseRow(card, 'Interpretation', entry.interpretation);
+    showcaseList(card, 'Limitations', entry.limitations, function (li, text) {
+      textInto(li, text);
+    });
+    showcaseFigures(card, entry.figures);
+
+    var dandi = entry.dandi || {};
+    showcaseRow(card, 'DANDI dataset', dandi.id);
+    showcaseRow(card, 'DANDI version', dandi.version);
+    showcaseList(card, 'DANDI assets', dandi.assets, function (li, asset) {
+      textInto(li, asset.asset_id);
+      li.appendChild(document.createTextNode(' sha256 '));
+      textInto(li, asset.sha256, true);
+    });
+
+    var jnwb = entry.jnwb || {};
+    showcaseRow(card, 'jnwb commit', jnwb.commit, true);
+    showcaseList(card, 'jnwb functions', jnwb.functions, function (li, name) {
+      var url = docs ? docs + 'api/#' + encodeURIComponent(String(name).toLowerCase()) : null;
+      linkOrText(li, name, url);
+    });
+
+    var code = entry.code || {};
+    var codeRow = make('p');
+    codeRow.appendChild(make('strong', '', 'Code: '));
+    linkOrText(codeRow, code.location, code.location);
+    codeRow.appendChild(document.createTextNode(' at commit '));
+    textInto(codeRow, code.commit, true);
+    card.appendChild(codeRow);
+
+    showcaseList(card, 'Receipts', entry.receipts, function (li, receipt) {
+      textInto(li, receipt.name);
+      li.appendChild(document.createTextNode(' sha256 '));
+      textInto(li, receipt.sha256, true);
+    });
+    showcaseReplications(card, entry.replications);
+    showcaseList(card, 'Links', entry.links, function (li, link) {
+      linkOrText(li, link.label, link.url);
+    });
+    return card;
+  }
+
+  function renderShowcases(data) {
+    var record = lookup(data, 'showcases');
+    var entries = record && Array.isArray(record.entries) ? record.entries : null;
+    var status = document.getElementById('showcase-status');
+    var docs = docsBase(data);
+    status.hidden = entries !== null;
+    status.textContent = entries === null ? NO_SHOWCASES : '';
+    SHOWCASE_GROUPS.forEach(function (group) {
+      var box = document.getElementById(group.id);
+      box.textContent = '';
+      if (entries === null) {
+        return;
+      }
+      SHOWCASE_SPECIES.forEach(function (species) {
+        var block = make('div');
+        block.appendChild(make('h4', '', species.label));
+        var rows = entries.filter(function (entry) {
+          return entry.status === group.status && entry.species === species.species;
+        });
+        if (!rows.length) {
+          block.appendChild(emptyNote(NONE_RECORDED));
+        }
+        rows.forEach(function (entry) {
+          block.appendChild(showcaseCard(entry, docs));
+        });
+        box.appendChild(block);
+      });
+    });
+  }
+
   // ---- overview and page --------------------------------------------------
 
   function render(data) {
@@ -1045,6 +1265,7 @@
     renderOrder(data);
     renderApi(data);
     renderFigures(data);
+    renderShowcases(data);
     renderReleaseCounts(Array.isArray(data.releases) ? data.releases : []);
     applyTheme(theme);
   }

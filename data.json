@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "3503769ae7b1c929d835501df4603a8cdc587ece",
-    "date": "2026-10-13T00:19:24Z"
+    "commit": "55adb1689162ade06968665a4f3f07a37d629fd7",
+    "date": "2026-10-13T04:39:06Z"
   },
   "sources": {
     "generated": [
@@ -45,6 +45,9 @@
       "docs/08_directed_connectivity_and_information.md",
       "docs/09_decoding_and_visual_qc.md",
       "docs/coherence_and_tfr.md"
+    ],
+    "showcases": [
+      "artifacts/showcases/openscope_glo.json"
     ]
   },
   "release": {
@@ -186,10 +189,9 @@
       "counts": {
         "Breaking": 4,
         "Added": 9,
-        "Changed": 17,
+        "Changed": 18,
         "Removed": 3,
-        "Fixed": 38,
-        "Documentation": 1
+        "Fixed": 38
       },
       "entries": [
         {
@@ -311,6 +313,10 @@
         {
           "kind": "Changed",
           "text": "`parse_probe_areas` keeps a slash followed by one lowercase letter in the label before it when that label ends in a digit and a lowercase letter, the sublayer alternation of `VISp6a/b`: `\"VISp6a/b\"` gives `('VISp6a/b',)`, where it gave the areas `('VISp6a', 'b')`, so `map_peak_channel_to_area` reports such a location as one area. The rule reads the characters only; `\"VISp6a/bc\"` still splits."
+        },
+        {
+          "kind": "Changed",
+          "text": "A Laminar Depth page calls `vflip`, `label_layers`, `xflip` and `zflip` once each on synthetic data, and states how `vflip` differs from the published FLIP and vFLIP whose name it shares; the `vflip` docstring states it too."
         },
         {
           "kind": "Removed",
@@ -475,10 +481,6 @@
         {
           "kind": "Fixed",
           "text": "`enrich_units_dataframe` warns when `units_df` has no `peak_channel_id` beside a non-empty electrodes table and it fills `area`, `depth_class` or `group_name` on every row (None, or `'Unknown'` for `depth_class`); it filled them silently."
-        },
-        {
-          "kind": "Documentation",
-          "text": "A Laminar Depth page calls `vflip`, `label_layers`, `xflip` and `zflip` once each on synthetic data, and states how `vflip` differs from the published FLIP and vFLIP whose name it shares; the `vflip` docstring states it too."
         }
       ]
     },
@@ -655,11 +657,11 @@
         },
         {
           "kind": "Changed",
-          "text": "**`xflip` partitions by a new objective (cuts can change on existing data).** The\n  contiguous search maximises the sum over blocks of S²/P, a block's within-block\n  correlation sum squared over its pair count: the block-constant least-squares fit. It\n  replaces the sum of each within-block correlation minus the probe-wide mean, which favoured\n  blocks of equal size: beside an uncorrelated background it cut toward the middle of the\n  probe, and the surrogate test could still accept that cut (3 of 10 seeds with 16 contacts\n  and a block of 6). Squaring discards sign, so a block of negative mean correlation scores as\n  a positive one. The calibration receipt is regenerated: power on every alternative is\n  unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it\n  accepted none, below `alpha=0.05`."
+          "text": "**`xflip` partitions by a new objective (cuts can change on existing data).** The\n  contiguous search maximises the sum over blocks of S²/P, a block's within-block\n  correlation sum squared over its pair count: the block-constant least-squares fit. It\n  replaces the sum of each within-block correlation minus the probe-wide mean, which favoured\n  blocks of equal size: beside an uncorrelated background it cut toward the middle of the\n  probe, and the surrogate test could still accept that cut (3 of 10 seeds with 16 contacts\n  and a block of 6). Squaring discards sign, so a block of negative mean correlation scores as\n  a positive one. The calibration record is regenerated: power on every alternative is\n  unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it\n  accepted none, below `alpha=0.05`."
         },
         {
           "kind": "Changed",
-          "text": "**`xflip(n_blocks=None)` chooses the block count by the smallest surrogate p, and its p\n  accounts for the choice (the count and p can change on existing data).** Each count from 2\n  to `min(4, n_channels // min_block_size)` is partitioned and tested against the same\n  surrogates, the count with the smallest p is reported, and the omnibus p repeats that\n  choice on every surrogate. It took the count with the highest contrast and reported that\n  count's p as though it had been fixed in advance, so the p was too small: at 200\n  surrogates, 0.105 of AR(1) null seeds and 0.074 of white-noise seeds had p at or below\n  0.05. The calibration receipt now carries these null rows over 1000 seeds and 200\n  surrogates on both `contiguous` paths: with the choice repeated, AR(1) 0.060 and 0.054\n  against 0.054 and 0.061 at a fixed count of 2, and white noise 0.030 and 0.046 against\n  0.040 and 0.048. Ties at the smallest p go to the count whose contrast lies the most\n  surrogate standard deviations above the surrogate mean, then to the smallest count. When a\n  count's partition beats every surrogate, every count sits at the floor and the\n  standardised contrast decides; the omnibus p does not depend on the tie-break. The\n  per-boundary p-values are the chosen count's own. On 16 to 18 contacts at a within-block\n  correlation of 0.8, the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at\n  a shared background correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and\n  rejected. A call costs about one fixed-count call at each candidate count. Calls with an\n  integer `n_blocks` return the same values as before."
+          "text": "**`xflip(n_blocks=None)` chooses the block count by the smallest surrogate p, and its p\n  accounts for the choice (the count and p can change on existing data).** Each count from 2\n  to `min(4, n_channels // min_block_size)` is partitioned and tested against the same\n  surrogates, the count with the smallest p is reported, and the omnibus p repeats that\n  choice on every surrogate. It took the count with the highest contrast and reported that\n  count's p as though it had been fixed in advance, so the p was too small: at 200\n  surrogates, 0.105 of AR(1) null seeds and 0.074 of white-noise seeds had p at or below\n  0.05. The calibration record now carries these null rows over 1000 seeds and 200\n  surrogates on both `contiguous` paths: with the choice repeated, AR(1) 0.060 and 0.054\n  against 0.054 and 0.061 at a fixed count of 2, and white noise 0.030 and 0.046 against\n  0.040 and 0.048. Ties at the smallest p go to the count whose contrast lies the most\n  surrogate standard deviations above the surrogate mean, then to the smallest count. When a\n  count's partition beats every surrogate, every count sits at the floor and the\n  standardised contrast decides; the omnibus p does not depend on the tie-break. The\n  per-boundary p-values are the chosen count's own. On 16 to 18 contacts at a within-block\n  correlation of 0.8, the true count of blocks of 4, 6 or 8 is recovered in 10 of 10 seeds at\n  a shared background correlation up to 0.3; at 0.5, three blocks of 6 are cut into four and\n  rejected. A call costs about one fixed-count call at each candidate count. Calls with an\n  integer `n_blocks` return the same values as before."
         },
         {
           "kind": "Changed",
@@ -927,10 +929,9 @@
       "version": "0.2.6.1",
       "date": "2026-09-25",
       "counts": {
-        "Changed": 4,
+        "Changed": 8,
         "Deprecated": 1,
-        "Fixed": 2,
-        "Documentation": 4
+        "Fixed": 2
       },
       "entries": [
         {
@@ -950,6 +951,22 @@
           "text": "**`granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` circularly shift\n  each trial below 7 trials (it was below 3).** With 3 to 6 trials the trial re-pairing null had\n  too few distinct values: on independent noise, P(p ≤ 0.05) was 0.25 to 0.33 at 3 trials and\n  0.14 to 0.21 at 4, and is 0.02 to 0.10 at 3 to 6 now. p-values change for 3 to 6 trials;\n  1 to 2 and 7 or more are unchanged. `params[\"surrogate_scheme\"]` records the scheme."
         },
         {
+          "kind": "Changed",
+          "text": "`docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or\n  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy."
+        },
+        {
+          "kind": "Changed",
+          "text": "The phase slope index is described as the summed imaginary part of adjacent-bin coherency\n  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag\n  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.\n  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its\n  identifiability gate passes."
+        },
+        {
+          "kind": "Changed",
+          "text": "`fit_exponential_onset`'s `bound_status` is documented as checking only t0 against\n  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too."
+        },
+        {
+          "kind": "Changed",
+          "text": "A new logo and favicon."
+        },
+        {
           "kind": "Deprecated",
           "text": "**`jrsa` row metrics warn when a null is formed without `null=`.** For `rsa`, `cka`, `rv`,\n  `hsic`, `distance_correlation` and `procrustes` the default (an i.i.d. permutation of axis-0\n  rows) is unchanged, so numbers are unchanged, and now emits a `UserWarning`. When axis 0 is\n  time that permutation is invalid: `cka` and `rv` rejected every independent AR(1) pair.\n  From 0.2.7 `null=` must be named for these metrics; naming any scheme silences the warning."
         },
@@ -960,22 +977,6 @@
         {
           "kind": "Fixed",
           "text": "**`directed_network` does not depend on `n_jobs` with a `Generator`.** It draws one seed per\n  pair before any worker starts, and raises on contradictory `rng=` and `seed=`."
-        },
-        {
-          "kind": "Documentation",
-          "text": "`docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or\n  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy."
-        },
-        {
-          "kind": "Documentation",
-          "text": "The phase slope index is described as the summed imaginary part of adjacent-bin coherency\n  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag\n  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.\n  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its\n  identifiability gate passes."
-        },
-        {
-          "kind": "Documentation",
-          "text": "`fit_exponential_onset`'s `bound_status` is documented as checking only t0 against\n  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too."
-        },
-        {
-          "kind": "Documentation",
-          "text": "A new logo and favicon."
         }
       ]
     },
@@ -1268,7 +1269,7 @@
         },
         {
           "kind": "Removed",
-          "text": "**`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file\n  held 215 bytes and no operative rule: it pointed at `AGENTS.md` and said not to keep a\n  second rule set there. `AGENTS.md` pointed back, claiming `CLAUDE.md` \"carries phase and\n  policy\" -- a statement about a file that carried a pointer. Two files describing each\n  other is a fork waiting to happen, so the one operative instruction, single authority,\n  is now stated in `AGENTS.md` itself and the file is gone from tracked state. It is\n  git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a\n  contributor's own copy neither lands in the repository nor trips a gate.\n  `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root\n  instruction file besides `AGENTS.md` (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,\n  `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites\n  the deleted file as a source of rules."
+          "text": "**`CLAUDE.md`, so the repository rules file is the only repository-level instruction file.** The file\n  held 215 bytes and no operative rule: it pointed at the repository rules file and said not to keep a\n  second rule set there. The repository rules file pointed back, claiming `CLAUDE.md` \"carries phase and\n  policy\" -- a statement about a file that carried a pointer. Two files describing each\n  other is a fork waiting to happen, so the one operative instruction, single authority,\n  is now stated in the repository rules file itself and the file is gone from tracked state. It is\n  git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a\n  contributor's own copy neither lands in the repository nor trips a gate.\n  `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root\n  instruction file besides the repository rules file (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,\n  `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites\n  the deleted file as a source of rules."
         },
         {
           "kind": "Removed",
@@ -1312,7 +1313,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**Nothing resolved what `AGENTS.md` and the two stacks point at, beyond the paths one\n  test already swept.** A registry goes stale silently: the file that points at other\n  files can name something that is gone without ever erroring.\n  `tests/test_pointer_documents_resolve.py` adds the four sweeps that were missing --\n  every `§N` cross-reference in `AGENTS.md` names a section it defines, the section\n  numbers run contiguously from zero so a reference cannot survive the deletion of what\n  it pointed at, every file named without a directory matches a tracked file, and every\n  path the fact stack cites resolves. It also mechanizes the `AGENTS.md` section 2 rule\n  that the todo stack holds only work not yet done, which is what the completed-work\n  table that had accumulated there broke. Each sweep is a function over text rather than\n  a loop inside a test, so every one is driven twice: over the live document, where it\n  must find nothing, and over a document built to carry the defect, where it must find\n  it. Ten discriminating mutations all fail the suite.\n\n  Two corrections. The item's evidence -- `grep -rn \"todo_stack\" scripts/ tests/`\n  returning one hit, and `AGENTS.md` pointing at a deleted item -- is superseded: four\n  test modules reference the stack today, `test_agents_md_recipes.py` already resolves\n  every directory-prefixed path `AGENTS.md` cites and already asserts the specific dead\n  pointer is gone, and the section the item names does not exist in the document, which\n  now runs `## 0.` to `## 10.` with no subsections under 4. Second, the item asked for\n  every path in both stacks to resolve. Not done for the todo stack, and the check would\n  be wrong: the stack is a record of findings as well as a plan, and eight of the paths\n  it cites are files a finding caused to be deleted -- `docs/requirements.txt`, removed\n  one item earlier, is named in the note recording that removal. Resolving them would\n  mean deleting the evidence. The fact stack, which carries no such record, is swept in\n  full."
+          "text": "**Nothing resolved what the repository rules file and the two stacks point at, beyond the paths one\n  test already swept.** A registry goes stale silently: the file that points at other\n  files can name something that is gone without ever erroring.\n  `tests/test_pointer_documents_resolve.py` adds the four sweeps that were missing --\n  every `§N` cross-reference in the repository rules file names a section it defines, the section\n  numbers run contiguously from zero so a reference cannot survive the deletion of what\n  it pointed at, every file named without a directory matches a tracked file, and every\n  path the fact stack cites resolves. It also mechanizes the repository rules file section 2 rule\n  that the todo stack holds only work not yet done, which is what the completed-work\n  table that had accumulated there broke. Each sweep is a function over text rather than\n  a loop inside a test, so every one is driven twice: over the live document, where it\n  must find nothing, and over a document built to carry the defect, where it must find\n  it. Ten discriminating mutations all fail the suite.\n\n  Two corrections. The item's evidence -- `grep -rn \"todo_stack\" scripts/ tests/`\n  returning one hit, and the repository rules file pointing at a deleted item -- is superseded: four\n  test modules reference the stack today, `test_agents_md_recipes.py` already resolves\n  every directory-prefixed path the repository rules file cites and already asserts the specific dead\n  pointer is gone, and the section the item names does not exist in the document, which\n  now runs `## 0.` to `## 10.` with no subsections under 4. Second, the item asked for\n  every path in both stacks to resolve. Not done for the todo stack, and the check would\n  be wrong: the stack is a record of findings as well as a plan, and eight of the paths\n  it cites are files a finding caused to be deleted -- `docs/requirements.txt`, removed\n  one item earlier, is named in the note recording that removal. Resolving them would\n  mean deleting the evidence. The fact stack, which carries no such record, is swept in\n  full."
         },
         {
           "kind": "Fixed",
@@ -1332,7 +1333,7 @@
         },
         {
           "kind": "Changed",
-          "text": "**`AGENTS.md` §8 now requires a public API change to update the routing rows in the same\n  commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing\n  about the 65 rows in `skills/` that hardcode signatures. That single gap produced every\n  defect in the routing matrices."
+          "text": "**The repository rules file §8 now requires a public API change to update the routing rows in the same\n  commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing\n  about the 65 rows in `skills/` that hardcode signatures. That single gap produced every\n  defect in the routing matrices."
         },
         {
           "kind": "Changed",
@@ -1348,11 +1349,11 @@
         },
         {
           "kind": "Changed",
-          "text": "**The xFLIP calibration receipt can be regenerated, and now is.**\n  `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers\n  could not be reproduced or rechecked, and two changes had already invalidated them:\n  0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as\n  0, and 05-07 found the smooth-gradient drop gate was skipped on the `contiguous=False`\n  path, so the null rates were conditional on a setting the document did not name. It is\n  replaced by `scripts/calibrate_xflip.py`, `xflip_calibration_0.2.5.md` and a raw JSON\n  bound to a SHA-256 over `xflip` and every module-level function in `jnwb.laminar` it can\n  reach. Changing any of them without rerunning the generator now fails\n  `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and\n  `_compute_contrast`, a helper it reaches but never names, which is the case that\n  defeated the vFLIP receipt when its hash covered one function.\n  Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is\n  0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the\n  binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max\n  omnibus p all at the 1/201 floor, so every gradient is maximally significant under the\n  permutation test and the 0.000 acceptance rate is produced entirely by the\n  boundary-drop gate. A reader seeing only the rate would conclude the opposite of what\n  05-07 established. The receipt also records the operating point the old one left\n  unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what\n  it does not cover. Regenerating it twice produced identical numbers."
+          "text": "**The xFLIP calibration record can be regenerated, and now is.**\n  `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers\n  could not be reproduced or rechecked, and two changes had already invalidated them:\n  0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as\n  0, and 05-07 found the smooth-gradient drop gate was skipped on the `contiguous=False`\n  path, so the null rates were conditional on a setting the document did not name. It is\n  replaced by `scripts/calibrate_xflip.py`, `xflip_calibration_0.2.5.md` and a raw JSON\n  bound to a SHA-256 over `xflip` and every module-level function in `jnwb.laminar` it can\n  reach. Changing any of them without rerunning the generator now fails\n  `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and\n  `_compute_contrast`, a helper it reaches but never names, which is the case that\n  defeated the vFLIP record when its hash covered one function.\n  Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is\n  0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the\n  binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max\n  omnibus p all at the 1/201 floor, so every gradient is maximally significant under the\n  permutation test and the 0.000 acceptance rate is produced entirely by the\n  boundary-drop gate. A reader seeing only the rate would conclude the opposite of what\n  05-07 established. The record also records the operating point the old one left\n  unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what\n  it does not cover. Regenerating it twice produced identical numbers."
         },
         {
           "kind": "Changed",
-          "text": "**Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with\n  `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the\n  AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;\n  they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts\n  now, with the rate they stand in for measured at 30 seeds in the receipt. No outcome\n  changes and no mutation separates the two spellings: this is a statement repair."
+          "text": "**Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with\n  `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the\n  AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;\n  they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts\n  now, with the rate they stand in for measured at 30 seeds in the record. No outcome\n  changes and no mutation separates the two spellings: this is a statement repair."
         },
         {
           "kind": "Changed",
@@ -1392,7 +1393,7 @@
         },
         {
           "kind": "Changed",
-          "text": "**`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**\n  The constant had no references, and deleting it would have been the wrong direction:\n  the same two intervals were written out as literal defaults in `vflip` and\n  `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read\n  from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --\n  and the vFLIP calibration was rerun to prove it: the receipt's `estimator_sha256` moves\n  because `vflip`'s source did, and every other field in\n  `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and\n  alternative family, and every sweep."
+          "text": "**`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**\n  The constant had no references, and deleting it would have been the wrong direction:\n  the same two intervals were written out as literal defaults in `vflip` and\n  `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read\n  from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --\n  and the vFLIP calibration was rerun to prove it: the record's `estimator_sha256` moves\n  because `vflip`'s source did, and every other field in\n  `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and\n  alternative family, and every sweep."
         },
         {
           "kind": "Changed",
@@ -1452,7 +1453,7 @@
         },
         {
           "kind": "Added",
-          "text": "**`tests/test_agents_md_recipes.py` executes every fenced block in `AGENTS.md` and\n  resolves every repository path it cites**, with the working directory outside the\n  checkout so a block reaching for a relative path fails there. It also checks that no\n  pointer names a todo item the stack does not hold, that §8 carries the skills rule, and\n  that `AGENTS.md` and the statistics skill call the same comparison entry point -- which\n  a signature check cannot see, because both are valid calls. Six discriminators kill."
+          "text": "**`tests/test_agents_md_recipes.py` executes every fenced block in the repository rules file and\n  resolves every repository path it cites**, with the working directory outside the\n  checkout so a block reaching for a relative path fails there. It also checks that no\n  pointer names a todo item the stack does not hold, that §8 carries the skills rule, and\n  that the repository rules file and the statistics skill call the same comparison entry point -- which\n  a signature check cannot see, because both are valid calls. Six discriminators kill."
         },
         {
           "kind": "Added",
@@ -1472,7 +1473,7 @@
         },
         {
           "kind": "Added",
-          "text": "**`tests/test_examples_quickstart.py` runs the script that nothing ran.**\n  `AGENTS.md` names `examples/quickstart_jnwb.py` the smallest end-to-end script and\n  `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it\n  stayed broken across a release. `main()` is called with its module-level `OUT` redirected\n  at a temporary directory, because the figure it writes is tracked and its bytes vary by\n  matplotlib version. One test asserts the permutation panel reaches its `except` branch\n  rather than its histogram, so the branch is never silently untested.\n  `tests/test_readme_smoke.py` executed the arrays quickstart throughout and could not\n  catch what it printed: execution says nothing raised, not that the number means\n  anything. The block now states the onset it injects, and the test reads the fit back and\n  holds it to that truth, to an R^2 floor, and to finishing in the interior of its bounds."
+          "text": "**`tests/test_examples_quickstart.py` runs the script that nothing ran.**\n  The repository rules file names `examples/quickstart_jnwb.py` the smallest end-to-end script and\n  `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it\n  stayed broken across a release. `main()` is called with its module-level `OUT` redirected\n  at a temporary directory, because the figure it writes is tracked and its bytes vary by\n  matplotlib version. One test asserts the permutation panel reaches its `except` branch\n  rather than its histogram, so the branch is never silently untested.\n  `tests/test_readme_smoke.py` executed the arrays quickstart throughout and could not\n  catch what it printed: execution says nothing raised, not that the number means\n  anything. The block now states the onset it injects, and the test reads the fit back and\n  holds it to that truth, to an R^2 floor, and to finishing in the interior of its bounds."
         },
         {
           "kind": "Added",
@@ -1516,7 +1517,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**CI never ran the test suite against the distribution it built.** The four matrix legs\n  run `pytest tests/` from the repository root, where `pythonpath = [\".\"]` and\n  `tests/__init__.py` both put the source tree ahead of site-packages: they test the\n  checkout, which merely also has the package installed. Only the smoke step touched the\n  wheel. The build job now runs the whole suite against the installed wheel from outside\n  the repository, with `pythonpath` cleared and pytest's rootdir insertion suppressed by\n  importlib import mode, and `JNWB_EXPECTED_PACKAGE_ROOT` pointed at the clean\n  environment so `tests/test_import_provenance.py` fails the leg rather than letting a\n  silent fallback to the checkout pass. The test tooling is read out of\n  `pyproject.toml`'s extras rather than listed again in the workflow. Receipt: 2499\n  passed, 48 skipped against an installed wheel in a clean 3.12 environment; the extra\n  skips are the GPU-gated tests, which have no CuPy there."
+          "text": "**CI never ran the test suite against the distribution it built.** The four matrix legs\n  run `pytest tests/` from the repository root, where `pythonpath = [\".\"]` and\n  `tests/__init__.py` both put the source tree ahead of site-packages: they test the\n  checkout, which merely also has the package installed. Only the smoke step touched the\n  wheel. The build job now runs the whole suite against the installed wheel from outside\n  the repository, with `pythonpath` cleared and pytest's rootdir insertion suppressed by\n  importlib import mode, and `JNWB_EXPECTED_PACKAGE_ROOT` pointed at the clean\n  environment so `tests/test_import_provenance.py` fails the leg rather than letting a\n  silent fallback to the checkout pass. The test tooling is read out of\n  `pyproject.toml`'s extras rather than listed again in the workflow. Record: 2499\n  passed, 48 skipped against an installed wheel in a clean 3.12 environment; the extra\n  skips are the GPU-gated tests, which have no CuPy there."
         },
         {
           "kind": "Fixed",
@@ -1536,7 +1537,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**CI carried its own copy of the same defective list.** Repairing the gate alone would\n  have left the published pipeline shipping wheels with the suite inside them. The\n  workflow step now calls `scripts.release_gate.forbidden_entries` instead of restating\n  the rule, and `tests/test_distribution_manifest_inspection.py` extracts that step's\n  Python out of the YAML and runs it against a constructed `dist/`, so a syntax error or\n  a bad import in the snippet fails in the suite rather than on a release branch.\n  Receipts: the real built wheel (54 entries) and sdist (103 entries) are clean under the\n  repaired rule, and nine discriminating mutations all fail the suite."
+          "text": "**CI carried its own copy of the same defective list.** Repairing the gate alone would\n  have left the published pipeline shipping wheels with the suite inside them. The\n  workflow step now calls `scripts.release_gate.forbidden_entries` instead of restating\n  the rule, and `tests/test_distribution_manifest_inspection.py` extracts that step's\n  Python out of the YAML and runs it against a constructed `dist/`, so a syntax error or\n  a bad import in the snippet fails in the suite rather than on a release branch.\n  Records: the real built wheel (54 entries) and sdist (103 entries) are clean under the\n  repaired rule, and nine discriminating mutations all fail the suite."
         },
         {
           "kind": "Fixed",
@@ -1552,11 +1553,11 @@
         },
         {
           "kind": "Fixed",
-          "text": "**A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described\n  `imaginary_coherency` as \"volume-conduction-robust\" while the router's own invariant 8\n  and `AGENTS.md` section 5 both say these measures reduce sensitivity to zero-phase-lag\n  coupling and establish no immunity -- and the adjacent `wpli` row already said it\n  correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on\n  a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives\n  `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` -- the\n  narrow band reports nothing, with the wrong sign, because at one frequency a delay and a\n  phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency\n  without stating that the filter delays the latency: the step response reaches half\n  amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`."
+          "text": "**A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described\n  `imaginary_coherency` as \"volume-conduction-robust\" while the router's own invariant 8\n  and the repository rules file section 5 both say these measures reduce sensitivity to zero-phase-lag\n  coupling and establish no immunity -- and the adjacent `wpli` row already said it\n  correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on\n  a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives\n  `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` -- the\n  narrow band reports nothing, with the wrong sign, because at one frequency a delay and a\n  phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency\n  without stating that the filter delays the latency: the step response reaches half\n  amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`."
         },
         {
           "kind": "Fixed",
-          "text": "**`AGENTS.md` said \"each call below runs as written\" and none of them did.** Section 10\n  bound a generator and then called eight functions on names no block defined --\n  `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:\n  `aggregate_to_db(beta_raw, baseline_raw, how=\"mean_of_ratios\", aggregate_over=0)`\n  raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because\n  `band_power` returns a float and there is no axis to aggregate over. That is the\n  canonical demonstration of the rule this repository states most often -- take the\n  logarithm last -- and it did not run. The recipe builds per-trial powers now, and the\n  whole block executes. Two calls used deprecated aliases (`seed=`, `t0_bounds=`) and use\n  the live names. Section 4.3 pointed at a todo item that does not exist. Section 10 used\n  `exploratory_compare` while the statistics skill routed to `compare_groups`: both exist,\n  their returned keys differ, and an agent reading one and calling the other reads keys\n  that are not there. The skill routes to `exploratory_compare`, which its own workflow\n  and invariants now name too."
+          "text": "**The repository rules file said \"each call below runs as written\" and none of them did.** Section 10\n  bound a generator and then called eight functions on names no block defined --\n  `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:\n  `aggregate_to_db(beta_raw, baseline_raw, how=\"mean_of_ratios\", aggregate_over=0)`\n  raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because\n  `band_power` returns a float and there is no axis to aggregate over. That is the\n  canonical demonstration of the rule this repository states most often -- take the\n  logarithm last -- and it did not run. The recipe builds per-trial powers now, and the\n  whole block executes. Two calls used deprecated aliases (`seed=`, `t0_bounds=`) and use\n  the live names. Section 4.3 pointed at a todo item that does not exist. Section 10 used\n  `exploratory_compare` while the statistics skill routed to `compare_groups`: both exist,\n  their returned keys differ, and an agent reading one and calling the other reads keys\n  that are not there. The skill routes to `exploratory_compare`, which its own workflow\n  and invariants now name too."
         },
         {
           "kind": "Fixed",
@@ -1616,7 +1617,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**The vFLIP calibration receipt certified one function of the estimator.**\n  `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band\n  normalization to `_unit_range`. Recentring that helper on its own mean -- a\n  line-count-preserving change that moved the median signed bias off-centre from +0.053\n  to -0.123 contacts -- left the receipt reading \"current\" and\n  `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`\n  and every module-level function in `jnwb.laminar` it can reach, resolved from the call\n  graph rather than listed, so a helper added later is covered without anyone remembering\n  to extend a list. The reachable set is recomputed in the test and compared against the\n  set the generator hashes, so the receipt cannot quietly narrow again. Both mutations --\n  the helper and `vflip`'s own source -- now fail the receipt test; the helper mutation\n  previously survived it. Two of the three helpers the item named, `_from_lfp` and\n  `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`\n  and `_unit_range`. The receipt was regenerated rather than edited: of 12924 leaf values\n  in the raw JSON, exactly one changed, the hash, which confirms the estimator is\n  unchanged and the calibration is fully seeded."
+          "text": "**The vFLIP calibration record certified one function of the estimator.**\n  `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band\n  normalization to `_unit_range`. Recentring that helper on its own mean -- a\n  line-count-preserving change that moved the median signed bias off-centre from +0.053\n  to -0.123 contacts -- left the record reading \"current\" and\n  `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`\n  and every module-level function in `jnwb.laminar` it can reach, resolved from the call\n  graph rather than listed, so a helper added later is covered without anyone remembering\n  to extend a list. The reachable set is recomputed in the test and compared against the\n  set the generator hashes, so the record cannot quietly narrow again. Both mutations --\n  the helper and `vflip`'s own source -- now fail the record test; the helper mutation\n  previously survived it. Two of the three helpers the item named, `_from_lfp` and\n  `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`\n  and `_unit_range`. The record was regenerated rather than edited: of 12924 leaf values\n  in the raw JSON, exactly one changed, the hash, which confirms the estimator is\n  unchanged and the calibration is fully seeded."
         },
         {
           "kind": "Fixed",
@@ -1656,7 +1657,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**The import benchmark was timing an import it had slowed down 3.3x, and its receipt\n  was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before\n  its timer, so the import it measured ran with allocation tracing on. Seven interleaved\n  fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the\n  `tracemalloc.start()` below the timed region is not the fix -- the allocations have\n  already happened by then and the peak comes back 0.0 MB -- so timing and memory are now\n  measured by separate probes in separate processes. The regenerated receipt reports\n  2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported\n  39342 ms. Nothing gated the receipt, unlike the vFLIP one, so\n  `artifacts/benchmarks/import_profile.txt` still announced \"jnwb 0.1.6 (111 public\n  symbols)\" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --\n  while itself recording an importtime tree of 1898 ms against its own 6859 ms warm\n  median, the same contradiction visible inside one file. The regenerated pair is 2348 ms\n  and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when\n  either receipt names a different version than `jnwb.__version__`, when the timing probe\n  instruments the import, and when the probe's own number disagrees with an independent\n  wall-clock import. `--write` regenerates both receipts, so the gate is satisfiable by\n  the command `AGENTS.md` documents. The superseded `vflip_calibration_0.2.2.md` and\n  `vflip_calibration_raw.json`, which described the pre-density-normalized support score\n  and carried no estimator hash, are deleted."
+          "text": "**The import benchmark was timing an import it had slowed down 3.3x, and its record\n  was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before\n  its timer, so the import it measured ran with allocation tracing on. Seven interleaved\n  fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the\n  `tracemalloc.start()` below the timed region is not the fix -- the allocations have\n  already happened by then and the peak comes back 0.0 MB -- so timing and memory are now\n  measured by separate probes in separate processes. The regenerated record reports\n  2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported\n  39342 ms. Nothing gated the record, unlike the vFLIP one, so\n  `artifacts/benchmarks/import_profile.txt` still announced \"jnwb 0.1.6 (111 public\n  symbols)\" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --\n  while itself recording an importtime tree of 1898 ms against its own 6859 ms warm\n  median, the same contradiction visible inside one file. The regenerated pair is 2348 ms\n  and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when\n  either record names a different version than `jnwb.__version__`, when the timing probe\n  instruments the import, and when the probe's own number disagrees with an independent\n  wall-clock import. `--write` regenerates both records, so the gate is satisfiable by\n  the command the repository rules file documents. The superseded `vflip_calibration_0.2.2.md` and\n  `vflip_calibration_raw.json`, which described the pre-density-normalized support score\n  and carried no estimator hash, are deleted."
         },
         {
           "kind": "Fixed",
@@ -1668,7 +1669,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**Two CUDA paths were slower than their CPU siblings, one by 23x, because they\n  launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches\n  and neither was usable at scale: below 30000 spikes it built the full `N x N`\n  difference matrix, which at 29999 spikes -- just under the threshold the code treated\n  as safe -- asks for 6.71 GiB of device memory for one autocorrelogram; at or above\n  30000 it chunked by 1000 and then looped in Python *inside* the chunk, so 35000 spikes\n  meant 35001 uploads of a loop-invariant `bin_edges`, 35000 `cupy.histogram` launches\n  and 70000 forced device-to-host synchronisations. `_welch_csd_gpu` appended one device\n  array per Welch segment, 127 of them for a 16384-sample trace at `nperseg=256`. The\n  cost was the launches, not the host/device transfers: at 35000 spikes the launches are\n  76% of the accounted time and the transfers 24%. One `_acg_histogram` now serves both\n  devices and histograms once per chunk rather than once per spike, with the chunk width\n  taken from the widest window actually present; one strided index builds every Welch\n  segment at once; and because `harmonic_analysis`, `spectral_tilt` and `band_power` all\n  call the Welch helper as `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, a\n  `y is x` short circuit stops it computing its own second half and discarding it.\n  Paired on an RTX A4000, `T_cuda / T_cpu` for the autocorrelogram goes from 23.302 to\n  0.060 at 35000 spikes, and the Welch helper from 1.493 to 0.100 at `nperseg=256`.\n  Every output is unchanged bit for bit: the autocorrelogram counts match the previous\n  implementation on both devices, and 112 of 112 Welch arrays across 28 input cases are\n  identical. The three entry points remain slower on CUDA below roughly 22500 samples,\n  where the fixed transfer-and-plan cost is most of the call; that crossover is now\n  documented in each `device:` parameter rather than papered over by routing on input\n  length, which would make the answer depend on trace length. Receipt:\n  `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`."
+          "text": "**Two CUDA paths were slower than their CPU siblings, one by 23x, because they\n  launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches\n  and neither was usable at scale: below 30000 spikes it built the full `N x N`\n  difference matrix, which at 29999 spikes -- just under the threshold the code treated\n  as safe -- asks for 6.71 GiB of device memory for one autocorrelogram; at or above\n  30000 it chunked by 1000 and then looped in Python *inside* the chunk, so 35000 spikes\n  meant 35001 uploads of a loop-invariant `bin_edges`, 35000 `cupy.histogram` launches\n  and 70000 forced device-to-host synchronisations. `_welch_csd_gpu` appended one device\n  array per Welch segment, 127 of them for a 16384-sample trace at `nperseg=256`. The\n  cost was the launches, not the host/device transfers: at 35000 spikes the launches are\n  76% of the accounted time and the transfers 24%. One `_acg_histogram` now serves both\n  devices and histograms once per chunk rather than once per spike, with the chunk width\n  taken from the widest window actually present; one strided index builds every Welch\n  segment at once; and because `harmonic_analysis`, `spectral_tilt` and `band_power` all\n  call the Welch helper as `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, a\n  `y is x` short circuit stops it computing its own second half and discarding it.\n  Paired on an RTX A4000, `T_cuda / T_cpu` for the autocorrelogram goes from 23.302 to\n  0.060 at 35000 spikes, and the Welch helper from 1.493 to 0.100 at `nperseg=256`.\n  Every output is unchanged bit for bit: the autocorrelogram counts match the previous\n  implementation on both devices, and 112 of 112 Welch arrays across 28 input cases are\n  identical. The three entry points remain slower on CUDA below roughly 22500 samples,\n  where the fixed transfer-and-plan cost is most of the call; that crossover is now\n  documented in each `device:` parameter rather than papered over by routing on input\n  length, which would make the answer depend on trace length. Record:\n  `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`."
         },
         {
           "kind": "Fixed",
@@ -1676,7 +1677,7 @@
         },
         {
           "kind": "Fixed",
-          "text": "**`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`\n  returned.** `AGENTS.md` invariant 6 says the device never changes a number; on a live\n  RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while\n  `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so\n  `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by\n  `max|cpu - cuda| = 8.005` on the returned projections. Align the signs by hand and the\n  residue was 6.5e-04, the float32 part. `compute_population_trajectory` was float64 on\n  both devices already -- it uses `torch.as_tensor`, not a cast -- and differed only by\n  sign, which showed as `max_rel = 2.0`, a trajectory reflected through the origin.\n  The working dtype is now chosen before the device branch, by numpy's own linalg\n  promotion rule, so both branches see one array; float16 input consequently works\n  instead of being rejected on CPU and silently computed in float32 on CUDA. A new\n  `jnwb.gpu_pca.pin_component_signs` forces each component's largest-magnitude loading\n  positive -- the `sklearn.utils.extmath.svd_flip` convention -- and both functions apply\n  it to whichever branch ran. Measured after: 3.1e-12 and 6.5e-13, with no post-hoc\n  alignment. `explained_variance_ratio` is unchanged, being sign-invariant. Component\n  signs may now differ from previous releases; the subspace, the variance and everything\n  reconstructed from the pair are identical. The CUDA path remains the faster of the two\n  in float64 (24.2 ms against 29.8 ms on an A4000)."
+          "text": "**`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`\n  returned.** The repository rules file invariant 6 says the device never changes a number; on a live\n  RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while\n  `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so\n  `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by\n  `max|cpu - cuda| = 8.005` on the returned projections. Align the signs by hand and the\n  residue was 6.5e-04, the float32 part. `compute_population_trajectory` was float64 on\n  both devices already -- it uses `torch.as_tensor`, not a cast -- and differed only by\n  sign, which showed as `max_rel = 2.0`, a trajectory reflected through the origin.\n  The working dtype is now chosen before the device branch, by numpy's own linalg\n  promotion rule, so both branches see one array; float16 input consequently works\n  instead of being rejected on CPU and silently computed in float32 on CUDA. A new\n  `jnwb.gpu_pca.pin_component_signs` forces each component's largest-magnitude loading\n  positive -- the `sklearn.utils.extmath.svd_flip` convention -- and both functions apply\n  it to whichever branch ran. Measured after: 3.1e-12 and 6.5e-13, with no post-hoc\n  alignment. `explained_variance_ratio` is unchanged, being sign-invariant. Component\n  signs may now differ from previous releases; the subspace, the variance and everything\n  reconstructed from the pair are identical. The CUDA path remains the faster of the two\n  in float64 (24.2 ms against 29.8 ms on an A4000)."
         },
         {
           "kind": "Fixed",
@@ -1739,60 +1740,6 @@
           "text": "**Documentation for getting a file in, rather than only for analysing one.** `docs/agents.md`\n  states what `pip install jnwb` does and does not deliver to an agent, documents the three MCP\n  tools with a client configuration, and lists the nine skills.\n  `examples/tutorials/00_your_own_file.py` discovers a layout instead of asserting a fixture's\n  values. Common mistakes gains section 9 on assuming a schema. README and quickstart show\n  `code_column=`. The sdist now ships `skills/` and `AGENTS.md`."
         }
       ]
-    },
-    {
-      "version": "0.1.8",
-      "date": "2026-09-11",
-      "counts": {
-        "Added": 8,
-        "Fixed": 3
-      },
-      "entries": [
-        {
-          "kind": "Added",
-          "text": "Synthetic structurally representative NWB test fixtures (`jnwb.testing.nwb_fixtures`):\n  Deterministic multi-channel ecephys generators supporting co-resident task and mapping\n  interval tables, non-code interval columns, custom electrode locations, and processing-module\n  packaging styles (`processing_lfp_options()`, `task_only_options()`, `dual_probe_options()`)."
-        },
-        {
-          "kind": "Added",
-          "text": "`jnwb.inspect`: Non-destructive inspection of acquisitions, electrodes, units, interval tables,\n  and processing-module continuous series with column sample inspection, without guessing default\n  event tables."
-        },
-        {
-          "kind": "Added",
-          "text": "Canonical events and onsets workflow: `jnwb.events` and `jnwb.event_onsets` providing explicit\n  table selection, non-code interval table extraction, code-based filtering, and seconds/samples conversion."
-        },
-        {
-          "kind": "Added",
-          "text": "Processing-module continuous series discovery: Automatic resolution of LFP series located in\n  processing modules (e.g. `processing/ecephys/LFP`) across `inspect`, `resolve_acquisition`, and\n  `acquisition_channel`."
-        },
-        {
-          "kind": "Added",
-          "text": "`epoch_continuous`: Generic continuous event epoching primitive with explicit time-to-sample mapping\n  via IEEE 754 round-half-to-even (banker's rounding), window bounds (`win_s`), onset units (`\"seconds\"` or `\"samples\"`),\n  boundary policies (`\"nan\"`, `\"error\"`, `\"drop\"`), and optional event-identity preservation via `return_indices`."
-        },
-        {
-          "kind": "Added",
-          "text": "`ChannelIndexError`: Specific exception raised on continuous channel indexing bounds violations."
-        },
-        {
-          "kind": "Added",
-          "text": "Executable tutorial series: Four tested notebooks and documentation tutorials covering NWB discovery,\n  event alignment and PSTH calculation, continuous LFP spectral power with decibel aggregation, and\n  Granger directionality."
-        },
-        {
-          "kind": "Added",
-          "text": "Onboarding and harness alignment: Gate 13 pre-flight verification ensuring NWB onboarding terminology,\n  workflows, and APIs remain synchronized across README, MkDocs, and task skills."
-        },
-        {
-          "kind": "Fixed",
-          "text": "Calibrated continuous-channel access: `acquisition_channel` applies physical scaling\n  ($x_{\\mathrm{physical}} = \\mathrm{conversion} \\cdot x_{\\mathrm{stored}} + \\mathrm{offset}$) exactly once,\n  preserving physical units inherited from `series.unit` (e.g. Volts)."
-        },
-        {
-          "kind": "Fixed",
-          "text": "1D continuous array support: `acquisition_channel` gracefully accesses 1D series `(n_samples,)`\n  at `channel=0`, raising `ChannelIndexError` for non-zero channel indices."
-        },
-        {
-          "kind": "Fixed",
-          "text": "Code-agnostic event extraction: `events` and `event_onsets` extract all intervals when `codes=None`\n  without requiring a default `\"codes\"` column."
-        }
-      ]
     }
   ],
   "ci": {
@@ -1834,7 +1781,7 @@
     ]
   },
   "api": {
-    "total": 197,
+    "total": 199,
     "groups": [
       {
         "module": "jnwb",
@@ -1901,6 +1848,7 @@
           "fuse_laminar_anchors",
           "interpolate_channel_runs",
           "LaminarCurationResult",
+          "map_peak_channel_to_layer",
           "visual_qc",
           "build_time_resolved_matrix",
           "compute_population_trajectory",
@@ -2034,6 +1982,7 @@
         "extra": null,
         "symbols": [
           "causal_exp_smooth",
+          "causal_gaussian_smooth",
           "fit_exponential_onset",
           "onset_model"
         ]
@@ -3105,6 +3054,12 @@
       "module": "jnwb.laminar_curation"
     },
     {
+      "export": "map_peak_channel_to_layer[n_units]",
+      "order": "O(n)",
+      "evidence": "n_units: exponent +1.00, admissible T(u + c), c = 384 channels held fixed",
+      "module": "jnwb.laminar_curation"
+    },
+    {
       "export": "assign_quality_tier",
       "order": "sub-linear",
       "evidence": "n_units: exponent +0.60, admissible T(m)",
@@ -3240,6 +3195,12 @@
       "export": "causal_exp_smooth[n_samples]",
       "order": "O(n)",
       "evidence": "n_samples: exponent +1.01, admissible T(n)",
+      "module": "jnwb.onset_fitting"
+    },
+    {
+      "export": "causal_gaussian_smooth[n_samples]",
+      "order": "O(n)",
+      "evidence": "n_samples: exponent +0.95, admissible T(n)",
       "module": "jnwb.onset_fitting"
     },
     {
@@ -4102,5 +4063,533 @@
       "dark": "assets/fig10_artifact_repair.dark.png",
       "docs_page": "05_artifact_detection_and_repair/"
     }
-  ]
+  ],
+  "showcases": {
+    "entries": [
+      {
+        "id": "glo_s1_responsive",
+        "title": "Identical xxxx sequence in three contexts: responsive units",
+        "question": "Does the P4 − P3 response to the identical xxxx sequence differ between the main, randomized and sequenced contexts?",
+        "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+        "species": "mouse",
+        "status": "verified",
+        "dandi": {
+          "id": "000253",
+          "version": "0.240503.0152",
+          "assets": [
+            {
+              "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+              "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+            },
+            {
+              "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+              "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+            },
+            {
+              "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+              "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+            },
+            {
+              "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+              "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+            },
+            {
+              "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+              "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+            },
+            {
+              "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+              "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+            },
+            {
+              "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+              "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+            },
+            {
+              "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+              "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+            },
+            {
+              "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+              "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+            },
+            {
+              "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+              "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+            },
+            {
+              "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+              "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+            },
+            {
+              "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+              "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+            },
+            {
+              "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+              "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+            }
+          ]
+        },
+        "jnwb": {
+          "commit": "9c0854f709381ec549130e4904290ecf4f09b9ee",
+          "functions": [
+            "nwb_read_io",
+            "filter_by_criteria",
+            "unit_spike_times",
+            "compute_response_metrics",
+            "classify_response_significance",
+            "bin_spikes",
+            "rate_in_window",
+            "exact_sign_flip",
+            "fdr_correct"
+          ]
+        },
+        "figures": [
+          {
+            "light": "assets/showcases/glo_s1_responsive.png",
+            "dark": "assets/showcases/glo_s1_responsive.dark.png",
+            "caption": "Contrasts C1–C4 and drift D per area: mean over mice of the per-mouse median over responsive units.",
+            "units": "Hz",
+            "controls": "drift contrast D (main 1 − main 2)",
+            "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, seed 20261012)"
+          }
+        ],
+        "result": "No contrast passes the preregistered test in any of 20 tested area × contrast cells (exact sign-flip over mice, BH; smallest p 0.090, smallest q 0.81). VISam not tested (5 mice).",
+        "interpretation": "Every contrast is not distinguishable from zero at this resolution. Bootstrap CIs lie within about ±1 Hz in VISp, VISl and VISal and reach about 1.7 Hz in VISrl and 1.38 Hz in VISpm; this is not an equivalence test. The drift contrast is of the same size, so no context effect is identified either way.",
+        "limitations": [
+          "Responsiveness was decided on P1 (always x), so the population is x-selected; C4 (yyyy) is measured in units chosen for x.",
+          "Context is confounded with time and state (block order fixed, running speed differs between contexts).",
+          "With 8 and 7 mice, VISrl and VISpm reach q < 0.05 only if 3 or 6 other cells reject first.",
+          "The spike–stimulus clock check is not independent of the stimulus table.",
+          "Session 1186358749 follows a different block design and is excluded."
+        ],
+        "code": {
+          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+        },
+        "receipts": [
+          {
+            "name": "results/s1/receipt.json",
+            "sha256": "1bc85993e7f68820edc1ee7daf9393da373b8c164047b8a6b4f78db65b46d485"
+          },
+          {
+            "name": "results/s1/confirmatory.csv",
+            "sha256": "6dcf28333e0a09bd6508c5080519cdfc6381cff4599719061433522b3024b7d5"
+          },
+          {
+            "name": "PREREGISTRATION.md",
+            "sha256": "c118b1042f52a5669a4067f7f6ef174acf685df87be9401d14e97b665fbde726"
+          }
+        ],
+        "origin": {
+          "kind": "showcase",
+          "author": "HNXJ",
+          "issue": null
+        },
+        "replications": [
+          {
+            "by": "independent rerun with separate code",
+            "date": "2026-10-12",
+            "scope": "every confirmatory cell, recomputed from the NWB files",
+            "verdict": "reproduces",
+            "seed": "20261012",
+            "report_sha256": "ad276925005c223a1b8a80af10b6293b81c3c5cd0bf034bedb78b5de0e07151c",
+            "note": "288 of 297 checks match; the 7 mismatches were statements in the write-up, since corrected"
+          }
+        ],
+        "links": [
+          {
+            "label": "DANDI 000253 0.240503.0152",
+            "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+          },
+          {
+            "label": "Paper (PMC11741236)",
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+          }
+        ]
+      },
+      {
+        "id": "glo_s1_allunits",
+        "title": "Identical xxxx sequence in three contexts: all quality units (selection check)",
+        "question": "Does the responsiveness filter change the showcase 1 result?",
+        "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+        "species": "mouse",
+        "status": "exploratory",
+        "dandi": {
+          "id": "000253",
+          "version": "0.240503.0152",
+          "assets": [
+            {
+              "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+              "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+            },
+            {
+              "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+              "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+            },
+            {
+              "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+              "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+            },
+            {
+              "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+              "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+            },
+            {
+              "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+              "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+            },
+            {
+              "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+              "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+            },
+            {
+              "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+              "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+            },
+            {
+              "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+              "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+            },
+            {
+              "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+              "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+            },
+            {
+              "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+              "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+            },
+            {
+              "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+              "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+            },
+            {
+              "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+              "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+            },
+            {
+              "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+              "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+            }
+          ]
+        },
+        "jnwb": {
+          "commit": "9c0854f709381ec549130e4904290ecf4f09b9ee",
+          "functions": [
+            "nwb_read_io",
+            "filter_by_criteria",
+            "unit_spike_times",
+            "bin_spikes",
+            "rate_in_window",
+            "exact_sign_flip",
+            "fdr_correct"
+          ]
+        },
+        "figures": [
+          {
+            "light": "assets/showcases/glo_s1_allunits.png",
+            "dark": "assets/showcases/glo_s1_allunits.dark.png",
+            "caption": "As the primary figure, over all quality units in visual areas (post hoc).",
+            "units": "Hz",
+            "controls": "drift contrast D (main 1 − main 2)",
+            "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, one generator seeded 20261012, consumed in table order)"
+          }
+        ],
+        "result": "No cell passes q < 0.05 among 24 cells (smallest p 0.017, smallest q 0.28); CI bounds lie within ±0.7 Hz.",
+        "interpretation": "The responsiveness filter does not change the conclusion; not an equivalence test.",
+        "limitations": [
+          "Added after the preregistration; exploratory.",
+          "Medians include non-responsive units.",
+          "CI bounds depend on the bootstrap seed and cell order (VISpm C2 lower bound 0.013–0.017 across seeds).",
+          "Independent check reproduced the C2 cells only."
+        ],
+        "code": {
+          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+        },
+        "receipts": [
+          {
+            "name": "results/s1_allunits_exploratory/receipt.json",
+            "sha256": "62538177035c73ee7b0a8a23592176c6d355a482cf9ee14a9f9908fcb823903f"
+          },
+          {
+            "name": "results/s1_allunits_exploratory/confirmatory.csv",
+            "sha256": "79482da240500b26a970ec4514feb2013cb9fa4a454004bee6eed6f44fd1d256"
+          }
+        ],
+        "origin": {
+          "kind": "showcase",
+          "author": "HNXJ",
+          "issue": null
+        },
+        "replications": [
+          {
+            "by": "independent rerun with separate code",
+            "date": "2026-10-12",
+            "scope": "the C2 cells only",
+            "verdict": "reproduces",
+            "seed": "20261012",
+            "report_sha256": "064620e3439dfac1a48b7c8f14b3b4a13b2979242936ced7b759915628a339b2",
+            "note": "the other contrasts were not rerun"
+          }
+        ],
+        "links": [
+          {
+            "label": "DANDI 000253 0.240503.0152",
+            "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+          },
+          {
+            "label": "Paper (PMC11741236)",
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+          }
+        ]
+      },
+      {
+        "id": "glo_s2v2",
+        "title": "Decoding context from the identical xxxx response (preregistered version 2)",
+        "question": "Is main 2 vs sequenced context decodable from responses to the identical xxxx sequence, above the majority baseline and beyond linear drift, and more at P4 than at P3?",
+        "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+        "species": "mouse",
+        "status": "verified",
+        "dandi": {
+          "id": "000253",
+          "version": "0.240503.0152",
+          "assets": [
+            {
+              "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+              "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+            },
+            {
+              "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+              "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+            },
+            {
+              "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+              "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+            },
+            {
+              "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+              "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+            },
+            {
+              "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+              "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+            },
+            {
+              "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+              "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+            },
+            {
+              "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+              "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+            },
+            {
+              "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+              "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+            },
+            {
+              "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+              "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+            },
+            {
+              "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+              "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+            },
+            {
+              "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+              "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+            },
+            {
+              "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+              "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+            },
+            {
+              "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+              "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+            }
+          ]
+        },
+        "jnwb": {
+          "commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+          "functions": [
+            "nwb_read_io",
+            "filter_by_criteria",
+            "bin_spikes",
+            "nested_cv_linear_svm",
+            "exact_sign_flip",
+            "fdr_correct"
+          ]
+        },
+        "figures": [
+          {
+            "light": "assets/showcases/glo_s2v2.png",
+            "dark": "assets/showcases/glo_s2v2.dark.png",
+            "caption": "Linear-SVM accuracy minus the majority baseline at P4 and P3, and A_P4 − A_P3, per area; features residualised on block position.",
+            "units": "fraction correct",
+            "controls": "majority baseline on the same folds; block-position covariate",
+            "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, seed 20261012)"
+          }
+        ],
+        "result": "No area decodes context above the majority baseline at P4 or P3 (smallest q 0.18; 10 of 12 means negative), and no P4 − P3 gain (smallest q 0.28). AUC 0.46–0.63.",
+        "interpretation": "With linear block-position drift removed, context is not decodable above the majority baseline; a context effect that ramps linearly with block position would be removed with the drift.",
+        "limitations": [
+          "The sequenced blocks all precede the main-2 blocks, so the adjustment removes any context difference a linear trend explains.",
+          "The VISal nominal P4 − P3 gain (p 0.047, q 0.28) depends on the seed: at seed 20261013 it is −0.015 (p 0.51).",
+          "Session 1186358749 excluded (no main 2)."
+        ],
+        "code": {
+          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+        },
+        "receipts": [
+          {
+            "name": "results/s2v2/receipt.json",
+            "sha256": "c18e7416c4bc7c5dc4b1683c239c580622952a214f8b809b9891803560af7f7a"
+          },
+          {
+            "name": "results/s2v2/family_A.csv",
+            "sha256": "98acafb786afc6d4ddf408992c93cc4b563c4fcef8e2612ed772618799cbbbca"
+          },
+          {
+            "name": "results/s2v2/family_B.csv",
+            "sha256": "9022822a86ab4fbcb3f19b76284eb550a941e870e53a1b5cb3bc9a43b7efcaeb"
+          },
+          {
+            "name": "PREREGISTRATION_S2_v2.md",
+            "sha256": "3479335a7c895719efa8047247206cfadc60087bfa6f24bcfc168c98c7f790ba"
+          }
+        ],
+        "origin": {
+          "kind": "showcase",
+          "author": "HNXJ",
+          "issue": null
+        },
+        "replications": [
+          {
+            "by": "independent rerun with separate code",
+            "date": "2026-10-12",
+            "scope": "decoding in all six areas; per-session scores, family means and p",
+            "verdict": "reproduces",
+            "seed": "20261012",
+            "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
+            "note": "0 of 11 fields per area differ by more than 1e-6"
+          },
+          {
+            "by": "independent rerun with separate code",
+            "date": "2026-10-12",
+            "scope": "the same decoding at a second seed, all six areas",
+            "verdict": "reproduces",
+            "seed": "20261013",
+            "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
+            "note": "no cell reaches p < 0.13; the VISal gain is −0.015 (p 0.51) against +0.042 (p 0.047)"
+          }
+        ],
+        "links": [
+          {
+            "label": "DANDI 000253 0.240503.0152",
+            "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+          },
+          {
+            "label": "Paper (PMC11741236)",
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+          }
+        ]
+      },
+      {
+        "id": "glo_lfp_clock",
+        "title": "LFP clock offset of two replaced-version probe files",
+        "question": "Is the stored-seconds LFP time axis of 000253 0.240923.1441 aligned to the spike clock within one sample (0.8 ms)?",
+        "relation_to_published": "Data check for a proposed LFP showcase; the paper reports no such check.",
+        "species": "mouse",
+        "status": "verified",
+        "dandi": {
+          "id": "000253",
+          "version": "0.240923.1441",
+          "assets": [
+            {
+              "asset_id": "347940ea-6d34-4b0d-8e28-17aaf7b3f937",
+              "sha256": "7fbfd40da834b9bc59e57dc9140c2c3a2aa7a3dcaba7a273f60ea636ca49e33b"
+            },
+            {
+              "asset_id": "c271fd10-237b-4007-ad79-9e5628192f3f",
+              "sha256": "46e0db40841e06661c7ca082fa837eb9346893a0c1a7cb6c5de6500a5b6c8edd"
+            },
+            {
+              "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+              "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+            },
+            {
+              "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+              "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+            }
+          ]
+        },
+        "jnwb": {
+          "commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+          "functions": [
+            "bandpass_filter"
+          ]
+        },
+        "figures": [
+          {
+            "light": "assets/showcases/glo_lfp_clock.png",
+            "dark": "assets/showcases/glo_lfp_clock.dark.png",
+            "caption": "Median spike-triggered LFP trough lag over units, early and late 70-s windows; bars span the units' range.",
+            "units": "ms",
+            "controls": "independent check recovers a 5.0 ms spike-time shift at 4.95–4.97 ms",
+            "uncertainty": "range across units (9–12 per window)"
+          }
+        ],
+        "result": "Probe 1 of 1232959154: -10.03 ms early and -10.20 ms late, constant over the session (independent check −9.73 and −9.76 ms). Probe 1 of 1203581890: within 0.8 ms (-0.26 and -0.33 ms; independent check +0.24 and +0.28 ms).",
+        "interpretation": "Stored seconds are within one sample in one probe and offset by a constant about 10 ms in the other, so each probe needs this check before band power.",
+        "limitations": [
+          "The delay from a spike to its LFP-band trough cannot be separated from the clock offset.",
+          "17–21 % of units have a positive-dominant STA (independent check).",
+          "Two probes reproduced; four others tested remotely remain unverified; the remote reads went beyond the Gate B authorisation.",
+          "The 1203581890 probe file was not replaced between versions."
+        ],
+        "code": {
+          "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+          "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+        },
+        "receipts": [
+          {
+            "name": "receipts/lfp_clock_sta_1232959154_probe-1.json",
+            "sha256": "a436f7168c0dcda8820f875cc40f8430042a2829e863379e640ee5e633ec9bef"
+          },
+          {
+            "name": "receipts/lfp_clock_sta_1203581890_probe-1.json",
+            "sha256": "02b361eee498b2dcc75be2c26673924fbf43f140c31fff978bac7e48fd0a476d"
+          },
+          {
+            "name": "receipts/download_000253_probe_lfp.jsonl",
+            "sha256": "48c18772f02d93c69f5168f6dfa6745badd69f3affcc5442343f210c945b5ecc"
+          }
+        ],
+        "origin": {
+          "kind": "showcase",
+          "author": "HNXJ",
+          "issue": null
+        },
+        "replications": [
+          {
+            "by": "independent rerun with separate code",
+            "date": "2026-10-12",
+            "scope": "both probes, early and late windows, from the downloaded files",
+            "verdict": "reproduces",
+            "seed": null,
+            "report_sha256": "3e76a792bf34e7be2cf7daad5f98f99aa6be04a2bef06adeeb04cc9bf066783d",
+            "note": "−9.73 and −9.76 ms in 1232959154; +0.24 and +0.28 ms in 1203581890; each within one sample (0.8 ms) of the showcase value"
+          }
+        ],
+        "links": [
+          {
+            "label": "DANDI 000253 0.240923.1441",
+            "url": "https://dandiarchive.org/dandiset/000253/0.240923.1441"
+          }
+        ]
+      }
+    ]
+  }
 }
