@@ -12,7 +12,7 @@ Laminar alignment of linear-probe LFP by the spectrolaminar motif: gamma relativ
 - a stimulus-evoked current source density (CSD) aligned on the same crossover;
 - a CSD that alternates in sign from row to row.
 
-Source: Mendoza-Halliday et al. (2024, *Nature Neuroscience*, doi:10.1038/s41593-023-01554-7), in `docs/references.md`, which states how `vflip` differs from the paper's FLIP and vFLIP.
+Source: Mendoza-Halliday et al. (2024, *Nature Neuroscience*, doi:10.1038/s41593-023-01554-7) for the motif, and Major et al. (2025, *Nature Neuroscience*, doi:10.1038/s41593-025-02168-x) for vFLIP2, its published estimator; `docs/references.md` states how `vflip` differs from FLIP, vFLIP and vFLIP2.
 
 ## 2. Routing
 
@@ -54,7 +54,7 @@ Each step names the operations it composes. Operations other than the rows above
 |---|---|---|
 | 1. Events | Align epochs to the stimulus itself, not to its event code. A delay between the code and the stimulus (for example, read from a photodiode) is measured before epoching and is stated with the result. | `events`, `epoch_continuous` (`jnwb-paradigm`) |
 | 2. Relative power | Trial-mean PSD per channel, divided at each frequency by its maximum across the probe's channels. This is the published normalization; `vflip` normalizes by the range across contacts instead. | `compute_psd` with `axis=-1` (`jnwb-lfp-spectral`); the division is caller code |
-| 3. Motif test | `vflip` accepts a probe when its `support_score` reaches `min_support_score`. The paper's FLIP and vFLIP are other estimators, which jnwb does not compute. | `vflip`, `vflip_from_lfp` |
+| 3. Motif test | `vflip` accepts a probe when its `support_score` reaches `min_support_score`. FLIP, vFLIP and vFLIP2 (Major et al. 2025) are other estimators, which jnwb does not compute. | `vflip`, `vflip_from_lfp` |
 | 4. Noise strategies | Advice to the caller. A noisy probe can be retried with these choices, the subset taken before the filter:<br>• the whole probe or one half;<br>• all channels, or odd or even ones, at twice the spacing;<br>• a median filter across channels.<br>Fix the grid and the rule that picks a strategy before any result. | `vflip` with `contact_spacing`; `curate_and_label` for bad contacts and short-run interpolation; the median filter is caller code |
 | 5. Alignment | The aligned depth of a contact is `crossover_depth_um` minus the contact's own depth from the shallow end, so superficial contacts are positive. `crossover_depth_um` is measured from the shallow end and grows with depth. Declare `depth_axis` and `shallow_end` so the shallow end is the contact the geometry names, whatever the row order. Place entries on one common grid by interpolating inside each entry's own channel range, never beyond it, and report the number of entries at each depth. | `vflip` (`crossover_depth_um`, `depth_axis`, `shallow_end`), `label_layers` |
 | 6. Evoked CSD | Start from the trial-mean ERP with each channel's pre-stimulus mean removed. Compute the CSD at a neighboring-channel separation of n contacts of the chosen subset, with h = n times its spacing and a stated tissue conductivity. Use an n for which at least 2n + 3 channels remain. Each CSD row sits at its centre channel and is aligned as in step 5; negative is a sink. The depth of the earliest sink after onset is a check on the crossover, never a selection. | `current_source_density_1d` on every n-th channel, interleaved (`jnwb-lfp-spectral`); `evoked_csd_sink` |
