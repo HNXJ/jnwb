@@ -1,4 +1,4 @@
-"""Generate 10 canonical figures for jnwb documentation.
+"""Generate 13 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
@@ -39,6 +39,8 @@ from matplotlib.patches import Patch
 
 import figure_style as style
 import jnwb
+from jnwb.laminar import CANONICAL_VFLIP_BANDS
+from jnwb.testing import synth_laminar_motif
 
 FIGURE_DIR = REPO_ROOT / "docs" / "assets" / "figures"
 OUT_DIR = FIGURE_DIR
@@ -654,6 +656,179 @@ def fig10_artifact_repair():
     plt.close(fig)
 
 
+def _band_label(name: str) -> str:
+    """A canonical band's name as the figure writes it: `low_gamma` is `low γ`."""
+    return name.replace("_", " ").replace("gamma", "γ")
+
+
+def fig11_spectra_bands():
+    """Figure 11: Welch and multitaper PSDs of one synthetic signal, with the canonical bands shaded."""
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.4), dpi=style.DPI)
+
+    fs = 1000.0
+    rng = np.random.default_rng(31)
+    t = np.arange(int(10.0 * fs)) / fs
+    # Random-walk background, whose spectrum falls as 1/f squared, + 10, 22 and 40 Hz rhythms
+    pink = np.cumsum(rng.standard_normal(len(t)))
+    pink -= pink.mean()
+    pink /= pink.std()
+    lfp = (pink + 0.8 * np.sin(2 * np.pi * 10.0 * t) + 0.5 * np.sin(2 * np.pi * 22.0 * t)
+           + 0.3 * np.sin(2 * np.pi * 40.0 * t))
+
+    freqs, psd = jnwb.compute_psd(lfp, fs=fs)
+    freqs_mt, psd_mt = jnwb.compute_multitaper_psd(lfp, fs=fs, nw=3.0, k_tapers=5)
+    shown, shown_mt = (freqs >= 1.0) & (freqs <= 100.0), (freqs_mt >= 1.0) & (freqs_mt <= 100.0)
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    for index, (name, (low, high)) in enumerate(jnwb.CANONICAL_BANDS.items()):
+        # Alternate bands are shaded, so every boundary between two bands is an edge of shading.
+        if index % 2 == 0:
+            ax.axvspan(low, high, color=style.NEUTRAL, alpha=0.2, lw=0)
+        # Each band is named above the axes, over its span, so no name sits on a band or a spectrum.
+        ax.text(np.sqrt(low * high), 1.01, _band_label(name), transform=ax.get_xaxis_transform(),
+                ha="center", va="bottom", fontsize=style.SMALL, color=C_DARK)
+    ax.plot(freqs[shown], psd[shown], color=style.SERIES[0], lw=style.LW_THIN, label="Welch")
+    ax.plot(freqs_mt[shown_mt], psd_mt[shown_mt], color=style.SERIES[1], lw=style.LW,
+            label="Multitaper")
+    top = max(float(psd[shown].max()), float(psd_mt[shown_mt].max()))
+    bottom = min(float(psd[shown].min()), float(psd_mt[shown_mt].min()))
+    ax.set_ylim(bottom / 2.0, top * 10.0 ** 0.3)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Power spectral density (a.u.²/Hz)")
+    ax.set_title("Welch (jnwb.compute_psd) and multitaper (jnwb.compute_multitaper_psd) PSDs",
+                 pad=16)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+
+    fig.tight_layout()
+    _save(fig, "fig11_spectra_canonical_bands.png")
+    plt.close(fig)
+
+
+#: fig12's record length and Welch segment length, in seconds and samples at 1000 Hz, and the lag
+#: of channel y in panel B, in samples. 60 s (119 segments) keeps this step under 30 s; the wPLI of
+#: two independent channels is biased upward at few segments.
+FIG12_SECONDS = 60
+FIG12_NPERSEG = 1000
+FIG12_LAG_SAMPLES = 5
+#: The frequencies fig12 draws, in Hz.
+FIG12_BAND_HZ = (2.0, 60.0)
+
+
+def _fig12_pair(lagged: bool):
+    """Two channels that share two rhythms. Both panels draw the same source and the same noise;
+    panel B delays channel y by a fixed lag, and panel A does not."""
+    fs = 1000.0
+    rng = np.random.default_rng(64)
+    t = np.arange(int(FIG12_SECONDS * fs)) / fs
+    source = np.sin(2 * np.pi * 12.0 * t) + np.sin(2 * np.pi * 22.0 * t)
+    x = source + 0.8 * rng.standard_normal(len(t))
+    noise_y = 0.8 * rng.standard_normal(len(t))
+    shared = np.roll(source, FIG12_LAG_SAMPLES) if lagged else source
+    return x, 0.7 * shared + noise_y
+
+
+def _fig12_panel(ax, letter: str, lagged: bool, title: str):
+    """Coherence, |imaginary coherency| and wPLI against frequency for one condition."""
+    fs = 1000.0
+    x, y = _fig12_pair(lagged)
+    coherence = jnwb.cross_area_coherence(x, y, fs=fs, freq_bands=jnwb.CANONICAL_BANDS,
+                                          nperseg=FIG12_NPERSEG)
+    wpli = jnwb.wpli(x, y, fs=fs, freq_range=FIG12_BAND_HZ, nperseg=FIG12_NPERSEG)
+    coh_f, coh = coherence["frequencies"], coherence["coherence_spectrum"]
+    shown_coh = (coh_f >= FIG12_BAND_HZ[0]) & (coh_f <= FIG12_BAND_HZ[1])
+    freqs = wpli["freqs"]
+    shown = (freqs >= FIG12_BAND_HZ[0]) & (freqs <= FIG12_BAND_HZ[1])
+    # One frequency bin per window: imaginary_coherency returns a mean over its band, so a
+    # window of one bin gives the value at that bin.
+    icoh = [jnwb.imaginary_coherency(x, y, fs=fs, freq_range=(f - 0.5, f + 0.5),
+                                     nperseg=FIG12_NPERSEG)["icoh_abs_mean"] for f in freqs[shown]]
+
+    ax.plot(coh_f[shown_coh], coh[shown_coh], color=style.SERIES[0], lw=style.LW)
+    ax.plot(freqs[shown], icoh, color=style.SERIES[1], lw=style.LW)
+    ax.plot(freqs[shown], wpli["wpli_spectrum"][shown], color=style.SERIES[2], lw=style.LW)
+    ax.set_xlim(*FIG12_BAND_HZ)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Estimate (dimensionless)")
+    style.panel_title(ax, letter, title.format(segments=wpli["n_segments"]))
+
+
+def fig12_coherence_zero_lag():
+    """Figure 12: Coherence, |imaginary coherency| and wPLI against frequency, for two channels
+    that share a rhythm at zero lag (A) and with a fixed lag on one channel (B)."""
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.6), dpi=style.DPI, sharey=True)
+
+    _fig12_panel(ax_a, "A", False, "Zero lag ({segments} Welch segments)")
+    _fig12_panel(ax_b, "B", True, "Fixed lag on channel y ({segments} segments)")
+    fig.legend(handles=[
+        Line2D([], [], color=style.SERIES[0], lw=style.LW, label="Coherence"),
+        Line2D([], [], color=style.SERIES[1], lw=style.LW, label="|Imaginary coherency|"),
+        Line2D([], [], color=style.SERIES[2], lw=style.LW, label="wPLI"),
+    ], frameon=False, loc="lower center", ncol=3)
+
+    fig.tight_layout(rect=(0.0, 0.1, 1.0, 1.0))
+    _save(fig, "fig12_coherence_zero_lag.png")
+    plt.close(fig)
+
+
+#: fig13's synthetic motif: the seed it is drawn with, and the contact spacing in micrometres. The
+#: motif is drawn at the regime vFLIP is calibrated for: 5000 samples at 1000 Hz and SNR 20.
+FIG13_SEED = 7
+FIG13_PITCH_UM = 50.0
+
+
+def _band_profiles(psd: np.ndarray, freqs: np.ndarray, bands) -> list:
+    """The band depth profiles vflip forms before it locates the crossover: each frequency column
+    of the PSD is min-max normalized across contacts, then averaged over the bins of each band."""
+    scaled = psd / np.max(np.abs(psd))
+    lowest = scaled.min(axis=0)
+    span = scaled.max(axis=0) - lowest
+    span[span < 1e-12] = 1e-12
+    normed = (scaled - lowest) / span
+    return [normed[:, (freqs >= lo) & (freqs <= hi)].mean(axis=1) for lo, hi in bands]
+
+
+def fig13_vflip_band_profiles():
+    """Figure 13: The low-band and high-band depth profiles that vflip_from_lfp locates its crossover
+    on, with the true crossover and the vFLIP estimate of it, for a synthetic laminar motif."""
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    fs = 1000.0
+    motif = synth_laminar_motif(n_channels=24, n_samples=5000, fs=fs, pitch_um=FIG13_PITCH_UM,
+                                snr=20.0, rng=FIG13_SEED)
+    lfp = motif.lfp
+    vflip = jnwb.vflip_from_lfp(lfp, fs, orientation=motif.orientation,
+                                contact_spacing=FIG13_PITCH_UM)
+    assert vflip.accepted, vflip.rejection_reason
+
+    # The PSD vflip_from_lfp computes: the same Welch length, overlap, window and detrend. The
+    # bands are the constant its defaults are taken from.
+    freqs, psd = jnwb.compute_psd(lfp, fs=fs, axis=1)
+    bands = (CANONICAL_VFLIP_BANDS["low"], CANONICAL_VFLIP_BANDS["high"])
+    low, high = _band_profiles(psd, freqs, bands)
+
+    depth_um = np.arange(lfp.shape[0]) * FIG13_PITCH_UM
+    ax.plot(low, depth_um, color=style.SERIES[0], lw=style.LW,
+            label=f"low band, {bands[0][0]:g}-{bands[0][1]:g} Hz")
+    ax.plot(high, depth_um, color=style.SERIES[3], lw=style.LW,
+            label=f"high band, {bands[1][0]:g}-{bands[1][1]:g} Hz")
+    ax.axhline(motif.crossover_depth_um, color=style.VARIABLE["truth"], ls=":", lw=style.LW,
+               label="true")
+    ax.axhline(vflip.crossover_depth_um, color=C_DARK, ls="--", lw=style.LW_THIN,
+               label="vFLIP estimate")
+    ax.invert_yaxis()
+    ax.set_xlim(0.0, 1.0)
+    ax.set_xlabel("Normalized band power (dimensionless)")
+    ax.set_ylabel("Depth (µm)")
+    ax.set_title("Band power by depth (jnwb.vflip_from_lfp)", pad=8)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+
+    fig.tight_layout()
+    _save(fig, "fig13_vflip_band_profiles.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -667,6 +842,9 @@ FIGURES = {
     "fig08_permutation_null.png": fig08_permutation,
     "fig09_directed_connectivity.png": fig09_directed_connectivity,
     "fig10_artifact_repair.png": fig10_artifact_repair,
+    "fig11_spectra_canonical_bands.png": fig11_spectra_bands,
+    "fig12_coherence_zero_lag.png": fig12_coherence_zero_lag,
+    "fig13_vflip_band_profiles.png": fig13_vflip_band_profiles,
 }
 
 
