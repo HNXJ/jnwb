@@ -277,6 +277,7 @@ contradicts a written claim it appears in section 6.
 | `evoked_csd_sink[n_channels]` | n_channels | 100, 1000, 10000, 100000 | 2.525, 28.72, 306.2, 3594 | +1.05 | 1.000 | 1423x | O(n) | T(C*W) | derived | agree |
 | `fuse_laminar_anchors[n_windows]` | n_windows | 1000, 10000, 100000, 1000000 | 0.1286, 0.2133, 1.205, 17.58 | +0.72 | 0.920 | 137x | sub-linear | T(W) | derived | agree |
 | `interpolate_channel_runs[n_channels]` | n_channels | 1000, 10000, 100000, 1000000 | 4.044, 46.11, 441.5, 4613 | +1.02 | 1.000 | 1141x | O(n) | T(C*n) | derived | agree |
+| `map_peak_channel_to_layer[n_units]` | n_units | 10000, 30000, 100000, 300000, 1000000 | 54.1, 152.9, 527.2, 1565, 5437 | +1.00 | 1.000 | 100x | O(n) | T(u + c), c = 384 channels held fixed | derived | agree |
 
 ### `jnwb.metadata`
 
@@ -320,6 +321,7 @@ contradicts a written claim it appears in section 6.
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `causal_exp_smooth[n_samples]` | n_samples | 100000, 500000, 2000000, 8000000 | 5.35, 29.4, 110.9, 450.5 | +1.01 | 1.000 | 84x | O(n) | T(n) | derived | agree |
+| `causal_gaussian_smooth[n_samples]` | n_samples | 100000, 500000, 2000000, 8000000 | 4.32, 17.0, 67.6, 277 | +0.95 | 0.998 | 64x | O(n) | T(n) | derived | agree |
 | `causal_exp_smooth[tau_ms]` | tau_ms | 5, 20, 100, 500, 2000 | 6.95, 8.90, 19.1, 125.4, 455.8 | +0.73 | 0.933 | 66x | sub-linear | T(n), independent of tau | derived | ORDER |
 | `fit_exponential_onset[n_grid_points]` | n_grid_points | 5, 15, 50, 150, 250 | 61.3, 163.4, 479.0, 1466, 2432 | +0.94 | 0.999 | 40x | O(n) | T(G); any sublinear alternative unknown | unknown | agree |
 | `fit_exponential_onset[n_samples]` | n_samples | 200, 1500, 12000, 100000 | 79.9, 91.9, 207.9, 1644 | +0.48 | 0.846 | 21x | sub-linear (POOR FIT) | T(n) per iteration | derived | agree |
