@@ -44,7 +44,6 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 |---|---|---|---|---|
 | 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
 | 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
-| 4 | K skills split | 12-22 | `skills/` | none |
 | 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 | any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
