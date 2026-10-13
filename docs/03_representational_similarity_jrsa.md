@@ -177,6 +177,11 @@ recompute the similarity (Kriegeskorte et al. 2008, "Step 5"). `rdm_similarity` 
 caller, and `jnwb.jrsa` with `stats=True` runs a permutation null. With `metric="cosine"` the p
 value is `nan`.
 
+![Synthetic RDMs and windowed jRSA trace](assets/figures/fig19_rdms_and_jrsa.png#only-light)
+![Synthetic RDMs and windowed jRSA trace](assets/figures/fig19_rdms_and_jrsa.dark.png#only-dark)
+
+Panels A and B are the RDMs of two synthetic populations that share one condition pattern, over samples 50 to 70, where the trace peaks (`jnwb.rdm`). Panel C is `jnwb.jrsa` on 20-sample windows: the peak rho of 0.74 equals `jnwb.rdm_similarity` on those two RDMs, and 3 of 11 windows exceed the upper edge of their 95% null band (1000 permutations; per window, uncorrected).
+
 ## References
 
 The methods on this page are cited in [References](references.md).

@@ -75,9 +75,14 @@ permissive; cross-channel consensus below is what decides exclusion.
 # bad_flags: (n_channels, n_trials) boolean array
 consensus_mask, bad_fractions = jnwb.consensus_bad_trials(
     bad_flags,
-    min_frac_channels=0.5  # Flag trial if >50% of channels detected an artifact
+    min_frac_channels=0.5  # Flag a trial when at least 50% of channels detected an artifact
 )
 ```
+
+![Synthetic probe: bad channels and trials](assets/figures/fig20_bad_channels_and_trials.png#only-light)
+![Synthetic probe: bad channels and trials](assets/figures/fig20_bad_channels_and_trials.dark.png#only-dark)
+
+Synthetic probe: `jnwb.channel_correlation_matrix` and `jnwb.bad_channels_from_correlation` flag channels 4, 13 and 22 at robust z −286 to −285. `jnwb.bad_trials_single_channel` and `jnwb.consensus_bad_trials` flag trials 7 and 23 on all 29 unflagged channels; trial 15 is flagged on one channel only and kept.
 
 ---
 

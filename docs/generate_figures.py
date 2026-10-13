@@ -1,4 +1,4 @@
-"""Generate 15 canonical figures for jnwb documentation.
+"""Generate 17 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
@@ -966,6 +966,240 @@ def fig15_spike_phase_locking():
     plt.close(fig)
 
 
+#: fig19's two populations: conditions, units and samples; the shared pattern rides on a Gaussian
+#: envelope, and each population also carries a private pattern and noise.
+FIG19_SEED = 19
+FIG19_N_COND = 12
+FIG19_N_UNITS = 40
+FIG19_N_SHARED = 2
+FIG19_N_PRIVATE = 2
+FIG19_N_SAMPLES = 120
+FIG19_PEAK = 60
+FIG19_ENVELOPE_SD = 12.0
+FIG19_NOISE = 0.5
+FIG19_PRIVATE_GAIN = 0.5
+#: fig19's jRSA trace: the window and step in samples, the permutations per window, and the
+#: percentiles that bound the null band.
+FIG19_WINDOW = 20
+FIG19_STEP = 10
+FIG19_PERMUTATIONS = 1000
+FIG19_BAND_PCT = (2.5, 97.5)
+
+
+def _fig19_populations():
+    """Two (conditions, units, samples) populations sharing one condition pattern while the envelope is up."""
+    rng = np.random.default_rng(FIG19_SEED)
+    t = np.arange(FIG19_N_SAMPLES)
+    envelope = np.exp(-0.5 * ((t - FIG19_PEAK) / FIG19_ENVELOPE_SD) ** 2)
+    shared = rng.standard_normal((FIG19_N_COND, FIG19_N_SHARED))
+    populations = []
+    for _ in range(2):
+        private = rng.standard_normal((FIG19_N_COND, FIG19_N_PRIVATE))
+        units_shared = rng.standard_normal((FIG19_N_UNITS, FIG19_N_SHARED))
+        units_private = rng.standard_normal((FIG19_N_UNITS, FIG19_N_PRIVATE))
+        drive = ((shared @ units_shared.T)[:, :, None] * envelope
+                 + FIG19_PRIVATE_GAIN * (private @ units_private.T)[:, :, None])
+        populations.append(drive + FIG19_NOISE * rng.standard_normal(drive.shape))
+    return rng, populations
+
+
+def _fig19_trace(populations, rng):
+    """jrsa(metric='rsa') on each window, with the percentile band of its own permutation null."""
+    starts = np.arange(0, FIG19_N_SAMPLES - FIG19_WINDOW + 1, FIG19_STEP)
+    values, bands = [], []
+    for start in starts:
+        result = jnwb.jrsa(populations[0], populations[1], adim=-1, metric="rsa", null="iid",
+                           window=(int(start), int(start) + FIG19_WINDOW),
+                           permutations=FIG19_PERMUTATIONS, rng=rng, return_null=True)
+        values.append(float(result.value))
+        bands.append(np.percentile(result.null_distribution, FIG19_BAND_PCT))
+    return starts, np.asarray(values), np.asarray(bands)
+
+
+def fig19_rdms_and_jrsa():
+    """Figure 19: RDMs of two synthetic populations that share a condition pattern, and a windowed jrsa trace against its null band."""
+    fig = plt.figure(figsize=(style.WIDTH, 6.0), dpi=style.DPI)
+    grid = fig.add_gridspec(2, 3, height_ratios=[1.0, 0.9], width_ratios=[1.0, 1.0, 0.05])
+    ax_a, ax_b = fig.add_subplot(grid[0, 0]), fig.add_subplot(grid[0, 1])
+    cax = fig.add_subplot(grid[0, 2])
+    ax_c = fig.add_subplot(grid[1, :])
+
+    rng, populations = _fig19_populations()
+    starts, values, bands = _fig19_trace(populations, rng)
+    peak = int(np.argmax(values))
+    start, stop = int(starts[peak]), int(starts[peak]) + FIG19_WINDOW
+    windowed = [pop[:, :, start:stop].reshape(FIG19_N_COND, -1) for pop in populations]
+    squares = [jnwb.rdm(x, metric="correlation", condensed=False) for x in windowed]
+    vectors = [jnwb.rdm(x, metric="correlation", condensed=True) for x in windowed]
+    rho, _ = jnwb.rdm_similarity(vectors[0], vectors[1], metric="spearman")
+    # The trace's value at the peak window is the same comparison of the same two RDMs.
+    assert np.isclose(rho, values[peak], rtol=1e-12, atol=0.0), (rho, values[peak])
+
+    limit = max(float(square.max()) for square in squares)
+    for ax, square, letter, name in zip((ax_a, ax_b), squares, ("A", "B"),
+                                        ("Population 1", "Population 2")):
+        image = ax.imshow(square, cmap="magma", vmin=0.0, vmax=limit, interpolation="nearest")
+        ax.set_xlabel("Condition index")
+        ax.set_ylabel("Condition index")
+        ax.set_xticks(range(0, FIG19_N_COND, 2))
+        ax.set_yticks(range(0, FIG19_N_COND, 2))
+        style.panel_title(ax, letter, f"{name} RDM, samples {start}-{stop}\n(jnwb.rdm)")
+    fig.colorbar(image, cax=cax).set_label("Correlation distance (dimensionless)")
+
+    centers = starts + FIG19_WINDOW / 2
+    width = FIG19_BAND_PCT[1] - FIG19_BAND_PCT[0]
+    ax_c.fill_between(centers, bands[:, 0], bands[:, 1], color=style.NEUTRAL, alpha=0.35, lw=0,
+                      label=f"{width:.0f}% null band, {FIG19_PERMUTATIONS} permutations")
+    ax_c.axhline(0.0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+    ax_c.plot(centers, values, color=style.SERIES[0], marker="o", lw=style.LW,
+              label=f"jRSA value, peak rho = {style.num(values[peak], '.2f')}")
+    ax_c.set_xlabel("Window center (sample index)")
+    ax_c.set_ylabel("Spearman rho (dimensionless)")
+    style.panel_title(ax_c, "C", "Windowed jRSA (metric 'rsa', null 'iid') against its null band\n(jnwb.jrsa)")
+    ax_c.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+
+    fig.tight_layout()
+    _save(fig, "fig19_rdms_and_jrsa.png")
+    plt.close(fig)
+
+
+#: fig20's probe: channels, the planted bad channels, the samples of the continuous recording, the
+#: width of its common-mode smoothing, and the independent noise each good channel adds to it.
+FIG20_SEED = 20
+FIG20_N_CH = 32
+FIG20_BAD_CHANNELS = (4, 13, 22)
+FIG20_N_SAMPLES = 6000
+FIG20_SMOOTH = 20
+FIG20_CH_NOISE = 0.6
+FIG20_Z_THRESH = 5.0
+#: The one labelled tick below the threshold on fig20's z axis, which is logarithmic there.
+FIG20_Z_TICK = 100.0
+#: fig20's trials: count, samples, the evoked deflection, the noise, and the transient artifact with
+#: the trials that carry it on every channel (consensus) and on one channel (single).
+FIG20_N_TRIALS = 40
+FIG20_N_TIMES = 200
+FIG20_EVOKED_AT = 100
+FIG20_EVOKED_SD = 25.0
+FIG20_NOISE = 0.5
+FIG20_ARTIFACT_AT = 150
+FIG20_ARTIFACT_SD = 6.0
+FIG20_ARTIFACT_AMP = 12.0
+FIG20_CONSENSUS_TRIALS = (7, 23)
+FIG20_SINGLE_ARTIFACT = (15, 10)
+FIG20_MIN_FRAC = 0.5
+
+
+def _fig20_probe():
+    """Continuous (channels, samples) data and (channels, trials, samples) trials. Good channels share a
+    common mode; the planted bad channels carry independent noise only."""
+    rng = np.random.default_rng(FIG20_SEED)
+    common = np.convolve(rng.standard_normal(FIG20_N_SAMPLES), np.ones(FIG20_SMOOTH) / FIG20_SMOOTH,
+                         mode="same")
+    common = (common - common.mean()) / common.std()
+    continuous = common[None, :] + FIG20_CH_NOISE * rng.standard_normal((FIG20_N_CH, FIG20_N_SAMPLES))
+    bad = list(FIG20_BAD_CHANNELS)
+    continuous[bad] = rng.standard_normal((len(bad), FIG20_N_SAMPLES))
+    t = np.arange(FIG20_N_TIMES)
+    evoked = np.exp(-0.5 * ((t - FIG20_EVOKED_AT) / FIG20_EVOKED_SD) ** 2)
+    trials = evoked + FIG20_NOISE * rng.standard_normal((FIG20_N_CH, FIG20_N_TRIALS, FIG20_N_TIMES))
+    transient = FIG20_ARTIFACT_AMP * np.exp(-0.5 * ((t - FIG20_ARTIFACT_AT) / FIG20_ARTIFACT_SD) ** 2)
+    for trial in FIG20_CONSENSUS_TRIALS:
+        trials[:, trial, :] += transient
+    trial, channel = FIG20_SINGLE_ARTIFACT
+    trials[channel, trial, :] += transient
+    return continuous, trials
+
+
+def fig20_bad_channels_and_trials():
+    """Figure 20: Channel correlation and consensus bad trials of a synthetic probe with planted bad channels and artifacts."""
+    fig = plt.figure(figsize=(style.WIDTH, 6.4), dpi=style.DPI)
+    grid = fig.add_gridspec(2, 2)
+    ax_a, ax_b = fig.add_subplot(grid[0, 0]), fig.add_subplot(grid[0, 1])
+    ax_c, ax_d = fig.add_subplot(grid[1, 0]), fig.add_subplot(grid[1, 1])
+
+    continuous, trials = _fig20_probe()
+    corr = jnwb.channel_correlation_matrix(continuous)
+    bad, summary, z = jnwb.bad_channels_from_correlation(corr, z_thresh=FIG20_Z_THRESH)
+    flagged = np.flatnonzero(bad)
+    assert flagged.tolist() == list(FIG20_BAD_CHANNELS), flagged.tolist()
+    good = np.flatnonzero(~bad)
+    per_channel = np.stack([jnwb.bad_trials_single_channel(trials[c])[0] for c in good])
+    consensus, fraction = jnwb.consensus_bad_trials(per_channel, min_frac_channels=FIG20_MIN_FRAC)
+    assert np.flatnonzero(consensus).tolist() == list(FIG20_CONSENSUS_TRIALS), np.flatnonzero(consensus).tolist()
+    trial, channel = FIG20_SINGLE_ARTIFACT
+    assert per_channel[good.tolist().index(channel), trial], "the single-channel artifact is not flagged"
+
+    channels = np.arange(FIG20_N_CH)
+    image = ax_a.imshow(corr, cmap="magma", vmin=float(corr.min()), vmax=float(corr.max()),
+                        interpolation="nearest")
+    for index in flagged:
+        ax_a.axhline(index, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+        ax_a.axvline(index, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+    ax_a.set_xticks(channels[::8])
+    ax_a.set_yticks(channels[::8])
+    ax_a.set_xlabel("Channel index")
+    ax_a.set_ylabel("Channel index")
+    fig.colorbar(image, ax=ax_a).set_label("Pearson r (dimensionless)")
+    ax_a.legend(handles=[Line2D([], [], color=style.SERIES[1], ls="--", lw=style.LW_THIN,
+                                label=f"flagged channel, {len(flagged)} of {FIG20_N_CH}")],
+                frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+    style.panel_title(ax_a, "A", "Channel correlation\n(jnwb.channel_correlation_matrix)")
+
+    kept = ~bad
+    ax_b.bar(channels[kept], z[kept], color=style.NEUTRAL, width=0.7)
+    ax_b.bar(channels[bad], z[bad], color=style.SERIES[3], edgecolor=C_DARK, hatch="//", lw=style.EDGE,
+             width=0.7)
+    ax_b.axhline(-FIG20_Z_THRESH, color=C_DARK, ls="--", lw=style.LW_THIN)
+    # Linear within the threshold and logarithmic beyond it: the bad channels' z sits near -280.
+    ax_b.set_yscale("symlog", linthresh=FIG20_Z_THRESH)
+    z_ticks = [-FIG20_Z_TICK, -FIG20_Z_THRESH, 0.0, FIG20_Z_THRESH]
+    ax_b.set_yticks(z_ticks)
+    # The symlog formatter labels decades only, so the threshold tick is labelled here.
+    ax_b.set_yticklabels([style.num(tick, ".0f") for tick in z_ticks])
+    ax_b.set_xticks(channels[::8])
+    ax_b.set_xlabel("Channel index")
+    ax_b.set_ylabel("Robust z of median correlation (dimensionless)")
+    ax_b.legend(handles=[
+        Patch(facecolor=style.NEUTRAL, label="kept"),
+        Patch(facecolor=style.SERIES[3], edgecolor=C_DARK, hatch="//",
+              label=f"flagged, z below {style.num(-FIG20_Z_THRESH, '.1f')}"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    style.panel_title(ax_b, "B", "Robust z of each channel's median correlation\n(jnwb.bad_channels_from_correlation)")
+
+    image_c = ax_c.imshow(per_channel.astype(float), cmap="cividis", vmin=0.0, vmax=1.0, aspect="auto",
+                          interpolation="nearest")
+    cbar = fig.colorbar(image_c, ax=ax_c)
+    cbar.set_ticks([0.0, 1.0])
+    cbar.set_ticklabels(["kept", "flagged"])
+    ax_c.set_yticks(np.arange(0, len(good), 4))
+    ax_c.set_yticklabels(good[::4])
+    ax_c.set_xticks(np.arange(0, FIG20_N_TRIALS, 8))
+    ax_c.set_xlabel("Trial index")
+    ax_c.set_ylabel("Channel index (good channels)")
+    style.panel_title(ax_c, "C", "Single-channel trial flags on good channels\n(jnwb.bad_trials_single_channel)")
+
+    trial_index = np.arange(FIG20_N_TRIALS)
+    ax_d.bar(trial_index[~consensus], fraction[~consensus], color=style.NEUTRAL, width=0.7)
+    ax_d.bar(trial_index[consensus], fraction[consensus], color=style.SERIES[3], edgecolor=C_DARK,
+             hatch="//", lw=style.EDGE, width=0.7)
+    ax_d.axhline(FIG20_MIN_FRAC, color=C_DARK, ls="--", lw=style.LW_THIN)
+    ax_d.set_ylim(0.0, 1.0)
+    ax_d.set_xticks(np.arange(0, FIG20_N_TRIALS, 8))
+    ax_d.set_xlabel("Trial index")
+    ax_d.set_ylabel("Fraction of good channels flagged")
+    ax_d.legend(handles=[
+        Patch(facecolor=style.NEUTRAL, label="not consensus"),
+        Patch(facecolor=style.SERIES[3], edgecolor=C_DARK, hatch="//",
+              label=f"consensus bad, {len(FIG20_CONSENSUS_TRIALS)} trials, fraction at least "
+                    f"{style.num(FIG20_MIN_FRAC, '.2f')}"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
+    style.panel_title(ax_d, "D", "Consensus bad trials across good channels\n(jnwb.consensus_bad_trials)")
+
+    fig.tight_layout()
+    _save(fig, "fig20_bad_channels_and_trials.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -984,6 +1218,8 @@ FIGURES = {
     "fig13_vflip_band_profiles.png": fig13_vflip_band_profiles,
     "fig14_causal_vs_gaussian_step.png": fig14_causal_vs_gaussian_step,
     "fig15_spike_phase_locking.png": fig15_spike_phase_locking,
+    "fig19_rdms_and_jrsa.png": fig19_rdms_and_jrsa,
+    "fig20_bad_channels_and_trials.png": fig20_bad_channels_and_trials,
 }
 
 
