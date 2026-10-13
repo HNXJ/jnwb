@@ -124,6 +124,14 @@ def test_docs_links_carry_the_read_the_docs_version_path(data):
     assert all(page.startswith(docs) and page.endswith("/") for page in pages), pages
 
 
+def test_every_source_is_a_path_in_the_repository(data):
+    sources = [path for paths in data["sources"].values() for path in paths]
+    assert any(path.startswith("docs/") and path.endswith(".md") for path in sources), \
+        "fixture must name a docs page among its sources"
+    missing = [path for path in sources if not (REPO_ROOT / path).exists()]
+    assert not missing, missing
+
+
 def test_api_total_is_len_of_all(data):
     assert data["api"]["total"] > 0, "fixture must export symbols"
     assert data["api"]["total"] == len(jnwb.__all__)

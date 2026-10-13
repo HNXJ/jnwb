@@ -471,8 +471,8 @@ def build_data() -> dict:
     order = order_section()
     figures = figures_section()
     showcases = showcases_section()
-    pages = sorted({f"{_rel(DOCS)}/{figure['docs_page'].rstrip('/')}.md"
-                    for figure in figures if figure["docs_page"]})
+    pages = sorted({_rel(page) for figure in figures
+                    if (page := _explaining_page(Path(figure["light"]).name))})
     sources = {
         "generated": [".git"],
         "release": _present(PYPROJECT, INIT_PATH, CHANGELOG),
