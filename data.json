@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "e5b4dfa38a89724bb8da373e179f9a3f397072bf",
-    "date": "2026-10-13T17:12:36Z"
+    "commit": "4263c70c9538692a616de08a665986d402702789",
+    "date": "2026-10-13T18:04:55Z"
   },
   "sources": {
     "generated": [
@@ -37,14 +37,15 @@
     ],
     "figures": [
       "docs/assets/figures",
-      "docs/02_paths_addressing_metadata.md",
-      "docs/04_spectral_analysis_and_tfr.md",
-      "docs/05_artifact_detection_and_repair.md",
-      "docs/06_spikes_psth_and_onset_dynamics.md",
-      "docs/07_statistical_inference_and_nulls.md",
-      "docs/08_directed_connectivity_and_information.md",
-      "docs/09_decoding_and_visual_qc.md",
-      "docs/coherence_and_tfr.md"
+      "docs/https://jnwb.readthedocs.io/en/latest/02_paths_addressing_metadata.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/03_representational_similarity_jrsa.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/05_artifact_detection_and_repair.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/07_statistical_inference_and_nulls.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/08_directed_connectivity_and_information.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/09_decoding_and_visual_qc.md",
+      "docs/https://jnwb.readthedocs.io/en/latest/coherence_and_tfr.md"
     ],
     "showcases": [
       "artifacts/showcases/openscope_glo.json"
@@ -62,7 +63,7 @@
     ],
     "links": {
       "pypi": "https://pypi.org/project/jnwb/0.2.11/",
-      "docs": "https://jnwb.readthedocs.io/",
+      "docs": "https://jnwb.readthedocs.io/en/latest/",
       "repo": "https://github.com/HNXJ/jnwb",
       "changelog": "https://github.com/HNXJ/jnwb/blob/main/CHANGELOG.md"
     }
@@ -3998,126 +3999,140 @@
       "title": "fig01_addressing_laminar",
       "light": "assets/fig01_addressing_laminar.png",
       "dark": "assets/fig01_addressing_laminar.dark.png",
-      "docs_page": "02_paths_addressing_metadata/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/02_paths_addressing_metadata/"
     },
     {
       "id": "fig02_raster_psth",
       "title": "fig02_raster_psth",
       "light": "assets/fig02_raster_psth.png",
       "dark": "assets/fig02_raster_psth.dark.png",
-      "docs_page": "06_spikes_psth_and_onset_dynamics/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics/"
     },
     {
       "id": "fig03_onset_fitting",
       "title": "fig03_onset_fitting",
       "light": "assets/fig03_onset_fitting.png",
       "dark": "assets/fig03_onset_fitting.dark.png",
-      "docs_page": "06_spikes_psth_and_onset_dynamics/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics/"
     },
     {
       "id": "fig04_psd_spectral_tilt",
       "title": "fig04_psd_spectral_tilt",
       "light": "assets/fig04_psd_spectral_tilt.png",
       "dark": "assets/fig04_psd_spectral_tilt.dark.png",
-      "docs_page": "04_spectral_analysis_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr/"
     },
     {
       "id": "fig05_complex_tfr_coi",
       "title": "fig05_complex_tfr_coi",
       "light": "assets/fig05_complex_tfr_coi.png",
       "dark": "assets/fig05_complex_tfr_coi.dark.png",
-      "docs_page": "coherence_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/coherence_and_tfr/"
     },
     {
       "id": "fig06_aggregate_to_db",
       "title": "fig06_aggregate_to_db",
       "light": "assets/fig06_aggregate_to_db.png",
       "dark": "assets/fig06_aggregate_to_db.dark.png",
-      "docs_page": "04_spectral_analysis_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr/"
     },
     {
       "id": "fig07_population_decoding",
       "title": "fig07_population_decoding",
       "light": "assets/fig07_population_decoding.png",
       "dark": "assets/fig07_population_decoding.dark.png",
-      "docs_page": "09_decoding_and_visual_qc/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/09_decoding_and_visual_qc/"
     },
     {
       "id": "fig08_permutation_null",
       "title": "fig08_permutation_null",
       "light": "assets/fig08_permutation_null.png",
       "dark": "assets/fig08_permutation_null.dark.png",
-      "docs_page": "07_statistical_inference_and_nulls/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/07_statistical_inference_and_nulls/"
     },
     {
       "id": "fig09_directed_connectivity",
       "title": "fig09_directed_connectivity",
       "light": "assets/fig09_directed_connectivity.png",
       "dark": "assets/fig09_directed_connectivity.dark.png",
-      "docs_page": "08_directed_connectivity_and_information/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/08_directed_connectivity_and_information/"
     },
     {
       "id": "fig10_artifact_repair",
       "title": "fig10_artifact_repair",
       "light": "assets/fig10_artifact_repair.png",
       "dark": "assets/fig10_artifact_repair.dark.png",
-      "docs_page": "05_artifact_detection_and_repair/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/05_artifact_detection_and_repair/"
     },
     {
       "id": "fig11_spectra_canonical_bands",
       "title": "fig11_spectra_canonical_bands",
       "light": "assets/fig11_spectra_canonical_bands.png",
       "dark": "assets/fig11_spectra_canonical_bands.dark.png",
-      "docs_page": "04_spectral_analysis_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr/"
     },
     {
       "id": "fig12_coherence_zero_lag",
       "title": "fig12_coherence_zero_lag",
       "light": "assets/fig12_coherence_zero_lag.png",
       "dark": "assets/fig12_coherence_zero_lag.dark.png",
-      "docs_page": "coherence_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/coherence_and_tfr/"
     },
     {
       "id": "fig13_vflip_band_profiles",
       "title": "fig13_vflip_band_profiles",
       "light": "assets/fig13_vflip_band_profiles.png",
       "dark": "assets/fig13_vflip_band_profiles.dark.png",
-      "docs_page": "04_spectral_analysis_and_tfr/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/04_spectral_analysis_and_tfr/"
     },
     {
       "id": "fig14_causal_vs_gaussian_step",
       "title": "fig14_causal_vs_gaussian_step",
       "light": "assets/fig14_causal_vs_gaussian_step.png",
       "dark": "assets/fig14_causal_vs_gaussian_step.dark.png",
-      "docs_page": "06_spikes_psth_and_onset_dynamics/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics/"
     },
     {
       "id": "fig15_spike_phase_locking",
       "title": "fig15_spike_phase_locking",
       "light": "assets/fig15_spike_phase_locking.png",
       "dark": "assets/fig15_spike_phase_locking.dark.png",
-      "docs_page": "06_spikes_psth_and_onset_dynamics/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/06_spikes_psth_and_onset_dynamics/"
     },
     {
       "id": "fig16_cluster_permutation",
       "title": "fig16_cluster_permutation",
       "light": "assets/fig16_cluster_permutation.png",
       "dark": "assets/fig16_cluster_permutation.dark.png",
-      "docs_page": "07_statistical_inference_and_nulls/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/07_statistical_inference_and_nulls/"
     },
     {
       "id": "fig17_spectral_granger",
       "title": "fig17_spectral_granger",
       "light": "assets/fig17_spectral_granger.png",
       "dark": "assets/fig17_spectral_granger.dark.png",
-      "docs_page": "08_directed_connectivity_and_information/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/08_directed_connectivity_and_information/"
     },
     {
       "id": "fig18_psi_narrowband_trap",
       "title": "fig18_psi_narrowband_trap",
       "light": "assets/fig18_psi_narrowband_trap.png",
       "dark": "assets/fig18_psi_narrowband_trap.dark.png",
-      "docs_page": "08_directed_connectivity_and_information/"
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/08_directed_connectivity_and_information/"
+    },
+    {
+      "id": "fig19_rdms_and_jrsa",
+      "title": "fig19_rdms_and_jrsa",
+      "light": "assets/fig19_rdms_and_jrsa.png",
+      "dark": "assets/fig19_rdms_and_jrsa.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/03_representational_similarity_jrsa/"
+    },
+    {
+      "id": "fig20_bad_channels_and_trials",
+      "title": "fig20_bad_channels_and_trials",
+      "light": "assets/fig20_bad_channels_and_trials.png",
+      "dark": "assets/fig20_bad_channels_and_trials.dark.png",
+      "docs_page": "https://jnwb.readthedocs.io/en/latest/05_artifact_detection_and_repair/"
     }
   ],
   "showcases": {
