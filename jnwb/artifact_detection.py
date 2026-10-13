@@ -66,6 +66,13 @@ def channel_correlation_matrix(data_ch_by_time: np.ndarray) -> np.ndarray:
     (6000, 6000) matrix, and ``bad_channels_from_correlation`` then reported a 6000-entry
     verdict flagging 0 "channels". The refusal is here rather than in the verdict because
     this is where rows stop being channels.
+
+    References:
+        Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
+        preprocessing for large-scale EEG analysis. Front. Neuroinform.
+        doi:10.3389/fninf.2015.00016 -- correlation-based bad-channel screening,
+        for which this is the Pearson matrix the detector consumes. The paper's
+        screening criteria are not this function.
     """
     arr = np.asarray(data_ch_by_time, dtype=float)
     if arr.ndim == 2:
@@ -80,7 +87,20 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
 
     summary = median off-diagonal correlation for that channel's row (how well it agrees with
     the rest of the probe). bad = summary is a robust-z low outlier vs the OTHER channels'
-    summaries (self-referential: a session with genuinely no bad channels should flag ~0)."""
+    summaries (self-referential: a session with genuinely no bad channels should flag ~0).
+
+    References:
+        Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
+        preprocessing for large-scale EEG analysis. Front. Neuroinform.
+        doi:10.3389/fninf.2015.00016 -- correlation-based bad-channel screening.
+        This flags median off-diagonal correlation as a robust-z low outlier
+        against the other channels, not PREP's criteria.
+        Leys, C., et al. (2013). Detecting outliers: do not use standard
+        deviation around the mean, use absolute deviation around the median.
+        J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
+        outlier rule, with the normal-consistent x1.4826 scaling. The default
+        threshold (5.0) is jnwb's, not the paper's.
+    """
     n = corr.shape[0]
     if n < 2:
         return np.zeros(n, dtype=bool), np.full(n, np.nan), np.full(n, np.nan)
@@ -102,7 +122,15 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
 
 
 def trial_correlation_matrix(trial_waveforms: np.ndarray) -> np.ndarray:
-    """trial_waveforms: (n_trials, n_times), single channel. Returns (n_trials, n_trials) corr."""
+    """trial_waveforms: (n_trials, n_times), single channel. Returns (n_trials, n_trials) corr.
+
+    References:
+        Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
+        preprocessing for large-scale EEG analysis. Front. Neuroinform.
+        doi:10.3389/fninf.2015.00016 -- correlation-based bad-trial screening,
+        for which this is the Pearson matrix the detector consumes. The paper's
+        screening criteria are not this function.
+    """
     return _pearson_rows(trial_waveforms)
 
 
@@ -122,7 +150,20 @@ def bad_trials_single_channel(
     A trial is flagged if its median correlation to all other trials on this channel is a low
     robust-z outlier, OR its own max |amplitude| is a high robust-z outlier (either is
     sufficient on a single channel; cross-channel consensus below is what actually decides
-    exclusion)."""
+    exclusion).
+
+    References:
+        Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized
+        preprocessing for large-scale EEG analysis. Front. Neuroinform.
+        doi:10.3389/fninf.2015.00016 -- correlation-based bad-trial screening on
+        a single channel. The cross-channel consensus that actually decides
+        exclusion is jnwb's, not PREP's.
+        Leys, C., et al. (2013). Detecting outliers: do not use standard
+        deviation around the mean, use absolute deviation around the median.
+        J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
+        outlier rule (x1.4826) behind both the correlation and the amplitude
+        flags. The default thresholds are jnwb's, not the paper's.
+    """
     trial_waveforms = np.asarray(trial_waveforms, dtype=float)
     n = trial_waveforms.shape[0]
     if n < 2:

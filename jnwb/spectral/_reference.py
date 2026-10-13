@@ -100,6 +100,15 @@ def laplacian_reference(channel_data: np.ndarray, channel_order: Optional[np.nda
     Raises:
         ValueError: If ``channel_data`` is not 2-D, has fewer than 2 channels, or
             ``channel_order`` is not a permutation of ``range(n_channels)``.
+
+    References:
+        Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density
+        analysis and determination of conductivity tensor for anuran cerebellum.
+        J. Neurophysiol. doi:10.1152/jn.1975.38.2.356 -- the three-point second
+        difference of the potential along the shaft. Each interior output is
+        data minus the neighbor mean, which is -1/2 times that difference, with
+        no pitch or conductivity scaling; edge channels subtract their single
+        neighbor, a first difference, and the output keeps every channel.
     """
     channel_data = np.asarray(channel_data, dtype=float)
     if channel_data.ndim != 2:

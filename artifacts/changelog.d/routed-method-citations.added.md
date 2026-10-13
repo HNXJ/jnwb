@@ -1,0 +1,1 @@
+- docs/references.md: 28 more routed methods cite their published source; each docstring cites the same DOI

@@ -60,6 +60,13 @@ def spike_mutual_information(
 
     Returns:
         mi: Mutual Information in bits
+
+    References:
+        Shannon, C. E. (1948). A mathematical theory of communication. Bell Syst.
+        Tech. J. doi:10.1002/j.1538-7305.1948.tb01338.x -- discrete mutual
+        information from the empirical joint distribution of the binned trains,
+        in bits. A plug-in estimate on finite bins with no bias correction, of
+        bin occupancy or per-bin counts rather than the full trains.
     """
     return _spike_mi(spike_times1, spike_times2, time_window_s, bin_size_ms, estimator,
                      time_window, "spike_mutual_information")
@@ -108,7 +115,13 @@ def binary_occupancy_mutual_information(
     *,
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Deprecated alias for binary occupancy MI. `time_window_s` is in seconds."""
+    """Deprecated alias for binary occupancy MI. `time_window_s` is in seconds.
+
+    References:
+        Shannon, C. E. (1948). A mathematical theory of communication. Bell Syst.
+        Tech. J. doi:10.1002/j.1538-7305.1948.tb01338.x -- discrete mutual
+        information, computed here on binned spike occupancy with no bias correction.
+    """
     warnings.warn(
         "binary_occupancy_mutual_information is deprecated; use "
         "spike_mutual_information(..., estimator='binary_occupancy').",
@@ -127,7 +140,13 @@ def spike_count_mutual_information(
     *,
     time_window: Optional[Tuple[float, float]] = None,
 ) -> float:
-    """Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds."""
+    """Deprecated alias for discrete MI on per-bin spike counts. `time_window_s` is in seconds.
+
+    References:
+        Shannon, C. E. (1948). A mathematical theory of communication. Bell Syst.
+        Tech. J. doi:10.1002/j.1538-7305.1948.tb01338.x -- discrete mutual
+        information, computed here on per-bin spike counts with no bias correction.
+    """
     warnings.warn(
         "spike_count_mutual_information is deprecated; use "
         "spike_mutual_information(..., estimator='spike_count').",

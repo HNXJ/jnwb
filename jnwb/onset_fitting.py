@@ -59,6 +59,14 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     Returns smoothed rate, same shape as input.
     Raises ValueError if ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms``
     is not finite and positive.
+
+    References:
+        Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
+        of neuronal firing rates: from single-neuron spike trains to population
+        activity. J. Neurosci. Methods. doi:10.1016/s0165-0270(99)00127-2 --
+        single-trial rate estimation by causal kernel smoothing. This smooths an
+        already-binned rate with a finite 5-tau exponential window, left-edge
+        padded, not spike times; no filter delay is subtracted from a fitted t0.
     """
     tau_ms = _positive_finite(tau_ms, "tau_ms", "causal_exp_smooth")
     bin_ms = _positive_finite(bin_ms, "bin_ms", "causal_exp_smooth")
@@ -98,6 +106,15 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     sigma_bins: Gaussian standard deviation, in bins.
     Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
     Raises ValueError if ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and positive.
+
+    References:
+        Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
+        of neuronal firing rates: from single-neuron spike trains to population
+        activity. J. Neurosci. Methods. doi:10.1016/s0165-0270(99)00127-2 --
+        single-trial rate estimation by kernel smoothing. Nawrot's causal kernels
+        are the exponential and the alpha; the past-only truncated Gaussian is
+        jnwb's. It applies to an already-binned rate, not spike times,
+        and returns the kernel's exact centroid as the mean lag alongside it.
     """
     sigma = _positive_finite(sigma_bins, "sigma_bins", "causal_gaussian_smooth")
     j = np.arange(int(np.ceil(4.0 * sigma)) + 1)

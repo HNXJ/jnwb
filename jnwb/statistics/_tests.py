@@ -69,6 +69,14 @@ def mann_whitney_p_floor(n1: int, n2: int, alternative: str = "two-sided") -> fl
 
     Raises:
         ValueError: If n1 < 1, n2 < 1, or alternative is unrecognized.
+
+    References:
+        Mann, H. B., & Whitney, D. R. (1947). On a test of whether one of two
+        random variables is stochastically larger than the other. Ann. Math.
+        Stat. doi:10.1214/aoms/1177730491 -- the rank-permutation null: the
+        extreme allocation has probability 1/comb(n1+n2, n1), doubled for the
+        two-sided floor and capped at 1. This is the attainable-p floor only,
+        not the U test, which scipy computes.
     """
     try:
         n1_int = int(n1)
@@ -129,6 +137,16 @@ def exact_sign_flip(
 
     Raises:
         ValueError: If diffs is empty, contains non-finite values, or alternative is invalid.
+
+    References:
+        Pitman, E. J. G. (1937). Significance tests which may be applied to
+        samples from any populations. J. R. Stat. Soc. B.
+        doi:10.2307/2984124 -- the paired permutation null over all 2^N sign
+        assignments, enumerated exactly at N <= 20. Above that the null is
+        Monte Carlo draws, whose p-value is (1 + k)/(B + 1):
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be
+        zero. Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585 -- the
+        exact Monte Carlo p-value over B random permutations.
     """
     arr = np.asarray(diffs, dtype=float).ravel()
     if arr.size == 0:
@@ -249,6 +267,14 @@ def shuffle_pvalue_paired(
     Raises:
         ValueError: If ``a`` and ``b`` differ in length (they were truncated to the shorter,
             pairing unrelated trials), contain NaN or Inf, or ``n_shuffles`` < 1.
+
+    References:
+        Pitman, E. J. G. (1937). Significance tests which may be applied to
+        samples from any populations. J. R. Stat. Soc. B.
+        doi:10.2307/2984124 -- the paired sign-flip null: swapping the a/b labels
+        within each pair. The p-value is the exact Monte Carlo form (1 + k)/(B + 1):
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be
+        zero. Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585.
     """
     rng = resolve_rng(rng, func_name="shuffle_pvalue_paired")
     a = np.asarray(a, dtype=float)
@@ -306,6 +332,13 @@ def shuffle_pvalue_unpaired(
 
     Raises:
         ValueError: If ``a`` or ``b`` contains NaN or Inf, or ``n_shuffles`` < 1.
+
+    References:
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be
+        zero. Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585 -- the
+        exact Monte Carlo p-value (1 + k)/(B + 1) over label-shuffled splits of
+        the pooled groups. The null here is label permutation, not paired
+        sign-flips.
     """
     rng = resolve_rng(rng, func_name="shuffle_pvalue_unpaired")
     a = np.asarray(a, dtype=float)

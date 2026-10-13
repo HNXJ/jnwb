@@ -362,6 +362,22 @@ def vflip(
             depth declaration is incomplete, names an unknown axis or end, comes without a
             `probe_geometry`, or names an axis that does not change along the shaft or is
             not monotone along it.
+
+    References:
+        Mendoza-Halliday, D., et al. (2024). A ubiquitous spectrolaminar motif of
+        local field potential power across the primate cortex. Nat. Neurosci.
+        doi:10.1038/s41593-023-01554-7 -- the motif `vflip` tests for: gamma
+        relative power peaking superficially, alpha-beta deep, with the crossover
+        near layer 4. This is not the paper's FLIP or vFLIP procedure, which
+        normalizes by the highest-power channel, fits regressions over a
+        goodness-of-fit channel range and, for vFLIP, searches over band pairs.
+        Bastos, A. M., et al. (2018). Laminar recordings in frontal cortex suggest
+        distinct layers for maintenance and control of working memory. PNAS.
+        doi:10.1073/pnas.1710323115 -- relative power profiles per frequency
+        across contacts and their crossover. The paper divides by the largest
+        power across contacts; `vflip` subtracts the smallest as well, uses
+        8-30 Hz and 50-150 Hz by default and rescales each profile before
+        finding the crossing.
     """
     # 1. Parameter validation
     if not np.isfinite(min_support_score):

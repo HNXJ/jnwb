@@ -672,6 +672,15 @@ class StatisticalAnalysis:
         Equivalent to ``compare_groups`` minus the ``multiple_comparison`` block. The result
         carries ``correction: "none"``, so a consumer reading it can tell these p-values were
         not corrected without knowing which entry point produced them.
+
+        References:
+            Efron, B. (1979). Bootstrap methods: another look at the jackknife.
+            Ann. Stat. doi:10.1214/aos/1176344552 -- the nonparametric bootstrap
+            behind the mean-difference interval: resampling with replacement. The
+            percentile interval over the resamples is jnwb's choice and is not in
+            this paper. Computed by ``compare_groups`` through
+            ``_bootstrap_mean_diff_ci``. This entry point only forwards there and
+            strips the correction block; the p-values stay raw.
         """
         # Re-use compare_groups and strip the multiple_comparison block
         with warnings.catch_warnings():
@@ -810,6 +819,12 @@ class StatisticalAnalysis:
         """Exact (Clopper-Pearson) binomial confidence interval via Beta quantiles.
 
         Forwards to the module-level `clopper_pearson`, which holds the implementation.
+
+        References:
+            Clopper, C. J., & Pearson, E. S. (1934). The use of confidence or
+            fiducial limits illustrated in the case of the binomial. Biometrika.
+            doi:10.1093/biomet/26.4.404 -- the exact binomial interval, computed
+            from Beta quantiles.
         """
         return clopper_pearson(k, n, alpha=alpha)
 

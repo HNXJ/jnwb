@@ -379,6 +379,15 @@ def phase_locking_index(
         >>> print(f"Preferred phase: {res['preferred_phase']:.3f} (Rayleigh p={res['rayleigh_pvalue']:.4f})")
         >>> # For unbiased across-unit comparison, use PPC:
         >>> ppc = pairwise_phase_consistency(spike_phases)
+
+    References:
+        Berens, P. (2009). CircStat: a MATLAB toolbox for circular statistics.
+        J. Stat. Softw. doi:10.18637/jss.v031.i10 -- the Rayleigh test z = nR^2
+        for circular non-uniformity, as circ_rtest computes it. The p-value,
+        exp(-z)(1 + (2z - z^2)/4n), truncates after its first-order term, and at
+        every n, the large-sample series of Fisher (1993, p. 70) that circ_rtest
+        lists as outdated; circ_rtest itself uses the Zar approximation. The histogram contrast
+        (peak_to_mean_contrast) is jnwb's own heuristic, not the paper's.
     """
     # No spike, no phase: every value field stays NaN until a spike phase is computed.
     result = {
@@ -567,6 +576,14 @@ def gaussian_smooth_rate(
 
     Raises:
         ValueError: If `bin_ms` is not finite and positive, or `sigma_ms` is not finite.
+
+    References:
+        Nawrot, M. P., Aertsen, A., & Rotter, S. (1999). Single-trial estimation
+        of neuronal firing rates: from single-neuron spike trains to population
+        activity. J. Neurosci. Methods. doi:10.1016/s0165-0270(99)00127-2 --
+        single-trial rate estimation by kernel smoothing. This smooths an
+        already-binned rate with a symmetric acausal Gaussian (scipy), not spike
+        times, and reports rather than refuses the support non-finite bins lose.
     """
     if not (np.isfinite(bin_ms) and bin_ms > 0):
         raise ValueError(f"bin_ms must be finite and strictly positive; got {bin_ms}.")

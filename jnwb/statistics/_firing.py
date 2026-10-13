@@ -79,6 +79,17 @@ def paired_fire_prob_test(
         dict with p_fire_target, p_fire_baseline, risk_difference (+ CI),
         odds_ratio (+ CI), p_value_fire_shuffle, n_trials. All-NaN/p=1.0 when fewer than 2
         paired trials are available.
+
+    References:
+        Pitman, E. J. G. (1937). Significance tests which may be applied to
+        samples from any populations. J. R. Stat. Soc. B.
+        doi:10.2307/2984124 -- the shuffle-null on which member of each pair
+        counts as target, a sign-flip of the paired difference. The p-value is
+        the exact Monte Carlo form (1 + k)/(B + 1):
+        Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be
+        zero. Stat. Appl. Genet. Mol. Biol. doi:10.2202/1544-6115.1585. The
+        risk-difference interval is a paired percentile bootstrap and the odds
+        ratio a McNemar-style discordant-pair estimate, neither paper's.
     """
     rng = resolve_rng(rng, func_name="paired_fire_prob_test")
     t = np.asarray(fires_target, dtype=bool)

@@ -204,6 +204,17 @@ def nested_cv_linear_svm(
             a NaN or infinity in a float array, mixes ids that cannot be
             compared, or if a grouped
             outer training set holds a single class.
+
+    References:
+        Cortes, C., & Vapnik, V. (1995). Support-vector networks. Mach. Learn.
+        doi:10.1007/bf00994018 -- the linear maximum-margin classifier, run here
+        as scikit-learn's SVC(kernel='linear') with an inner GridSearchCV over C,
+        not the paper's training algorithm.
+        Varma, S., & Simon, R. (2006). Bias in error estimation when using
+        cross-validation for model selection. BMC Bioinformatics.
+        doi:10.1186/1471-2105-7-91 -- the nested scheme this implements: C is
+        selected on inner folds and error is estimated on held-out outer folds,
+        so selection does not optimistically bias the reported accuracy.
     """
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)

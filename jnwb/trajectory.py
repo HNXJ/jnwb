@@ -148,6 +148,14 @@ def compute_population_trajectory(
         keeps it), a relative gap of 1.5e-5 moved a loading by up to 0.009 (median 0.003)
         between CPU and CUDA over ten random 500 x 20 matrices, and a gap of 1e-3 by up to 1e-4.
         The decomposition here is in float64.
+
+    References:
+        Cunningham, J. P., & Yu, B. M. (2014). Dimensionality reduction for
+        large-scale neural recordings. Nat. Neurosci. doi:10.1038/nn.3776 -- PCA
+        as a population-trajectory method. This is standardized correlation PCA
+        (units z-scored before SVD, so each contributes equally regardless of
+        rate), not covariance PCA; the review surveys the method rather than
+        specifying this pipeline.
     """
     X, unit_ids, bin_centers = build_time_resolved_matrix(
         session, area, epochs_df, time_window_ms, bin_size_ms, quality

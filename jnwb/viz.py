@@ -140,6 +140,14 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
         ValueError: If ``win_ms`` is not finite with end > start, ``bin_ms`` is not positive,
             or the span of ``win_ms`` is not a whole multiple of ``bin_ms``; the message names
             the nearest valid windows.
+
+    References:
+        Gerstein, G. L., & Kiang, N. Y.-S. (1960). An approach to the quantitative
+        analysis of electrophysiological data from single neurons. Biophys. J.
+        doi:10.1016/s0006-3495(60)86872-5 -- the post-stimulus time histogram:
+        trial-averaged firing rate in time bins around onset. This returns the
+        full mean-plus-SEM rate curve in right-open millisecond bins, NaN with
+        no onsets.
     """
     if not (np.all(np.isfinite(win_ms)) and win_ms[1] > win_ms[0]):
         raise ValueError(f"raster_psth: win_ms={tuple(win_ms)} must be finite with end > start")

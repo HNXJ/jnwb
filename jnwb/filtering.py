@@ -20,6 +20,13 @@ def bandpass_filter(
     axis: int = -1,
 ) -> np.ndarray:
     '''Apply a Butterworth bandpass filter using Second-Order Sections (SOS).
+
+    References:
+        Virtanen, P., et al. (2020). SciPy 1.0: fundamental algorithms for
+        scientific computing in Python. Nat. Methods. doi:10.1038/s41592-019-0686-2
+        -- the scipy.signal routines this runs through: Butterworth SOS design
+        (butter) with zero-phase forward-backward (sosfiltfilt) or causal forward
+        (sosfilt) application. The paper describes the library, not this filter.
     '''
     if fs <= 0:
         raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
@@ -58,6 +65,13 @@ def notch_filter(
     axis: int = -1,
 ) -> np.ndarray:
     '''Apply an IIR notch filter using Second-Order Sections (SOS) conversion.
+
+    References:
+        Virtanen, P., et al. (2020). SciPy 1.0: fundamental algorithms for
+        scientific computing in Python. Nat. Methods. doi:10.1038/s41592-019-0686-2
+        -- the scipy.signal routines this runs through: notch design (iirnotch),
+        transfer-function to SOS conversion (tf2sos), and zero-phase (sosfiltfilt)
+        or causal (sosfilt) application. The paper describes the library, not this filter.
     '''
     if fs <= 0:
         raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")

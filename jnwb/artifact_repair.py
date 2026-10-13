@@ -183,6 +183,14 @@ def repair_lfp_trials(segments, times_ms=None, z_thresh=Z_THRESH,
         synchrony_z_max, z_thresh, exclude_window_ms, reward_window_ms,
         max_trial_fraction, n_time_locked_samples_protected,
         max_fraction_trials_flagged_at_a_sample, warnings.
+
+    References:
+        Leys, C., et al. (2013). Detecting outliers: do not use standard
+        deviation around the mean, use absolute deviation around the median.
+        J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
+        (x1.4826) robust z-scores the synchrony detector is built from. The
+        cross-channel synchrony statistic and the cross-trial median
+        substitution are jnwb's, not the paper's.
     """
     # A window is meaningless without the time axis it indexes. Both were silently dropped
     # when `times_ms` was None, while `diagnostics` still echoed `exclude_window_ms` back
@@ -302,6 +310,13 @@ def detect_band_outliers(band_trace, z_thresh=TFR_Z_THRESH, sided="upper"):
     Raises:
         ValueError: If ``band_trace`` is not 2-D or contains NaN or Inf.
 
+    References:
+        Leys, C., et al. (2013). Detecting outliers: do not use standard
+        deviation around the mean, use absolute deviation around the median.
+        J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
+        outlier rule (x1.4826), here with a pooled global scale over all
+        (trial, time) rather than per-bin scales, and a caller-set threshold.
+
     Warning:
         ``sided="both"`` is not the conservative choice. When the response under study is a
         power decrease, a two-sided detector flags genuine decreases as artifacts and
@@ -353,6 +368,14 @@ def repair_band_artifacts(power, freqs, band_ranges=None, z_thresh=TFR_Z_THRESH,
     runs on the channel-averaged trace in both cases, so the two agree by construction; the 3-D
     form exists so a caller holding channel-averaged power can call this instead of retyping it.
     Returns (repaired, frac_flagged_by_band).
+
+    References:
+        Leys, C., et al. (2013). Detecting outliers: do not use standard
+        deviation around the mean, use absolute deviation around the median.
+        J. Exp. Soc. Psychol. doi:10.1016/j.jesp.2013.03.013 -- the median/MAD
+        outlier rule the detector applies per band, through
+        :func:`detect_band_outliers`. The cross-trial median substitution of
+        flagged cells is jnwb's, not the paper's.
     """
     band_ranges = DEFAULT_BANDS if band_ranges is None else band_ranges
     power = np.asarray(power)
