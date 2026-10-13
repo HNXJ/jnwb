@@ -52,6 +52,9 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+# The one stack reader, shared with STEP 0a (scripts/stack_parse.py): gates 15 and 17 read the
+# same items, at any heading depth, that STEP 0a reads.
+from scripts.stack_parse import item_spans, stack_items as _stack_items  # noqa: E402
 JNWB_DIR = REPO_ROOT / "jnwb"
 OMISSION_DIR = REPO_ROOT / "omission"
 
@@ -1903,20 +1906,7 @@ _ANY_BLOCK_ASSERTION = re.compile(
 
 #: An item id is the cycle's two-digit minor version, a hyphen and a number (`06-40`, `07-01`).
 #: The lookbehind keeps the month and day of a date such as 2026-09-19 from reading as an id.
-_ITEM_HEADER = re.compile(r"^### (\d{2}-\d+)\b", re.MULTILINE)
 _ITEM_ID = re.compile(r"(?<![\w-])\d{2}-\d+\b")
-
-
-def _stack_items(text: str) -> List[Tuple[int, str, str]]:
-    """Every `### 06-NN` item, as (line number, id, item text including its header)."""
-    starts = list(_ITEM_HEADER.finditer(text))
-    items: List[Tuple[int, str, str]] = []
-    for position, match in enumerate(starts):
-        end = starts[position + 1].start() if position + 1 < len(starts) else len(text)
-        items.append(
-            (text.count("\n", 0, match.start()) + 1, match.group(1), text[match.start():end])
-        )
-    return items
 
 
 #: A field label opens a new clause, and so closes the one before it. Used to bound a `Stop:`
@@ -2022,7 +2012,7 @@ def _blocked_by_none_contradictions(
     | a `Stop:` clause opens before the match | the field states the stop; the clause describes it |
     | every item id in the sentence has retired | the block named is discharged with its item |
     """
-    live = {match.group(1) for match in _ITEM_HEADER.finditer(text)}
+    live = {item_id for _lineno, item_id, _start, _end in item_spans(text)}
     flagged: List[Tuple[int, str, str]] = []
     suppressed: List[Tuple[int, str, str, str]] = []
 
@@ -2084,7 +2074,7 @@ def _summary_regions(text: str) -> List[Tuple[int, int]]:
     A count inside an item is that item's own statement about its work. A count in a batch
     preamble is a summary of the items below it, and is derived data stored as prose.
     """
-    starts = [m.start() for m in _ITEM_HEADER.finditer(text)]
+    starts = [start for _lineno, _item_id, start, _end in item_spans(text)]
     heads = [m.start() for m in re.finditer(r"^## ", text, re.MULTILINE)]
     regions: List[Tuple[int, int]] = []
     cursor = 0
@@ -2185,7 +2175,7 @@ def _stale_item_totals(text: str) -> List[Tuple[int, str, int, int, str]]:
     and the noun ("57 open items"), a total phrased without a marker ("the stack holds 57
     items"), counts inside an item body, and the subset numeral in "37 of the 57".
     """
-    live = len(_ITEM_HEADER.findall(text))
+    live = len(item_spans(text))
     stale: List[Tuple[int, str, int, int, str]] = []
     for start, end in _summary_regions(text):
         base = text.count("\n", 0, start) + 1

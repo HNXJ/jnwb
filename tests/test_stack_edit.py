@@ -390,3 +390,77 @@ def test_cli_insert_after_writes_the_file(tmp_path):
     r = _cli("--file", str(p), "--section", "9.9.2", "insert-after", "- ZZ-1", "--from-file", str(new))
     assert r.returncode == 0, r.stderr
     assert p.read_bytes() == _expect("\r\n", LINES[:16] + ["- ZZ-9: new."] + LINES[16:])
+
+
+def _winerror(code):
+    err = PermissionError(13, "Access is denied")
+    err.winerror = code
+    return err
+
+
+def test_a_transient_winerror_5_on_replace_is_retried(tmp_path, monkeypatch):
+    p = _write(tmp_path, "\r\n")
+    real = se.os.replace
+    calls = []
+
+    def flaky(src, dst):
+        calls.append(src)
+        if len(calls) == 1:
+            raise _winerror(5)
+        return real(src, dst)
+
+    monkeypatch.setattr(se.os, "replace", flaky)
+    monkeypatch.setattr(se, "REPLACE_DELAY_S", 0, raising=False)
+    se.edit(p, [lambda d: se.delete(d, "- ZZ-3", "9.9.1")])
+    assert len(calls) == 2, "the WinError 5 was not retried"
+    assert p.read_bytes() == _expect("\r\n", _without(9))
+    assert sorted(x.name for x in tmp_path.iterdir()) == ["stack.md"]
+
+
+def test_only_winerror_5_is_retried(tmp_path, monkeypatch):
+    p = _write(tmp_path, "\r\n")
+    before = p.read_bytes()
+    calls = []
+
+    def refused(src, dst):
+        calls.append(src)
+        raise _winerror(32)
+
+    monkeypatch.setattr(se.os, "replace", refused)
+    monkeypatch.setattr(se, "REPLACE_DELAY_S", 0, raising=False)
+    with pytest.raises(OSError):
+        se.edit(p, [lambda d: se.delete(d, "- ZZ-3")])
+    assert len(calls) == 1
+    assert p.read_bytes() == before
+
+
+def test_chained_ops_in_one_edit_apply_in_order_to_the_result(tmp_path, nl):
+    p = _write(tmp_path, nl)
+    new = se.read_bullets(_text(tmp_path, "- ZZ-5: epsilon."))
+    se.edit(p, [
+        lambda d: se.insert_after(d, "- ZZ-3", new),
+        lambda d: se.sub(d, "- ZZ-5", "epsilon", "eta"),
+        lambda d: se.delete(d, "- ZZ-4"),
+    ])
+    want = LINES[:10] + ["- ZZ-5: eta."] + LINES[10:16] + LINES[17:]
+    assert p.read_bytes() == _expect(nl, want)
+
+
+def test_replace_refuses_to_remove_a_code_fence_line(tmp_path):
+    raw = b"- ZZ-1: real\n  ```\n  code\n  ```\n- ZZ-2: after\n"
+    p = tmp_path / "fence.md"
+    p.write_bytes(raw)
+    new = se.read_bullets(_text(tmp_path, "- ZZ-1: rewritten."))
+    with pytest.raises(se.StackEditError, match="fence"):
+        se.edit(p, [lambda d: se.replace(d, "- ZZ-1", new)])
+    assert p.read_bytes() == raw
+
+
+def test_a_seven_hash_heading_is_a_section_to_the_editor():
+    lines = ["####### Deep section", "", "- ZZ-1: under deep.", "####### Next deep", "", "- ZZ-2: x.", ""]
+    assert se.section_range(lines, "####### Deep section") == (1, 3)
+
+
+def test_the_editor_reads_headings_by_the_gates_rule():
+    from scripts import stack_parse
+    assert se.HEADING is stack_parse.HEADING
