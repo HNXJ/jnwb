@@ -1,0 +1,1 @@
+- docs/generate_figures.py: figures of a cluster permutation test, spectral Granger and the narrowband PSI trap

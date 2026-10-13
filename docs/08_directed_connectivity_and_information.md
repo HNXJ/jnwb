@@ -81,6 +81,11 @@ print("Beta-band summary:", spectral_res.per_band.get("beta"))
 [pitfalls of coupling and direction](common_mistakes.md#interpretational-pitfalls-of-coupling-and-direction)
 are stated once there.
 
+![Spectral Granger causality in both directions for a simulated pair](assets/figures/fig17_spectral_granger.png#only-light)
+![Spectral Granger causality in both directions for a simulated pair](assets/figures/fig17_spectral_granger.dark.png#only-dark)
+
+The figure is synthetic: X is an AR(2) process resonating at 22 Hz, and Y carries X at an 8 ms lag with gain 0.8 plus noise. In the 14–30 Hz band, `jnwb.granger_spectral` gives a mean of 3.128 for X to Y and 0.002 for Y to X, with no diagnostic warning.
+
 ---
 
 ## 3. Phase Slope Index (`phase_slope_index`)
@@ -118,6 +123,11 @@ surrogate p, up to 0.46. The default `nperseg` leaves at least 20 segments.
 
 Panel A is `jnwb.granger` at order 15 on a synthetic pair with a known lead; panel B is
 `jnwb.phase_slope_index` on the same pair.
+
+![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.png#only-light)
+![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.dark.png#only-dark)
+
+The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal to X delayed 10 ms plus noise. `jnwb.phase_slope_index` over 18–24 Hz holds one bin, so its net is `nan`; over 15–30 Hz the net is 0.641 (z = 7.91), positive, so X leads Y.
 
 ---
 

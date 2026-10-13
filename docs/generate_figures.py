@@ -1,4 +1,4 @@
-"""Generate 15 canonical figures for jnwb documentation.
+"""Generate 18 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
@@ -966,6 +966,191 @@ def fig15_spike_phase_locking():
     plt.close(fig)
 
 
+#: fig16's simulated conditions: the sampling rate, the epoch start in ms, the sample count, the
+#: frequency grid and the trials per condition. Condition B alone carries a 30 Hz burst from 200 to
+#: 400 ms. The caption names the permutation count and alpha.
+FIG16_FS = 500.0
+FIG16_START_MS = -200.0
+FIG16_N = 500
+FIG16_FREQS = np.arange(8.0, 61.0, 2.0)
+FIG16_TRIALS = 20
+FIG16_CYCLES = 5.0
+FIG16_TAIL = "both"
+FIG16_PLANT_HZ = 30.0
+FIG16_PLANT_MS = (200.0, 400.0)
+FIG16_PLANT_AMP = 1.2
+FIG16_THRESHOLD = 2.5
+FIG16_PERMUTATIONS = 1000
+FIG16_ALPHA = 0.05
+FIG16_SEED = 16
+FIG16_PERM_SEED = 160
+
+
+def fig16_cluster_permutation():
+    """Figure 16: A planted time-frequency difference and the significant cluster that tests it."""
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    rng = np.random.default_rng(FIG16_SEED)
+    t_ms = FIG16_START_MS + np.arange(FIG16_N) * 1000.0 / FIG16_FS
+    burst = (t_ms >= FIG16_PLANT_MS[0]) & (t_ms <= FIG16_PLANT_MS[1])
+    cond_a = rng.normal(0.0, 1.0, (FIG16_TRIALS, FIG16_N))
+    cond_b = rng.normal(0.0, 1.0, (FIG16_TRIALS, FIG16_N))
+    cond_b[:, burst] += FIG16_PLANT_AMP * np.sin(2 * np.pi * FIG16_PLANT_HZ * t_ms[burst] / 1000.0)
+    power_a = jnwb.complex_tfr(cond_a, fs=FIG16_FS, freqs=FIG16_FREQS, n_cycles=FIG16_CYCLES).power
+    power_b = jnwb.complex_tfr(cond_b, fs=FIG16_FS, freqs=FIG16_FREQS, n_cycles=FIG16_CYCLES).power
+
+    result = jnwb.cluster_permutation_test(
+        power_b, power_a, paired=False, threshold=FIG16_THRESHOLD, n_permutations=FIG16_PERMUTATIONS,
+        tail=FIG16_TAIL, rng=np.random.default_rng(FIG16_PERM_SEED))
+    significant = [c for c in result["clusters"] if c["p_value"] < FIG16_ALPHA]
+    assert len(significant) == 1, f"fig16 must hold one significant cluster; it holds {len(significant)}"
+    cluster = significant[0]
+
+    diff = power_b.mean(axis=0) - power_a.mean(axis=0)
+    limit = float(np.abs(diff).max())
+    mesh = ax.pcolormesh(t_ms, FIG16_FREQS, diff, cmap="RdBu_r", vmin=-limit, vmax=limit, shading="auto")
+    ax.contour(t_ms, FIG16_FREQS, cluster["mask"].astype(float), levels=[0.5],
+               colors=[style.SERIES[2]], linewidths=style.LW_THIN)
+    cbar = fig.colorbar(mesh, ax=ax, pad=0.02)
+    cbar.set_label("Power difference, B minus A (a.u.²)")
+
+    ax.set_xlabel("Time (ms)")
+    ax.set_ylabel("Frequency (Hz)")
+    ax.set_title("Cluster-based permutation test (jnwb.cluster_permutation_test)", pad=8)
+    ax.legend(handles=[
+        Line2D([], [], color=style.SERIES[2], lw=style.LW_THIN,
+               label=f"Significant cluster, p = {cluster['p_value']:.3f} "
+                     f"({FIG16_PERMUTATIONS} permutations)"),
+        Patch(visible=False, label=f"Planted effect: {FIG16_PLANT_HZ:.0f} Hz in B, "
+                                   f"{FIG16_PLANT_MS[0]:.0f}–{FIG16_PLANT_MS[1]:.0f} ms"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    fig.tight_layout()
+    _save(fig, "fig16_cluster_permutation.png")
+    plt.close(fig)
+
+
+#: fig17's pair: the sampling rate, the length in samples, X's resonance frequency and pole radius,
+#: the band summarized, the lag of X's drive on Y, its gain, the noise on Y, the highest frequency
+#: drawn and the seed.
+FIG17_FS = 1000.0
+FIG17_N = 4000
+FIG17_PEAK_HZ = 22.0
+FIG17_POLE_RADIUS = 0.97
+FIG17_BAND_HZ = (14.0, 30.0)
+FIG17_LAG_MS = 8.0
+FIG17_GAIN = 0.8
+FIG17_NOISE = 0.6
+FIG17_SHOWN_HZ = 100.0
+FIG17_SEED = 17
+
+
+def fig17_spectral_granger():
+    """Figure 17: Spectral Granger causality in both directions for a pair in which X drives Y."""
+    from scipy.signal import lfilter
+
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    rng = np.random.default_rng(FIG17_SEED)
+    # X is a causal AR(2) resonance and Y a lagged copy plus noise, so the pair is itself a VAR of
+    # low order, which the model behind granger_spectral can fit without reaching max_lag.
+    theta = 2.0 * np.pi * FIG17_PEAK_HZ / FIG17_FS
+    poles = [1.0, -2.0 * FIG17_POLE_RADIUS * np.cos(theta), FIG17_POLE_RADIUS ** 2]
+    x = lfilter([1.0], poles, rng.normal(0.0, 1.0, FIG17_N))
+    x /= np.std(x)
+    lag = int(round(FIG17_LAG_MS * FIG17_FS / 1000.0))
+    y = rng.normal(0.0, FIG17_NOISE, FIG17_N)
+    y[lag:] += FIG17_GAIN * x[:-lag]
+
+    result = jnwb.granger_spectral(x, y, fs=FIG17_FS, bands={"beta": FIG17_BAND_HZ})
+    assert result.diagnostics["ok_for_interpretation"], result.diagnostics["warnings"]
+    freqs = result.spectrum["freqs"]
+    shown = freqs <= FIG17_SHOWN_HZ
+    beta = result.per_band["beta"]
+    ax.axvspan(*FIG17_BAND_HZ, color=C_HIGHLIGHT, alpha=0.4, lw=0,
+               label=f"Band summarized, {FIG17_BAND_HZ[0]:.0f}–{FIG17_BAND_HZ[1]:.0f} Hz "
+                     f"(X resonates at {FIG17_PEAK_HZ:.0f} Hz)")
+    ax.plot(freqs[shown], result.spectrum["gc_x_to_y"][shown], color=style.SERIES[0], lw=style.LW,
+            label=f"X → Y, band mean {style.num(beta['value'], '.3f')}")
+    ax.plot(freqs[shown], result.spectrum["gc_y_to_x"][shown], color=style.SERIES[1], lw=style.LW,
+            ls="--", label=f"Y → X, band mean {style.num(beta['value_reverse'], '.3f')}")
+
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Log variance ratio (spectral Granger)")
+    ax.set_title("Spectral Granger causality (jnwb.granger_spectral)", pad=8)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    fig.tight_layout()
+    _save(fig, "fig17_spectral_granger.png")
+    plt.close(fig)
+
+
+#: fig18's pair: the sampling rate, the length in samples, the delay of Y behind X in ms, the noise
+#: on Y, the narrow and broad bands, the frequency range drawn and the seed.
+FIG18_FS = 1000.0
+FIG18_N = 2000
+FIG18_DELAY_MS = 10.0
+FIG18_NOISE = 0.3
+FIG18_NARROW_HZ = (18.0, 24.0)
+FIG18_BROAD_HZ = (15.0, 30.0)
+FIG18_SHOWN_HZ = (5.0, 50.0)
+FIG18_SEED = 42
+
+
+def _psi_panel(ax, letter: str, name: str, band, result, ylim):
+    """PSI per frequency bin, the bins its net value sums, and the net value and z that band gave."""
+    freqs = result.spectrum["psi_freqs"]
+    shown = (freqs >= FIG18_SHOWN_HZ[0]) & (freqs <= FIG18_SHOWN_HZ[1])
+    stats = result.per_band["band"]
+    # Each PSI point sits between two adjacent FFT bins, and the net sums only the points whose
+    # two bins both lie in the band, so the marking spans the band's bins, not its nominal edges.
+    bins = result.spectrum["freqs"]
+    summed = bins[(bins >= band[0]) & (bins <= band[1])]
+    if summed.size == 1:
+        ax.axvline(summed[0], color=C_HIGHLIGHT, lw=style.LW_THICK,
+                   label=f"One bin in band, {summed[0]:.2f} Hz: no slope term")
+    else:
+        ax.axvspan(summed[0], summed[-1], color=C_HIGHLIGHT, alpha=0.4, lw=0,
+                   label=f"Summed bins, {summed[0]:.1f}–{summed[-1]:.1f} Hz ({summed.size} bins)")
+    ax.plot(freqs[shown], result.spectrum["psi_per_freq"][shown], color=style.SERIES[0], lw=style.LW,
+            marker="o", ms=3.5,
+            label=f"Net PSI = {style.num(result.net, '.3f')}, z = {style.num(stats['z'], '.2f')}")
+    ax.axhline(0, color=style.NEUTRAL, ls="--", lw=style.LW_THIN)
+    ax.set_ylim(*ylim)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("PSI per frequency bin (dimensionless)")
+    style.panel_title(ax, letter, f"{name}, {band[0]:.0f}–{band[1]:.0f} Hz\n(jnwb.phase_slope_index)")
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+
+def fig18_psi_narrowband_trap():
+    """Figure 18: Phase slope index over a narrowband and a broadband band of one delayed pair."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    rng = np.random.default_rng(FIG18_SEED)
+    x = rng.normal(size=FIG18_N)
+    lag = int(round(FIG18_DELAY_MS * FIG18_FS / 1000.0))
+    y = np.roll(x, lag) + FIG18_NOISE * rng.normal(size=FIG18_N)
+    narrow = jnwb.phase_slope_index(x, y, fs=FIG18_FS, bands=FIG18_NARROW_HZ)
+    broad = jnwb.phase_slope_index(x, y, fs=FIG18_FS, bands=FIG18_BROAD_HZ)
+    assert narrow.per_band["band"]["n_freq_bins"] == 1, "fig18's narrow band must hold one bin"
+
+    # One vertical scale for both panels, read from the two drawn spectra, so the bands compare by eye.
+    lo_hi = FIG18_SHOWN_HZ
+    values = np.concatenate([
+        r.spectrum["psi_per_freq"][(r.spectrum["psi_freqs"] >= lo_hi[0]) & (r.spectrum["psi_freqs"] <= lo_hi[1])]
+        for r in (narrow, broad)])
+    pad = 0.15 * (float(values.max()) - float(values.min()))
+    ylim = (float(values.min()) - pad, float(values.max()) + pad)
+
+    _psi_panel(ax1, "A", "Narrowband", FIG18_NARROW_HZ, narrow, ylim)
+    _psi_panel(ax2, "B", "Broadband", FIG18_BROAD_HZ, broad, ylim)
+
+    fig.tight_layout()
+    _save(fig, "fig18_psi_narrowband_trap.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -984,6 +1169,9 @@ FIGURES = {
     "fig13_vflip_band_profiles.png": fig13_vflip_band_profiles,
     "fig14_causal_vs_gaussian_step.png": fig14_causal_vs_gaussian_step,
     "fig15_spike_phase_locking.png": fig15_spike_phase_locking,
+    "fig16_cluster_permutation.png": fig16_cluster_permutation,
+    "fig17_spectral_granger.png": fig17_spectral_granger,
+    "fig18_psi_narrowband_trap.png": fig18_psi_narrowband_trap,
 }
 
 

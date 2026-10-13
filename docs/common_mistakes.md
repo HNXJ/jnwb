@@ -190,6 +190,11 @@ Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or ver
 
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
 
+![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.png#only-light)
+![Phase slope index over a narrowband and a broadband band of one delayed pair](assets/figures/fig18_psi_narrowband_trap.dark.png#only-dark)
+
+The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal to X delayed 10 ms plus noise. `jnwb.phase_slope_index` over 18–24 Hz holds one bin, so its net is `nan`; over 15–30 Hz the net is 0.641 (z = 7.91), positive, so X leads Y.
+
 ### The Correct Pattern
 Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum` — not a single-bin z-score:
 

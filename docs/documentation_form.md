@@ -139,22 +139,24 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
 | Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 824 and `recipes` at 348 sit under it |
-| Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | nine of the fourteen sit under it |
+| Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | seven of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
 | Contract (this page) | none | it is a reference for the other rows |
 | Redirect (`01_architecture_and_philosophy`) | none | it holds a title and one sentence |
 
-Measured 2026-10-13 with `wc -w`. Nine pages sit over their ceiling, and each owes the one
+Measured 2026-10-13 with `wc -w`. Eleven pages sit over their ceiling, and each owes the one
 sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 3111 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step figure and its caption add 76 words |
+| `common_mistakes` | 3189 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words; the causal-step and narrowband-PSI figures and their captions add 154 words |
 | `02_paths_addressing_metadata` | 1733 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
 | `03_representational_similarity_jrsa` | 1340 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
 | `04_spectral_analysis_and_tfr` | 1378 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number; the spectra and band-profile figures and their captions add 161 words |
 | `06_spikes_psth_and_onset_dynamics` | 1705 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table; the phase-locking and causal-step figures and their captions add 170 words |
+| `07_statistical_inference_and_nulls` | 1283 | the cluster-permutation figure and its caption add 83 words; the section's limit on what a significant cluster licenses applies to the cluster the figure outlines |
+| `08_directed_connectivity_and_information` | 1348 | the spectral Granger and phase-slope figures and their captions add 150 words, each showing one directional estimate on a synthetic pair |
 | `architecture` | 1901 | two pages merged: the module map is a 649-word reference table, and the prose states the boundary, the invariants and the claim table once each |
 | `install` | 933 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
 | `index` | 428 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
