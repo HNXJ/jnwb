@@ -240,9 +240,14 @@ class TestTheDefaultIsSerialEverywhere:
         import inspect
 
         import jnwb
+        from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
         found = {}
         for name in jnwb.__all__:
+            # An optional submodule is a module, not a function with an n_jobs default, and
+            # importing it without its extra raises.
+            if name in OPTIONAL_SUBMODULES:
+                continue
             obj = getattr(jnwb, name, None)
             if not callable(obj):
                 continue
