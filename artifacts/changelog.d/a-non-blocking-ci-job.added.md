@@ -1,0 +1,1 @@
+- A non-blocking CI job runs the suite on pandas 3; docs/install.md gives the install step for it.

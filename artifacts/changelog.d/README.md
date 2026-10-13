@@ -1,8 +1,8 @@
 # Changelog fragments
 
 One file per change a user would notice, named `<name>.<category>.md`, where `<category>` is one
-of `breaking`, `added`, `changed`, `deprecated`, `removed`, `fixed`, `security` or
-`documentation`. The file holds one or more top-level `- ` bullets written as they will read in
+of `breaking`, `added`, `changed`, `deprecated`, `removed` or `fixed`, the six kinds
+`CHANGELOG.md` allows. The file holds one or more top-level `- ` bullets written as they will read in
 `CHANGELOG.md`, with LF line endings and no headings.
 
 At release, `python scripts/assemble_changelog.py --version X.Y.Z --date YYYY-MM-DD` inserts the

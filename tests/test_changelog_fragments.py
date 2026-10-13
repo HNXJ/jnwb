@@ -238,3 +238,9 @@ def test_the_command_writes_the_section_and_consumes_its_fragments(tmp_path, cap
         b"# Changelog\n\n## [Unreleased]\n\n## [0.1.1] - 2026-09-02\n\n### Added\n\n- new\n\n"
         b"## [0.1.0] - 2026-09-01\n\n### Added\n\n- old\n")
     assert sorted(p.name for p in fragments.iterdir()) == ["README.md"]
+
+
+def test_every_fragment_category_writes_a_heading_gate_14_allows():
+    from scripts.harness_gate import CHANGELOG_KINDS
+
+    assert list(CATEGORIES.values()) == list(CHANGELOG_KINDS)

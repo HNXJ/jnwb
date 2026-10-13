@@ -1,0 +1,1 @@
+- skills/jnwb-statistics/SKILL.md states Mann-Whitney's `statistic` as the first group's U.
