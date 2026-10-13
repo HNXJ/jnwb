@@ -85,6 +85,11 @@ $$\text{PPC} = \frac{2}{N(N-1)} \sum_{j=1}^{N-1} \sum_{k=j+1}^N \cos(\theta_j - 
 ppc_val = jnwb.pairwise_phase_consistency(spike_phases_rad)
 ```
 
+![Phase-locked and uniform-phase spike histograms on polar axes](assets/figures/fig15_spike_phase_locking.png#only-light)
+![Phase-locked and uniform-phase spike histograms on polar axes](assets/figures/fig15_spike_phase_locking.dark.png#only-dark)
+
+Panel A is synthetic: 400 seeded spikes drawn from a von Mises phase preference centered at 0.79 rad against a 10 Hz LFP. `preferred_phase` reports the center of the fullest 20° bin, 0.87 rad; the Rayleigh z is 207.8 and PPC of 0.518 (`jnwb.phase_locking_index`, `jnwb.pairwise_phase_consistency`). Panel B, a uniform-phase control of the same count, has a PPC of −0.001 and a Rayleigh z of 0.8; bars count spikes per 20° bin.
+
 ---
 
 ## 2. Smoothing: Causal vs. Acausal Profiles (`jnwb.onset_fitting`, `jnwb.spiking`)
@@ -104,6 +109,11 @@ To determine response onset latency accurately, smoothing must be strictly **cau
 # Causal forward-only exponential smoothing
 smoothed_rate = jnwb.causal_exp_smooth(rate_hz, bin_ms=5.0, tau_ms=30.0)
 ```
+
+![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.png#only-light)
+![A noiseless rate step smoothed causally and with a Gaussian kernel](assets/figures/fig14_causal_vs_gaussian_step.dark.png#only-dark)
+
+The figure is synthetic: a noiseless step from 5 to 40 Hz at 100 ms, smoothed at 1 ms bins with `jnwb.causal_exp_smooth` (tau = 50 ms) and `jnwb.gaussian_smooth_rate` (sigma = 20 ms). The causal 50% crossing falls 33.3 ms after the onset, and the Gaussian's 10% rise comes 26.1 ms before it, so the Gaussian curve rises before the true onset.
 
 ### Mathematical Latency Properties & Hazards
 A causal filter introduces an inherent, deterministic time delay:

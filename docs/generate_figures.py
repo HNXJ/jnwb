@@ -1,4 +1,4 @@
-"""Generate 13 canonical figures for jnwb documentation.
+"""Generate 15 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
@@ -829,6 +829,138 @@ def fig13_vflip_band_profiles():
     plt.close(fig)
 
 
+#: fig14's rate step: the bin width, the onset, the baseline and plateau rates in Hz, and the causal
+#: filter's tau and the Gaussian's sigma, in ms.
+FIG14_BIN_MS = 1.0
+FIG14_ONSET_MS = 100.0
+FIG14_BASE_HZ = 5.0
+FIG14_PLATEAU_HZ = 40.0
+FIG14_TAU_MS = 50.0
+FIG14_SIGMA_MS = 20.0
+
+
+def _first_rise(t, y, level):
+    """The time a rising trace first reaches `level`, interpolated between the two bins it crosses."""
+    i = int(np.argmax(y >= level))
+    assert i > 0 and y[i] >= level, "the trace never rises to the level"
+    return float(np.interp(level, y[i - 1:i + 1], t[i - 1:i + 1]))
+
+
+def fig14_causal_vs_gaussian_step():
+    """Figure 14: A noiseless rate step smoothed causally and with a symmetric Gaussian kernel."""
+    fig, ax = plt.subplots(figsize=(style.WIDTH, 3.8), dpi=style.DPI)
+
+    t = np.arange(-200.0, 400.0, FIG14_BIN_MS)
+    rate = np.where(t >= FIG14_ONSET_MS, FIG14_PLATEAU_HZ, FIG14_BASE_HZ)
+    causal = jnwb.causal_exp_smooth(rate, bin_ms=FIG14_BIN_MS, tau_ms=FIG14_TAU_MS)
+    gauss = jnwb.gaussian_smooth_rate(rate, bin_ms=FIG14_BIN_MS, sigma_ms=FIG14_SIGMA_MS)
+
+    step = FIG14_PLATEAU_HZ - FIG14_BASE_HZ
+    half, tenth = FIG14_BASE_HZ + 0.5 * step, FIG14_BASE_HZ + 0.1 * step
+    causal_half = _first_rise(t, causal, half)
+    gauss_half = _first_rise(t, gauss, half)
+    gauss_tenth = _first_rise(t, gauss, tenth)
+    causal_delay = causal_half - FIG14_ONSET_MS
+    gauss_lead = FIG14_ONSET_MS - gauss_tenth
+
+    ax.plot(t, rate, color=style.VARIABLE["truth"], ls=":", lw=style.LW,
+            label=f"Noiseless step, onset {FIG14_ONSET_MS:.0f} ms")
+    ax.plot(t, causal, color=style.VARIABLE["smoothed"], lw=style.LW,
+            label=f"Causal, tau = {FIG14_TAU_MS:.0f} ms: 50% crossing "
+                  f"{style.num(causal_delay, '+.1f')} ms after onset")
+    ax.plot(t, gauss, color=style.SERIES[0], ls="--", lw=style.LW,
+            label=f"Gaussian, sigma = {FIG14_SIGMA_MS:.0f} ms: 10% rise "
+                  f"{gauss_lead:.1f} ms before onset")
+    # The 50% crossings and the Gaussian's 10% rise, marked on their curves, against the onset.
+    ax.axvline(FIG14_ONSET_MS, color=style.NEUTRAL, lw=style.LW_THIN)
+    ax.scatter([causal_half, gauss_half, gauss_tenth], [half, half, tenth], s=24, zorder=4,
+               c=[style.VARIABLE["smoothed"], style.SERIES[0], style.SERIES[0]],
+               edgecolors=C_DARK, linewidths=style.EDGE)
+    ax.text(FIG14_ONSET_MS + 3.0, 0.97, "true onset", transform=ax.get_xaxis_transform(),
+            ha="left", va="top", fontsize=style.SMALL, color=C_DARK)
+
+    ax.set_ylim(0.0, FIG14_PLATEAU_HZ * 1.45)
+    ax.set_xlabel("Time (ms)")
+    ax.set_ylabel("Firing rate (Hz)")
+    ax.set_title("Smoothing a noiseless rate step\n"
+                 "(jnwb.causal_exp_smooth, jnwb.gaussian_smooth_rate)", pad=8)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    fig.tight_layout()
+    _save(fig, "fig14_causal_vs_gaussian_step.png")
+    plt.close(fig)
+
+
+#: fig15's LFP: its frequency, duration and sampling rate. The locked unit's preferred phase in
+#: radians, its concentration and its spike count; the uniform control has the same spike count.
+FIG15_LFP_HZ = 10.0
+FIG15_SECONDS = 60.0
+FIG15_FS = 1000.0
+FIG15_MU = np.pi / 4
+FIG15_KAPPA = 2.0
+FIG15_N_SPIKES = 400
+FIG15_BINS = 18
+FIG15_SEED = 15
+
+
+def _spike_phases(spike_times, lfp_phase, lfp_timestamps):
+    """The LFP phase at each spike, interpolated through its unit vector as phase_locking_index does."""
+    cos_phase = np.interp(spike_times, lfp_timestamps, np.cos(lfp_phase))
+    sin_phase = np.interp(spike_times, lfp_timestamps, np.sin(lfp_phase))
+    return np.arctan2(sin_phase, cos_phase)
+
+
+def _phase_panel(ax, letter: str, name: str, result: dict, ppc: float):
+    """A polar histogram of spike phases, with the preferred phase and the statistics its result returns."""
+    edges = np.linspace(-np.pi, np.pi, FIG15_BINS + 1)
+    centers = (edges[:-1] + edges[1:]) / 2
+    counts = result["phase_hist"]
+    top = float(counts.max()) * 1.2
+    ax.bar(centers, counts, width=2 * np.pi / FIG15_BINS, color=style.SERIES[0], edgecolor=C_DARK,
+           lw=style.EDGE)
+    ax.plot([result["preferred_phase"]] * 2, [0.0, top], color=style.SERIES[1], ls="--", lw=style.LW)
+    ax.set_rlim(0.0, top)
+    ax.set_yticklabels([])  # the radius is the spike count of one 20-degree bin; no radial scale
+    ax.grid(True, color=style.NEUTRAL, linewidth=style.EDGE)
+    style.panel_title(ax, letter, f"{name}, {result['n_spikes']} spikes\n(jnwb.phase_locking_index)")
+    ax.legend(handles=[
+        Line2D([], [], color=style.SERIES[1], ls="--", lw=style.LW,
+               label=f"Preferred phase {style.num(result['preferred_phase'], '.2f')} rad"),
+        Patch(visible=False, label=f"Rayleigh z = {style.num(result['rayleigh_z'], '.1f')}"),
+        Patch(visible=False, label=f"PPC = {style.num(ppc, '.3f')} (jnwb.pairwise_phase_consistency)"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.12))
+
+
+def fig15_spike_phase_locking():
+    """Figure 15: Spike phases against a 10 Hz LFP, for a phase-locked unit and a uniform control."""
+    fig = plt.figure(figsize=(style.WIDTH, 4.8), dpi=style.DPI)
+    ax1 = fig.add_subplot(1, 2, 1, projection="polar")
+    ax2 = fig.add_subplot(1, 2, 2, projection="polar")
+
+    rng = np.random.default_rng(FIG15_SEED)
+    n_cycles = int(FIG15_SECONDS * FIG15_LFP_HZ)
+    # A spike in cycle k at LFP phase phi sits at (k + phi / 2 pi) / f, so its LFP phase is phi.
+    cycle = rng.integers(0, n_cycles, FIG15_N_SPIKES)
+    phi = np.mod(rng.vonmises(FIG15_MU, FIG15_KAPPA, FIG15_N_SPIKES), 2 * np.pi)
+    locked_times = np.sort((cycle + phi / (2 * np.pi)) / FIG15_LFP_HZ)
+    uniform_cycle = rng.integers(0, n_cycles, FIG15_N_SPIKES)
+    uniform_times = np.sort((uniform_cycle + rng.uniform(0.0, 1.0, FIG15_N_SPIKES)) / FIG15_LFP_HZ)
+
+    lfp_timestamps = np.arange(int(FIG15_SECONDS * FIG15_FS)) / FIG15_FS
+    lfp_phase = np.angle(np.exp(2j * np.pi * FIG15_LFP_HZ * lfp_timestamps))
+    locked = jnwb.phase_locking_index(locked_times, lfp_phase, lfp_timestamps, n_bins=FIG15_BINS)
+    control = jnwb.phase_locking_index(uniform_times, lfp_phase, lfp_timestamps, n_bins=FIG15_BINS)
+    ppc_locked = jnwb.pairwise_phase_consistency(_spike_phases(locked_times, lfp_phase, lfp_timestamps))
+    ppc_control = jnwb.pairwise_phase_consistency(_spike_phases(uniform_times, lfp_phase, lfp_timestamps))
+
+    _phase_panel(ax1, "A", "Phase-locked unit", locked, ppc_locked)
+    _phase_panel(ax2, "B", "Uniform-phase control", control, ppc_control)
+
+    fig.tight_layout()
+    _save(fig, "fig15_spike_phase_locking.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -845,6 +977,8 @@ FIGURES = {
     "fig11_spectra_canonical_bands.png": fig11_spectra_bands,
     "fig12_coherence_zero_lag.png": fig12_coherence_zero_lag,
     "fig13_vflip_band_profiles.png": fig13_vflip_band_profiles,
+    "fig14_causal_vs_gaussian_step.png": fig14_causal_vs_gaussian_step,
+    "fig15_spike_phase_locking.png": fig15_spike_phase_locking,
 }
 
 
