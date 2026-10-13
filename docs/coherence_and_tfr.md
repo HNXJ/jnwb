@@ -50,6 +50,11 @@ wpli_res = jnwb.wpli(
 )
 ```
 
+![Coherence, imaginary coherency and wPLI against frequency, at zero lag (A) and with a fixed lag (B)](assets/figures/fig12_coherence_zero_lag.png#only-light)
+![Coherence, imaginary coherency and wPLI against frequency, at zero lag (A) and with a fixed lag (B)](assets/figures/fig12_coherence_zero_lag.dark.png#only-dark)
+
+Synthetic. Two channels share two rhythms in the alpha and beta bands, and both panels draw the same source and the same noise. Panel A has zero lag: coherence (`jnwb.cross_area_coherence`, over `jnwb.CANONICAL_BANDS`) is high at the rhythms, while `jnwb.imaginary_coherency` and `jnwb.wpli` stay near zero there; away from the rhythms no signal is shared, and what the three measures show is estimator noise. Panel B delays one channel by a fixed lag: the imaginary coherency and wPLI rise to large values at the rhythms, and coherence does not change. Each panel title gives the Welch segment count that `jnwb.wpli` reports; wPLI is biased upward when that count is small.
+
 ---
 
 ## 2. High-Level Analyzers (`jnwb.analyzers`)
