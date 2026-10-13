@@ -1,0 +1,1 @@
+- docs/install.md: the extras table lists `validate`, the NWB Inspector and DANDI layers of `jnwb.validate_nwb`

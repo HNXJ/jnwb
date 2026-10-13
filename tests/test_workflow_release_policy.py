@@ -439,6 +439,24 @@ class TestTestPyPIBeforePyPI:
             assert self._RUNS_AFTER_FAILURE.search(condition), condition
         assert not self._RUNS_AFTER_FAILURE.search("github.event_name == 'push'")
 
+    def test_the_smoke_steps_clear_pythonpath_before_they_run(self):
+        """The tutorial step clears PYTHONPATH so a checkout cannot satisfy `import jnwb`. The two
+        smoke steps check the installed package the same way, so each clears it before its run."""
+        build = next(str(s["run"]) for s in _load_workflow()["jobs"]["build"]["steps"]
+                     if "smoke_installed.py" in str(s.get("run", "")))
+        verify = next(str(s["run"]) for s in self._verify_job()["steps"]
+                      if "smoke_installed.py" in str(s.get("run", "")))
+        for name, run in (("build", build), ("verify", verify)):
+            assert "unset PYTHONPATH" in run, f"the {name} smoke step does not clear PYTHONPATH"
+            assert run.index("unset PYTHONPATH") < run.index("smoke_installed.py"), name
+
+    def test_a_yanked_testpypi_file_is_refused_before_upload(self):
+        """A yanked file stays listed on TestPyPI with its digest, so a comparison that does not
+        read `yanked` passes it, and the file a release was pulled over would reach PyPI."""
+        run = next(str(s["run"]) for s in _load_workflow()["jobs"]["publish-pypi"]["steps"]
+                   if "test.pypi.org/pypi/jnwb" in str(s.get("run", "")))
+        assert ".yanked" in run, "the TestPyPI comparison does not refuse a yanked file"
+
 
 class TestTheInstalledSmokeScript:
     """The script the build job and the TestPyPI verification both run. Each check is driven
@@ -551,6 +569,15 @@ class TestInstalledArtifactVerification:
             "without JNWB_EXPECTED_PACKAGE_ROOT each tutorial's guard imports the checkout, "
             "so STEP 8 runs the source tree, not the wheel"
         )
+
+    def test_release_gate_smoke_step_clears_pythonpath_too(self):
+        """STEP 7 runs the installed-package smoke script. It clears PYTHONPATH as CI's smoke step
+        does; inheriting it lets the checkout satisfy `import jnwb` at the step meant to prove the
+        wheel."""
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        step7 = gate[gate.index("=== STEP 7"):gate.index("=== STEP 8")]
+        assert 'k != "PYTHONPATH"' in step7, "STEP 7 does not strip PYTHONPATH"
+        assert "env=smoke_env" in step7, "STEP 7 runs the smoke script with the inherited environment"
 
     def test_release_gate_installs_the_extras_the_ci_tutorial_step_has(self):
         """CI's tutorial step runs after `vis` and `wavemap` are installed into the clean env;
@@ -1040,3 +1067,65 @@ class TestContinueOnErrorJobsAreNotRequired:
         assert len(names) == len(BASELINE_REQUIRED_JOBS) and names, names
         assert not any(name.startswith("Test (pandas 3") for name in names), names
         assert sorted(names) == BASELINE_REQUIRED_JOBS, sorted(set(names) ^ set(BASELINE_REQUIRED_JOBS))
+
+
+#: P-328: the actions a workflow may run. Each is pinned to a full commit SHA, with the tag it was
+#: resolved from in a trailing comment. An action not listed here is refused by name.
+ALLOWED_ACTIONS = frozenset({
+    "actions/checkout",
+    "actions/download-artifact",
+    "actions/setup-python",
+    "actions/upload-artifact",
+    "pypa/gh-action-pypi-publish",
+})
+_USES_LINE = re.compile(r"^\s*(?:-\s+)?uses:\s*(\S+)(.*)$")
+_TAG_COMMENT = re.compile(r"\s+#\s*v\d+(?:\.\d+)*\s*")
+
+
+def _uses_violations(text):
+    """Each `uses:` line that is not an allow-listed action at a full commit SHA with its tag."""
+    found = []
+    for line in text.splitlines():
+        match = _USES_LINE.match(line)
+        if match is None:
+            continue
+        ref, rest = match.groups()
+        action, _, pin = ref.partition("@")
+        if action not in ALLOWED_ACTIONS:
+            found.append(f"not allow-listed: {ref}")
+        elif re.fullmatch(r"[0-9a-f]{40}", pin) is None:
+            found.append(f"not pinned to a full commit SHA: {ref}")
+        elif _TAG_COMMENT.fullmatch(rest) is None:
+            found.append(f"no trailing tag comment: {ref}")
+    return found
+
+
+class TestActionsArePinnedToFullShas:
+    def test_every_uses_line_in_every_workflow_is_allow_listed_and_pinned(self):
+        """A tag can move, so `@v4` runs whatever it names that day. The scan counts the lines it
+        examined, so an empty scan cannot pass."""
+        paths = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
+        assert paths, "no workflow file found"
+        examined = 0
+        problems = []
+        for path in paths:
+            text = path.read_text(encoding="utf-8")
+            examined += sum(1 for line in text.splitlines() if _USES_LINE.match(line))
+            problems += [f"{path.name}: {found}" for found in _uses_violations(text)]
+        assert examined > 0, "no `uses:` line was examined"
+        assert not problems, "\n".join(problems)
+
+    def test_an_unpinned_or_unlisted_action_is_refused(self):
+        """One fixture line per refusal and one that passes, so each message is shown to fire."""
+        sha = "11d5960a326750d5838078e36cf38b85af677262"
+        fixture = "\n".join([
+            "      - uses: actions/checkout@v4",
+            f"      - uses: actions/checkout@{sha}",
+            f"      - uses: evil/action@{sha}  # v1",
+            f"      - uses: actions/checkout@{sha}  # v4",
+        ])
+        assert _uses_violations(fixture) == [
+            "not pinned to a full commit SHA: actions/checkout@v4",
+            f"no trailing tag comment: actions/checkout@{sha}",
+            f"not allow-listed: evil/action@{sha}",
+        ]

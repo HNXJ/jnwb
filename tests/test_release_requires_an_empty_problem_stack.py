@@ -82,6 +82,39 @@ _RECEIPT = """# Blocker fixpoint receipt
 | new release-blocking problems found | {found} |
 """
 
+# The publication jobs, and one non-publication job that may continue on error, as the live
+# workflow has them. A publication job is one whose step uses the PyPI publish action.
+_PUBLISH_STEP = "      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33\n"
+_WORKFLOW = f"""name: CI
+on: [push]
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo test
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+    steps:
+{_PUBLISH_STEP}  publish-pypi:
+    name: Publish to PyPI
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    steps:
+{_PUBLISH_STEP}  test-pandas3:
+    name: pandas 3
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - run: echo pandas
+"""
+
 
 def _git(root, *args):
     return subprocess.run(
@@ -102,12 +135,13 @@ def _roadmap(*rows):
 
 
 def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt=True,
-          recorded=RELEASE_CYCLE, fragments=(), roadmap=_roadmap()):
+          recorded=RELEASE_CYCLE, fragments=(), roadmap=_roadmap(), workflow=_WORKFLOW):
     """The stacks and receipt, committed: STEP 0a reads them from HEAD, not the working copy.
     ``commit`` is what the receipt records; ``HEAD`` is passed as the head it is checked against.
     ``recorded`` is the version the peak-memory record names, ``None`` for no record.
     ``artifacts/changelog.d/`` holds its README and each name in ``fragments``.
-    ``roadmap`` is the roadmap's text, ``None`` for no roadmap."""
+    ``roadmap`` is the roadmap's text, ``None`` for no roadmap. ``workflow`` is the CI workflow's
+    text, ``None`` for no workflow file."""
     if roadmap is not None:
         (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
         (tmp_path / "artifacts" / "roadmap.md").write_text(roadmap, encoding="utf-8")
@@ -126,6 +160,9 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
         _PROBLEMS.format(rows="\n".join(rows)) + tail, encoding="utf-8")
     (tmp_path / "artifacts" / "todo_stack.md").write_text(
         _TODOS.format(cycle=NEXT_CYCLE, items="\n".join(items)), encoding="utf-8")
+    if workflow is not None:
+        (tmp_path / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+        (tmp_path / ".github" / "workflows" / "workflow.yml").write_text(workflow, encoding="utf-8")
     if receipt:
         (tmp_path / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
             _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
@@ -465,6 +502,14 @@ def test_a_listed_structure_section_or_item_subsection_is_not_unfiled_work(tmp_p
     assert check_release_readiness(root, head=HEAD) == []
 
 
+def test_a_required_item_message_names_its_whole_title(tmp_path):
+    """The message cut each title at 34 characters, so the item it named was not findable from it."""
+    title = "Make the release gate name the whole item title it refers to in its message"
+    root = _tree(tmp_path, items=[f"### 99-970 {title}\n\nRelease: {REQUIRED}.\n"])
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and f"99-970 {title}" in v[0], v
+
+
 # --- 3. the closure receipt --------------------------------------------------------------------
 
 def test_a_missing_receipt_fails(tmp_path):
@@ -559,6 +604,79 @@ def test_a_git_status_that_fails_is_not_read_as_a_clean_tree(tmp_path, monkeypat
     monkeypatch.setattr(gate.subprocess, "run", status_fails)
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 1 and v[0].startswith("git cannot report whether the working tree"), v
+
+
+@pytest.mark.parametrize("flag", ["--assume-unchanged", "--skip-worktree"])
+def test_an_edit_hidden_from_git_status_by_an_index_flag_fails(tmp_path, flag):
+    """`git status` does not report a file marked assume-unchanged or skip-worktree, so an edit to
+    one read as a clean tree."""
+    root = _tree(tmp_path, items=[_item("99-950", DEFERRED)])
+    _git(root, "update-index", flag, "jnwb/__init__.py")
+    (root / "jnwb" / "__init__.py").write_text("__version__ = 'edited'\n", encoding="utf-8")
+    dirty = [x for x in check_release_readiness(root, head=HEAD) if "uncommitted changes" in x]
+    assert len(dirty) == 1 and "jnwb/__init__.py" in dirty[0], dirty
+
+
+@pytest.mark.parametrize("job, where", [
+    ("publish-testpypi", "job"),
+    ("publish-pypi", "job"),
+    ("publish-testpypi", "step"),
+], ids=["testpypi-job", "pypi-job", "testpypi-step"])
+def test_a_publication_job_that_continues_on_error_fails(tmp_path, job, where):
+    """A failed upload would read as a passing release, with `continue-on-error` on the job or on
+    its publish step. The default workflow's pandas 3 job may continue on error, and passes."""
+    if where == "job":
+        workflow = _WORKFLOW.replace(f"  {job}:\n", f"  {job}:\n    continue-on-error: true\n", 1)
+    else:
+        workflow = _WORKFLOW.replace(_PUBLISH_STEP,
+                                     _PUBLISH_STEP + "        continue-on-error: true\n", 1)
+    root = _tree(tmp_path, items=[_item("99-951", DEFERRED)], workflow=workflow)
+    hits = [x for x in check_release_readiness(root, head=HEAD) if "continues on error" in x]
+    assert len(hits) == 1 and job in hits[0], hits
+
+
+@pytest.mark.parametrize("where", ["twine-step", "reusable-job"])
+def test_a_publication_that_continues_on_error_is_refused_beyond_the_pypi_action(tmp_path, where):
+    """Condition 6 knew only the PyPI action, so a `twine upload` step or a job that calls a
+    reusable workflow could continue on error and let a failed upload read as a release."""
+    if where == "twine-step":
+        extra = ("  publish-twine:\n"
+                 "    needs: test\n"
+                 "    runs-on: ubuntu-latest\n"
+                 "    steps:\n"
+                 "      - name: Upload\n"
+                 "        continue-on-error: true\n"
+                 "        run: python -m twine upload dist/*\n")
+        job = "publish-twine"
+    else:
+        extra = ("  publish-reusable:\n"
+                 "    needs: test\n"
+                 "    continue-on-error: true\n"
+                 "    uses: ./.github/workflows/publish.yml\n")
+        job = "publish-reusable"
+    root = _tree(tmp_path, items=[_item("99-953", DEFERRED)], workflow=_WORKFLOW + extra)
+    hits = [x for x in check_release_readiness(root, head=HEAD) if "continues on error" in x]
+    assert len(hits) == 1 and job in hits[0], hits
+
+
+def test_a_twine_check_that_continues_on_error_is_not_a_publication(tmp_path):
+    """`twine check` validates a built distribution and uploads nothing; only `twine upload`
+    publishes, so a check job may continue on error without refusing the release."""
+    extra = ("  check-dist:\n"
+             "    needs: test\n"
+             "    runs-on: ubuntu-latest\n"
+             "    steps:\n"
+             "      - name: Check\n"
+             "        continue-on-error: true\n"
+             "        run: python -m twine check dist/*\n")
+    root = _tree(tmp_path, items=[_item("99-954", DEFERRED)], workflow=_WORKFLOW + extra)
+    assert not [x for x in check_release_readiness(root, head=HEAD) if "continues on error" in x]
+
+
+def test_a_tree_with_no_workflow_at_head_fails(tmp_path):
+    root = _tree(tmp_path, items=[_item("99-952", DEFERRED)], workflow=None)
+    v = check_release_readiness(root, head=HEAD)
+    assert len(v) == 1 and ".github/workflows/workflow.yml" in v[0], v
 
 
 def _repository(tmp_path):

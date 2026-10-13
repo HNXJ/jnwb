@@ -199,8 +199,18 @@ class TestReleaseGateOrder:
     def test_the_suite_runs_after_the_smoke_script_and_the_tutorials(self):
         main = self._main_source()
         suite = main.index('"pytest"')
-        for cheaper in ("harness_gate.py", '"build"', "INSTALLED_SMOKE", "=== STEP 8"):
+        for cheaper in ("harness_gate.py", '"build"', "smoke_installed.py", "=== STEP 8"):
             assert main.index(cheaper) < suite, f"{cheaper} runs after the suite"
+
+    def test_step_7_runs_the_installed_smoke_script_as_ci_does(self):
+        """Hamm 2026-10-13: one installed smoke. STEP 7 runs scripts/smoke_installed.py with the
+        arguments CI passes, from the staging directory, with PYTHONPATH stripped."""
+        main = self._main_source()
+        step_7 = main[main.index("=== STEP 7"):main.index("=== STEP 8")]
+        assert "smoke_installed.py" in step_7, "STEP 7 does not run scripts/smoke_installed.py"
+        assert "--expected-version" in step_7 and "--not-under" in step_7, step_7
+        assert 'k != "PYTHONPATH"' in step_7 and "env=smoke_env" in step_7, step_7
+        assert "INSTALLED_SMOKE" not in main, "STEP 7 still builds its own smoke script"
 
     @staticmethod
     def _repository(root: Path) -> str:
@@ -231,3 +241,113 @@ class TestReleaseGateOrder:
         state.write_bytes(f"# State\n\n| HEAD | `{'0' * 40}` |\n".encode("utf-8"))
         violations = check_state_is_current(tmp_path)
         assert len(violations) == 1 and "generated at " + "0" * 40 in violations[0], violations
+
+
+class TestCiRunSelection:
+    """STEP 0e took the newest run for the commit, so a pull-request run still executing hid the
+    push run for the same commit, which had concluded green."""
+
+    SHA = "c" * 40
+    JOBS = [{"name": "Test", "status": "completed", "conclusion": "success"}]
+
+    @staticmethod
+    def _run(run_id, status, conclusion=""):
+        return {"databaseId": run_id, "headSha": TestCiRunSelection.SHA, "status": status,
+                "conclusion": conclusion, "workflowName": "CI"}
+
+    @staticmethod
+    def _gh(runs, jobs_payload):
+        import json
+
+        def run(args, **kwargs):
+            stdout = json.dumps(runs) if args[:3] == ["gh", "run", "list"] else jobs_payload
+            return subprocess.CompletedProcess(args, 0, stdout, "")
+        return run
+
+    def test_a_concluded_green_run_suffices_beside_one_still_executing(self):
+        import json
+
+        from scripts.release_gate import CI_VERIFIED, check_ci_conclusion, select_run_for_commit
+
+        runs = [self._run(20, "in_progress"), self._run(10, "completed", "success")]
+        run, reason = select_run_for_commit(self.SHA, json.dumps(runs))
+        assert reason is None and run["databaseId"] == 10, (run, reason)
+        green = json.dumps({"headSha": self.SHA, "conclusion": "success", "jobs": self.JOBS})
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, green))
+        assert outcome.status == CI_VERIFIED, outcome
+
+    def test_a_newer_concluded_failure_beside_an_older_green_run_still_fails(self):
+        import json
+
+        from scripts.release_gate import CI_FAILED, check_ci_conclusion
+
+        runs = [self._run(30, "completed", "failure"), self._run(10, "completed", "success")]
+        failed = json.dumps({"headSha": self.SHA, "conclusion": "failure", "jobs": [
+            {"name": "Test", "status": "completed", "conclusion": "failure"}]})
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, failed))
+        assert outcome.status == CI_FAILED, outcome
+
+    def test_a_commit_with_no_concluded_run_is_held_by_its_newest(self):
+        import json
+
+        from scripts.release_gate import CI_UNRESOLVED, check_ci_conclusion
+
+        runs = [self._run(20, "in_progress"), self._run(10, "queued")]
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, json.dumps({})))
+        assert outcome.status == CI_UNRESOLVED and "in_progress" in outcome.detail, outcome
+
+
+class TestTheInstalledSmokeScriptRunsInTheSuite:
+    """P-352: the installed-package smoke script ran only at STEP 7, so an exact key set that went
+    stale in it passed a whole cycle of green suites. The suite runs the same script against the
+    checkout. It must get through its checks before the installed-location check and refuse the
+    checkout there, so a stale line fails the suite rather than the release."""
+
+    SMOKE = REPO_ROOT / "scripts" / "smoke_installed.py"
+
+    @classmethod
+    def _run(cls, tmp_path: Path, script: Path, *args: str):
+        import os
+
+        shadow = tmp_path / "shadow"
+        shadow.mkdir()
+        # `omission` absent, as the script requires of the environment it is written for.
+        (shadow / "omission.py").write_text(
+            'raise ModuleNotFoundError("absent in this test")\n', encoding="utf-8")
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(shadow), str(REPO_ROOT)]))
+        return subprocess.run([sys.executable, str(script), *args], cwd=tmp_path, env=env,
+                              capture_output=True, text=True, timeout=300)
+
+    @staticmethod
+    def _checkout_args() -> list:
+        """What the suite passes: the source version, and the checkout as the place the package
+        must not be imported from."""
+        from scripts.release_gate import jnwb_source_version
+
+        return ["--expected-version", jnwb_source_version(), "--not-under", str(REPO_ROOT)]
+
+    def test_the_script_runs_its_checks_up_to_the_location_check(self, tmp_path):
+        result = self._run(tmp_path, self.SMOKE, *self._checkout_args())
+        assert "PASS: omission is strictly absent" in result.stdout, result.stderr
+        assert "PASS: workflow checks completed" in result.stdout, result.stderr
+        assert result.returncode != 0, result.stdout
+        assert "FAIL: jnwb was imported from" in result.stderr, result.stderr
+        assert f"inside {REPO_ROOT}" in result.stderr, result.stderr
+
+    def test_a_stale_line_fails_before_the_location_check(self, tmp_path):
+        """A mutant whose workflow check names a constant that no longer exists: the run must fail
+        on that line, before the location check that would refuse the checkout."""
+        source = self.SMOKE.read_text(encoding="utf-8")
+        anchor = "assert spikes.size > 0 and lfp.size > 0 and fs_hz == receipt.fs_hz"
+        assert source.count(anchor) == 1, "the mutant's anchor did not apply exactly once"
+        mutant = tmp_path / "smoke_mutant.py"
+        mutant.write_text(source.replace(anchor, anchor.replace("receipt.fs_hz", "FS_HZ_STALE")),
+                          encoding="utf-8")
+        result = self._run(tmp_path, mutant, *self._checkout_args())
+        assert result.returncode != 0, result.stdout
+        assert "NameError" in result.stderr, result.stderr
+        assert "PASS: workflow checks completed" not in result.stdout, result.stdout
+        assert "FAIL: jnwb was imported from" not in result.stderr, result.stderr

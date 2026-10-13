@@ -141,6 +141,16 @@ def test_a_todo_holder_naming_a_roadmap_row_is_unheld():
     assert status(graph(), "todo:12-09", items=items) == ("UNHELD", ["held by todo 12-09"])
 
 
+def test_the_fact_gate_reads_the_items_the_stack_parser_reads_at_every_heading_form():
+    """The gate read `###` headings only, so an item at another depth or in the HTML form named no
+    live item, while STEP 0a counted it. Both read the one parser."""
+    from scripts.stack_parse import parse_todo_stack
+    text = ("### 12-01 An item\n\n#### 12-03 Nested\n\n## 12-04 Second level\n\n"
+            "<h3>12-05 HTML</h3>\n")
+    assert fact_gate.live_items(text) == ["12-01", "12-03", "12-04", "12-05"]
+    assert fact_gate.live_items(text) == [i for i, _, _ in parse_todo_stack(text)[0]]
+
+
 def test_a_test_reaches_an_export_only_through_an_import_of_the_package():
     source = (
         "import jnwb.ontology as O\n"

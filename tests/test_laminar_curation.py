@@ -672,3 +672,19 @@ class TestMapPeakChannelToLayer:
         units = pd.DataFrame({"peak_channel_id": [peak]}, dtype=object)
         with pytest.raises(ValueError, match="peak_channel_id holds .* not an integer electrode id"):
             jnwb.map_peak_channel_to_layer(units, curation, [10, 11])
+
+    @pytest.mark.parametrize("where", ["peak_channel_id", "channel_ids"])
+    def test_an_array_like_electrode_id_is_refused_by_name(self, clean, where):
+        _, base = clean
+        curation = self._curation(["superficial", "input"], base)
+        cell = np.empty(1, dtype=object)
+        cell[0] = np.array([10, 11])
+        if where == "peak_channel_id":
+            units = pd.DataFrame({"peak_channel_id": cell})
+            ids = [10, 11]
+        else:
+            units = pd.DataFrame({"peak_channel_id": [10]})
+            ids = [np.array([10, 11]), 11]
+        assert np.ndim(cell[0]) == 1, "fixture must hold an array-like id"
+        with pytest.raises(ValueError, match=f"map_peak_channel_to_layer: {where} holds .* not an integer electrode id"):
+            jnwb.map_peak_channel_to_layer(units, curation, ids)

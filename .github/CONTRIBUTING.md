@@ -114,7 +114,7 @@ python scripts/release_gate.py
   smoke-tests the installed package and runs the tutorials against it. It catches packaging
   mistakes (a module missing from the wheel, a broken extra) that the suite cannot see. Last it
   runs the suite in parallel and prints its wall time and ten slowest tests, and prints the peak
-  memory of a fixed set of operations (`scripts/measure_peak_memory.py`, no threshold yet,
+  memory of a fixed set of operations (`scripts/measure_peak_memory.py`, failing above `PEAK_THRESHOLD_MIB`, the 0.2.7 peak plus 25%,
   nothing written: each operation's peak resident size above its resident size before it, exact
   on Linux, where the peak is reset first, and on Windows labelled exact or an upper bound, since
   its peak cannot be reset; the script's docstring tables each platform). It also resolves the **CI conclusion for the exact
@@ -463,8 +463,8 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
 `workflow_dispatch` with target `testpypi` is also
 available for maintainers; it uploads but does not verify, since no tag names the version.
 
-The build job and `verify-testpypi` run the same `scripts/smoke_installed.py`;
-`release_gate.py` STEP 7 keeps its own, larger smoke script.
+The build job, `verify-testpypi` and `release_gate.py` STEP 7 run the same
+`scripts/smoke_installed.py`.
 
 ## Reporting a problem
 

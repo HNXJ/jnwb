@@ -52,6 +52,11 @@ beta_power_integrated = np.trapezoid(psd[mask], freqs[mask])  # input-units^2
 With `normalize=True` the per-Hz factor cancels, because the result is a ratio of two
 densities over the same band.
 
+![Welch and multitaper PSDs with the canonical bands shaded](assets/figures/fig11_spectra_canonical_bands.png#only-light)
+![Welch and multitaper PSDs with the canonical bands shaded](assets/figures/fig11_spectra_canonical_bands.dark.png#only-dark)
+
+Synthetic. `jnwb.compute_psd` (Welch) and `jnwb.compute_multitaper_psd` (DPSS) estimate the spectrum of one seeded signal: a random-walk background with one rhythm in each of the alpha, beta and low gamma bands. Alternate `jnwb.CANONICAL_BANDS` are shaded, so every band edge is visible. Both estimates place the same three peaks.
+
 ### Decibel Formation (`aggregate_to_db`, `to_db`, `DB_AGGREGATIONS`)
 
 Take the logarithm **last**. Form the per-unit ratio `P / P0`, aggregate the *ratios*, and
@@ -160,6 +165,11 @@ return current. Reading the map with the opposite sign inverts every conclusion 
 which depth receives input, so check the convention before comparing against a figure
 from elsewhere -- the opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
+
+![Low and high band depth profiles, with the true and the vFLIP crossover](assets/figures/fig13_vflip_band_profiles.png#only-light)
+![Low and high band depth profiles, with the true and the vFLIP crossover](assets/figures/fig13_vflip_band_profiles.dark.png#only-dark)
+
+Synthetic. A laminar motif from `jnwb.testing.synth_laminar_motif`, drawn with one fixed seed, gives the spectra that `jnwb.compute_psd` returns. The lines are the low-band and high-band depth profiles that `jnwb.vflip_from_lfp` builds from them, each frequency normalized across contacts, before vFLIP rescales each profile to its full range to locate the crossover. The dotted line is the true crossover; the dashed line is the crossover `jnwb.vflip_from_lfp` estimates, which carries the error that `VFlipResult.crossover_contact` documents.
 
 ![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.png#only-light)
 ![Power Spectral Density and Aperiodic Tilt](assets/figures/fig04_psd_spectral_tilt.dark.png#only-dark)

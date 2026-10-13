@@ -22,6 +22,7 @@ Install an extra with `pip install "jnwb[<extra>]"`; combine them as `"jnwb[torc
 | `gpu` | CuPy for CUDA 12.x acceleration, and JAX |
 | `mcp` | Model Context Protocol server tooling |
 | `vis` | the Plotly figure engine `jnwb.vis`, with kaleido for SVG/PNG export |
+| `validate` | the NWB Inspector and DANDI layers of `jnwb.validate_nwb`; without them those layers are reported skipped |
 | `wavemap` | umap-learn, networkx |
 | `docs` | the MkDocs documentation builder |
 | `test` | pytest and pytest-xdist, plus the packaging and notebook tooling used to test a build and the tutorials |

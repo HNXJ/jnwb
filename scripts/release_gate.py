@@ -19,7 +19,7 @@ cheaper check that can refuse the release runs before it.
   4. Manifest & forbidden-content inspection (no _unused, no omission, no artifacts)
   5. Distribution metadata & README validation (twine check)
   6. Isolated environment wheel installation & pip check
-  7. Installed-package smoke verification without omission (``INSTALLED_SMOKE``)
+  7. Installed-package smoke verification without omission (``scripts/smoke_installed.py``)
   8. Every numbered tutorial runs against the installed wheel
   1. Full test suite execution (pytest tests/), in parallel, with its wall time, and the
      peak memory of a fixed set of representative operations, recorded
@@ -178,6 +178,9 @@ FORBIDDEN_COMPONENTS = frozenset({
     # exists; the old rule caught it only because `.lab` was a substring match.
     "dist", ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
     ".lab", ".lab_bundle_build", "outputs",
+    # The repository's example scripts and data, which neither a wheel nor an sdist may carry. No
+    # package directory is named `examples` or `data`; one added later would be refused here.
+    "examples", "data",
     # The repository's working rules and the skills about working on this repository. All
     # stay out of the sdist; a component match on the file and folder names catches each
     # one wherever a manifest change puts it.
@@ -734,7 +737,8 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
 
 def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Optional[str]]:
-    """``(run, None)`` or ``(None, reason)`` for the newest run whose head is ``sha``.
+    """``(run, None)`` or ``(None, reason)`` for the newest concluded run whose head is ``sha``, or
+    the newest run of it when none has concluded.
 
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
@@ -759,8 +763,12 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
             f"{len(payload)} run(s) for {seen or 'no commit'}. Push this commit and let CI "
             f"run before tagging it."
         )
-    # Newest first is gh's order; databaseId is monotonic, so re-derive rather than assume.
-    return max(matching, key=lambda r: r.get("databaseId") or 0), None
+    # A run still executing does not decide the commit while another run of it has concluded: a
+    # pull-request run in progress beside the push run that passed is not a failure. The newest
+    # concluded run decides; a commit with none is held by its newest run. Newest first is gh's
+    # order; databaseId is monotonic, so re-derive rather than assume.
+    concluded = [r for r in matching if r.get("status") == "completed"]
+    return max(concluded or matching, key=lambda r: r.get("databaseId") or 0), None
 
 
 class JobVerdict(NamedTuple):
@@ -1362,7 +1370,8 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
 
 def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
     """Every path whose working copy differs from HEAD -- modified, staged, deleted, renamed or
-    untracked and not ignored -- sorted, or ``None`` when git cannot say.
+    untracked and not ignored, or marked assume-unchanged or skip-worktree -- sorted, or ``None``
+    when git cannot say.
 
     The whole tree, not only :data:`STEP_0A_PATHS`: the build in STEP 3 packages the working
     copy, so uncommitted code would ship under a receipt that names a commit without it.
@@ -1379,6 +1388,16 @@ def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
         named.add(entry[3:])
         if "R" in entry[:2] or "C" in entry[:2]:
             named.add(next(entries, ""))
+    # `git status` does not report a file marked assume-unchanged or skip-worktree, however it was
+    # edited. `ls-files -v` tags such a file with a lowercase letter or `S`, and every other
+    # tracked file with `H`, so any other tag names the file.
+    tags = subprocess.run(["git", "ls-files", "-v", "-z"], cwd=root, capture_output=True,
+                          text=True)
+    if tags.returncode != 0:
+        return None
+    for entry in filter(None, tags.stdout.split("\0")):
+        if entry[:1] != "H":
+            named.add(entry[2:])
     return sorted(filter(None, named))
 
 
@@ -1485,6 +1504,52 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     return violations
 
 
+#: The action every PyPI publication step uses. A job with a step that uses it publishes.
+PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+#: A run that uploads with twine, by any interpreter: ``twine upload`` or ``python -m twine upload``.
+_TWINE_UPLOAD = re.compile(r"\btwine\s+upload\b")
+
+
+def _publishes(step: dict) -> bool:
+    """Whether one step uploads a distribution: the PyPI action, or a twine upload in its run."""
+    return (str(step.get("uses") or "").startswith(PUBLISH_ACTION)
+            or _TWINE_UPLOAD.search(str(step.get("run") or "")) is not None)
+
+
+def _continues_on_error(value) -> bool:
+    """Whether a ``continue-on-error`` value lets a failure pass: anything but absent or false."""
+    return value is not None and value is not False and str(value).strip().lower() != "false"
+
+
+def publication_continue_on_error(workflow: str) -> List[str]:
+    """Each publication job, and each step of one, that continues on error.
+
+    A publication job has a step that uses :data:`PUBLISH_ACTION` or runs ``twine upload``. A job
+    that calls a reusable workflow counts too: that workflow's steps are in a file this check does
+    not read, so the call is refused as publication rather than taken as none. A failed upload in
+    one would read as a passing release. ``continue-on-error`` on any other job is not refused: the
+    pandas 3 job reports and does not gate, and :func:`required_ci_jobs` skips it for that reason.
+    """
+    import yaml
+
+    document = yaml.safe_load(workflow) or {}
+    found = []
+    for job_id, job in (document.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        steps = [s for s in (job.get("steps") or []) if isinstance(s, dict)]
+        if not (job.get("uses") or any(_publishes(s) for s in steps)):
+            continue
+        if _continues_on_error(job.get("continue-on-error")):
+            found.append(f"publication job {job_id!r} continues on error, so a failed upload "
+                         "would not fail the release")
+        for step in steps:
+            if _continues_on_error(step.get("continue-on-error")):
+                found.append(f"a step of publication job {job_id!r} continues on error, so a "
+                             "failed upload would not fail the release")
+    return found
+
+
 def check_release_readiness(root: pathlib.Path = REPO_ROOT,
                             head: Optional[str] = None) -> List[str]:
     """AGENTS.md section 11 condition 3, as amended 2026-09-23.
@@ -1506,6 +1571,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          and every one deleted since is one the receipt records as finished;
       4. the committed peak-memory record names the version HEAD declares;
       5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
+      6. the workflow at HEAD exists, and no publication job in it continues on error, so a failed
+         upload cannot read as a release.
 
     Deliberately not a harness gate: this is false for almost all of a cycle, and a gate that
     fails every day is a gate people learn to skip.
@@ -1553,7 +1620,7 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
     items, unreadable = _parse_todo_stack(todo) if todo is not None else ([], [])
     # A value other than this cycle's `required-` is named, so a release step or a deferral
     # written for the wrong cycle says why it still counts.
-    required = [f"{i} {t[:34]}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
+    required = [f"{i} {t}" + ("" if r == f"required-{RELEASE_CYCLE}" else f" [{r[:40]}]")
                 for i, t, r in items if r not in (DEFERRED_VALUE, RELEASE_STEP_VALUE)]
     if required:
         violations.append(
@@ -1618,6 +1685,18 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"{len(leftover)} file(s) in artifacts/changelog.d/ at HEAD are not assembled into "
             f"CHANGELOG.md, so the release notes would omit them: {', '.join(leftover[:8])}"
             + (" ..." if len(leftover) > 8 else "") + ". Run scripts/assemble_changelog.py")
+
+    # 6. no publication job continues on error, so a failed upload cannot read as a release
+    workflow = _text_at(root, "HEAD", CI_WORKFLOW_PATH)
+    if workflow is None:
+        violations.append(f"{CI_WORKFLOW_PATH} is missing at HEAD, so whether a publication job "
+                          "continues on error is unknown")
+    else:
+        try:
+            violations.extend(publication_continue_on_error(workflow))
+        except Exception as exc:  # noqa: BLE001 - an unreadable workflow is unknown, not clean
+            violations.append(f"{CI_WORKFLOW_PATH} at HEAD cannot be read, so whether a "
+                              f"publication job continues on error is unknown: {exc}")
     return violations
 
 
@@ -1697,202 +1776,6 @@ def check_state_is_current(root: pathlib.Path = REPO_ROOT) -> List[str]:
     from scripts.harness_gate import check_state_file_head
 
     return check_state_file_head(root)
-
-
-#: STEP 7: run by the isolated venv's interpreter from outside the checkout, after the
-#: build, with ``EXPECTED_VERSION`` prepended. Kept out of ``main`` so the step reads as one
-#: call and the script can be read, and changed, on its own.
-INSTALLED_SMOKE = """
-import sys
-import pathlib
-import numpy as np
-import pandas as pd
-
-cwd = pathlib.Path.cwd()
-assert 'jnwb' not in cwd.name, f'CWD must be outside repository, got {cwd}'
-
-# 1. Verify omission is absent
-try:
-    import omission
-    raise RuntimeError('FAIL: omission is unexpectedly importable!')
-except ModuleNotFoundError:
-    print('PASS: omission is strictly absent and unimportable.')
-
-# 2. Import jnwb
-import jnwb
-print(f'PASS: import jnwb successful from {jnwb.__file__}')
-print(f'      jnwb.__version__ = {jnwb.__version__}')
-assert jnwb.__version__ == EXPECTED_VERSION, (
-    f'Installed wheel reports {jnwb.__version__}, source declares {EXPECTED_VERSION}')
-pkg = pathlib.Path(jnwb.__file__).resolve()
-assert 'site-packages' in str(pkg) or 'dist-packages' in str(pkg), f'expected installed location, got {pkg}'
-out_dir = jnwb.paths.outputs_dir()
-assert 'site-packages' not in str(out_dir) and 'dist-packages' not in str(out_dir)
-
-# 3. Test all exported symbols in __all__. The wheel is installed without extras, so an
-# optional submodule must name its extra rather than resolve; `hasattr` sees only
-# AttributeError, and the ImportError it raises instead would fail this step every time.
-from jnwb._lazy_exports import OPTIONAL_SUBMODULES
-missing = [s for s in jnwb.__all__ if s not in OPTIONAL_SUBMODULES and not hasattr(jnwb, s)]
-assert not missing, f'Missing symbols: {missing}'
-for name, extra in OPTIONAL_SUBMODULES.items():
-    try:
-        getattr(jnwb, name)
-    except ImportError as exc:
-        assert f'pip install jnwb[{extra}]' in str(exc), exc
-    else:
-        raise AssertionError(f'jnwb.{name} resolved without the {extra} extra')
-print(f'PASS: All {len(jnwb.__all__)} symbols in jnwb.__all__ resolved or name their extra.')
-
-# 4. Workflows
-rng = np.random.default_rng(42)
-st = np.sort(rng.uniform(0, 10, 50))
-onsets = np.array([1.0, 3.0, 5.0, 7.0])
-tb, rate, sem = jnwb.raster_psth(st, onsets, win_ms=(-100, 300), bin_ms=10.0)
-smooth = jnwb.causal_exp_smooth(rate, bin_ms=10.0, tau_ms=30.0)
-fit = jnwb.fit_exponential_onset(tb, rate, t0_bounds=(0.0, 200.0))
-assert 't0' in fit and 'bound_status' in fit
-ppc = jnwb.pairwise_phase_consistency(rng.uniform(-np.pi, np.pi, 30))
-assert np.isfinite(ppc)
-gs = jnwb.gaussian_smooth_rate(rate, bin_ms=10.0, sigma_ms=20.0)
-assert gs.shape == rate.shape
-
-# Spectral & TFR
-sig = rng.normal(size=1000)
-freq_grid = np.linspace(10.0, 50.0, 9)
-tfr_res = jnwb.complex_tfr(sig, fs=1000.0, freqs=freq_grid, n_cycles=5.0)
-acc = jnwb.TFRAccumulator((1, len(freq_grid), 1000))
-acc.add_trial(tfr_res.z[None, :, :], valid=tfr_res.coi_mask[None, :, :])
-assert acc.power().shape == (1, 9, 1000)
-mt_f, mt_p = jnwb.compute_multitaper_psd(sig, fs=1000.0)
-assert len(mt_f) == len(mt_p)
-filt = jnwb.bandpass_filter(sig, fs=1000.0, low_cut=8.0, high_cut=40.0)
-assert filt.shape == sig.shape
-lfp = rng.normal(size=(6, 200))
-csd = jnwb.current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=0.3)
-assert csd.shape == (4, 200)
-
-# Statistics, decoding, connectivity, artifact
-boot = jnwb.StatisticalAnalysis.bootstrap_ci(sig, n_bootstrap=100, rng=rng)
-labels = np.array(['A', 'B', 'A', 'B'])
-shuf = jnwb.permute_labels(labels, scheme='global', rng=rng)
-X = rng.normal(size=(20, 4))
-y = np.repeat([0, 1], 10)
-dec = jnwb.nested_cv_linear_svm(X, y, n_splits=2)
-g_res = jnwb.granger(rng.normal(size=300), rng.normal(size=300), order=2, n_surrogates=5, seed=0)
-corr = jnwb.channel_correlation_matrix(rng.normal(size=(8, 200)))
-rep_lfp, frac, diag = jnwb.repair_lfp_trials(rng.normal(size=(8, 4, 100)))
-clust = jnwb.cluster_permutation_test(
-    rng.normal(size=(8, 20)), rng.normal(size=(8, 20)), n_permutations=20, rng=rng,
-)
-masks = [c['mask'].tobytes() for c in clust['clusters']]
-assert len(masks) == len(set(masks))
-
-# Addressing
-elec = pd.DataFrame({'location': ['V1, V2', 'V1, V2'], 'group_name': ['probeA', 'probeA']}, index=[0, 1])
-assert jnwb.map_peak_channel_to_area(0, elec) == 'V1'
-
-# 5. NWB discovery, processing LFP, calibration, and epoching (0.1.8 contract)
-import pathlib
-import tempfile
-from jnwb.testing.nwb_fixtures import (
-    CODE_LABEL_A,
-    TASK_TABLE,
-    canonical_co_resident_options,
-    processing_lfp_options,
-    write_synth_nwb,
-)
-# Top-level acquisition test
-nwb_path = pathlib.Path(tempfile.mkdtemp()) / 'wheel_smoke.nwb'
-receipt = write_synth_nwb(nwb_path, canonical_co_resident_options())
-info = jnwb.inspect(nwb_path)
-assert any(t['name'] == TASK_TABLE for t in info['interval_tables'])
-onsets = jnwb.event_onsets(nwb_path, table=TASK_TABLE, codes=[CODE_LABEL_A])
-assert onsets.size == len(receipt.task_onsets_s[::2])
-spikes = jnwb.unit_spike_times(nwb_path, unit_index=0)
-lfp, fs_hz = jnwb.acquisition_channel(nwb_path, name='probe_0_lfp', channel=0)
-assert spikes.size > 0 and lfp.size > 0 and fs_hz == receipt.fs_hz
-
-# Processing-module LFP discovery and calibrated access
-proc_nwb_path = pathlib.Path(tempfile.mkdtemp()) / 'wheel_proc.nwb'
-proc_receipt = write_synth_nwb(proc_nwb_path, processing_lfp_options())
-proc_info = jnwb.inspect(proc_nwb_path)
-assert len(proc_info['processing_continuous']) > 0
-assert any(p['neurodata_type'] == 'LFP' for p in proc_info['processing_continuous'])
-proc_lfp, proc_fs = jnwb.acquisition_channel(proc_nwb_path, channel=0)
-assert proc_lfp.size > 0 and proc_fs == proc_receipt.fs_hz
-
-# epoch_continuous primitive & drop retained indices
-epochs, t_axis, retained = jnwb.epoch_continuous(
-    proc_lfp,
-    onsets=[0.1, 0.5, 999.0],
-    win_s=(-0.05, 0.1),
-    fs=proc_fs,
-    boundary_policy='drop',
-    return_indices=True,
-)
-assert epochs.ndim == 2
-assert epochs.shape[0] == 2
-assert np.array_equal(retained, [0, 1])
-assert len(t_axis) == epochs.shape[1]
-
-# 6. 0.2.1 additions: aperiodic_fit, relative_power, exact stats, stream_npz_array, probe_geometry
-f_axis = np.linspace(5.0, 50.0, 46)
-psd_toy = 10.0 ** (2.0 - 1.5 * np.log10(f_axis))
-ap_res = jnwb.aperiodic_fit(f_axis, psd_toy, freq_range=(5.0, 50.0), mode="fixed")
-assert ap_res.accepted is True and np.isclose(ap_res.exponent, 1.5, atol=1e-3)
-
-rp = jnwb.relative_power(psd_toy * 1.5, psd_toy, model="mean_of_ratios", axis=0)
-assert np.isclose(rp, 1.5)
-
-obs_m, p_val, p_fl = jnwb.exact_sign_flip([1.0, 2.0, 3.0, 4.0], alternative="greater")
-assert np.isclose(p_val, 0.0625) and np.isclose(p_fl, 0.0625)
-mwp_fl = jnwb.mann_whitney_p_floor(3, 3, alternative="two-sided")
-assert np.isclose(mwp_fl, 0.1)
-cp_ci = jnwb.clopper_pearson(5, 10, alpha=0.05)
-assert len(cp_ci) == 2
-
-tmp_npz = pathlib.Path(tempfile.mkdtemp()) / 'test_stream.npz'
-arr_raw = np.arange(100, dtype=np.float32).reshape(10, 10)
-np.savez_compressed(tmp_npz, arr=arr_raw)
-streamed = jnwb.stream_npz_array(tmp_npz, 'arr', (slice(0, 5), slice(0, 5)))
-assert np.array_equal(streamed, arr_raw[0:5, 0:5])
-
-coords_df = pd.DataFrame({'x': [0, 0, 0, 0], 'y': [0, 0, 0, 0], 'z': [0, 20, 40, 60]})
-p_geom = jnwb.probe_geometry(coords_df, units="um", nominal_pitch=20.0, strict_linear=True)
-assert p_geom.is_linear is True and p_geom.is_uniform is True
-
-# 7. 0.2.4 additions: wpli, zflip, rdm
-# `wpli` returns a dict, so `hasattr` is always False on it; and the debiased key is
-# `wpli_debiased_sq`, not `wpli_debiased`. Check the keys and their contracts.
-wpli_res = jnwb.wpli(sig[:500], sig[500:], fs=1000.0, freq_range=(10.0, 40.0))
-assert set(wpli_res) == {'wpli', 'wpli_debiased_sq', 'freqs', 'wpli_spectrum', 'n_segments', 'n_freqs', 'device_used'}
-assert wpli_res['device_used'] == 'cpu', wpli_res['device_used']
-assert 0.0 <= wpli_res['wpli'] <= 1.0, wpli_res['wpli']
-assert -1.0 <= wpli_res['wpli_debiased_sq'] <= 1.0, wpli_res['wpli_debiased_sq']
-assert wpli_res['freqs'].shape == wpli_res['wpli_spectrum'].shape
-assert 1 <= wpli_res['n_freqs'] <= wpli_res['freqs'].size
-assert wpli_res['n_segments'] >= 2
-
-zflip_res = jnwb.zflip(rng.normal(size=(8, 1000)), fs=1000.0, orientation="superficial_to_deep", pitch_um=20.0, freq_range=(15.0, 35.0), seed=42)
-assert isinstance(zflip_res.delay_identifiable, bool) and isinstance(zflip_res.accepted, bool)
-# White noise carries no travelling wave: the estimator must decline it and say why.
-assert zflip_res.accepted is False and zflip_res.rejection_reason
-
-# `rdm` returns a CONDENSED vector by default; the square form is condensed=False.
-condensed = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation")
-assert condensed.shape == (45,), condensed.shape
-square = jnwb.rdm(rng.normal(size=(10, 20)), metric="correlation", condensed=False)
-assert square.shape == (10, 10), square.shape
-assert np.allclose(square, square.T) and np.allclose(np.diag(square), 0.0)
-rho_rdm, p_rdm = jnwb.rdm_similarity(condensed, condensed, metric="spearman")
-assert np.isclose(rho_rdm, 1.0)
-
-# 8. Viz
-jnwb.setup_vector_graphics()
-
-print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
-"""
 
 
 def probe_jnwb_file(venv_python: str, cwd: str, env: dict) -> str:
@@ -2124,11 +2007,14 @@ def main() -> None:
         log.info("PASS: pip check verified zero broken requirements.")
 
         log.info("=== STEP 7: Executing installed-package smoke tests outside repository ===")
-        smoke_script = staging_dir / "smoke_test.py"
-        smoke_script.write_text(
-            f"EXPECTED_VERSION = {jnwb_source_version()!r}\n" + INSTALLED_SMOKE, encoding="utf-8")
-
-        res = subprocess.run([venv_python, str(smoke_script)], cwd=str(staging_dir), capture_output=True, text=True)
+        # The one installed smoke, scripts/smoke_installed.py, with the arguments CI passes (Hamm
+        # 2026-10-13). PYTHONPATH is stripped, as for the tutorials below: the checkout must not
+        # satisfy `import jnwb`.
+        smoke_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        res = subprocess.run(
+            [venv_python, str(REPO_ROOT / "scripts" / "smoke_installed.py"),
+             "--expected-version", jnwb_source_version(), "--not-under", str(REPO_ROOT)],
+            cwd=str(staging_dir), env=smoke_env, capture_output=True, text=True)
         if res.returncode != 0:
             log.error(f"Smoke test failed in isolated environment:\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
             sys.exit(res.returncode)

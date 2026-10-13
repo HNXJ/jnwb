@@ -1,0 +1,1 @@
+- scripts/smoke_installed.py: STEP 7 runs it as CI does; actions SHA-pinned; peak memory has a threshold

@@ -12,6 +12,7 @@ so the archive path is exercised rather than only the list comprehension.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -97,6 +98,23 @@ def test_pollution_tokens_are_caught_inside_a_file_name() -> None:
     """These are markers, not directories, so the component rule would be the weaker one."""
     for name in ["jnwb/omission_helper.py", "jnwb/_unused_thing.py"]:
         assert forbidden_entries([name]), name
+
+
+@pytest.mark.parametrize("entry", [
+    "examples/data/sample.csv",
+    "examples/tutorials/01_quickstart.py",
+    "jnwb-0.2.5/examples/data/sample.csv",
+    "jnwb/data/table.csv",
+])
+def test_examples_and_data_components_are_rejected(entry: str) -> None:
+    """The repository keeps example data beside the package. Keeping it out of the wheel rested
+    on the manifest alone, so a build that included it passed the gate."""
+    assert forbidden_entries([entry]), entry
+
+
+def test_a_module_whose_name_contains_data_is_not_rejected() -> None:
+    """Component matching, as for `artifacts`: `data` as part of a name is not the directory."""
+    assert forbidden_entries(["jnwb/io_data.py", "jnwb/data_loader.py"]) == []
 
 
 def test_a_module_named_after_a_forbidden_directory_is_not_rejected() -> None:
@@ -220,9 +238,33 @@ def test_the_ci_snippet_runs_and_fails_on_a_polluted_wheel(tmp_path: Path) -> No
     assert "tests/test_lfp.py" in result.stdout, result.stdout + result.stderr
 
 
-@pytest.mark.skipif(not (ROOT / "dist").exists(), reason="no dist/ built in this checkout")
+def _distribution_dir() -> Path:
+    """The build to inspect: the directory `JNWB_DIST_DIR` names (a build made elsewhere), else
+    this checkout's dist/."""
+    named = os.environ.get("JNWB_DIST_DIR")
+    return Path(named) if named else ROOT / "dist"
+
+
+def _pollution_in(directory: Path) -> list:
+    problems = []
+    for whl in sorted(directory.glob("*.whl")):
+        with zipfile.ZipFile(whl) as archive:
+            problems += [f"{whl.name}: {p}" for p in forbidden_entries(archive.namelist())]
+    return problems
+
+
+@pytest.mark.skipif(not _distribution_dir().exists(), reason="no distribution directory to inspect")
 def test_any_distribution_present_in_this_checkout_is_clean() -> None:
     """Opportunistic: if a build is lying around, it must satisfy the repaired rule."""
-    for whl in (ROOT / "dist").glob("*.whl"):
-        with zipfile.ZipFile(whl) as archive:
-            assert forbidden_entries(archive.namelist()) == [], whl.name
+    assert _pollution_in(_distribution_dir()) == []
+
+
+def test_an_external_build_directory_is_inspected(tmp_path: Path, monkeypatch) -> None:
+    """A wheel built outside this checkout is read when `JNWB_DIST_DIR` names its directory."""
+    with zipfile.ZipFile(tmp_path / "jnwb-0.2.5-py3-none-any.whl", "w") as archive:
+        for name in CLEAN_WHEEL + ["examples/data/sample.csv"]:
+            archive.writestr(name, "x = 1\n")
+    monkeypatch.setenv("JNWB_DIST_DIR", str(tmp_path))
+    assert _distribution_dir() == tmp_path
+    problems = _pollution_in(_distribution_dir())
+    assert problems and "examples" in problems[0], problems

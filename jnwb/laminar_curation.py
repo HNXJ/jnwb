@@ -858,10 +858,13 @@ def curate_and_label(
 
 def _electrode_key(value: Any, name: str) -> Optional[int]:
     """The integer electrode id of ``value``, or None for NaN. A value that is not one raises."""
-    if pd.isna(value):
-        return None
     message = (f"map_peak_channel_to_layer: {name} holds {value!r}, which is not an integer "
                "electrode id")
+    # An array-like has no single truth value, so it is refused before pd.isna() is tested on it.
+    if np.ndim(value) != 0:
+        raise ValueError(message)
+    if pd.isna(value):
+        return None
     # A bool or a string would pass float(): True as id 1, "1e1" as id 10.
     if isinstance(value, (bool, np.bool_, str, bytes)):
         raise ValueError(message)
