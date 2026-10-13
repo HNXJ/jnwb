@@ -240,6 +240,18 @@ def test_the_command_writes_the_section_and_consumes_its_fragments(tmp_path, cap
     assert sorted(p.name for p in fragments.iterdir()) == ["README.md"]
 
 
+def test_every_committed_fragment_line_meets_the_entry_template():
+    """A fragment is the next release's entry, so it meets the template when it is committed."""
+    from scripts.harness_gate import _changelog_entry_violations
+
+    fragments = read_fragments(ROOT / "artifacts" / "changelog.d")
+    assert fragments, "no fragment to examine"
+    found = [v for _, body, path in fragments
+             for n, line in enumerate(body.splitlines(), 1) if line.startswith("- ")
+             for v in _changelog_entry_violations(ROOT, n, line)]
+    assert not found, found
+
+
 def test_every_fragment_category_writes_a_heading_gate_14_allows():
     from scripts.harness_gate import CHANGELOG_KINDS
 

@@ -1,0 +1,1 @@
+- `gpu_pca` and `compute_population_trajectory` share one NumPy SVD fallback; jnwb/gpu_pca.py
