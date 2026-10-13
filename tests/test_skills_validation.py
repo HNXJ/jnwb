@@ -1250,15 +1250,15 @@ class TestEvidenceConflictProbes:
         assert _fact_stack_writers([tmp_path / "gate.py"]) == []
 
     def test_the_probe_reads_the_real_harness_gate(self):
-        """The file the scoping was built for is actually scanned, and actually clears."""
-        gate = ROOT_DIR / "scripts" / "harness_gate.py"
-        assert gate.is_file(), f"{gate} is gone; the case above no longer has a subject"
-        text = gate.read_text(encoding="utf-8")
+        """The files the scoping was built for are actually scanned, and actually clear."""
+        gates = sorted((ROOT_DIR / "scripts" / "gates").glob("*.py"))
+        assert gates, "scripts/gates/ is gone; the case above no longer has a subject"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in gates)
         assert "fact_stack.md" in text and "write_text" in text, (
-            "harness_gate.py no longer carries both halves of the co-occurrence, so this test "
-            "would pass for a reason that has nothing to do with the scoping"
+            "the gates package no longer carries both halves of the co-occurrence, so this "
+            "test would pass for a reason that has nothing to do with the scoping"
         )
-        assert _fact_stack_writers([gate]) == []
+        assert _fact_stack_writers(gates) == []
 
     # Both read through ROOT_DIR rather than a bare relative path: a path relative to
     # the current directory resolves only when pytest is run from the repository root.

@@ -85,7 +85,7 @@ def test_an_untracked_derived_file_is_not_required_to_exist():
 
 def test_the_gate_catches_a_generator_that_has_been_renamed(monkeypatch):
     """The failure mode a declaration has: it keeps reading as true after the file moves."""
-    import scripts.harness_gate as hg
+    import scripts.gates.stacks_closure as hg
 
     broken = ({
         "derived": "docs/api.md",
@@ -101,7 +101,7 @@ def test_the_gate_catches_a_generator_that_has_been_renamed(monkeypatch):
 
 
 def test_the_gate_catches_a_source_that_no_longer_exists(monkeypatch):
-    import scripts.harness_gate as hg
+    import scripts.gates.stacks_closure as hg
 
     broken = ({
         "derived": "docs/api.md",
@@ -117,7 +117,7 @@ def test_the_gate_catches_a_source_that_no_longer_exists(monkeypatch):
 
 def test_the_gate_catches_an_empty_closure(monkeypatch):
     """Without this, deleting the constant's contents would silence every check above."""
-    import scripts.harness_gate as hg
+    import scripts.gates.stacks_closure as hg
 
     monkeypatch.setattr(hg, "GENERATED_FROM", ())
     violations = hg.check_stack_form_consistency(REPO_ROOT)

@@ -24,6 +24,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 from scripts import harness_gate  # noqa: E402
+from scripts.gates import boundary as boundary_gate  # noqa: E402
 from scripts.harness_gate import check_frozen_boundary  # noqa: E402
 JNWB_DIR = REPO_ROOT / "jnwb"
 TESTS_DIR = REPO_ROOT / "tests"
@@ -74,7 +75,7 @@ class TestJnwbFrozenBoundary:
             "UNAUTHORIZED_IMPORT: m.py:5 imports 'omission.gamma'",
         ]
         monkeypatch.setattr(
-            harness_gate,
+            boundary_gate,
             "AUTHORIZED_JNWB_EXCEPTIONS",
             {("m.py", "omission.alpha"), ("m.py", "omission.gamma")},
         )

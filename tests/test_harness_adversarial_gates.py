@@ -414,19 +414,21 @@ class TestGateNumberingIntegrity:
 
     @staticmethod
     def _numbered_gates() -> dict[int, str]:
-        """Map gate number -> function name, read from harness_gate.py docstrings."""
+        """Map gate number -> function name, read from the gate modules' docstrings."""
         import re
 
-        source = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        paths = [REPO_ROOT / "scripts" / "harness_gate.py",
+                 *sorted((REPO_ROOT / "scripts" / "gates").glob("*.py"))]
         found: dict[int, list[str]] = {}
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef):
-                continue
-            doc = ast.get_docstring(node) or ""
-            match = re.match(r"Gate (\d+)\b", doc)
-            if match:
-                found.setdefault(int(match.group(1)), []).append(node.name)
+        for path in paths:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.FunctionDef):
+                    continue
+                doc = ast.get_docstring(node) or ""
+                match = re.match(r"Gate (\d+)\b", doc)
+                if match:
+                    found.setdefault(int(match.group(1)), []).append(node.name)
         duplicates = {n: names for n, names in found.items() if len(names) > 1}
         assert duplicates == {}, f"gate number reused by more than one gate: {duplicates}"
         return {n: names[0] for n, names in found.items()}
@@ -1318,6 +1320,7 @@ class TestGate14ProcessIdentifiersInLibrary:
     def test_the_runner_entry_runs_it(self, tmp_path: Path, monkeypatch):
         """A check the runner never calls passes every test above and guards nothing."""
         from scripts import harness_gate
+        from scripts.gates import vocabulary as vocabulary_gate
 
         root = self._library(tmp_path, "The anchors were missing (P-12).")
         (root / "docs").mkdir()
@@ -1329,7 +1332,7 @@ class TestGate14ProcessIdentifiersInLibrary:
             "- A planted change.\n",
             encoding="utf-8",
         )
-        monkeypatch.setattr(harness_gate, "REPO_ROOT", root)
+        monkeypatch.setattr(vocabulary_gate, "REPO_ROOT", root)
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
         assert [header for header, _ in failures] == [
@@ -2191,7 +2194,7 @@ class TestApiMdMemberTypes:
         it. Asserted against the source, because a comment saying so is not a constraint."""
         import ast as _ast
 
-        source = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8")
+        source = (REPO_ROOT / "scripts" / "gates" / "api_types.py").read_text(encoding="utf-8")
         tree = _ast.parse(source)
         function = next(
             node for node in _ast.walk(tree)

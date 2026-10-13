@@ -311,9 +311,10 @@ class TestGate8ComparesTheClassifiersAgainstTheMatrixItself:
         classifier set still equals PYTHON_SUPPORTED, so checks 2 and 3 are both satisfied.
         Only a file-to-file comparison survives this.
         """
+        import scripts.gates.versions as versions_gate
         import scripts.harness_gate as harness_gate
 
-        monkeypatch.setattr(harness_gate, "PYTHON_CI_REQUIRED", ("3.12", "3.14"))
+        monkeypatch.setattr(versions_gate, "PYTHON_CI_REQUIRED", ("3.12", "3.14"))
         self._write_tree(tmp_path, ("3.12", "3.13", "3.14"), ("3.12", "3.14"))
         violations = harness_gate.check_python_floor_consistency(tmp_path)
         assert any("PYTHON_CLASSIFIER_UNTESTED" in v and "3.13" in v for v in violations), (
@@ -531,7 +532,7 @@ class TestGate4AllowlistCarriesNoDeadEntries:
         the allowlist is claiming is that the entry corresponds to something the repository
         has, and a working tree's untracked residue is not that.
         """
-        lines = (REPO_ROOT / "scripts" / "harness_gate.py").read_text(encoding="utf-8").splitlines()
+        lines = (REPO_ROOT / "scripts" / "gates" / "boundary.py").read_text(encoding="utf-8").splitlines()
         comments = [ln for ln in lines if ln.lstrip().startswith("#")]
         tracked = set(
             subprocess.run(
