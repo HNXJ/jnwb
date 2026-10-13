@@ -154,3 +154,13 @@ def test_check_refuses_a_data_commit_that_is_not_the_source_sha(tmp_path):
     proc = _run_check(_site(tmp_path, data_commit="f" * 40))
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "commit" in (proc.stdout + proc.stderr).lower()
+
+
+def test_the_built_data_is_validated_with_jsonschema_between_check_and_publish():
+    steps = _job(_workflow())["steps"]
+    hits = [i for i, s in enumerate(steps) if "data.schema.json" in str(s.get("run", ""))]
+    assert len(hits) == 1, f"expected one step validating against the schema, found {hits}"
+    run = steps[hits[0]]["run"]
+    assert "jsonschema" in run and "pip install" in run, "the step must install jsonschema"
+    assert "$RUNNER_TEMP/site/data.json" in run, "the step must validate the built data.json"
+    assert _step_index(steps, "scripts/check_dashboard_build.py") < hits[0] < _publish_index(steps)

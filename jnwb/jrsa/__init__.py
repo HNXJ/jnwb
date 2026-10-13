@@ -91,7 +91,7 @@ from ._inference import (
     _permutation_test,
     ALTERNATIVES,
     _UPPER_TAIL_PARAMETRIC_P,
-    _require_alternative,
+    _require_alternative_exact,
     _one_sided_parametric_p,
     _p_from_null,
     _bootstrap,
@@ -434,7 +434,7 @@ def jrsa(
 
     # The tail applies to the parametric p as well as the permutation one, so it is checked
     # here rather than only where a permutation null is formed.
-    _require_alternative(alternative)
+    _require_alternative_exact(alternative)
     _require_null(null, block_len)
     permutation_p = bool(stats and permutations > 0)
     if (alternative != "two-sided" and not permutation_p

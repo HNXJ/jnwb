@@ -261,7 +261,7 @@ def shuffle_pvalue_paired(
     n = len(a)
     if n < 2:
         return float("nan"), float("nan")
-    alt = _require_alternative(alternative, "shuffle_pvalue_paired")
+    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_paired")
     diff = a - b
     obs = float(np.mean(diff))
     flips = rng.choice(np.array([-1.0, 1.0]), size=(n_shuffles, n))
@@ -270,7 +270,7 @@ def shuffle_pvalue_paired(
     return obs, float((1.0 + k) / (n_shuffles + 1.0))
 
 
-def _require_alternative(alternative: str, func_name: str) -> str:
+def _require_alternative_casefold(alternative: str, func_name: str) -> str:
     """Normalize and validate a tail specification.
 
     The `if greater / elif less / else` chains this replaces had a two-sided fallthrough,
@@ -313,7 +313,7 @@ def shuffle_pvalue_unpaired(
     _require_shuffle_inputs(a, b, n_shuffles, "shuffle_pvalue_unpaired")
     if len(a) < 2 or len(b) < 2:
         return float("nan"), float("nan")
-    alt = _require_alternative(alternative, "shuffle_pvalue_unpaired")
+    alt = _require_alternative_casefold(alternative, "shuffle_pvalue_unpaired")
     pooled = np.concatenate([a, b])
     pooled = pooled - np.mean(pooled)  # see _tie_tolerance
     n_a = len(a)

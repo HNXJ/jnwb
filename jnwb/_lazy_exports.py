@@ -75,6 +75,7 @@ EXPORT_MODULES: dict[str, str] = {
     "build_representation_ladder": "decoding",
     # onset fitting
     "causal_exp_smooth": "onset_fitting",
+    "causal_gaussian_smooth": "onset_fitting",
     "fit_exponential_onset": "onset_fitting",
     "onset_model": "onset_fitting",
     # analyzers

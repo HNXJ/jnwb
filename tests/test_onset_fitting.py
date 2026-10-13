@@ -186,3 +186,63 @@ class TestANoiseOnlyPSTH:
         assert len(unflagged) > len(fits) / 2, f"{len(unflagged)} of {len(fits)} read None"
         assert sum(self._tau_at_a_bound(f) for f in unflagged) > len(unflagged) / 2
         assert max(f["r2"] for f in unflagged) < 0.2
+
+
+class TestCausalGaussianSmooth:
+    """A past-only Gaussian kernel that reports its exact mean lag (item 12-19)."""
+
+    def test_an_impulse_gives_exactly_zero_before_its_bin(self):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        rate = np.zeros(60)
+        rate[20] = 1.0
+        smoothed, _ = causal_gaussian_smooth(rate, 3.0)
+        assert smoothed[20] > 0.0, "fixture must respond at its impulse"
+        assert np.all(smoothed[:20] == 0.0)
+
+    def test_mean_lag_is_the_centroid_of_the_kernel_applied(self):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        sigma = 2.5
+        j = np.arange(int(np.ceil(4 * sigma)) + 1)
+        w = np.exp(-(j ** 2) / (2 * sigma ** 2))
+        assert j.size > 2, "fixture kernel must have more than two taps"
+        _, lag = causal_gaussian_smooth(np.ones(40), sigma)
+        assert lag == pytest.approx(np.sum(j * w) / np.sum(w), rel=1e-12)
+
+    @pytest.mark.parametrize("sigma", [1.0, 2.5, 7.5, 20.0])
+    def test_mean_lag_tracks_sigma_times_root_two_over_pi(self, sigma):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        _, lag = causal_gaussian_smooth(np.ones(40), sigma)
+        assert abs(lag - sigma * np.sqrt(2 / np.pi)) <= 0.35, lag
+
+    @pytest.mark.parametrize("sigma", [1.0, 2.5, 7.5, 20.0])
+    def test_a_step_half_rise_falls_within_one_bin_of_the_kernel_median(self, sigma):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        rate = np.zeros(200)
+        rate[100:] = 1.0
+        smoothed, _ = causal_gaussian_smooth(rate, sigma)
+        j = np.arange(int(np.ceil(4 * sigma)) + 1)
+        w = np.exp(-(j ** 2) / (2 * sigma ** 2))
+        cdf = np.cumsum(w / w.sum())
+        median = int(j[np.flatnonzero(cdf >= 0.5)[0]])
+        assert smoothed[-1] > 0.99, "fixture must reach its plateau before the window ends"
+        half_rise = int(np.flatnonzero(smoothed >= 0.5)[0]) - 100
+        assert abs(half_rise - median) <= 1, (half_rise, median)
+        assert abs(median - 0.6745 * sigma) <= 1.0, (median, sigma)
+
+    def test_a_constant_rate_is_preserved_by_the_left_edge_padding(self):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        smoothed, _ = causal_gaussian_smooth(np.full(50, 7.0), 3.0)
+        assert smoothed.shape == (50,)
+        np.testing.assert_allclose(smoothed, 7.0, rtol=1e-12)
+
+    @pytest.mark.parametrize("sigma", [0.0, -2.0, np.nan, np.inf])
+    def test_a_sigma_that_is_not_finite_and_positive_is_refused_by_name(self, sigma):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        with pytest.raises(ValueError, match="causal_gaussian_smooth: sigma_bins must be a finite positive"):
+            causal_gaussian_smooth(np.ones(10), sigma)

@@ -269,7 +269,7 @@ def _adf_pvalue(series: np.ndarray) -> float:
     y = np.asarray(series, dtype=float).ravel()
     if len(y) < 10:
         return float("nan")
-    if not np.all(np.isfinite(y)) or np.ptp(y) == 0:
+    if not np.all(np.isfinite(y)) or is_constant(y):
         return float("nan")
     try:
         with warnings.catch_warnings():

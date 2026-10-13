@@ -1,0 +1,65 @@
+{
+  "entries": [
+    {
+      "id": "fixture_entry",
+      "title": "Synthetic fixture entry",
+      "question": "Synthetic question: does every field reach the page?",
+      "relation_to_published": "None. The entry is synthetic and describes no study.",
+      "species": "mouse",
+      "status": "verified",
+      "origin": {"kind": "showcase", "author": "Synthetic author", "issue": null},
+      "dandi": {
+        "id": "000000",
+        "version": "0.0.0",
+        "assets": [
+          {"asset_id": "synthetic-asset-1", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}
+        ]
+      },
+      "jnwb": {
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "functions": ["op_a"]
+      },
+      "figures": [
+        {
+          "light": "fixture_light.png",
+          "dark": "fixture_dark.png",
+          "caption": "Synthetic caption.",
+          "units": "synthetic units",
+          "controls": "synthetic controls",
+          "uncertainty": "synthetic uncertainty"
+        }
+      ],
+      "result": "Synthetic result.",
+      "interpretation": "Synthetic interpretation.",
+      "limitations": ["Synthetic limitation."],
+      "code": {
+        "location": "https://example.invalid/code",
+        "commit": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "receipts": [
+        {"name": "synthetic_receipt.json", "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"}
+      ],
+      "replications": [
+        {
+          "by": "Synthetic replicator A",
+          "date": "2026-10-01",
+          "scope": "Synthetic scope A",
+          "verdict": "reproduces",
+          "seed": "0",
+          "report_sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "note": "Synthetic note A."
+        },
+        {
+          "by": "Synthetic replicator B",
+          "date": "2026-10-02",
+          "scope": "Synthetic scope B",
+          "verdict": "partial",
+          "seed": null,
+          "report_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "note": "Synthetic note B."
+        }
+      ],
+      "links": [{"label": "Synthetic link", "url": "https://example.invalid/link"}]
+    }
+  ]
+}

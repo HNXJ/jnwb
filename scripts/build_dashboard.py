@@ -44,8 +44,9 @@ ASSETS = REPO_ROOT / "docs" / "assets"
 FIGURES = ASSETS / "figures"
 DOCS = REPO_ROOT / "docs"
 ORDER_RECORD = REPO_ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
+SHOWCASE_RECORD = REPO_ROOT / "artifacts" / "showcases" / "openscope_glo.json"
 SECTIONS =("generated", "release", "releases", "ci", "api", "verified", "performance",
-            "order", "references", "figures")
+            "order", "references", "figures", "showcases")
 
 _VERSION_LINE = re.compile(r"^## \[(?P<version>[^\]]+)\](?: - (?P<date>\S+))?$")
 _INIT_VERSION = re.compile(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", re.MULTILINE)
@@ -57,7 +58,11 @@ _MODULE_HEADING = re.compile(r"^### `(jnwb\.[^`]+)`")
 
 
 def _rel(path: Path) -> str:
-    return path.relative_to(REPO_ROOT).as_posix()
+    """The path relative to the repository; a path outside it is kept as given."""
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def _present(*paths: Path) -> list[str]:
@@ -389,6 +394,59 @@ def figures_section() -> list[dict]:
     return pairs
 
 
+def _showcase_figures() -> Path:
+    """The figures beside the record: artifacts/showcases/openscope_glo/figures/."""
+    return SHOWCASE_RECORD.with_suffix("") / "figures"
+
+
+def _copy_showcase_figures(showcases: dict, out: Path) -> None:
+    """Copies each entry's light and dark figure to assets/showcases/ beside the page."""
+    target = out / "assets" / "showcases"
+    target.mkdir(parents=True, exist_ok=True)
+    for entry in showcases["entries"]:
+        for figure in entry["figures"]:
+            for key in ("light", "dark"):
+                name = Path(figure[key]).name
+                shutil.copy2(_showcase_figures() / name, target / name)
+
+
+def showcases_section() -> dict | None:
+    """The showcase record, its figure paths relative to the built site; null while none exists.
+
+    Refuses, naming the entry: a figure without its dark twin, a verified entry without a
+    reproducing replication that carries a report digest, an asset without its SHA-256. The data
+    schema holds the rest of the shape.
+    """
+    if not SHOWCASE_RECORD.is_file():
+        return None
+    record = json.loads(_read(SHOWCASE_RECORD))
+    where = SHOWCASE_RECORD.name
+    figures_dir = _showcase_figures()
+    for entry in record["entries"]:
+        ident = entry["id"]
+        for figure in entry["figures"]:
+            light, dark = figure.get("light"), figure.get("dark")
+            if not dark or not (figures_dir / dark).is_file():
+                raise ValueError(f"{where}: entry {ident!r} has a figure without its dark twin "
+                                 f"(light {light!r}, dark {dark!r})")
+            if not light or not (figures_dir / light).is_file():
+                raise ValueError(f"{where}: entry {ident!r} has no light figure {light!r}")
+        reproduced = any(r["verdict"] == "reproduces" and r.get("report_sha256")
+                         for r in entry["replications"])
+        if entry["status"] == "verified" and not reproduced:
+            raise ValueError(f"{where}: entry {ident!r} is verified but has no reproducing "
+                             "replication with a report_sha256")
+        for asset in entry["dandi"]["assets"]:
+            if not asset.get("sha256"):
+                raise ValueError(f"{where}: entry {ident!r} asset {asset.get('asset_id')!r} "
+                                 "has no sha256")
+    for entry in record["entries"]:
+        for figure in entry["figures"]:
+            for key in ("light", "dark"):
+                figure[key] = f"assets/showcases/{figure[key]}"
+    return record
+
+
 def build_data() -> dict:
     """The data.json object. A section whose source is absent is null, as its docstring says."""
     releases = parse_changelog(CHANGELOG)
@@ -399,6 +457,7 @@ def build_data() -> dict:
     references = references_section()
     order = order_section()
     figures = figures_section()
+    showcases = showcases_section()
     pages = sorted({f"{_rel(DOCS)}/{figure['docs_page'].rstrip('/')}.md"
                     for figure in figures if figure["docs_page"]})
     sources = {
@@ -412,6 +471,7 @@ def build_data() -> dict:
         "order": _present(ORDER_RECORD) if order is not None else [],
         "references": _present(REFERENCES) if references is not None else [],
         "figures": [_rel(FIGURES), *pages],
+        "showcases": _present(SHOWCASE_RECORD) if showcases else [],
     }
     return {
         "generated": generated_section(),
@@ -425,6 +485,7 @@ def build_data() -> dict:
         "order": order,
         "references": references,
         "figures": figures,
+        "showcases": showcases,
     }
 
 
@@ -444,6 +505,8 @@ def write_dashboard(out: Path) -> dict:
         for key in ("light", "dark"):
             name = Path(figure[key]).name
             shutil.copy2(FIGURES / name, out / "assets" / name)
+    if data["showcases"]:
+        _copy_showcase_figures(data["showcases"], out)
     shutil.copy2(TEMPLATE_PATH, out / "index.html")
     if APP_PATH.is_file():
         shutil.copy2(APP_PATH, out / "app.js")
@@ -472,6 +535,8 @@ def _size(name: str, value) -> str:
         return f"{len(value)} pairs"
     if name == "order":
         return f"{len(value)} rows"
+    if name == "showcases":
+        return f"{len(value['entries'])} entries"
     return "present"
 
 

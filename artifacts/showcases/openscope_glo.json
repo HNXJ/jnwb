@@ -1,0 +1,528 @@
+{
+ "entries": [
+  {
+   "id": "glo_s1_responsive",
+   "title": "Identical xxxx sequence in three contexts: responsive units",
+   "question": "Does the P4 − P3 response to the identical xxxx sequence differ between the main, randomized and sequenced contexts?",
+   "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+   "species": "mouse",
+   "status": "verified",
+   "dandi": {
+    "id": "000253",
+    "version": "0.240503.0152",
+    "assets": [
+     {
+      "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+      "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+     },
+     {
+      "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+      "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+     },
+     {
+      "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+      "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+     },
+     {
+      "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+      "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+     },
+     {
+      "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+      "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+     },
+     {
+      "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+      "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+     },
+     {
+      "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+      "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+     },
+     {
+      "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+      "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+     },
+     {
+      "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+      "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+     },
+     {
+      "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+      "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+     },
+     {
+      "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+      "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+     },
+     {
+      "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+      "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+     },
+     {
+      "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+      "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+     }
+    ]
+   },
+   "jnwb": {
+    "commit": "9c0854f709381ec549130e4904290ecf4f09b9ee",
+    "functions": [
+     "nwb_read_io",
+     "filter_by_criteria",
+     "unit_spike_times",
+     "compute_response_metrics",
+     "classify_response_significance",
+     "bin_spikes",
+     "rate_in_window",
+     "exact_sign_flip",
+     "fdr_correct"
+    ]
+   },
+   "figures": [
+    {
+     "light": "glo_s1_responsive.png",
+     "dark": "glo_s1_responsive.dark.png",
+     "caption": "Contrasts C1–C4 and drift D per area: mean over mice of the per-mouse median over responsive units.",
+     "units": "Hz",
+     "controls": "drift contrast D (main 1 − main 2)",
+     "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, seed 20261012)"
+    }
+   ],
+   "result": "No contrast passes the preregistered test in any of 20 tested area × contrast cells (exact sign-flip over mice, BH; smallest p 0.090, smallest q 0.81). VISam not tested (5 mice).",
+   "interpretation": "Every contrast is not distinguishable from zero at this resolution. Bootstrap CIs lie within about ±1 Hz in VISp, VISl and VISal and reach about 1.7 Hz in VISrl and 1.38 Hz in VISpm; this is not an equivalence test. The drift contrast is of the same size, so no context effect is identified either way.",
+   "limitations": [
+    "Responsiveness was decided on P1 (always x), so the population is x-selected; C4 (yyyy) is measured in units chosen for x.",
+    "Context is confounded with time and state (block order fixed, running speed differs between contexts).",
+    "With 8 and 7 mice, VISrl and VISpm reach q < 0.05 only if 3 or 6 other cells reject first.",
+    "The spike–stimulus clock check is not independent of the stimulus table.",
+    "Session 1186358749 follows a different block design and is excluded."
+   ],
+   "code": {
+    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+   },
+   "receipts": [
+    {
+     "name": "results/s1/receipt.json",
+     "sha256": "1bc85993e7f68820edc1ee7daf9393da373b8c164047b8a6b4f78db65b46d485"
+    },
+    {
+     "name": "results/s1/confirmatory.csv",
+     "sha256": "6dcf28333e0a09bd6508c5080519cdfc6381cff4599719061433522b3024b7d5"
+    },
+    {
+     "name": "PREREGISTRATION.md",
+     "sha256": "c118b1042f52a5669a4067f7f6ef174acf685df87be9401d14e97b665fbde726"
+    }
+   ],
+   "origin": {
+    "kind": "showcase",
+    "author": "HNXJ",
+    "issue": null
+   },
+   "replications": [
+    {
+     "by": "independent rerun with separate code",
+     "date": "2026-10-12",
+     "scope": "every confirmatory cell, recomputed from the NWB files",
+     "verdict": "reproduces",
+     "seed": "20261012",
+     "report_sha256": "ad276925005c223a1b8a80af10b6293b81c3c5cd0bf034bedb78b5de0e07151c",
+     "note": "288 of 297 checks match; the 7 mismatches were statements in the write-up, since corrected"
+    }
+   ],
+   "links": [
+    {
+     "label": "DANDI 000253 0.240503.0152",
+     "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+    },
+    {
+     "label": "Paper (PMC11741236)",
+     "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+    }
+   ]
+  },
+  {
+   "id": "glo_s1_allunits",
+   "title": "Identical xxxx sequence in three contexts: all quality units (selection check)",
+   "question": "Does the responsiveness filter change the showcase 1 result?",
+   "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+   "species": "mouse",
+   "status": "exploratory",
+   "dandi": {
+    "id": "000253",
+    "version": "0.240503.0152",
+    "assets": [
+     {
+      "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+      "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+     },
+     {
+      "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+      "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+     },
+     {
+      "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+      "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+     },
+     {
+      "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+      "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+     },
+     {
+      "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+      "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+     },
+     {
+      "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+      "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+     },
+     {
+      "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+      "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+     },
+     {
+      "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+      "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+     },
+     {
+      "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+      "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+     },
+     {
+      "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+      "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+     },
+     {
+      "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+      "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+     },
+     {
+      "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+      "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+     },
+     {
+      "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+      "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+     }
+    ]
+   },
+   "jnwb": {
+    "commit": "9c0854f709381ec549130e4904290ecf4f09b9ee",
+    "functions": [
+     "nwb_read_io",
+     "filter_by_criteria",
+     "unit_spike_times",
+     "bin_spikes",
+     "rate_in_window",
+     "exact_sign_flip",
+     "fdr_correct"
+    ]
+   },
+   "figures": [
+    {
+     "light": "glo_s1_allunits.png",
+     "dark": "glo_s1_allunits.dark.png",
+     "caption": "As the primary figure, over all quality units in visual areas (post hoc).",
+     "units": "Hz",
+     "controls": "drift contrast D (main 1 − main 2)",
+     "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, one generator seeded 20261012, consumed in table order)"
+    }
+   ],
+   "result": "No cell passes q < 0.05 among 24 cells (smallest p 0.017, smallest q 0.28); CI bounds lie within ±0.7 Hz.",
+   "interpretation": "The responsiveness filter does not change the conclusion; not an equivalence test.",
+   "limitations": [
+    "Added after the preregistration; exploratory.",
+    "Medians include non-responsive units.",
+    "CI bounds depend on the bootstrap seed and cell order (VISpm C2 lower bound 0.013–0.017 across seeds).",
+    "Independent check reproduced the C2 cells only."
+   ],
+   "code": {
+    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+   },
+   "receipts": [
+    {
+     "name": "results/s1_allunits_exploratory/receipt.json",
+     "sha256": "62538177035c73ee7b0a8a23592176c6d355a482cf9ee14a9f9908fcb823903f"
+    },
+    {
+     "name": "results/s1_allunits_exploratory/confirmatory.csv",
+     "sha256": "79482da240500b26a970ec4514feb2013cb9fa4a454004bee6eed6f44fd1d256"
+    }
+   ],
+   "origin": {
+    "kind": "showcase",
+    "author": "HNXJ",
+    "issue": null
+   },
+   "replications": [
+    {
+     "by": "independent rerun with separate code",
+     "date": "2026-10-12",
+     "scope": "the C2 cells only",
+     "verdict": "reproduces",
+     "seed": "20261012",
+     "report_sha256": "064620e3439dfac1a48b7c8f14b3b4a13b2979242936ced7b759915628a339b2",
+     "note": "the other contrasts were not rerun"
+    }
+   ],
+   "links": [
+    {
+     "label": "DANDI 000253 0.240503.0152",
+     "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+    },
+    {
+     "label": "Paper (PMC11741236)",
+     "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+    }
+   ]
+  },
+  {
+   "id": "glo_s2v2",
+   "title": "Decoding context from the identical xxxx response (preregistered version 2)",
+   "question": "Is main 2 vs sequenced context decodable from responses to the identical xxxx sequence, above the majority baseline and beyond linear drift, and more at P4 than at P3?",
+   "relation_to_published": "Uses DANDI 000253, the data of PMC11741236. The paper and its Extended Data show no xxxx comparison across main, randomized and sequenced contexts and no context decoding (PUBLISHED_VS_PROPOSED.md).",
+   "species": "mouse",
+   "status": "verified",
+   "dandi": {
+    "id": "000253",
+    "version": "0.240503.0152",
+    "assets": [
+     {
+      "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+      "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+     },
+     {
+      "asset_id": "38e79b1b-e2a6-4f5c-ae62-5538d295b827",
+      "sha256": "baf0179e1d8cddc458fa81505daff76932843f7bed29f65f9d045198d65158cd"
+     },
+     {
+      "asset_id": "2b44dc78-2c9f-4a71-95ed-360df2b70d61",
+      "sha256": "9af5cb2f8b8cbdc8c20c6211d485a756f9953681fd01a6b7cdddc2482c2782de"
+     },
+     {
+      "asset_id": "6e4a0d70-3977-4053-8c03-f72b8fe6d451",
+      "sha256": "963aa05000c40796bf5d04622993c8735e80c6d39dff2b679ab99a1f63217389"
+     },
+     {
+      "asset_id": "7bf17d6e-1ee6-49da-b7fe-836f0f4cd5ff",
+      "sha256": "2ff709b38ad81e289e8ecc84bc23c27bbed8699a7f89300d0868d65744422a09"
+     },
+     {
+      "asset_id": "be571a44-3250-4f6c-853c-33b50c1e6f6e",
+      "sha256": "2c1a3962a09217c685430702178bb1ab9b731aae993db2ddc60a38fc5f9c6d66"
+     },
+     {
+      "asset_id": "9ed1f92f-a25f-4466-b88c-2a7fcae94bf4",
+      "sha256": "c679f228a5757a80f749f9ab5bff5107e901338981e28f631171bf5ce1fffcd5"
+     },
+     {
+      "asset_id": "3336f73d-d1de-47b8-b8b8-87c8a5bdb6b2",
+      "sha256": "55fb91bcc2e17f4ed04b4971b311c01bdb99363273d7f5e49bcc48a8c891b32b"
+     },
+     {
+      "asset_id": "f0aaa669-81ba-40e9-bd3e-4a05ad6018ad",
+      "sha256": "6c4dd1875ad5b710dc883637db35497710aa1b91f5e18e52c79630cc0e910953"
+     },
+     {
+      "asset_id": "7c494ca2-03db-429f-aaf3-a6f065859f51",
+      "sha256": "940df6083b6e0d68f6e0dec0cdff587c9c374c91075938ed36d8da9063337bde"
+     },
+     {
+      "asset_id": "e2a7c38c-837d-42e1-8b2d-18f464dc9af6",
+      "sha256": "4abf6b1ce0446597c0a569fab61d056bc6c3811a9b5834c93d9211c74e341a60"
+     },
+     {
+      "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+      "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+     },
+     {
+      "asset_id": "6a146d52-ea6c-456a-b484-d4256c86aa1d",
+      "sha256": "abe435248525c1295303915c2261fd8bc429a8c6300a16c320c29e2de10a2a73"
+     }
+    ]
+   },
+   "jnwb": {
+    "commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+    "functions": [
+     "nwb_read_io",
+     "filter_by_criteria",
+     "bin_spikes",
+     "nested_cv_linear_svm",
+     "exact_sign_flip",
+     "fdr_correct"
+    ]
+   },
+   "figures": [
+    {
+     "light": "glo_s2v2.png",
+     "dark": "glo_s2v2.dark.png",
+     "caption": "Linear-SVM accuracy minus the majority baseline at P4 and P3, and A_P4 − A_P3, per area; features residualised on block position.",
+     "units": "fraction correct",
+     "controls": "majority baseline on the same folds; block-position covariate",
+     "uncertainty": "95 % percentile bootstrap over mice (10,000 draws, seed 20261012)"
+    }
+   ],
+   "result": "No area decodes context above the majority baseline at P4 or P3 (smallest q 0.18; 10 of 12 means negative), and no P4 − P3 gain (smallest q 0.28). AUC 0.46–0.63.",
+   "interpretation": "With linear block-position drift removed, context is not decodable above the majority baseline; a context effect that ramps linearly with block position would be removed with the drift.",
+   "limitations": [
+    "The sequenced blocks all precede the main-2 blocks, so the adjustment removes any context difference a linear trend explains.",
+    "The VISal nominal P4 − P3 gain (p 0.047, q 0.28) depends on the seed: at seed 20261013 it is −0.015 (p 0.51).",
+    "Session 1186358749 excluded (no main 2)."
+   ],
+   "code": {
+    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+   },
+   "receipts": [
+    {
+     "name": "results/s2v2/receipt.json",
+     "sha256": "c18e7416c4bc7c5dc4b1683c239c580622952a214f8b809b9891803560af7f7a"
+    },
+    {
+     "name": "results/s2v2/family_A.csv",
+     "sha256": "98acafb786afc6d4ddf408992c93cc4b563c4fcef8e2612ed772618799cbbbca"
+    },
+    {
+     "name": "results/s2v2/family_B.csv",
+     "sha256": "9022822a86ab4fbcb3f19b76284eb550a941e870e53a1b5cb3bc9a43b7efcaeb"
+    },
+    {
+     "name": "PREREGISTRATION_S2_v2.md",
+     "sha256": "3479335a7c895719efa8047247206cfadc60087bfa6f24bcfc168c98c7f790ba"
+    }
+   ],
+   "origin": {
+    "kind": "showcase",
+    "author": "HNXJ",
+    "issue": null
+   },
+   "replications": [
+    {
+     "by": "independent rerun with separate code",
+     "date": "2026-10-12",
+     "scope": "decoding in all six areas; per-session scores, family means and p",
+     "verdict": "reproduces",
+     "seed": "20261012",
+     "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
+     "note": "0 of 11 fields per area differ by more than 1e-6"
+    },
+    {
+     "by": "independent rerun with separate code",
+     "date": "2026-10-12",
+     "scope": "the same decoding at a second seed, all six areas",
+     "verdict": "reproduces",
+     "seed": "20261013",
+     "report_sha256": "ce1b0cb396a9bf2c44d98aafbb65957952320d07a2086776ba7e3ac9d11b76fe",
+     "note": "no cell reaches p < 0.13; the VISal gain is −0.015 (p 0.51) against +0.042 (p 0.047)"
+    }
+   ],
+   "links": [
+    {
+     "label": "DANDI 000253 0.240503.0152",
+     "url": "https://dandiarchive.org/dandiset/000253/0.240503.0152"
+    },
+    {
+     "label": "Paper (PMC11741236)",
+     "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11741236/"
+    }
+   ]
+  },
+  {
+   "id": "glo_lfp_clock",
+   "title": "LFP clock offset of two replaced-version probe files",
+   "question": "Is the stored-seconds LFP time axis of 000253 0.240923.1441 aligned to the spike clock within one sample (0.8 ms)?",
+   "relation_to_published": "Data check for a proposed LFP showcase; the paper reports no such check.",
+   "species": "mouse",
+   "status": "verified",
+   "dandi": {
+    "id": "000253",
+    "version": "0.240923.1441",
+    "assets": [
+     {
+      "asset_id": "347940ea-6d34-4b0d-8e28-17aaf7b3f937",
+      "sha256": "7fbfd40da834b9bc59e57dc9140c2c3a2aa7a3dcaba7a273f60ea636ca49e33b"
+     },
+     {
+      "asset_id": "c271fd10-237b-4007-ad79-9e5628192f3f",
+      "sha256": "46e0db40841e06661c7ca082fa837eb9346893a0c1a7cb6c5de6500a5b6c8edd"
+     },
+     {
+      "asset_id": "b305ccec-fa84-445e-aea5-0126d6eff558",
+      "sha256": "1e448f1975169da927d1673ef2b86e5f2ea883cfcc99b5e97ba93617531fe332"
+     },
+     {
+      "asset_id": "81f9bcf2-d0e3-41a4-97e4-6371dafa3e71",
+      "sha256": "60f71391702854963d95ccb164a1d1a8724d1a385f29667e6dd1d2aa6ac00db1"
+     }
+    ]
+   },
+   "jnwb": {
+    "commit": "9fd2e7e0b10d00a5759603b0d20976302d8ec938",
+    "functions": [
+     "bandpass_filter"
+    ]
+   },
+   "figures": [
+    {
+     "light": "glo_lfp_clock.png",
+     "dark": "glo_lfp_clock.dark.png",
+     "caption": "Median spike-triggered LFP trough lag over units, early and late 70-s windows; bars span the units' range.",
+     "units": "ms",
+     "controls": "independent check recovers a 5.0 ms spike-time shift at 4.95–4.97 ms",
+     "uncertainty": "range across units (9–12 per window)"
+    }
+   ],
+   "result": "Probe 1 of 1232959154: -10.03 ms early and -10.20 ms late, constant over the session (independent check −9.73 and −9.76 ms). Probe 1 of 1203581890: within 0.8 ms (-0.26 and -0.33 ms; independent check +0.24 and +0.28 ms).",
+   "interpretation": "Stored seconds are within one sample in one probe and offset by a constant about 10 ms in the other, so each probe needs this check before band power.",
+   "limitations": [
+    "The delay from a spike to its LFP-band trough cannot be separated from the clock offset.",
+    "17–21 % of units have a positive-dominant STA (independent check).",
+    "Two probes reproduced; four others tested remotely remain unverified; the remote reads went beyond the Gate B authorisation.",
+    "The 1203581890 probe file was not replaced between versions."
+   ],
+   "code": {
+    "location": "local git repository C:/workspace/jnwb-showcase (not public)",
+    "commit": "ed377054818cd655e40c56fec6a881ec83fe6129"
+   },
+   "receipts": [
+    {
+     "name": "receipts/lfp_clock_sta_1232959154_probe-1.json",
+     "sha256": "a436f7168c0dcda8820f875cc40f8430042a2829e863379e640ee5e633ec9bef"
+    },
+    {
+     "name": "receipts/lfp_clock_sta_1203581890_probe-1.json",
+     "sha256": "02b361eee498b2dcc75be2c26673924fbf43f140c31fff978bac7e48fd0a476d"
+    },
+    {
+     "name": "receipts/download_000253_probe_lfp.jsonl",
+     "sha256": "48c18772f02d93c69f5168f6dfa6745badd69f3affcc5442343f210c945b5ecc"
+    }
+   ],
+   "origin": {
+    "kind": "showcase",
+    "author": "HNXJ",
+    "issue": null
+   },
+   "replications": [
+    {
+     "by": "independent rerun with separate code",
+     "date": "2026-10-12",
+     "scope": "both probes, early and late windows, from the downloaded files",
+     "verdict": "reproduces",
+     "seed": null,
+     "report_sha256": "3e76a792bf34e7be2cf7daad5f98f99aa6be04a2bef06adeeb04cc9bf066783d",
+     "note": "−9.73 and −9.76 ms in 1232959154; +0.24 and +0.28 ms in 1203581890; each within one sample (0.8 ms) of the showcase value"
+    }
+   ],
+   "links": [
+    {
+     "label": "DANDI 000253 0.240923.1441",
+     "url": "https://dandiarchive.org/dandiset/000253/0.240923.1441"
+    }
+   ]
+  }
+ ]
+}

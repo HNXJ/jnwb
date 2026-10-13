@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 197 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 199 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -139,6 +139,7 @@ All 197 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.evoked_csd_sink | function | `(erp: 'np.ndarray', times_ms: 'np.ndarray', *, pitch_um: 'float', usable_mask: 'Optional[np.ndarray]' = None, smooth_um: 'float' = 50.0, sink_window_ms: 'Tuple[float, float]' = (40.0, 150.0), min_sink_z: 'float' = 3.0, onset_z: 'float' = 3.0, onset_min_duration_ms: 'float' = 5.0, onset_earliest_ms: 'float' = 25.0, min_contacts: 'int' = 8) -> 'Dict[str, Any]'`<br>*Locate the evoked current-source-density sink along the shaft.* |
 | jnwb.fuse_laminar_anchors | function | `(*, vflip_um: 'Optional[float]' = None, motif_um: 'Optional[float]' = None, xflip_um: 'Optional[float]' = None, csd_um: 'Optional[float]' = None, window_um: 'Optional[np.ndarray]' = None, consistency_deep: 'float' = nan, consistency_superficial: 'float' = nan, stable_sd_um: 'float' = 75.0, min_ok_windows: 'int' = 3, consistency_a: 'float' = 0.75, consistency_b: 'float' = 0.6) -> 'Dict[str, Any]'`<br>*Choose the laminar anchor and grade it; report how the other estimates sit against it.* |
 | jnwb.interpolate_channel_runs | function | `(data: 'np.ndarray', bad_mask: 'np.ndarray', *, max_run: 'int' = 3, blocked_mask: 'Optional[np.ndarray]' = None) -> 'Dict[str, Any]'`<br>*Linearly interpolate runs of at most ``max_run`` adjacent bad contacts.* |
+| jnwb.map_peak_channel_to_layer | function | `(units_df: 'pd.DataFrame', curation: 'LaminarCurationResult', channel_ids: 'Sequence') -> 'np.ndarray'`<br>*One curated layer label per unit: the label of the unit's peak channel.* |
 
 ## Module: jnwb.metadata
 
@@ -216,6 +217,7 @@ All 197 core functions, classes, and constants exported in the top-level jnwb na
 | Symbol | Type | Signature / Description |
 |---|---|---|
 | jnwb.causal_exp_smooth | function | `(rate: 'np.ndarray', bin_ms: 'float', tau_ms: 'float' = 30.0) -> 'np.ndarray'`<br>*Causal (forward-only) exponential-kernel smoothing of an already-binned rate trace.* |
+| jnwb.causal_gaussian_smooth | function | `(rate: 'np.ndarray', sigma_bins: 'float') -> 'tuple[np.ndarray, float]'`<br>*Causal (past-only) Gaussian smoothing of an already-binned rate trace, with its mean lag.* |
 | jnwb.fit_exponential_onset | function | `(t_ms: 'np.ndarray', rate: 'np.ndarray', t0_bounds_ms: 'tuple[float | None, float | None] | None' = None, tau_bounds_ms: 'tuple[float, float] | None' = None, baseline_window_ms: 'tuple[float, float] | None' = None, min_amplitude: 'float' = 0.0, t0_grid_step_ms: 'float | None' = None, *, t0_bounds: 'tuple[float | None, float | None] | None' = None, tau_bounds: 'tuple[float, float] | None' = None, baseline_window: 'tuple[float, float] | None' = None, t0_grid_step: 'float | None' = None) -> 'dict'`<br>*Grid-search-over-t0, then bounded nonlinear least-squares fit of ``onset_model``.* |
 | jnwb.onset_model | function | `(t: 'np.ndarray', t0: 'float', tau: 'float', amplitude: 'float', baseline: 'float') -> 'np.ndarray'`<br>*rate(t) = baseline for t < t0, baseline + amplitude*(1-exp(-(t-t0)/tau)) for t >= t0.* |
 

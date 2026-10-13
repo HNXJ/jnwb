@@ -44,7 +44,9 @@ from scripts.harness_gate import (  # noqa: E402
     _writes_field_spans,
     _writes_fields,
     check_stack_form_consistency,
+    check_stack_pointers_resolve,
 )
+from scripts.release_gate import DEFERRED_VALUE, _parse_todo_stack  # noqa: E402
 
 TODO_STACK = ROOT / "artifacts" / "todo_stack.md"
 
@@ -501,3 +503,97 @@ class TestTheHelpersReadTheRealStack:
 
     def test_the_gate_passes_on_the_live_tree(self):
         assert check_stack_form_consistency() == []
+
+
+# One stack parser (P-232, P-274): gates 15 and 17 and STEP 0a read an item the same way.
+
+PROBLEMS = (
+    "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"
+    "| P-01 | a row | repaired | evidence |\n"
+)
+
+DEEP = """\
+### 99-05 Earlier item
+
+Role: jnwb-developer. Skill: jnwb-real. Blocked by: none.
+Writes: `docs/a.md`.
+
+#### 99-06 Deeper item
+
+Role: jnwb-developer. Skill: jnwb-real. Blocked by: 99-98.
+Writes: `docs/b.md`.
+"""
+
+DEEP_CONTRADICTED = """\
+### 99-05 Earlier item
+
+Role: jnwb-developer. Skill: jnwb-real. Blocked by: none.
+Writes: `docs/a.md`.
+
+#### 99-06 Deeper item
+
+Role: jnwb-developer. Skill: jnwb-real. Blocked by: none.
+Writes: `docs/b.md`.
+This item is blocked on a ruling nobody has made.
+"""
+
+
+def _write_tree(tmp_path, todo):
+    (tmp_path / "artifacts" / "agents").mkdir(parents=True)
+    (tmp_path / "artifacts" / "todo_stack.md").write_text(todo, encoding="utf-8")
+    (tmp_path / "artifacts" / "problem_stack.md").write_text(PROBLEMS, encoding="utf-8")
+    (tmp_path / "artifacts" / "agents" / "jnwb-developer.md").write_text("", encoding="utf-8")
+    (tmp_path / "skills" / "jnwb-real").mkdir(parents=True)
+    (tmp_path / "skills" / "jnwb-real" / "SKILL.md").write_text("", encoding="utf-8")
+    return tmp_path
+
+
+class TestAnyDepthItemIsReadByEveryReader:
+    def test_gate_17_resolves_the_blocker_of_an_item_under_four_hashes(self, tmp_path):
+        violations = check_stack_pointers_resolve(repo_root=_write_tree(tmp_path, DEEP))
+        assert any("item 99-06" in v and "99-98" in v for v in violations), violations
+
+    def test_gate_15_reads_the_item_under_four_hashes_that_contradicts_its_field(self, tmp_path):
+        violations = check_stack_form_consistency(
+            repo_root=_write_tree(tmp_path, DEEP_CONTRADICTED))
+        assert any("item 99-06" in v and "Blocked by: none" in v for v in violations), violations
+
+    def test_gate_17_gate_15_and_step_0a_list_the_same_items(self):
+        ids = [item_id for _lineno, item_id, _body in _stack_items(DEEP)]
+        assert ids == ["99-05", "99-06"], ids
+        assert [ident for ident, _title, _release in _parse_todo_stack(DEEP)[0]] == ids
+
+    def test_the_readers_share_one_parser(self):
+        from scripts import stack_parse
+        assert _stack_items is stack_parse.stack_items
+        assert _parse_todo_stack is stack_parse.parse_todo_stack
+
+
+# Each form is (block, id, title). The block carries its own Release field, so every form is
+# an item with a release that STEP 0a must read.
+HTML_FORMS = {
+    "bold-id": ("<h3><b>99-02</b> Bold id</h3>\n\nRelease: {d}.\n", "99-02", "Bold id"),
+    "anchor-before-id": (
+        '<h3><a id="anchor"></a>99-03 Anchor before id</h3>\n\nRelease: {d}.\n',
+        "99-03", "Anchor before id"),
+    "three-line-heading": (
+        "<h3>\n99-04 Heading over\nthree lines\n</h3>\n\nRelease: {d}.\n",
+        "99-04", "Heading over three lines"),
+    "entity-colon": ("### 99-05 Entity colon\n\nRelease&#58; {d}.\n", "99-05", "Entity colon"),
+}
+
+
+class TestStepZeroAReadsEachHtmlHeadingForm:
+    @pytest.mark.parametrize("form", sorted(HTML_FORMS))
+    def test_each_form_is_an_item_with_its_release(self, form):
+        block, ident, title = HTML_FORMS[form]
+        text = "# 0.2.12\n\n" + block.replace("{d}", DEFERRED_VALUE)
+        items, unreadable = _parse_todo_stack(text)
+        assert items == [(ident, title, DEFERRED_VALUE)], items
+        assert unreadable == []
+
+    @pytest.mark.parametrize("form", sorted(HTML_FORMS))
+    def test_the_gate_reads_each_form_too(self, form):
+        block, ident, _title = HTML_FORMS[form]
+        text = "# 0.2.12\n\n" + block.replace("{d}", DEFERRED_VALUE)
+        assert [item_id for _lineno, item_id, _body in _stack_items(text)] == [ident]

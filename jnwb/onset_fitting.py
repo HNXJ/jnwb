@@ -73,6 +73,39 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
     return smoothed[: rate.size]
 
 
+def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndarray, float]:
+    """Causal (past-only) Gaussian smoothing of an already-binned rate trace, with its mean lag.
+
+    The kernel is w[j] proportional to exp(-j**2 / (2 sigma**2)) for j = 0..ceil(4 sigma), with j
+    in bins into the past, normalised. The left edge is padded with rate[0], as in
+    ``causal_exp_smooth``, so the output at bin t depends on rate[t], rate[t-1], ... only.
+
+    mean_lag_bins is the exact centroid of the kernel applied, sum(j w[j]) / sum(w[j]). It
+    is close to sigma * sqrt(2/pi), about 0.798 sigma bins: up to sigma = 20 it is within about
+    1/pi bin of it (sigma = 7.5 gives about 5.7 bins against 5.98), and beyond that the 4-sigma
+    truncation widens the gap slowly (0.34 bin at sigma = 100, 0.54 at sigma = 1000). A
+    step's half-rise on the smoothed trace falls at the kernel's median, about 0.674 sigma bins,
+    not at this centroid: at sigma 20 it is 13 bins against a centroid of 15.6. The two differ
+    by about 0.12 sigma bins, so report a step's half-rise and the mean lag as separate numbers.
+
+    rate: (n_times,) binned rate, in any units (only smoothing, no rescaling).
+    sigma_bins: Gaussian standard deviation, in bins.
+    Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
+    Raises ValueError if ``sigma_bins`` is not finite and positive.
+    """
+    sigma = _positive_finite(sigma_bins, "sigma_bins", "causal_gaussian_smooth")
+    j = np.arange(int(np.ceil(4.0 * sigma)) + 1)
+    raw = np.exp(-(j ** 2) / (2.0 * sigma ** 2))
+    mean_lag = float(np.sum(j * raw) / np.sum(raw))
+    w = raw / raw.sum()
+    rate = np.asarray(rate, dtype=float)
+    if rate.size == 0:
+        return np.empty(0, dtype=float), mean_lag
+    padded = np.concatenate([np.full(len(w) - 1, rate[0]), rate])
+    smoothed = np.convolve(padded, w, mode="valid")
+    return smoothed, mean_lag
+
+
 def onset_model(t: np.ndarray, t0: float, tau: float, amplitude: float, baseline: float) -> np.ndarray:
     """rate(t) = baseline for t < t0, baseline + amplitude*(1-exp(-(t-t0)/tau)) for t >= t0."""
     t = np.asarray(t, dtype=float)

@@ -38,38 +38,15 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 1 | U consumer API | 12-18, 12-19 | the files each names, `jnwb/__init__.py`, `docs/api.md` | none |
-| 2 | C changelog | 12-17 | the files 12-17 names | none |
-| 2 | Q closure findings | 12-12 (roadmap row) | the files each names | U |
-| 3 | R release tooling | 12-09, 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | none |
+| 3 | R release tooling | 12-02, 12-03 (roadmap rows) | `scripts/release_gate.py`, `scripts/harness_gate.py`, `.github/workflows/` and their tests | none |
+| 3 | S code reductions | 12-13, then 12-22 (roadmap rows) | the files each names, `skills/` | none |
+| 4 | H harness | 12-05, 12-01 (roadmap rows) | `scripts/harness_gate.py`, process tests | R |
+| 4 | M docs restructure | the menu by reader arrival, overlapping pages merged, every page under its ceiling | `docs/`, `mkdocs.yml` | S |
+| 5 | F figures and citations | 14-01 to 14-05, 12-08 (roadmap rows) | `docs/`, `examples/tutorials/` | M |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 
-The integrator writes `CHANGELOG.md` entries for U after C lands, in the template 12-17 enforces.
-
-### 12-17 Internal vocabulary leaves `CHANGELOG.md`
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: none. Blocked by: none.
-Writes: `CHANGELOG.md`, `scripts/harness_gate.py`, `tests/test_harness_gate.py`.
-- `AGENTS.md` keeps internal process terms out of `CHANGELOG.md`, but gate 14 checks only `docs/`, and the CHANGELOG carries them (counted in the built dashboard data at `d4e6a710`: "receipt" 30, "AGENTS.md" 35, "agent" 13, "worker" 10, and kinds "Closure (second audit RG)", "Fixed (final independent audit)"); the dashboard republishes the CHANGELOG verbatim. Check: gate 14 also reads `CHANGELOG.md` with its own term list, fails on the current text and passes after the rewording, and every kind heading is one of Breaking, Added, Changed, Deprecated, Removed, Fixed. The same check holds the shared template of meet 204dfdaa (adopted by Hamm 2026-10-12; scope and window ruled the same day, `artifacts/rulings/2026-10-12.md`): one line per change of at most about 120 characters naming its test or file, and a `[results change]` marker that names the seed kind affected (int seed or Generator). Waits: the CHANGELOG is already public; no shipped behaviour changes (dashboard review, 2026-10-12).
-Accept: the check passes. Stop: a rewording changes what an entry says shipped.
-
-
-### 12-18 A unit's peak channel mapped to its curated layer
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-lfp-spectral. Blocked by: none.
-Writes: `jnwb/laminar_curation.py`, `tests/test_laminar_curation.py`, `skills/jnwb-lfp-spectral/SKILL.md`.
-- No public call maps a unit's peak channel to the label `curate_and_label` gave that channel; `classify_layer_from_depth` is geometric only (omission JNWB-012, 2026-10-12). Check: on a synthetic `LaminarCurationResult` with known labels, every unit gets its peak channel's label, a channel absent from the result gets "na", and a units table without a peak-channel column is refused by name. Signature ruled 2026-10-12, amended the same day because `LaminarCurationResult.labels` are positional: `map_peak_channel_to_layer(units_df, curation, channel_ids)`, with `channel_ids` the electrode ids in the LFP row order passed to `curate_and_label`, returns one label or "na" per unit. Waits: new public API, announced in the changelog with its tests.
-Accept: the check passes.
-
-### 12-19 A causal Gaussian smoother that states its lag
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-spiking. Blocked by: none.
-Writes: `jnwb/onset_fitting.py`, `tests/test_onset_fitting.py`, `skills/jnwb-spiking/SKILL.md`.
-- jnwb offers only `causal_exp_smooth`; omission carries its own past-only Gaussian and its figures cannot state the display lag (omission request, 2026-10-12). Check: an impulse at bin k gives zero output before k; the reported mean lag equals the kernel's centroid and matches sigma*sqrt(2/pi) bins within the kernel's truncation error; a step's half-rise falls at the reported lag within one bin. Signature ruled 2026-10-12: `causal_gaussian_smooth(rate, sigma_bins)` returns `(smoothed, mean_lag_bins)`, past-only kernel, edge-padded. Waits: new public API, announced in the changelog with its tests.
-Accept: the check passes.
+Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 is the full
+release. Its last step rewrites the GLO showcase records as replication rows.
 
 ### 12-21 A jaxfne simulation as jnwb ground truth
 

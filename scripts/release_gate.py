@@ -47,6 +47,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger("release_gate")
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))  # never insert(0): pyproject sets pythonpath = ["."]
+# The one stack reader, shared with gates 15 and 17 (scripts/stack_parse.py). The names keep the
+# spelling this module used, so its call sites read the shared parser unchanged.
+from scripts.stack_parse import (  # noqa: E402
+    ITEM_HEADING as _ITEM_HEADING,
+    ITEM_SHAPED as _ITEM_SHAPED,
+    parse_todo_stack as _parse_todo_stack,
+    sections as _todo_sections,
+)
 
 
 #: Extras whose tooling must be present for release qualification to mean anything: every extra
@@ -1106,78 +1116,6 @@ def remaining_todo_items(root: pathlib.Path = REPO_ROOT) -> List[str]:
     return [f"{ident} {title}".strip() for ident, title, _ in items]
 
 
-# A heading of any depth. Matching only `### ` made an item written one level deeper invisible,
-# together with its `Release:` field, which then belonged to the item above it.
-_HEADING = re.compile(r"^ {0,3}(#+)(?:[ \t]+(.*?))?[ \t]*$")
-# A heading inside a blockquote or a list item still renders as a heading. Read as body text, it
-# and its field belonged to the section above, so a required item hid under a deferred one.
-_CONTAINED_HEADING = re.compile(
-    r"^[ \t]*(?:(?:>|[-*+]|\d+[.)])[ \t]*)+(#+)(?:[ \t]+(.*?))?[ \t]*$")
-# The one item-heading form STEP 0a reads an id from; the title may be empty.
-_ITEM_HEADING = re.compile(r"^(\d\d-\d+)(?:[ \t]+(.*))?$")
-# Anything that starts like an item id once leading markup is dropped, and is not an ISO date.
-# A heading of this shape that `_ITEM_HEADING` does not read is a violation, never a skip.
-_ITEM_SHAPED = re.compile(r"^[\s*_`\[(#]*\d+-\d+(?!\d|-\d)")
-# The value is read from the canonical form only. Detection is looser, so that a bold, listed,
-# quoted, indented or lowercase field still marks its heading as an item rather than as prose,
-# and makes an item's release unreadable rather than letting its canonical line speak alone.
-_RELEASE_VALUE = re.compile(r"^Release:\s*(.*)$")
-# Searched anywhere in a line, so a field in a table cell or wrapped in HTML tags is seen too.
-_RELEASE_ANY = re.compile(r"(?<![\w-])Release(?:[*_`]|</?\w+[^>]*>)*\s*:", re.IGNORECASE)
-# The two other heading syntaxes Markdown renders: a setext underline below a paragraph line,
-# and an HTML heading element. Either one read as body text hid its item under the one above.
-_SETEXT_UNDERLINE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
-_HTML_HEADING = re.compile(r"^\s*<h([1-6])\b[^>]*>(.*?)</h\1>\s*$", re.IGNORECASE)
-
-
-def _parse_todo_stack(text: str) -> Tuple[List[Tuple[str, str, str]], List[str]]:
-    """``(items, unparseable)`` read from todo-stack text.
-
-    A section is a heading and the lines up to the next heading of any depth. It is an item when
-    its heading reads as an id, or when its lines carry a ``Release:`` field, at any depth. The
-    release value is the section's own field: ``MISSING`` when it has none, every distinct
-    value joined when it states more than one, and ``NONCANONICAL`` when any of its ``Release:``
-    lines is not in the canonical form, so that none of these reads as deferred. A heading inside
-    a blockquote or list item opens a section like any other.
-
-    ``unparseable`` names each section that is item-shaped, or carries a ``Release:`` field, but
-    whose id cannot be read, and each item whose release cannot be read. The caller reports these
-    as violations: an item the parser cannot read is still work, and skipping it would report
-    emptiness that was not established.
-
-    A section at item depth that is not inside an item and lists work, but has neither an id nor
-    a ``Release:`` field, is unparseable too: its list is work the stack gives no release.
-    """
-    items: List[Tuple[str, str, str]] = []
-    unparseable: List[str] = []
-    for title, level, body, enclosing in _todo_sections(text):
-        has_field = any(_RELEASE_ANY.search(line) for line in body)
-        item = _ITEM_HEADING.match(title) if title is not None else None
-        if item:
-            value, noncanonical = _section_release(body)
-            if noncanonical:
-                unparseable.append(
-                    f"item {item.group(1)} has a Release: line not written 'Release: <value>' "
-                    f"at the start of a line, so its release cannot be read: "
-                    f"{noncanonical[:60]!r}")
-            items.append((item.group(1), (item.group(2) or "").strip(), value))
-        elif title is None:
-            if has_field:
-                unparseable.append("a Release: field appears before the first heading")
-        elif has_field or _ITEM_SHAPED.match(title):
-            unparseable.append(f"heading {title[:60]!r} is item-shaped or carries a Release: "
-                               "field, but no item id can be read from it")
-        elif (level >= _ITEM_DEPTH and enclosing is None
-              and any(_LIST_ITEM.match(line) for line in body)):
-            unparseable.append(f"heading {title[:60]!r} sits at item depth outside any item and "
-                               "lists work, but has no item id and no Release: field")
-    return items, unparseable
-
-
-#: The heading depth the stack writes items at (``### <id> <title>``). Shallower headings are the
-#: stack's own structure: version groups, the execution rules, the scope and acceptance notes.
-_ITEM_DEPTH = 3
-_LIST_ITEM = re.compile(r"^[ \t]*(?:>[ \t]*)*(?:[-*+]|\d+[.)])[ \t]+\S")
 # A release value written into a line without the `Release:` label: `required-0.2.7` as a
 # bullet's own marker, or the prose form `Required for 0.2.7`.
 _REQUIRED_MARKER = re.compile(
@@ -1197,58 +1135,6 @@ def _logical_lines(body: List[str]) -> List[str]:
         else:
             joined.append(line)
     return joined
-
-
-def _todo_sections(text: str) -> List[Tuple[Optional[str], int, List[str], Optional[str]]]:
-    """``(title, level, body, enclosing item id)`` for every section of todo-stack text.
-
-    The text before the first heading is a section with title ``None`` and level 0. The
-    enclosing id is that of the nearest item heading above whose level is shallower, so a
-    subsection of an item names it and a section at the item's own depth or shallower does not.
-    """
-    sections: List[Tuple[Optional[str], int, List[str]]] = [(None, 0, [])]
-    for line in text.splitlines():
-        heading = _HEADING.match(line) or _CONTAINED_HEADING.match(line)
-        html = None if heading else _HTML_HEADING.match(line)
-        body = sections[-1][2]
-        if heading:
-            sections.append(((heading.group(2) or "").strip(), len(heading.group(1)), []))
-        elif html:
-            sections.append(((html.group(2) or "").strip(), int(html.group(1)), []))
-        elif _SETEXT_UNDERLINE.match(line) and body and body[-1].strip():
-            sections.append((body.pop().strip(), 1 if line.strip()[0] == "=" else 2, []))
-        else:
-            body.append(line)
-    out = []
-    open_items: List[Tuple[str, int]] = []
-    for title, level, body in sections:
-        while open_items and level <= open_items[-1][1]:
-            open_items.pop()
-        item = _ITEM_HEADING.match(title) if title is not None else None
-        out.append((title, level, body, open_items[-1][0] if open_items and not item else None))
-        if item:
-            open_items.append((item.group(1), level))
-    return out
-
-
-def _section_release(body: List[str]) -> Tuple[str, Optional[str]]:
-    """``(value, first noncanonical line)`` for a section's own ``Release:`` field.
-
-    ``MISSING`` when it has none, every distinct value joined when it states more than one, and
-    ``NONCANONICAL`` when any of its ``Release:`` lines is not in the canonical form, so that none
-    of these reads as deferred.
-    """
-    values = [m.group(1).strip().rstrip(".").strip()
-              for m in map(_RELEASE_VALUE.match, body) if m]
-    distinct = list(dict.fromkeys(values))
-    # Capture to end of line and strip one trailing sentence period. Stopping at the first `.`
-    # would truncate `deferred-0.2.7` to `deferred-0`, and the truncated value compares unequal
-    # to the deferred marker -- so every deferred item would read as still required.
-    value = ("MISSING" if not distinct else distinct[0] if len(distinct) == 1
-             else "CONFLICTING: " + " / ".join(distinct))
-    noncanonical = [line.strip() for line in body
-                    if _RELEASE_ANY.search(line) and not _RELEASE_VALUE.match(line)]
-    return ("NONCANONICAL", noncanonical[0]) if noncanonical else (value, None)
 
 
 def required_work_outside_held_items(text: str) -> List[str]:

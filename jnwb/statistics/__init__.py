@@ -47,7 +47,7 @@ from ._tests import (
     _tie_tolerance,
     _zero_spread_t,
     shuffle_pvalue_paired,
-    _require_alternative,
+    _require_alternative_casefold,
     shuffle_pvalue_unpaired,
 )
 from ._firing import (
