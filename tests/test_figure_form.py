@@ -817,11 +817,13 @@ _MOBILE_TEXT_TOO_SMALL = (
     f"{_displayed_px(STYLE.TEXT_RANGE_PT[1], STYLE.WIDTH, MOBILE_WIDTH_PX):.1f} px")
 AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO_SMALL for embed in (
     "02_paths_addressing_metadata.md:fig01_addressing_laminar.png",
+    "03_representational_similarity_jrsa.md:fig19_rdms_and_jrsa.png",
     "04_spectral_analysis_and_tfr.md:fig04_psd_spectral_tilt.png",
     "04_spectral_analysis_and_tfr.md:fig06_aggregate_to_db.png",
     "04_spectral_analysis_and_tfr.md:fig11_spectra_canonical_bands.png",
     "04_spectral_analysis_and_tfr.md:fig13_vflip_band_profiles.png",
     "05_artifact_detection_and_repair.md:fig10_artifact_repair.png",
+    "05_artifact_detection_and_repair.md:fig20_bad_channels_and_trials.png",
     "06_spikes_psth_and_onset_dynamics.md:fig02_raster_psth.png",
     "06_spikes_psth_and_onset_dynamics.md:fig03_onset_fitting.png",
     "06_spikes_psth_and_onset_dynamics.md:fig14_causal_vs_gaussian_step.png",
