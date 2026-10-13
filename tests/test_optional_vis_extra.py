@@ -78,13 +78,14 @@ def test_vis_without_plotly_names_the_extra(access):
 
 
 def test_the_release_gate_export_sweep_passes_without_plotly():
-    """The pre-tag check installs the wheel without extras and then sweeps `jnwb.__all__`.
-    A sweep by `hasattr` sees only AttributeError, so `jnwb.vis` failed it on every run."""
-    source = (Path(__file__).resolve().parents[1] / "scripts" / "release_gate.py").read_text(
+    """The installed smoke, which the pre-tag check and CI run on a wheel installed without
+    extras, sweeps `jnwb.__all__`. A sweep by `hasattr` sees only AttributeError, so `jnwb.vis`
+    failed it on every run."""
+    source = (Path(__file__).resolve().parents[1] / "scripts" / "smoke_installed.py").read_text(
         encoding="utf-8"
     )
-    start = source.index("# 3. Test all exported symbols in __all__")
-    sweep = source[start:source.index("# 4. Workflows", start)]
+    start = source.index("    # Installed without extras, so an optional submodule must name")
+    sweep = source[start:source.index("    print(f\"PASS: installed jnwb", start)]
     result = _run_without_plotly(sweep)
     assert result.returncode == 0, result.stderr
     assert "name their extra" in result.stdout, result.stdout
