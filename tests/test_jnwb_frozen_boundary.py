@@ -42,6 +42,19 @@ TESTS_DIR = REPO_ROOT / "tests"
 # jrsa.py's exception went with the connectivity promotion on 2026-08-23.
 
 
+def unresolved_exports() -> list:
+    """Names in `jnwb.__all__` that do not resolve on the package.
+
+    An optional submodule is a module, so it is never resolved to find out: importing it
+    needs its extra, and a contributor install without `vis` failed this sweep.
+    """
+    import jnwb
+    from jnwb._lazy_exports import OPTIONAL_SUBMODULES
+
+    return [name for name in jnwb.__all__
+            if name not in OPTIONAL_SUBMODULES and not hasattr(jnwb, name)]
+
+
 class TestJnwbFrozenBoundary:
     def test_no_unauthorized_omission_imports(self):
         violations = check_frozen_boundary(JNWB_DIR)
@@ -135,6 +148,25 @@ class TestJnwbFrozenBoundary:
     def test_jnwb_all_symbols_resolve(self):
         # Completeness check: every name jnwb/__init__.py declares in __all__ must actually be
         # bound on the package -- a frozen library with a dangling __all__ entry is not complete.
-        import jnwb
-        missing = [name for name in jnwb.__all__ if not hasattr(jnwb, name)]
+        missing = unresolved_exports()
         assert not missing, f"jnwb.__all__ names not actually bound on the package: {missing}"
+
+    def test_the_sweep_passes_without_the_vis_extra(self):
+        """With Plotly unimportable, `jnwb.vis` names its extra instead of resolving."""
+        script = (
+            "import sys\n"
+            f"sys.path.append({str(REPO_ROOT)!r})\n"
+            "sys.modules['plotly'] = None\n"
+            "from tests.test_jnwb_frozen_boundary import unresolved_exports\n"
+            "assert unresolved_exports() == [], unresolved_exports()\n"
+            "print('SWEEP_OK')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=str(REPO_ROOT),
+        )
+        assert result.returncode == 0, result.stderr
+        assert "SWEEP_OK" in result.stdout, result.stdout

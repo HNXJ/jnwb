@@ -29,6 +29,7 @@ from typing import Any, Iterator, List, Tuple
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 # No `sys.path.insert(0, REPO_ROOT)` here, deliberately. Prepending the checkout re-shadows the
 # installed copy for the whole session, which is what P-39 recorded and what
@@ -70,6 +71,9 @@ expected_kind = api_member_kind
 
 def constant_rows() -> Iterator[Tuple[str, Any, str]]:
     for name, _declared, cell in parsed_rows():
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never a constant; importing it needs its optional extra.
+            continue
         obj = getattr(jnwb, name)
         if expected_kind(obj) == "constant":
             yield name, obj, cell
@@ -104,7 +108,8 @@ class TestDeclaredTypeIsTrueOfTheRuntimeObject:
             f"jnwb.{name} is typed 'function' but callable() is False "
             f"(runtime type {type(getattr(jnwb, name)).__name__})"
             for name, declared, _ in parsed_rows()
-            if declared == "function" and not callable(getattr(jnwb, name))
+            if declared == "function" and name not in OPTIONAL_SUBMODULES
+            and not callable(getattr(jnwb, name))
         ]
         assert offenders == [], "; ".join(offenders)
 
@@ -113,7 +118,8 @@ class TestDeclaredTypeIsTrueOfTheRuntimeObject:
         offenders = [
             f"jnwb.{name} is typed 'constant' but is callable"
             for name, declared, _ in parsed_rows()
-            if declared == "constant" and callable(getattr(jnwb, name))
+            if declared == "constant" and name not in OPTIONAL_SUBMODULES
+            and callable(getattr(jnwb, name))
         ]
         assert offenders == [], "; ".join(offenders)
 
@@ -122,6 +128,8 @@ class TestDeclaredTypeIsTrueOfTheRuntimeObject:
         label is wrong in the direction the other covers."""
         offenders = []
         for name, declared, _ in parsed_rows():
+            if name in OPTIONAL_SUBMODULES:
+                continue
             obj = getattr(jnwb, name)
             expected = expected_kind(obj)
             if declared != expected:
@@ -213,7 +221,10 @@ class TestSignatureCellsCarryParameterKinds:
         emphasised, uncoded, cut = [], [], []
         signed = 0
         for name, cell in cells.items():
-            obj = getattr(jnwb, name.removeprefix("jnwb."))
+            short = name.removeprefix("jnwb.")
+            if short in OPTIONAL_SUBMODULES:
+                continue
+            obj = getattr(jnwb, short)
             try:
                 parameters = inspect.signature(obj).parameters.values()
             except (TypeError, ValueError):
@@ -233,12 +244,7 @@ class TestSignatureCellsCarryParameterKinds:
 
     def test_some_export_has_a_keyword_only_parameter(self):
         """Guard: without one, the page could drop every `*` and the comparison stay vacuous."""
-        kinds = {
-            p.kind for name in jnwb.__all__
-            if callable(obj := getattr(jnwb, name, None)) and not inspect.isclass(obj)
-            for p in _signature_parameters(obj)
-        }
-        assert inspect.Parameter.KEYWORD_ONLY in kinds
+        assert inspect.Parameter.KEYWORD_ONLY in _export_kinds()
 
     def test_the_gate_fails_when_a_keyword_only_marker_is_dropped(self, tmp_path):
         from scripts.harness_gate import check_api_md_member_types
@@ -258,3 +264,43 @@ def _signature_parameters(obj):
         return list(inspect.signature(obj).parameters.values())
     except (TypeError, ValueError):
         return []
+
+
+def _export_kinds() -> set:
+    """Every parameter kind used by a public callable.
+
+    An optional submodule is a module, so it is never one of them, and is not imported
+    to find out.
+    """
+    return {
+        p.kind for name in jnwb.__all__
+        if name not in OPTIONAL_SUBMODULES
+        and callable(obj := getattr(jnwb, name, None)) and not inspect.isclass(obj)
+        for p in _signature_parameters(obj)
+    }
+
+
+def test_the_sweeps_pass_without_the_vis_extra():
+    """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
+    import subprocess
+
+    root = str(REPO_ROOT)
+    script = (
+        "import sys\n"
+        f"sys.path.append({root!r})\n"
+        "sys.modules['plotly'] = None\n"
+        "from tests.test_api_md_member_types import _export_kinds, constant_rows\n"
+        "import inspect\n"
+        "assert inspect.Parameter.KEYWORD_ONLY in _export_kinds()\n"
+        "assert isinstance(list(constant_rows()), list)\n"
+        "print('SWEEP_OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SWEEP_OK" in result.stdout, result.stdout

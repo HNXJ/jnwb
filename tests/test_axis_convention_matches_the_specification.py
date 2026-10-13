@@ -18,6 +18,7 @@ from __future__ import annotations
 import ast
 import inspect
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ import numpy as np
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -64,6 +66,9 @@ def continuous_signal_conventions(docs: dict[str, str]) -> dict[str, set[str]]:
 def public_docs() -> dict[str, str]:
     out = {}
     for name in jnwb.__all__:
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never a signal function; importing it needs its optional extra.
+            continue
         obj = getattr(jnwb, name, None)
         if callable(obj):
             out[name] = inspect.getdoc(obj) or ""
@@ -283,3 +288,26 @@ class TestTheSpecificationDeclaresTheMajorityConvention:
             f"section 5 lists {sorted(TIME_MAJOR)} as the time-major exceptions, but the "
             f"docstrings say {sorted(time_major)}"
         )
+
+
+def test_the_sweep_passes_without_the_vis_extra():
+    """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
+    script = (
+        "import sys\n"
+        f"sys.path.append({str(REPO_ROOT)!r})\n"
+        "sys.modules['plotly'] = None\n"
+        "from tests.test_axis_convention_matches_the_specification import public_docs\n"
+        "docs = public_docs()\n"
+        "assert 'vis' not in docs, 'the optional submodule was resolved without its extra'\n"
+        "assert len(docs) > 100, f'only {len(docs)} docstrings found; the sweep is wrong'\n"
+        "print('SWEEP_OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=str(REPO_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SWEEP_OK" in result.stdout, result.stdout

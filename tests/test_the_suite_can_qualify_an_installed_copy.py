@@ -38,9 +38,136 @@ EXAMPLES = sorted(
 CHECKOUT_ONLY = ("scripts",)
 
 
+def _sys_aliases(tree: ast.Module) -> set[str]:
+    """Local names bound to the `sys` module (`import sys as _s`)."""
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "sys":
+                    names.add(alias.asname or "sys")
+    return names
+
+
+def _sys_path_from_names(tree: ast.Module) -> set[str]:
+    """Local names bound to `sys.path` itself (`from sys import path`)."""
+    names = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.level == 0
+            and node.module == "sys"
+        ):
+            for alias in node.names:
+                if alias.name == "path":
+                    names.add(alias.asname or "path")
+    return names
+
+
+def _is_sys_path_target(expr: ast.AST, sys_names: set[str], from_names: set[str]) -> bool:
+    """`sys.path` however the module spells it: attribute or from-imported name."""
+    return _is_sys_path(expr, sys_names) or (
+        isinstance(expr, ast.Name) and expr.id in from_names
+    )
+
+
+def _inserted_target_ok(inserted: ast.AST) -> bool:
+    """The one permitted prepend: a checkout-only directory with no parent traversal.
+
+    Read from the syntax tree, not the text: a variable merely named `ROOT_scripts_dir`
+    reads as a scripts prepend while resolving to the checkout, so a `..` forfeits the
+    exemption. Only a string literal `"scripts"` joined as a path component qualifies.
+    """
+    segments = []
+    for node in ast.walk(inserted):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            segments += node.value.replace("\\", "/").split("/")
+    return any(name in segments for name in CHECKOUT_ONLY) and not any(
+        ".." in s for s in segments
+    )
+
+
+def _is_sys_path(value: ast.AST, sys_names: set[str]) -> bool:
+    """`sys.path` however the module spells `sys`."""
+    return (
+        isinstance(value, ast.Attribute)
+        and value.attr == "path"
+        and isinstance(value.value, ast.Name)
+        and value.value.id in sys_names
+    )
+
+
+def _checkout_prepend_inserts(source: str, name: str) -> list[str]:
+    """Every `sys.path.insert(i, X)` that can shadow the package under test.
+
+    Any index, not only zero, through a `sys` alias or a `from sys import path` name,
+    and past the `scripts/..` evasion.
+    """
+    tree = ast.parse(source)
+    sys_names = _sys_aliases(tree) | {"sys"}
+    from_names = _sys_path_from_names(tree)
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "insert"):
+            continue
+        if not _is_sys_path_target(func.value, sys_names, from_names):
+            continue
+        if len(node.args) > 1 and _inserted_target_ok(node.args[1]):
+            continue
+        inserted = ast.unparse(node.args[1]) if len(node.args) > 1 else ""
+        at = ast.unparse(node.args[0]) if node.args else "?"
+        offenders.append(f"{name}:{node.lineno} inserts {inserted} at sys.path[{at}]")
+    return offenders
+
+
+def _sys_path_rebinds(source: str, name: str) -> list[str]:
+    """The other spellings of choosing the installation.
+
+    Slice assignment (`sys.path[:0] = [ROOT]`, `sys.path[0:0] = ...`), rebinding
+    (`sys.path = [ROOT] + sys.path`), in-place extension (`sys.path += [ROOT]`),
+    and each through a `sys` alias or a `from sys import path` name. An assignment
+    to a subscript of `sys.path` with any slice, and any rebinding of `sys.path`
+    itself, puts a chosen directory ahead of the package under test.
+    """
+    tree = ast.parse(source)
+    sys_names = _sys_aliases(tree) | {"sys"}
+    from_names = _sys_path_from_names(tree)
+    offenders = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AugAssign) and _is_sys_path_target(
+            node.target, sys_names, from_names
+        ):
+            offenders.append(f"{name}:{node.lineno} aug-assigns {ast.unparse(node.target)}")
+            continue
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Subscript) and _is_sys_path_target(
+                target.value, sys_names, from_names
+            ):
+                offenders.append(f"{name}:{node.lineno} assigns {ast.unparse(target)}")
+            elif (
+                isinstance(target, ast.Attribute)
+                and _is_sys_path_target(target, sys_names, from_names)
+            ):
+                # A bare `path = [...]` on a from-imported name rebinds only the
+                # local, leaving `sys.path` itself alone, so only the attribute
+                # form counts as rebinding the installation.
+                offenders.append(f"{name}:{node.lineno} rebinds {ast.unparse(target)}")
+    return offenders
+
+
 def _test_modules() -> list[Path]:
     modules = sorted(TESTS.glob("test_*.py"))
     assert len(modules) > 50, f"only {len(modules)} test modules found; the glob is wrong"
+    init = TESTS / "__init__.py"
+    if init.is_file() and init not in modules:
+        # A plant here runs at every collection before any test module; the glob above
+        # does not reach it.
+        modules = sorted(modules + [init])
     return modules
 
 
@@ -53,20 +180,7 @@ def test_no_test_module_puts_the_checkout_ahead_of_the_package_under_test() -> N
     offenders = []
     for module in _test_modules():
         source = module.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if not (isinstance(func, ast.Attribute) and func.attr == "insert"):
-                continue
-            if ast.unparse(func.value) != "sys.path":
-                continue
-            if not node.args or ast.unparse(node.args[0]) != "0":
-                continue
-            inserted = ast.unparse(node.args[1]) if len(node.args) > 1 else ""
-            if not any(name in inserted for name in CHECKOUT_ONLY):
-                offenders.append(f"{module.name}:{node.lineno} inserts {inserted} at sys.path[0]")
+        offenders += _checkout_prepend_inserts(source, module.name)
     assert not offenders, (
         "these modules prepend a directory that can shadow the package under test; append "
         f"instead: {offenders}"
@@ -84,6 +198,8 @@ def _unguarded_prepends(source: str, name: str) -> list[str]:
     already appended the root before importing anything from `scripts`.
     """
     tree = ast.parse(source)
+    sys_names = _sys_aliases(tree) | {"sys"}
+    from_names = _sys_path_from_names(tree)
     guarded: set[int] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.If):
@@ -93,25 +209,69 @@ def _unguarded_prepends(source: str, name: str) -> list[str]:
             isinstance(test, ast.Compare)
             and len(test.ops) == 1
             and isinstance(test.ops[0], ast.NotIn)
-            and ast.unparse(test.comparators[0]) == "sys.path"
+            and (
+                ast.unparse(test.comparators[0]) == "sys.path"
+                or (
+                    isinstance(test.comparators[0], ast.Name)
+                    and test.comparators[0].id in from_names
+                )
+            )
         ):
             continue
         for stmt in node.body:
             call = stmt.value if isinstance(stmt, ast.Expr) else None
-            if isinstance(call, ast.Call) and len(call.args) == 2 and (
-                ast.unparse(call.args[1]) == ast.unparse(test.left)
-            ):
+            if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Attribute):
+                continue
+            if not _is_sys_path_target(call.func.value, sys_names, from_names):
+                continue
+            wanted = ast.unparse(test.left)
+            args = [ast.unparse(a) for a in call.args]
+            if call.func.attr == "insert" and len(args) == 2 and args[1] == wanted:
+                guarded.add(id(call))
+            elif call.func.attr == "append" and args == [wanted]:
+                guarded.add(id(call))
+            elif call.func.attr == "extend" and args in ([wanted], [f"[{wanted}]"]):
                 guarded.add(id(call))
     offenders = []
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if not _is_sys_path_target(node.func.value, sys_names, from_names):
+                continue
+            if id(node) in guarded:
+                continue
+            if node.func.attr == "insert" and len(node.args) > 1:
+                if _inserted_target_ok(node.args[1]):
+                    continue
+                at = ast.unparse(node.args[0]) if node.args else "?"
+                offenders.append(
+                    f"{name}:{node.lineno} prepends {ast.unparse(node.args[1])} "
+                    f"at [{at}] unconditionally"
+                )
+                continue
+            if node.func.attr in ("append", "extend") and node.args:
+                if _inserted_target_ok(node.args[0]):
+                    continue
+                offenders.append(
+                    f"{name}:{node.lineno} {node.func.attr}s "
+                    f"{ast.unparse(node.args[0])} unconditionally"
+                )
+                continue
             continue
-        if node.func.attr != "insert" or ast.unparse(node.func.value) != "sys.path":
+        if isinstance(node, ast.AugAssign) and _is_sys_path_target(
+            node.target, sys_names, from_names
+        ):
+            offenders.append(
+                f"{name}:{node.lineno} aug-assigns {ast.unparse(node.target)} unconditionally"
+            )
             continue
-        if not node.args or ast.unparse(node.args[0]) != "0" or id(node) in guarded:
-            continue
-        inserted = ast.unparse(node.args[1]) if len(node.args) > 1 else ""
-        offenders.append(f"{name}:{node.lineno} prepends {inserted} unconditionally")
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Subscript) and _is_sys_path_target(
+                    target.value, sys_names, from_names
+                ):
+                    offenders.append(
+                        f"{name}:{node.lineno} assigns {ast.unparse(target)} unconditionally"
+                    )
     return offenders
 
 
@@ -143,17 +303,32 @@ _REPO_DIRS = ("skills", "docs", "examples", "scripts", "artifacts", "tests", "jn
 
 
 def _cwd_relative_paths(source: str, name: str) -> list[str]:
-    """`Path("scripts/x")` and `Path("scripts") / "x"` alike: a bare directory name is the root."""
+    """A repository directory named as a string where a path is built.
+
+    `Path("skills/x")` and `Path("skills") / "x"` alike: a bare directory name is the
+    root. So are `open("docs/x")`, `os.path.join("scripts", ...)`, `pathlib.Path(...)`
+    spelled through the module, and a `./` prefix (`Path("./skills")`), which still
+    resolves only when pytest runs from the root.
+    """
     offenders = []
     for node in ast.walk(ast.parse(source)):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+        if not (isinstance(node, ast.Call) and node.args):
             continue
-        if node.func.id != "Path" or not node.args:
+        func = node.func
+        if isinstance(func, ast.Name):
+            kind = func.id
+        elif isinstance(func, ast.Attribute):
+            kind = func.attr
+        else:
+            continue
+        if kind not in ("Path", "open", "join"):
             continue
         first = node.args[0]
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            head = first.value.replace("\\", "/").split("/", 1)[0]
-            if head in _REPO_DIRS:
+            parts = [p for p in first.value.replace("\\", "/").split("/") if p not in ("", ".")]
+            while parts and parts[0] == "..":
+                parts.pop(0)
+            if parts and parts[0] in _REPO_DIRS:
                 offenders.append(f"{name}:{node.lineno} opens {first.value!r}")
     return offenders
 
@@ -350,9 +525,12 @@ def test_this_file_would_have_caught_the_defects_it_documents() -> None:
     # The prepend `reconstruct_state.build()` carried until 2026-09-28, and the guarded form.
     old_build = "import sys\ndef build():\n    sys.path.insert(0, str(REPO_ROOT))\n"
     assert _unguarded_prepends(old_build, "old.py"), "the unguarded prepend was not seen"
+    assert _unguarded_prepends(
+        "import sys\nsys.path.append(str(REPO_ROOT))\n", "old.py"
+    ), "an unguarded append chooses the installation just as an unguarded prepend does"
     for source in (
         "import sys\nif str(REPO_ROOT) not in sys.path:\n    sys.path.insert(0, str(REPO_ROOT))\n",
-        "import sys\nsys.path.append(str(REPO_ROOT))\n",
+        "import sys\nif str(REPO_ROOT) not in sys.path:\n    sys.path.append(str(REPO_ROOT))\n",
     ):
         assert not _unguarded_prepends(source, "ok.py"), f"flagged: {source!r}"
     # A guard on one directory does not license a prepend of another.
@@ -397,9 +575,10 @@ PROVENANCE_HARNESS = "test_import_provenance.py"
 #: quickstart prints the jnwb it ran and a Provenance record carries the path it observed, and
 #: both compare `__file__` against another runtime value that holds for an installed copy too.
 #: Root names match as whole identifiers, so `PACKAGE_ROOT` -- the package's own location, which
-#: moves with an installed copy -- is not read as the checkout.
+#: moves with an installed copy -- is not read as the checkout. `cwd`/`getcwd` pin the run to
+#: the directory pytest started in.
 _CONTAINMENT = re.compile(
-    r"\b(REPO_ROOT|ROOT|ROOT_DIR|_ROOT)\b|show-toplevel|\.startswith\(|\.is_relative_to\(|\.parents\b"
+    r"\b(REPO_ROOT|ROOT|ROOT_DIR|_ROOT|cwd|getcwd)\b|show-toplevel|\.startswith\(|\.is_relative_to\(|\.parents\b"
 )
 
 
@@ -434,24 +613,62 @@ def _checkout_provenance_asserts(source: str, name: str) -> list[str]:
     installed-wheel CI leg on 2026-09-23 through exactly that indirection.
     """
     tree = ast.parse(source)
-    watched = {f"{bound}.__file__" for bound in _jnwb_bound_names(tree) | {"jnwb"}}
+    bound = _jnwb_bound_names(tree) | {"jnwb"}
+    watched = {f"{name}.__file__" for name in bound} | {f"{name}.__path__" for name in bound}
+    jnwb_re = _names_pattern(bound)
     aliases: set[str] = set()
     checkout: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            value = ast.unparse(node.value)
-            names = {t.id for t in node.targets if isinstance(t, ast.Name)}
-            if any(w in value for w in watched):
-                aliases |= names
-            elif _OWN_FILE.search(value):
-                checkout |= names
+    # One pass per indirection level: `b = a` after `a = jnwb.__file__` needs two,
+    # so iterate to a fixpoint rather than reading each assignment once.
+    for _ in range(10):
+        alias_re, checkout_re = _names_pattern(aliases), _names_pattern(checkout)
+        grown = False
+        for node in ast.walk(tree):
+            targets: list[str] = []
+            value = ""
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        targets.append(target.id)
+                    elif isinstance(target, ast.Tuple):
+                        targets.extend(
+                            e.id for e in target.elts if isinstance(e, ast.Name))
+                value = ast.unparse(node.value)
+            elif (
+                isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.value is not None
+            ):
+                targets = [node.target.id]
+                value = ast.unparse(node.value)
+            else:
+                continue
+            if not targets or not value:
+                continue
+            mentions = (
+                any(w in value for w in watched)
+                or bool(alias_re and alias_re.search(value))
+                or bool(jnwb_re and "getfile(" in value and jnwb_re.search(value))
+            )
+            if mentions and not set(targets) <= aliases:
+                aliases |= set(targets)
+                grown = True
+            elif _OWN_FILE.search(value) and not set(targets) <= checkout:
+                checkout |= set(targets)
+                grown = True
+        if not grown:
+            break
     alias_re, checkout_re = _names_pattern(aliases), _names_pattern(checkout)
     offenders = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assert):
             continue
         rendered = ast.unparse(node.test)
-        mentions = any(w in rendered for w in watched) or bool(alias_re and alias_re.search(rendered))
+        mentions = (
+            any(w in rendered for w in watched)
+            or bool(alias_re and alias_re.search(rendered))
+            or bool(jnwb_re and "getfile(" in rendered and jnwb_re.search(rendered))
+        )
         pinned = (
             _CONTAINMENT.search(rendered)
             or _OWN_FILE.search(rendered)
@@ -476,22 +693,7 @@ def test_no_test_module_rebinds_the_front_of_sys_path() -> None:
     """
     offenders = []
     for module in _test_modules():
-        tree = ast.parse(module.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            # sys.path[0] = something
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if (
-                        isinstance(target, ast.Subscript)
-                        and ast.unparse(target.value) == "sys.path"
-                        and ast.unparse(target.slice) == "0"
-                    ):
-                        offenders.append(f"{module.name}:{node.lineno} assigns sys.path[0]")
-                    # sys.path = [...] + sys.path
-                    if ast.unparse(target) == "sys.path" and isinstance(node.value, ast.BinOp):
-                        offenders.append(
-                            f"{module.name}:{node.lineno} rebinds sys.path by concatenation"
-                        )
+        offenders += _sys_path_rebinds(module.read_text(encoding="utf-8"), module.name)
     assert not offenders, (
         "these modules choose the installation instead of inspecting the selected one: "
         f"{offenders}"
@@ -525,3 +727,109 @@ def test_the_designated_harness_still_exists_and_supports_both_modes() -> None:
         f"{PROVENANCE_HARNESS} no longer reads JNWB_EXPECTED_PACKAGE_ROOT, so it can no longer "
         "qualify an installed copy, and the exemption above has nothing behind it"
     )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _path_order_holds_at_session_end():
+    """The path-order assertion also runs at session end (prepend-reach).
+
+    `test_import_provenance.py::test_no_second_jnwb_shadows_the_one_under_test` catches a
+    prepend only when it runs after it in the same worker. A module that re-shadows the
+    package under test partway through the session would pass that test by running
+    earlier, so the same order is asserted again after the last test. It reads `sys.path`
+    entries, never the imported package, so it holds for an installed copy too.
+    """
+    yield
+    override = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    expected = (Path(override).resolve() / "jnwb" if override else (ROOT / "jnwb")).resolve()
+    found = []
+    for entry in sys.path:
+        if not entry:
+            continue
+        candidate = Path(entry).resolve() / "jnwb" / "__init__.py"
+        if candidate.is_file():
+            found.append(candidate.parent)
+    assert found, "no importable jnwb was found on sys.path at all"
+    assert found[0] == expected, (
+        f"the first importable jnwb on sys.path at session end is {found[0]}, which shadows "
+        f"{expected}: a module re-shadowed the package under test mid-session"
+    )
+
+
+def test_the_module_glob_reaches_the_package_init() -> None:
+    """A plant in `tests/__init__.py` runs at every collection before any test module, and
+    the `test_*.py` glob does not reach it."""
+    assert (TESTS / "__init__.py") in _test_modules()
+
+
+#: Every archived spelling the scanners missed, and every equivalent form added since.
+#: Each is a fixture the scanner must flag, read as source the way
+#: the live scans read their files. Snippets live in string literals, which the scanners
+#: do not parse as code.
+ARCHIVED_PREPEND_FORMS = [
+    "import sys\nsys.path[:0] = [str(ROOT)]\n",
+    "import sys\nsys.path.insert(1, str(ROOT))\n",
+    "import sys\nfrom pathlib import Path\nsys.path.insert(0, str(Path('x') / 'scripts' / '..'))\n",
+    "import sys as _s\n_s.path.insert(0, str(ROOT))\n",
+    "import sys\nsys.path[0:0] = [str(ROOT)]\n",
+    "import sys\nsys.path = [str(ROOT)] + sys.path\n",
+    "import sys as s\ns.path.insert(0, str(ROOT))\n",
+    "import sys\nsys.path.insert(2, str(ROOT))\n",
+    "import sys\nsys.path.insert(0, str(ROOT_scripts_dir))\n",
+    "from sys import path\npath.insert(0, str(ROOT))\n",
+    "import sys\nsys.path += [str(ROOT)]\n",
+    "import sys\nsys.path.extend([str(ROOT)])\n",
+    "import sys\nsys.path.append(str(ROOT))\n",
+]
+
+ARCHIVED_PROVENANCE_FORMS = [
+    "import jnwb\nfrom pathlib import Path\nroot: Path = Path(jnwb.__file__).parent\n"
+    "def t():\n    assert root == Path(__file__).parent\n",
+    "import jnwb\na = jnwb.__file__\nb = a\ndef t():\n    assert str(b).startswith('/x')\n",
+    "import jnwb\ndef t():\n    assert str(ROOT) in str(list(jnwb.__path__))\n",
+    "import inspect\nimport jnwb\ndef t():\n    assert str(ROOT) in inspect.getfile(jnwb)\n",
+    "import jnwb\nfrom pathlib import Path\n"
+    "def t():\n    assert Path(jnwb.__file__).parent == Path.cwd()\n",
+    "import jnwb\na, b = jnwb.__file__, 1\ndef t():\n    assert str(a).startswith('/x')\n",
+]
+
+ARCHIVED_CWD_FORMS = [
+    "import pathlib\npathlib.Path('skills/..').exists()\n",
+    "open('docs/index.md').read()\n",
+    "from pathlib import Path\nPath('./skills').exists()\n",
+    "import os\nos.path.join('scripts', 'x').upper()\n",
+]
+
+
+@pytest.mark.parametrize("source", ARCHIVED_PREPEND_FORMS)
+def test_every_archived_prepend_form_is_flagged(source: str) -> None:
+    """Each equivalent form of forcing the import is refused, not only `insert(0, ...)`."""
+    assert _checkout_prepend_inserts(source, "probe.py") or _sys_path_rebinds(
+        source, "probe.py") or _unguarded_prepends(source, "probe.py"), (
+        f"no scanner flagged this prepend form: {source!r}")
+
+
+@pytest.mark.parametrize("source", [
+    "import sys\nsys.path.insert(0, str(ROOT / 'scripts'))\n",
+    "import sys\nsys.path.insert(0, str(ROOT / \"scripts\"))\n",
+])
+def test_the_checkout_only_directory_prepend_is_left_alone(source: str) -> None:
+    """The one permitted prepend: a checkout-only directory joined as a literal path
+    component. No scanner may flag it, or the scripts' own imports fail the suite."""
+    assert not _checkout_prepend_inserts(source, "ok.py"), f"flagged: {source!r}"
+    assert not _sys_path_rebinds(source, "ok.py"), f"flagged: {source!r}"
+    assert not _unguarded_prepends(source, "ok.py"), f"flagged: {source!r}"
+
+
+@pytest.mark.parametrize("source", ARCHIVED_PROVENANCE_FORMS)
+def test_every_archived_provenance_spelling_is_flagged(source: str) -> None:
+    """Each spelling of asserting the checkout from a `jnwb` path is refused."""
+    assert _checkout_provenance_asserts(source, "probe.py"), (
+        f"the provenance scanner missed this spelling: {source!r}")
+
+
+@pytest.mark.parametrize("source", ARCHIVED_CWD_FORMS)
+def test_every_archived_cwd_relative_spelling_is_flagged(source: str) -> None:
+    """Each spelling of reading the repository through the working directory is refused."""
+    assert _cwd_relative_paths(source, "probe.py"), (
+        f"the working-directory scanner missed this spelling: {source!r}")

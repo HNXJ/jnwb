@@ -457,6 +457,16 @@ class TestTestPyPIBeforePyPI:
                    if "test.pypi.org/pypi/jnwb" in str(s.get("run", "")))
         assert ".yanked" in run, "the TestPyPI comparison does not refuse a yanked file"
 
+    def test_the_verify_job_refuses_anything_but_one_wheel(self):
+        """Two wheels in /tmp/candidate make `"${wheels[0]}"` an arbitrary pick; zero make
+        the install fail on an empty expansion. The step refuses both before installing."""
+        run = next(str(s["run"]) for s in self._verify_job()["steps"]
+                   if "test.pypi.org/simple" in str(s.get("run", "")))
+        assert "wheels=(/tmp/candidate/jnwb-*.whl)" in run, run
+        assert '"${#wheels[@]}" -ne 1' in run, (
+            "the step does not count the downloaded wheels before installing one")
+        assert re.search(r'\bexit 1\b', run), run
+
 
 class TestTheInstalledSmokeScript:
     """The script the build job and the TestPyPI verification both run. Each check is driven
@@ -514,6 +524,63 @@ class TestTheInstalledSmokeScript:
         result = self._run(tmp_path, "--expected-version", "0.0.0.dev999")
         assert "PASS: omission is strictly absent and unimportable" in result.stdout, (
             result.stdout, result.stderr)
+
+    @classmethod
+    def _sweep(cls) -> str:
+        """The installed-without-extras exports check, read out of the script it ships in.
+
+        Sliced, not copied: a copy drifts from the script, and then these tests pass while
+        the script they describe fails. The slice runs after `import jnwb`, so each test
+        below selects what that import resolves to.
+        """
+        import textwrap
+
+        source = cls.SCRIPT.read_text(encoding="utf-8")
+        start = source.index("    from jnwb._lazy_exports import OPTIONAL_SUBMODULES")
+        end = source.index('    print(f"PASS: installed jnwb')
+        return textwrap.dedent(source[start:end])
+
+    @classmethod
+    def _run_sweep(cls, tmp_path, body: str, block_plotly: bool):
+        import os
+        import subprocess
+        import sys
+
+        preamble = "\n".join([
+            "import sys",
+            f"sys.path.append({str(REPO_ROOT)!r})",
+            "sys.modules['plotly'] = None" if block_plotly else "",
+            "import jnwb",
+        ])
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(REPO_ROOT)
+        return subprocess.run(
+            [sys.executable, "-c", preamble + "\n" + body],
+            cwd=tmp_path, env=env, capture_output=True, text=True, timeout=300)
+
+    def test_the_pass_branch_names_every_export(self, tmp_path):
+        """Without Plotly every export resolves except `vis`, which names its extra: the
+        sweep exits zero and says how many it cleared."""
+        result = self._run_sweep(tmp_path, self._sweep(), block_plotly=True)
+        assert result.returncode == 0, result.stderr
+        assert "public exports resolved or name their extra" in result.stdout, result.stdout
+
+    def test_a_missing_export_fails_the_sweep(self, tmp_path):
+        """A wheel that dropped a module still carries its name in `__all__`: the sweep
+        refuses it, naming the missing export."""
+        body = "jnwb.__all__ = list(jnwb.__all__) + ['_bogus_missing_export']\n" + self._sweep()
+        result = self._run_sweep(tmp_path, body, block_plotly=True)
+        assert result.returncode != 0, result.stdout
+        assert "Missing exports" in result.stderr and "_bogus_missing_export" in result.stderr, (
+            result.stderr)
+
+    def test_a_resolving_optional_submodule_fails_the_sweep(self, tmp_path):
+        """With its extra installed, `jnwb.vis` resolves: against a wheel built without
+        extras that must not happen, so the sweep refuses it."""
+        pytest.importorskip("plotly")
+        result = self._run_sweep(tmp_path, self._sweep(), block_plotly=False)
+        assert result.returncode != 0, result.stdout
+        assert "resolved without the vis extra" in result.stderr, result.stderr
 
 
 class TestInstalledArtifactVerification:

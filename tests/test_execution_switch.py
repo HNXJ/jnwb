@@ -47,6 +47,7 @@ import pytest
 import jnwb
 import jnwb._backend as backend
 from jnwb import tfr as tfr_module
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 from jnwb._parallel import parallel_map
 from jnwb.trajectory import compute_population_trajectory
 
@@ -134,6 +135,9 @@ for _name in ("spectral_tilt", "harmonic_analysis", "imaginary_coherency", "wpli
 
 def _public_callables():
     for name in jnwb.__all__:
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never a device-taking callable; importing it needs its extra.
+            continue
         obj = getattr(jnwb, name, None)
         if inspect.isclass(obj):
             yield name, obj
@@ -250,6 +254,31 @@ class TestEveryBackendArgumentIsCovered:
 
     def test_the_backend_records_are_every_other_backend_argument(self):
         assert _exports_with("backend") == {"jrsa"} | BACKEND_RECORDS
+
+    def test_the_sweep_passes_without_the_vis_extra(self):
+        """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
+        from pathlib import Path
+
+        root = str(Path(__file__).resolve().parents[1])
+        script = (
+            "import sys\n"
+            f"sys.path.append({root!r})\n"
+            "sys.modules['plotly'] = None\n"
+            "from tests.test_execution_switch import _public_callables\n"
+            "names = [name for name, _ in _public_callables()]\n"
+            "assert 'vis' not in names, 'the optional submodule was resolved without its extra'\n"
+            "assert len(names) > 100, f'only {len(names)} callables found; the sweep is wrong'\n"
+            "print('SWEEP_OK')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=root,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "SWEEP_OK" in result.stdout, result.stdout
 
 
 class TestAnUnavailableDeviceIsAnnounced:

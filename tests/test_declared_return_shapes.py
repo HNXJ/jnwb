@@ -25,11 +25,15 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import re
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 N_TRIALS, N_BINS, N_TIMES = 7, 50, 512
 
@@ -166,12 +170,44 @@ class TestTheListOfDeclaringFunctionsIsComplete:
         covered = {"bin_spikes", "detect_band_outliers", "laplacian_reference",
                    "spike_count_correlation", "fano_factor", "normalize_waveforms",
                    "wavemap_resolution_sweep", *NEEDS_A_SESSION}
-        declaring = {
-            name for name in jnwb.__all__
-            if callable(getattr(jnwb, name, None))
-            and not inspect.isclass(getattr(jnwb, name))
-            and declared_shapes(getattr(jnwb, name))
-        }
+        declaring = declaring_functions()
         assert declaring <= covered, (
             f"{sorted(declaring - covered)} declare a return shape that nothing checks"
         )
+
+
+def declaring_functions() -> set:
+    """Public functions whose docstring declares a return shape.
+
+    An optional submodule is a module, so it is never one of them, and is not imported
+    to find out.
+    """
+    return {
+        name for name in jnwb.__all__
+        if name not in OPTIONAL_SUBMODULES
+        and callable(getattr(jnwb, name, None))
+        and not inspect.isclass(getattr(jnwb, name))
+        and declared_shapes(getattr(jnwb, name))
+    }
+
+
+def test_the_sweep_passes_without_the_vis_extra():
+    """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
+    root = str(Path(__file__).resolve().parents[1])
+    script = (
+        "import sys\n"
+        f"sys.path.append({root!r})\n"
+        "sys.modules['plotly'] = None\n"
+        "from tests.test_declared_return_shapes import declaring_functions\n"
+        "assert isinstance(declaring_functions(), set)\n"
+        "print('SWEEP_OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SWEEP_OK" in result.stdout, result.stdout

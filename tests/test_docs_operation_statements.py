@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 
 import jnwb
+from jnwb._lazy_exports import OPTIONAL_SUBMODULES
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
@@ -125,6 +126,9 @@ def test_only_events_warns_on_a_table_without_a_codes_column():
 
 def _public_rng_parameters():
     for name in sorted(jnwb.__all__):
+        if name in OPTIONAL_SUBMODULES:
+            # A submodule, so never an `rng` parameter; importing it needs its optional extra.
+            continue
         obj = getattr(jnwb, name, None)
         members = []
         if inspect.isclass(obj):
@@ -178,6 +182,8 @@ def _seed_only_public_surfaces():
     """Public API callables spelling the argument `seed` with no `rng` beside it."""
     out = set()
     for name in jnwb.__all__:
+        if name in OPTIONAL_SUBMODULES:
+            continue
         obj = getattr(jnwb, name, None)
         if callable(obj) and not inspect.isclass(obj):
             try:
@@ -199,6 +205,34 @@ def test_the_surface_walk_reaches_the_seed_spelled_builders():
     """Both spell the argument `seed`; a walk over `rng` alone missed them."""
     surfaces = _stochastic_surfaces()
     assert {"synth.build_canonical_tutorial_nwb", "testing.SynthNWBBuildOptions"} <= surfaces
+
+
+def test_the_sweeps_pass_without_the_vis_extra():
+    """With Plotly unimportable, `jnwb.vis` is skipped instead of resolved."""
+    import subprocess
+    import sys
+
+    root = str(REPO_ROOT)
+    script = (
+        "import sys\n"
+        f"sys.path.append({root!r})\n"
+        "sys.modules['plotly'] = None\n"
+        "from tests.test_docs_operation_statements import (\n"
+        "    _public_rng_parameters, _seed_only_public_surfaces)\n"
+        "params = list(_public_rng_parameters())\n"
+        "assert all(not q.startswith('vis') for q, _ in params), params\n"
+        "assert isinstance(_seed_only_public_surfaces(), set)\n"
+        "print('SWEEP_OK')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "SWEEP_OK" in result.stdout, result.stdout
 
 
 RNG_TABLE_ROWS = {
