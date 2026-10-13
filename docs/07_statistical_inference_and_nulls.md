@@ -163,7 +163,7 @@ for c in res_grouped["clusters"]:
 ![Planted time-frequency difference and the significant cluster from the permutation test](assets/figures/fig16_cluster_permutation.png#only-light)
 ![Planted time-frequency difference and the significant cluster from the permutation test](assets/figures/fig16_cluster_permutation.dark.png#only-dark)
 
-The figure is synthetic: 20 seeded trials per condition, with a 30 Hz burst in condition B from 200 to 400 ms. It maps the power difference, B minus A, from `jnwb.complex_tfr`; the outlined cluster is the only one that `jnwb.cluster_permutation_test` finds at p below 0.05 (p = 0.001 from 1000 permutations), and the other nine clusters have p above 0.5.
+The figure is synthetic: 20 seeded trials per condition, with a 30 Hz burst in condition B from 200 to 400 ms. It maps the power difference, B minus A, from `jnwb.complex_tfr`; the outlined cluster is the only one that `jnwb.cluster_permutation_test` finds at p below 0.05 (p = 0.001 from 1000 permutations), and the other nine clusters have p above 0.5. The cluster spans 22 to 60 Hz and 186 to 422 ms, wider than the planted burst, because the burst's abrupt offset leaks across frequency: its extent is not a localization.
 
 **What a significant cluster licenses.** The test controls the family-wise error rate over
 the whole search, and the statement it supports is that the conditions differ *somewhere*
