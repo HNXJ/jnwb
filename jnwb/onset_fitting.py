@@ -66,7 +66,7 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
         activity. J. Neurosci. Methods. doi:10.1016/s0165-0270(99)00127-2 --
         single-trial rate estimation by causal kernel smoothing. This smooths an
         already-binned rate with a finite 5-tau exponential window, left-edge
-        padded, not spike times; no filter delay is subtracted from a fitted t0.
+        padded, not spike times.
     """
     tau_ms = _positive_finite(tau_ms, "tau_ms", "causal_exp_smooth")
     bin_ms = _positive_finite(bin_ms, "bin_ms", "causal_exp_smooth")
