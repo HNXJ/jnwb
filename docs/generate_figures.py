@@ -1343,13 +1343,13 @@ def fig20_bad_channels_and_trials():
     ax_b.set_yticklabels([style.num(tick, ".0f") for tick in z_ticks])
     ax_b.set_xticks(channels[::8])
     ax_b.set_xlabel("Channel index")
-    ax_b.set_ylabel("Robust z of median correlation (dimensionless)")
+    ax_b.set_ylabel("Robust z (dimensionless)")
     ax_b.legend(handles=[
         Patch(facecolor=style.NEUTRAL, label="kept"),
         Patch(facecolor=style.SERIES[3], edgecolor=C_DARK, hatch="//",
               label=f"flagged, z below {style.num(-FIG20_Z_THRESH, '.1f')}"),
     ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
-    style.panel_title(ax_b, "B", "Robust z of each channel's median correlation\n(jnwb.bad_channels_from_correlation)")
+    style.panel_title(ax_b, "B", "Each channel's median correlation\n(jnwb.bad_channels_from_correlation)")
 
     image_c = ax_c.imshow(per_channel.astype(float), cmap="cividis", vmin=0.0, vmax=1.0, aspect="auto",
                           interpolation="nearest")
