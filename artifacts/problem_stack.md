@@ -15,3 +15,4 @@ holds every row that has left.
 
 | ID | Problem | Found by |
 |---|---|---|
+| P-369 | `xflip`'s omnibus surrogate p carries no information on volume-conducted LFP: phase-randomized surrogates make channels independent, so on 10 of 10 boundary-free probes (24 contacts, exponential spatial kernel of 3 contacts, seeds 0 to 9, 100 surrogates) p was the floor 1/101. Only the `min_boundary_drop` gate rejected them. The docstring and `p_values` present p as the test of the partition | main model, 2026-10-13 |
