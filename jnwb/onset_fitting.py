@@ -79,6 +79,8 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     The kernel is w[j] proportional to exp(-j**2 / (2 sigma**2)) for j = 0..ceil(4 sigma), with j
     in bins into the past, normalised. The left edge is padded with rate[0], as in
     ``causal_exp_smooth``, so the output at bin t depends on rate[t], rate[t-1], ... only.
+    A NaN in rate[k] makes smoothed[k : k + ceil(4 sigma) + 1] NaN, so a NaN in rate[0] fills the
+    first window; nothing is imputed.
 
     mean_lag_bins is the exact centroid of the kernel applied, sum(j w[j]) / sum(w[j]). It
     is close to sigma * sqrt(2/pi), about 0.798 sigma bins: up to sigma = 20 it is within about
@@ -91,7 +93,7 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     rate: (n_times,) binned rate, in any units (only smoothing, no rescaling).
     sigma_bins: Gaussian standard deviation, in bins.
     Returns (smoothed, mean_lag_bins): the smoothed rate, same shape as the input, and the lag.
-    Raises ValueError if ``sigma_bins`` is not finite and positive.
+    Raises ValueError if ``rate`` is not one-dimensional or ``sigma_bins`` is not finite and positive.
     """
     sigma = _positive_finite(sigma_bins, "sigma_bins", "causal_gaussian_smooth")
     j = np.arange(int(np.ceil(4.0 * sigma)) + 1)
@@ -99,6 +101,8 @@ def causal_gaussian_smooth(rate: np.ndarray, sigma_bins: float) -> tuple[np.ndar
     mean_lag = float(np.sum(j * raw) / np.sum(raw))
     w = raw / raw.sum()
     rate = np.asarray(rate, dtype=float)
+    if rate.ndim != 1:
+        raise ValueError(f"causal_gaussian_smooth: rate must be one-dimensional, got shape {rate.shape}")
     if rate.size == 0:
         return np.empty(0, dtype=float), mean_lag
     padded = np.concatenate([np.full(len(w) - 1, rate[0]), rate])
