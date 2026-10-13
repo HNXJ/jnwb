@@ -879,6 +879,25 @@ class TestCheckWaveformBlocksDense:
         with pytest.raises(KeyError, match="amplitude"):
             check_waveform_blocks(bare, rtol=1e-9)
 
+    def test_largest_row_is_a_finite_row_or_none(self, tmp_path):
+        """argmax ranks NaN above every value and an infinite peak-to-peak above every finite
+        one, so a unit whose channel 0 was all NaN read `largest_row` 0. The largest row is
+        taken over finite rows only: None when no row is finite."""
+        from jnwb import check_waveform_blocks
+
+        blocks = _dense_stack()
+        blocks[0] = _dense_block(_DENSE_AMPS[0], 1)
+        blocks[0][:, 0] = np.nan  # unit 0: channel 0 all NaN, its finite peak on channel 1
+        blocks[2] = np.nan  # unit 2: no finite row at all
+        blocks[3] = _dense_block(_DENSE_AMPS[3], 2)
+        blocks[3][0, 0] = np.inf  # unit 3: channel 0 holds +inf, its finite peak on channel 2
+        path = _dense_write(tmp_path / "bad_rows.nwb", blocks)
+        with h5py.File(path, "r") as handle:
+            assert np.isinf(handle["units/waveform_mean"][3, 0, 0])  # precondition
+        rep = check_waveform_blocks(path, rtol=1e-9)
+        assert [u.status for u in rep.units] == ["owned", "owned", "unowned", "owned"]
+        assert [u.largest_row for u in rep.units] == [1, 2, None, 2]
+
 
 def _largest_ptp(path, table="units"):
     """Each unit's largest channel peak-to-peak, read back from the blocks the check reads.

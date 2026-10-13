@@ -91,6 +91,15 @@ HISTORICAL_MENTIONS = {
     ("docs/03_representational_similarity_jrsa.md", "Before 0.2.6.1 every metric used"),
 }
 
+# Versions that name an external dataset, not this package: the DANDI dataset in
+# docs/tutorials/09_open_data.md carries its own version, and its DOI repeats it. Excused by
+# text, and checked for presence in the same way as HISTORICAL_MENTIONS.
+EXTERNAL_MENTIONS = {
+    ("docs/tutorials/09_open_data.md", "DANDI 000253, version 0.240503.0152"),
+    ("docs/tutorials/09_open_data.md", "Version 0.240503.0152"),
+    ("docs/tutorials/09_open_data.md", "10.48324/dandi.000253/0.240503.0152"),
+}
+
 # Mentions of a version not yet released: a plan or a removal date. Each is excused only while
 # the live version is below it; once the version reaches it the note is either done, and
 # rewritten as history, or late, and the release is not what the note promised.
@@ -122,7 +131,7 @@ class TestNoUnpinnedProseVersionRemains:
 
     @pytest.mark.parametrize("rel", sorted(
         p.relative_to(REPO_ROOT).as_posix()
-        for p in [REPO_ROOT / "README.md"] + list(REPO_ROOT.glob("docs/*.md"))
+        for p in [REPO_ROOT / "README.md"] + list(REPO_ROOT.glob("docs/**/*.md"))
         if p.name not in HISTORICAL))
     def test_every_version_mention_is_live_pinned_or_declared_historical(self, rel: str):
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")
@@ -130,6 +139,7 @@ class TestNoUnpinnedProseVersionRemains:
             template.format(version=jnwb.__version__) for _, template in PINNED_CLAIMS
         }
         known = {snippet for path, snippet in HISTORICAL_MENTIONS if path == rel}
+        known |= {snippet for path, snippet in EXTERNAL_MENTIONS if path == rel}
         known |= {snippet for (path, snippet), version in FORWARD_MENTIONS.items()
                   if path == rel and _version_tuple(version) > LIVE}
         offenders = []
@@ -152,7 +162,7 @@ class TestNoUnpinnedProseVersionRemains:
     def test_every_declared_historical_mention_is_still_there(self):
         """An allowlist outlives what it excuses; this is what stops it silently growing."""
         missing = [
-            (rel, snippet) for rel, snippet in sorted(HISTORICAL_MENTIONS)
+            (rel, snippet) for rel, snippet in sorted(HISTORICAL_MENTIONS | EXTERNAL_MENTIONS)
             if snippet not in (REPO_ROOT / rel).read_text(encoding="utf-8")
         ]
         assert not missing, f"HISTORICAL_MENTIONS excuses text that is gone: {missing}"

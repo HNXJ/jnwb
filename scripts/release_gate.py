@@ -665,6 +665,10 @@ def required_ci_jobs(workflow: Optional[str] = None,
     exactly the shape this check exists to catch. Measured at 30c425cf: ``Build & Validate
     Distribution`` is ``needs: test``, and with four test legs red it reported ``skipped``
     rather than ``failure``. A rule reading "no job concluded failure" calls that green.
+
+    A job carrying ``continue-on-error: true`` is excluded for the opposite reason: it reports
+    and does not gate. Its failure must not turn the commit's CI conclusion red, so the release
+    gate does not require it.
     """
     import itertools
 
@@ -680,6 +684,9 @@ def required_ci_jobs(workflow: Optional[str] = None,
         if not isinstance(job, dict):
             continue
         if "if" in job:
+            continue
+        # Reports and does not gate: see the docstring.
+        if job.get("continue-on-error") is True:
             continue
         template = str(job.get("name") or job_id)
         matrix = ((job.get("strategy") or {}).get("matrix")) or {}
@@ -2002,6 +2009,29 @@ print('ALL SMOKE VERIFICATIONS PASSED IN ISOLATED WHEEL ENVIRONMENT.')
 """
 
 
+def probe_jnwb_file(venv_python: str, cwd: str, env: dict) -> str:
+    """Where `import jnwb` resolves under `env`, from `cwd`. A failing import exits with the
+    probe's stderr, so the cause is in the log rather than a bare CalledProcessError."""
+    probe = subprocess.run([venv_python, "-c", "import jnwb; print(jnwb.__file__)"],
+                           cwd=cwd, env=env, capture_output=True, text=True)
+    if probe.returncode != 0:
+        raise SystemExit(f"`import jnwb` failed in the tutorial environment:\n{probe.stderr}")
+    return probe.stdout.strip()
+
+
+def check_resolves_under(resolved: str, purelib: str) -> None:
+    """Exit unless `import jnwb` resolved under `purelib`, the installed package root.
+
+    A tutorial that fell back to the checkout would pass STEP 8 while testing the source tree;
+    the message names both paths so the fallback is visible. An empty purelib resolves to the
+    cwd, and an empty or "None" resolution is no evidence at all, so both are refused first.
+    """
+    if not purelib or not resolved or resolved == "None":
+        raise SystemExit(f"cannot verify where jnwb resolved: resolved={resolved!r}, purelib={purelib!r}")
+    if not pathlib.Path(resolved).resolve().is_relative_to(pathlib.Path(purelib).resolve()):
+        raise SystemExit(f"jnwb resolved to {resolved}, outside the installed package root {purelib}")
+
+
 def main() -> None:
     log.info("=== STEP 0a: Checking release readiness (AGENTS.md section 11, condition 3) ===")
     try:
@@ -2236,6 +2266,9 @@ def main() -> None:
         # aside; without it every tutorial imported the checkout it ships in, not the wheel.
         tutorial_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         tutorial_env["JNWB_EXPECTED_PACKAGE_ROOT"] = purelib
+        # Before any tutorial runs: where `import jnwb` lands under the same environment.
+        resolved = probe_jnwb_file(venv_python, str(staging_dir), tutorial_env)
+        check_resolves_under(resolved, purelib)
         for tutorial in tutorials:
             res = subprocess.run(
                 [venv_python, str(tutorial)], cwd=str(staging_dir),

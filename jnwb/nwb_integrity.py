@@ -397,8 +397,9 @@ class WaveformBlockCheck:
     within tolerance, ``"unowned"`` when the block is complete and no row matches, and
     ``"unknown"`` when there is nothing to compare (an empty block) or no finite
     reference (a NaN or infinite amplitude). ``matched_row`` is the first matching row,
-    ``None`` unless owned; ``largest_row`` the first row of greatest peak-to-peak,
-    ``None`` for an empty block; ``best_dev`` the smallest absolute deviation of a row's
+    ``None`` unless owned; ``largest_row`` the first row of greatest finite peak-to-peak,
+    ``None`` for an empty block or with no finite row; ``best_dev`` the smallest absolute
+    deviation of a row's
     peak-to-peak from the stored amplitude, in the data's units, ``None`` when unknown.
     ``peak_channel_id`` is carried as stored (``None`` when the column is absent) so the
     caller can join it against the electrodes table; it is never a criterion, because a
@@ -603,9 +604,11 @@ def check_waveform_blocks(path: str | Path, *, table: str = "units",
             dev = np.abs(ptp - a)
             limit = atol + rtol * abs(a)
             matched = next((j for j in range(n_rows) if dev[j] <= limit), None)
+            finite = np.isfinite(ptp)
+            largest = int(np.argmax(np.where(finite, ptp, -np.inf))) if finite.any() else None
             units.append(WaveformBlockCheck(
                 i, int(uid), "owned" if matched is not None else "unowned", matched,
-                int(np.argmax(ptp)), n_rows, a, float(dev.min()), prow))
+                largest, n_rows, a, float(dev.min()), prow))
         if ratios:
             median = float(np.median(ratios))
             if median >= 1000 or median <= 1 / 1000:

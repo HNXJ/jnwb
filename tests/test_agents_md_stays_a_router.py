@@ -127,8 +127,12 @@ def test_the_script_measures_the_tree_it_lives_in(measurement):
 
 
 def test_the_measurement_still_finds_something_to_measure(measurement):
-    """A script that reports zero sentences would pass every ratchet below for the wrong reason."""
-    assert measurement["sentences"] >= 100, (
+    """A script that reports zero sentences would pass every ratchet below for the wrong reason.
+
+    The floor was 100 until the 2026-10-12 cut, which left the rules the host's global files
+    state to those files and measured 74 sentences.
+    """
+    assert measurement["sentences"] >= 70, (
         f"only {measurement['sentences']} claim-bearing sentences found in AGENTS.md; "
         "the sweep is broken, not the file"
     )

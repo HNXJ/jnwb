@@ -156,6 +156,8 @@ def build() -> str:
 
     return f"""# State
 
+Generated: scripts/reconstruct_state.py
+
 The `state` slot of `X = {{goal, state, fact, problem, todo}}`: verified mutable truth about
 this working tree. Regenerate with `python scripts/reconstruct_state.py`; `--check` compares the
 HEAD recorded below against the live one and exits 1 when they differ, and the suite runs that

@@ -1,103 +1,56 @@
 # AGENTS.md — working rules for `jnwb`
 
-Rules and routes; the reasons are in `artifacts/rulings/history.md`.
-**This file is the only repository-level instruction file**: there is no second rule set and no per-assistant variant, and
-a rule that is not here is not a rule of this repository. A project that *uses* jnwb keeps its own
-rules.
+Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the only repository-level instruction file: no second rule set, no per-assistant variant, and a rule not written here is not a rule of this repository. The host's global rules, mirrored to every assistant, apply as well and are not repeated here. A project that *uses* jnwb keeps its own rules.
 
-**Keep internal process out of the library surface.** Public docs may describe AI agents, skills,
-routing and AI-assisted use where these are public capabilities. Internal roles, harness and
-process vocabulary, private coordination state and implementation-only terms stay out of public
-docs unless a public interface needs them, and out of `jnwb/`, `tests/`, `scripts/`,
-`CHANGELOG.md`, comments and docstrings, except machine-required literals (`agents/openai.yaml`
-in skill-structure tests; `cc:Agent` tags in Matplotlib SVG). Gate 14 holds `docs/` to the terms
-internal by construction and lists the ones it leaves out.
+**Keep internal process out of the library surface.** Public docs may describe agents, skills, routing and AI-assisted use as public capabilities. Internal roles, harness and process vocabulary, private coordination state and implementation-only terms stay out of public docs unless a public interface needs them, and out of `jnwb/`, `tests/`, `scripts/`, `CHANGELOG.md`, comments and docstrings. Machine-required literals are the exception (`agents/openai.yaml` in skill tests; `cc:Agent` in Matplotlib SVG). Gate 14 holds `docs/` to the terms internal by construction and lists the ones it leaves out.
 
 ## 0. Where things are
 
 | Path | Holds |
 |---|---|
-| `jnwb/__init__.py` | The public API; `__all__` is the symbol list |
-| `jnwb/` | Source; `_backend.py` decides CPU/GPU, `_parallel.py` runs `n_jobs` loops |
-| `tests/` | The suite; run it before and after a change (§6) |
-| `scripts/harness_gate.py`, `scripts/release_gate.py` | Repository gates, `GATES` being the count; the pre-tag check (§6) |
+| `jnwb/` | Source; `__init__.py` is the public API, `__all__` the symbol list; `_backend.py` decides CPU or GPU, `_parallel.py` runs `n_jobs` loops |
+| `tests/`, `scripts/` | The suite (§6); `scripts/harness_gate.py` (`GATES` is the count) and `scripts/release_gate.py`, the pre-tag check |
 | `artifacts/frozen_validated.json` | Independently verified functions; gate 19 fails when a body changes, and a review may skip an entry whose hash matches |
 | `skills/`, `artifacts/skills/` | Shipped and repository-only skills (§7) |
-| `artifacts/agents.md`, `artifacts/agents/` | The agent entry page; role definitions, independent of domain skills and parameterized by delegation packets |
-| `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules |
-| `artifacts/cooperation.md` | How concurrent agents share the repository |
-| `artifacts/defect_classes.md` | Defect classes review has found, counted; a class seen twice gets a check |
-| `artifacts/evidence/`, `artifacts/archive/` | Per-version working evidence; closed cycles stay only while a file reads or cites them |
-| `artifacts/benchmarks/` | Performance baseline and import profile (`python scripts/benchmark_import.py --write`) |
-| `docs/` | User docs; `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources |
-| `examples/` | `quickstart_jnwb.py`; notebooks that `tests/test_notebooks.py` executes |
-| `.github/CONTRIBUTING.md` | How to change code, docs, skills and releases |
-| `.github/workflows/workflow.yml` | CI; the publication order is a fact (§2) |
+| `artifacts/agents.md`, `artifacts/agents/` | Agent entry page; role definitions, independent of domain skills, parameterized by delegation packets: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer` |
+| `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules, `standing.md` the rulings still in force |
+| `artifacts/cooperation.md`, `artifacts/defect_classes.md` | How concurrent agents share the repository; a defect class seen twice gets a check |
+| `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline (`python scripts/benchmark_import.py --write`) |
+| `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
+| `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |
 
 ## 1. Evidence
 
-Every claim is `observed | derived | inferred | assumed | unknown`; say which.
-
-- `execution != verification`: exit status 0 means the process ran.
-- `configured != loaded != executed != verified`.
-- `memory != current state`: re-read; never quote a path, count or flag from recall.
-- A file pointing at other files goes stale silently; resolve its entries against disk.
-- Prose counts go stale; re-run and read the output.
-- **No claim without a receipt**: "done", "passes", "fixed" carry the command and its output in
-  the same message; otherwise say "ran X, got Y".
-- **Running without error does not verify content**: trace a reported number to a computation
-  on real data, not a literal, an RNG draw or a fallback branch.
-
-On conflict, authority runs: receipt on disk, live repository state, machine-readable state
-files, prose. An unresolved material conflict stops the work and surfaces both sides.
+`configured != loaded != executed != verified`. Prose counts go stale; re-run and read the output. On conflict, authority runs: receipt on disk, live repository state, machine-readable state files, then prose. A reported number traces to a computation on real data, not to a literal, an RNG draw or a fallback branch.
 
 ## 2. Project state
 
-Five slots, one file each; this file routes to them and never restates them.
+Five slots, one file each; this file routes to them and never restates them. Verified lessons, each with trigger, cause, repair, evidence and scope, go in `artifacts/memory.md`.
 
 | Slot | File | Agents may edit? |
 |---|---|---|
 | goal | `artifacts/goal.md` | No; Hamm rules it |
-| state | `artifacts/state.md` | Generated by `python scripts/reconstruct_state.py`, never committed |
+| state | `artifacts/state.md` | Generated by `python scripts/reconstruct_state.py`, never committed; `--check` tests it |
 | fact | `artifacts/fact_stack.md` | Only where Hamm authorized it; otherwise challenge with evidence |
 | problem | `artifacts/problem_stack.md` | Add on discovery; a row leaves as §11 says |
 | todo | `artifacts/todo_stack.md` | delete finished items; add only unresolved work |
 
-`artifacts/direction.md` is a ruling of record the goal declares itself subject to; §3 loads it
-first. Check the state file with `python scripts/reconstruct_state.py --check`. A cited `P-` id
-has left the problem stack; `git log -S '| P-NN |' -- artifacts/problem_stack.md` finds it.
-Memory is a hypothesis about state, never evidence. The todo stack holds one `# i.j.k` section
-per version and only work not yet done: a finished item is deleted, never ticked or moved.
-Its companion `artifacts/roadmap.md` holds work deferred past those versions, one row per item.
-(`docs/fact_stack.md` / `docs/todo_stack.md` when the repository has no `artifacts/`.)
+- `artifacts/direction.md` is a ruling of record that the goal declares itself subject to.
+- A cited `P-` id has left the problem stack; `git log -S '| P-NN |' -- artifacts/problem_stack.md` finds it.
+- The todo stack holds one `# i.j.k` section per version and only unfinished work; `artifacts/roadmap.md` holds work deferred past those versions, one row per item.
+
+(`docs/fact_stack.md` and `docs/todo_stack.md` when the repository has no `artifacts/`.)
 
 ## 3. Loop
 
 `W = P (R G)^N S`
 
-- **Prepare** — establish the tree before reading it: first, run `git rev-parse HEAD` against
-  your baseline; `python scripts/verify_lane.py --baseline <commit>` also runs the §8 isolation
-  check, which passes before the first write. On a difference, `git merge --ff-only <baseline>`; if that fails, stop and report both
-  SHAs. **Never `git reset --hard`.** A packet names a baseline commit, never a distance. Then
-  load, in order: (1) `AGENTS.md`, (2) `artifacts/direction.md`, (3) `artifacts/goal.md`,
-  (4) `artifacts/fact_stack.md`, (5) `artifacts/state.md`, regenerated if `--check` fails,
-  (6) `artifacts/problem_stack.md`, (7) `artifacts/todo_stack.md`, (8) relevant skills (§7),
-  (9) repository evidence: re-read targets, run probes, collect receipts. Order the work and
-  define acceptance; a fact does not prove the current state satisfies it.
-- **Review** — review the last result, update the todo stack, choose the next item; commit,
-  push to `dev` through the §6 wrappers, verify sync.
-- **Progress** — the smallest authorised change; preserve invariants; test; back to Review.
-- **Seal** — verify the release; remove completed items; commit, push through the §6 wrappers,
-  verify a clean sync.
-
-Continue while useful work remains; stop when only a human decision remains or authority or
-evidence is missing. Never stop after one item, commit nothing, leave validated changes
-unpushed, or cross a version boundary unsealed. §12 sets who drives.
+- **Prepare**: first compare `git rev-parse HEAD` with the baseline; `python scripts/verify_lane.py --baseline <commit>` does that and runs the §8 isolation check before the first write. On a difference, `git merge --ff-only <baseline>`; if that fails, stop and report both SHAs. Never `git reset --hard`. A packet names a baseline commit, never a distance. Then load, in order: `AGENTS.md`, `artifacts/direction.md`, `artifacts/goal.md`, `artifacts/fact_stack.md`, `artifacts/state.md` (regenerated if `--check` fails), `artifacts/problem_stack.md`, `artifacts/todo_stack.md`, the relevant skills (§7), then repository evidence. A fact does not prove the current state satisfies acceptance.
+- **Review** and **Seal** push to `dev` through the §6 wrappers and verify the sync; a version boundary is never crossed unsealed. §12 sets who drives.
 
 ## 4. Invariants this library protects
 
-Stated once, in `artifacts/fact_stack.md`; the safeguards applied while analysing are section 4
-of `skills/jnwb/SKILL.md`.
+Stated once, in `artifacts/fact_stack.md`; the safeguards applied while analysing are in section 4 of `skills/jnwb/SKILL.md`.
 
 | § | Invariant | Fact rows |
 |---|---|---|
@@ -111,16 +64,11 @@ of `skills/jnwb/SKILL.md`.
 
 A request to encode a corpus convention in jnwb is a reason to stop.
 
-**4.7 Call the library function instead of retyping its rule**; if its shape blocks reuse, widen
-the shape. Fact S7 holds the checkable half.
+**4.7 Call the library function instead of retyping its rule.** If its shape blocks reuse, widen the shape. Fact S7 holds the checkable half.
 
 ## 5. Vocabulary
 
-**Spikes and LFP are never pooled**, namespaced or not (ruled 2026-09-29; item 1 of section 4 of
-`skills/jnwb/SKILL.md`). The rest of the claim vocabulary (association and direction, zero-lag
-sensitivity, phase delay) is stated in section 4 of `skills/jnwb/SKILL.md`, safeguard 4 of
-`skills/jnwb-connectivity/SKILL.md` and facts S8, S13 and S14; prevalence against magnitude is
-item 2 of "Core scientific invariants" in `CONTRIBUTING.md`.
+**Spikes and LFP are never pooled**, namespaced or not (ruled 2026-09-29; item 1 of section 4 of `skills/jnwb/SKILL.md`). The rest of the claim vocabulary is in section 4 of `skills/jnwb/SKILL.md`, safeguard 4 of `skills/jnwb-connectivity/SKILL.md` and facts S8, S13 and S14. Prevalence against magnitude is item 2 of "Core scientific invariants" in `CONTRIBUTING.md`.
 
 ## 6. Tools
 
@@ -131,48 +79,19 @@ item 2 of "Core scientific invariants" in `CONTRIBUTING.md`.
 | `python scripts/release_gate.py` | Release readiness; run before tagging |
 | `python scripts/docs_build.py` | Strict MkDocs via `sys.executable`; never bare `mkdocs` |
 
-Agents run the suite with `bash C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>` (writes the stamp `.git/jnwb_suite_ok`)
-and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null` (needs stamp == HEAD unless the push touches only `artifacts/`, no CI in flight,
-newest completed run not failed); the host guard blocks a plain push.
-
-The interpreter set is fact R6.
+Agents run the suite with `bash C:/Users/nejath/.claude/bin/jnwb_suite.sh <dir> <log>`, which writes the stamp `.git/jnwb_suite_ok`, and push only with `bash C:/Users/nejath/.claude/bin/jnwb_push.sh <repo> dev </dev/null`. The push needs the stamp to equal HEAD unless it touches only `artifacts/`, no CI run in flight, and a newest completed run that did not fail; the host guard blocks a plain push. The interpreter set is fact R6.
 
 ## 7. Skills
 
-Load the skill before the work. `docs/agents.md` tables the shipped skills;
-`artifacts/skills/` holds the repository-only ones: `artifacts/skills/jnwb-fact-action` for
-execution control ($F \to R \to A \to V \to S$), loading order and independent verification,
-`artifacts/skills/jnwb-review` for what verification inspects. A jnwb skill governs jnwb
-operations; an overlapping host skill adds only checks it leaves open.
+Load the skill before the work. `docs/agents.md` tables the shipped skills. `artifacts/skills/jnwb-fact-action` governs execution control ($F \to R \to A \to V \to S$), loading order and independent verification; `artifacts/skills/jnwb-review` says what verification inspects. A jnwb skill governs jnwb operations; an overlapping host skill adds only checks it leaves open.
 
 ## 8. Changes
 
-`CONTRIBUTING.md` governs changes; for agents also:
-
-- Stage exact paths; never `git add .` or `-A`.
-- Confirm branch and upstream before commit, push or rebase; read a target before deleting or
-  overwriting it.
-- Preserve originals; write revisions as new files.
-- Push validated checkpoints to `dev`; `main` and tags only on explicit maintainer instruction.
-- A public API change is announced in `CHANGELOG.md`, carries a deprecation path where possible,
-  and updates the `skills/` routing rows in the same commit; `tests/test_skills_validation.py`
-  checks each row against `inspect.signature`.
-- No secrets in the repository, context or transcripts; if one is exposed, stop, say so,
-  recommend rotation.
-
-**One writable agent per worktree.** Readers may share it; implementers need separate worktrees or branches.
-Before editing a tree you did not just create, confirm nothing else modifies it, or stop.
-Uncommitted changes you did not make are unowned evidence: while they exist, never `stash`,
-`reset`, `restore`, check out or reformat, and never `git add -A`. A fan-out requests isolation,
-and a lane confirms it is not in the main checkout **before its first write**:
-`scripts/verify_lane.py` is the check, and refuses the main checkout unless `--allow-main-tree`
-names the caller the single writer.
+`CONTRIBUTING.md` governs changes. A public API change is announced in `CHANGELOG.md`, carries a deprecation path where possible, and updates the `skills/` routing rows in the same commit; `tests/test_skills_validation.py` checks each row against `inspect.signature`. Preserve originals; write revisions as new files. While uncommitted changes you did not make exist, never `stash`, `reset`, `restore`, check out or reformat. A fan-out lane confirms it is not in the main checkout before its first write: `scripts/verify_lane.py` refuses the main checkout unless `--allow-main-tree` names the single writer.
 
 ## 9. Writing
 
-Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated caveats and hedges
-that should be deletions. Remove what is unverified rather than labelling it. Say "policy" or
-"rule", never "doctrine" or "governance". Lead with the result.
+Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated caveats and hedges that should be deletions. Remove what is unverified rather than labelling it. Say "policy" or "rule", never "doctrine" or "governance".
 
 ## 10. Recipes
 
@@ -180,85 +99,19 @@ that should be deletions. Remove what is unverified rather than labelling it. Sa
 
 ## 11. Release acceptance
 
-Ruled 2026-09-19 for releases from 0.2.6 on; amended 2026-09-21 and 2026-09-23. A release opens
-only when all three hold at once:
-
-1. **Documentation is low-verbosity and consistently formed**: each thing said once; tables for
-   comparable facts, lists for enumerations, paragraphs for reasoning, figures for structure;
-   figures theme-matched in light and dark; one term per concept; the menu ordered by how a
-   reader arrives.
-2. **Code is low-complexity and switchable**: each operation at the best order its problem
-   admits, recorded where not obvious; 32/64-bit precision through one mechanism; CPU, parallel
-   CPU, CUDA and JAX Metal through one mechanism; the first three exercised here, Metal
-   implemented and declared unverified.
-3. **The problem stack is empty, no required item remains, and an independent blocker-focused
-   closure pass finds no new blocker.** A finding that blocks nothing waits in the todo stack.
-
-A problem leaves the stack repaired, shown false (evidence that survives a hostile reader in the
-commit message), or moved to the todo stack marked `Release: required-<cycle>` if it meets the
-blocker predicate, else `Release: deferred-<next>`; `scripts/release_gate.py` derives both from the
-declared version. Never delete a row because its repair is inconvenient.
-
-**Required** if any holds: shipped scientific or API behaviour can be wrong; public docs or skills
-can cause scientifically wrong use; a boundary or release claim is materially false; a test,
-harness or CI defect can invalidate required acceptance evidence; packaging, install or provenance
-can make qualification test the wrong artifact; required evidence is missing or unreliable; an
-unresolved human ruling changes shipped semantics.
-
-**Deferred** only when all are established: shipped behaviour is unchanged; public users and
-agents are not materially misled; no evidence relied on can be invalidated; no required gate
-becomes unknown; the defect and its reason to wait are in its `deferred-<next>` entry.
-
-- **Path is not a classifier**: a defect in `tests/`, `scripts/` or `artifacts/` blocks as hard
-  as one in `jnwb/` when it can invalidate release evidence.
-- **The fixpoint is blocker-focused**: a next-cycle finding of the final pass becomes a
-  `deferred-<next>` entry and does not reset closure.
-- **No backlog laundering**: semantics land before classification; an independent critic
-  classifies; a second pass asks of each deferral whether it could make qualifying evidence
-  falsely pass, and if so it becomes `required-<cycle>`.
-- **Conformance to an official reference suffices**: where an implementation matches its
-  method's official documentation, citing it proves correctness without re-derivation; existing
-  and regression tests stay.
-- **A red harness proves nothing about the rest**: report every gate as `PASS`, `FAIL`,
-  `NOT RUN` or `ERROR`, never "not my defect" because the first failure was not yours.
+A release opens only when documentation is low-verbosity and consistently formed, code is low-complexity and switchable, the problem stack is empty, no required item remains, and an independent blocker-focused closure pass finds no new blocker; a finding that blocks nothing waits in the todo stack. A problem leaves repaired, shown false (evidence that survives a hostile reader, in the commit message), or moved to the todo stack as `Release: required-<cycle>` if it blocks, else `Release: deferred-<next>`, which `scripts/release_gate.py` derives from the declared version. Never delete a row because its repair is inconvenient. Full text: `artifacts/rulings/standing.md`.
 
 ## 12. Autonomy
 
-Ruled 2026-09-19. Autonomy sets **who drives §3 and when Hamm intervenes**;
-`autonomy != authority`. At `max`, an agent needing an authority it lacks stops, as at `none`.
+Autonomy sets who drives §3 and when Hamm intervenes. `autonomy != authority`: at `max`, an agent that needs an authority it lacks stops, as at `none`. Full text, grades and the `max` loop: `artifacts/rulings/standing.md`.
 
-| Level | The agent | Hamm |
-|---|---|---|
-| `none` | Reviews and proposes; mutates no project state unless that exact action is authorised | Leads every consequential step |
-| `mid` | Runs one authorised packet end to end, committing and pushing where already authorised; stops at scope expansion, consequential ambiguity, a new scientific or API decision, or an authority conflict | Defines packets, resolves exceptions |
-| `max` | Actor and critic choose, sequence and route the work and continue unasked to a fixpoint or decision boundary | Defines goal, acceptance, invariants; rules decision points |
+**Stops even at `max`**: more than one defensible scientific meaning; a consequential public API choice; a change of package scope or boundary; a change of acceptance criteria; an unauthorised irreversible external action; evidence against a higher authority; two valid alternatives with a material trade-off, neither dominant; missing evidence or capability.
 
-The `max` loop is `actor -> critic -> actor -> verifier`, repeating: reproduce before changing,
-repair minimally, let the critic attack the repair, its tests and its completion claim, resolve
-what it demonstrates, verify independently, reconcile `problem` and `todo`, commit and push where
-authorised.
+`AUTONOMY: none | mid | max` inherits project default, batch, packet; **the narrowest scope wins**. The default is `max`, inherited by an item with no `AUTONOMY:` line; human rulings and the release item carry `none`.
 
-**Stops even at `max`**: more than one defensible scientific meaning; a consequential public API
-choice; a change of package scope or boundary; a change of acceptance criteria; an unauthorised
-irreversible external action; evidence against a higher authority; two valid alternatives with a
-material trade-off, neither dominant; missing evidence or capability.
+## 13. Workspace
 
-**Not stops**: a failing test, wrong audit claim, surviving mutant, repair that opens a defect,
-CI environment bug, stale item, unsupported plan, new todo, failed first attempt.
-
-**Decision grades** (ruled 2026-09-25), by confidence an option is logical, valid and sensible;
-the stops bind at every grade:
-
-| Grade | Confidence | Action |
-|---|---|---|
-| obvious | 95+ | do it |
-| highly recommended | 80–95 | do it; record it in `artifacts/rulings/<date>.md` |
-| recommended | 60–80 | build the minimal base; the full option becomes a todo |
-| minimal expandable | 40–60 | build the smallest version that keeps choices open; the rest a todo |
-| skip | <40 | a todo with its reason; build nothing |
-
-Skeleton first. Two defensible options with a material trade-off grade at most recommended:
-build their shared base and ask, options graded highest first.
-
-`AUTONOMY: none | mid | max` inherits project default, batch, packet; **the narrowest scope wins**.
-The default is `max`, inherited by an item with no `AUTONOMY:` line; human rulings and the release item carry `none`.
+- The canonical clone is `C:/workspace/jnwb`; `E:/repos/jnwb` and `D:/cowork/jnwb` follow `origin/dev`.
+- Claims, verifications and asks go in the jchat room `p-jnwb`.
+- Harness and rule questions go to `@jynx-claude-keeper doctor` in conference.
+- Cross-workspace alignment meets weekly (in the jynx repository: artifacts/policy.md, section 10).
