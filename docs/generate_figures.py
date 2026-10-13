@@ -952,6 +952,11 @@ def fig15_spike_phase_locking():
     control = jnwb.phase_locking_index(uniform_times, lfp_phase, lfp_timestamps, n_bins=FIG15_BINS)
     ppc_locked = jnwb.pairwise_phase_consistency(_spike_phases(locked_times, lfp_phase, lfp_timestamps))
     ppc_control = jnwb.pairwise_phase_consistency(_spike_phases(uniform_times, lfp_phase, lfp_timestamps))
+    # PPC must read the phases phase_locking_index binned; a drift in either copy fails here.
+    for times, result in ((locked_times, locked), (uniform_times, control)):
+        phases = _spike_phases(times, lfp_phase, lfp_timestamps)
+        hist = np.histogram(phases, bins=FIG15_BINS, range=(-np.pi, np.pi))[0]
+        assert np.array_equal(hist, result["phase_hist"]), "fig15's phases differ from the library's"
 
     _phase_panel(ax1, "A", "Phase-locked unit", locked, ppc_locked)
     _phase_panel(ax2, "B", "Uniform-phase control", control, ppc_control)
