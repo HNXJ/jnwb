@@ -231,3 +231,60 @@ class TestReleaseGateOrder:
         state.write_bytes(f"# State\n\n| HEAD | `{'0' * 40}` |\n".encode("utf-8"))
         violations = check_state_is_current(tmp_path)
         assert len(violations) == 1 and "generated at " + "0" * 40 in violations[0], violations
+
+
+class TestCiRunSelection:
+    """STEP 0e took the newest run for the commit, so a pull-request run still executing hid the
+    push run for the same commit, which had concluded green."""
+
+    SHA = "c" * 40
+    JOBS = [{"name": "Test", "status": "completed", "conclusion": "success"}]
+
+    @staticmethod
+    def _run(run_id, status, conclusion=""):
+        return {"databaseId": run_id, "headSha": TestCiRunSelection.SHA, "status": status,
+                "conclusion": conclusion, "workflowName": "CI"}
+
+    @staticmethod
+    def _gh(runs, jobs_payload):
+        import json
+
+        def run(args, **kwargs):
+            stdout = json.dumps(runs) if args[:3] == ["gh", "run", "list"] else jobs_payload
+            return subprocess.CompletedProcess(args, 0, stdout, "")
+        return run
+
+    def test_a_concluded_green_run_suffices_beside_one_still_executing(self):
+        import json
+
+        from scripts.release_gate import CI_VERIFIED, check_ci_conclusion, select_run_for_commit
+
+        runs = [self._run(20, "in_progress"), self._run(10, "completed", "success")]
+        run, reason = select_run_for_commit(self.SHA, json.dumps(runs))
+        assert reason is None and run["databaseId"] == 10, (run, reason)
+        green = json.dumps({"headSha": self.SHA, "conclusion": "success", "jobs": self.JOBS})
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, green))
+        assert outcome.status == CI_VERIFIED, outcome
+
+    def test_a_newer_concluded_failure_beside_an_older_green_run_still_fails(self):
+        import json
+
+        from scripts.release_gate import CI_FAILED, check_ci_conclusion
+
+        runs = [self._run(30, "completed", "failure"), self._run(10, "completed", "success")]
+        failed = json.dumps({"headSha": self.SHA, "conclusion": "failure", "jobs": [
+            {"name": "Test", "status": "completed", "conclusion": "failure"}]})
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, failed))
+        assert outcome.status == CI_FAILED, outcome
+
+    def test_a_commit_with_no_concluded_run_is_held_by_its_newest(self):
+        import json
+
+        from scripts.release_gate import CI_UNRESOLVED, check_ci_conclusion
+
+        runs = [self._run(20, "in_progress"), self._run(10, "queued")]
+        outcome = check_ci_conclusion(self.SHA, required=["Test"],
+                                      runner=self._gh(runs, json.dumps({})))
+        assert outcome.status == CI_UNRESOLVED and "in_progress" in outcome.detail, outcome
