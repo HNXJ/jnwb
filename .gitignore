@@ -84,6 +84,7 @@ gallery_src/
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json
 !tests/fixtures/dashboard_data.json
+!tests/fixtures/showcase_record.json
 *.asv
 *.mexw64
 *.mlx
