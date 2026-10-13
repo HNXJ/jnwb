@@ -246,3 +246,11 @@ class TestCausalGaussianSmooth:
 
         with pytest.raises(ValueError, match="causal_gaussian_smooth: sigma_bins must be a finite positive"):
             causal_gaussian_smooth(np.ones(10), sigma)
+
+    @pytest.mark.parametrize("shape", [(5, 2), (5, 1), (0, 3)])
+    def test_a_two_dimensional_rate_is_refused_by_name(self, shape):
+        from jnwb.onset_fitting import causal_gaussian_smooth
+
+        assert np.ones(shape).ndim == 2, "fixture must be two-dimensional"
+        with pytest.raises(ValueError, match="causal_gaussian_smooth: rate must be one-dimensional"):
+            causal_gaussian_smooth(np.ones(shape), 3.0)
