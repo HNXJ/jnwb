@@ -439,6 +439,24 @@ class TestTestPyPIBeforePyPI:
             assert self._RUNS_AFTER_FAILURE.search(condition), condition
         assert not self._RUNS_AFTER_FAILURE.search("github.event_name == 'push'")
 
+    def test_the_smoke_steps_clear_pythonpath_before_they_run(self):
+        """The tutorial step clears PYTHONPATH so a checkout cannot satisfy `import jnwb`. The two
+        smoke steps check the installed package the same way, so each clears it before its run."""
+        build = next(str(s["run"]) for s in _load_workflow()["jobs"]["build"]["steps"]
+                     if "smoke_installed.py" in str(s.get("run", "")))
+        verify = next(str(s["run"]) for s in self._verify_job()["steps"]
+                      if "smoke_installed.py" in str(s.get("run", "")))
+        for name, run in (("build", build), ("verify", verify)):
+            assert "unset PYTHONPATH" in run, f"the {name} smoke step does not clear PYTHONPATH"
+            assert run.index("unset PYTHONPATH") < run.index("smoke_installed.py"), name
+
+    def test_a_yanked_testpypi_file_is_refused_before_upload(self):
+        """A yanked file stays listed on TestPyPI with its digest, so a comparison that does not
+        read `yanked` passes it, and the file a release was pulled over would reach PyPI."""
+        run = next(str(s["run"]) for s in _load_workflow()["jobs"]["publish-pypi"]["steps"]
+                   if "test.pypi.org/pypi/jnwb" in str(s.get("run", "")))
+        assert ".yanked" in run, "the TestPyPI comparison does not refuse a yanked file"
+
 
 class TestTheInstalledSmokeScript:
     """The script the build job and the TestPyPI verification both run. Each check is driven
@@ -551,6 +569,15 @@ class TestInstalledArtifactVerification:
             "without JNWB_EXPECTED_PACKAGE_ROOT each tutorial's guard imports the checkout, "
             "so STEP 8 runs the source tree, not the wheel"
         )
+
+    def test_release_gate_smoke_step_clears_pythonpath_too(self):
+        """STEP 7 runs the installed-package smoke script. It clears PYTHONPATH as CI's smoke step
+        does; inheriting it lets the checkout satisfy `import jnwb` at the step meant to prove the
+        wheel."""
+        gate = (REPO_ROOT / "scripts" / "release_gate.py").read_text(encoding="utf-8")
+        step7 = gate[gate.index("=== STEP 7"):gate.index("=== STEP 8")]
+        assert 'k != "PYTHONPATH"' in step7, "STEP 7 does not strip PYTHONPATH"
+        assert "env=smoke_env" in step7, "STEP 7 runs the smoke script with the inherited environment"
 
     def test_release_gate_installs_the_extras_the_ci_tutorial_step_has(self):
         """CI's tutorial step runs after `vis` and `wavemap` are installed into the clean env;

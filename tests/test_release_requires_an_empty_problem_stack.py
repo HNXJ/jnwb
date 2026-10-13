@@ -635,6 +635,44 @@ def test_a_publication_job_that_continues_on_error_fails(tmp_path, job, where):
     assert len(hits) == 1 and job in hits[0], hits
 
 
+@pytest.mark.parametrize("where", ["twine-step", "reusable-job"])
+def test_a_publication_that_continues_on_error_is_refused_beyond_the_pypi_action(tmp_path, where):
+    """Condition 6 knew only the PyPI action, so a `twine upload` step or a job that calls a
+    reusable workflow could continue on error and let a failed upload read as a release."""
+    if where == "twine-step":
+        extra = ("  publish-twine:\n"
+                 "    needs: test\n"
+                 "    runs-on: ubuntu-latest\n"
+                 "    steps:\n"
+                 "      - name: Upload\n"
+                 "        continue-on-error: true\n"
+                 "        run: python -m twine upload dist/*\n")
+        job = "publish-twine"
+    else:
+        extra = ("  publish-reusable:\n"
+                 "    needs: test\n"
+                 "    continue-on-error: true\n"
+                 "    uses: ./.github/workflows/publish.yml\n")
+        job = "publish-reusable"
+    root = _tree(tmp_path, items=[_item("99-953", DEFERRED)], workflow=_WORKFLOW + extra)
+    hits = [x for x in check_release_readiness(root, head=HEAD) if "continues on error" in x]
+    assert len(hits) == 1 and job in hits[0], hits
+
+
+def test_a_twine_check_that_continues_on_error_is_not_a_publication(tmp_path):
+    """`twine check` validates a built distribution and uploads nothing; only `twine upload`
+    publishes, so a check job may continue on error without refusing the release."""
+    extra = ("  check-dist:\n"
+             "    needs: test\n"
+             "    runs-on: ubuntu-latest\n"
+             "    steps:\n"
+             "      - name: Check\n"
+             "        continue-on-error: true\n"
+             "        run: python -m twine check dist/*\n")
+    root = _tree(tmp_path, items=[_item("99-954", DEFERRED)], workflow=_WORKFLOW + extra)
+    assert not [x for x in check_release_readiness(root, head=HEAD) if "continues on error" in x]
+
+
 def test_a_tree_with_no_workflow_at_head_fails(tmp_path):
     root = _tree(tmp_path, items=[_item("99-952", DEFERRED)], workflow=None)
     v = check_release_readiness(root, head=HEAD)
