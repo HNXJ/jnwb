@@ -343,9 +343,13 @@ class TestDeprecatedFactoriesWarnAndStillWork:
         # From this file, not from `jnwb.__file__`: the package's parent is the
         # repository only when the import came from the checkout, so against an
         # installed wheel this read site-packages and failed.
-        changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.md"
-        assert name in changelog.read_text(encoding="utf-8"), (
-            "a public API change is announced in CHANGELOG.md"
+        root = Path(__file__).resolve().parents[1]
+        # Released blocks move from CHANGELOG.md to the archive, so both hold the announcement.
+        announced = (root / "CHANGELOG.md").read_text(encoding="utf-8") + (
+            root / "artifacts" / "archive" / "changelog_0.1.0-0.2.9.md"
+        ).read_text(encoding="utf-8")
+        assert name in announced, (
+            "a public API change is announced in CHANGELOG.md or its archive"
         )
 
 

@@ -1,4 +1,4 @@
-# Changelog archive: releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0
+# Changelog archive: releases 0.2.9, 0.2.8, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0
 
 ## [0.2.9] - 2026-10-05
 
@@ -816,3 +816,40 @@ a class of silent GPU and import failures. 0.1.2 was never released.
   - ReadTheDocs configuration (`.readthedocs.yaml`, `docs/conf.py`).
   - GitHub Actions CI workflow supporting Python 3.10 through 3.14.
   - Deterministic release gate (`scripts/release_gate.py`).
+
+## [0.1.8] - 2026-09-11
+
+### Added
+
+- Synthetic structurally representative NWB test fixtures (`jnwb.testing.nwb_fixtures`):
+  Deterministic multi-channel ecephys generators supporting co-resident task and mapping
+  interval tables, non-code interval columns, custom electrode locations, and processing-module
+  packaging styles (`processing_lfp_options()`, `task_only_options()`, `dual_probe_options()`).
+- `jnwb.inspect`: Non-destructive inspection of acquisitions, electrodes, units, interval tables,
+  and processing-module continuous series with column sample inspection, without guessing default
+  event tables.
+- Canonical events and onsets workflow: `jnwb.events` and `jnwb.event_onsets` providing explicit
+  table selection, non-code interval table extraction, code-based filtering, and seconds/samples conversion.
+- Processing-module continuous series discovery: Automatic resolution of LFP series located in
+  processing modules (e.g. `processing/ecephys/LFP`) across `inspect`, `resolve_acquisition`, and
+  `acquisition_channel`.
+- `epoch_continuous`: Generic continuous event epoching primitive with explicit time-to-sample mapping
+  via IEEE 754 round-half-to-even (banker's rounding), window bounds (`win_s`), onset units (`"seconds"` or `"samples"`),
+  boundary policies (`"nan"`, `"error"`, `"drop"`), and optional event-identity preservation via `return_indices`.
+- `ChannelIndexError`: Specific exception raised on continuous channel indexing bounds violations.
+- Executable tutorial series: Four tested notebooks and documentation tutorials covering NWB discovery,
+  event alignment and PSTH calculation, continuous LFP spectral power with decibel aggregation, and
+  Granger directionality.
+- Onboarding and harness alignment: Gate 13 pre-flight verification ensuring NWB onboarding terminology,
+  workflows, and APIs remain synchronized across README, MkDocs, and task skills.
+
+### Fixed
+
+- Calibrated continuous-channel access: `acquisition_channel` applies physical scaling
+  ($x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}$) exactly once,
+  preserving physical units inherited from `series.unit` (e.g. Volts).
+- 1D continuous array support: `acquisition_channel` gracefully accesses 1D series `(n_samples,)`
+  at `channel=0`, raising `ChannelIndexError` for non-zero channel indices.
+- Code-agnostic event extraction: `events` and `event_onsets` extract all intervals when `codes=None`
+  without requiring a default `"codes"` column.
+

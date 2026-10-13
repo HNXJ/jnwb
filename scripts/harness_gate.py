@@ -20,8 +20,9 @@ protected paths to skill-tree uniqueness without the list noticing.
   11. No shadow packages: nothing importable at the repository root that jnwb does not own.
   12. Project identifiers in jnwb/ code strings.
   13. NWB onboarding surface alignment across README, tutorials, skill, and MkDocs.
-  14. Internal process vocabulary kept out of public documentation, and item or problem
-      identifiers out of jnwb/, docs/ and the files its pages include.
+  14. Internal process vocabulary kept out of public documentation and CHANGELOG.md, the
+      CHANGELOG held to its entry template, and item or problem identifiers out of jnwb/,
+      docs/ and the files its pages include.
   15. Stack form consistency: declared write sets are comparable, problem rows keep shape, and
       the problem stack's Open section holds only its table.
   16. Line ending consistency: no tracked text file carries both conventions at once.
@@ -1394,6 +1395,198 @@ def check_internal_process_vocabulary(repo_root: Optional[Path] = None) -> List[
                         "public-interface use. Say what the reader can do, or move the sentence "
                         "out of the published documentation."
                     )
+    return violations
+
+
+#: The kinds a release may head its entries with. The template adopted 2026-10-12 allows these six.
+CHANGELOG_KINDS: Tuple[str, ...] = ("Breaking", "Added", "Changed", "Deprecated", "Removed", "Fixed")
+
+#: The release blocks CHANGELOG.md keeps; older blocks move to the archive file.
+CHANGELOG_RELEASES_KEPT = 5
+
+#: The longest entry line in characters. The template says "about 120"; the gate takes 120.
+CHANGELOG_ENTRY_LIMIT = 120
+
+#: Phrases the CHANGELOG may not carry, each naming a repository role or a verification artifact.
+#: The bare words "agent" and "worker" are not listed: a public page names agents as a capability,
+#: a parallel job runs on workers, and "closure" is a perception term. The docs scan went wrong on
+#: a bare role word, so each role is listed by a phrase only a repository role uses.
+CHANGELOG_PROCESS_TERMS: Tuple[str, ...] = (
+    "receipt",
+    "AGENTS.md",
+    "audit RG",
+    "closure pass",
+    "subagent",
+    "agent lane",
+    "worker agent",
+    "worker lane",
+    "worker packet",
+)
+
+#: A file or test name: `vis.py`, `pyproject.toml`, `docs/api.md`, `test_csd`.
+CHANGELOG_NAME = re.compile(r"[\w./-]+\.(?:py|md|json|ya?ml|toml|txt|cff|ipynb)(?!\w)|\btest_\w+")
+
+#: The seed kinds a `[results change]` marker may name.
+CHANGELOG_SEED_KINDS: Tuple[str, ...] = ("int seed", "Generator")
+
+#: Entries under a release heading at or after this version meet the full template. Older entries
+#: are checked for process phrases and kind headings only. `[Unreleased]` is the next release.
+CHANGELOG_TEMPLATE_FROM: Tuple[int, ...] = (0, 2, 12)
+
+#: Process phrases matched in their written capitals only: `docs/agents.md` is the public agent
+#: page, and the file the rule means is the capitalised one.
+CHANGELOG_CASE_SENSITIVE: Tuple[str, ...] = ("AGENTS.md",)
+
+#: Process phrases allowed only in a bullet that also names package content, its continuation lines
+#: included: the file ships in the sdist and wheel and is listed in MANIFEST.in, so an entry about
+#: shipping it names one of them.
+CHANGELOG_PACKAGE_SCOPED: Tuple[str, ...] = ("AGENTS.md",)
+
+#: Package content for CHANGELOG_PACKAGE_SCOPED: `sdist` and `wheel` in any case, `MANIFEST` only as
+#: the capitalised file name.
+CHANGELOG_PACKAGE_CONTENT = re.compile(r"(?i:\bsdist\b|\bwheel\b)|\bMANIFEST\b")
+
+
+def _held_to_template(version: str) -> bool:
+    """Whether a release heading's entries meet the full template, read from the heading itself.
+
+    A heading whose version does not parse is held to the template: an unreadable version is not
+    a waiver.
+    """
+    if version == "Unreleased":
+        return True
+    if not re.fullmatch(r"\d+(?:\.\d+)*", version):
+        return True
+    return tuple(int(part) for part in version.split(".")) >= CHANGELOG_TEMPLATE_FROM
+
+
+def _changelog_term_pattern(term: str) -> Any:
+    pattern = _internal_term_pattern(term)
+    return re.compile(pattern.pattern) if term in CHANGELOG_CASE_SENSITIVE else pattern
+
+
+def _changelog_entry_violations(root: Path, lineno: int, line: str) -> List[str]:
+    """Length, named file and seed kind of one changelog entry line."""
+    found = []
+    if len(line) > CHANGELOG_ENTRY_LIMIT:
+        found.append(
+            f"CHANGELOG.md:{lineno} is {len(line)} characters; an entry is one line of at most "
+            f"{CHANGELOG_ENTRY_LIMIT} characters."
+        )
+    names = CHANGELOG_NAME.findall(line)
+    if not names:
+        found.append(
+            f"CHANGELOG.md:{lineno} names no test or file; an entry names the test or the file "
+            "it changes."
+        )
+    for name in names:
+        if "/" in name and not (root / name).exists():
+            found.append(f"CHANGELOG.md:{lineno} names {name!r}, which is not in the tree.")
+        elif name.startswith("test_") and "." not in name and not (root / "tests" / f"{name}.py").is_file():
+            found.append(f"CHANGELOG.md:{lineno} names the test {name!r}, which is not in tests/.")
+    if "[results change]" in line and not any(kind in line for kind in CHANGELOG_SEED_KINDS):
+        found.append(
+            f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed' nor "
+            "'Generator'."
+        )
+    return found
+
+
+def _bullet_scopes(lines: List[str]) -> List[str]:
+    """The text each line is judged against for a package-scoped phrase.
+
+    A bullet (`- ` line) and its indented, non-blank continuation lines share one scope, the
+    bullet's joined text. Any other line is its own scope.
+    """
+    scopes = list(lines)
+    members: List[int] = []
+
+    def close() -> None:
+        if members:
+            text = "\n".join(lines[j] for j in members)
+            for j in members:
+                scopes[j] = text
+            members.clear()
+
+    for i, line in enumerate(lines):
+        if line.startswith("- "):
+            close()
+            members.append(i)
+        elif members and line[:1] in (" ", "\t") and line.strip():
+            members.append(i)
+        else:
+            close()
+    close()
+    return scopes
+
+
+def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
+    """CHANGELOG.md in the entry template: six kinds, no process phrase, and five releases
+    throughout (a patch counts with its release). From 0.2.12 on, one line per entry of at most
+    120 characters that names its test or file, and a seed kind on each `[results change]`.
+
+    Every line is searched for the phrases, and every release block for the rest. A file with no
+    release block is a violation: it would pass every other rule without reading one.
+    """
+    root = repo_root or REPO_ROOT
+    path = root / "CHANGELOG.md"
+    if not path.is_file():
+        return [f"CHANGELOG.md: {path} is missing, so the entry template cannot be read."]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    scopes = _bullet_scopes(lines)
+    patterns = [(term, _changelog_term_pattern(term)) for term in CHANGELOG_PROCESS_TERMS]
+    violations: List[str] = []
+    releases: List[str] = []
+    in_release = False
+    held = False
+    entry_open = False
+    for lineno, line in enumerate(lines, 1):
+        package_line = CHANGELOG_PACKAGE_CONTENT.search(scopes[lineno - 1]) is not None
+        for term, pattern in patterns:
+            found = pattern.search(line)
+            if found and not (term in CHANGELOG_PACKAGE_SCOPED and package_line):
+                violations.append(
+                    f"CHANGELOG.md:{lineno} says {found.group(0)!r}. {term!r} names part of how "
+                    "this repository is worked on; name the change and its test or file instead."
+                )
+        if line.startswith("## "):
+            head = re.match(r"## \[([^\]]+)\]", line)
+            in_release = head is not None
+            held = bool(head) and _held_to_template(head.group(1))
+            entry_open = False
+            if head and head.group(1) != "Unreleased":
+                releases.append(head.group(1))
+            continue
+        if not in_release:
+            continue
+        if line.startswith("### "):
+            entry_open = False
+            kind = line[4:].strip()
+            if kind not in CHANGELOG_KINDS:
+                violations.append(
+                    f"CHANGELOG.md:{lineno} heads entries '### {kind}'; the template allows "
+                    f"{', '.join(CHANGELOG_KINDS)} and no other."
+                )
+        elif line.startswith("- "):
+            entry_open = True
+            if held:
+                violations.extend(_changelog_entry_violations(root, lineno, line))
+        elif held and line[:1] in (" ", "\t") and line.strip() and entry_open:
+            violations.append(
+                f"CHANGELOG.md:{lineno} continues an entry on a second line; the template allows "
+                "one line per change."
+            )
+    # A patch counts with its release: 0.2.6.1 is the 0.2.6 release's patch, one release.
+    kept = {".".join(version.split(".")[:3]) for version in releases}
+    if not releases:
+        violations.append(
+            "CHANGELOG.md has no release block, so there is nothing to hold to the template."
+        )
+    elif len(kept) > CHANGELOG_RELEASES_KEPT:
+        violations.append(
+            f"CHANGELOG.md holds {len(kept)} releases; the template keeps "
+            f"{CHANGELOG_RELEASES_KEPT} and archives the older ones."
+        )
     return violations
 
 
@@ -2789,7 +2982,8 @@ def _api_reference_checks() -> List[Tuple[str, List[str]]]:
 
 
 def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
-    """Adapter, not a gate: public documentation and the library source under one PASS line."""
+    """Adapter, not a gate: public documentation, the library source and the CHANGELOG under one
+    PASS line."""
     found: List[Tuple[str, List[str]]] = []
     docs_violations = check_internal_process_vocabulary()
     if docs_violations:
@@ -2800,6 +2994,10 @@ def _internal_vocabulary_checks() -> List[Tuple[str, List[str]]]:
     if library_violations:
         found.append(
             ("FAIL: Item or problem identifiers found in jnwb/ or docs/:", library_violations))
+    changelog_violations = check_changelog_form()
+    if changelog_violations:
+        found.append(
+            ("FAIL: CHANGELOG.md does not hold the entry template:", changelog_violations))
     return found
 
 
@@ -3041,8 +3239,10 @@ GATES: List[Tuple[int, Any, Any]] = [
              "artifacts/agents.md "
              f"({len(INTERNAL_PROCESS_TERMS)} "
              "gated terms; 'agent', 'skill' and 'routing' are public capabilities and are not "
-             "among them), and no item or problem identifier in jnwb/, docs/ or a file a page "
-             "includes."),
+             "among them), no item or problem identifier in jnwb/, docs/ or a file a page "
+             "includes, and CHANGELOG.md holds the entry template: six kinds, one line of at most "
+             f"{CHANGELOG_ENTRY_LIMIT} characters naming its file, a seed kind on [results change], "
+             f"{CHANGELOG_RELEASES_KEPT} releases, and no process phrase."),
     (15, _one(check_stack_form_consistency,
               "FAIL: Coordination stack form is not machine-readable:"),
      lambda: "PASS: Stack form consistent (every declared write set names comparable paths and "
