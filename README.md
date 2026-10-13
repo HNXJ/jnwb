@@ -47,7 +47,7 @@ pip install jnwb                  # latest published release
 pip install "jnwb[torch,gpu]"     # optional backends
 ```
 
-This checkout is `0.2.11`. To install it from a clone instead of from PyPI:
+This checkout is `0.2.11`. To install it from a clone:
 
 ```bash
 pip install .                     # or: pip install -e ".[test,docs,vis]" for development
@@ -59,7 +59,7 @@ Core dependencies: `numpy`, `scipy`, `pandas`, `h5py`, `pynwb`, `hdmf`, `matplot
 
 ## NWB workflow
 
-`jnwb.inspect` lists acquisitions, electrodes, units, and every interval table with column samples — it does not pick a default event table. Event **codes** are opaque labels in a named column (default `codes`). **Onsets** from `jnwb.event_onsets` are in **seconds**. When several interval tables exist, pass `table=` explicitly; jnwb raises rather than guessing.
+`jnwb.inspect` lists acquisitions, electrodes, units, and every interval table with column samples. It does not pick a default event table. Event **codes** are opaque labels in a named column (default `codes`). **Onsets** from `jnwb.event_onsets` are in **seconds**. When several interval tables exist, pass `table=` explicitly; jnwb raises an error until you do.
 
 ```python
 import jnwb

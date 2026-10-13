@@ -139,7 +139,7 @@ A skipped layer is never a pass: `dandi_ready` is False unless the `dandi` layer
 ## Keep repaired outputs frozen
 
 After a repair, mark the file read-only and record a manifest: path, size, SHA-256, the check
-report, the tool versions and the original file. A later job then verifies by hash instead of
+report, the tool versions and the original file. A later job then verifies by hash without
 re-deriving, and a changed hash is evidence that someone wrote to a frozen file. A fix verified
 on one scratch file does not repair the files already produced, so list which existing outputs
 still carry the defect before calling the problem closed.

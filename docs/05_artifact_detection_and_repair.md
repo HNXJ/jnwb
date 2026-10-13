@@ -117,13 +117,13 @@ flagged, scale = jnwb.detect_band_outliers(band_trace, z_thresh=6.0, sided="uppe
 ```
 
 `trend` is the median over trials (the shared evoked shape), `resid = value - trend`, and
-`scale` is `median(|resid|)` **pooled** over all `(trial, time)` — one global scale, not one per
+`scale` is `median(|resid|)` **pooled** over all `(trial, time)`: one global scale, not one per
 time bin. A per-bin MAD is itself inflated during the evoked response, and would mask a real
 outlier exactly where one matters most. A returned `scale` of `0.0` means the trend was matched
 to round-off (relative to the data, so the rule does not depend on power units) and nothing was flagged.
 
 !!! warning "`sided="both"` is not the conservative choice"
-    The default `"upper"` flags power *increases* only. `"both"` also flags decreases — so when
+    The default `"upper"` flags power *increases* only. `"both"` also flags decreases, so when
     the response under study **is** a power decrease, a two-sided detector flags that effect as
     artifact and substitutes it away. Choose `"both"` only when artifacts in your data go in
     both directions.
@@ -133,7 +133,7 @@ to round-off (relative to the data, so the rule does not depend on power units) 
     tail is an argument a caller states, rather than a detail buried in a copy that can drift.
 
 `jnwb.DETECTION_TAILS` is the pair of accepted values, `("upper", "both")`, exported so a
-caller can validate a configured tail before the call rather than after it:
+caller can validate a configured tail before the call:
 
 ```python
 if tail not in jnwb.DETECTION_TAILS:
@@ -147,8 +147,8 @@ adding one would invite the mistake the warning above describes.
 
 **Prefer calling over retyping.** A numerical rule that is easier to retype than to reuse will
 be retyped, and the copy will diverge from its docstring without anyone noticing. That is why
-`repair_band_artifacts` calls this function rather than restating it — the rule has exactly one
-implementation — and why it accepts channel-averaged input (see below) rather than forcing a
+`repair_band_artifacts` calls this function, so the rule has exactly one
+implementation, and why it accepts channel-averaged input (see below) without forcing a
 fork on anyone whose array is shaped differently.
 
 ### `repair_band_artifacts`
@@ -164,7 +164,7 @@ repaired_power, frac_by_band = jnwb.repair_band_artifacts(
 )
 ```
 
-Channel-averaged power is accepted directly — pass `(n_trials, n_freqs, n_times)` and the same
+Channel-averaged power is accepted directly: pass `(n_trials, n_freqs, n_times)` and the same
 reduced shape comes back:
 
 ```python

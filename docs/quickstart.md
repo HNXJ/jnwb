@@ -8,9 +8,9 @@ A tour of jnwb on NWB 2.0+ electrophysiology. Every operation takes arrays or NW
 
 For a new session, use the [Tutorials](tutorials/01_nwb_basics.md) sequence:
 
-0. [Your own NWB file](tutorials/00_your_own_file.md) — discover the layout of a file you did not write.
-1. [`jnwb.inspect`](tutorials/01_nwb_basics.md) — list interval tables and columns (no default table).
-2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md) — select opaque event codes; onsets in **seconds**. Pass `code_column=` with whatever `inspect` reported; the `codes` default is explained in [Errors](errors.md#columnnotfounderror).
+0. [Your own NWB file](tutorials/00_your_own_file.md): discover the layout of a file you did not write.
+1. [`jnwb.inspect`](tutorials/01_nwb_basics.md): list interval tables and columns (no default table).
+2. [`jnwb.events` / `jnwb.event_onsets`](tutorials/02_addressing_and_metadata.md): select opaque event codes; onsets in **seconds**. Pass `code_column=` with whatever `inspect` reported; the `codes` default is explained in [Errors](errors.md#columnnotfounderror).
 3. [Spiking dynamics](tutorials/03_spiking.md) with `unit_spike_times`, `raster_psth`, `causal_exp_smooth`.
 4. [LFP and spectral](tutorials/04_lfp_and_spectral.md) with `acquisition_channel`, `epoch_continuous`, `compute_psd`, `wpli`.
 5. [Statistics](tutorials/05_statistics.md), [Laminar](tutorials/06_laminar.md), [Ensembles](tutorials/07_ensembles.md), and [End-to-End Workflow](tutorials/08_end_to_end_pipeline.md).

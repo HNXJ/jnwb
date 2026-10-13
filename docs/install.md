@@ -89,7 +89,7 @@ Keep your analysis project in its own directory, beside the jnwb checkout rather
 inside it. jnwb's own checks enforce the equivalent invariant on this repository,
 and the published wheel ships only `jnwb/`.
 
-For a stricter editable install that maps `jnwb` alone instead of the whole root:
+For a stricter editable install that maps only `jnwb`:
 
 ```bash
 pip install -e . --config-settings editable_mode=strict

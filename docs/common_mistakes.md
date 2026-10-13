@@ -191,7 +191,7 @@ Interpreting a near-zero Phase Slope Index ($|z| < 2$) on a pure sinusoid or ver
 At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant phase offset $\Delta \phi = 2\pi f_0 \Delta t$ are indistinguishable. PSI requires phase information across **multiple neighboring frequency bins** to estimate a phase slope ($\frac{d\phi}{df}$).
 
 ### The Correct Pattern
-Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum` — not a single-bin z-score:
+Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum`, not a single-bin z-score:
 
 ```python
 import numpy as np
@@ -314,7 +314,7 @@ from observations.
 |---|---|
 | A float array | `NaN` |
 | A type that can carry absence | `None`, or an explicit availability field |
-| A component that could not be estimated — fewer units than requested components, no variance to decompose | `NaN`, never a padded `0.0` |
+| A component that could not be estimated: fewer units than requested components, no variance to decompose | `NaN`, never a padded `0.0` |
 
 ```python
 # An area with no units. The trajectory is not at the origin; there is no trajectory.

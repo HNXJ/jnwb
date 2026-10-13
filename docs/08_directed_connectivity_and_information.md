@@ -56,7 +56,7 @@ print(f"Net: {result.net:.4f}")
 ```
 
 `order` is `"auto"` or a fixed integer >= 1. `granger`, `granger_spectral` and
-`granger_causality` raise `ValueError` on `0`, a fraction or a bool rather than fitting a model
+`granger_causality` raise `ValueError` on `0`, a fraction or a bool before fitting a model
 with no history, which would read as no coupling.
 
 ### Spectral Granger (`granger_spectral`)
@@ -143,7 +143,7 @@ print("units:", te_res.unit)   # bits
 ```
 
 TE is reported in **bits** (the estimator uses $\log_2$), and the result carries
-`unit='bits'` rather than leaving the base to be inferred. A TE of 0.05 bits is not
+`unit='bits'`, which states the base. A TE of 0.05 bits is not
 0.05 nats and not a percentage. The quantity is a reduction in uncertainty about $Y_t$
 given $X$'s past: directed predictability, not a mechanism, and its magnitude depends on
 the discretization (`estimator`, `bins`) as well as on the coupling.

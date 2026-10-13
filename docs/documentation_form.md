@@ -22,7 +22,7 @@ Five kinds of page, with different rules, because a tutorial and an API page fai
 
 The first three rows cover all 36 pages in the nav.
 
-**Generated and included pages are governed through their source, never by editing the page.**
+**Generated and included pages are governed through their source.** Never edit the page.
 An edit to one of those eleven pages is discarded by the next build, silently. A change that
 trims, retitles or reformats documentation edits the authored pages; if a generated or included
 page violates a rule, the fix goes to the generator or the script it includes.
@@ -31,9 +31,9 @@ page violates a rule, the fix goes to the generator or the script it includes.
 
 | # | Rule | How it is checked |
 |---|---|---|
-| F1 | Headings stop at `###`. | count headings of four or more `#` outside fenced code — must be zero |
+| F1 | Headings stop at `###`. | count headings of four or more `#` outside fenced code; must be zero |
 | F2 | Three or more comparable facts of the same kind go in a table. | a detector for one shape, below; review for every other shape |
-| F3 | An enumeration that makes no ordering claim is a list, not a paragraph. | review |
+| F3 | An enumeration that makes no ordering claim is a list. | review |
 | F4 | A paragraph carries reasoning. A paragraph that only enumerates violates F2 or F3. | review |
 | F5 | One surface form per concept, taken from the vocabulary list. | machine-checked against the [vocabulary list](#vocabulary) below |
 | F6 | Every figure is referenced by the prose next to it, and no page carries a figure that repeats what its adjacent table already says. | review |
@@ -46,7 +46,7 @@ demonstrated by a command in the page, or left out. A true fact already on a pag
 nothing enforces it, because deleting it to satisfy a form rule loses information.
 
 F1 had two violations, at `04_spectral_analysis_and_tfr.md:103` and
-`06_spikes_psth_and_onset_dynamics.md:74` — both a function name used as a heading, both now
+`06_spikes_psth_and_onset_dynamics.md:74`: both a function name used as a heading, both now
 `###`. The count is zero and is machine-checked, so it stays zero without being watched.
 
 `scripts/docs_form_gate.py` runs F1, F5, F8, the navigation rules N1, N2, N3 and N5, figure rule
@@ -60,18 +60,18 @@ plain-English subjects, for a list of facts, and for facts spread across paragra
 
 F2's hard case was `common_mistakes.md`: the largest authored page after the generated API
 reference, and until 2026-09-20 it carried zero tables across 2308 words. Three of its
-sections held three or more comparable facts apiece — the directed metrics and what each
+sections held three or more comparable facts apiece (the directed metrics and what each
 cannot rule out, the three causal-filter group delays, and the three representations of an
-estimate that does not exist — and all three are tables now. F2 survived the page without
+estimate that does not exist), and all three are tables now. F2 survived the page without
 needing taste, which is what it was put on the hard case to find out.
 
 ## Vocabulary
 
 F5's list. One concept per row: the surface forms to use, and the ones that are superseded.
-English inflects, so a row accepts several forms of the same word — what it forbids is the
+English inflects, so a row accepts several forms of the same word; what it forbids is the
 other spelling of it.
 
-Every term below is backticked, and that is load-bearing rather than decorative. The check
+Every term below is backticked, and that is load-bearing. The check
 reads prose with code spans stripped, so backticking lets this page name a superseded form
 without reporting itself as a page that uses one.
 
@@ -109,14 +109,14 @@ enforce a convention.
 The pairs that name two things -- operation and workflow, session and recording, contact and
 channel, electrode and electrodes table -- are defined once on the [Glossary](glossary.md).
 Terms measured and found to be one concept under two spellings are on the first table. Terms
-measured and found to be two concepts — `shank` against `probe`, `region` against `area`,
-`site` against `channel` — are not, because every occurrence of each was the right word.
+measured and found to be two concepts (`shank` against `probe`, `region` against `area`,
+`site` against `channel`) are not, because every occurrence of each was the right word.
 
 ## Slop lexicon
 
 F8's list. Each term is matched as a whole word, in any case, in prose with code spans stripped,
 so the terms are backticked here for the same reason as the vocabulary. A term on this list says
-nothing a plain word would not, or claims a quality instead of stating the fact that would show it.
+nothing a plain word would not, or claims a quality without the fact that would show it.
 
 | Kind | Terms |
 |---|---|
@@ -127,7 +127,7 @@ nothing a plain word would not, or claims a quality instead of stating the fact 
 | Filler phrases | `it is worth noting`, `it's worth noting`, `plays a crucial role`, `in today's`, `dive into`, `deep dive`, `needless to say`, `rest assured` |
 
 Measured and left off: `robust`, which names a statistic (a robust z-score) on the pages that use
-it; `powerful`, which appears only inside a cited title, and a title is quoted, never edited;
+it; `powerful`, which appears only inside a cited title, and a title is quoted and kept as written;
 `comprehensive`, whose one use is a code comment in an example.
 
 ## Length
@@ -138,7 +138,7 @@ lossless is. A page over its ceiling justifies the excess in one sentence or is 
 | Kind | Ceiling | Why this number |
 |---|---|---|
 | Landing (`index.md`) | 400 words | it routes a reader; it does not teach one |
-| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 824 and `recipes` at 348 sit under it |
+| Task (`install`, `quickstart`, `recipes`, `errors`, `common_mistakes`, `agents`) | 900 words | `quickstart` at 821 and `recipes` at 348 sit under it |
 | Concept (`02`–`09`, `architecture`, `reading_nwb`, `repairing_nwb`, `coherence_and_tfr`, `laminar`, `vis`) | 1200 words | nine of the fourteen sit under it |
 | Reference (`api.md`, `references.md`, `10_operation_specifications.md`, `glossary`) | none | length is a function of the API's size, and trimming it removes facts |
 | Included (`tutorials/*`) | none | the page is a wrapper; the script it includes is the content |
@@ -150,15 +150,15 @@ sentence the rule asks for:
 
 | Page | Words | Why the excess stands |
 |---|---|---|
-| `common_mistakes` | 3035 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode rather than words |
-| `02_paths_addressing_metadata` | 1733 | three subsystems — addressing, unit metadata, the query ontology — and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
-| `03_representational_similarity_jrsa` | 1340 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
+| `common_mistakes` | 3033 | twelve failure modes, each with a wrong form, a correct form and the reason, and the nine-row table of coupling and direction pitfalls; cutting one removes a failure mode |
+| `02_paths_addressing_metadata` | 1733 | three subsystems (addressing, unit metadata, the query ontology), and the `zflip` section alone is 484 words, because each identifiability criterion of a delay is a sentence a reader needs before reporting one; the unit-to-layer composition adds a worked example of three calls, and the curated-labels section states what a grade licenses and the one-sheet limit |
+| `03_representational_similarity_jrsa` | 1339 | the metric list, the direction table, the permutation nulls with their measured rejection rates and the window recipe each state a way to read a number wrongly, the standalone RDM section says its p is not a relatedness test, and the save paragraph says what each file format holds |
 | `04_spectral_analysis_and_tfr` | 1217 | the decibel section states two estimands, the rejected third and the negative-input guard; each is a separate way to get a wrong number |
 | `06_spikes_psth_and_onset_dynamics` | 1535 | PSTH and response tests, phase locking, onset fitting, trajectories, unit quality measures and WaveMAP share a page, and the page sat at 1199 words before the unit quality table |
 | `architecture` | 1901 | two pages merged: the module map is a 649-word reference table, and the prose states the boundary, the invariants and the claim table once each |
-| `install` | 914 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
-| `index` | 428 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
-| `errors` | 2042 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
+| `install` | 909 | the pandas 3 override is the one install step hdmf's cap makes necessary, and the page sat at 889 words before it |
+| `index` | 419 | markup, not prose: each gallery thumbnail links to the page that shows its figure at full width, which is what makes the figure readable, and `wc -w` counts every tag attribute as a word |
+| `errors` | 2038 | twelve error classes, each with its verbatim message, the table of what a read returns for each on-disk state of `session_description`, and the sixteen ragged-index check and repair messages. The messages are pinned to the source, so they are not paraphrasable |
 
 ## Navigation
 
@@ -200,7 +200,7 @@ no light ground to compare it against.
 
 **Format is not a rule.** Nine pages carry raster PNGs and they stay.
 An inline-SVG requirement was proposed and removed: it would have forbidden what those pages do,
-which is the signal that a rule is wrong rather than the pages. New figures that carry structure
+which suggests the rule is wrong. New figures that carry structure
 are inline SVG because it scales and stays searchable, and that is a reason, not a rule.
 
 G4 exists because plotly and kaleido are installed on the development machine and declared only
@@ -217,4 +217,4 @@ Kept here so they are not re-proposed as improvements.
 | A global word ceiling across all pages | fails the reference pages for being long, which is what a reference is |
 | "Prefer active voice" | not checkable twice with the same answer |
 | "Every page opens with a summary paragraph" | would add words to the four pages already over their ceiling |
-| "Figures are inline SVG, never raster" | forbids what nine pages do today, which is the signal that the rule is wrong rather than the pages |
+| "Figures are inline SVG, never raster" | forbids what nine pages do today, which suggests the rule is wrong |

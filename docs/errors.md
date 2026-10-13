@@ -85,7 +85,7 @@ data. The qualified processing name (`"ecephys/shared"`) means the latter.
 > Series 'nope' not found. Available: ['probe_0_lfp', 'probe_1_lfp']
 
 The same class is raised when a series exists but has no readable data array, and when it
-has no constant sampling rate — a series with explicit `timestamps` rather than a `rate`
+has no constant sampling rate: a series with explicit `timestamps` and no `rate`
 cannot be epoched by sample index.
 
 ### `ChannelIndexError`
@@ -135,7 +135,7 @@ A file with a `trials` table *and* five others does not raise: `trials` wins. Pa
 
 > Code column 'nope' not found. Columns: ['start_time', 'stop_time']
 
-`codes` is a jnwb default, not an NWB requirement — a file from another lab usually calls
+`codes` is a jnwb default, not an NWB requirement. A file from another lab usually calls
 that column `stimulus`, `condition` or `trial_type`.
 
 Omitting `code_column` on a table with no `codes` column is *not* an error, because the
@@ -150,7 +150,7 @@ exist is an error, because you asked for something specific.
 > Non-finite onset at index 0: np.float64(nan)
 
 All three entry points agree: `events`, `event_onsets` and `epoch_continuous` refuse a
-missing or non-finite onset rather than carry `NaN` into an index computation.
+missing or non-finite onset before `NaN` can enter an index computation.
 
 ## Reading the file at all: `MissingRequiredNWBFieldError`
 

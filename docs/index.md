@@ -44,16 +44,16 @@ print(f"Beta band power: {beta_power:.4f}")
 
 ## Guides
 
-- [Installation](install.md) — setup and verification
-- [Quickstart](quickstart.md) — runnable tour of core operations
-- [Reading NWB data](reading_nwb.md) — NWB reads, data roots and array slices
+- [Installation](install.md): setup and verification
+- [Quickstart](quickstart.md): runnable tour of core operations
+- [Reading NWB data](reading_nwb.md): NWB reads, data roots and array slices
 - [Addressing & metadata](02_paths_addressing_metadata.md)
-- [Analyzing with an agent](agents.md) — what ships, the MCP server, and the skills
-- [Architecture](architecture.md) — the two entry paths, scope, invariants and the module map
-- [Common mistakes](common_mistakes.md) — the failure modes jnwb guards against
-- [Errors](errors.md) — what each refusal means and what to pass instead
-- [Public API](api.md) — every symbol in `jnwb.__all__`
-- [References](references.md) — published sources for each method
+- [Analyzing with an agent](agents.md): what ships, the MCP server, and the skills
+- [Architecture](architecture.md): the two entry paths, scope, invariants and the module map
+- [Common mistakes](common_mistakes.md): the failure modes jnwb guards against
+- [Errors](errors.md): what each refusal means and what to pass instead
+- [Public API](api.md): every symbol in `jnwb.__all__`
+- [References](references.md): published sources for each method
 
 ## Figures
 
