@@ -134,7 +134,7 @@ jobs:
         shell: bash
         run: |
           cd "$RUNNER_TEMP"
-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
           echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
           tar xzf liberation-fonts.tar.gz
           echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
@@ -209,7 +209,7 @@ jobs:
         shell: bash
         run: |
           cd "$RUNNER_TEMP"
-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
           echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
           tar xzf liberation-fonts.tar.gz
           echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
@@ -289,7 +289,7 @@ jobs:
         shell: bash
         run: |
           cd "$RUNNER_TEMP"
-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
           echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
           tar xzf liberation-fonts.tar.gz
           echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
@@ -327,7 +327,7 @@ jobs:
         shell: bash
         run: |
           cd "$RUNNER_TEMP"
-          curl -fsSL -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+          curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors --connect-timeout 30 -o liberation-fonts.tar.gz https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
           echo "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0  liberation-fonts.tar.gz" | sha256sum -c -
           tar xzf liberation-fonts.tar.gz
           echo "JNWB_FIGURE_FONT_DIR=$RUNNER_TEMP/liberation-fonts-ttf-2.1.5" >> "$GITHUB_ENV"
