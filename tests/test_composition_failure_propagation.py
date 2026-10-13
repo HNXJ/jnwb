@@ -87,7 +87,7 @@ REFUSING_CONSUMERS = {
     ),
     "bandpass_filter": (
         lambda a: bandpass_filter(a, LFP_FS, 5.0, 50.0),
-        r"Cannot filter data containing NaN values\. "
+        r"Cannot filter data containing non-finite values \(NaN or Inf\)\. "
         r"Repair or omit missing values prior to filtering",
     ),
     "spectral_tilt": (
