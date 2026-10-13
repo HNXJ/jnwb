@@ -763,7 +763,7 @@ def compute_multitaper_psd(
                 A finite trace constant along `axis` has an exactly zero PSD.
 
     Raises:
-        ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains NaNs.
+        ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains non-finite values (NaN or Inf).
 
     References:
         Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proc. IEEE.
@@ -776,8 +776,8 @@ def compute_multitaper_psd(
         raise ValueError(f"Time-halfbandwidth product nw must be strictly positive; got {nw}.")
 
     arr = np.asarray(data, dtype=float)
-    if np.isnan(arr).any():
-        raise ValueError("Cannot compute multitaper PSD on data containing NaN values.")
+    if not np.isfinite(arr).all():
+        raise ValueError("Cannot compute multitaper PSD on data containing non-finite values (NaN or Inf).")
 
     n_samples = arr.shape[axis]
     if n_samples < 4:
@@ -793,8 +793,8 @@ def compute_multitaper_psd(
     tapers = dpss(n_samples, NW=nw, Kmax=k_tapers, sym=False)  # shape: (K, N)
 
     # Detrend data by subtracting mean along time axis. A trace constant along `axis` is
-    # exactly 0 after it; the subtraction alone leaves rounding residue (about 1e-32). An
-    # infinite constant is not finite after it, and keeps its NaN.
+    # exactly 0 after it; the subtraction alone leaves rounding residue (about 1e-32).
+    # Non-finite input is refused above, so a non-finite mean here is overflow, not input.
     arr_mean = np.mean(arr, axis=axis, keepdims=True)
     flat = _is_constant(arr, axis=axis, keepdims=True) & np.isfinite(arr_mean)
     detrended = np.where(flat, 0.0, arr - arr_mean)

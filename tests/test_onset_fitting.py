@@ -49,6 +49,19 @@ class TestCausalExpSmooth:
         with pytest.raises(ValueError, match="causal_exp_smooth: tau_ms must be a finite positive"):
             causal_exp_smooth(np.ones(10), 1.0, tau_ms=tau_ms)
 
+    @pytest.mark.parametrize("bin_ms", [0, -5.0, np.nan, np.inf])
+    def test_a_bin_ms_that_is_not_finite_and_positive_is_refused_by_name(self, bin_ms):
+        # bin_ms=0 raised a bare ZeroDivisionError and a negative bin_ms silently
+        # returned the input unchanged.
+        with pytest.raises(ValueError, match="causal_exp_smooth: bin_ms must be a finite positive"):
+            causal_exp_smooth(np.ones(10), bin_ms, tau_ms=30.0)
+
+    @pytest.mark.parametrize("shape", [(5, 2), (5, 1), (0, 3)])
+    def test_a_two_dimensional_rate_is_refused_by_name(self, shape):
+        assert np.ones(shape).ndim == 2, "fixture must be two-dimensional"
+        with pytest.raises(ValueError, match="causal_exp_smooth: rate must be one-dimensional"):
+            causal_exp_smooth(np.ones(shape), 5.0)
+
 
 class TestOnsetModel:
     def test_flat_before_t0(self):

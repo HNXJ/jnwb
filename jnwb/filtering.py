@@ -34,8 +34,8 @@ def bandpass_filter(
         raise ValueError(f"Filter order must be at least 1; got {order}.")
 
     arr = np.asarray(data, dtype=float)
-    if np.isnan(arr).any():
-        raise ValueError("Cannot filter data containing NaN values. Repair or omit missing values prior to filtering.")
+    if not np.isfinite(arr).all():
+        raise ValueError("Cannot filter data containing non-finite values (NaN or Inf). Repair or omit missing values prior to filtering.")
 
     sos = signal.butter(order, [low_cut, high_cut], btype="bandpass", fs=fs, output="sos")
     if zero_phase:
@@ -70,8 +70,8 @@ def notch_filter(
         raise ValueError(f"Quality factor q must be strictly positive; got {q}.")
 
     arr = np.asarray(data, dtype=float)
-    if np.isnan(arr).any():
-        raise ValueError("Cannot filter data containing NaN values. Repair or omit missing values prior to filtering.")
+    if not np.isfinite(arr).all():
+        raise ValueError("Cannot filter data containing non-finite values (NaN or Inf). Repair or omit missing values prior to filtering.")
 
     b, a = signal.iirnotch(freq, q, fs=fs)
     sos = signal.tf2sos(b, a)

@@ -57,10 +57,14 @@ def causal_exp_smooth(rate: np.ndarray, bin_ms: float, tau_ms: float = DEFAULT_T
 
     rate: (n_times,) binned rate (Hz or counts, either works -- only smoothing, no rescaling).
     Returns smoothed rate, same shape as input.
-    Raises ValueError if ``tau_ms`` is not finite and positive.
+    Raises ValueError if ``rate`` is not one-dimensional or ``bin_ms`` or ``tau_ms``
+    is not finite and positive.
     """
     tau_ms = _positive_finite(tau_ms, "tau_ms", "causal_exp_smooth")
+    bin_ms = _positive_finite(bin_ms, "bin_ms", "causal_exp_smooth")
     rate = np.asarray(rate, dtype=float)
+    if rate.ndim != 1:
+        raise ValueError(f"causal_exp_smooth: rate must be one-dimensional, got shape {rate.shape}")
     if rate.size == 0:
         return np.empty(0, dtype=float)
     t_filter = np.arange(0, 5 * tau_ms, bin_ms)

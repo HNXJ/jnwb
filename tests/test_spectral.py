@@ -762,6 +762,12 @@ class TestComputeMultitaperPsd:
         with pytest.raises(ValueError, match="NaN"):
             compute_multitaper_psd(x, fs=1000.0)
 
+    def test_inf_raises(self):
+        x = np.ones(100)
+        x[10] = np.inf
+        with pytest.raises(ValueError, match="finite"):
+            compute_multitaper_psd(x, fs=1000.0)
+
 
 class TestVoltageCurvatureAndCSD:
     def test_known_quadratic_potential_curvature(self):
@@ -2200,9 +2206,9 @@ class TestConstantTraceSpectrumIsZero:
         for k in (0, 2):
             assert psd[k].tobytes() == compute_multitaper_psd(rows[k], 1000.0)[1].tobytes()
 
-    def test_multitaper_infinite_constant_stays_nan(self):
-        _, psd = compute_multitaper_psd(np.full(64, np.inf), 1000.0)
-        assert np.all(np.isnan(psd))
+    def test_multitaper_infinite_constant_is_refused(self):
+        with pytest.raises(ValueError, match="finite"):
+            compute_multitaper_psd(np.full(64, np.inf), 1000.0)
 
 
 class TestAperiodicFitRobust:
