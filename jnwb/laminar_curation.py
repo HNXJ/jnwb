@@ -61,7 +61,7 @@ CORRELATION_FS_HZ: float = 100.0
 #: span, so it needs ``fs`` above 300 Hz. A working value.
 POWER_BAND_HZ: Tuple[float, float] = (1.0, 150.0)
 
-def _robust_z(values: np.ndarray) -> np.ndarray:
+def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     """Median/MAD z-score; the standard deviation stands in for a zero MAD."""
     values = np.asarray(values, dtype=float)
     med = np.nanmedian(values)
@@ -179,7 +179,7 @@ def detect_bad_channels(
     local = np.full(n, np.nan)
     for _ in range(int(max_iterations)):
         local = _local_neighbor_correlation(corr, bad, int(neighbor_contacts))
-        new = (_robust_z(local) < min_neighbor_corr_z) | (np.abs(_robust_z(log_power)) > max_power_z) \
+        new = (_robust_z_std_fallback(local) < min_neighbor_corr_z) | (np.abs(_robust_z_std_fallback(log_power)) > max_power_z) \
             | ~np.isfinite(local)
         if np.array_equal(new, bad):
             break
@@ -803,7 +803,7 @@ def curate_and_label(
             r = np.corrcoef(reduced[ci])
             dd = np.full(n, np.nan)
             dd[ci[:-1]] = 1 - np.diag(r, 1)
-            zj = _robust_z(dd)
+            zj = _robust_z_std_fallback(dd)
             top = idx[::-1] if sup_up else idx
             outer = top[: max(1, int(edge_fraction * n))]
             jumps = [i for i in outer if np.isfinite(zj[i]) and zj[i] > edge_jump_z]

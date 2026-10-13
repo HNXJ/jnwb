@@ -35,7 +35,7 @@ from ._layout import require_channel_major
 MAD_SCALE = 1.4826  # normal-consistent scaling for the median absolute deviation
 
 
-def _robust_z(x: np.ndarray) -> np.ndarray:
+def _robust_z_zero_fallback(x: np.ndarray) -> np.ndarray:
     x = np.asarray(x, dtype=float)
     valid = np.isfinite(x)
     if not np.any(valid):
@@ -95,7 +95,7 @@ def bad_channels_from_correlation(corr: np.ndarray, z_thresh: float = 5.0) -> Tu
             unconnected[i] = True
         else:
             summary[i] = float(np.median(valid_entries))
-    z = _robust_z(summary)
+    z = _robust_z_zero_fallback(summary)
     z[unconnected] = -np.inf
     bad = (z < -z_thresh) | unconnected
     return bad, summary, z
@@ -139,10 +139,10 @@ def bad_trials_single_channel(
             unconnected[i] = True
         else:
             corr_summary[i] = float(np.median(valid_entries))
-    corr_z = _robust_z(corr_summary)
+    corr_z = _robust_z_zero_fallback(corr_summary)
     corr_z[unconnected] = -np.inf
     max_amp = np.max(np.abs(trial_waveforms), axis=1)
-    amp_z = _robust_z(max_amp)
+    amp_z = _robust_z_zero_fallback(max_amp)
     flag = (corr_z < -corr_z_thresh) | (amp_z > amp_z_thresh) | unconnected
     return flag, corr_z, amp_z
 
