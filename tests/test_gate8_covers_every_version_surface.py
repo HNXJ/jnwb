@@ -64,6 +64,18 @@ def test_a_skewed_tested_set_fails(scratch, rel):
     assert any("PYTHON_DOC_CI_SKEW" in v and rel in v for v in violations), violations
 
 
+@pytest.mark.parametrize("rel", ["README.md", "docs/install.md"])
+def test_a_second_tested_sentence_is_also_read(scratch, rel):
+    """The gate reads every sentence, not the first: a drift restated later still counts."""
+    path = scratch / rel
+    path.write_text(
+        path.read_text(encoding="utf-8") + "\nTested in CI on 3.12 and 3.99.\n",
+        encoding="utf-8",
+    )
+    violations = check_python_floor_consistency(scratch)
+    assert any("PYTHON_DOC_CI_SKEW" in v and rel in v for v in violations), violations
+
+
 def test_a_version_every_leg_of_which_is_excluded_is_untested(scratch):
     """The matrix list still names 3.13; an `exclude` leaves it no leg to run on."""
     # Added to the matrix's existing `exclude:` list: a second `exclude:` key would be silently

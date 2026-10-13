@@ -86,13 +86,8 @@ class TestNoTestDestroysSysModules:
     inside the block, whether or not the author expected an import there."""
 
     @staticmethod
-    def _sys_modules_patch_dict_calls(tree: ast.AST) -> list[int]:
-        """Line numbers of every `patch.dict` call whose target is `sys.modules`.
-
-        Names are resolved through the module's imports, so `patch as p`, `import sys as s`
-        and `from sys import modules as m` are seen, and the target may be the dict itself,
-        the string `"sys.modules"` that `patch.dict` also accepts, or the `in_dict` keyword.
-        """
+    def _module_aliases(tree: ast.AST) -> "tuple[set[str], set[str], set[str]]":
+        """The local names for `patch`, `sys` and `sys.modules`, resolved through imports."""
         patch_names, sys_names, modules_names = {"patch"}, {"sys"}, {"modules"}
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module in ("unittest.mock", "mock"):
@@ -101,18 +96,32 @@ class TestNoTestDestroysSysModules:
                 modules_names |= {a.asname or a.name for a in node.names if a.name == "modules"}
             elif isinstance(node, ast.Import):
                 sys_names |= {a.asname for a in node.names if a.name == "sys" and a.asname}
+        return patch_names, sys_names, modules_names
+
+    @staticmethod
+    def _is_sys_modules(target: ast.AST, sys_names: "set[str]",
+                         modules_names: "set[str]") -> bool:
+        if isinstance(target, ast.Constant):
+            return target.value == "sys.modules"
+        if isinstance(target, ast.Name):
+            return target.id in modules_names
+        return (isinstance(target, ast.Attribute) and target.attr == "modules"
+                and isinstance(target.value, ast.Name) and target.value.id in sys_names)
+
+    @staticmethod
+    def _sys_modules_patch_dict_calls(tree: ast.AST) -> list[int]:
+        """Line numbers of every `patch.dict` call whose target is `sys.modules`.
+
+        Names are resolved through the module's imports, so `patch as p`, `import sys as s`
+        and `from sys import modules as m` are seen, and the target may be the dict itself,
+        the string `"sys.modules"` that `patch.dict` also accepts, or the `in_dict` keyword.
+        """
+        patch_names, sys_names, modules_names = TestNoTestDestroysSysModules._module_aliases(tree)
+        is_sys_modules = TestNoTestDestroysSysModules._is_sys_modules
 
         def is_patch(owner: ast.AST) -> bool:
             return ((isinstance(owner, ast.Name) and owner.id in patch_names)
                     or (isinstance(owner, ast.Attribute) and owner.attr == "patch"))
-
-        def is_sys_modules(target: ast.AST) -> bool:
-            if isinstance(target, ast.Constant):
-                return target.value == "sys.modules"
-            if isinstance(target, ast.Name):
-                return target.id in modules_names
-            return (isinstance(target, ast.Attribute) and target.attr == "modules"
-                    and isinstance(target.value, ast.Name) and target.value.id in sys_names)
 
         hits = []
         for node in ast.walk(tree):
@@ -122,7 +131,29 @@ class TestNoTestDestroysSysModules:
             if not (isinstance(func, ast.Attribute) and func.attr == "dict" and is_patch(func.value)):
                 continue
             targets = node.args[:1] + [k.value for k in node.keywords if k.arg == "in_dict"]
-            if any(is_sys_modules(t) for t in targets):
+            if any(is_sys_modules(t, sys_names, modules_names) for t in targets):
+                hits.append(node.lineno)
+        return hits
+
+    @staticmethod
+    def _sys_modules_clear_calls(tree: ast.AST) -> list[int]:
+        """Line numbers of every direct `sys.modules.clear()` call.
+
+        The same eviction `patch.dict` restores with, written by hand: it drops every module
+        imported so far, and a later re-import of an extension module whose C state is still
+        loaded crashes the interpreter. Aliases resolve as above.
+        """
+        _, sys_names, modules_names = TestNoTestDestroysSysModules._module_aliases(tree)
+        is_sys_modules = TestNoTestDestroysSysModules._is_sys_modules
+
+        hits = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Attribute) and func.attr == "clear"):
+                continue
+            if is_sys_modules(func.value, sys_names, modules_names):
                 hits.append(node.lineno)
         return hits
 
@@ -153,6 +184,43 @@ class TestNoTestDestroysSysModules:
     def test_the_detector_ignores_patch_dict_on_another_mapping(self):
         source = "from unittest.mock import patch\nimport os\npatch.dict(os.environ, {'X': '1'})\n"
         assert self._sys_modules_patch_dict_calls(ast.parse(source)) == []
+
+    def test_the_detector_sees_a_planted_direct_clear_and_not_a_sentence(self):
+        """A live zero proves nothing about a detector. Give it one of each."""
+        planted = ast.parse("import sys\nsys.modules.clear()\n")
+        assert self._sys_modules_clear_calls(planted) == [2]
+
+        prose = ast.parse('"""Do not call sys.modules.clear() here."""\n')
+        assert self._sys_modules_clear_calls(prose) == []
+
+    @pytest.mark.parametrize("source", [
+        "import sys\nsys.modules.clear()\n",
+        "import sys as s\ns.modules.clear()\n",
+        "from sys import modules\nmodules.clear()\n",
+        "from sys import modules as m\nm.clear()\n",
+    ])
+    def test_the_detector_sees_aliased_direct_clears(self, source):
+        assert self._sys_modules_clear_calls(ast.parse(source)) != [], source
+
+    def test_the_detector_ignores_clear_on_another_mapping(self):
+        assert self._sys_modules_clear_calls(ast.parse("d = {}\nd.clear()\n")) == []
+
+    def test_no_test_module_calls_clear_on_sys_modules(self):
+        offenders = []
+        checked = 0
+        for path in sorted(TESTS_DIR.glob("test_*.py")):
+            checked += 1
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for lineno in self._sys_modules_clear_calls(tree):
+                offenders.append(f"{path.name}:{lineno}")
+
+        assert checked > 1, "no test modules were read; this test checks nothing"
+        assert offenders == [], (
+            "a direct sys.modules.clear() evicts every module imported so far; a later "
+            "re-import of an extension module whose C state is still loaded crashes the "
+            "interpreter. Delete the single import instead of clearing the registry. "
+            "Offenders: " + "; ".join(offenders)
+        )
 
     def test_no_test_module_clears_sys_modules(self):
         offenders = []

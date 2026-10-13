@@ -51,9 +51,12 @@ def frozen_body_hash(source: str, qualname: str) -> Optional[str]:
     scope: List[ast.stmt] = ast.parse(source).body
     node: Optional[ast.AST] = None
     for part in qualname.split("."):
-        node = next((s for s in scope
-                     if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-                     and s.name == part), None)
+        matches = [s for s in scope
+                   if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                   and s.name == part]
+        # The live binding is the LAST definition, not the first: hashing the first verifies a
+        # function the import never reaches while the one that runs goes unrecorded.
+        node = matches[-1] if matches else None
         if node is None:
             return None
         scope = node.body
@@ -61,6 +64,52 @@ def frozen_body_hash(source: str, qualname: str) -> Optional[str]:
         return None
     _strip_docstrings(node)
     return hashlib.sha256(repr(_canonical_ast(node)).encode("utf-8")).hexdigest()
+
+
+def _split_node_id(node_id: str) -> List[str]:
+    """A pytest node id split on `::`, ignoring separators inside `[...]` parameters."""
+    parts, depth, current = [], 0, ""
+    index, text = 0, str(node_id)
+    while index < len(text):
+        char = text[index]
+        if char == "[":
+            depth += 1
+        elif char == "]":
+            depth = max(0, depth - 1)
+        if text[index:index + 2] == "::" and depth == 0:
+            parts.append(current)
+            current = ""
+            index += 2
+            continue
+        current += char
+        index += 1
+    parts.append(current)
+    return parts
+
+
+def _test_id_resolves(test_path: Path, parts: List[str]) -> bool:
+    """The node id's class chain and test name exist in the file, nested as written.
+
+    A leaf-name text search accepts `tests/test_x.py::WrongClass::test_real` whenever a
+    module-level `test_real` exists, so the entry names a test that was never collected.
+    Each intermediate part must be a class enclosing the next; the last part must be a
+    function it encloses, or a module-level function when there is no chain.
+    """
+    try:
+        tree = ast.parse(test_path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, ValueError):
+        return False
+    scope: List[ast.stmt] = tree.body
+    *classes, name = [part.split("[")[0] for part in parts]
+    for class_name in classes:
+        node = next((s for s in scope
+                     if isinstance(s, ast.ClassDef) and s.name == class_name), None)
+        if node is None or not class_name:
+            return False
+        scope = node.body
+    return bool(name) and any(
+        isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == name
+        for s in scope)
 
 
 def check_frozen_validated(repo_root: Optional[Path] = None) -> List[str]:
@@ -108,11 +157,7 @@ def check_frozen_validated(repo_root: Optional[Path] = None) -> List[str]:
         if not killed_by:
             violations.append(f"{label}: names no killing test")
         for node_id in killed_by:
-            test_file, _, test_name = str(node_id).partition("::")
-            test_name = test_name.split("[")[0].rsplit("::", 1)[-1]
-            test_path = root / test_file
-            if not test_name or not test_path.is_file() or not re.search(
-                    rf"^\s*def {re.escape(test_name)}\(",
-                    test_path.read_text(encoding="utf-8"), re.MULTILINE):
+            parts = _split_node_id(node_id)
+            if len(parts) < 2 or not _test_id_resolves(root / parts[0], parts[1:]):
                 violations.append(f"{label}: killing test {node_id} does not exist")
     return violations

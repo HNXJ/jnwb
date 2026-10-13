@@ -393,15 +393,34 @@ def check_changelog_form(repo_root: Optional[Path] = None) -> List[str]:
     return violations
 
 
-#: An item or problem identifier from the coordination stacks: `P-29`, `P-C7`, `06-55`,
-#: `0.2.4-04`, and a review finding: `REV-07`, `0.2.3-REV-07`, `EXT-REV-003`. The item form
-#: requires a leading zero because two-digit ranges are ordinary library prose (`14-30 Hz`,
-#: `50-80`), and every edge excludes a neighbouring word character, dot, slash or hyphen, so a
-#: date (`2026-09-23`), a version (`0.2.6`) and a DOI fragment (`s41593-020-00744-x`) never match.
+#: An item or problem identifier from the coordination stacks: `P-29`, `p-29`, `P-C7`,
+#: `P-1000`, `06-55`, `items/06-55`, `0.2.4-04`, and a review finding: `REV-07`,
+#: `0.2.3-REV-07`, `EXT-REV-003`. The item form requires a leading zero because two-digit
+#: ranges are ordinary library prose (`14-30 Hz`), and every edge excludes a neighbouring
+#: word character, dot, slash or hyphen, so a full date (`2026-09-23`), a version (`0.2.6`)
+#: and a DOI fragment (`s41593-020-00744-x`) never match -- except through the `items/`
+#: prefix, which names the stack the identifier comes from. A bare `MM-DD` with a calendar
+#: day (`09-23`) is a date, not an item, and is filtered at the scan; a day past 31
+#: (`06-55`) cannot be one, so it still matches. A decimal after the match ends it as a number
+#: (`p-0.05`).
 PROCESS_IDENTIFIER = re.compile(
-    r"(?<![\w./\-])(?:P-C?\d{1,3}|0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3}"
-    r"|(?:\d+\.\d+\.\d+-|[A-Z]{2,}-)?REV-\d{2,3})(?![\w\-])"
+    r"(?<![\w./\-])(?:[Pp]-C?\d{1,4}|(?:items/)?0\d-\d{2,3}|\d+\.\d+\.\d+-\d{2,3}"
+    r"|(?:\d+\.\d+\.\d+-|[A-Z]{2,}-)?REV-\d{2,3})(?![\w\-]|\.\d)"
 )
+
+
+def _is_month_day(token: str) -> bool:
+    """A bare `MM-DD` date (`09-23`), which the item form above otherwise matches.
+
+    The shapes are genuinely ambiguous -- an item numbered 09-23 would read the same --
+    so the rule is the calendar: a leading-zero month with a day of 01-31 is a date. The
+    `items/` prefix names the stack, so a prefixed token is an item whatever its digits.
+    """
+    if token.startswith("items/"):
+        return False
+    month, dash, day = token.partition("-")
+    return (dash == "-" and len(month) == 2 and "01" <= month <= "09"
+            and len(day) == 2 and "01" <= day <= "31")
 
 
 #: A pymdownx.snippets include on one line: `--8<-- "path"`, any run of dashes on either side,
@@ -506,8 +525,8 @@ def _rel(path: Path, root: Path) -> str:
 
 
 def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) -> List[str]:
-    """Part of gate 14: no item or problem identifier in `jnwb/**/*.py`, `docs/**/*.md`, or any
-    file a page includes through pymdownx.snippets.
+    """Part of gate 14: no item or problem identifier in `jnwb/**/*.py`, `docs/**/*.md`,
+    `README.md`, or any file a page includes through pymdownx.snippets.
 
     The head rule of `AGENTS.md` keeps internal process terminology out of the library surface,
     comments and docstrings included, and out of the published pages. Identifiers were the form
@@ -530,13 +549,19 @@ def check_no_process_identifiers_in_library(repo_root: Optional[Path] = None) ->
             "sweep is broken, not the tree"
         ]
     pages = sorted((root / "docs").rglob("*.md"))
-    included, violations = _included_sources(root, pages)
-    targets = [(path, "") for path in modules + pages]
+    # README.md is the most-read page and carries the same obligation as docs/; it is scanned
+    # itself and its includes are followed like any page's.
+    readme = root / "README.md"
+    scan_pages = pages + ([readme] if readme.is_file() else [])
+    included, violations = _included_sources(root, scan_pages)
+    targets = [(path, "") for path in modules + scan_pages]
     targets += [(path, f" (published by {_rel(page, root)})") for path, page in included]
     for path, via in targets:
         rel = _rel(path, root)
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             for found in PROCESS_IDENTIFIER.finditer(line):
+                if _is_month_day(found.group(0)):
+                    continue
                 violations.append(
                     f"PROCESS_IDENTIFIER: {rel}:{lineno}{via} cites {found.group(0)!r}. State the "
                     "behaviour it stands for instead; the identifier means nothing to a reader "

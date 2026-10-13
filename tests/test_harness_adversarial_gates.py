@@ -1289,6 +1289,10 @@ class TestGate14ProcessIdentifiersInLibrary:
             "Recorded under 0.2.4-04.",
             "Normalized by N (0.2.3-REV-07).",
             "Density-normalized (EXT-REV-003).",
+            "See items/06-55 for why.",
+            "Recorded under P-1000.",
+            "Fixed under p-29.",
+            "See items/09-23 for why.",
         ],
     )
     def test_a_seeded_identifier_fails(self, tmp_path: Path, line: str):
@@ -1300,10 +1304,12 @@ class TestGate14ProcessIdentifiersInLibrary:
         [
             "Ruled 2026-09-23 and measured on 2026-08-08.",
             "Recorded 09-23-2026 in month-first form.",
+            "Measured on 09-23 each year.",
             "Requires jnwb 0.2.6 or later.",
             "The beta band is 14-30 Hz and gamma 50-80 Hz.",
             "doi:10.1038/s41593-020-00744-x",
             "The P-value is two-sided.",
+            "Significant at p-0.05 after correction.",
         ],
     )
     def test_dates_versions_and_ranges_pass(self, tmp_path: Path, line: str):
@@ -1346,6 +1352,32 @@ class TestGate14ProcessIdentifiersInLibrary:
         (root / "docs" / "nested" / "page.md").write_text(f"# Page\n\n{line}\n", encoding="utf-8")
         violations = check_no_process_identifiers_in_library(root)
         assert len(violations) == 1 and "docs/nested/page.md:3" in violations[0], violations
+
+    @pytest.mark.parametrize("line", ["Fixed under 06-55.", "The anchors were missing (P-12)."])
+    def test_a_seeded_identifier_in_the_readme_fails(self, tmp_path: Path, line: str):
+        """The most-read page carries the same obligation as `docs/`."""
+        root = self._library(tmp_path, "Module text.")
+        (root / "docs").mkdir()
+        (root / "README.md").write_text(f"# Readme\n\n{line}\n", encoding="utf-8")
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "README.md:3" in violations[0], violations
+
+    def test_a_seeded_identifier_in_a_readme_include_fails(self, tmp_path: Path):
+        """A file the README pulls in is published as surely as the page itself."""
+        root = self._library(tmp_path, "Module text.")
+        (root / "mkdocs.yml").write_text(
+            "markdown_extensions:\n  - pymdownx.snippets:\n      base_path: [\".\"]\n",
+            encoding="utf-8",
+        )
+        source = root / "examples" / "tut.py"
+        source.parent.mkdir(parents=True)
+        source.write_text("x = 1\n# 09-999: the loop read one list.\n", encoding="utf-8")
+        (root / "docs").mkdir()
+        (root / "README.md").write_text(
+            '# Readme\n\n```python\n--8<-- "examples/tut.py"\n```\n', encoding="utf-8"
+        )
+        violations = check_no_process_identifiers_in_library(root)
+        assert len(violations) == 1 and "examples/tut.py:2" in violations[0], violations
 
     @staticmethod
     def _site(tmp_path: Path, include: str, base_path: str = ".") -> Path:

@@ -286,19 +286,24 @@ def check_python_floor_consistency(repo_root: Optional[Path] = None) -> List[str
                 f"PYTHON_DOC_FLOOR_SKEW: {rel} says Python {floor.group(1)} or newer while "
                 f"requires-python declares >={floor_declared}"
             )
-        listed = re.search(r"Tested in CI on ([\d., and]+\d)", text)
-        if listed is None:
+        # Every sentence, not the first: a second `Tested in CI on ...` line stating drift
+        # passed while the first stayed accurate.
+        stated_sets = [set(re.findall(r"\d+\.\d+", match.group(1))) for match in
+                       re.finditer(r"Tested in CI on ([\d., and]+\d)", text)]
+        if not stated_sets:
             violations.append(
                 f"PYTHON_FLOOR_INCONSISTENCY: {rel} does not state the tested interpreters as "
                 "'Tested in CI on ...'"
             )
             continue
-        stated = set(re.findall(r"\d+\.\d+", listed.group(1)))
         reference = tested if tested is not None else declared
-        if reference is not None and stated != reference:
-            violations.append(
-                f"PYTHON_DOC_CI_SKEW: {rel} says CI tests {sorted(stated)} while the workflow "
-                f"matrix runs {sorted(reference)}"
-            )
+        if reference is None:
+            continue
+        for stated in stated_sets:
+            if stated != reference:
+                violations.append(
+                    f"PYTHON_DOC_CI_SKEW: {rel} says CI tests {sorted(stated)} while the workflow "
+                    f"matrix runs {sorted(reference)}"
+                )
 
     return violations

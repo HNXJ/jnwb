@@ -512,43 +512,121 @@ class TestEveryReturnsLineHasTheRightArity:
 
 #: Where a contributor or an agent is told how many gates there are.
 GATE_COUNT_SURFACES = ("AGENTS.md", ".github/CONTRIBUTING.md", "README.md", "artifacts/agents.md")
-GATE_COUNT_GLOBS = ("artifacts/agents/*.md",)
+GATE_COUNT_GLOBS = ("artifacts/agents/*.md", "skills/**/*.md", "docs/**/*.md")
 
-#: "Gates 1-16" (any dash) and "18 repository gates" / "18 gates". A count written as a word, a
-#: "gate 2 of 13" recalling one run, or a quoted "18 of 18 gates executed" receipt is not a claim
-#: about the current total.
+#: "Gates 1-16" (any dash, "through" or "to") and "18 repository gates" / "18 gates", the
+#: count written as digits. A "gate 2 of 13" recalling one run, or a quoted "18 of 18 gates
+#: executed" receipt, is not a claim about the current total.
 GATE_COUNT = re.compile(
-    r"\b[Gg]ates\s+1\s*[-–—]\s*(\d+)\b"
+    r"\b[Gg]ates\s+1\s*(?:[-–—]|through|to)\s*(\d+)\b"
     r"|(?<![\w.-])(\d+)\s+(?:repository\s+|harness\s+)?gates\b(?!\s+executed)"
 )
 
+#: The same count written as words: "eighteen gates", "twenty-two gates". A word count once
+#: read as history rather than a claim, so a drifted total in words passed; the calendar of
+#: the runner's total holds either spelling.
+_WORD_VALUES = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
+    "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_ONES_WORDS = "one|two|three|four|five|six|seven|eight|nine"
+_TENS_WORDS = "twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety"
+GATE_WORD_COUNT = re.compile(
+    rf"(?<![\w.-])((?:{_TENS_WORDS})(?:[\s-]+(?:{_ONES_WORDS}))?"
+    rf"|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|"
+    r"fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)"
+    r"\s+(?:repository\s+|harness\s+)?gates\b(?!\s+executed)",
+    re.IGNORECASE,
+)
+
+
+def _word_count(word: str) -> "int | None":
+    """A number word through ninety-nine as an integer, or None for a non-count."""
+    parts = re.split(r"[\s-]+", word.lower())
+    if len(parts) == 1:
+        return _WORD_VALUES.get(parts[0])
+    tens, ones = _WORD_VALUES.get(parts[0]), _WORD_VALUES.get(parts[1]) if len(parts) == 2 else None
+    if tens is not None and tens % 10 == 0 and ones is not None and ones < 10:
+        return tens + ones
+    return None
+
 
 def prose_gate_counts(text: str) -> "list[int]":
-    return [int(a or b) for a, b in GATE_COUNT.findall(text)]
+    hits = [(m.start(), int(m.group(1) or m.group(2))) for m in GATE_COUNT.finditer(text)]
+    for match in GATE_WORD_COUNT.finditer(text):
+        value = _word_count(match.group(1))
+        if value is not None:
+            hits.append((match.start(), value))
+    return [value for _, value in sorted(hits)]
+
+
+def _gate_count_surfaces(root: Path) -> "list[Path]":
+    paths = [root / p for p in GATE_COUNT_SURFACES]
+    for pattern in GATE_COUNT_GLOBS:
+        paths.extend(sorted(root.glob(pattern)))
+    return [p for p in paths if p.is_file()]
+
+
+def _stale_gate_counts(root: Path, total: int) -> "list[str]":
+    return [
+        f"{p.relative_to(root).as_posix()}: says {n}"
+        for p in _gate_count_surfaces(root)
+        for n in prose_gate_counts(p.read_text(encoding="utf-8"))
+        if n != total
+    ]
 
 
 class TestProseGateCountsFollowTheRunner:
-    """Four surfaces stated a gate count, nothing read them, and all four drifted together."""
-
-    def _surfaces(self):
-        paths = [REPO_ROOT / p for p in GATE_COUNT_SURFACES]
-        for pattern in GATE_COUNT_GLOBS:
-            paths.extend(sorted(REPO_ROOT.glob(pattern)))
-        return [p for p in paths if p.is_file()]
+    """Stated gate counts drifted together once, in files nothing read."""
 
     def test_every_stated_count_is_the_number_of_gates(self):
         total = len(harness_gate_module().GATES)
-        offenders = [
-            f"{p.relative_to(REPO_ROOT).as_posix()}: says {n}"
-            for p in self._surfaces()
-            for n in prose_gate_counts(p.read_text(encoding="utf-8"))
-            if n != total
-        ]
+        offenders = _stale_gate_counts(REPO_ROOT, total)
         assert not offenders, f"GATES holds {total}: {offenders}"
 
-    def test_the_reader_finds_both_forms_and_leaves_recollections(self):
+    def test_the_reader_finds_every_form_and_leaves_receipts(self):
         text = (
             "Run and verify Gates 1–16. It runs 18 repository gates. Eleven gates stayed unrun "
             "after gate 2 of 13 failed, and the run printed 13 of 13 gates executed."
         )
-        assert prose_gate_counts(text) == [16, 18]
+        assert prose_gate_counts(text) == [16, 18, 11]
+
+    def test_the_reader_finds_a_word_count(self):
+        assert prose_gate_counts("Ninety-nine gates stayed unrun.") == [99]
+
+    @pytest.mark.parametrize("word", ["through", "to"])
+    def test_the_reader_finds_a_written_out_range(self, word: str):
+        assert prose_gate_counts(f"gates 1 {word} 99 must pass.") == [99]
+
+    def test_a_word_count_followed_by_executed_is_a_receipt(self):
+        assert prose_gate_counts("twenty-two gates executed duly.") == []
+
+    def test_skills_and_docs_are_read_surfaces(self):
+        surfaces = {p.relative_to(REPO_ROOT).as_posix() for p in _gate_count_surfaces(REPO_ROOT)}
+        assert any(p.startswith("skills/") for p in surfaces), surfaces
+        assert any(p.startswith("docs/") for p in surfaces), surfaces
+
+    @staticmethod
+    def _planted(root: Path, rel: str, line: str) -> Path:
+        target = root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"# Page\n\n{line}\n", encoding="utf-8")
+        return root
+
+    @pytest.mark.parametrize(
+        "rel, line",
+        [
+            ("skills/jnwb-planted/SKILL.md", "It runs 99 harness gates."),
+            ("docs/planted.md", "It runs 99 harness gates."),
+            ("docs/planted-words.md", "Ninety-nine gates stayed unrun."),
+            ("docs/planted-range.md", "gates 1 through 99 must pass."),
+        ],
+    )
+    def test_a_planted_wrong_count_in_each_blind_spot_is_reported(
+        self, tmp_path: Path, rel: str, line: str
+    ):
+        root = self._planted(tmp_path, rel, line)
+        assert _stale_gate_counts(root, 22) == [f"{rel}: says 99"]

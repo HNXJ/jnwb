@@ -5,6 +5,8 @@ import json
 import pathlib
 import sys
 
+import pytest
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 # `scripts/` ships in no wheel, so appending is enough to import the gate.
 if str(REPO_ROOT) not in sys.path:
@@ -66,6 +68,29 @@ def test_a_missing_function_or_killing_test_fails(tmp_path):
         killed_by=("tests/test_box.py::test_gone",)))
     assert any("no such function" in v for v in violations), violations
     assert any("test_gone does not exist" in v for v in violations), violations
+
+
+REBOUND = BODY + "\nclass Box:\n    def width(self, n):\n        return n + 2\n"
+
+
+def test_a_rebound_name_hashes_the_binding_that_runs(tmp_path):
+    """The import binds the last definition; hashing the first verifies code that never runs."""
+    digest = frozen_body_hash(BODY, "Box.width")
+    violations = check_frozen_validated(_repo(tmp_path, REBOUND, digest=digest))
+    assert len(violations) == 1 and "body changed" in violations[0], violations
+
+
+@pytest.mark.parametrize(
+    "node_id",
+    [
+        "tests/test_box.py::WrongClass::test_width",
+        "tests/test_box.py::WrongClass::test_width[param]",
+    ],
+)
+def test_a_killing_test_naming_the_wrong_class_fails(tmp_path, node_id):
+    """A leaf-name match is not the test: it names one that was never collected."""
+    violations = check_frozen_validated(_repo(tmp_path, killed_by=(node_id,)))
+    assert len(violations) == 1 and "does not exist" in violations[0], violations
 
 
 def test_an_empty_register_fails(tmp_path):

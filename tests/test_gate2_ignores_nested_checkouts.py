@@ -175,6 +175,26 @@ def _gitdir_to_the_roots_own_git(repo: pathlib.Path):
     return repo / "docs" / ".git", "docs/skills/dup"
 
 
+def _forged_admin_registration(repo: pathlib.Path):
+    """A hand-written admin directory plus a matching `.git` file, without `git worktree add`.
+
+    Both checks the gate used to apply pass it: the worktree listing names the directory, and
+    git run from inside opens it over the root's common directory. Only the back-pointer
+    tells it apart: a genuine registration's `gitdir` file reads `<worktree>/.git`, the file
+    the nested `.git` entry is, while this one names the bare directory.
+    """
+    evil = repo / "evil"
+    evil.mkdir()
+    admin = repo / ".git" / "worktrees" / "evil"
+    admin.mkdir(parents=True)
+    (admin / "HEAD").write_text((repo / ".git" / "HEAD").read_text(encoding="utf-8"),
+                                encoding="utf-8")
+    (admin / "gitdir").write_text(evil.as_posix(), encoding="utf-8")
+    (admin / "commondir").write_text("../..", encoding="utf-8")
+    (evil / ".git").write_text(f"gitdir: {admin.as_posix()}\n", encoding="utf-8")
+    return evil / ".git", "evil/skills/dup"
+
+
 @pytest.mark.parametrize(
     "build, fools_shape",
     [
@@ -186,6 +206,7 @@ def _gitdir_to_the_roots_own_git(repo: pathlib.Path):
         pytest.param(_empty_directory, False, id="empty-dir"),
         pytest.param(_file_without_gitdir, False, id="file-without-gitdir"),
         pytest.param(_gitdir_to_the_roots_own_git, True, id="E-gitdir-to-the-roots-own-git"),
+        pytest.param(_forged_admin_registration, True, id="F-forged-admin-registration"),
     ],
 )
 def test_a_git_entry_that_is_not_a_worktree_of_this_repository_stays_in_scope(tmp_path, build, fools_shape):

@@ -142,6 +142,12 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Any, 
     * git, run from ``directory``, reports it as its own top level over the root's common
       directory. The listing alone keeps a registered worktree whose ``commondir`` was deleted,
       which git no longer opens.
+    * the registry entry the nested ``.git`` file names points back at that file. Both checks
+      above follow pointers git itself follows, so a registry directory written by hand --
+      its ``gitdir`` file naming the counterfeit directory -- passes them: the listing names
+      it and git opens it. git's own convention closes it: a genuine linked worktree pairs a
+      ``.git`` *file* with a registry ``gitdir`` file reading ``<worktree>/.git``, never the
+      bare directory. Both sides are read off disk rather than asked of git.
 
     The shape of a ``.git`` entry was the test before either: a zero-byte ``HEAD``, a ``gitdir:``
     line pointing at nothing and an unrelated ``git init`` each passed it and hid a duplicate
@@ -165,7 +171,30 @@ def _is_checkout_of(directory: Path, root: Path, identities: Optional[Dict[Any, 
     if root_identity is None or root_identity[0] != _canonical(root):
         return False  # a root git does not recognise has no worktrees to excuse
     found = identity(directory)
-    return found is not None and found[0] == _canonical(directory) and found[1] == root_identity[1]
+    if found is None or found[0] != _canonical(directory) or found[1] != root_identity[1]:
+        return False
+    return _admin_gitdir_points_back(directory)
+
+
+def _admin_gitdir_points_back(directory: Path) -> bool:
+    """The registry entry the nested ``.git`` file names points back at that file.
+
+    Anything unreadable fails closed: an excuse that cannot be verified is not granted.
+    """
+    dot_git = directory / ".git"
+    if not dot_git.is_file():
+        return False
+    try:
+        first = dot_git.read_text(encoding="utf-8", errors="strict").splitlines()
+        admin = Path(first[0][len("gitdir:"):].strip()) if first else None
+        if admin is None or not first[0].startswith("gitdir:") or not str(admin):
+            return False
+        if not admin.is_absolute():
+            admin = directory / admin
+        back = (admin / "gitdir").read_text(encoding="utf-8", errors="strict").strip()
+    except (OSError, ValueError):
+        return False
+    return bool(back) and _canonical(back) == _canonical(dot_git) and dot_git.is_file()
 
 
 def _skill_frontmatter_name(skill: Path) -> Optional[str]:
