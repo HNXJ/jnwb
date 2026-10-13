@@ -4,7 +4,7 @@ All notable changes to `jnwb` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [artifacts/archive/changelog_0.1.0-0.2.9.md](artifacts/archive/changelog_0.1.0-0.2.9.md).
+Releases 0.2.9, 0.2.8, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verbatim, in [artifacts/archive/changelog_0.1.0-0.2.9.md](artifacts/archive/changelog_0.1.0-0.2.9.md).
 
 ## [Unreleased]
 
@@ -85,6 +85,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
 - `zflip(rng=<Generator>)` draws one child seed from the `Generator`, runs the surrogates on it and records it in `surrogate_seed_entropy`, which was `None`; passing it back as `rng` reproduces the p-values. For a `Generator` input the p-values therefore change, and the caller's stream advances by 1 draw instead of the surrogates' draws. An `int` seed, `None` and the default are unchanged.
 - `zflip` flags a contact as linear in time when the rms of its second difference is at most 4 eps of its largest magnitude. The rule was the rms residual of a fitted line at most 1000 eps, which a ramp built by cumulative summation exceeded at 1e5 samples (about 3400 eps), so such a contact was measured and could give a delay. The new rule flags every ramp measured (largest 1.0 eps, up to 1e5 samples; 2.2 eps with 1-ulp noise per sample) and keeps a unit-SD signal on a larger offset than before: white noise to about 2.8e15 rather than about 4.5e12.
 - `parse_probe_areas` keeps a slash followed by one lowercase letter in the label before it when that label ends in a digit and a lowercase letter, the sublayer alternation of `VISp6a/b`: `"VISp6a/b"` gives `('VISp6a/b',)`, where it gave the areas `('VISp6a', 'b')`, so `map_peak_channel_to_area` reports such a location as one area. The rule reads the characters only; `"VISp6a/bc"` still splits.
+- A Laminar Depth page calls `vflip`, `label_layers`, `xflip` and `zflip` once each on synthetic data, and states how `vflip` differs from the published FLIP and vFLIP whose name it shares; the `vflip` docstring states it too.
 
 ### Removed
 
@@ -132,10 +133,6 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
 - `get_all_units_metadata(filter_quality=True)` on a file whose units table has no `quality` column emits the `RuntimeWarning` given for a `quality` column with no usable value and excludes that file's units. It raised `KeyError`, which the default `on_read_error="skip"` logged as a failed read, so a call on that file alone raised `RuntimeError`.
 - `unit_census_report` with the default grouping warns when the frame lacks `session_id`, `area` or `depth_class` and groups by the remaining default columns, as an explicit `group_by` already warned; it dropped them silently. A frame with `layer` and no `depth_class` keeps its one warning.
 - `enrich_units_dataframe` warns when `units_df` has no `peak_channel_id` beside a non-empty electrodes table and it fills `area`, `depth_class` or `group_name` on every row (None, or `'Unknown'` for `depth_class`); it filled them silently.
-
-### Documentation
-
-- A Laminar Depth page calls `vflip`, `label_layers`, `xflip` and `zflip` once each on synthetic data, and states how `vflip` differs from the published FLIP and vFLIP whose name it shares; the `vflip` docstring states it too.
 
 ## [0.2.7] - 2026-09-29
 
@@ -425,7 +422,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   blocks of equal size: beside an uncorrelated background it cut toward the middle of the
   probe, and the surrogate test could still accept that cut (3 of 10 seeds with 16 contacts
   and a block of 6). Squaring discards sign, so a block of negative mean correlation scores as
-  a positive one. The calibration receipt is regenerated: power on every alternative is
+  a positive one. The calibration record is regenerated: power on every alternative is
   unchanged at 1.000, and the smooth-gradient null accepts 1 of 30 seeds (0.033) where it
   accepted none, below `alpha=0.05`.
 - **`xflip(n_blocks=None)` chooses the block count by the smallest surrogate p, and its p
@@ -435,7 +432,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   choice on every surrogate. It took the count with the highest contrast and reported that
   count's p as though it had been fixed in advance, so the p was too small: at 200
   surrogates, 0.105 of AR(1) null seeds and 0.074 of white-noise seeds had p at or below
-  0.05. The calibration receipt now carries these null rows over 1000 seeds and 200
+  0.05. The calibration record now carries these null rows over 1000 seeds and 200
   surrogates on both `contiguous` paths: with the choice repeated, AR(1) 0.060 and 0.054
   against 0.054 and 0.061 at a fixed count of 2, and white noise 0.030 and 0.046 against
   0.040 and 0.048. Ties at the smallest p go to the count whose contrast lies the most
@@ -801,6 +798,16 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   too few distinct values: on independent noise, P(p ≤ 0.05) was 0.25 to 0.33 at 3 trials and
   0.14 to 0.21 at 4, and is 0.02 to 0.10 at 3 to 6 now. p-values change for 3 to 6 trials;
   1 to 2 and 7 or more are unchanged. `params["surrogate_scheme"]` records the scheme.
+- `docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or
+  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy.
+- The phase slope index is described as the summed imaginary part of adjacent-bin coherency
+  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag
+  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.
+  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its
+  identifiability gate passes.
+- `fit_exponential_onset`'s `bound_status` is documented as checking only t0 against
+  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too.
+- A new logo and favicon.
 
 ### Deprecated
 
@@ -820,19 +827,6 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   identical numbers.
 - **`directed_network` does not depend on `n_jobs` with a `Generator`.** It draws one seed per
   pair before any worker starts, and raises on contradictory `rng=` and `seed=`.
-
-### Documentation
-
-- `docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or
-  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy.
-- The phase slope index is described as the summed imaginary part of adjacent-bin coherency
-  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag
-  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.
-  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its
-  identifiability gate passes.
-- `fit_exponential_onset`'s `bound_status` is documented as checking only t0 against
-  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too.
-- A new logo and favicon.
 
 ## [0.2.6] - 2026-09-24
 
@@ -1330,16 +1324,16 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   no recorded caller, refuses a row for a package the extra no longer has, and refuses a
   script in `scripts/` that nothing else in the repository mentions. Nine discriminating
   mutations all fail the suite.
-- **`CLAUDE.md`, so `AGENTS.md` is the only repository-level instruction file.** The file
-  held 215 bytes and no operative rule: it pointed at `AGENTS.md` and said not to keep a
-  second rule set there. `AGENTS.md` pointed back, claiming `CLAUDE.md` "carries phase and
+- **`CLAUDE.md`, so the repository rules file is the only repository-level instruction file.** The file
+  held 215 bytes and no operative rule: it pointed at the repository rules file and said not to keep a
+  second rule set there. The repository rules file pointed back, claiming `CLAUDE.md` "carries phase and
   policy" -- a statement about a file that carried a pointer. Two files describing each
   other is a fork waiting to happen, so the one operative instruction, single authority,
-  is now stated in `AGENTS.md` itself and the file is gone from tracked state. It is
+  is now stated in the repository rules file itself and the file is gone from tracked state. It is
   git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a
   contributor's own copy neither lands in the repository nor trips a gate.
   `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root
-  instruction file besides `AGENTS.md` (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,
+  instruction file besides the repository rules file (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,
   `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites
   the deleted file as a source of rules.
 - **`add_tool`, and with it the MCP server's ability to write code into its own
@@ -1534,14 +1528,14 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
 
 ### Fixed
 
-- **Nothing resolved what `AGENTS.md` and the two stacks point at, beyond the paths one
+- **Nothing resolved what the repository rules file and the two stacks point at, beyond the paths one
   test already swept.** A registry goes stale silently: the file that points at other
   files can name something that is gone without ever erroring.
   `tests/test_pointer_documents_resolve.py` adds the four sweeps that were missing --
-  every `§N` cross-reference in `AGENTS.md` names a section it defines, the section
+  every `§N` cross-reference in the repository rules file names a section it defines, the section
   numbers run contiguously from zero so a reference cannot survive the deletion of what
   it pointed at, every file named without a directory matches a tracked file, and every
-  path the fact stack cites resolves. It also mechanizes the `AGENTS.md` section 2 rule
+  path the fact stack cites resolves. It also mechanizes the repository rules file section 2 rule
   that the todo stack holds only work not yet done, which is what the completed-work
   table that had accumulated there broke. Each sweep is a function over text rather than
   a loop inside a test, so every one is driven twice: over the live document, where it
@@ -1549,9 +1543,9 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   it. Ten discriminating mutations all fail the suite.
 
   Two corrections. The item's evidence -- `grep -rn "todo_stack" scripts/ tests/`
-  returning one hit, and `AGENTS.md` pointing at a deleted item -- is superseded: four
+  returning one hit, and the repository rules file pointing at a deleted item -- is superseded: four
   test modules reference the stack today, `test_agents_md_recipes.py` already resolves
-  every directory-prefixed path `AGENTS.md` cites and already asserts the specific dead
+  every directory-prefixed path the repository rules file cites and already asserts the specific dead
   pointer is gone, and the section the item names does not exist in the document, which
   now runs `## 0.` to `## 10.` with no subsections under 4. Second, the item asked for
   every path in both stacks to resolve. Not done for the todo stack, and the check would
@@ -1650,7 +1644,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   `jnwb.ontology` types, result containers, analyzer facades, constants, the `io` alias and
   one undocumented internal -- each excluded by category, with the category's claim
   asserted.
-- **`AGENTS.md` §8 now requires a public API change to update the routing rows in the same
+- **The repository rules file §8 now requires a public API change to update the routing rows in the same
   commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing
   about the 65 rows in `skills/` that hardcode signatures. That single gap produced every
   defect in the routing matrices.
@@ -1696,7 +1690,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   boundary invariant and `PLACEHOLDER-DUMMY`, an internal scaffolding marker; `install.md`
   cited a gate number in `scripts/harness_gate.py` and the test file that verifies deferred
   imports. All four name files that ship in neither the wheel nor the sdist.
-- **The xFLIP calibration receipt can be regenerated, and now is.**
+- **The xFLIP calibration record can be regenerated, and now is.**
   `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers
   could not be reproduced or rechecked, and two changes had already invalidated them:
   0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as
@@ -1707,21 +1701,21 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   reach. Changing any of them without rerunning the generator now fails
   `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and
   `_compute_contrast`, a helper it reaches but never names, which is the case that
-  defeated the vFLIP receipt when its hash covered one function.
+  defeated the vFLIP record when its hash covered one function.
   Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is
   0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the
   binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max
   omnibus p all at the 1/201 floor, so every gradient is maximally significant under the
   permutation test and the 0.000 acceptance rate is produced entirely by the
   boundary-drop gate. A reader seeing only the rate would conclude the opposite of what
-  05-07 established. The receipt also records the operating point the old one left
+  05-07 established. The record also records the operating point the old one left
   unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what
   it does not cover. Regenerating it twice produced identical numbers.
 - **Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with
   `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the
   AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;
   they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts
-  now, with the rate they stand in for measured at 30 seeds in the receipt. No outcome
+  now, with the rate they stand in for measured at 30 seeds in the record. No outcome
   changes and no mutation separates the two spellings: this is a statement repair.
 - **`tests/test_docs_smoke.py` was green throughout.** Its ten tests hand-transcribe the
   documented workflows rather than reading the pages, so six documented calls could raise
@@ -1792,7 +1786,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   the same two intervals were written out as literal defaults in `vflip` and
   `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read
   from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --
-  and the vFLIP calibration was rerun to prove it: the receipt's `estimator_sha256` moves
+  and the vFLIP calibration was rerun to prove it: the record's `estimator_sha256` moves
   because `vflip`'s source did, and every other field in
   `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and
   alternative family, and every sweep.
@@ -1920,11 +1914,11 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   a name the package no longer exports, or one a skill has since started routing. Six
   discriminators kill, including deleting the laminar router line -- which is checked
   against whichever skill actually routes `label_layers`, not against a fixed name.
-- **`tests/test_agents_md_recipes.py` executes every fenced block in `AGENTS.md` and
+- **`tests/test_agents_md_recipes.py` executes every fenced block in the repository rules file and
   resolves every repository path it cites**, with the working directory outside the
   checkout so a block reaching for a relative path fails there. It also checks that no
   pointer names a todo item the stack does not hold, that §8 carries the skills rule, and
-  that `AGENTS.md` and the statistics skill call the same comparison entry point -- which
+  that the repository rules file and the statistics skill call the same comparison entry point -- which
   a signature check cannot see, because both are valid calls. Six discriminators kill.
 - **`tests/test_skill_routing_behaviour.py` runs what a signature cannot express.** Two of
   the corrected rows are not signature defects: one named a result key `repair_lfp_trials`
@@ -1953,7 +1947,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   note left the other's text in the file and the check still passed. It is per instruction
   now, and all four discriminators kill.
 - **`tests/test_examples_quickstart.py` runs the script that nothing ran.**
-  `AGENTS.md` names `examples/quickstart_jnwb.py` the smallest end-to-end script and
+  The repository rules file names `examples/quickstart_jnwb.py` the smallest end-to-end script and
   `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it
   stayed broken across a release. `main()` is called with its module-level `OUT` redirected
   at a temporary directory, because the figure it writes is tracked and its bytes vary by
@@ -2055,7 +2049,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   importlib import mode, and `JNWB_EXPECTED_PACKAGE_ROOT` pointed at the clean
   environment so `tests/test_import_provenance.py` fails the leg rather than letting a
   silent fallback to the checkout pass. The test tooling is read out of
-  `pyproject.toml`'s extras rather than listed again in the workflow. Receipt: 2499
+  `pyproject.toml`'s extras rather than listed again in the workflow. Record: 2499
   passed, 48 skipped against an installed wheel in a clean 3.12 environment; the extra
   skips are the GPU-gated tests, which have no CuPy there.
 - **Running it that way found three defects that made the claim impossible, not merely
@@ -2105,7 +2099,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   the rule, and `tests/test_distribution_manifest_inspection.py` extracts that step's
   Python out of the YAML and runs it against a constructed `dist/`, so a syntax error or
   a bad import in the snippet fails in the suite rather than on a release branch.
-  Receipts: the real built wheel (54 entries) and sdist (103 entries) are clean under the
+  Records: the real built wheel (54 entries) and sdist (103 entries) are clean under the
   repaired rule, and nine discriminating mutations all fail the suite.
 - **A test asserted a warning that only a machine with a GPU can produce, and CI had been
   red for 48 consecutive runs, since 2026-09-16, because of it.**
@@ -2132,7 +2126,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   is unaffected.
 - **A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described
   `imaginary_coherency` as "volume-conduction-robust" while the router's own invariant 8
-  and `AGENTS.md` section 5 both say these measures reduce sensitivity to zero-phase-lag
+  and the repository rules file section 5 both say these measures reduce sensitivity to zero-phase-lag
   coupling and establish no immunity -- and the adjacent `wpli` row already said it
   correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on
   a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives
@@ -2141,7 +2135,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency
   without stating that the filter delays the latency: the step response reaches half
   amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`.
-- **`AGENTS.md` said "each call below runs as written" and none of them did.** Section 10
+- **The repository rules file said "each call below runs as written" and none of them did.** Section 10
   bound a generator and then called eight functions on names no block defined --
   `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:
   `aggregate_to_db(beta_raw, baseline_raw, how="mean_of_ratios", aggregate_over=0)`
@@ -2348,20 +2342,20 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   a child interpreter, so it holds wherever an assignment is placed, and one compares the
   tracked module's bytes against a digest captured at import. Reintroducing either defect
   fails the matching contract.
-- **The vFLIP calibration receipt certified one function of the estimator.**
+- **The vFLIP calibration record certified one function of the estimator.**
   `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band
   normalization to `_unit_range`. Recentring that helper on its own mean -- a
   line-count-preserving change that moved the median signed bias off-centre from +0.053
-  to -0.123 contacts -- left the receipt reading "current" and
+  to -0.123 contacts -- left the record reading "current" and
   `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`
   and every module-level function in `jnwb.laminar` it can reach, resolved from the call
   graph rather than listed, so a helper added later is covered without anyone remembering
   to extend a list. The reachable set is recomputed in the test and compared against the
-  set the generator hashes, so the receipt cannot quietly narrow again. Both mutations --
-  the helper and `vflip`'s own source -- now fail the receipt test; the helper mutation
+  set the generator hashes, so the record cannot quietly narrow again. Both mutations --
+  the helper and `vflip`'s own source -- now fail the record test; the helper mutation
   previously survived it. Two of the three helpers the item named, `_from_lfp` and
   `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`
-  and `_unit_range`. The receipt was regenerated rather than edited: of 12924 leaf values
+  and `_unit_range`. The record was regenerated rather than edited: of 12924 leaf values
   in the raw JSON, exactly one changed, the hash, which confirms the estimator is
   unchanged and the calibration is fully seeded.
 - **Seven tests asserted less than their names claimed.** Each claim was reproduced
@@ -2473,24 +2467,24 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   all exported. A reader following the cross-reference was told the thing they were being
   sent to did not exist yet. The qualifier is removed and `docs/api.md`, which is
   generated from the docstrings, is regenerated.
-- **The import benchmark was timing an import it had slowed down 3.3x, and its receipt
+- **The import benchmark was timing an import it had slowed down 3.3x, and its record
   was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before
   its timer, so the import it measured ran with allocation tracing on. Seven interleaved
   fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the
   `tracemalloc.start()` below the timed region is not the fix -- the allocations have
   already happened by then and the peak comes back 0.0 MB -- so timing and memory are now
-  measured by separate probes in separate processes. The regenerated receipt reports
+  measured by separate probes in separate processes. The regenerated record reports
   2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported
-  39342 ms. Nothing gated the receipt, unlike the vFLIP one, so
+  39342 ms. Nothing gated the record, unlike the vFLIP one, so
   `artifacts/benchmarks/import_profile.txt` still announced "jnwb 0.1.6 (111 public
   symbols)" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --
   while itself recording an importtime tree of 1898 ms against its own 6859 ms warm
   median, the same contradiction visible inside one file. The regenerated pair is 2348 ms
   and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when
-  either receipt names a different version than `jnwb.__version__`, when the timing probe
+  either record names a different version than `jnwb.__version__`, when the timing probe
   instruments the import, and when the probe's own number disagrees with an independent
-  wall-clock import. `--write` regenerates both receipts, so the gate is satisfiable by
-  the command `AGENTS.md` documents. The superseded `vflip_calibration_0.2.2.md` and
+  wall-clock import. `--write` regenerates both records, so the gate is satisfiable by
+  the command the repository rules file documents. The superseded `vflip_calibration_0.2.2.md` and
   `vflip_calibration_raw.json`, which described the pre-density-normalized support score
   and carried no estimator hash, are deleted.
 - **`docs/install.md` claimed the deferred imports keep `import jnwb` fast.** They do not.
@@ -2540,7 +2534,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   identical. The three entry points remain slower on CUDA below roughly 22500 samples,
   where the fixed transfer-and-plan cost is most of the call; that crossover is now
   documented in each `device:` parameter rather than papered over by routing on input
-  length, which would make the answer depend on trace length. Receipt:
+  length, which would make the answer depend on trace length. Record:
   `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`.
 - **With a GPU present, two `device='cuda'` requests were denied in silence.**
   `jnwb/_backend.py` covered two denial reasons -- no usable device, and a device that
@@ -2561,7 +2555,7 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   `fit_var_bivariate` and `select_optimal_lag` take a `context` argument for it.
 
 - **`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`
-  returned.** `AGENTS.md` invariant 6 says the device never changes a number; on a live
+  returned.** The repository rules file invariant 6 says the device never changes a number; on a live
   RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while
   `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so
   `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by
@@ -2717,40 +2711,4 @@ Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.7 to 0.1.0 are archived, verbatim, in [arti
   `examples/tutorials/00_your_own_file.py` discovers a layout instead of asserting a fixture's
   values. Common mistakes gains section 9 on assuming a schema. README and quickstart show
   `code_column=`. The sdist now ships `skills/` and `AGENTS.md`.
-
-## [0.1.8] - 2026-09-11
-
-### Added
-
-- Synthetic structurally representative NWB test fixtures (`jnwb.testing.nwb_fixtures`):
-  Deterministic multi-channel ecephys generators supporting co-resident task and mapping
-  interval tables, non-code interval columns, custom electrode locations, and processing-module
-  packaging styles (`processing_lfp_options()`, `task_only_options()`, `dual_probe_options()`).
-- `jnwb.inspect`: Non-destructive inspection of acquisitions, electrodes, units, interval tables,
-  and processing-module continuous series with column sample inspection, without guessing default
-  event tables.
-- Canonical events and onsets workflow: `jnwb.events` and `jnwb.event_onsets` providing explicit
-  table selection, non-code interval table extraction, code-based filtering, and seconds/samples conversion.
-- Processing-module continuous series discovery: Automatic resolution of LFP series located in
-  processing modules (e.g. `processing/ecephys/LFP`) across `inspect`, `resolve_acquisition`, and
-  `acquisition_channel`.
-- `epoch_continuous`: Generic continuous event epoching primitive with explicit time-to-sample mapping
-  via IEEE 754 round-half-to-even (banker's rounding), window bounds (`win_s`), onset units (`"seconds"` or `"samples"`),
-  boundary policies (`"nan"`, `"error"`, `"drop"`), and optional event-identity preservation via `return_indices`.
-- `ChannelIndexError`: Specific exception raised on continuous channel indexing bounds violations.
-- Executable tutorial series: Four tested notebooks and documentation tutorials covering NWB discovery,
-  event alignment and PSTH calculation, continuous LFP spectral power with decibel aggregation, and
-  Granger directionality.
-- Onboarding and harness alignment: Gate 13 pre-flight verification ensuring NWB onboarding terminology,
-  workflows, and APIs remain synchronized across README, MkDocs, and task skills.
-
-### Fixed
-
-- Calibrated continuous-channel access: `acquisition_channel` applies physical scaling
-  ($x_{\mathrm{physical}} = \mathrm{conversion} \cdot x_{\mathrm{stored}} + \mathrm{offset}$) exactly once,
-  preserving physical units inherited from `series.unit` (e.g. Volts).
-- 1D continuous array support: `acquisition_channel` gracefully accesses 1D series `(n_samples,)`
-  at `channel=0`, raising `ChannelIndexError` for non-zero channel indices.
-- Code-agnostic event extraction: `events` and `event_onsets` extract all intervals when `codes=None`
-  without requiring a default `"codes"` column.
 

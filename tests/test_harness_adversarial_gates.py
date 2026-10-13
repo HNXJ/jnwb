@@ -1324,6 +1324,11 @@ class TestGate14ProcessIdentifiersInLibrary:
         (root / "docs" / "page.md").write_text("A public page.\n", encoding="utf-8")
         (root / "skills" / "jnwb").mkdir(parents=True)
         (root / "skills" / "jnwb" / "SKILL.md").write_text("A clean skill.\n", encoding="utf-8")
+        (root / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## [Unreleased]\n\n## [0.2.11] - 2026-10-11\n\n### Added\n\n"
+            "- A planted change.\n",
+            encoding="utf-8",
+        )
         monkeypatch.setattr(harness_gate, "REPO_ROOT", root)
         run = dict((n, r) for n, r, _ in harness_gate.GATES)[14]
         failures = run()
