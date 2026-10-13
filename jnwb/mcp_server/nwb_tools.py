@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Any
 from jnwb.nwb_inspect import (
     AMBIGUOUS_LAYOUT,
-    _decode,
+    _decode_bytes_replace,
     _h5_channel_count,
     _ndt,
     _resolve_layout,
@@ -135,7 +135,7 @@ def _series_reference(data: h5py.Dataset, file_path: str) -> Dict[str, Any]:
     return {
         "series_path": group.name,
         "neurodata_type": ndt,
-        "unit": _decode(data.attrs.get("unit")),
+        "unit": _decode_bytes_replace(data.attrs.get("unit")),
         "conversion": _scalar_attr(data, "conversion"),
         "offset": _scalar_attr(data, "offset"),
         "channel_conversion": channel_conversion,

@@ -89,7 +89,7 @@ ALTERNATIVES = ("two-sided", "greater", "less")
 _UPPER_TAIL_PARAMETRIC_P = frozenset({"granger_ssr_ftest"})
 
 
-def _require_alternative(alternative):
+def _require_alternative_exact(alternative):
     if alternative not in ALTERNATIVES:
         # This chain used to end in a bare `else` computing the *less* tail, so an
         # unrecognised alternative -- including the case variant 'GREATER' -- returned the
@@ -136,7 +136,7 @@ def _p_from_null(value, null_dist, alternative):
     lags, which now yields shape ``(n_lags,)`` and so matches `value` there too instead
     of the former ``(n_lags, 1)``.
     """
-    _require_alternative(alternative)
+    _require_alternative_exact(alternative)
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)

@@ -47,7 +47,7 @@ from jnwb.laminar import VFlipResult, label_layers
 from jnwb.laminar import vflip as laminar_vflip
 from jnwb.permutation import _count_at_least_as_extreme
 from jnwb.spectral import relative_power
-from jnwb.statistics import _require_alternative, cluster_permutation_test
+from jnwb.statistics import _require_alternative_casefold, cluster_permutation_test
 
 PACKAGE_ROOT = pathlib.Path(jnwb.__file__).resolve().parent
 
@@ -875,7 +875,7 @@ class TestTheLiveTreeMatchesTheReviewedBaseline:
             orientation="bogus")),
         ("spectral.model", lambda: relative_power(
             np.array([1.0, 2.0]), np.array([1.0, 1.0]), model="bogus")),
-        ("statistics.alternative", lambda: _require_alternative("bogus", "sweep")),
+        ("statistics.alternative", lambda: _require_alternative_casefold("bogus", "sweep")),
         ("permutation.alternative", lambda: _count_at_least_as_extreme(
             np.zeros(3), 0.0, "bogus")),
         ("statistics.shuffle_pvalue_paired.alt", lambda: jnwb.shuffle_pvalue_paired(

@@ -58,7 +58,7 @@ class UnitNotFoundError(NWBInspectError):
     """The requested units-table row does not exist."""
 
 
-def _decode(value: Any) -> Any:
+def _decode_bytes_replace(value: Any) -> Any:
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
     return value
@@ -68,14 +68,14 @@ def _ndt(obj: h5py.Group | h5py.Dataset) -> str | None:
     raw = obj.attrs.get("neurodata_type")
     if raw is None:
         return None
-    return _decode(raw)
+    return _decode_bytes_replace(raw)
 
 
 def _stored_description(ds: h5py.Dataset) -> str | None:
     """The column's stored NWB ``description``: ``""`` when stored empty, ``None`` when
     absent (an ``id`` column stores none)."""
     raw = ds.attrs.get("description")
-    return None if raw is None else str(_decode(raw))
+    return None if raw is None else str(_decode_bytes_replace(raw))
 
 
 def _sample_column(ds: h5py.Dataset, n: int = _MAX_SAMPLES) -> list[Any]:
@@ -294,7 +294,7 @@ _SCHEMA_FIXED_DATA_UNIT = {"ElectricalSeries": "volts"}
 def _series_unit(data_ds: h5py.Dataset) -> str | None:
     """The `unit` recorded beside one series' `data`, or ``None`` when it carries none."""
     raw = data_ds.attrs.get("unit")
-    return None if raw is None else _decode(raw)
+    return None if raw is None else _decode_bytes_replace(raw)
 
 
 def _type_contradictions(
@@ -696,7 +696,7 @@ def _warn_if_declared_unit_contradicts_storage(series: Any, acq_name: str) -> No
         return
     if stored is None:
         return
-    stored = _decode(stored)
+    stored = _decode_bytes_replace(stored)
     if stored == fixed:
         return
     conversion = getattr(series, "conversion", None)
