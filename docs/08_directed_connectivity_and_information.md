@@ -161,7 +161,7 @@ rejected.
 
 ---
 
-## 5. Spike Mutual Information (`spike_mutual_information`, `spike_count_mutual_information`)
+## 5. Spike Mutual Information (`spike_mutual_information`)
 
 ```python
 spike_times1 = np.array([0.01, 0.05, 0.12, 0.2])
@@ -175,10 +175,11 @@ mi_bin = jnwb.spike_mutual_information(
     estimator="binary_occupancy",
 )
 
-mi_count = jnwb.spike_count_mutual_information(
+mi_count = jnwb.spike_mutual_information(
     spike_times1, spike_times2,
     time_window=(0.0, 0.5),
     bin_size_ms=10.0,
+    estimator="spike_count",
 )
 ```
 

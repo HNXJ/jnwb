@@ -1,0 +1,1 @@
+- `StatisticalAnalysis.clopper_pearson_ci` warns; use `clopper_pearson`. tests/test_deprecated_aliases.py

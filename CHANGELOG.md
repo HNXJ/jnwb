@@ -8,28 +8,6 @@ Releases 0.2.9, 0.2.8, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verbatim, i
 
 ## [Unreleased]
 
-### Added
-
-- `map_peak_channel_to_layer` gives each unit its peak channel's curated layer; tests/test_laminar_curation.py
-- `causal_gaussian_smooth` returns a causal smooth and its kernel's mean lag in bins; tests/test_onset_fitting.py
-- A non-blocking CI job runs the suite on pandas 3; docs/install.md gives the install step for it.
-- The dashboard's OpenScope GLO tab: one card per work, its replications as rows; scripts/build_dashboard.py
-
-### Changed
-
-- Gate 14 also reads CHANGELOG.md: no process terms, six kind headings, one named file per entry line.
-- Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.8 to 0.1.0 move to artifacts/archive/changelog_0.1.0-0.2.9.md.
-- `scripts/release_gate.py` step 8 checks that the tutorials import the built wheel.
-- scripts/stack_parse.py: gates 15, 17 and STEP 0a share one stack reader; HTML and deep headings read.
-- Private helpers that shared a name now state their rule; tests/test_helper_rule_names.py
-- docs/architecture.md drops its claim that no synthetic value enters the library.
-
-### Fixed
-
-- `check_waveform_blocks` takes `largest_row` over finite rows only; tests/test_nwb_integrity.py
-- Under `value_unit="z"` a colorbar may say "z-score"; tests/test_vis_shared_rules.py
-- skills/jnwb-statistics/SKILL.md states Mann-Whitney's `statistic` as the first group's U.
-
 ## [0.2.11] - 2026-10-11
 
 ### Added

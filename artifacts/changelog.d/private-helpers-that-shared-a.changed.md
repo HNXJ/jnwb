@@ -1,0 +1,1 @@
+- Private helpers that shared a name now state their rule; tests/test_helper_rule_names.py

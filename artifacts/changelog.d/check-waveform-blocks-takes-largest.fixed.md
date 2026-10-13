@@ -1,0 +1,1 @@
+- `check_waveform_blocks` takes `largest_row` over finite rows only; tests/test_nwb_integrity.py

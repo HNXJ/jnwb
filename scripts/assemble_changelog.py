@@ -35,8 +35,6 @@ CATEGORIES: Dict[str, str] = {
     "deprecated": "Deprecated",
     "removed": "Removed",
     "fixed": "Fixed",
-    "security": "Security",
-    "documentation": "Documentation",
 }
 
 #: Files in the fragment directory that are not fragments.
