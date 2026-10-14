@@ -42,7 +42,7 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-03, 15-07, 15-09, 15-10 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-03 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
 ### 15-03 `vflip2` on seeded synthetic probes, characterized
@@ -52,23 +52,3 @@ Writes: `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `arti
 - No record says how `vflip2`'s crossover and acceptance behave on `synth_laminar_motif`. Check: the evidence file, written by the script on seeds 0 to 99 (32 contacts, 100 um), tables planted and null acceptance and the crossover offset, and states that the generator's amplitude-weight crossover and vFLIP2's relative-power crossing differ; the test pins the script's counts on a seeded subset. Waits: not stated.
 Accept: the check passes. Ruled 2026-10-14: characterization only; the 90 and 5 thresholds are 15-11.
 
-### 15-07 Laminar anchors take `vflip2`
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/laminar_curation.py`, its tests.
-- `fuse_laminar_anchors` takes `vflip_um` and `xflip_um` but not `vflip2`'s crossover. Proposal: `vflip2_um`, set only from an accepted result, reported beside `vflip_um` and fused under the same rule. Check: an accepted `vflip2` crossover moves the fused anchor as `vflip_um` would at the same position; a rejected one leaves it unchanged. Waits: not stated.
-Accept: the check passes. Ruling: Hamm 2026-10-13, `vflip2_um` sits beside `vflip_um`.
-
-### 15-09 `xflip`'s layer-4 thickness and window message
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/laminar/_xflip.py`, `tests/test_xflip_window.py`.
-- `xflip`'s default `min_block_size` uses `LAYER4_THICKNESS_MM` (`_xflip.py:645-650`) while `vflip2` takes `layer4_thickness_mm` (`_vflip2.py:294`), so a non-default thickness gives the two different shortest windows; the out-of-probe message echoes the unsorted pair (`_xflip.py:114-115`). Check: `xflip(..., contact_spacing=100, layer4_thickness_mm=0.8)` defaults `min_block_size` to 8, and the message for `window=(40, 3)` on 32 rows names `(3, 40)`. Waits: not stated.
-Accept: the check passes; the sweep tests (`tests/test_unit_suffixed_parameters.py`, `tests/test_substitution_class_sweep.py`) pass.
-
-### 15-10 `zflip` with two `vflip2` results
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/laminar/_zflip.py`, `tests/test_zflip_window.py`.
-- `zflip(window=a, orientation=b)` with two different accepted `VFlip2Result`s takes the window from one and the orientation from the other without a check (`_zflip.py:362-364`, `383-386`). Check: two results whose windows or orientations differ raise ValueError; the same result passed twice is accepted. Waits: not stated.
-Accept: the check passes.
