@@ -50,6 +50,10 @@ from ._vflip import (
     vflip,
     vflip_from_lfp,
 )
+from ._vflip2 import (
+    VFlip2Result,
+    vflip2,
+)
 from ._labels import (
     LAYER_BOUNDARY_TOL_CONTACTS,
     label_layers,
@@ -78,6 +82,6 @@ log = logging.getLogger(__name__)
 
 # Public classes keep the module path they had before the split, so pickles and reprs
 # that name it still resolve.
-for _cls in (VFlipResult, XFlipResult, ZFlipResult):
+for _cls in (VFlipResult, VFlip2Result, XFlipResult, ZFlipResult):
     _cls.__module__ = __name__
 del _cls

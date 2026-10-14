@@ -5,10 +5,10 @@ the functions that implement it, and each of those functions cites the same DOI 
 a test holds the two to each other. Every DOI below resolved at doi.org on 2026-09-23 (Lütkepohl
 2005 on 2026-09-25, Przyborowski and Wilenski 1940 on 2026-09-26, the unit-quality sources and
 the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04, the WaveMAP
-sources on 2026-10-08, Major et al. 2025 on 2026-10-13, the SciPy, CircStat, Pitman, Mann
+sources on 2026-10-08, Major et al. 2025 and the Dryad dataset on 2026-10-13, the SciPy, CircStat, Pitman, Mann
 and Whitney, Efron, Shannon, Nawrot, Cunningham and Yu, Varma and Simon, Cortes and Vapnik,
 PREP, Leys, and Gerstein and Kiang sources on 2026-10-13). Each matched the title, authors and year of its Crossref record, except
-the arXiv entries, matched to their DataCite records, and Llobet et al. 2022, matched to bioRxiv's record of its version 1. Where
+the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
 implements; the functions it names are those the pitfall concerns, and their docstrings do not
@@ -39,12 +39,16 @@ treatment in these two books, checked on Open Library:
 | Bastos, A. M., et al. (2021). Neural effects of propofol-induced unconsciousness and its reversal using thalamic stimulation. *eLife* 10, e60824. [doi:10.7554/eLife.60824](https://doi.org/10.7554/eLife.60824) | Materials and methods, "Neural recordings in cortex": the crossover of the gamma and alpha-beta relative power profiles as the estimate of layer 4. The paper gives no normalization for it beyond citing Bastos et al. (2018) and describes no acceptance test; `vflip` rejects a fit whose support score is below `min_support_score` | `vflip_from_lfp` |
 | Mitzdorf, U. (1985). Current source-density method and application in cat cerebral cortex: investigation of evoked potentials and EEG phenomena. *Physiological Reviews* 65(1), 37-100. [doi:10.1152/physrev.1985.65.1.37](https://doi.org/10.1152/physrev.1985.65.1.37) | The evoked CSD as the negative second spatial derivative of the potential along the shaft, a sink being a negative value | `evoked_csd_sink` |
 | Nicholson, C., & Freeman, J. A. (1975). Theory of current source-density analysis and determination of conductivity tensor for anuran cerebellum. *Journal of Neurophysiology* 38(2), 356-368. [doi:10.1152/jn.1975.38.2.356](https://doi.org/10.1152/jn.1975.38.2.356) | Current source density $-\sigma\,\partial^2\phi/\partial z^2$ in one dimension with homogeneous conductivity, by the three-point second difference. `voltage_curvature_1d` is the difference without $\sigma$; `laplacian_reference` is data minus the neighbor mean (interior: -1/2 times that difference, no pitch or conductivity scaling) with single-neighbor edges, a first difference, keeping every channel | `current_source_density_1d`, `voltage_curvature_1d`, `laplacian_reference` |
+| Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x) | vFLIP2's motif estimator: the best window's omega, and acceptance at omega above 6. `vflip2` ports the MATLAB code; where the description differs from the code, the port follows the code | `vflip2` |
+| Mendoza-Halliday, D., et al. (2023). (variable) Frequency-based Layer Identification Procedure (FLIP and vFLIP) for spectrolaminar analysis, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp) | The MATLAB code vFLIP2.m (CC0), which `vflip2` ports; its numbers match vFLIP2.m run in MATLAB on the same inputs | `vflip2` |
 
 The published estimator for the motif is vFLIP2: Major, A. J., et al. (2025). A. J. Major et al.
 reply. *Nature Neuroscience* 29(2), 284-286.
-[doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). jnwb does not
-compute vFLIP2: `VFlipResult.support_score` is jnwb's own score, not vFLIP2's omega, so
-vFLIP2's acceptance tiers do not apply to it.
+[doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). `vflip2` ports
+its MATLAB code, vFLIP2.m (Mendoza-Halliday, D., et al., Dryad
+[doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp), version 8, CC0), and
+returns its omega and acceptance. `VFlipResult.support_score` is jnwb's own score, not vFLIP2's
+omega, so vFLIP2's acceptance tiers do not apply to it.
 
 ## Coherence and phase
 
