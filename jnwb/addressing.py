@@ -13,7 +13,7 @@ import logging
 import numbers
 import operator
 import warnings
-from typing import Any, Collection, Dict, List, Optional, Sequence, Union
+from typing import Any, Collection, Dict, Optional
 import pandas as pd
 import numpy as np
 
@@ -1038,8 +1038,6 @@ def probe_geometry(
     # Reconstructed positions along the linear axis: mean + proj * unit_orientation
     reconstructed = mean_pos + np.outer(projections, unit_orientation)
     lateral_offsets = coords_um - reconstructed
-    residuals = np.linalg.norm(lateral_offsets, axis=1)
-    max_residual = np.max(residuals)
 
     # Lateral extent: how wide the shaft is, measured across its dominant lateral
     # direction. A single-column shaft is 0; a staggered two-column shaft is the

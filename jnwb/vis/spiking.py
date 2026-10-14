@@ -90,7 +90,6 @@ def plot_multi_condition_raster_psth(
 
         # 1. Raster data extraction
         n_trials = min(len(cond_onsets), max_raster_trials)
-        selected_onsets = cond_onsets[:n_trials]
 
         raster_x: List[float] = []
         raster_y: List[float] = []

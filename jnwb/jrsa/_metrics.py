@@ -124,7 +124,6 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
     m = min(X.shape[0], Y.shape[0])
     X, Y = X[:m], Y[:m]
-    d1, d2 = X.shape[1], Y.shape[1]
     
     # Standard centering: H @ K @ H.
     # For linear kernel: Kx = X @ X.T.

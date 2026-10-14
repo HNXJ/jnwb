@@ -168,7 +168,6 @@ class PlotlyPublicationCanvas:
         self.domains: Dict[Tuple[int, int], Tuple[Tuple[float, float], Tuple[float, float]]] = {}
         self._compute_domains()
 
-        # Initialize Plotly Figure
         self.fig = go.Figure()
         self.fig.layout.template = get_publication_layout_template()
         self.fig.layout.width = self.width_px

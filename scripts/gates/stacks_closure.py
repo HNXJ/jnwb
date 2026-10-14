@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from scripts.gates.stacks_form import (

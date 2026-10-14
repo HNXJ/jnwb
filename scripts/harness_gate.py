@@ -211,10 +211,6 @@ from scripts.gates.state import (
     check_fact_predicates,
 )
 
-class HarnessGateFailure(Exception):
-    """Raised when a mechanical harness boundary is violated."""
-    pass
-
 
 def _one(check: Any, header: str) -> Any:
     """Adapt a check returning violations into the (header, violations) shape the runner wants."""

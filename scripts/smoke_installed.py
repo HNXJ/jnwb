@@ -53,7 +53,7 @@ def main(argv=None) -> int:
     st = np.sort(rng.uniform(0, 10, 50))
     onsets = np.array([1.0, 3.0, 5.0, 7.0])
     tb, rate, sem = jnwb.raster_psth(st, onsets, win_ms=(-100, 300), bin_ms=10.0)
-    smooth = jnwb.causal_exp_smooth(rate, bin_ms=10.0, tau_ms=30.0)
+    jnwb.causal_exp_smooth(rate, bin_ms=10.0, tau_ms=30.0)
     fit = jnwb.fit_exponential_onset(tb, rate, t0_bounds=(0.0, 200.0))
     assert 't0' in fit and 'bound_status' in fit
     ppc = jnwb.pairwise_phase_consistency(rng.uniform(-np.pi, np.pi, 30))
@@ -77,14 +77,14 @@ def main(argv=None) -> int:
     assert csd.shape == (4, 200)
 
     # Statistics, decoding, connectivity and artifact
-    boot = jnwb.StatisticalAnalysis.bootstrap_ci(sig, n_bootstrap=100, rng=rng)
+    jnwb.StatisticalAnalysis.bootstrap_ci(sig, n_bootstrap=100, rng=rng)
     labels = np.array(['A', 'B', 'A', 'B'])
-    shuf = jnwb.permute_labels(labels, scheme='global', rng=rng)
+    jnwb.permute_labels(labels, scheme='global', rng=rng)
     X = rng.normal(size=(20, 4))
     y = np.repeat([0, 1], 10)
-    dec = jnwb.nested_cv_linear_svm(X, y, n_splits=2)
-    g_res = jnwb.granger(rng.normal(size=300), rng.normal(size=300), order=2, n_surrogates=5, seed=0)
-    corr = jnwb.channel_correlation_matrix(rng.normal(size=(8, 200)))
+    jnwb.nested_cv_linear_svm(X, y, n_splits=2)
+    jnwb.granger(rng.normal(size=300), rng.normal(size=300), order=2, n_surrogates=5, seed=0)
+    jnwb.channel_correlation_matrix(rng.normal(size=(8, 200)))
     rep_lfp, frac, diag = jnwb.repair_lfp_trials(rng.normal(size=(8, 4, 100)))
     clust = jnwb.cluster_permutation_test(
         rng.normal(size=(8, 20)), rng.normal(size=(8, 20)), n_permutations=20, rng=rng,
