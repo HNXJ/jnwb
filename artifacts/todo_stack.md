@@ -42,15 +42,8 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07, 15-09, 15-10 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-03, 15-07, 15-09, 15-10 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
-
-### 15-01 Omega's dependence on every `vflip2` parameter
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `artifacts/evidence/0.2.12/vflip2_sensitivity.md`, its script, `tests/test_vflip2_sensitivity.py`.
-- Omega is ln(G x S_d x B_d x channel span x n_low x n_high x bin width^2); S_d is unnormalized and the band minima count bins, so omega and acceptance move with bin width and frequency range (vFLIP2.m lines 238, 264, 454, 474 to 476). Check: on the Dryad `power_example` and 50 seeded synthetic probes, one parameter varied at a time (bin width 0.5, 1, 2 Hz; upper frequency 150, 200, 250 Hz; spacing 50, 100, 200 um by resampling; layer-4 thickness 0.4, 0.586, 0.8 mm; orientation; `omega_cut` 4, 6, 8), the evidence file tables omega, its change from the default, and acceptance flips, each value written by the script; the test pins the bin-width shift of omega to 2 ln(ratio) plus the band-count terms. Waits: not stated.
-Accept: the table regenerates; the docstring states each dependence with its measured size. Ruling after: which fixed constants become parameters, defaults staying vFLIP2.m's.
 
 ### 15-03 `vflip2` on seeded synthetic probes, characterized
 
