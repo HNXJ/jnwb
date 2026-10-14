@@ -1,23 +1,28 @@
 {
-  "estimator_sha256": "ff202261c66779e78bfa2704220d69d38ab67403d593c9ec37077491b74a9bd5",
+  "estimator_sha256": "3eb8e1b0fe9754ec8540f94bb8c4eecf0264bf64233384c73386a14017afa046",
   "estimator_functions": [
     "XFlipResult",
     "_compute_contrast",
     "_compute_correlation_matrix",
     "_homogeneous_factor",
+    "_in_probe_rows",
     "_label_change_boundaries",
     "_optimal_contiguous_partition",
     "_partition_is_contiguous",
+    "_refuse_short_window",
     "_select_count_by_min_p",
     "_surrogate_homogeneous",
     "_surrogate_phase_randomize",
     "_surrogate_wishart",
     "_unrestricted_partition",
+    "_window_rows",
     "jnwb._dictlike.DictAccessMixin",
     "jnwb._rng.RNGLike",
     "jnwb._rng.recorded_rng",
     "jnwb._rng.resolve_rng",
     "jnwb._rng.surrogate_rng",
+    "jnwb.laminar._vflip2.LAYER4_THICKNESS_MM",
+    "jnwb.laminar._vflip2.VFlip2Result",
     "jnwb.permutation._TAILS",
     "jnwb.permutation._TIE_RTOL",
     "jnwb.permutation._count_at_least_as_extreme",
@@ -404,5 +409,5 @@
     "scipy": "1.18.0",
     "platform": "Windows-11-10.0.26300-SP0"
   },
-  "elapsed_s": 385.0
+  "elapsed_s": 313.7
 }
