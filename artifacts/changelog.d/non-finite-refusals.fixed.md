@@ -1,1 +1,0 @@
-- jnwb/filtering.py: bandpass_filter, notch_filter and compute_multitaper_psd refuse Inf as well as NaN

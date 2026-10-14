@@ -1,1 +1,0 @@
-- jnwb/spiking.py: gaussian_smooth_rate refuses a NaN or Inf sigma_ms or bin_ms by name

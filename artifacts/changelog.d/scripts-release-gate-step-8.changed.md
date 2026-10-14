@@ -1,1 +1,0 @@
-- `scripts/release_gate.py` step 8 checks that the tutorials import the built wheel.

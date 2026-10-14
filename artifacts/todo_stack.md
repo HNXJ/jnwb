@@ -1,15 +1,15 @@
-# 0.2.12
+# 0.2.13
 
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. This
-stack holds the current window only; the rest of 0.2.12 to 0.2.14 is one row per item in
-`artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.11
-closed on 2026-10-11 with every item done (`git log -- artifacts/todo_stack.md`).
+stack holds the current window only; the rest of 0.2.13 and later is one row per item in
+`artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.12
+closed on 2026-10-14 with every item done or ruled to 0.2.13 (`git log -- artifacts/todo_stack.md`,
+`artifacts/rulings/2026-10-14.md`).
 
-Theme, ruled 2026-10-12: consumers first (`artifacts/evidence/0.2.12/plan.md`). Acceptance:
-`artifacts/goal.md` and `AGENTS.md` §11.
+Theme and acceptance: `artifacts/goal.md` and `AGENTS.md` §11, until Hamm rules the 0.2.13 theme.
 
-Every item here carries `deferred-0.2.12`, the one deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.11 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+Every item here carries `deferred-0.2.13`, the one deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.12 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -36,19 +36,13 @@ lines.
 Three lanes run at once; a wave opens when the lanes it depends on have merged. Full suites run
 one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
-Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 covers
-cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for neither 12-21 (moved to 0.2.13, `artifacts/rulings/2026-10-14.md`) nor the contributed dashboard cards; pull request #31
-(`jnwb-laminar`) merged into `dev` on 2026-10-13.
-
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-03 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
-| last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
+| 1 | L laminar | 15-11 | `jnwb/testing/synth.py`, `tests/test_vflip2*.py`, `scripts/vflip2_simulation.py`, `artifacts/evidence/0.2.13/` | a generator; Andre Bastos's simulation code for its second half |
 
-### 15-03 `vflip2` on seeded synthetic probes, characterized
+### 15-11 `vflip2` recovers a planted vFLIP2 crossover
 
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_simulation.md`.
-- No record says how `vflip2`'s crossover and acceptance behave on `synth_laminar_motif`. Check: the evidence file, written by the script on seeds 0 to 99 (32 contacts, 100 um), tables planted and null acceptance and the crossover offset, and states that the generator's amplitude-weight crossover and vFLIP2's relative-power crossing differ; the test pins the script's counts on a seeded subset. Waits: not stated.
-Accept: the check passes. Ruled 2026-10-14: characterization only; the 90 and 5 thresholds are 15-11.
-
+Release: deferred-0.2.13. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Writes: `jnwb/testing/synth.py`, `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.13/vflip2_simulation.md`.
+- No generator plants vFLIP2's own relative-power crossover, so no test shows `vflip2` recovering it: on `synth_laminar_motif` (amplitude-weight crossover) 20 of 100 accepted crossovers lie within one contact and 18 of 100 noise-only probes are accepted at omega_cut 6 (`artifacts/evidence/0.2.12/vflip2_simulation.md`). Check: on 100 seeded probes from a generator whose planted crossover is where the relative band-power profiles cross (32 contacts, 100 um), the accepted crossover lies within one contact in at least 90, and at most 5 of 100 noise-only probes are accepted; the same table then runs on Andre Bastos's simulation code. Waits: needs the generator and his code; 0.2.12 ships the characterization only.
+Accept: both rates hold and the evidence file names seeds and counts. Ruled 2026-10-14 (15-03 split and characterization).

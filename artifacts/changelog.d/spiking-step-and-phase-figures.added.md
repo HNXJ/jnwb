@@ -1,1 +1,0 @@
-- docs/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and of spike phase locking

@@ -245,9 +245,14 @@ def test_every_committed_fragment_line_meets_the_entry_template():
     from scripts.harness_gate import _changelog_entry_violations
 
     fragments = read_fragments(ROOT / "artifacts" / "changelog.d")
-    assert fragments, "no fragment to examine"
-    found = [v for _, body, path in fragments
-             for n, line in enumerate(body.splitlines(), 1) if line.startswith("- ")
+    bodies = [body for _, body, _ in fragments]
+    if not bodies:
+        # A release just assembled every fragment: its section is what they became.
+        text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        bodies = [text.split("\n## [")[2]]
+    entries = [line for body in bodies for line in body.splitlines() if line.startswith("- ")]
+    assert entries, "no changelog entry to examine"
+    found = [v for n, line in enumerate(entries, 1)
              for v in _changelog_entry_violations(ROOT, n, line)]
     assert not found, found
 

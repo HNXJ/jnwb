@@ -1,4 +1,0 @@
-- `xflip` takes `window=`, an accepted `VFlip2Result` or a row pair; it reports probe rows; tests/test_xflip_window.py
-- `xflip`'s `contact_spacing` (um) adds `boundaries_um` from row 0; tests/test_xflip_window.py
-- `xflip`'s `min_block_size` defaults to None: 2, or the layer 4 thickness in contacts; jnwb/laminar/_xflip.py
-- `xflip` names a window outside the probe by its sorted rows; `tests/test_xflip_window.py`.

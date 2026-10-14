@@ -1,1 +1,0 @@
-- The jnwb-laminar skill routes the laminar rows of jnwb-lfp-spectral; skills/jnwb-laminar/SKILL.md (pull request #31)

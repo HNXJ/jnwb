@@ -1,1 +1,0 @@
-- scripts/build_dashboard.py: the figure sources list docs pages as repository paths again, not Read the Docs URLs

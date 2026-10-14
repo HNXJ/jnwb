@@ -1,1 +1,0 @@
-- scripts/build_dashboard.py: figure, API and showcase links open their Read the Docs pages instead of a 404

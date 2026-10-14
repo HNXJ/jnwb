@@ -1,1 +1,0 @@
-- jnwb/onset_fitting.py: causal_exp_smooth refuses non-positive bin_ms and non-1-D rate

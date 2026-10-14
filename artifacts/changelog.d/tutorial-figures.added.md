@@ -1,1 +1,0 @@
-- docs/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth, from its analysis

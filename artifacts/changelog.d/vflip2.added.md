@@ -1,1 +1,0 @@
-- `jnwb/laminar/_vflip2.py`: `vflip2`, a port of vFLIP2.m (Major et al. 2025); omega matches MATLAB

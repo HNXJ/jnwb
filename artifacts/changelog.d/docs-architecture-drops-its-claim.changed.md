@@ -1,1 +1,0 @@
-- docs/architecture.md drops its claim that no synthetic value enters the library.
