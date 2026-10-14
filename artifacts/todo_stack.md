@@ -42,9 +42,8 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
-| 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
-| 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
+| 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | none |
+| 5 | F figures and citations | 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 | any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
 | 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-02, 15-03, 15-05, 15-06, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
