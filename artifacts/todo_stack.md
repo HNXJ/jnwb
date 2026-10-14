@@ -46,7 +46,7 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 | 5 | F figures and citations | 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 | any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-02, 15-03, 15-05, 15-06, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-02, 15-03, 15-06, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
 ### 12-21 A jaxfne simulation as jnwb ground truth
@@ -78,13 +78,6 @@ Writes: `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_sim
 - No test shows `vflip2` finds a planted crossover. Check: on 100 seeded probes with a planted alpha-beta/gamma crossover at a known contact (32 contacts, 100 um), the accepted crossover lies within one contact of it in at least 90; on 100 probes with no laminar gradient, at most 5 are accepted. When Andre's simulation code arrives, the same table runs on it. Waits: not stated.
 Accept: both rates hold and the evidence file names seeds and counts.
 
-### 15-05 `xflip` on `vflip2`'s frame
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/laminar/_xflip.py`, `tests/test_xflip.py`, the skill row.
-- `xflip` reports boundaries as contact indices on its own rows; it cannot be run inside the window `vflip2` chose or report um. Proposal: `window=` takes a `VFlip2Result` or (proximal, distal) rows and restricts the correlation matrix to them; `contact_spacing` (um) adds `boundaries_um`; the shortest block defaults to the layer-4 thickness in contacts, as `vflip2`'s shortest window. Check: on a probe with an artefact block outside the window, `xflip(window=v2)` reports the in-window boundary, in probe rows, within one contact of `vflip2`'s crossover. Waits: not stated.
-Accept: the check passes. Ruling: Hamm 2026-10-13, all three proposal points.
-
 ### 15-06 `zflip` on `vflip2`'s frame
 
 Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
@@ -94,7 +87,7 @@ Accept: the check passes. Ruling: Hamm 2026-10-13, an accepted `vflip2` result m
 
 ### 15-07 Laminar anchors take `vflip2`
 
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: 15-05.
+Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
 Writes: `jnwb/laminar_curation.py`, its tests.
 - `fuse_laminar_anchors` takes `vflip_um` and `xflip_um` but not `vflip2`'s crossover. Proposal: `vflip2_um`, set only from an accepted result, reported beside `vflip_um` and fused under the same rule. Check: an accepted `vflip2` crossover moves the fused anchor as `vflip_um` would at the same position; a rejected one leaves it unchanged. Waits: not stated.
 Accept: the check passes. Ruling: Hamm 2026-10-13, `vflip2_um` sits beside `vflip_um`.
