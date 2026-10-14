@@ -79,3 +79,24 @@ def test_bin_width_shift_is_the_analytic_term():
     assert abs(expected) > 1e-3, "the scale must move omega"
     # omega is near 13, so its rounding is about 2e-15; 1e-12 absolute is far below the shift.
     np.testing.assert_allclose(wide.omega - base.omega, expected, rtol=0, atol=1e-12)
+
+
+def test_the_evidence_table_matches_the_script_on_the_power_example():
+    """Every Dryad row of the committed evidence file is what scripts/vflip2_sensitivity.py
+    computes now, so the file cannot go stale while vflip2 changes."""
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.append(str(root))
+    from scripts import vflip2_sensitivity as sens
+
+    psd, freqs, spacing, _ = sens.load_power_example()
+    computed = sens.probe_all(psd, freqs, spacing)
+    rows = sens.EVIDENCE.read_text(encoding="utf-8").split("## Dryad power example")[1]
+    rows = rows.split("\n## ")[0]
+    for variant in sens.VARIANTS:
+        group, value = sens.label(variant)
+        expected = f"| {group} | {value} | {sens.fmt(computed[variant]['omega'])} |"
+        assert expected in rows, expected
+    assert len(sens.VARIANTS) >= 16, "every variant of the evidence file must be checked"
