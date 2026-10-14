@@ -1,1 +1,0 @@
-- The two spike MI aliases warn; use `spike_mutual_information`. tests/test_deprecated_aliases.py

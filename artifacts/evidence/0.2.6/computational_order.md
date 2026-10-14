@@ -260,6 +260,8 @@ contradicts a written claim it appears in section 6.
 | `vflip[n_channels]` | n_channels | 64, 512, 4096, 16384 | 0.65, 6.45, 60.6, 243.4 | +1.07 | 1.000 | 377x | O(n) | T(C*F) | derived | agree |
 | `vflip[n_freqs]` | n_freqs | 64, 512, 4096, 16384 | 0.40, 0.53, 2.98, 11.3 | +0.62 | 0.911 | 28x | sub-linear | T(C*F) | derived | agree |
 | `vflip_from_lfp[n_channels]` | n_channels | 16, 128, 512, 1024 | 16.0, 158.4, 608.4, 1237 | +1.04 | 0.999 | 77x | O(n) | T(C) | derived | agree |
+| `vflip2[n_channels]` | n_channels | 16, 32, 64, 160 | 215.6, 1500, 7929, 3.382e+04 | +2.19 | 0.982 | 157x | O(n^2) | T(C^2*F) | derived | agree |
+| `vflip2_from_lfp[n_samples]` | n_samples | 100000, 400000, 1600000, 6400000 | 38.69, 110.1, 401.8, 1609 | +0.90 | 0.996 | 42x | O(n) | T(n log L) | derived | agree |
 | `vflip_from_lfp[n_samples]` | n_samples | 20000, 100000, 500000, 1500000 | 16.9, 78.4, 471.9, 1457 | +1.04 | 0.999 | 86x | O(n) | T(n log L) | derived | agree |
 | `xflip[n_channels]` | n_channels | 32, 128, 512, 1024 | 2.70, 17.0, 283.7, 1206 | +1.78 | 0.989 | 446x | O(n^2) | T(C^2*n + K*C^2) | derived | agree |
 | `xflip[n_samples]` | n_samples | 20000, 100000, 400000, 1000000 | 21.9, 75.7, 290.2, 668.9 | +0.88 | 0.997 | 31x | O(n) | T(n) | derived | agree |
@@ -752,7 +754,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 23 |
+| result container | 24 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -812,6 +814,7 @@ algorithm column still describes the replaced code for both rows.
 | `TFRAnalyzer` | stateful class | TFRAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitAnalyzer` | stateful class | UnitAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
+| `VFlip2Result` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |
 | `VFlipResult` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |
 | `XFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:866); only method is to_dict. |
 | `ZFlipResult` | result container | frozen dataclass, no __post_init__ (jnwb/laminar.py:1532); only method is to_dict. |

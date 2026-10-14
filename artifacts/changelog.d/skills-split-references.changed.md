@@ -1,4 +1,0 @@
-- skills/jnwb-qc/SKILL.md moves routing rows to references/ pages.
-- skills/jnwb-lfp-spectral/SKILL.md moves routing rows to references/ pages.
-- skills/jnwb-nwb-data/SKILL.md moves routing rows to references/ pages.
-- skills/jnwb-laminar/SKILL.md moves routing rows to references/ pages.

@@ -196,7 +196,7 @@ At a single discrete frequency $f_0$, a time delay $\Delta t$ and a constant pha
 The figure is synthetic: one seeded pair of 2000 samples at 1 kHz, with Y equal to X delayed 10 ms plus noise. `jnwb.phase_slope_index` over 18–24 Hz holds one bin, so its net is `nan`; over 15–30 Hz the net is 0.641 (z = 7.91), positive, so X leads Y.
 
 ### The Correct Pattern
-Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum` — not a single-bin z-score:
+Evaluate PSI over a broadband band with multiple frequency bins; inspect `per_band` and `spectrum`, not a single-bin z-score:
 
 ```python
 import numpy as np
@@ -277,8 +277,8 @@ toolboxes, and a continuous array may be stored time-by-channel or channel-by-ti
 The one of those jnwb resolves for you is the array orientation: `acquisition_channel`
 reads the channel axis from the series' own electrode region, so `channel=0` is the same
 channel in either orientation, and `inspect` reports which one it found under `layout`.
-Where the electrode count settles nothing -- neither dimension matches it, or the array is
-square so both do -- `layout` is `"ambiguous"` and `acquisition_channel` raises
+Where the electrode count settles nothing: neither dimension matches it, or the array is
+square so both do. `layout` is `"ambiguous"` and `acquisition_channel` raises
 `AmbiguousLayoutError` rather than return a slice taken across channels at one instant as
 though it were a channel's time course.
 
@@ -314,7 +314,7 @@ seen.
 
 A zero returned for a selection that contained nothing is indistinguishable, downstream,
 from a zero that was measured. It plots, it averages, it enters a t-test, and it drags the
-group mean toward the origin -- and nothing in the array says which kind it was.
+group mean toward the origin, and nothing in the array says which kind it was.
 
 **The policy across `jnwb`: an explicitly requested population with no observations yields an
 *unavailable* estimate, never zero.** Zero is a valid answer only when zero was estimated
@@ -324,7 +324,7 @@ from observations.
 |---|---|
 | A float array | `NaN` |
 | A type that can carry absence | `None`, or an explicit availability field |
-| A component that could not be estimated — fewer units than requested components, no variance to decompose | `NaN`, never a padded `0.0` |
+| A component that could not be estimated: fewer units than requested components, no variance to decompose | `NaN`, never a padded `0.0` |
 
 ```python
 # An area with no units. The trajectory is not at the origin; there is no trajectory.
@@ -402,7 +402,7 @@ epochs, t = jnwb.epoch_continuous(data, onsets - start_s, win_s=(-0.2, 0.6), fs=
 
 `epoch_continuous` warns when most epochs fall entirely outside the data under
 `boundary_policy="nan"`, naming both spans, because that is what a unit mismatch looks
-like. A single stray event does not warn -- events near the edges of a recording are
+like. A single stray event does not warn. Events near the edges of a recording are
 ordinary, and their epochs are partly NaN by design. A non-finite onset raises
 `InvalidOnsetValueError`, as in `events` and `event_onsets`.
 

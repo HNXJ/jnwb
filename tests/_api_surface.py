@@ -86,6 +86,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "jrsa._stages": "module-internal",
     "laminar._labels": "module-internal",
     "laminar._vflip": "module-internal",
+    "laminar._vflip2": "module-internal",
     "laminar._xflip": "module-internal",
     "laminar._zflip": "module-internal",
     "spectral._common": "module-internal",

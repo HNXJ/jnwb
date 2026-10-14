@@ -600,6 +600,18 @@ def _probe_vflip():
     return jnwb.vflip(psd, freqs)
 
 
+def _probe_vflip2():
+    rng = np.random.default_rng(5)
+    freqs = np.arange(1.0, 151.0)
+    depth = np.arange(30.0)[:, None]
+    psd = (1.0 / freqs) * (1.0 + 3.0 * np.exp(-((depth - 8.0) ** 2) / 8.0)
+                           * np.exp(-((freqs - 80.0) ** 2) / 200.0)
+                           + 3.0 * np.exp(-((depth - 22.0) ** 2) / 8.0)
+                           * np.exp(-((freqs - 15.0) ** 2) / 20.0))
+    return jnwb.vflip2(psd * rng.lognormal(0.0, 0.05, size=psd.shape), freqs,
+                       contact_spacing=100.0)
+
+
 def _probe_xflip():
     rng = np.random.default_rng(3)
     a, b = rng.normal(size=300), rng.normal(size=300)
@@ -727,6 +739,7 @@ def _probe_rdm_similarity():
 _RETURN_CONTENT_PROBES = {
     "complex_tfr": _probe_complex_tfr,
     "vflip": _probe_vflip,
+    "vflip2": _probe_vflip2,
     "xflip": _probe_xflip,
     "aperiodic_fit": _probe_aperiodic_fit,
     "directed_connectivity": _probe_directed_connectivity,

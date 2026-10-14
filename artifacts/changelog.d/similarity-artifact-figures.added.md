@@ -1,1 +1,0 @@
-- docs/generate_figures.py: figures of RDMs with a windowed jRSA trace, and of bad channel and bad trial detection

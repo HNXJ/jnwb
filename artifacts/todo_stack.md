@@ -1,15 +1,15 @@
-# 0.2.12
+# 0.2.13
 
 Items are deleted when done, never ticked; git, `CHANGELOG.md` and the receipts hold history. This
-stack holds the current window only; the rest of 0.2.12 to 0.2.14 is one row per item in
-`artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.11
-closed on 2026-10-11 with every item done (`git log -- artifacts/todo_stack.md`).
+stack holds the current window only; the rest of 0.2.13 and later is one row per item in
+`artifacts/roadmap.md`, and an item moves here with its full text when its lane opens. 0.2.12
+closed on 2026-10-14 with every item done or ruled to 0.2.13 (`git log -- artifacts/todo_stack.md`,
+`artifacts/rulings/2026-10-14.md`).
 
-Theme, ruled 2026-10-12: consumers first (`artifacts/evidence/0.2.12/plan.md`). Acceptance:
-`artifacts/goal.md` and `AGENTS.md` §11.
+Theme and acceptance: `artifacts/goal.md` and `AGENTS.md` §11, until Hamm rules the 0.2.13 theme.
 
-Every item here carries `deferred-0.2.12`, the one deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.11 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+Every item here carries `deferred-0.2.13`, the one deferred value `scripts/release_gate.py` accepts
+while the declared version is 0.2.12 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -36,23 +36,14 @@ lines.
 Three lanes run at once; a wave opens when the lanes it depends on have merged. Full suites run
 one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
-Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 covers
-cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for 12-21, not for the contributed dashboard cards; pull request #31
-(`jnwb-laminar`) merged into `dev` on 2026-10-13.
-
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 3 | R release tooling | 12-03 | `scripts/release_gate.py`, `scripts/harness_gate.py`, `scripts/fact_gate.py`, `.github/workflows/` and their tests | none |
-| 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | R |
-| 5 | F figures and citations | 14-01 to 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
-| any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
-| any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
-| last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
+| 1 | L laminar | 15-11 | `jnwb/testing/synth.py`, `tests/test_vflip2*.py`, `scripts/vflip2_simulation.py`, `artifacts/evidence/0.2.13/` | a generator; Andre Bastos's simulation code for its second half |
 
-### 12-21 A jaxfne simulation as jnwb ground truth
+### 15-11 `vflip2` recovers a planted vFLIP2 crossover
 
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: jaxfne delivering the excerpt.
-Writes: `examples/data/jaxfne_*.nwb`, `examples/data/jaxfne_*.provenance.json`, `tests/test_jaxfne_ground_truth.py`.
-- No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8, 2026-10-12). Check: a small NWB excerpt with a provenance file, whose simulated directed coupling and delay are stated in it, is recovered by the jnwb connectivity call within a tolerance the provenance states, and a shuffled control is not. Waits: needs jaxfne's excerpt; nothing shipped changes.
-Accept: the check passes.
+Release: deferred-0.2.13.
+Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Writes: `jnwb/testing/synth.py`, `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.13/vflip2_simulation.md`.
+- No generator plants vFLIP2's own relative-power crossover, so no test shows `vflip2` recovering it: on `synth_laminar_motif` (amplitude-weight crossover) 20 of 100 accepted crossovers lie within one contact and 18 of 100 noise-only probes are accepted at omega_cut 6 (`artifacts/evidence/0.2.12/vflip2_simulation.md`). Check: on 100 seeded probes from a generator whose planted crossover is where the relative band-power profiles cross (32 contacts, 100 um), the accepted crossover lies within one contact in at least 90, and at most 5 of 100 noise-only probes are accepted; the same table then runs on Andre Bastos's simulation code. Waits: needs the generator and his code; 0.2.12 ships the characterization only.
+Accept: both rates hold and the evidence file names seeds and counts. Ruled 2026-10-14 (15-03 split and characterization).

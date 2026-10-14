@@ -11,8 +11,8 @@ condition codes and hypotheses belong in downstream project code, not here.
     >>> jnwb.paths.describe()
 """
 
-__version__ = '0.2.11'
-__release_date__ = '2026-10-11'
+__version__ = '0.2.12'
+__release_date__ = '2026-10-14'
 __author__ = 'Hamed Nejat'
 __status__ = 'Beta'
 
@@ -107,6 +107,9 @@ from .laminar import (
     vflip_from_lfp,
     label_layers,
     VFlipResult,
+    vflip2,
+    vflip2_from_lfp,
+    VFlip2Result,
     xflip,
     XFlipResult,
     zflip,
@@ -341,6 +344,9 @@ __all__ = [
     'vflip_from_lfp',
     'label_layers',
     'VFlipResult',
+    'vflip2',
+    'vflip2_from_lfp',
+    'VFlip2Result',
     'xflip',
     'XFlipResult',
     'zflip',

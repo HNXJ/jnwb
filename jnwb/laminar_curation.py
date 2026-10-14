@@ -7,7 +7,7 @@ Composable parts and one orchestrator:
   neighbors or whose power is an outlier along the shaft.
 - :func:`interpolate_channel_runs`: linear interpolation across short runs of bad contacts.
 - :func:`evoked_csd_sink`: the evoked current-source-density sink along the shaft.
-- :func:`fuse_laminar_anchors`: one anchor and a grade from the vFLIP, spectral-motif,
+- :func:`fuse_laminar_anchors`: one anchor and a grade from the vFLIP2, vFLIP, spectral-motif,
   xFLIP and CSD estimates and from their stability across trial windows.
 - :func:`curate_and_label`: the parts in order, returning a :class:`LaminarCurationResult`
   with a label for every contact: ``"superficial"``, ``"input"``, ``"deep"``, ``"WM"``
@@ -352,6 +352,7 @@ def evoked_csd_sink(
 def fuse_laminar_anchors(
     *,
     vflip_um: Optional[float] = None,
+    vflip2_um: Optional[float] = None,
     motif_um: Optional[float] = None,
     xflip_um: Optional[float] = None,
     csd_um: Optional[float] = None,
@@ -365,9 +366,10 @@ def fuse_laminar_anchors(
 ) -> Dict[str, Any]:
     """Choose the laminar anchor and grade it; report how the other estimates sit against it.
 
-    The anchor is the vFLIP crossover when there is one, otherwise the spectral-motif
-    crossing. The xFLIP boundary and the CSD sink are reported as distances to the anchor
-    and never enter it. The grade rests on stability across trial windows and spectral
+    The anchor is the vFLIP2 crossover when there is one, else the vFLIP crossover, else the
+    spectral-motif crossing. The vFLIP2 and vFLIP crossovers, the xFLIP boundary and the CSD
+    sink are each reported as a distance to the anchor; the xFLIP boundary and the CSD sink
+    never enter it. The grade rests on stability across trial windows and spectral
     consistency:
 
     - *stable*: at least ``min_ok_windows`` windows have an estimate and their SD is at most
@@ -375,18 +377,22 @@ def fuse_laminar_anchors(
     - *consistency*: the fraction of deep contacts with alpha-beta above gamma and of
       superficial contacts with gamma above alpha-beta; the lower of the two is compared
       with ``consistency_a`` and ``consistency_b``.
-    - with a vFLIP anchor, ``"A"`` is stable with consistency at least ``consistency_a``
+    - with a vFLIP or vFLIP2 anchor, ``"A"`` is stable with consistency at least ``consistency_a``
       and at least ``min_ok_windows`` windows; ``"B"`` is stable with consistency at least
       ``consistency_b``; ``"C"`` otherwise;
     - with only a motif anchor, ``"D"`` is stable with consistency at least
       ``consistency_a``, otherwise ``"F"``; with no anchor, ``"F"``.
 
     A and B carry a laminar claim. C and D are sensitivity checks: C because the anchor is
-    unstable or inconsistent, D because vFLIP rejected its fit and the motif crossing alone
-    places the anchor. F carries none.
+    unstable or inconsistent, D because neither vFLIP nor vFLIP2 gave an anchor and the motif
+    crossing alone places it. F carries none.
 
     Args:
         vflip_um: vFLIP crossover position, um, NaN or None if rejected.
+        vflip2_um: vFLIP2 crossover position, um from probe row 0:
+            ``result.crossover_channel * contact_spacing`` of an accepted
+            :class:`~jnwb.laminar.VFlip2Result` (its rows are 0-based); NaN or None otherwise.
+            The caller checks ``result.accepted``; a float cannot carry it.
         motif_um: Spectral-motif crossing position, um, NaN or None.
         xflip_um: xFLIP boundary nearest the anchor, um, reported only.
         csd_um: CSD sink position, um, reported only.
@@ -399,10 +405,11 @@ def fuse_laminar_anchors(
         consistency_b: Consistency needed for grade B.
 
     Returns:
-        Dict with ``anchor_um``, ``anchor_source`` (``"vflip"``, ``"motif"`` or ``None``),
-        ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency`` and
-        ``distance_um`` (a dict with ``xflip`` and ``csd``, NaN where an estimate or the
-        anchor is missing).
+        Dict with ``anchor_um``, ``anchor_source`` (``"vflip2"``, ``"vflip"``, ``"motif"`` or
+        ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``
+        and ``distance_um`` (a dict with ``vflip``, ``vflip2``, ``xflip`` and ``csd``, NaN where
+        an estimate or the anchor is missing; 0.0 for a vFLIP or vFLIP2 estimate that is the
+        anchor).
     """
     def fin(x: Optional[float]) -> bool:
         return x is not None and bool(np.isfinite(x))
@@ -413,8 +420,9 @@ def fuse_laminar_anchors(
     stable = n_ok >= min_ok_windows and np.isfinite(sd) and sd <= stable_sd_um
     parts = [c for c in (consistency_deep, consistency_superficial) if np.isfinite(c)]
     cmin = float(min(parts)) if parts else float("nan")
-    if fin(vflip_um):
-        anchor, source = float(vflip_um), "vflip"
+    if fin(vflip2_um) or fin(vflip_um):
+        anchor, source = ((float(vflip2_um), "vflip2") if fin(vflip2_um)
+                          else (float(vflip_um), "vflip"))
         grade = "A" if stable and cmin >= consistency_a else "B" if stable and cmin >= consistency_b else "C"
     elif fin(motif_um):
         anchor, source = float(motif_um), "motif"
@@ -422,7 +430,8 @@ def fuse_laminar_anchors(
     else:
         anchor, source, grade = float("nan"), None, "F"
     dist = {k: (abs(float(v) - anchor) if fin(v) and np.isfinite(anchor) else float("nan"))
-            for k, v in (("xflip", xflip_um), ("csd", csd_um))}
+            for k, v in (("vflip", vflip_um), ("vflip2", vflip2_um), ("xflip", xflip_um),
+                         ("csd", csd_um))}
     return {"anchor_um": anchor, "anchor_source": source, "grade": grade, "stable": bool(stable),
             "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin, "distance_um": dist}
 
@@ -492,7 +501,7 @@ class LaminarCurationResult(DictAccessMixin):
         grade: ``"A"``..``"D"`` or ``"F"`` from :func:`fuse_laminar_anchors`; every label is
             ``"na"`` for ``"F"``.
         anchor_um: Anchor position from the first contact, um; NaN for grade F.
-        anchor_source: ``"vflip"``, ``"motif"`` or None.
+        anchor_source: ``"vflip"``, ``"motif"`` or None; ``curate_and_label`` passes no vFLIP2 crossover.
         superficial_at_high_index: True when the superficial side is at the higher contact
             index; None when no anchor.
         pitch_um: Contact pitch used, um.

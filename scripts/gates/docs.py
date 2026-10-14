@@ -150,6 +150,9 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
         worse than the leak it prevents.
       * files listed in ``DATASET_SCAN_EXEMPT`` -- see that constant for the per-file reason.
 
+    ``code_only_patterns`` apply to ``jnwb/`` alone: an external project's name that docs may
+    cite and code may not.
+
     The scan is textual and pattern-bound: it proves the listed tokens are absent, not that a
     surface is free of study-specific content in general.
 
@@ -181,7 +184,12 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
         (re.compile(r"\bLFP\s+drives\s+SPK\b"), "forbidden causal assertion 'LFP drives SPK'"),
         (re.compile(r"\bSPK\s+drives\s+LFP\b"), "forbidden causal assertion 'SPK drives LFP'"),
     ]
-    
+    # Names jnwb/ code, docstrings included, may not carry; docs may cite them.
+    code_only_patterns = [
+        (re.compile(r"Paper2Agent", re.IGNORECASE),
+         "external project name 'Paper2Agent' (docs may cite it; code may not)"),
+    ]
+
     target_files: List[Path] = []
     
     # 1. jnwb/ Python files
@@ -233,7 +241,8 @@ def check_dataset_leakage(repo_root: Optional[Path] = None) -> List[str]:
     for target in target_files:
         text = target.read_text(encoding="utf-8", errors="replace")
         rel_path = target.relative_to(root).as_posix()
-        for pat, desc in forbidden_patterns:
+        patterns = forbidden_patterns + (code_only_patterns if rel_path.startswith("jnwb/") else [])
+        for pat, desc in patterns:
             if pat.search(text):
                 violations.append(f"DATASET_LEAKAGE: Found {desc} in {rel_path}")
                 

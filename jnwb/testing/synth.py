@@ -417,7 +417,6 @@ def synth_laminar_motif(
             )
 
     gen = resolve_rng(rng, func_name="synth_laminar_motif")
-    t = np.arange(n_samples, dtype=float) / float(fs)
 
     # 1. Background 1/f-like noise across all contacts
     lfp = synth_ar_noise(n_samples, n_channels=n_channels, tau_s=0.03, fs=fs, sigma_innov=1.0, rng=gen)

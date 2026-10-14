@@ -244,13 +244,87 @@ class TestFuseLaminarAnchors:
         a = jnwb.fuse_laminar_anchors(**base)
         b = jnwb.fuse_laminar_anchors(**base, xflip_um=1000.0, csd_um=100.0)
         assert a["anchor_um"] == b["anchor_um"] == 600.0 and a["grade"] == b["grade"]
-        assert b["distance_um"] == {"xflip": 400.0, "csd": 500.0}
+        assert b["distance_um"]["xflip"] == 400.0 and b["distance_um"]["csd"] == 500.0
+        assert b["distance_um"]["vflip"] == 0.0 and np.isnan(b["distance_um"]["vflip2"])
         assert np.isnan(a["distance_um"]["xflip"])
 
     def test_motif_anchor_is_the_fallback_and_too_few_windows_is_unstable(self):
         out = jnwb.fuse_laminar_anchors(motif_um=500.0, window_um=np.array([500.0, np.nan, np.nan, 500.0]),
                                         consistency_deep=1.0, consistency_superficial=1.0)
         assert out["anchor_source"] == "motif" and out["n_windows_ok"] == 2 and not out["stable"]
+
+    @pytest.mark.parametrize("kwargs", [
+        dict(window_um=WIN, consistency_deep=0.9, consistency_superficial=0.8),
+        dict(window_um=WIN, consistency_deep=0.9, consistency_superficial=0.65),
+        dict(window_um=WIN, consistency_deep=0.9, consistency_superficial=0.3),
+        dict(window_um=np.array([300.0, 900.0, 600.0, 100.0]),
+             consistency_deep=0.9, consistency_superficial=0.9),
+    ], ids=["A", "B", "C", "C-unstable"])
+    def test_vflip2_alone_anchors_where_vflip_would_with_the_same_grade(self, kwargs):
+        by_vflip = jnwb.fuse_laminar_anchors(vflip_um=600.0, **kwargs)
+        by_vflip2 = jnwb.fuse_laminar_anchors(vflip2_um=600.0, **kwargs)
+        assert by_vflip["anchor_source"] == "vflip" and by_vflip2["anchor_source"] == "vflip2"
+        for key in ("anchor_um", "grade", "stable", "window_sd_um", "n_windows_ok", "consistency"):
+            np.testing.assert_equal(by_vflip2[key], by_vflip[key], err_msg=key)
+
+    def test_a_vflip2_crossover_at_row_0_anchors_at_zero(self):
+        """0.0 um is a valid anchor (crossover_channel 0), not a missing one."""
+        out = jnwb.fuse_laminar_anchors(vflip_um=600.0, vflip2_um=0.0, window_um=self.WIN,
+                                        consistency_deep=0.9, consistency_superficial=0.8)
+        assert out["anchor_source"] == "vflip2" and out["anchor_um"] == 0.0
+        assert out["distance_um"]["vflip"] == 600.0
+
+    def test_both_given_vflip2_anchors_and_the_vflip_gap_is_reported(self):
+        out = jnwb.fuse_laminar_anchors(vflip_um=610.0, vflip2_um=600.0, window_um=self.WIN,
+                                        consistency_deep=0.9, consistency_superficial=0.8)
+        assert out["anchor_source"] == "vflip2" and out["anchor_um"] == 600.0
+        assert out["grade"] == "A"
+        assert out["distance_um"]["vflip"] == 10.0 and out["distance_um"]["vflip2"] == 0.0
+
+    @pytest.mark.parametrize("kwargs, source, anchor", [
+        (dict(vflip_um=600.0, vflip2_um=np.nan), "vflip", 600.0),
+        (dict(vflip_um=600.0, vflip2_um=None), "vflip", 600.0),
+        (dict(vflip_um=np.nan, vflip2_um=np.nan, motif_um=500.0), "motif", 500.0),
+        (dict(vflip_um=600.0, vflip2_um=np.inf), "vflip", 600.0),
+    ], ids=["nan-falls-back-to-vflip", "none-falls-back-to-vflip", "vflip-missing-motif",
+            "inf-falls-back-to-vflip"])
+    def test_a_missing_vflip2_falls_back_along_the_chain(self, kwargs, source, anchor):
+        out = jnwb.fuse_laminar_anchors(window_um=self.WIN, consistency_deep=0.9,
+                                        consistency_superficial=0.9, **kwargs)
+        assert out["anchor_source"] == source and out["anchor_um"] == anchor
+        assert np.isnan(out["distance_um"]["vflip2"])
+
+    @pytest.mark.parametrize("kwargs, expected", [
+        (dict(vflip_um=600.0, window_um=WIN, consistency_deep=0.9, consistency_superficial=0.8),
+         dict(anchor_um=600.0, anchor_source="vflip", grade="A", stable=True,
+              window_sd_um=7.39509972887452, n_windows_ok=4, consistency=0.8,
+              xflip=np.nan, csd=np.nan)),
+        (dict(vflip_um=600.0, window_um=WIN, consistency_deep=0.9, consistency_superficial=0.65,
+              xflip_um=1000.0, csd_um=100.0),
+         dict(anchor_um=600.0, anchor_source="vflip", grade="B", stable=True,
+              window_sd_um=7.39509972887452, n_windows_ok=4, consistency=0.65,
+              xflip=400.0, csd=500.0)),
+        (dict(vflip_um=600.0, window_um=np.array([300.0, 900.0, 600.0, 100.0]),
+              consistency_deep=0.9, consistency_superficial=0.9),
+         dict(anchor_um=600.0, anchor_source="vflip", grade="C", stable=False,
+              window_sd_um=303.10889132455355, n_windows_ok=4, consistency=0.9,
+              xflip=np.nan, csd=np.nan)),
+        (dict(motif_um=500.0, window_um=np.array([500.0, np.nan, np.nan, 500.0]),
+              consistency_deep=1.0, consistency_superficial=1.0),
+         dict(anchor_um=500.0, anchor_source="motif", grade="F", stable=False, window_sd_um=0.0,
+              n_windows_ok=2, consistency=1.0, xflip=np.nan, csd=np.nan)),
+        (dict(), dict(anchor_um=np.nan, anchor_source=None, grade="F", stable=False,
+                      window_sd_um=np.nan, n_windows_ok=0, consistency=np.nan,
+                      xflip=np.nan, csd=np.nan)),
+    ], ids=["vflip-A", "vflip-B-xflip-csd", "vflip-C-unstable", "motif-F", "no-anchor"])
+    def test_vflip2_none_leaves_every_output_equal_to_the_baseline(self, kwargs, expected):
+        # Values pinned from the implementation at a570785d, which had no vflip2_um.
+        for call in (kwargs, {**kwargs, "vflip2_um": None}):
+            out = jnwb.fuse_laminar_anchors(**call)
+            got = {k: out[k] for k in ("anchor_um", "anchor_source", "grade", "stable",
+                                       "window_sd_um", "n_windows_ok", "consistency")}
+            got["xflip"], got["csd"] = out["distance_um"]["xflip"], out["distance_um"]["csd"]
+            np.testing.assert_equal(got, expected)
 
 
 class TestCurateAndLabel:

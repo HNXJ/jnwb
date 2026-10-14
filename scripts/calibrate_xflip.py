@@ -420,7 +420,6 @@ def render(raw: dict) -> str:
             f"{r['median_modularity']:.4f} |")
 
     nulls = raw["nulls"]
-    floor = 1.0 / (raw["n_surrogates"] + 1)
     grad = nulls["smooth_spatial_gradient"]
     ar = nulls["ar_noise"]
     lines += [
@@ -433,13 +432,13 @@ def render(raw: dict) -> str:
         f"{raw['alpha']}, so it is reported, not diagnosed. Correlated noise is where this "
         "estimator is hardest to calibrate, and it is the one family whose rate the "
         "surrogate test alone controls.",
-        f"- `smooth_spatial_gradient` has median, min and max omnibus p all at "
-        f"{grad['median_p']:.4f}, the 1/(surrogates+1) floor. Every gradient is maximally "
-        f"significant under the permutation test, which rejects {grad['n_rejected_by_surrogates']} "
-        f"of {n}; the local boundary-drop gate rejects {grad['n_rejected_by_boundary_drop']} of "
-        f"{n}, and the {grad['false_positive_rate']:.3f} acceptance rate is the gradients it "
-        "lets through. When that gate was skipped on the unrestricted path, gradients were "
-        "accepted 15/15.",
+        f"- `smooth_spatial_gradient` has median omnibus p {grad['median_p']:.4f} (min "
+        f"{grad['min_p']:.4f}, max {grad['max_p']:.4f}). The surrogates keep the probe's "
+        "lag-averaged correlation, so a smooth decay with distance is not significant: the "
+        f"surrogate test rejects {grad['n_rejected_by_surrogates']} of {n}, and the local "
+        f"boundary-drop gate independently rejects {grad['n_rejected_by_boundary_drop']} of {n}. "
+        "Under independent-channel surrogates every gradient sat at the 1/(surrogates+1) floor "
+        "and only the drop gate rejected them.",
     ]
 
     titles = {

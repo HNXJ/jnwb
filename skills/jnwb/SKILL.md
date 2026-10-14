@@ -83,7 +83,7 @@ assert not missing, missing
 ```
 
 ## 7. Documentation
-- [`docs/api.md`](../../docs/api.md) — every public symbol.
-- [`docs/common_mistakes.md`](../../docs/common_mistakes.md) — the failure modes jnwb guards against.
-- [`docs/errors.md`](../../docs/errors.md) — every refusal and what to pass instead.
-- [`docs/tutorials/00_your_own_file.md`](../../docs/tutorials/00_your_own_file.md) — discovering a file's layout instead of assuming one.
+- [`docs/api.md`](../../docs/api.md): every public symbol.
+- [`docs/common_mistakes.md`](../../docs/common_mistakes.md): the failure modes jnwb guards against.
+- [`docs/errors.md`](../../docs/errors.md): every refusal and what to pass instead.
+- [`docs/tutorials/00_your_own_file.md`](../../docs/tutorials/00_your_own_file.md): discovering a file's layout instead of assuming one.

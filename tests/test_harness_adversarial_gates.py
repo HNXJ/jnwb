@@ -214,6 +214,17 @@ def summarize_log_normal_effects(unit_db_modulations):
         v5 = check_dataset_leakage(tmp_path)
         assert len(v5) == 1 and "LFP drives SPK" in v5[0]
 
+    def test_gate_6_refuses_an_external_project_name_in_jnwb_code_only(self, tmp_path: Path):
+        """jnwb/vis/sidecar.py once credited Paper2Agent in its docstring; docs may still cite it."""
+        from scripts.harness_gate import check_dataset_leakage
+        (tmp_path / "jnwb").mkdir()
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "form.md").write_text("No figure is adapted from Paper2Agent.\n", encoding="utf-8")
+        assert check_dataset_leakage(tmp_path) == []
+        (tmp_path / "jnwb" / "sidecar.py").write_text('"""Enforces Paper2Agent reproducibility."""\n', encoding="utf-8")
+        violations = check_dataset_leakage(tmp_path)
+        assert len(violations) == 1 and "Paper2Agent" in violations[0] and "jnwb/sidecar.py" in violations[0]
+
     def test_gate_6_ignores_study_prose_outside_forbidden_token_list(self, tmp_path: Path):
         """Gate 6 checks a fixed token list — not all study-specific comments."""
         from scripts.harness_gate import check_dataset_leakage

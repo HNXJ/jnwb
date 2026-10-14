@@ -7,8 +7,8 @@
 - `jnwb.unit_spike_times(path_or_nwb, unit_index=0)` → spike times in seconds for one units row.
 - `jnwb.acquisition_channel(path_or_nwb, name=None, channel=0)` → `(data, rate_hz)` for one
   continuous channel (direct `ElectricalSeries` or `LFP` wrapper in acquisitions or processing modules,
-  or a series wrapped in `FilteredEphys` or a behavior container -- `EyeTracking`, `PupilTracking`,
-  `BehavioralTimeSeries`, `Position`, `CompassDirection` -- in acquisitions; calibrated by
+  or a series wrapped in `FilteredEphys` or a behavior container: `EyeTracking`, `PupilTracking`,
+  `BehavioralTimeSeries`, `Position`, `CompassDirection`: in acquisitions; calibrated by
   `conversion`, the channel's `channel_conversion` factor and `offset`).
 - `jnwb.resolve_acquisition(path_or_nwb, name=None)`: Resolves an acquisition or processing series by name; raises `AcquisitionNotFoundError` when the name is absent and `AmbiguousAcquisitionError` rather than picking one when it is ambiguous.
 - `jnwb.read_nwb(path, allow_missing=None)`: Reads an NWB file through jnwb's repairs and closes

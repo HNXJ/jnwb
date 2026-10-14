@@ -1,229 +1,229 @@
 {
   "python": "3.14.3",
   "platform": "Windows-11-10.0.26300-SP0",
-  "version": "0.2.11",
-  "symbols": 197,
+  "version": "0.2.12",
+  "symbols": 202,
   "torch_loaded": false,
   "cold": {
-    "ms": 8708.568300004117,
-    "modules": 1380,
-    "version": "0.2.11",
-    "symbols": 197,
+    "ms": 22436.229300001287,
+    "modules": 1381,
+    "version": "0.2.12",
+    "symbols": 202,
     "torch_loaded": false,
-    "peak_mb": 102.1961259841919
+    "peak_mb": 102.30134010314941
   },
-  "warm_median_ms": 2378.2697999995435,
-  "warm_mean_ms": 2388.298260004376,
-  "warm_stdev_ms": 229.89401344961252,
-  "warm_min_ms": 2094.8361000046134,
-  "warm_max_ms": 2751.3681999989785,
-  "warm_peak_mb": 88.73247909545898,
-  "modules": 1380,
+  "warm_median_ms": 2139.778100001422,
+  "warm_mean_ms": 2151.271600000473,
+  "warm_stdev_ms": 65.68441291040624,
+  "warm_min_ms": 2073.908400001528,
+  "warm_max_ms": 2280.0901000009617,
+  "warm_peak_mb": 88.95087718963623,
+  "modules": 1381,
   "runs": 10,
   "breakdown": {
-    "jnwb_total_ms": 2657.521,
+    "jnwb_total_ms": 2246.045,
     "top_jnwb_modules": [
       {
         "name": "jnwb",
-        "self_ms": 1.704,
-        "cum_ms": 2657.521
+        "self_ms": 1.527,
+        "cum_ms": 2246.045
       },
       {
         "name": "jnwb.rsa",
-        "self_ms": 12.611,
-        "cum_ms": 1139.035
+        "self_ms": 2.574,
+        "cum_ms": 1007.563
       },
       {
         "name": "jnwb.jrsa",
-        "self_ms": 1.317,
-        "cum_ms": 776.045
+        "self_ms": 1.068,
+        "cum_ms": 681.036
       },
       {
         "name": "jnwb.permutation",
-        "self_ms": 0.911,
-        "cum_ms": 600.969
+        "self_ms": 1.053,
+        "cum_ms": 523.807
       },
       {
         "name": "jnwb.nwb_io",
-        "self_ms": 0.962,
-        "cum_ms": 371.404
+        "self_ms": 0.881,
+        "cum_ms": 270.772
       },
       {
         "name": "jnwb.laminar",
-        "self_ms": 2.875,
-        "cum_ms": 164.838
+        "self_ms": 1.861,
+        "cum_ms": 135.083
       },
       {
         "name": "jnwb.compression",
-        "self_ms": 1.052,
-        "cum_ms": 93.771
+        "self_ms": 1.059,
+        "cum_ms": 77.76
       },
       {
         "name": "jnwb._rng",
-        "self_ms": 0.756,
-        "cum_ms": 21.816
+        "self_ms": 0.783,
+        "cum_ms": 22.486
       },
       {
         "name": "jnwb.connectivity",
-        "self_ms": 1.15,
-        "cum_ms": 13.76
-      },
-      {
-        "name": "jnwb.nwb_integrity",
-        "self_ms": 6.747,
-        "cum_ms": 10.943
-      },
-      {
-        "name": "jnwb.laminar_curation",
-        "self_ms": 9.621,
-        "cum_ms": 9.621
+        "self_ms": 1.063,
+        "cum_ms": 8.555
       },
       {
         "name": "jnwb.spectral",
-        "self_ms": 1.296,
-        "cum_ms": 6.832
+        "self_ms": 1.348,
+        "cum_ms": 7.33
       },
       {
-        "name": "jnwb.nwb_validate",
-        "self_ms": 5.297,
-        "cum_ms": 5.297
+        "name": "jnwb.nwb_integrity",
+        "self_ms": 4.304,
+        "cum_ms": 6.188
       },
       {
-        "name": "jnwb.tfr_accumulator",
-        "self_ms": 4.1,
-        "cum_ms": 4.908
-      },
-      {
-        "name": "jnwb.addressing",
-        "self_ms": 4.197,
-        "cum_ms": 4.197
-      },
-      {
-        "name": "jnwb.connectivity._information",
-        "self_ms": 3.813,
-        "cum_ms": 3.813
-      },
-      {
-        "name": "jnwb.nwb_events",
-        "self_ms": 3.377,
-        "cum_ms": 3.377
-      },
-      {
-        "name": "jnwb.laminar._vflip",
-        "self_ms": 2.928,
-        "cum_ms": 2.928
+        "name": "jnwb.laminar_curation",
+        "self_ms": 2.685,
+        "cum_ms": 2.685
       },
       {
         "name": "jnwb.trajectory",
-        "self_ms": 1.051,
-        "cum_ms": 2.569
+        "self_ms": 0.877,
+        "cum_ms": 2.462
       },
       {
-        "name": "jnwb.connectivity._trials",
-        "self_ms": 2.247,
-        "cum_ms": 2.247
+        "name": "jnwb.laminar._vflip",
+        "self_ms": 2.425,
+        "cum_ms": 2.425
+      },
+      {
+        "name": "jnwb.laminar._xflip",
+        "self_ms": 2.087,
+        "cum_ms": 2.087
+      },
+      {
+        "name": "jnwb.nwb_validate",
+        "self_ms": 2.047,
+        "cum_ms": 2.047
+      },
+      {
+        "name": "jnwb.laminar._zflip",
+        "self_ms": 2.011,
+        "cum_ms": 2.011
+      },
+      {
+        "name": "jnwb.laminar._vflip2",
+        "self_ms": 2.004,
+        "cum_ms": 2.004
+      },
+      {
+        "name": "jnwb.jrsa._result",
+        "self_ms": 1.911,
+        "cum_ms": 1.911
+      },
+      {
+        "name": "jnwb.addressing",
+        "self_ms": 1.885,
+        "cum_ms": 1.885
       }
     ],
     "top_third_party": [
       {
         "name": "pandas",
-        "self_ms": 2.056,
-        "cum_ms": 598.89
-      },
-      {
-        "name": "scipy.spatial.distance",
-        "self_ms": 0.047,
-        "cum_ms": 469.658
-      },
-      {
-        "name": "scipy.spatial",
-        "self_ms": 1.359,
-        "cum_ms": 469.611
+        "self_ms": 1.703,
+        "cum_ms": 521.456
       },
       {
         "name": "scipy.stats._stats_py",
-        "self_ms": 59.601,
-        "cum_ms": 465.559
+        "self_ms": 51.955,
+        "cum_ms": 442.602
+      },
+      {
+        "name": "scipy.spatial.distance",
+        "self_ms": 0.036,
+        "cum_ms": 389.833
+      },
+      {
+        "name": "scipy.spatial",
+        "self_ms": 1.033,
+        "cum_ms": 389.798
       },
       {
         "name": "scipy.spatial._kdtree",
-        "self_ms": 2.483,
-        "cum_ms": 418.148
+        "self_ms": 1.709,
+        "cum_ms": 345.886
       },
       {
         "name": "pynwb",
-        "self_ms": 14.697,
-        "cum_ms": 370.442
+        "self_ms": 13.184,
+        "cum_ms": 269.892
       },
       {
         "name": "pandas.core.api",
-        "self_ms": 1.002,
-        "cum_ms": 300.828
+        "self_ms": 1.11,
+        "cum_ms": 237.879
       },
       {
         "name": "scipy.spatial._ckdtree",
-        "self_ms": 1.444,
-        "cum_ms": 283.408
+        "self_ms": 1.368,
+        "cum_ms": 220.99
       },
       {
         "name": "scipy.sparse",
-        "self_ms": 1.741,
-        "cum_ms": 281.965
-      },
-      {
-        "name": "scipy.sparse._csr",
-        "self_ms": 1.996,
-        "cum_ms": 231.905
-      },
-      {
-        "name": "scipy.sparse._compressed",
-        "self_ms": 2.737,
-        "cum_ms": 228.126
-      },
-      {
-        "name": "scipy._lib._util",
-        "self_ms": 2.223,
-        "cum_ms": 223.234
-      },
-      {
-        "name": "scipy._lib._array_api",
-        "self_ms": 2.464,
-        "cum_ms": 221.011
+        "self_ms": 1.537,
+        "cum_ms": 219.622
       },
       {
         "name": "scipy.stats.distributions",
-        "self_ms": 1.065,
-        "cum_ms": 193.169
+        "self_ms": 1.04,
+        "cum_ms": 204.421
+      },
+      {
+        "name": "scipy.sparse._csr",
+        "self_ms": 1.033,
+        "cum_ms": 191.018
+      },
+      {
+        "name": "scipy.sparse._compressed",
+        "self_ms": 1.425,
+        "cum_ms": 189.032
+      },
+      {
+        "name": "scipy._lib._util",
+        "self_ms": 1.575,
+        "cum_ms": 185.643
+      },
+      {
+        "name": "scipy._lib._array_api",
+        "self_ms": 1.958,
+        "cum_ms": 184.068
       },
       {
         "name": "scipy.optimize",
-        "self_ms": 1.646,
-        "cum_ms": 185.823
+        "self_ms": 1.292,
+        "cum_ms": 158.332
       },
       {
         "name": "scipy._external.array_api_compat.numpy",
-        "self_ms": 2.311,
-        "cum_ms": 182.683
-      },
-      {
-        "name": "pandas.core.groupby",
-        "self_ms": 0.864,
-        "cum_ms": 157.888
-      },
-      {
-        "name": "pandas.core.groupby.generic",
-        "self_ms": 2.745,
-        "cum_ms": 157.024
+        "self_ms": 2.167,
+        "cum_ms": 156.366
       },
       {
         "name": "numpy",
-        "self_ms": 4.342,
-        "cum_ms": 142.518
+        "self_ms": 2.337,
+        "cum_ms": 125.179
       },
       {
-        "name": "pandas.core.frame",
-        "self_ms": 7.222,
-        "cum_ms": 135.54
+        "name": "scipy.spatial.distance",
+        "self_ms": 3.624,
+        "cum_ms": 123.188
+      },
+      {
+        "name": "scipy.stats._continuous_distns",
+        "self_ms": 55.439,
+        "cum_ms": 119.329
+      },
+      {
+        "name": "pandas.core.groupby",
+        "self_ms": 0.707,
+        "cum_ms": 118.275
       }
     ],
     "heavy_third_party_roots": [

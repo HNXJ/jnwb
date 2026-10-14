@@ -49,7 +49,8 @@ class VFlipResult(DictAccessMixin):
             along the shaft. It keeps the table's origin and direction, so on a shaft whose
             z falls with depth it falls as ``crossover_depth_um`` rises. None if rejected,
             if no `probe_geometry` was given, or if z does not vary along the shaft.
-        support_score: Support metric Omega evaluating contrast magnitude, peak separation,
+        support_score: jnwb's support score, with no published source and distinct from
+            vFLIP2's omega, evaluating contrast magnitude, peak separation,
             and transition sharpness, as the natural logarithm of their density-normalized
             product. Returned for both accepted and rejected fits; ``-inf`` when that
             product is zero or too few channels are valid, so no finite
@@ -273,7 +274,9 @@ def vflip(
     the highest power, uses 10-19 Hz and 75-150 Hz, and fits linear regressions over the
     channel range that maximizes a goodness of fit; vFLIP also searches over band pairs.
     `vflip` normalizes by the range across contacts, uses fixed default bands and scores the
-    fit by its support score Omega, so its crossover is not a FLIP or vFLIP crossover.
+    fit by its own support score, so its crossover is not a FLIP or vFLIP crossover. The
+    score is jnwb's, with no published source; it is not vFLIP2's omega (Major et al.
+    2025), and vFLIP2's thresholds do not apply to it.
 
     Mathematical Estimator:
         1. Expresses power as relative power per frequency across contacts along the
@@ -294,11 +297,11 @@ def vflip(
         4. Identifies continuous sub-contact zero-crossing root :math:`c^*`:
            :math:`c^* = i + \\frac{-\\Delta(i)}{\\Delta(i+1) - \\Delta(i)}`
            located between the high-frequency peak :math:`c_{\\text{high}}` and low-frequency peak :math:`c_{\\text{low}}`.
-        5. Evaluates the support score :math:`\\Omega` density-normalized to a canonical 24-contact reference
+        5. Evaluates the support score :math:`S` density-normalized to a canonical 24-contact reference
            baseline (:math:`(N/24)^{1.5}`) based on contrast magnitude, fractional spatial peak separation,
            and RMS difference profile across contacts, with each frequency-dependent term
            normalized for the number of contributing bins so the score's null does not
-           move with recording length or `nperseg`. If :math:`\\Omega < \\Omega_{\\text{thresh}}` or no valid
+           move with recording length or `nperseg`. If :math:`S` is below `min_support_score` or no valid
            crossover exists, the fit is rejected (`accepted=False`, `crossover_contact=None`).
 
     Args:
@@ -321,7 +324,7 @@ def vflip(
               Raises ValueError with a depth declaration, which puts the shallow contact
               first; with ``"auto"``, a declared fit that resolves this way is rejected
               (see `shallow_end`).
-        min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
+        min_support_score: Minimum support score required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
         min_channels: Minimum number of valid channels required along the shaft (default: 8).
@@ -659,7 +662,7 @@ def vflip(
                 if np.ptp(sorted_z) > 1e-6:
                     crossover_z = float(np.interp(crossover_c, np.arange(n_channels), sorted_z))
 
-    # 8. Support Score (Omega) Formulation
+    # 8. Support score (jnwb's own; not vFLIP2's omega)
     # Density-normalized so the score does not scale with the number of channels.
     # Uses canonical 24-contact reference baseline (N_ref = 24):
     # - band_dist is normalized by sqrt(n_channels / 24) (RMS profile scaling)
@@ -812,7 +815,7 @@ def vflip_from_lfp(
             - ``"superficial_to_deep"``: Requires contact 0 to be superficial (gamma peaks before alpha/beta).
             - ``"deep_to_superficial"``: Requires contact 0 to be deep (alpha/beta peaks before gamma).
               Raises ValueError with a depth declaration, before the PSD is computed.
-        min_support_score: Minimum support score Omega required to accept the fit (default: 3.75).
+        min_support_score: Minimum support score required to accept the fit (default: 3.75).
             Must be a finite float; no sentinels (e.g. -inf) may bypass acceptance logic.
         bad_channel_mask: Optional boolean mask of shape `(n_channels,)` flagging invalid/detached contacts.
             A channel with any NaN or Inf sample is also treated as bad: it is excluded,

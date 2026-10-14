@@ -38,7 +38,7 @@ beta_power_val = jnwb.band_power(
 )
 ```
 
-`band_power` returns `mean(PSD[mask])` -- a spectral **density**, in input-units^2/Hz. It is
+`band_power` returns `mean(PSD[mask])`, a spectral **density**, in input-units^2/Hz. It is
 independent of the bandwidth, so bands of different widths are comparable to each other as
 densities but are *not* band powers: on white noise a 2 Hz band and a 30 Hz band return
 nearly the same number. If you want power in the band, integrate the PSD yourself:
@@ -60,12 +60,12 @@ Synthetic. `jnwb.compute_psd` (Welch) and `jnwb.compute_multitaper_psd` (DPSS) e
 ### Decibel Formation (`aggregate_to_db`, `to_db`, `DB_AGGREGATIONS`)
 
 Take the logarithm **last**. Form the per-unit ratio `P / P0`, aggregate the *ratios*, and
-convert once. Averaging decibels is a Jensen error -- `mean(log x) != log(mean x)` -- and it
+convert once. Averaging decibels is a Jensen error, `mean(log x) != log(mean x)`, and it
 biases every unit by its own noisiness, so a noisier channel is pulled toward a different
 answer than a quiet one measuring the same effect.
 
 `to_db(ratio)` is the bare conversion and cannot enforce anything: by the time a caller holds
-decibels, the mistake is already available. `aggregate_to_db` is the enforcing form -- it owns
+decibels, the mistake is already available. `aggregate_to_db` is the enforcing form: it owns
 the whole ratio-aggregate-log sequence, so the correct order is the only order reachable
 through it.
 
@@ -91,14 +91,14 @@ They coincide only when the baseline is constant across the aggregated axis. In 
 default would pick one of these for you.
 
 **Geometric mean is deliberately rejected** rather than offered as a third option, because
-`10*log10(geomean(r))` is *identically* `mean(10*log10(r))` -- it is mean-of-decibels wearing a
+`10*log10(geomean(r))` is *identically* `mean(10*log10(r))`: it is mean-of-decibels wearing a
 respectable name. Passing `how="geomean"` raises and says so.
 
 **Negative input raises.** Ratio-scale power is non-negative by definition, whereas decibel
 arrays routinely carry negative values, so handing decibels to this function usually fails
 loudly instead of returning a plausible wrong number. Treat that as a guard, not a proof: an
 all-positive decibel array is indistinguishable from power by inspection, so the contract still
-stands -- pass power and baseline, never decibels.
+stands. Pass power and baseline, never decibels.
 
 `nan_policy="omit"` aggregates over non-NaN entries only. Artifact repair legitimately leaves
 NaNs behind, so this is a real choice, but never a silent one.
@@ -163,7 +163,7 @@ convention is fixed: *negative* is a current **sink**, inward transmembrane curr
 signature of excitatory synaptic input; *positive* is a current **source**, the outward
 return current. Reading the map with the opposite sign inverts every conclusion about
 which depth receives input, so check the convention before comparing against a figure
-from elsewhere -- the opposite convention is also in common use. A sink at a given depth
+from elsewhere. The opposite convention is also in common use. A sink at a given depth
 is evidence of current entering there, not of which structure supplied it.
 
 ![Low and high band depth profiles, with the true and the vFLIP crossover](assets/figures/fig13_vflip_band_profiles.png#only-light)

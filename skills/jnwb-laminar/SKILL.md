@@ -20,8 +20,11 @@ The "Motif, crossover and layers" routing rows live in [`references/motif_crosso
 
 The "The workflow, step by step" routing rows live in [`references/workflow_step_by_step.md`](references/workflow_step_by_step.md).
 
+- `jnwb.vflip2(psd, freqs, *, contact_spacing, orientation="both", layer4_thickness_mm=None, omega_cut=6.0)`: vFLIP2 (Major et al. 2025), ported from its MATLAB code. Returns `VFlip2Result`: the best window's omega and `accepted`, true when omega exceeds `omega_cut`. Below the cut it returns that window with `accepted=False`. `motif_quality` reads omega on vFLIP2's fixed tiers (`"absent"` at or below 6, `"medium"` to 12, `"strong"` above), whatever `omega_cut` is.
+- `jnwb.vflip2_from_lfp(lfp, fs, *, contact_spacing, orientation="both", layer4_thickness_mm=None, omega_cut=6.0)`: `vflip2` on LFP, with the PSD computed as vFLIP2.m computes it for `raw` (continuous, `(n_channels, n_samples)`, cut into 1 s trials) and `raw_cut` input (`(n_channels, n_samples, n_trials)` or a list of trials). vFLIP2.m labels PSD column k as k Hz, so the bands are those labels.
+
 ## 3. Invariants & Safeguards
-1. **`support_score` is not vFLIP2's omega.** `VFlipResult.support_score` is documented as "Omega" (`jnwb/laminar/_vflip.py`). It is jnwb's own score, not the omega of the published vFLIP2 code, so vFLIP2's acceptance tiers never apply to it. Say which estimator placed every anchor.
+1. **`support_score` is not vFLIP2's omega.** `VFlipResult.support_score` (`jnwb/laminar/_vflip.py`) is jnwb's own score, with no published source, not the omega of the published vFLIP2 code, so vFLIP2's acceptance tiers never apply to it. Say which estimator placed every anchor.
 2. **The parity artifact.** An odd neighboring-channel separation pairs each channel with channels of the other parity. Any gain or offset difference between odd and even channels then enters the CSD as a term that alternates in sign from row to row. A CSD that alternates on all channels, while the odd-only and even-only CSDs are smooth, shows that mismatch and not laminar structure. Report the single-parity CSDs beside the all-channel one, with per-probe odd/even ERP amplitude ratios.
 3. **What the code refuses.**
    - Below the support threshold, `vflip` returns `accepted=False` and `crossover_contact=None` (`jnwb/laminar/_vflip.py`).

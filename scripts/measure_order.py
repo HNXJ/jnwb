@@ -179,6 +179,30 @@ def _spread(n_channels: int, _tmp: Path) -> Callable[[], object]:
     return lambda: uq.waveform_spread(w, site_spacing_um=20.0)
 
 
+def _vflip2(n_channels: int, _tmp: Path) -> Callable[[], object]:
+    """A probe with the spectrolaminar motif: gamma peaks a quarter down, alpha-beta at three quarters."""
+    import jnwb
+
+    freqs = np.arange(1, 151, dtype=float)
+    depth = np.linspace(0.0, 1.0, n_channels)
+    gamma = np.exp(-0.5 * ((depth - 0.25) / 0.12) ** 2)[:, None] * np.exp(-0.5 * ((freqs - 80) / 25) ** 2)
+    beta = np.exp(-0.5 * ((depth - 0.75) / 0.12) ** 2)[:, None] * np.exp(-0.5 * ((freqs - 18) / 8) ** 2)
+    psd = freqs ** -1.5 * (1.0 + 3.0 * (0.05 * gamma + beta))
+    psd = psd * np.random.default_rng(0).lognormal(0.0, 0.05, psd.shape)
+    assert jnwb.vflip2(psd, freqs, contact_spacing=100.0).omega is not None, "fixture must find a window"
+    return lambda: jnwb.vflip2(psd, freqs, contact_spacing=100.0)
+
+
+def _vflip2_from_lfp(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """White-noise continuous LFP on 8 channels at 1000 Hz, cut into 1 s trials."""
+    import jnwb
+
+    lfp = np.random.default_rng(0).normal(size=(8, n_samples))
+    assert isinstance(jnwb.vflip2_from_lfp(lfp[:, :1000], 1000, contact_spacing=100.0),
+                      jnwb.VFlip2Result), "fixture must run"
+    return lambda: jnwb.vflip2_from_lfp(lfp, 1000, contact_spacing=100.0)
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -243,6 +267,16 @@ SPECS: Dict[str, Spec] = {
         "n_channels", (100, 1_000, 10_000, 100_000),
         "200 time samples at 1 ms, white-noise potential, pitch_um=25, defaults",
         lambda n, _tmp: _curation("csd", n),
+    ),
+    "vflip2[n_channels]": Spec(
+        "n_channels", (16, 32, 64, 160),
+        "150 bins at 1 Hz, contact_spacing=100 um (window step 1, shortest window 6), motif probe",
+        _vflip2,
+    ),
+    "vflip2_from_lfp[n_samples]": Spec(
+        "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
+        "8 channels of white noise at fs=1000 (1 s trials, 1024-point FFT), contact_spacing=100 um",
+        _vflip2_from_lfp,
     ),
     "fuse_laminar_anchors[n_windows]": Spec(
         "n_windows", (1_000, 10_000, 100_000, 1_000_000),

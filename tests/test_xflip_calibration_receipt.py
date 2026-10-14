@@ -204,30 +204,27 @@ def test_report_is_rendered_from_the_raw_receipt():
         ) in report
 
 
-def test_the_report_reads_the_gradient_row_rather_than_only_reporting_it():
-    """A 0.000 acceptance rate on the gradient null invites the opposite conclusion.
+def test_the_surrogate_test_itself_rejects_a_smooth_gradient():
+    """A smooth decay of correlation with distance has no boundary, and the omnibus p says so.
 
-    Every gradient is maximally significant under the omnibus permutation test -- median,
-    min and max p all sit at the 1/(surrogates+1) floor -- and the local boundary-drop gate
-    produces the rejections, not the acceptances. That gate was once skipped on the
-    unrestricted path, where the same nulls were accepted 15/15. A receipt that prints the
-    rate without that sentence reads as though the permutation test rejects gradients.
+    Under independent-channel surrogates every gradient sat at the 1/(surrogates+1) floor and
+    only the local boundary-drop gate rejected them. The homogeneous null keeps the probe's
+    lag-averaged correlation, so the surrogate test must reject the gradients on its own, and
+    the receipt must say which of the two rejected them.
     """
     raw = _raw()
     grad = raw["nulls"]["smooth_spatial_gradient"]
+    n = raw["n_seeds"]
     floor = 1.0 / (raw["n_surrogates"] + 1)
 
-    assert grad["median_p"] == grad["min_p"] == grad["max_p"]
-    assert abs(grad["median_p"] - floor) < 1e-12, (
-        "the gradient null is no longer pinned at the permutation floor, so the explanation "
-        "in the report no longer describes the measurement; rerun the generator"
-    )
-    n = raw["n_seeds"]
-    assert grad["n_rejected_by_surrogates"] == 0
-    assert grad["n_rejected_by_boundary_drop"] == n - round(grad["false_positive_rate"] * n)
+    assert grad["min_p"] > floor, "a gradient reached the permutation floor; the null lost its decay"
+    assert grad["median_p"] > raw["alpha"]
+    assert grad["n_rejected_by_surrogates"] >= n - round(raw["alpha"] * n)
+    assert grad["false_positive_rate"] <= raw["alpha"]
     report = " ".join(REPORT.read_text(encoding="utf-8").split())
+    assert f"surrogate test rejects {grad['n_rejected_by_surrogates']} of {n}" in report
     assert (
-        f"the local boundary-drop gate rejects {grad['n_rejected_by_boundary_drop']} of {n}"
+        f"boundary-drop gate independently rejects {grad['n_rejected_by_boundary_drop']} of {n}"
         in report
     )
-    assert "acceptance rate is produced" not in report
+    assert "maximally significant" not in report

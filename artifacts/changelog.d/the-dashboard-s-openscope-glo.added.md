@@ -1,1 +1,0 @@
-- The dashboard's OpenScope GLO tab: one card per work, its replications as rows; scripts/build_dashboard.py

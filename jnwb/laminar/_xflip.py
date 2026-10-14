@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional, Tuple, Union
+import warnings
 import numpy as np
 from .._dictlike import DictAccessMixin
 from .._rng import recorded_rng
+from ._vflip2 import LAYER4_THICKNESS_MM, VFlip2Result
 from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.linalg import toeplitz
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 from ..permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
@@ -38,6 +42,12 @@ class XFlipResult(DictAccessMixin):
             seed for an int `rng`, the fresh OS entropy drawn for `rng=None`, and the child
             seed drawn from a `Generator`. Passing it back as `rng` reproduces `p_values`.
             None when no surrogates were drawn.
+        window: The probe rows `(first, last)`, inclusive and ascending, the call was
+            restricted to, or None for the whole probe. `block_bounds`, `boundaries`, the
+            `boundary_<b>` keys of `p_values` and the keys of `boundary_drops` are probe rows;
+            `corr_matrix`, `labels` and `n_channels` cover the window's rows only.
+        boundaries_um: `boundaries` times `contact_spacing`, in um from probe row 0, or None
+            when no `contact_spacing` was given.
     """
 
     corr_matrix: np.ndarray
@@ -53,6 +63,8 @@ class XFlipResult(DictAccessMixin):
     n_blocks: int
     boundary_drops: Optional[Dict[int, float]] = None
     surrogate_seed_entropy: Optional[int] = None
+    window: Optional[Tuple[int, int]] = None
+    boundaries_um: Optional[Tuple[float, ...]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -70,7 +82,76 @@ class XFlipResult(DictAccessMixin):
             "n_blocks": int(self.n_blocks),
             "boundary_drops": dict(self.boundary_drops) if self.boundary_drops is not None else {},
             "surrogate_seed_entropy": self.surrogate_seed_entropy,
+            "window": self.window,
+            "boundaries_um": self.boundaries_um,
         }
+
+
+def _window_rows(window: Any, n_rows: int) -> Tuple[int, int]:
+    """The inclusive, ascending probe rows `(first, last)` a `window=` argument names."""
+    if isinstance(window, VFlip2Result):
+        if window.proximal_channel is None or window.distal_channel is None:
+            raise ValueError("window: the VFlip2Result holds no window; vflip2 found none.")
+        if not window.accepted:
+            raise ValueError(
+                f"window: the VFlip2Result is rejected (omega {window.omega} <= omega_cut "
+                f"{window.omega_cut}); pass its (proximal_channel, distal_channel) as a pair "
+                "to use its window anyway."
+            )
+        rows = (window.proximal_channel, window.distal_channel)
+    else:
+        try:
+            rows = tuple(window)
+        except TypeError:
+            rows = ()
+        if len(rows) != 2 or not all(
+            isinstance(r, (int, np.integer)) and not isinstance(r, (bool, np.bool_)) for r in rows
+        ):
+            raise TypeError(
+                f"window must be a VFlip2Result or a (proximal, distal) pair of int rows, got {window!r}"
+            )
+    first, last = sorted(int(r) for r in rows)
+    if first < 0 or last >= n_rows:
+        raise ValueError(
+            f"window rows ({first}, {last}) fall outside the probe's rows 0..{n_rows - 1}"
+        )
+    return first, last
+
+
+def _refuse_short_window(rows: Optional[Tuple[int, int]], min_block_size: int) -> None:
+    """Refuse a window that cannot hold one block."""
+    if rows is not None and rows[1] - rows[0] + 1 < min_block_size:
+        raise ValueError(
+            f"window rows {rows[0]}..{rows[1]} hold {rows[1] - rows[0] + 1} contacts, fewer "
+            f"than min_block_size {min_block_size}."
+        )
+
+
+def _in_probe_rows(
+    res: XFlipResult, rows: Optional[Tuple[int, int]], contact_spacing: Optional[float]
+) -> XFlipResult:
+    """`res`, computed on the window's rows, with its boundaries moved to probe rows and in um."""
+    if rows is None and contact_spacing is None:
+        return res
+    if rows is not None:
+        off = rows[0]
+        drops = res.boundary_drops
+        res = replace(
+            res,
+            block_bounds=tuple((st + off, en + off) for st, en in res.block_bounds),
+            boundaries=tuple(b + off for b in res.boundaries),
+            p_values={
+                (f"boundary_{int(k[len('boundary_'):]) + off}" if k.startswith("boundary_") else k): v
+                for k, v in res.p_values.items()
+            },
+            boundary_drops=None if drops is None else {b + off: v for b, v in drops.items()},
+            window=rows,
+        )
+    if contact_spacing is not None:
+        res = replace(
+            res, boundaries_um=tuple(float(b * contact_spacing) for b in res.boundaries)
+        )
+    return res
 
 
 def _compute_correlation_matrix(data: np.ndarray, method: str) -> np.ndarray:
@@ -137,6 +218,59 @@ def _surrogate_phase_randomize(data: np.ndarray, rng: np.random.Generator) -> np
 
     surrogate_fft = magnitudes * np.exp(1j * rand_phases)
     return np.fft.irfft(surrogate_fft, n=n_samples, axis=1)
+
+
+def _homogeneous_factor(corr: np.ndarray) -> np.ndarray:
+    """Cholesky factor of the Toeplitz matrix of a correlation matrix's lag averages.
+
+    r(d) is the mean of the d-th diagonal of `corr`, the correlation at lag d averaged over
+    contact pairs. The Toeplitz matrix of r is floored at zero eigenvalue and rescaled to unit
+    diagonal. The smallest diagonal jitter from 1e-10 up to 1e-7 that lets the factorization
+    succeed is added; if none does, the matrix is not a usable null and the call raises.
+    """
+    n = corr.shape[0]
+    r = np.array([np.mean(np.diagonal(corr, offset=d)) for d in range(n)])
+    values, vectors = np.linalg.eigh(toeplitz(r))
+    psd = (vectors * np.maximum(values, 0.0)) @ vectors.T
+    scale = np.sqrt(np.diag(psd))
+    unit = psd / np.outer(scale, scale)
+    for jitter in (1e-10, 1e-9, 1e-8, 1e-7):
+        try:
+            return np.linalg.cholesky(unit + jitter * np.eye(n))
+        except np.linalg.LinAlgError:
+            continue
+    raise RuntimeError(
+        "The homogeneous null's Toeplitz correlation needs a diagonal jitter above 1e-7 "
+        "to factor; the probe's lag averages are not a usable null."
+    )
+
+
+def _surrogate_homogeneous(
+    raw_data: np.ndarray, factor: np.ndarray, rng: np.random.Generator
+) -> np.ndarray:
+    """Phase-randomized channels mixed so that they carry the probe's lag-averaged correlation.
+
+    Each channel's phase randomization is standardized to mean 0 and SD 1, then mixed by the
+    Cholesky factor of the probe's Toeplitz correlation (`_homogeneous_factor` of its Pearson
+    correlation). The surrogate keeps each channel's spectrum and the smooth spatial decay of
+    the probe, and nothing else.
+    """
+    z = _surrogate_phase_randomize(raw_data, rng)
+    z = (z - z.mean(axis=1, keepdims=True)) / z.std(axis=1, keepdims=True)
+    return factor @ z
+
+
+def _surrogate_wishart(factor: np.ndarray, n_samples: int, rng: np.random.Generator) -> np.ndarray:
+    """A correlation matrix drawn as the sample correlation of the homogeneous null.
+
+    The draw is Wishart with n_samples - 1 degrees of freedom and scale equal to the
+    homogeneous null's correlation (`factor` is its Cholesky factor), normalized to unit
+    diagonal.
+    """
+    a = factor @ rng.standard_normal((factor.shape[0], n_samples - 1))
+    w = a @ a.T
+    scale = np.sqrt(np.diag(w))
+    return w / np.outer(scale, scale)
 
 
 def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
@@ -366,7 +500,7 @@ def xflip(
     method: str = "pearson",
     contiguous: bool = True,
     n_blocks: Optional[int] = 2,
-    min_block_size: int = 2,
+    min_block_size: Optional[int] = None,
     n_surrogates: int = 200,
     surrogate_method: str = "auto",
     alpha: float = 0.05,
@@ -374,14 +508,19 @@ def xflip(
     min_boundary_drop: float = 0.05,
     channel_axis: int = 0,
     is_corr_matrix: Optional[bool] = None,
+    n_samples: Optional[int] = None,
     rng: Optional[Union[np.random.Generator, int]] = None,
+    window: Optional[Union[VFlip2Result, Tuple[int, int]]] = None,
+    contact_spacing: Optional[float] = None,
+    layer4_thickness_mm: Optional[float] = None,
 ) -> XFlipResult:
     """Cross-Channel Laminar Correlation Profile (xFLIP).
 
     Evaluates cross-channel correlation blocks along laminar electrode array shafts,
     partitions contacts into contiguous laminar compartments via exact 1D dynamic
-    programming, and tests boundary significance against temporal autocorrelation-preserving
-    Fourier phase surrogates.
+    programming, and tests boundary significance against surrogates that keep each probe's
+    smooth spatial decay (the default for raw time series), so only a boundary beyond that
+    decay can be significant.
 
     Mathematical Estimator:
         1. Correlation Estimation:
@@ -401,10 +540,14 @@ def xflip(
            objective was :math:`\\sum_{u \\le i < j < v} (R_{ij} - \\bar{R})`, which moved
            the cut beside an uncorrelated background toward the middle of the probe.
         3. Statistical Null Testing:
-           Constructs surrogates preserving each channel's empirical power spectrum and
-           temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase
-           randomization (when raw time-series data is provided), or channel identity permutation
-           (when a precomputed correlation matrix is provided).
+           The default null for raw time series (`'homogeneous'`) keeps the probe's smooth
+           spatial decay: independent Fourier phase-randomized channels, each standardized, are
+           mixed by the Cholesky factor of the probe's lag-averaged (Toeplitz) correlation. A
+           boundary must exceed that decay to be significant. A precomputed correlation matrix
+           with `n_samples` draws its surrogates from a Wishart distribution with the same
+           scale. The independent-channel null (`'autocorr_preserving'`, which keeps each
+           channel's power spectrum and temporal autocorrelation) and channel identity
+           permutation test independent channels, not a boundary beyond smooth spatial decay.
         4. Monte Carlo P-value Resolution:
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
            :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q - \\epsilon)}{1 + S}`,
@@ -437,11 +580,21 @@ def xflip(
             at a within-block correlation of 0.8, the true count is recovered up to a shared
             background correlation of 0.3; at 0.5, three blocks of 6 were cut into four and
             rejected. Costs about one fixed-count call at each candidate count.
-        min_block_size: Minimum channel count required per block (default: 2).
+        min_block_size: Minimum channel count required per block. Default None: 2, or with
+            `contact_spacing` the layer 4 thickness in contacts,
+            ceil(`layer4_thickness_mm` / spacing in mm): the least row distance `vflip2` allows
+            between a window's proximal and distal rows (6 at 100 um; its window then spans 7 rows).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
             not testing is not the same as passing, and `rejection_reason` says so.
-        surrogate_method: `'auto'` (default), `'autocorr_preserving'`, or `'permute_channels'`.
+        surrogate_method: `'auto'` (default), `'homogeneous'`, `'autocorr_preserving'`, or
+            `'permute_channels'`. `'homogeneous'` is the null described in step 3: each surrogate
+            keeps the probe's lag-averaged correlation, so a smooth spatial decay such as volume
+            conduction is not significant. For a correlation matrix it needs `n_samples`. `'auto'`
+            is `'homogeneous'` for raw time series, and for a matrix given `n_samples`; a matrix
+            without `n_samples` gets `'permute_channels'` and a `UserWarning`. `'autocorr_preserving'`
+            makes channels independent, so a volume-conducted probe with no boundary sits at the
+            omnibus p floor; it tests independent channels, not a boundary beyond smooth spatial decay.
         alpha: Significance threshold for omnibus surrogate test (default: 0.05).
         min_contrast: Minimum modularity contrast required for acceptance (default: 0.05).
         min_boundary_drop: Minimum drop between within-block neighbor correlations and cross-boundary
@@ -450,23 +603,61 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
+        n_samples: Number of samples the correlation matrix was estimated from (default: None).
+            It applies to a matrix input only, and refuses raw time series, which carry their own
+            sample count. With it, `'auto'` and `'homogeneous'` draw the surrogate correlation
+            matrices as described under `surrogate_method`; without it a matrix has no sample count
+            and its surrogates permute channels. The Wishart draw treats the samples as
+            independent, so for autocorrelated data such as LFP pass the effective number of
+            independent samples: the raw count makes the null too narrow and the test too liberal.
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy. A `Generator`
             gives up one draw, a child seed the surrogates run on. The seed used is
             returned as `surrogate_seed_entropy`.
+        window: Restricts the call to probe rows `first..last`, inclusive: the raw channels
+            before their correlation is computed, or the rows and columns of a matrix. An
+            accepted `VFlip2Result` gives its `proximal_channel..distal_channel`; a
+            `(proximal, distal)` pair of probe rows is taken in either order, so an inverted
+            probe's rows need no reordering. Boundaries are reported in probe rows. Default
+            None: the whole probe.
+        contact_spacing: Inter-contact distance in um. When given, the result carries
+            `boundaries_um`, each boundary row times the spacing, measured from probe row 0,
+            and `min_block_size` defaults to the layer 4 thickness in contacts.
+        layer4_thickness_mm: Layer 4 thickness in mm, default None: `LAYER4_THICKNESS_MM`, as
+            `vflip2` uses. It sets the default `min_block_size` only, and only with
+            `contact_spacing` and without an explicit `min_block_size`; otherwise it has no effect.
+            When given it must be finite and positive.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, `rejection_reason` and `surrogate_seed_entropy`.
+        `p_values`, `accepted`, `rejection_reason`, `surrogate_seed_entropy`, `window` and
+        `boundaries_um`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
-            matrix, or contains invalid configuration parameters.
+            matrix, or contains invalid configuration parameters; if `window` is a rejected
+            `VFlip2Result` or one with no window, names rows outside the probe, or holds fewer
+            rows than `min_block_size`; if `contact_spacing`, or `layer4_thickness_mm` when given,
+            is not finite and positive.
         TypeError: If `rng` is not an int, a Generator or None; a float or bool seed is
-            refused rather than truncated.
+            refused rather than truncated. If `window` is neither a `VFlip2Result` nor a pair
+            of ints.
     """
     if method not in ("pearson", "spearman", "partial"):
         raise ValueError(
             f"Unknown correlation method '{method}'. Supported methods: 'pearson', 'spearman', 'partial'."
+        )
+    if contact_spacing is not None and not (
+        np.isfinite(contact_spacing) and contact_spacing > 0
+    ):
+        raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
+    layer4 = LAYER4_THICKNESS_MM if layer4_thickness_mm is None else float(layer4_thickness_mm)
+    if not (np.isfinite(layer4) and layer4 > 0):
+        raise ValueError(f"layer4_thickness_mm must be finite and positive, got {layer4}")
+    if min_block_size is None:
+        # vflip2's arithmetic for its least proximal-to-distal distance, so the two agree to the last bit.
+        min_block_size = (
+            2 if contact_spacing is None
+            else int(math.ceil(layer4 / (contact_spacing / 1000.0)))
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
@@ -474,6 +665,8 @@ def xflip(
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
     if n_surrogates < 0:
         raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    if n_samples is not None and n_samples < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
     # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
     # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
     # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
@@ -521,6 +714,12 @@ def xflip(
         else:
             is_corr = False
 
+    if not is_corr and n_samples is not None:
+        raise ValueError(
+            "n_samples is the sample count of a correlation matrix; raw time series carry their "
+            "own sample count, so pass the data without n_samples."
+        )
+    rows = None
     if not is_corr:
         if channel_axis == 1:
             raw_data = arr.T
@@ -528,9 +727,13 @@ def xflip(
             raw_data = arr
         else:
             raise ValueError(f"channel_axis must be 0 or 1, got {channel_axis}")
+        if window is not None:
+            rows = _window_rows(window, raw_data.shape[0])
+            raw_data = raw_data[rows[0]:rows[1] + 1]
         n_channels, n_samples = raw_data.shape
         if n_samples <= 1:
             raise ValueError(f"Raw time-series must have at least 2 samples, got {n_samples}")
+        _refuse_short_window(rows, min_block_size)
         with np.errstate(invalid="ignore", divide="ignore"):
             corr = _compute_correlation_matrix(raw_data, method)
         resolved_method = method
@@ -541,7 +744,7 @@ def xflip(
             corr = corr.copy()
             corr[flat, :] = np.nan
             corr[:, flat] = np.nan
-            return XFlipResult(
+            return _in_probe_rows(XFlipResult(
                 corr_matrix=corr,
                 block_bounds=((0, n_channels),),
                 boundaries=(),
@@ -550,22 +753,44 @@ def xflip(
                 p_values={"omnibus": np.nan},
                 accepted=False,
                 rejection_reason=(
-                    f"Zero-variance channel(s) {flat.tolist()} have undefined correlation; "
-                    "mask or remove them before partitioning."
+                    f"Zero-variance channel(s) {(flat + (0 if rows is None else rows[0])).tolist()} "
+                    "have undefined correlation; mask or remove them before partitioning."
                 ),
                 method=resolved_method,
                 n_channels=n_channels,
                 n_blocks=1,
-            )
+            ), rows, contact_spacing)
     else:
         raw_data = None
         corr = np.clip(arr.copy(), -1.0, 1.0)
+        if window is not None:
+            rows = _window_rows(window, corr.shape[0])
+            corr = corr[rows[0]:rows[1] + 1, rows[0]:rows[1] + 1]
+            _refuse_short_window(rows, min_block_size)
         n_channels = corr.shape[0]
         resolved_method = "precomputed"
 
     # Resolve surrogate method
     if surrogate_method == "auto":
-        eff_surrogate_method = "autocorr_preserving" if raw_data is not None else "permute_channels"
+        if raw_data is not None or n_samples is not None:
+            eff_surrogate_method = "homogeneous"
+        else:
+            eff_surrogate_method = "permute_channels"
+            warnings.warn(
+                "xflip was given a correlation matrix without n_samples, so its surrogates permute "
+                "channels and the p tests independent channels, not a boundary beyond smooth spatial "
+                "decay. Pass n_samples, the number of samples the matrix was estimated from, for the "
+                "homogeneous null.",
+                UserWarning,
+                stacklevel=2,
+            )
+    elif surrogate_method == "homogeneous":
+        if raw_data is None and n_samples is None:
+            raise ValueError(
+                "surrogate_method='homogeneous' on a precomputed correlation matrix requires "
+                "n_samples, the number of samples the matrix was estimated from."
+            )
+        eff_surrogate_method = "homogeneous"
     elif surrogate_method in ("autocorr_preserving", "phase_randomize"):
         if raw_data is None:
             raise ValueError(
@@ -579,14 +804,14 @@ def xflip(
     else:
         raise ValueError(
             f"Unknown surrogate_method '{surrogate_method}'. "
-            "Supported: 'auto', 'autocorr_preserving', 'permute_channels'."
+            "Supported: 'auto', 'homogeneous', 'autocorr_preserving', 'permute_channels'."
         )
 
     # Check structural feasibility
     target_k = 2 if n_blocks is None else n_blocks
     if n_channels < target_k * min_block_size:
         labels = np.zeros(n_channels, dtype=int)
-        return XFlipResult(
+        return _in_probe_rows(XFlipResult(
             corr_matrix=corr,
             block_bounds=((0, n_channels),),
             boundaries=(),
@@ -601,7 +826,7 @@ def xflip(
             method=resolved_method,
             n_channels=n_channels,
             n_blocks=1,
-        )
+        ), rows, contact_spacing)
 
     def partition(matrix: np.ndarray, k: int):
         if contiguous:
@@ -647,11 +872,19 @@ def xflip(
         surr_q_all = np.empty((n_surrogates, len(candidates)), dtype=float)
         boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
 
+        if eff_surrogate_method == "homogeneous":
+            null_factor = _homogeneous_factor(corr if raw_data is None else np.corrcoef(raw_data))
         for s_idx in range(n_surrogates):
-            if eff_surrogate_method == "autocorr_preserving":
+            if eff_surrogate_method == "homogeneous":
+                if raw_data is None:
+                    surr_corr = _surrogate_wishart(null_factor, n_samples, gen)
+                else:
+                    surr_raw = _surrogate_homogeneous(raw_data, null_factor, gen)
+                    surr_corr = _compute_correlation_matrix(surr_raw, method)
+            elif eff_surrogate_method == "autocorr_preserving":
                 surr_raw = _surrogate_phase_randomize(raw_data, gen)
                 surr_corr = _compute_correlation_matrix(surr_raw, method)
-            else:
+            elif eff_surrogate_method == "permute_channels":
                 if contiguous:
                     perm = gen.permutation(n_channels)
                     surr_corr = corr[perm, :][:, perm]
@@ -661,6 +894,8 @@ def xflip(
                     surr_corr = np.eye(n_channels, dtype=float)
                     surr_corr[triu_idx] = perm_vals
                     surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
+            else:
+                raise ValueError(f"No surrogate generator for surrogate_method '{eff_surrogate_method}'.")
 
             for i, k in enumerate(candidates):
                 surr_q_all[s_idx, i] = partition(surr_corr, k)[2]
@@ -757,7 +992,7 @@ def xflip(
             reasons.append(f"Boundary drop below min_boundary_drop ({min_boundary_drop})")
         rejection_reason = "; ".join(reasons)
 
-    return XFlipResult(
+    return _in_probe_rows(XFlipResult(
         corr_matrix=corr,
         block_bounds=b_bounds,
         boundaries=boundaries,
@@ -771,4 +1006,4 @@ def xflip(
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
-    )
+    ), rows, contact_spacing)

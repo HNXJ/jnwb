@@ -1,1 +1,0 @@
-- scripts/release_gate.py: condition 6 refuses twine and reusable publication jobs; examples/, data/ never ship

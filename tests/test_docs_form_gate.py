@@ -213,6 +213,12 @@ SEEDS = {
         "figure theme independence",
         _append(PAGE_A, "\nSee ![inline](assets/figures/fig.png#only-light) here.\n"),
         "cannot be confirmed"),
+    "tutorial figure whose dark file is missing": (
+        "figure theme independence",
+        _then(_append(TUTORIAL, "\n![New](../assets/figures/new.png#only-light)\n"
+                                "![New](../assets/figures/new.dark.png#only-dark)\n"),
+              lambda root: _write(root / "docs/assets/figures/new.png", "")),
+        "../assets/figures/new.dark.png is missing"),
     "inline svg with a fixed color": (
         "figure theme independence",
         _append(PAGE_A, '\n<svg viewBox="0 0 1 1"><rect fill="#000000"/></svg>\n'),
@@ -246,6 +252,15 @@ SEEDS = {
 
 def test_the_clean_fixture_passes_every_check(tree):
     """The control for every seed below. A check that fails everything fails here."""
+    assert _results(tree) == {name: [] for name, _ in gate.CHECKS}
+
+
+def test_a_tutorial_page_pairs_figures_through_a_parent_path(tree):
+    """A page under docs/tutorials/ reaches the figures as ../assets/; its pair is read there."""
+    _append(TUTORIAL, "\n![A figure](../assets/figures/fig.png#only-light)\n"
+                      "![A figure](../assets/figures/fig.dark.png#only-dark)\n")(tree)
+    assert (tree / "docs/tutorials/../assets/figures/fig.dark.png").is_file(), \
+        "fixture must hold the pair the page names"
     assert _results(tree) == {name: [] for name, _ in gate.CHECKS}
 
 

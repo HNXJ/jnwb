@@ -214,11 +214,17 @@ class TestNoUnitLessWindowRemainsInThePublicApi:
     #   phase_slope_index.window / vflip_from_lfp.window -- `str`, a taper name ('hann')
     #   XFlipResult.block_bounds -- Tuple[Tuple[int, int], ...], channel index intervals
     #   jrsa.window -- sample indices along the aligned axis; jrsa takes no sampling rate
+    #   xflip.window / zflip.window / XFlipResult.window / ZFlipResult.window -- a pair of
+    #       int probe rows (or a VFlip2Result that carries one), a span of contacts
     NOT_A_TIME = {
         "phase_slope_index.window",
         "vflip_from_lfp.window",
         "XFlipResult.block_bounds",
         "jrsa.window",
+        "xflip.window",
+        "zflip.window",
+        "XFlipResult.window",
+        "ZFlipResult.window",
     }
 
     def test_the_exempt_names_really_are_not_times(self):
@@ -235,6 +241,9 @@ class TestNoUnitLessWindowRemainsInThePublicApi:
         block_bounds = inspect.signature(jnwb.XFlipResult).parameters["block_bounds"]
         assert "int" in str(block_bounds.annotation)
         assert "sample indices" in jnwb.jrsa.__doc__
+        for owner in (jnwb.xflip, jnwb.zflip, jnwb.XFlipResult, jnwb.ZFlipResult):
+            annotation = str(inspect.signature(owner).parameters["window"].annotation)
+            assert "Tuple[int, int]" in annotation, f"{owner.__name__}.window is no longer a row pair"
 
     def test_sweep(self):
         offenders = []

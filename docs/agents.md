@@ -10,7 +10,7 @@ the outcomes a skill can end a task in.
 | Surface | Ships in the wheel | What it covers |
 |---|---|---|
 | The library | yes | Every symbol in `jnwb.__all__`, with docstrings |
-| MCP server | yes (needs the `mcp` extra) | File inspection only — three tools, listed below |
+| MCP server | yes (needs the `mcp` extra) | File inspection only: three tools, listed below |
 | Skills | **no** | The routing and scientific safeguards |
 | `AGENTS.md` | **no** (source checkout only) | Repository map and working rules; the recipes are on [Recipes](recipes.md) |
 
@@ -51,8 +51,8 @@ Wire it into an MCP-speaking client the usual way:
 ```
 
 There is no analysis tool, by design: the analysis is a Python call, and the agent writes it.
-MCP gets the agent to the point where it knows what the file contains — which table, which
-column, which acquisition, what sampling rate — so that the code it writes next is addressed
+MCP gets the agent to the point where it knows what the file contains: which table, which
+column, which acquisition, what sampling rate. The code it writes next is then addressed
 to the real layout instead of an assumed one.
 
 ## The skills
@@ -71,7 +71,7 @@ against the API it is holding:
 ```python
 import jnwb
 
-jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.11/skills'
+jnwb.SKILLS_URL  # 'https://github.com/HNXJ/jnwb/tree/v0.2.12/skills'
 ```
 
 The sdist leaves out `docs/` and `AGENTS.md`, so a skill's repository-relative links resolve

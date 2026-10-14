@@ -127,7 +127,7 @@ zeros. `coi_mask` is False for exactly those samples: the excluded region is the
 half-width, `ceil(cutoff_sigma * sigma_t * fs)`, which is what `coi_sigma=None` (the
 default) derives it from. A True sample is one no zero-padding reached.
 
-The contaminated samples are not merely noisier -- they are pulled toward zero by an amount
+The contaminated samples are not merely noisier. They are pulled toward zero by an amount
 that depends on the signal's mean, and they sit at the ends of every trial, so they bias the
 same time points in the same direction in every trial. **Average after masking, not before:**
 
@@ -146,12 +146,12 @@ acc.add_trial(tfr_res.z, valid=tfr_res.coi_mask)
 Low frequencies and high `n_cycles` both widen `sigma_t`, so both widen the excluded region:
 at 10 Hz the kernel half-width is 191 samples at `n_cycles=3` and 637 at `n_cycles=10`
 (fs = 1000 Hz). A short trial at a low frequency can be excluded end to end, which is the
-correct answer -- there is no uncontaminated estimate to report.
+correct answer: there is no uncontaminated estimate to report.
 
 ### Streaming TFR Accumulation (`TFRAccumulator`) & NWB fp32 Compression (`compress_fp32`)
 
 - **`TFRAccumulator` & `assert_mergeable` (`jnwb.tfr_accumulator`)**: Accumulates running sums and sum-of-squares across streaming trials (`add_trial(tfr_res.z, valid=tfr_res.coi_mask)`) without storing complete trial tensors in RAM. Its output has already averaged over trials, so `aggregate_to_db(how="mean_of_ratios")` refuses it. For that estimand, add each trial with its own baseline power (`add_trial(..., baseline=...)`) and take `jnwb.to_db(acc.mean_of_ratios())`.
-- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion — casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). `select=` is required; omitting it raises `TypeError` before writing; `select=[]` casts nothing:
+- **`compress_fp32` (`jnwb.compression`)**: On-disk NWB conversion: casts the datasets named in `select=` to `float32` inside an NWB file, irreversibly (path I/O, not in-memory array quantization). `select=` is required; omitting it raises `TypeError` before writing; `select=[]` casts nothing:
 
 ```python
 # src and dst are filesystem paths to .nwb files; select names datasets by their path in the file

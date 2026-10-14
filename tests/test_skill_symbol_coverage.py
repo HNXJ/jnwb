@@ -82,6 +82,7 @@ RETURNED_BY = {
     "RaggedIndexReport": ["check_ragged_indices"],
     "RaggedIndexRepair": ["repair_ragged_index"],
     "ProbeGeometry": ["probe_geometry"],
+    "VFlip2Result": ["vflip2"],
     "VFlipResult": ["vflip", "vflip_from_lfp"],
     "WaveformBlockReport": ["check_waveform_blocks"],
     "XFlipResult": ["xflip"],
