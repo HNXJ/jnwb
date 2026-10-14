@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "f1ed2d56ca4b07d8b714741313d6fa22368f1c68",
-    "date": "2026-10-13T19:34:17Z"
+    "commit": "0770edb74136fe25e0a6a2ccb0100bd6b1bf8243",
+    "date": "2026-10-14T22:24:21Z"
   },
   "sources": {
     "generated": [
@@ -52,8 +52,8 @@
     ]
   },
   "release": {
-    "version": "0.2.11",
-    "date": "2026-10-11",
+    "version": "0.2.12",
+    "date": "2026-10-14",
     "python": [
       "Programming Language :: Python :: 3",
       "Programming Language :: Python :: 3.12",
@@ -62,13 +62,241 @@
       "Programming Language :: Python :: 3.15"
     ],
     "links": {
-      "pypi": "https://pypi.org/project/jnwb/0.2.11/",
+      "pypi": "https://pypi.org/project/jnwb/0.2.12/",
       "docs": "https://jnwb.readthedocs.io/en/latest/",
       "repo": "https://github.com/HNXJ/jnwb",
       "changelog": "https://github.com/HNXJ/jnwb/blob/main/CHANGELOG.md"
     }
   },
   "releases": [
+    {
+      "version": "0.2.12",
+      "date": "2026-10-14",
+      "counts": {
+        "Added": 22,
+        "Changed": 21,
+        "Deprecated": 2,
+        "Fixed": 9
+      },
+      "entries": [
+        {
+          "kind": "Added",
+          "text": "A non-blocking CI job runs the suite on pandas 3; docs/install.md gives the install step for it."
+        },
+        {
+          "kind": "Added",
+          "text": "`causal_gaussian_smooth` returns a causal smooth and its kernel's mean lag in bins; tests/test_onset_fitting.py"
+        },
+        {
+          "kind": "Added",
+          "text": "`fuse_laminar_anchors` takes `vflip2_um` and anchors on it before `vflip_um`; `jnwb/laminar_curation.py`."
+        },
+        {
+          "kind": "Added",
+          "text": "`fuse_laminar_anchors`'s `distance_um` gains `vflip` and `vflip2`; `tests/test_laminar_curation.py`."
+        },
+        {
+          "kind": "Added",
+          "text": "docs/generate_figures.py: figures of a cluster permutation test, spectral Granger and the narrowband PSI trap"
+        },
+        {
+          "kind": "Added",
+          "text": "The jnwb-laminar skill routes the laminar rows of jnwb-lfp-spectral; skills/jnwb-laminar/SKILL.md (pull request #31)"
+        },
+        {
+          "kind": "Added",
+          "text": "`map_peak_channel_to_layer` gives each unit its peak channel's curated layer; tests/test_laminar_curation.py"
+        },
+        {
+          "kind": "Added",
+          "text": "docs/references.md: 28 more routed methods cite their published source; each docstring cites the same DOI"
+        },
+        {
+          "kind": "Added",
+          "text": "docs/generate_figures.py: figures of RDMs with a windowed jRSA trace, and of bad channel and bad trial detection"
+        },
+        {
+          "kind": "Added",
+          "text": "docs/generate_figures.py: figures of Welch and multitaper PSDs, zero-lag coherence measures and vFLIP profiles"
+        },
+        {
+          "kind": "Added",
+          "text": "docs/generate_figures.py: figures of a smoothed rate step, causal against Gaussian, and of spike phase locking"
+        },
+        {
+          "kind": "Added",
+          "text": "The dashboard's OpenScope GLO tab: one card per work, its replications as rows; scripts/build_dashboard.py"
+        },
+        {
+          "kind": "Added",
+          "text": "docs/generate_figures.py: fig21, the open-data PSTH by layer and 50 to 80 Hz power by depth, from its analysis"
+        },
+        {
+          "kind": "Added",
+          "text": "`vflip2_from_lfp` runs `vflip2` on LFP with vFLIP2.m's raw and raw_cut PSD; tests/test_vflip2_from_lfp.py"
+        },
+        {
+          "kind": "Added",
+          "text": "`jnwb/laminar/_vflip2.py`: `vflip2`, a port of vFLIP2.m (Major et al. 2025); omega matches MATLAB"
+        },
+        {
+          "kind": "Added",
+          "text": "`xflip` takes `layer4_thickness_mm`, the layer 4 default for `min_block_size` (`jnwb/laminar/_xflip.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`xflip` takes `window=`, an accepted `VFlip2Result` or a row pair; it reports probe rows; tests/test_xflip_window.py"
+        },
+        {
+          "kind": "Added",
+          "text": "`xflip`'s `contact_spacing` (um) adds `boundaries_um` from row 0; tests/test_xflip_window.py"
+        },
+        {
+          "kind": "Added",
+          "text": "`xflip`'s `min_block_size` defaults to None: 2, or the layer 4 thickness in contacts; jnwb/laminar/_xflip.py"
+        },
+        {
+          "kind": "Added",
+          "text": "`xflip` names a window outside the probe by its sorted rows; `tests/test_xflip_window.py`."
+        },
+        {
+          "kind": "Added",
+          "text": "`zflip` takes `window=` and an accepted `VFlip2Result` as `orientation`; `tests/test_zflip_window.py`."
+        },
+        {
+          "kind": "Added",
+          "text": "`zflip` refuses two different `VFlip2Result`s as `window` and `orientation`; `tests/test_zflip_window.py`."
+        },
+        {
+          "kind": "Changed",
+          "text": "docs/architecture.md drops its claim that no synthetic value enters the library."
+        },
+        {
+          "kind": "Changed",
+          "text": "Gate 14 also reads CHANGELOG.md: no process terms, six kind headings, one named file per entry line."
+        },
+        {
+          "kind": "Changed",
+          "text": "docs/install.md: the extras table lists `validate`, the NWB Inspector and DANDI layers of `jnwb.validate_nwb`"
+        },
+        {
+          "kind": "Changed",
+          "text": "docs/laminar.md: a `vflip2` section (bands, omega and its cut, rows, the LFP path, xflip and zflip hand-off)."
+        },
+        {
+          "kind": "Changed",
+          "text": "scripts/smoke_installed.py: STEP 7 runs it as CI does; actions SHA-pinned; peak memory has a threshold"
+        },
+        {
+          "kind": "Changed",
+          "text": "`gpu_pca` and `compute_population_trajectory` share one NumPy SVD fallback; jnwb/gpu_pca.py"
+        },
+        {
+          "kind": "Changed",
+          "text": "Private helpers that shared a name now state their rule; tests/test_helper_rule_names.py"
+        },
+        {
+          "kind": "Changed",
+          "text": "scripts/release_gate.py: index-hidden edits count; publication jobs refuse continue-on-error; 0e takes a concluded run"
+        },
+        {
+          "kind": "Changed",
+          "text": "scripts/release_gate.py: condition 6 refuses twine and reusable publication jobs; examples/, data/ never ship"
+        },
+        {
+          "kind": "Changed",
+          "text": "Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4 and 0.1.8 to 0.1.0 move to artifacts/archive/changelog_0.1.0-0.2.9.md."
+        },
+        {
+          "kind": "Changed",
+          "text": "`scripts/release_gate.py` step 8 checks that the tutorials import the built wheel."
+        },
+        {
+          "kind": "Changed",
+          "text": "scripts/stack_parse.py: gates 15, 17 and STEP 0a share one stack reader; HTML and deep headings read."
+        },
+        {
+          "kind": "Changed",
+          "text": "skills/jnwb-qc/SKILL.md moves routing rows to references/ pages."
+        },
+        {
+          "kind": "Changed",
+          "text": "skills/jnwb-lfp-spectral/SKILL.md moves routing rows to references/ pages."
+        },
+        {
+          "kind": "Changed",
+          "text": "skills/jnwb-nwb-data/SKILL.md moves routing rows to references/ pages."
+        },
+        {
+          "kind": "Changed",
+          "text": "skills/jnwb-laminar/SKILL.md moves routing rows to references/ pages."
+        },
+        {
+          "kind": "Changed",
+          "text": "jnwb/laminar/_vflip.py: `vflip` no longer calls its support score Omega, the name of vFLIP2's statistic"
+        },
+        {
+          "kind": "Changed",
+          "text": "[results change] jnwb/laminar/_xflip.py: `xflip` defaults to a homogeneous null; p-values move at a fixed int seed."
+        },
+        {
+          "kind": "Changed",
+          "text": "[results change] jnwb/laminar_curation.py: `curate_and_label`'s xFLIP p-values follow that null at a fixed int seed."
+        },
+        {
+          "kind": "Changed",
+          "text": "jnwb/laminar/_xflip.py: `surrogate_method='autocorr_preserving'` keeps the old independent-channel null."
+        },
+        {
+          "kind": "Changed",
+          "text": "jnwb/laminar/_xflip.py: `n_samples` gives a matrix the homogeneous null; without it, a warning."
+        },
+        {
+          "kind": "Deprecated",
+          "text": "`StatisticalAnalysis.clopper_pearson_ci` warns; use `clopper_pearson`. tests/test_deprecated_aliases.py"
+        },
+        {
+          "kind": "Deprecated",
+          "text": "The two spike MI aliases warn; use `spike_mutual_information`. tests/test_deprecated_aliases.py"
+        },
+        {
+          "kind": "Fixed",
+          "text": "jnwb/onset_fitting.py: causal_exp_smooth refuses non-positive bin_ms and non-1-D rate"
+        },
+        {
+          "kind": "Fixed",
+          "text": "`check_waveform_blocks` takes `largest_row` over finite rows only; tests/test_nwb_integrity.py"
+        },
+        {
+          "kind": "Fixed",
+          "text": "scripts/build_dashboard.py: figure, API and showcase links open their Read the Docs pages instead of a 404"
+        },
+        {
+          "kind": "Fixed",
+          "text": "scripts/build_dashboard.py: the figure sources list docs pages as repository paths again, not Read the Docs URLs"
+        },
+        {
+          "kind": "Fixed",
+          "text": "jnwb/spiking.py: gaussian_smooth_rate refuses a NaN or Inf sigma_ms or bin_ms by name"
+        },
+        {
+          "kind": "Fixed",
+          "text": "jnwb/filtering.py: bandpass_filter, notch_filter and compute_multitaper_psd refuse Inf as well as NaN"
+        },
+        {
+          "kind": "Fixed",
+          "text": "jnwb/onset_fitting.py, jnwb/laminar_curation.py: a 2-D rate and an array-like electrode id raise their own ValueError"
+        },
+        {
+          "kind": "Fixed",
+          "text": "skills/jnwb-statistics/SKILL.md states Mann-Whitney's `statistic` as the first group's U."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Under `value_unit=\"z\"` a colorbar may say \"z-score\"; tests/test_vis_shared_rules.py"
+        }
+      ]
+    },
     {
       "version": "0.2.11",
       "date": "2026-10-11",
@@ -1248,499 +1476,6 @@
           "text": "**The refractory test of `UnitAnalyzer.autocorrelogram`.** It was inverted: it took the\n  Poisson upper tail of the count in one bin near 6 ms against the mean of the bins near 11 to\n  15 ms, so an over-filled refractory bin read `is_single_unit=True` and a clean dip read\n  `False`. A train in which every spike has a partner 6 ms later read as a single unit; a train\n  with a 10 ms dead time did not. `refractory_period_violation`, `refr_count` and\n  `baseline_count` are now `NaN` and `is_single_unit` is `None`, each call emits\n  `FutureWarning`, and the keys are removed in 0.2.7. `acg`, `lag_times_ms` and `device_used`\n  are unchanged. The single-unit check is `UnitAnalyzer.quality_metrics`, from inter-spike\n  intervals under 2 ms."
         }
       ]
-    },
-    {
-      "version": "0.2.5",
-      "date": "2026-09-19",
-      "counts": {
-        "Added": 19,
-        "Removed": 4,
-        "Fixed": 68,
-        "Changed": 28,
-        "Deprecated": 1
-      },
-      "entries": [
-        {
-          "kind": "Added",
-          "text": "**`jnwb.SKILLS_URL`, so an installed copy can say where the skills are.** The skills are\n  not in the wheel and are not importable, which is the 2026-09-16 ruling and not an\n  accident: a skill is read by a harness pointed at a directory, `site-packages` is the\n  worst place to put something that has to be pointed at, nothing in `jnwb/` reads one, and\n  a copy under `jnwb/` would be the second skill tree harness gate 2 forbids. What was\n  missing was a way to find them from a `pip install`. The constant names the skills tree\n  for the tag matching the installed version -- not a branch -- so an agent holding only\n  the package finds the routing rows written against the API it is holding.\n  `tests/test_skills_are_findable_from_an_installed_copy.py` holds the pointer to the\n  version (read from the source, so a literal that happens to match today does not pass),\n  to the repository the documentation names, and to the example printed in\n  `docs/agents.md`; it also keeps a second skill tree from appearing and checks the graft\n  against a real sdist whenever one of the current version is present, which is every CI\n  run of the installed-wheel leg. Eight discriminating mutations all fail the suite."
-        },
-        {
-          "kind": "Removed",
-          "text": "**`pytest-cov`, `docs/requirements.txt`, and 625 lines of script nothing called.**\n  `pytest-cov` was declared in the `test` extra and pulled onto all four CI cells on every\n  push; there is no `addopts`, no `--cov` and no coverage configuration anywhere, so it was\n  installed and never invoked. `pytest-xdist` was in the same position and stays, because\n  the new installed-wheel leg passes `-n auto`. `docs/requirements.txt` held a\n  byte-identical copy of the `[docs]` extra and was installed alongside it by\n  `.readthedocs.yaml`; nothing compared the two, and `fail_on_warning: true` makes a drift\n  a failed publish rather than a warning, so the extra is now the only source.\n  `scripts/build_unified_review.py` (464 lines) and `scripts/reconcile_review_probes.py`\n  (161) had no reference anywhere in the repository, and the root-freeze allowlist still\n  exempted `jnwb-unified-rev.md`, the output of the first of them -- an artifact the\n  changelog records as having been removed from the root. Both scripts and the exemption\n  are gone. `tests/test_every_declaration_has_a_caller.py` records, per declared test\n  dependency, the token that proves something invokes it, refuses a new declaration with\n  no recorded caller, refuses a row for a package the extra no longer has, and refuses a\n  script in `scripts/` that nothing else in the repository mentions. Nine discriminating\n  mutations all fail the suite."
-        },
-        {
-          "kind": "Removed",
-          "text": "**`CLAUDE.md`, so the repository rules file is the only repository-level instruction file.** The file\n  held 215 bytes and no operative rule: it pointed at the repository rules file and said not to keep a\n  second rule set there. The repository rules file pointed back, claiming `CLAUDE.md` \"carries phase and\n  policy\" -- a statement about a file that carried a pointer. Two files describing each\n  other is a fork waiting to happen, so the one operative instruction, single authority,\n  is now stated in the repository rules file itself and the file is gone from tracked state. It is\n  git-ignored rather than forbidden, and stays on the root-freeze allowlist, so a\n  contributor's own copy neither lands in the repository nor trips a gate.\n  `tests/test_single_agent_instruction_file.py` holds all of that: no tracked root\n  instruction file besides the repository rules file (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`,\n  `.cursorrules`, `.windsurfrules`), the ignore rule resolves, and no live surface cites\n  the deleted file as a source of rules."
-        },
-        {
-          "kind": "Removed",
-          "text": "**`add_tool`, and with it the MCP server's ability to write code into its own\n  install.** The tool took Python source from a caller and appended it to\n  `jnwb/mcp_server/custom_tools.py`, resolved as `Path(__file__).parent`, which on an\n  ordinary install is `site-packages`. Validation was `ast.parse` plus \"contains a\n  function definition\", so module-level statements in the submitted source were written\n  verbatim and would run on import; the entire boundary was `ALLOW_DYNAMIC_TOOLS=1`. It\n  also never worked: nothing imports `custom_tools`, so the tool it registered did not\n  load at any restart and its \"Please restart the MCP server\" message was false every\n  time. It was documented nowhere -- `docs/agents.md` described three tools and said \"all\n  of them ingest\" while `mcp.list_tools()` returned four and `jnwb.mcp_server.__all__`\n  carried five entries. A code-writing primitive that no surface claims, cannot function,\n  and is one import away from executing caller-supplied source is removed rather than\n  documented: `meta_tools.py` and `custom_tools.py` are gone, and the five tests that\n  exercised the tool went with them."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The five declared return shapes are now checked by calling the function.**\n  A wrong return shape in a docstring is invisible from inside: the array is whatever shape\n  the code makes it, every test of that array passes, and only a reader building the next\n  step from the documentation is misled. `tests/test_declared_return_shapes.py` checks the\n  three that can be constructed (`bin_spikes`, `detect_band_outliers`, and\n  `laplacian_reference` in the axis module) with dimensions chosen mutually distinct, so a\n  transposed return fails rather than coincides. `build_time_resolved_matrix` and\n  `compute_population_trajectory` take a live NWB session and are not constructible in the\n  suite; the module asserts that they still declare a shape and still take a session, so the\n  gap is stated rather than implied by their absence, and a sixth function that starts\n  declaring a return shape fails until it is covered or named. Five discriminating\n  mutations, all killed."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A skill routed one estimator and the default call computed the other.**\n  `skills/jnwb-connectivity/SKILL.md` routed `cross_modal_comparison` as a best-lag\n  correlation, showed `bin_ms=None` in the routing signature, and told the reader to \"Read\n  `lag_corrected_pvalue`, not the parametric p\". Called exactly as routed it returns five\n  keys and `lag_corrected_pvalue` is not among them: the frequency/trial-reduced series are\n  plain 1-D arrays of unknown bin width, so `lag_range_ms` cannot be converted to a sample\n  shift and a single zero-lag correlation is computed instead, with `n_permutations` and\n  `rng` accepted and unused. An agent following the skill reached for an absent key, having\n  been told in the same sentence not to trust the one that was present. The function's own\n  docstring and its `interpretation` field were already explicit that `bin_ms` selects\n  between two estimators -- the disagreement was between two faces, not inside the code --\n  so the skill row was rewritten to describe both and\n  `tests/test_cross_modal_comparison_faces_agree.py` pins the behaviour each face has to\n  describe. Reverting the row to its exact previous wording fails two of the new tests; a\n  third earlier version of one of them did not, because it looked for `bin_ms` in the whole\n  row, where the leading signature always carries it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The axis specification declared the convention two of ten functions use.**\n  `docs/10_operation_specifications.md` section 5 gave one blanket order for continuous\n  signals, `(n_times, n_channels)`. Of the ten exported functions taking a 2-D continuous\n  signal, eight are channel-major -- `bipolar_reference`, `laplacian_reference`,\n  `channel_correlation_matrix`, `current_source_density_1d`, `voltage_curvature_1d`,\n  `vflip_from_lfp`, `xflip`, `zflip`, the spatial, re-reference and depth family -- and only\n  `compute_psd`, whose `axis` argument selects the order explicitly, and `epoch_continuous`\n  follow the declared one. The line is consulted exactly when a function's own docstring is\n  silent, and a transposed continuous signal is not a loud failure: `laplacian_reference` on\n  a probe with many channels returns an array of the expected shape holding a spatial\n  derivative taken across time, raising nothing and warning nothing.\n  `tests/test_axis_convention_matches_the_specification.py` pins the convention by executing\n  the functions rather than by reading their docstrings, since a docstring is one more face;\n  two further tests fail if a function changes sides without the exception list changing\n  with it. Seven of eight discriminating mutations are killed; the survivor is the\n  majority-count backstop, which by construction only fires on a wholesale shift and leaves\n  a single function flipping to the exception list pinned beside it. An earlier harness\n  reported six kills it had not made: it passed bare test names as pytest selectors, every\n  test in the module is a method on a class, so nothing was collected and the non-zero exit\n  was read as a failure. The corrected harness runs every selector against the clean tree\n  first and refuses to report a verdict for one that does not name a passing test."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Two exported functions computing one estimand answered 0.75 and 0.0.**\n  `majority_baseline(labels)` and `fold_majority_baseline(y_train, y_test)` both document\n  the accuracy of predicting the majority class, so handed one label set as both folds they\n  compute the same quantity. On eight labels of which six were NaN the first returned 0.75\n  and the second 0.0. `np.unique` collects NaNs into a single group, so `majority_baseline`\n  counted \"missing\" as a class and scored the absence itself, while `fold_majority_baseline`\n  selected that same NaN as the majority class and then tested it with `y_test == nan`,\n  false everywhere. Both now refuse a non-finite label, naming how many of how many are\n  missing: neither answer was right, and accuracy of predicting the majority class is\n  undefined when some labels name no class. Inexact dtypes only, so string and object labels\n  reach `np.unique` exactly as before, and the empty-label NaN that 05-36 chose is unchanged.\n  `nested_cv_linear_svm` is not affected and never was -- scikit-learn rejects a NaN `y`\n  before a baseline is computed, which the new tests record rather than change. Seven\n  discriminating mutations, all killed."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Eighteen estimators whose returned numbers no test constrained.** 22 mutations, each\n  preserving shape, keys and dtype and changing a returned number, were run against the\n  whole suite; 18 survived all 2679 tests. Among them: `compute_psd` returning a spectrum\n  instead of a density, `spectral_tilt` fitting its frequency axis in log2, the Laplacian\n  kernel rescaled, spike mutual information reported in nats, network density dividing by\n  n^2, all three Granger statistics in log2, the Miller-Madow correction added in the wrong\n  unit, Cohen's d halved, eta-squared dropping its group-size weight, the bootstrap's alpha\n  left unhalved, `coef_rows` reading its upper bound into `ci_lo`, the response p-value\n  turned one-sided, the smoothing kernel's ms-to-bin conversion halved, the PSTH's rate off\n  by the ms-to-s factor, the pooled MAD multiplied by 1.4826, and trial repair substituting\n  a mean where the median is specified. `tests/test_estimator_values_are_pinned.py` pins\n  each to an oracle independent of the code under test -- closed forms where one exists\n  (v_i = i^2 gives a discrete Laplacian of exactly -1; groups 1..5 against 3..7 give\n  d = -2/sqrt(2.5); four trials at 0/1/3/4 give a pooled MAD of exactly 1.5), analytic\n  identities where none does (Parseval, MI(x, x) = H(x), the normal survival function,\n  Geweke's decomposition tying spectral Granger to the time-domain value), and, for two,\n  a quantity the same call already computes by a path the mutation does not touch. All 18\n  mutants are killed by the test written for them, with the unmutated control passing and\n  every source digest identical before and after."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Three generators wrote a different file on each half of the CI matrix.** `write_text`\n  without `newline=` emits `os.linesep`, so `scripts/generate_api_md.py`,\n  `scripts/benchmark_import.py` and `scripts/calibrate_vflip.py` produced CRLF on Windows\n  and LF on Linux for six tracked files. With `core.autocrlf` false and no `.gitattributes`\n  those bytes are the blob, so regenerating on the other platform rewrote every line.\n  `check_api_md_is_generated` compares `read_text` output, which normalises endings, so the\n  drift gate stayed green either way. The five write sites now pin `newline=\"\\n\"` and the\n  six files are converted, content byte-identical;\n  `tests/test_generated_files_are_byte_stable.py` reads bytes throughout, because a check\n  written with `read_text` cannot see this class of defect at all. It reads them from the\n  index rather than from disk: the Windows CI runners leave `core.autocrlf` at its Windows\n  default of true and rewrite LF to CRLF on checkout, so a working tree's endings are a\n  property of the checkout and not of the repository. What has to agree across the matrix\n  is what is stored."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A wall clock read once under contention could fail an unrelated test.**\n  `test_the_probe_agrees_with_an_independent_wall_clock` timed two fresh imports once each\n  against a 1.6x threshold, and failed once in 22 full-suite runs under `pytest -n auto` on\n  24 cores. In a mutation sweep that reads as a kill charged to whatever was mutated. It\n  now retries: the instrumentation defect it exists for costs 3.33x on every repetition and\n  still fails all three attempts, while one unlucky sample no longer fails at all."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Three gaps on a pipeline that can upload to PyPI.** The workflow declared no\n  `permissions` floor, so every job inherited the repository default while two of them ask\n  for `id-token: write`; `permissions: {contents: read}` is now set at the top and only the\n  two publish jobs raise it. It declared no `concurrency`, so two pushes in quick\n  succession ran overlapping publish-capable pipelines; runs are now grouped per ref, and\n  cancellation is disabled for tags and releases, because cancelling a run mid-upload is\n  the failure the grouping exists to prevent rather than a cost worth paying for a shorter\n  queue. And both publish steps used `pypa/gh-action-pypi-publish@release/v1`, a mutable\n  branch on a step that mints an OIDC token for this project; both are pinned to\n  `dc37677b2e1c63e2034f94d8a5b11f265b73ba33`, the commit `v1.14.2` tags, with the version\n  in a comment beside it so the pin can be read and updated. `workflow_dispatch` defaulted\n  to `testpypi`, so pressing Run workflow without reading the form published; the default\n  is now `none`, and the test checks the trigger condition as well as the default, since a\n  default that no job reads would prove nothing.\n\n  The publication ordering in `artifacts/fact_stack.md` -- validate on `main`, tag, GitHub\n  Release, production PyPI -- is untouched, and the tests that hold it still pass. Ten\n  discriminating mutations, one per change plus the ways each could be half-made, all fail\n  the suite."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Five docstrings described code other than the code under them.**\n  `scripts/harness_gate.py` listed twelve gates while its runner printed thirteen, and its\n  entry for gate 2 still read \"Protected path safety\" long after that check became\n  skill-tree uniqueness. `scripts/mkdocs_version_hook.py` cited `>=3.12,<3.13` while\n  `pyproject.toml` requires `>=3.12` and gate 8 fails the build on any `<` in that\n  specifier -- the comment named the exact upper pin the harness exists to forbid.\n  `jnwb/connectivity.py` claimed explicit `N - p` divisors while `_residual_variance`\n  returned `RSS / N` and ignored the `n_params` argument it took; the maximum-likelihood\n  convention is deliberate, so the line is corrected and the dead parameter removed from\n  the signature and both call sites. `jnwb/artifact_detection.py` named its second and\n  third returns a correlation summary and an amplitude when both are robust z-scores, so a\n  reader took element seven for an amplitude in the signal's own unit -- measured, 332.40\n  against a true max |amplitude| of 54.21; the pages and the tests already called them\n  `corr_z` and `amp_z`, and only the docstring did not. `jnwb/tfr_accumulator.py` described\n  float64/complex128 accumulation, which is accurate, and said nothing about `write`\n  halving every dtype on the way to disk, so a summary that has been through HDF5 carries\n  single-precision sufficient statistics and merges to that tolerance rather than\n  float64's.\n\n  `tests/test_module_docstrings_match_their_code.py` checks each claim against the thing it\n  is a claim about: the runner's own numbered gate list and the function each number calls,\n  the value `tomllib` reads from `pyproject.toml`, the parsed body of `_residual_variance`,\n  the names in the return statement, the dtypes in the `write` and `__init__` calls. It also\n  sweeps every module in `jnwb/` for a `Returns (...)` line promising a different count than\n  the code returns, which is the part of such a claim that can be checked without knowing\n  what the function means. Eleven of fourteen discriminating mutations fail the suite; the\n  three that survive are leaf assertions inside a test -- a comparison tautologised, a\n  measured premise, a sweep floor -- which only a duplicate of themselves could catch.\n  Seven gate entries were reworded to name their own check, because \"Repository root\n  freeze\" and \"Documentation completeness\" share no identifying word with\n  `check_root_allowlist` and `check_public_symbols_documented`, and a check that cannot\n  tell those apart passed the gate 2 entry on the word \"tree\".\n\n  One correction and one repair to work committed an hour earlier. The report's\n  `tfr_accumulator` claim does not reproduce as stated: line 1 promises accumulation, and\n  accumulation really is float64/complex128; what was undocumented was the persistence\n  downcast, which is a defect of the same kind and is now written down. Separately,\n  `test_every_allowlisted_file_either_exists_or_is_deliberately_ignored`, added with the\n  gate repairs, asked whether an allowlisted root file exists. It passed here on a\n  `.coverage` left over from before `pytest-cov` was removed and failed on all four CI\n  cells, which check out clean. It now asks whether the entry names a tracked file, which\n  is what the allowlist is claiming; a working tree's untracked residue is not that."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Nothing resolved what the repository rules file and the two stacks point at, beyond the paths one\n  test already swept.** A registry goes stale silently: the file that points at other\n  files can name something that is gone without ever erroring.\n  `tests/test_pointer_documents_resolve.py` adds the four sweeps that were missing --\n  every `§N` cross-reference in the repository rules file names a section it defines, the section\n  numbers run contiguously from zero so a reference cannot survive the deletion of what\n  it pointed at, every file named without a directory matches a tracked file, and every\n  path the fact stack cites resolves. It also mechanizes the repository rules file section 2 rule\n  that the todo stack holds only work not yet done, which is what the completed-work\n  table that had accumulated there broke. Each sweep is a function over text rather than\n  a loop inside a test, so every one is driven twice: over the live document, where it\n  must find nothing, and over a document built to carry the defect, where it must find\n  it. Ten discriminating mutations all fail the suite.\n\n  Two corrections. The item's evidence -- `grep -rn \"todo_stack\" scripts/ tests/`\n  returning one hit, and the repository rules file pointing at a deleted item -- is superseded: four\n  test modules reference the stack today, `test_agents_md_recipes.py` already resolves\n  every directory-prefixed path the repository rules file cites and already asserts the specific dead\n  pointer is gone, and the section the item names does not exist in the document, which\n  now runs `## 0.` to `## 10.` with no subsections under 4. Second, the item asked for\n  every path in both stacks to resolve. Not done for the todo stack, and the check would\n  be wrong: the stack is a record of findings as well as a plan, and eight of the paths\n  it cites are files a finding caused to be deleted -- `docs/requirements.txt`, removed\n  one item earlier, is named in the note recording that removal. Resolving them would\n  mean deleting the evidence. The fact stack, which carries no such record, is swept in\n  full."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Nine of the thirteen preflight gates passed the tree they exist to reject.** Each\n  was a presence or substring check standing in for behaviour, and each was confirmed by\n  building the tree and watching it pass before anything was changed. Gate 11 asked for\n  an `__init__.py`, but since PEP 420 a directory holding `.py` files and no `__init__.py`\n  imports as a namespace package -- `importlib.util.find_spec` resolves it with\n  `origin is None` -- so the shape that produced JNWB-002, 88 of 190 importing files\n  taking the wrong copy of a user project, reproduced green; it now tests importability\n  and skips `.venv`-class directories, whose other packages are not this tree's problem.\n  Gate 13 accepted a README stating the three NWB entry points are REMOVED, nine tutorials\n  whose entire body is `raise SystemExit`, and a nav line commented out of `mkdocs.yml`:\n  it now requires a call rather than a mention, parses each tutorial and rejects a\n  module-level raise or a missing `main()`, and reads the nav through `yaml.safe_load`\n  instead of matching the file as text. Gate 7 passed a `pyproject.toml` carrying\n  `version = \"0.0.1\"` whose `attr` binding sat inside a comment, because the binding was\n  searched for anywhere in the file and the declared version was never compared to\n  anything; it now loads the file with `tomllib` and compares. Gate 8 guarded all three of\n  its blocks with `if <file>.exists():` and no `else`, so an empty directory passed the\n  Python-policy gate; a missing file is now a violation. Gate 3's drive-letter allowlist\n  covered `C:` and `D:` only, which exempted exactly the paths in use on the machine that\n  runs it -- a test pinned to `E:/analysis/derived/session.nwb` passed -- and now matches\n  any drive. Gate 2 checked one hardcoded path, so a duplicate skill tree at `jnwb/skills/`\n  or `docs/skills/` passed; it now finds every `SKILL.md` in the tree and requires it to be\n  under `skills/`. Gates 5 and 10 and `tests/test_docs_links.py` all globbed `docs/*.md`\n  non-recursively and so read none of the nine live pages under `docs/tutorials/`,\n  reproduced by planting a `jnwb==0.0.9` pin there and watching the version gate pass.\n  Gate 4 allowlisted three one-off audit directories that outlived the audit.\n  `tests/test_gates_reject_the_trees_they_passed.py` rebuilds one adversarial tree per\n  repaired gate and asserts both directions, since a gate that rejects everything is as\n  useless as one that rejects nothing; fourteen discriminating mutations, one per repair,\n  all fail the suite. `check_protected_paths` shipped with no caller and pointed at another\n  repository's paths, and is removed.\n\n  Four corrections to the report that prompted this. Gate 4 carried three stale entries,\n  not four. Gate 5's two other defects -- credit from the generated `docs/api.md`, and\n  substring matching crediting `events` to a page that only says `event_onsets` -- were\n  already repaired by the 05-41 work, which excludes the generated reference and matches\n  whole words; the non-recursive glob was all that remained, so the gate was widened rather\n  than retired. Gate 8's PASS line was said to claim agreement over a classifier set\n  including 3.13 while CI omits it, but the line names the two sets separately\n  (`classifiers [...], CI covering [...]`) and claims nothing about 3.13 being tested.\n  Of the four checks said to ship without ever running, three --\n  `validate_receipt_provenance`, `check_logarithm_last_rule` and `check_modality_isolation`\n  -- are exercised by `tests/test_harness_adversarial_gates.py`; only\n  `check_protected_paths` was dead."
-        },
-        {
-          "kind": "Changed",
-          "text": "**Nine dependency floors named releases that cannot be installed on any interpreter\n  this package supports.** `requires-python` moved to `>=3.12` while the floors stayed\n  where an older support window had left them, and nothing ever resolves a floor in\n  practice, so no install tried. `scipy>=1.8.0` was the plainest contradiction: that\n  release declares `requires_python '>=3.8,<3.11'`, which excludes the interpreter\n  `pyproject.toml` requires, and it also predates `scipy.stats.false_discovery_control`,\n  which `jnwb/statistics.py` and `jnwb/connectivity.py` call. The other eight ship no\n  cp312 or pure-python wheel at all -- `numpy 1.22.0` ships cp38 through cp310, `pyyaml\n  6.0` stops at cp311. Each floor is now the oldest final release carrying a wheel a 3.12\n  can use, read off the index rather than chosen: numpy 1.22.0 -> 1.26.0, scipy 1.8.0 ->\n  1.11.2, pandas 1.4.0 -> 2.1.1, h5py 3.6.0 -> 3.10.0, matplotlib 3.5.0 -> 3.7.3,\n  scikit-learn 1.0.0 -> 1.3.1, statsmodels 0.13.0 -> 0.14.0, torch 1.12.0 -> 2.2.0 and\n  pyyaml 6.0 -> 6.0.1. Resolved versions do not move: every environment in use already\n  sat years above these floors, which is why the contradiction went unseen."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The release gate checks every declared floor against the index before it builds\n  anything.** STEP 0c reads all 23 floors from `pyproject.toml` and derives the\n  interpreter tag from `requires-python` rather than writing `cp312` down, so the check\n  cannot outlive the support window whose movement produced this drift. `>=` is read as a\n  lower bound, so the release checked is the oldest one *satisfying* the floor:\n  `pytest-xdist>=3.0` resolves to 3.0.2, and there is no 3.0 -- an earlier draft asked the\n  index for the literal floor string and reported the 404 as a missing release, which is a\n  fact about URL spelling. An unreachable index reads as unverified, not as clear, with\n  one named override (`JNWB_SKIP_INDEX_CHECK=1`).\n  `tests/test_dependency_floors_are_installable.py` drives the pure functions with stubbed\n  metadata so the same answers hold offline, records the oldest cp312 release of each\n  pinned package so lowering a floor fails in the suite rather than at release time, and\n  asserts the check is actually called from `main()` before the build step."
-        },
-        {
-          "kind": "Changed",
-          "text": "**Two thirds of the public API was reachable from no routing row.** 81 of 155 exported\n  symbols were mentioned by no skill, and the gap was not a long tail: the whole laminar\n  depth subsystem (`vflip`, `vflip_from_lfp`, `xflip`, `label_layers`,\n  `current_source_density_1d`, `voltage_curvature_1d`, `aperiodic_fit`),\n  `cluster_permutation_test`, the spike mutual-information family, `cross_modal_comparison`\n  and the half-open bin family that exists to prevent the double count\n  `docs/common_mistakes.md` section 2 describes. A probe for \"assign cortical layers\" or\n  \"compute CSD\" matched no trigger in the tree. 44 rows were added across six skills, each\n  signature read off `inspect.signature` rather than retyped, and the root router gained a\n  laminar delegation line. 111 symbols now carry a row; the remaining 44 are exceptions,\n  `jnwb.ontology` types, result containers, analyzer facades, constants, the `io` alias and\n  one undocumented internal -- each excluded by category, with the category's claim\n  asserted."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The repository rules file §8 now requires a public API change to update the routing rows in the same\n  commit.** The section required `CHANGELOG.md` and a deprecation path and said nothing\n  about the 65 rows in `skills/` that hardcode signatures. That single gap produced every\n  defect in the routing matrices."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The routing check did not see dotted rows at all.** Its pattern was `` `jnwb\\.(\\w+)\\(``,\n  which does not match `jnwb.StatisticalAnalysis.exploratory_compare(...)`, so the four\n  `StatisticalAnalysis` rows were never checked -- found by writing one with the arguments\n  in the wrong order and the wrong default and watching the suite pass. It resolves dotted\n  attributes now and asserts it matched at least 65 rows."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The test that existed to catch those rows checked only that the names exist.**\n  `test_skill_routing_parameter_names_match_runtime` asserted `pname in sig.parameters`\n  and nothing else, so the swapped `paired_fire_prob_test` row passed it: all four names\n  it gave are real parameters. Its regex could not span a nested parenthesis either, so it\n  silently skipped the 7 rows carrying a tuple default -- `assign_outer_folds`, `zflip`,\n  `wpli`, `imaginary_coherency`, `spectral_tilt`, `apply_tight_auto_axis` and\n  `save_figure_suite` -- and a row that is not matched is not checked.\n  It now walks balanced parentheses, matches positional arguments against their position\n  in the signature, rejects a keyword-only parameter passed positionally, requires every\n  parameter that has no default to appear, and compares each stated default to the live\n  one. It asserts it matched at least 61 rows, so a regex that stops matching fails rather\n  than passing quietly. Two notations are honoured rather than flagged: `rng=...` says\n  \"pass something here\" and states nothing about a default, and\n  `scheme=\"within_group\"|\"global\"` states admissible values, which is routing\n  information. Seven discriminators kill, one per corrected row."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The documentation site stopped addressing contributors.** About a sixth of the\n  published words were rules for changing `jnwb`, on the user navigation.\n  `docs/10_extending_jnwb_and_verification.md` was 117 words whose own first sentence\n  called it a pointer; three of its four commands are the checks `CONTRIBUTING.md` lists,\n  its MCP line points at `agents.md`, and its domain-package paragraph is the boundary\n  invariant in `docs/01`. It had drifted inside that loop, saying \"gates 1-12\" where the\n  runner prints 13. It is deleted. `docs/11_extending_and_development.md` sections 1-8 --\n  what belongs in the library, naming and typing rules, the probe classes a test must\n  cover, the root allowlist, the development flow -- move into `CONTRIBUTING.md`, which\n  had been saying those rules lived in `docs/11` while `docs/11` said the mechanics lived\n  in `CONTRIBUTING.md`.\n  Section 9 is not contributor material and did not move there. 9.1 fixes the RNG, device,\n  failure-state, shape and unit conventions every public function holds to, and 9.2 is the\n  per-operation table: for several estimators the only statement anywhere of what the\n  result type carries and what happens when a fit cannot be supported. Both are now\n  `docs/10_operation_specifications.md`, a page of its own on the nav, moved as bytes with\n  their heading levels rebased.\n  `api.md` was listed twice, as \"Public API\" and as \"Full Surface Contract\"; the second\n  group held nothing else and is gone. `docs/01` cited the test file that enforces the\n  boundary invariant and `PLACEHOLDER-DUMMY`, an internal scaffolding marker; `install.md`\n  cited a gate number in `scripts/harness_gate.py` and the test file that verifies deferred\n  imports. All four name files that ship in neither the wheel nor the sdist."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The xFLIP calibration record can be regenerated, and now is.**\n  `xflip_calibration_0.2.3.md` was produced under 0.2.3 with no generator, so its numbers\n  could not be reproduced or rechecked, and two changes had already invalidated them:\n  0.2.4 made `xflip` reject a zero-variance channel rather than report its correlation as\n  0, and 05-07 found the smooth-gradient drop gate was skipped on the `contiguous=False`\n  path, so the null rates were conditional on a setting the document did not name. It is\n  replaced by `scripts/calibrate_xflip.py`, `xflip_calibration_0.2.5.md` and a raw JSON\n  bound to a SHA-256 over `xflip` and every module-level function in `jnwb.laminar` it can\n  reach. Changing any of them without rerunning the generator now fails\n  `tests/test_xflip_calibration_receipt.py` -- verified against both `xflip` itself and\n  `_compute_contrast`, a helper it reaches but never names, which is the case that\n  defeated the vFLIP record when its hash covered one function.\n  Most cells reproduce. Two moved and are read rather than only reported: `ar_noise` is\n  0.067 against the old 0.033, above the nominal alpha, though 2 of 30 sits inside the\n  binomial interval for a true 0.05; and `smooth_spatial_gradient` has median, min and max\n  omnibus p all at the 1/201 floor, so every gradient is maximally significant under the\n  permutation test and the 0.000 acceptance rate is produced entirely by the\n  boundary-drop gate. A reader seeing only the rate would conclude the opposite of what\n  05-07 established. The record also records the operating point the old one left\n  unstated -- surrogate count, minimum block size, alpha, samples per channel -- and what\n  it does not cover. Regenerating it twice produced identical numbers."
-        },
-        {
-          "kind": "Changed",
-          "text": "**Four null-rate assertions say what they enforce.** `fpr = accepted / 15` with\n  `assert fpr <= 0.05` is satisfied only by zero acceptances, since one is 0.067, and the\n  AR test's 0.07 admits exactly one. Written as rates they look like bounds with slack;\n  they are exact counts, and relaxing 0.05 to 0.06 would change nothing. They are counts\n  now, with the rate they stand in for measured at 30 seeds in the record. No outcome\n  changes and no mutation separates the two spellings: this is a statement repair."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`tests/test_docs_smoke.py` was green throughout.** Its ten tests hand-transcribe the\n  documented workflows rather than reading the pages, so six documented calls could raise\n  `TypeError` while it passed -- the same second-copy pattern 0.2.5 removed from\n  `tests/test_readme_smoke.py`. It is left alone here and carried to the independent pass\n  as a known unknown; nothing has measured whether it holds failure classes the new\n  parse and execute checks do not."
-        },
-        {
-          "kind": "Changed",
-          "text": "**A comparison against a package that is not installed now says so.**\n  `test_area_resolution_is_identical_with_and_without_omission_importable` runs jnwb in\n  two subprocesses, one with `omission` blocked, and asserts they agree. The blocked arm\n  proves its own block took effect; nothing proved the *unblocked* arm could import what\n  it was comparing against. Where `omission` is absent, as here, both arms ran identical\n  code and the test passed by comparing jnwb to itself. It now skips explicitly when\n  `omission` is not importable. Deleting it was rejected: the comparison is real wherever\n  the dependency exists, and a skip converts a false pass into declared non-execution\n  rather than removing the coverage."
-        },
-        {
-          "kind": "Changed",
-          "text": "**One of two byte-identical `__all__` completeness tests is gone.**\n  `tests/test_api_surface.py::test_public_exports_resolve` and\n  `tests/test_jnwb_frozen_boundary.py::test_jnwb_all_symbols_resolve` evaluated the same\n  expression under the same assertion, so no mutation could separate them. The\n  frozen-boundary copy is kept, because its comment records why `__all__` completeness\n  belongs to the 0.2.x freeze contract."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`TestParallelMap` was not spending its time squaring integers, and it keeps its\n  `n_jobs=32`.** The class costs 14.9-15.2 s over three runs, close to the 18.45 s\n  reported, but not for the stated reason, and the waste it was reported to contain is\n  not there. `parallel_map` dispatches\n  `n_chunks = min(len(items), workers * chunks_per_worker)` chunks (`_parallel.py:103`),\n  which is 2 for the 2 items in `test_more_workers_than_items` whatever `n_jobs` says,\n  and loky spawns a worker per task, so `n_jobs=32` never started 32 interpreters.\n  Measured back to back under the same load, 32 against 4 is 7.47 s against 6.66 s per\n  isolated run -- 0.81 s of executor construction, not 28 avoided interpreter starts.\n  An earlier 3.49 s figure for that test came from `--durations` taken while two\n  unrelated jobs were running on the same machine. 0.81 s does not pay for losing an\n  incidental case -- 32 also exceeds this machine's 24 CPUs, which 4 does not -- so the\n  test is unchanged. The remaining 7.5-7.8 s is `test_chunking_covers_every_item_exactly_once`,\n  which buys boundary coverage at, below and above `n_jobs` and is what the class is for."
-        },
-        {
-          "kind": "Changed",
-          "text": "**Five copies of the dict-access shim became one `jnwb._dictlike.DictAccessMixin`.**\n  The five classes above now declare the mixin instead of each carrying the pair, so the\n  fix above landed once rather than five times. Read access only: these are records of a\n  computation, not mappings to build, so there is no `__setitem__` and no iteration, and\n  each class keeps its own `to_dict()`."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`_with_nwb` has one definition.** It was byte-identical in `jnwb/nwb_events.py` and\n  `jnwb/nwb_inspect.py`, annotated with two aliases -- `NWBInput` and `InspectInput` --\n  that spell the same type, over a `PathLike` that was also written out twice. All three\n  names now live in `jnwb.nwb_io`, which both modules already imported `nwb_read_io`\n  from. `jnwb.nwb_inspect.InspectInput` remains as an alias of `NWBInput`. The two\n  module-local `PathLike` aliases are gone; `jnwb.nwb_io.PathLike` is the same type, and\n  no importer of either copy exists anywhere in this repository or the workspace."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`channel_correlation_matrix` and `trial_correlation_matrix` share their body.** Both\n  were `np.corrcoef(np.asarray(x, dtype=float))`; both now call one private\n  `_pearson_rows`. Both public names are kept, because the difference between them is\n  what a row means, not what is computed."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`tfr_dir`, `meta_dir` and `conndb_dir` share their body.** Three copies of the same\n  six lines, differing only in which three constants they named, now pass those three\n  constants to one `_configured_dir`. Each keeps its own docstring naming its own\n  variables. Merging them exposed a gap: the documented order\n  `override > $JNWB_*_DIR > $OMISSION_*_DIR (deprecated)` was tested for `nwb_dir`, which\n  has its own body, but never for these three -- a mutation making the deprecated\n  variable win passed the whole suite. It is tested now, for all three."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The `statistics.py` forwarders say which way they point.** `clopper_pearson`,\n  `clopper_pearson_ci`, `mann_whitney_p_floor` and `exact_sign_flip` forward from\n  `StatisticalAnalysis` to the module-level implementation; `fdr_correct` runs the other\n  way, module to class. The direction could not be inferred from either side and is now\n  stated in each summary. No delegation was redirected: changing one would move results\n  for callers of the other spelling."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`CANONICAL_VFLIP_BANDS` is now the source of the bands, not a third copy of them.**\n  The constant had no references, and deleting it would have been the wrong direction:\n  the same two intervals were written out as literal defaults in `vflip` and\n  `vflip_from_lfp`, so one fact was maintained in three places. The defaults now read\n  from the constant. **No value changes** -- (8.0, 30.0) and (50.0, 150.0) either way --\n  and the vFLIP calibration was rerun to prove it: the record's `estimator_sha256` moves\n  because `vflip`'s source did, and every other field in\n  `vflip_calibration_0.2.4_raw.json` is identical across 30 seeds, every null and\n  alternative family, and every sweep."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa` no longer defaults to every core, which was making it slower.** It was the\n  only public function in the package overriding `n_jobs`'s documented default of 1, and\n  the override cost more than it bought: measured one call per interpreter on a 40x6\n  input with the documented default of 1000 permutations, `jrsa(x1, x2)` ran 10x to 24x\n  *slower* with `n_jobs=-1` than serial. The cause is not joblib. Starting 24 workers for\n  a callable that closes over nothing takes 0.77 s; doing it for a callable the workers\n  must import this package to unpickle takes 4.47 s, because each worker pays\n  `import jnwb` -- 1.79 s in a fresh interpreter -- first. Every parallel call site in\n  this library passes such a callable, so no small input can repay it, and the break-even\n  is roughly five seconds of serial work rather than the one second `_parallel.py`\n  claimed. A 400x60 input with 10000 permutations is past it: 10.8 s serial against 5.6 s\n  on all cores. The default is now 1 everywhere, `jrsa` included; pass `n_jobs=-1` to opt\n  in. **No number changes** -- `n_jobs` is a speed knob, and the statistic and p-value are\n  bit-identical between the old default and the new one on identical input and `rng`.\n  Benchmarks that call twice in one process will not reproduce the old cost, because the\n  second call reuses the pool and takes about 0.04 s."
-        },
-        {
-          "kind": "Changed",
-          "text": "**Gate 5 no longer counts the generated reference.** It searched every `docs/*.md`,\n  `docs/api.md` included. Since `api.md` is generated from `jnwb.__all__`, the gate\n  asserted that every export appears in a file guaranteed to contain every export: it\n  could not fail, and it did not, while twelve symbols were documented nowhere a reader\n  would look. It now excludes `api.md` and matches whole words, so a page that documents\n  `AlignedDataset` is no longer credited with documenting `Dataset`."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`inspect` answers with one schema, whichever way it is called.** `inspect(path)` was\n  an h5py walk and `inspect(nwb)` a pynwb walk, written independently, and for the same\n  file they disagreed: the file form carried `data_path` and `layout` and the object form\n  did not; an interval table had four columns from the file (`codes`, `id`, `start_time`,\n  `stop_time`) and three from the object, because `to_dataframe()` makes `id` the index;\n  and `codes` was dtype `object` from one and `str` from the other. An `NWBFile` that was\n  read from a file is now described by that file, so passing an open handle -- the\n  documented way to avoid reopening -- gives the same dict as passing the path. An\n  `NWBFile` with no file behind it is described from its arrays in the same schema, and\n  now includes its `trials`, `epochs` and `invalid_times` tables, which are not in\n  `nwb.intervals` until the file has been written and read back. Every entry carries\n  every key in `jnwb.nwb_inspect.CONTINUOUS_KEYS`, `None` where the value is unknown,\n  rather than a key set that varied with the file's contents."
-        },
-        {
-          "kind": "Changed",
-          "text": "**A continuous container holding several series is a question, not an answer.** An\n  `LFP` container wrapping `lfp_alpha` (1000 Hz) and `lfp_beta` (500 Hz) now reports\n  `series: [\"lfp_alpha\", \"lfp_beta\"]` with `rate_hz`, `data_path`, `data_shape`,\n  `data_dtype` and `layout` all `None`, and `acquisition_channel(name=\"LFP\")` raises\n  `AmbiguousAcquisitionError` naming both. Name either series to read it. Containers\n  wrapping exactly one series are unchanged."
-        },
-        {
-          "kind": "Changed",
-          "text": "**A name that means two different objects is refused.** A series called `shared` in\n  both `/acquisition` and a processing module resolved to the acquisition one, decided by\n  the order of two `if` statements and documented nowhere. `resolve_acquisition` and\n  `acquisition_channel` now raise `AmbiguousAcquisitionError` naming both locations."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`rng` is the one spelling for the random-number argument.** One concept was spelled\n  four ways across the public API: `rng` (8 functions), `seed` (7), `random_state` (3) and\n  `random_seed` (1). `granger`, `granger_spectral`, `phase_slope_index`,\n  `transfer_entropy`, `zflip`, `cross_modal_comparison`, `build_permutation_plan`,\n  `shuffle_r2_ci`, `resample_onsets` and `jrsa` now take `rng`. The old spelling remains\n  as a keyword-only alias and still works; the canonical parameter keeps its original\n  position, so positional callers are unaffected, and its original default, so no\n  number moves. Passing two spellings with different values raises\n  `ValueError: Conflicting values`, the same refusal `band_power(fs=, sampling_rate=)`\n  already used -- `jrsa` previously spelled this refusal `TypeError`, and was the only\n  place that did. `rng` is canonical rather than `seed` because the argument now accepts\n  a `Generator`, which `seed` would misname."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`build_permutation_plan` refuses a `Generator` explicitly.** It is the one exception:\n  its product is a manifest of integer per-draw seeds, `rng + i`, which a `Generator`\n  cannot name and fresh entropy would make unreproducible. It now says so instead of\n  failing on `seed + i` inside the loop."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`rng=None` now means fresh entropy, and the default seed is in the signature.**\n  `exact_sign_flip`, `compare_groups`, `bootstrap_ci`, `permutation_test` and\n  `_bootstrap_mean_diff_ci` declared `rng: Optional[Generator] = None` and then ran\n  `np.random.default_rng(42)` when the caller omitted it; `cluster_permutation_test` used\n  `default_rng(0)`. `None` reads as \"fresh randomness\", so two calls a caller believed\n  were independent shared a null distribution and agreed exactly. The seed each function\n  was already using is now its signature default -- 42, and 0 for\n  `cluster_permutation_test`, whose different value is preserved because unifying it would\n  change published cluster p-values. **Omitting `rng` produces exactly the numbers it\n  produced before**; passing `rng=None` explicitly now draws fresh entropy, as it does\n  everywhere else in NumPy."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`rng` accepts an int seed as well as a `Generator`.** These functions used to raise\n  `TypeError` for `rng=42` while seeding themselves with 42 whenever the argument was\n  omitted, and the module-level `exact_sign_flip` already accepted\n  `int | Generator | None`, so siblings disagreed about the same argument. A value that\n  names no stream -- a `str`, a `float`, a `bool` -- still raises, now naming the caller."
-        },
-        {
-          "kind": "Added",
-          "text": "**The release gate asks the package index whether this version already exists.** It\n  compared the declared version to the changelog entry the same tree wrote, which agree by\n  construction; nothing compared either against what is actually served. A build from this\n  tree today produces a wheel calling itself 0.2.4 while PyPI already serves a 0.2.4 whose\n  contents differ, with 1009 non-empty lines of shipped work sitting under\n  `## [Unreleased]`. STEP 0b now refuses to build a version the index already has, and\n  says how many pending entries prove the two would differ. An unreachable index is\n  reported as unverified rather than clear -- otherwise the gate passes most easily when\n  the network is down -- and `JNWB_SKIP_INDEX_CHECK=1` is the one named way to build\n  offline, which still does not excuse a collision the gate already knows about. Six\n  discriminators kill, including commenting out the call, which an earlier version of the\n  wiring check read as a call because it searched text rather than the syntax tree."
-        },
-        {
-          "kind": "Added",
-          "text": "**The MCP tool table is checked against the live registry.** Four tests in\n  `tests/test_mcp_server.py` compare the documented table, the prose count and\n  `jnwb.mcp_server.__all__` against `mcp.list_tools()`, and assert that no module in the\n  server package writes into the installed package directory. Three sources had given\n  three different counts because each restated a number instead of asking the server.\n  Five discriminators kill, including putting a write-capable module back."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_import_provenance.py` asserts which `jnwb` the suite is testing.** A green\n  suite says nothing about this checkout unless the package it imported came from this\n  checkout. Three checks: the interpreter running pytest imports the expected package\n  directory, no second importable copy shadows it on `sys.path`, and every example, probed\n  from its own directory through its real prologue, resolves to the same one.\n  `JNWB_EXPECTED_PACKAGE_ROOT` names a different root when a built wheel or an installed\n  copy is deliberately under test, so the check narrows rather than disappears. A standing\n  rule to check `jnwb.__file__` in every probe did not prevent this failure, which makes it\n  a harness defect rather than an operator lapse; it is asserted now instead of remembered."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_skill_claims_match_the_router.py` re-runs the numbers a skill prints.** No\n  routing row for a phase-lag measure may use immunity or robustness language unnegated,\n  and the two quantitative caveats are verified by execution, not by matching prose: the\n  narrowband PSI collapse and the `tau*ln 2` group delay are both measured in the test, and\n  the skill's stated millisecond shifts are checked against that measurement."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_skill_symbol_coverage.py` holds the whole of `jnwb.__all__` against the\n  skill tree.** Every public callable must be reachable as a *call* in a routing row --\n  prose naming a function teaches nothing about how to invoke it, and an earlier draft of\n  this check passed after the `vflip` row was deleted, because the word survived in a\n  neighbouring sentence. Everything else must appear in a categorised exclusion list whose\n  category is itself asserted: exceptions are `Exception` subclasses, ontology types come\n  from `jnwb.ontology`, each excluded container is verified against the live return\n  annotation of the operation credited with producing it, constants are not callable, and\n  the one excluded internal is excluded only while it has no docstring. Stale entries fail:\n  a name the package no longer exports, or one a skill has since started routing. Six\n  discriminators kill, including deleting the laminar router line -- which is checked\n  against whichever skill actually routes `label_layers`, not against a fixed name."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_agents_md_recipes.py` executes every fenced block in the repository rules file and\n  resolves every repository path it cites**, with the working directory outside the\n  checkout so a block reaching for a relative path fails there. It also checks that no\n  pointer names a todo item the stack does not hold, that §8 carries the skills rule, and\n  that the repository rules file and the statistics skill call the same comparison entry point -- which\n  a signature check cannot see, because both are valid calls. Six discriminators kill."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_skill_routing_behaviour.py` runs what a signature cannot express.** Two of\n  the corrected rows are not signature defects: one named a result key `repair_lfp_trials`\n  does not return, the other described a two-trace estimator as working across channel\n  pairs. Both are checked by calling the library, along with the behaviour that makes the\n  argument order worth correcting -- the swapped `paired_fire_prob_test` call returns the\n  negated effect rather than raising."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_docs_interpretation_statements.py` checks each statement against the code\n  it describes.** A test that only greps for the sentence keeps passing when the sentence\n  goes stale, so the unit is read off the result, the sign convention off the docstring,\n  the absence of `groups` off the signature, and the cross-modal numbers off a re-run of\n  the documented call. Eight discriminators kill. One survived first: deleting the transfer\n  entropy unit left the page passing because the mutual-information paragraph below also\n  says bits, so that check is per section now."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_docs_user_navigation.py` holds the shape rather than the episode.** Every\n  nav entry resolves, no page is listed twice, no page exists off the nav, no page on the\n  nav names a test file, a gate script or the scaffolding marker, and the specification\n  page still carries every operation and convention the split was supposed to preserve.\n  Five discriminators kill."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_docs_runnable_prerequisites.py` holds the statement and the fact it\n  asserts together.** One test sweeps every `python examples/` instruction in `docs/` and\n  requires the prerequisite within the text that follows it; another reads\n  `pyproject.toml` and `MANIFEST.in` and fails if `examples/` starts shipping, which would\n  make the note wrong in the other direction. The first was written per page and a\n  discriminator survived it: `quickstart.md` carries two instructions, so deleting one\n  note left the other's text in the file and the check still passed. It is per instruction\n  now, and all four discriminators kill."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_examples_quickstart.py` runs the script that nothing ran.**\n  The repository rules file names `examples/quickstart_jnwb.py` the smallest end-to-end script and\n  `docs/quickstart.md` calls it the authoritative smoke test; no test executed it, so it\n  stayed broken across a release. `main()` is called with its module-level `OUT` redirected\n  at a temporary directory, because the figure it writes is tracked and its bytes vary by\n  matplotlib version. One test asserts the permutation panel reaches its `except` branch\n  rather than its histogram, so the branch is never silently untested.\n  `tests/test_readme_smoke.py` executed the arrays quickstart throughout and could not\n  catch what it printed: execution says nothing raised, not that the number means\n  anything. The block now states the onset it injects, and the test reads the fit back and\n  holds it to that truth, to an R^2 floor, and to finishing in the interior of its bounds."
-        },
-        {
-          "kind": "Added",
-          "text": "**The quickstart script says which `jnwb` it imported.** Run the way both pages instruct,\n  `python examples/quickstart_jnwb.py` puts `examples/` on `sys.path` and not the\n  repository root, so `import jnwb` resolves to whatever is installed. Measuring this item\n  hit exactly that: the script ran to exit 0 against jnwb 0.1.8 from site-packages while\n  sitting in a 0.2.4 checkout, rendering six panels that all said CORRECT about a different\n  library, and the first reading reported the defect as not reproducing. One printed line\n  makes the substitution visible."
-        },
-        {
-          "kind": "Added",
-          "text": "**`tests/test_docs_call_shapes.py` checks the documentation against the signatures that\n  ship.** Executing the blocks would not have caught the six defects above: 88 of the 113\n  `python` blocks are fragments over variables their page never defines, so they are not\n  runnable, and an execute-everything test skips exactly the pages where the drift is.\n  These parse the blocks instead and check every keyword and positional count against\n  `inspect.signature`, across 152 documented calls on 29 pages, fragments included. Four\n  discriminators kill, one per check.\n  It also asserts that every `python` block parses rather than skipping the ones that do\n  not. That check exists because writing this repair put a paragraph of prose inside a\n  fence: the block stopped being Python, the sweep skipped it, and everything still\n  reported green while the page a reader copies from was broken.\n  The 12 blocks that bind every name they use, name no data file and carry no MkDocs\n  include directive are executed with the working directory outside the checkout. The\n  suite otherwise runs from the repository root with `pythonpath = [\".\"]`, so a block\n  reaching for a relative path finds the checkout and passes for a reason a reader\n  installing from PyPI does not have."
-        },
-        {
-          "kind": "Added",
-          "text": "**`Provenance` records the jnwb that ran, not the one the caller names.**\n  `software_version` is a required caller argument and nothing derived it, so a record\n  could name a version that never executed and, the dataclass being frozen, keep it\n  faithfully. There was also no path, and a version cannot identify an implementation on\n  its own: an editable install of a development tree and a release in `site-packages`\n  report theirs the same way and are routinely different code. `jnwb_version` and\n  `jnwb_path` are read from the executing package and are `init=False`, so a caller\n  cannot pass them -- caller metadata supplements the observed identity and cannot\n  override it. `software_version` stays, as the caller's own claim; when the two\n  disagree, `version_claim_matches_execution` is False and the disagreement is in the\n  record rather than behind it. Both new fields appear in `to_dict()`."
-        },
-        {
-          "kind": "Added",
-          "text": "**`docs/errors.md`: every refusal, what produced it, and the argument that resolves\n  it.** Twelve exported error classes and the two NWB resolvers appeared on no\n  hand-written page -- only in `docs/api.md`, which is generated from `jnwb.__all__` and\n  so contains every export by construction. Nine of the twelve are the resolvers and the\n  errors they raise, which is everything a reader meets on their first unfamiliar file.\n  The page quotes the real messages, and a test asserts each quoted fragment is still a\n  literal in `jnwb/*.py`, so it cannot drift into describing errors the code no longer\n  produces. Linked from the index and the mkdocs nav."
-        },
-        {
-          "kind": "Added",
-          "text": "**`jnwb.DETECTION_TAILS` is explained** in `docs/05_artifact_detection_and_repair.md`,\n  where the one-sided/two-sided choice it names is already discussed."
-        },
-        {
-          "kind": "Added",
-          "text": "**`nested_cv_linear_svm(..., rng=42)`.** The signature was `(X, labels, n_splits)` with\n  `random_state=42` hardcoded at four sites, so partition sensitivity could not be\n  assessed: there was no way to ask whether a decoding accuracy survived a different\n  split of the same trials. An `int` is handed to scikit-learn unchanged, so the default\n  reproduces the previous folds exactly."
-        },
-        {
-          "kind": "Added",
-          "text": "**`jnwb.AmbiguousLayoutError`.** Raised by `acquisition_channel` when the channel axis\n  of a 2-D series cannot be determined, and reported by `inspect` as\n  `layout: \"ambiguous\"`. A subclass of `NWBInspectError`, like the other inspection\n  errors."
-        },
-        {
-          "kind": "Removed",
-          "text": "**Two `jrsa` helpers nothing reached.** `_confidence_interval`, an analytic normal\n  approximation superseded by the percentile bootstrap that is the live path, and\n  `_chunk_tensor` (see above). Both private."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**`jnwb.ontology.create_aligned_dataset`, `create_result` and `create_figure`.** Each\n  forwards its arguments to the constructor of the same name and adds nothing:\n  `create_result(q, s, p, l) == Result(q, s, p, l)` for every input, and\n  `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`. They were\n  never in `ontology.__all__` or `jnwb.__all__`. Calling one now raises a\n  `DeprecationWarning` naming the replacement; they will be removed in a future release.\n  Call the dataclass directly. The other eleven ontology exports are retained."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`MANIFEST.in`'s comment described an outcome its mechanism does not produce.** It said\n  that without the graft \"the sdist ships a library whose README tells an agent to read\n  AGENTS.md, and no AGENTS.md\". `packages.find` is `include = [\"jnwb*\"]`, so installing\n  that sdist writes `jnwb/` into site-packages and discards `skills/` and `AGENTS.md`:\n  installing the built 0.2.4 sdist into a clean 3.12 environment yields `jnwb/` and\n  `jnwb-0.2.4.dist-info/` and nothing else, with no `SKILL.md` or `AGENTS.md` anywhere in\n  the environment. Only someone who unpacks the tarball by hand receives them, and 11 of\n  the skills' 12 repository-relative links point into `docs/`, which the sdist prunes. The\n  comment now says that, and says why it is the intended outcome rather than an oversight."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**CI never ran the test suite against the distribution it built.** The four matrix legs\n  run `pytest tests/` from the repository root, where `pythonpath = [\".\"]` and\n  `tests/__init__.py` both put the source tree ahead of site-packages: they test the\n  checkout, which merely also has the package installed. Only the smoke step touched the\n  wheel. The build job now runs the whole suite against the installed wheel from outside\n  the repository, with `pythonpath` cleared and pytest's rootdir insertion suppressed by\n  importlib import mode, and `JNWB_EXPECTED_PACKAGE_ROOT` pointed at the clean\n  environment so `tests/test_import_provenance.py` fails the leg rather than letting a\n  silent fallback to the checkout pass. The test tooling is read out of\n  `pyproject.toml`'s extras rather than listed again in the workflow. Record: 2499\n  passed, 48 skipped against an installed wheel in a clean 3.12 environment; the extra\n  skips are the GPU-gated tests, which have no CuPy there."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Running it that way found three defects that made the claim impossible, not merely\n  untested.** Five test modules prepended the repository root to `sys.path` so they could\n  import `scripts.*`, which also put the checkout's `jnwb/` first and re-shadowed whatever\n  package was under test; they now append, since `scripts/` exists only in a checkout and\n  nothing else can supply it. Two `test_skills_validation` tests opened\n  `skills/jnwb-fact-action/SKILL.md` relative to the current directory, so they passed\n  only because pytest happened to be run from the root. And\n  `test_the_deprecation_is_announced_in_the_changelog` located `CHANGELOG.md` as\n  `jnwb.__file__/../..`, which is the repository only when the import came from the\n  checkout. All three now derive their paths from the test file."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The examples' checkout guard had already falsified CI's \"Run tutorials against the\n  installed wheel\" step.** The guard added with the import-provenance repair prefers the\n  checkout an example ships in, which is right for `python examples/tutorials/03_spiking.py`\n  and wrong for a step that runs those same files out of `$GITHUB_WORKSPACE`: it found the\n  sibling package and sent the step back to the source tree, under a step name saying\n  otherwise. All ten examples now stand the guard aside when\n  `JNWB_EXPECTED_PACKAGE_ROOT` is set -- the name the harness already uses for \"this run\n  is qualifying a different copy\" -- and the tutorial step sets it.\n  `tests/test_the_suite_can_qualify_an_installed_copy.py` holds the shape of all of it:\n  no test module may prepend the root, no test may open a repository file through the\n  working directory, every example's guard condition must name the variable (read from\n  the syntax tree, because the comment above it names it too), and the new CI leg must\n  keep each of its clauses. Eleven discriminating mutations all fail the suite."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The anti-pollution check could not see anything a wheel carries at its top level.**\n  It searched entry names for the substrings `/tests/` and `/scripts/`. A wheel entry has\n  no leading distribution directory, so `\"/tests/\" in \"tests/__init__.py\"` is False: a\n  wheel shipping the entire test suite and `scripts/` passed. The sdist was checked only\n  by the accident of its layout, whose entries are `jnwb-0.2.5/tests/...`. Confirmed by\n  building both archive shapes and running the old loop over them -- the wheel was\n  accepted, the sdist rejected. Matching is now on path components, split on both\n  separators, so the same rule reads a wheel, an sdist and an archive written with\n  backslashes. The same change removes the reverse error: `artifacts` no longer rejects a\n  module legitimately named `lfp_artifacts.py`, because the forbidden names are\n  directories. `omission` and `_unused` stay substring rules, since they are pollution\n  markers that must not survive inside a file name either."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The forbidden list and `MANIFEST.in` disagreed about what must not ship.** The gate\n  never rejected `site/` or `_build/`, both of which the sdist prunes, and `.lab` caught\n  the directory that exists, `.lab_bundle_build`, only as a substring -- which component\n  matching would have silently dropped. The list now covers every `prune` target plus\n  build, cache and checkout directories, and a test derives the prune targets from\n  `MANIFEST.in` so adding one without teaching the gate fails in the suite."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**CI carried its own copy of the same defective list.** Repairing the gate alone would\n  have left the published pipeline shipping wheels with the suite inside them. The\n  workflow step now calls `scripts.release_gate.forbidden_entries` instead of restating\n  the rule, and `tests/test_distribution_manifest_inspection.py` extracts that step's\n  Python out of the YAML and runs it against a constructed `dist/`, so a syntax error or\n  a bad import in the snippet fails in the suite rather than on a release branch.\n  Records: the real built wheel (54 entries) and sdist (103 entries) are clean under the\n  repaired rule, and nine discriminating mutations all fail the suite."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A test asserted a warning that only a machine with a GPU can produce, and CI had been\n  red for 48 consecutive runs, since 2026-09-16, because of it.**\n  `test_requesting_cuda_says_it_will_not_be_used_and_records_cpu` waited for \"computes in\n  NumPy\", the message `jrsa` emits when `resolve_device` returns `cuda` and `jrsa` then\n  declines to use it. On a machine with no usable CUDA device -- every CI runner --\n  `resolve_device` refuses first with a different message and `jrsa`'s branch is never\n  reached, so the regex matched nothing and the test failed on all three legs while\n  passing on a workstation with a GPU. The claim under test holds in both environments;\n  each is now held to its own message rather than to a weakened alternation."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`test_jrsa_cupy_gpu_execution` carried the same defect one step removed.** Its guard\n  skipped when `import cupy` failed, but CuPy installs without a GPU, and on such a\n  machine the test ran and failed for exactly the reason above. It skips on the absence\n  of a usable device now, not on the absence of a package. Verified by simulating a\n  GPU-less machine: both tests fail before the repair and pass after it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Every example, run the way its own documentation says to run it, imported the wrong\n  package.** Measured from `examples/` and `examples/tutorials/`: `import jnwb` resolved to\n  an installed `jnwb` in `site-packages`, not to the checkout the file sits in. Python puts\n  the script's directory on `sys.path`, never the repository root. That is how a `0.1.8`\n  install rendered the six-panel quickstart figure from inside a `0.2.4` checkout with\n  every panel still labelled CORRECT, and how a defect under investigation appeared not to\n  reproduce. All ten scripts now prefer the checkout they belong to, and only when they are\n  in one -- a copy downloaded next to a pip-installed `jnwb` finds no sibling package and\n  is unaffected."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A skill claimed a safeguard the router denies.** `jnwb-lfp-spectral` described\n  `imaginary_coherency` as \"volume-conduction-robust\" while the router's own invariant 8\n  and the repository rules file section 5 both say these measures reduce sensitivity to zero-phase-lag\n  coupling and establish no immunity -- and the adjacent `wpli` row already said it\n  correctly. The row now matches. `jnwb-connectivity` told the reader to verify PSI sign on\n  a driver without saying over what band: a 20 Hz sine delayed by 10 ms gives\n  `net = -2.1e-05` over `(19.0, 21.0)` and `net = +6.3e-03` over `(15.0, 30.0)` -- the\n  narrow band reports nothing, with the wrong sign, because at one frequency a delay and a\n  phase offset are the same thing. `jnwb-spiking` mandated `causal_exp_smooth` for latency\n  without stating that the filter delays the latency: the step response reaches half\n  amplitude at `tau*ln 2`, measured at +17 ms for `tau_ms=25` and +34 ms for `tau_ms=50`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The repository rules file said \"each call below runs as written\" and none of them did.** Section 10\n  bound a generator and then called eight functions on names no block defined --\n  `spike_times`, `lfp`, `x`, `g1`. One call was wrong even given its inputs:\n  `aggregate_to_db(beta_raw, baseline_raw, how=\"mean_of_ratios\", aggregate_over=0)`\n  raises `AxisError: axis 0 is out of bounds for array of dimension 0`, because\n  `band_power` returns a float and there is no axis to aggregate over. That is the\n  canonical demonstration of the rule this repository states most often -- take the\n  logarithm last -- and it did not run. The recipe builds per-trial powers now, and the\n  whole block executes. Two calls used deprecated aliases (`seed=`, `t0_bounds=`) and use\n  the live names. Section 4.3 pointed at a todo item that does not exist. Section 10 used\n  `exploratory_compare` while the statistics skill routed to `compare_groups`: both exist,\n  their returned keys differ, and an agent reading one and calling the other reads keys\n  that are not there. The skill routes to `exploratory_compare`, which its own workflow\n  and invariants now name too."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Nine routing rows taught a signature the library does not have.** A skill's routing\n  matrix is what an agent calls from, and these were hardcoded with nothing keeping them\n  true. `paired_fire_prob_test(fires_null, fires_target, n_bootstrap=1000, rng=...)` had\n  the first two arguments the wrong way round, omitted the required `n_shuffles` and\n  invented a default for `n_bootstrap`; supply the missing argument and keep the order and\n  the call succeeds with `risk_difference` negated and `odds_ratio` inverted, measured\n  here as +0.55 against -0.55 on the same data. `epoch_continuous(data, onsets, win_s,\n  fs)` passes two keyword-only parameters positionally. `nested_cv_linear_svm(...,\n  n_splits=5)` gives a default to a required argument. `band_power(..., normalize=False)`\n  states the opposite of the live default, which is `True` and raises without a baseline.\n  `cross_area_coherence` was described as working \"across channel pairs\"; a 2-D array is\n  refused by design. `repair_lfp_trials`'s guard was to be read from `frac_flagged`, which\n  is not a key it returns -- `info.get('frac_flagged', 0)` skips the check and reports\n  nothing. Three more were found by the strengthened test: `granger(X, Y, order,\n  n_surrogates, seed)` names the deprecated keyword-only alias rather than `rng`;\n  `fit_exponential_onset(t_ms, rate, t0_bounds, tau_bounds)` names the keyword-only\n  aliases in the positional slots of `t0_bounds_ms` and `tau_bounds_ms`; and\n  `aggregate_to_db(power, baseline, how=\"mean_of_ratios\", aggregate_over=0)` gives a\n  default to a keyword-only argument that deliberately has none, and states the wrong\n  default for the other."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Five pages printed an estimate and stopped.** Each now says what the number does not\n  support, next to where it is produced, and each statement is taken from the\n  implementation rather than from the page. `docs/02` framed `zflip`'s delay gradient as\n  \"propagation latency\" and printed `apparent_velocity_m_s` with no note that an apparent\n  phase velocity is not a conduction velocity -- two sources with a fixed offset, a\n  travelling field wave and volume conduction from one distant generator all produce the\n  same gradient -- and that `directionality` is a direction in depth, not of influence.\n  `docs/07` printed a cluster p with nothing about what a significant cluster licenses:\n  the conditions differ somewhere in the window, and the cluster's onset, offset, peak and\n  width are not estimates, because the threshold that made it significant defined its\n  edges. `docs/04` handed over a CSD map in A/m^3 with no sign convention, which is the\n  interpretation: negative is a sink, inward current, the signature of excitatory input,\n  and reading it the other way inverts every conclusion about which depth receives input.\n  `docs/08` printed transfer entropy and two mutual informations with no log base; all\n  three are in bits, and `transfer_entropy` returns `unit='bits'` rather than leaving it\n  to be inferred. `docs/09` called its decoders leakage-resistant directly above\n  `nested_cv_linear_svm(X, labels, n_splits=5)`, which takes no `groups` argument at all:\n  the protection is `assign_outer_folds` further down, and the page now says so."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`docs/07`'s cross-modal example correlated four points while presenting 200.** It\n  passed `(4, 200)` and called it `channels x time`; the reduction reads a 2-D array as\n  `(n_times, n_trials)`, so the call swept three lags over a four-sample series,\n  `lag_search_resolution_floor` came back 0.75 and `warnings` said so, and the page read\n  neither. It is time-major now, seeds the circular-shift null behind\n  `lag_corrected_pvalue` -- without `rng` that p moves between runs, which the example was\n  quoting as though it did not -- and states the sign of `lag_ms`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Four README links were dead on the page the README is rendered on.**\n  `readme = \"README.md\"` makes the file the PyPI long description, and PyPI renders it\n  verbatim without rewriting relative links, so `[CONTRIBUTING.md](CONTRIBUTING.md)`\n  resolved against pypi.org. One was worse than dead: `artifacts/` is pruned from the\n  sdist, so `artifacts/todo_stack.md` is not in the archive the page describes either, and\n  the line now says so. All four are absolute to `blob/main`, checked against the long\n  description extracted from a built sdist's `PKG-INFO` rather than against the file they\n  came from. `tests/test_readme_smoke.py` resolves each `blob/main` target against the\n  checkout, so an absolute link cannot be wrong in the other direction.\n  `examples/quickstart_jnwb.py` also pointed at an `omission/` example project for \"real\n  results computed from real recordings\". It is not in this repository and never was."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Ten pages gave a runnable instruction that a `pip install` reader cannot follow.**\n  `examples/` is not a package, so `packages.find include = [\"jnwb*\"]` leaves it out of\n  the wheel, and `MANIFEST.in` grafts `skills` and `AGENTS.md` but not `examples`, so it\n  is out of the sdist too -- built here, 56 wheel entries and 105 sdist entries, no path\n  matching \"example\" in either. `python examples/tutorials/NN_*.py` was nonetheless the\n  only runnable line on all nine tutorial pages, and `quickstart.md` gave it twice, while\n  `install.md` led with `pip install jnwb` and offered a clone as a development\n  alternative. Each instruction now states the prerequisite where it stands, because a\n  reader arriving from a search engine lands on the tutorial page and not on the index,\n  and `install.md` says what each artifact carries. `docs/agents.md` already did this for\n  `AGENTS.md` and `skills/`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`docs/assets/jnwb_quickstart.png` was a copy of the quickstart figure from 2026-09-05\n  and the only rendering a documentation reader sees.** It showed a permutation panel the\n  library has since refused to compute -- the script wrote no figure at all, having exited\n  1 -- so the page illustrated a version of jnwb that no longer exists. Regenerating one\n  copy and not the other is the same second-copy failure in its usual form, so the two are\n  now held to byte identity by a test."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The script both README and `docs/quickstart.md` call executable exited 1 without\n  writing a figure.** 0.2.x tightened `permute_labels` to refuse a design with one label\n  per group, and that is exactly the design `examples/quickstart_jnwb.py`'s permutation\n  panel builds on purpose, to show that such a null cannot move. The panel raised at the\n  fourth of six panels, so nothing was rendered and `examples/figures/jnwb_quickstart.png`\n  was the output of an older library. The refusal is now caught and drawn: it states the\n  same lesson more strongly than a histogram of a point mass did, and the global null,\n  which does move and would look significant, is still plotted beside it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The README's arrays quickstart printed an onset it had not recovered.**\n  `Onset t0: 180.0 ms (R2=0.00, None)` was fitted to `rng.uniform(0.0, 10.0, 300)` over\n  four events -- homogeneous noise containing no onset at any latency. An R^2 of 0.00 is\n  the fit reporting that it explains none of the variance, so 180.0 ms was whatever the\n  optimiser landed on, printed on the front page as a result. The example now injects a\n  real onset at 60 ms in three lines and recovers 59.6 ms at R^2 = 0.99. It also prints\n  `bound_status or 'interior'`: `None` is not a missing value, it is the fit finishing\n  inside `t0_bounds`, which is the good case, and it was displayed as though it were a\n  status."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Six documented calls raised `TypeError` on the first line a reader would copy, and\n  two of them were inverted rather than renamed.**\n  `repair_lfp_trials(window_ms=(-100, 500))` was commented \"Active evaluation interval\".\n  The live parameter is `exclude_window_ms`, and it means the opposite: samples inside it\n  are never flagged for repair. A reader who fixed only the name would have suppressed\n  repair over exactly the window they meant to analyse, so the example now uses it for\n  what it is for -- protecting an interval whose deflection is signal.\n  `bad_trials_single_channel(r_thresh=0.2)` was commented \"Minimum acceptable correlation\n  with template\". The live parameter is `corr_z_thresh`, default 5.0, a robust-z outlier\n  threshold on a trial's median correlation to the *other trials*; there is no template,\n  and 0.2 as a z threshold would flag nearly everything.\n  `docs/06` taught a two-step composition backwards: `classify_response_significance`\n  consumes the dict `compute_response_metrics` returns, and the page passed it that\n  function's inputs instead, then printed two result keys the function does not return.\n  `alpha=0.01` becomes `zscore_threshold=2.58`, the two-sided 99% cutoff, so the example\n  keeps its meaning. `docs/09` called `assign_outer_folds` with a label vector and\n  `n_splits`/`groups` when it takes a trial table, and `build_representation_ladder` with\n  labels and feature names when it takes a `(n_trials, n_space, n_time)` raster and no\n  labels at all; the flow diagram above them, which routed the ladder out of training,\n  is corrected too. `docs/11` section 9.2 documented `ZFlipResult.phase_gradient` and\n  `.wpli_profile`, neither of which is a field of the result, in the only documentation\n  those estimators had."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A grid-invariance test that could only measure determinism.**\n  `test_frequency_grid_resolution_invariance` asserted that the crossover estimate moved\n  by less than 0.05 channels between 0.5, 1.0 and 2.0 Hz grids. Its PSD came from a helper\n  whose `noise_level` is a constant additive floor, not a random draw, so the spectrum was\n  deterministic and the measured spread was exactly 0.0000. The bound could not fail, and\n  it is not a grid-invariance bound: under multiplicative lognormal jitter of only 0.1 the\n  spread is 0.17 to 0.37, and the same assertion fails. The helper takes a `jitter_sigma`\n  now; the deterministic test is kept under a name that says what it measures, and a\n  second test measures invariance on a spectrum where the estimate actually moves. Over\n  40 seeds at sigma 0.25 every seed is accepted on every grid and the per-seed spread runs\n  0.0696 to 0.5603, median 0.2381, so what is asserted is the decision plus a bound with\n  headroom over the measured maximum, with a lower guard so the test cannot silently\n  degenerate back into the deterministic one. Both discriminators kill: the old 0.05 bound\n  fails at 0.5603 on noisy input, and switching the jitter off trips the guard."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A mock that could not be reached, in the test named for it.**\n  `test_rejected_fit_returns_unavailable_parameters_never_zeros` checked both failure\n  modes of `aperiodic_fit` in one body: it installed a failing `np.polyfit` for the\n  fixed-mode half and never undid it, then installed a failing `optimize.curve_fit` for\n  the knee half. The knee branch calls `np.polyfit` (`spectral.py:1201`) before\n  `optimize.curve_fit` (`:1206`) inside one `try`, so it raised on the leaked patch and\n  the `curve_fit` mock was never reached. Measured, not read: replacing that mock with\n  one that *succeeds* -- which should have flipped `accepted` to True and broken four\n  assertions -- left the test passing. The knee `except` branch was still exercised, by\n  the wrong failure; what went untested was the one the test is named for. It is now two\n  tests, each patching only what it injects, and the knee half counts its own mock's\n  invocations, so a mock that stops being reached fails instead of passing silently.\n  Both discriminators kill: reintroducing the leaked patch, and making the mock succeed."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A 9.537 GiB fixture bought three shape assertions.**\n  `tests/test_analyzers_coverage.py` allocated `randn(128, 200, 500, 100)` -- 9.537 GiB of\n  float64 -- plus 1.144 GiB and 0.358 GiB more, to assert that trailing dimensions survive\n  a mean. Only the frequency axis is load-bearing: `extract_band` selects bins by comparing\n  `freqs` against the band bounds, and every other axis reaches the tests as a number in a\n  shape assertion. The frequency axes and their `linspace` coordinates are unchanged, so\n  the same bins fall in each band; the trailing axes are now 2 to 5. The file runs in\n  6.92 s against 131.93 s, with the same 25 test ids, the same 5 subtests, and the same\n  outcomes.\n  Preservation was measured rather than assumed: six mutations of `jnwb/analyzers.py` were\n  run against the whole file at both fixture sizes, including two expected to survive,\n  because a profile made only of kills cannot detect a shrink that loses a failure class it\n  never had. The same four mutants are killed and the same two survive. One profile is not\n  identical but a strict superset: ignoring `freq_axis` additionally fails\n  `test_extract_band_bounds` at the smaller size, because taking a band's bin indices along\n  a length-2 axis raises instead of silently returning a wrongly-shaped array. No failure\n  class was lost.\n  The saving at suite level is smaller than the file-level one and smaller than the audit\n  projected. Two full-suite runs before the change took 502.66 s and 502.87 s and two after\n  took 473.30 s and 479.18 s, so about 27 s is recovered, near 5%, not the 27% the item\n  claimed. The item's arithmetic was consistent with its own measurements -- 105 s of a\n  383 s suite -- but the fixture costs about 27 s inside the suite against 125 s standalone:\n  allocating 9.537 GiB from a fresh process pays the operating system for pages it has to\n  zero, while the same allocation inside a long run reuses a heap that has already grown.\n  The change stands on removing 11.04 GiB of allocation and 125 s from anyone running that\n  file alone; the suite-level headline does not."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A test rewrote a tracked module and leaked an environment variable process-wide.**\n  Both reproduced. `tests/test_mcp_server.py` set `ALLOW_DYNAMIC_TOOLS=1` in `os.environ`\n  at import: measured in a fresh interpreter, importing it took the variable from unset to\n  `\"1\"` for every test that ran afterwards. And `test_add_tool_success_and_cleanup`\n  appended to `jnwb/mcp_server/custom_tools.py`, a tracked file, with a `finally` as its\n  only protection. A `finally` survives a failing assertion but not a kill or a timeout:\n  interrupted between the write and the restore, a run left\n  `M jnwb/mcp_server/custom_tools.py`, 101 bytes to 211. `pytest-xdist` is declared, so\n  two workers would also race on that one file. The restore was byte-exact only by luck --\n  `read_text` plus `write_text` round-trips through universal newlines, so it held because\n  that file is CRLF and would have rewritten all four line endings had it been LF.\n  The tracked write is now gone rather than guarded: `add_tool` resolves its target from\n  `Path(__file__).parent` at call time, so the test points the module at a temporary\n  directory and exercises the same code -- duplicate check and decorator insertion\n  included -- with nothing tracked in reach. The variable is set per test with\n  `patch.dict` and restored, including back to absent, which is the case that was actually\n  in play."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`add_tool`'s security gate had no test.** Forcing `ALLOW_DYNAMIC_TOOLS=1` at import\n  made the refusal branch unreachable for the whole file, so the one check standing\n  between a prompt and executable code written into the installed package was never\n  exercised. It is now, and it also asserts that a refused registration writes nothing.\n  Both leaks are asserted as contracts rather than assumed: one measures the variable in\n  a child interpreter, so it holds wherever an assignment is placed, and one compares the\n  tracked module's bytes against a digest captured at import. Reintroducing either defect\n  fails the matching contract."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The vFLIP calibration record certified one function of the estimator.**\n  `estimator_sha256` hashed `inspect.getsource(vflip)`, while `vflip` delegates its band\n  normalization to `_unit_range`. Recentring that helper on its own mean -- a\n  line-count-preserving change that moved the median signed bias off-centre from +0.053\n  to -0.123 contacts -- left the record reading \"current\" and\n  `tests/test_vflip_calibration_receipt.py` passing 4 of 4. The hash now covers `vflip`\n  and every module-level function in `jnwb.laminar` it can reach, resolved from the call\n  graph rather than listed, so a helper added later is covered without anyone remembering\n  to extend a list. The reachable set is recomputed in the test and compared against the\n  set the generator hashes, so the record cannot quietly narrow again. Both mutations --\n  the helper and `vflip`'s own source -- now fail the record test; the helper mutation\n  previously survived it. Two of the three helpers the item named, `_from_lfp` and\n  `_device`, are not module-level functions in `jnwb/laminar.py`; the closure is `vflip`\n  and `_unit_range`. The record was regenerated rather than edited: of 12924 leaf values\n  in the raw JSON, exactly one changed, the hash, which confirms the estimator is\n  unchanged and the calibration is fully seeded."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Seven tests asserted less than their names claimed.** Each claim was reproduced\n  before anything was changed, and each repair was then mutation-checked against the\n  defect its name describes; all seven mutants were killed.\n  `test_readme_quickstart_blocks_execute` held a hand-copied transcription and never\n  opened `README.md` -- the module-level `README` constant was unused in the body -- so\n  the two had already drifted, the README passing `t0_bounds=(0.0, 200.0)` where the copy\n  asserted `(0.0, 250.0)`. It now executes the README's own fenced blocks, so there is no\n  second copy to drift. `test_readme_python_version_matches_policy` asserted that the\n  literals `\"3.12\"` and `\"3.14\"` appear somewhere in the README, which survives any change\n  to `requires-python` or to the CI matrix; it now reads `pyproject.toml` and\n  `.github/workflows/workflow.yml` and compares them against what the README states.\n  `test_no_routed_module_probes_with_a_bare_cupy_import` searched only for\n  `torch.cuda.is_available()`, so the bare cupy import named in its own docstring was the\n  one case it could not report; it now checks both libraries by import across the routed\n  modules, allowing `*_gpu` implementations, which run only after a caller has resolved.\n  Three `rdm_similarity` tests compared the dispatcher against the same SciPy function it\n  dispatches to; the coefficients are now computed from each estimator's definition.\n  `test_the_documented_centre_shrinkage_is_the_measured_one` allowed a slope anywhere in\n  `[0.60, 0.95]`, 3.8 times the estimator's measured spread and wide enough to admit the\n  0.95 that the test's own docstring says must be reported; measured over five disjoint\n  nine-seed sets the slope runs 0.7557 to 0.8487, and the band is now `[0.70, 0.90]`.\n  `test_recovers_known_onset_within_tolerance` allowed +/-60 ms on a 50 ms onset, so a fit\n  reporting 0 ms passed a test named for recovery; the error at this seed is 3.57 ms and\n  the bound is now 8 ms."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**xFLIP's surrogate significance test was gated by one test.** Removing the decision\n  entirely -- `is_sig` unconditionally true whenever surrogates ran -- left three of the\n  four false-positive-rate tests and all nine `TestXFlipGradientGateOnBothPaths` tests\n  passing, because the contrast and boundary-drop gates reject those nulls without it.\n  Only the AR-noise case noticed, and only as a rate. On correlated noise the other gates\n  open and the surrogate test is the sole reason for rejection on 14 of 25 seeds, with\n  omnibus p running to 0.56, so acceptance is now asserted to imply significance there,\n  with a non-vacuity guard on how many such seeds occur."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Four estimators had no test that could tell them from a constant.** Each of the\n  audit's nine candidates was run as a mutation against the whole suite before anything\n  was changed, because \"nothing catches this\" is a claim about the suite, not about one\n  file. Four mutations survived all 2391 tests: `imaginary_coherency` returning 0.0 for\n  both `icoh_mean` and `icoh_abs_mean`, `paired_fire_prob_test` pinned to p = 0.0001,\n  `confirmatory_compare` confirming everything, and `bipolar_reference` with its sign\n  flipped. `imaginary_coherency` now has a positive control checked against an oracle\n  that recomputes Im(coherency) from segment, detrend, window and rFFT, reusing no jnwb\n  helper and no scipy spectral estimator; the two p-values are calibrated across 20 null\n  draws in each direction, since one seed showing a large p-value is a draw rather than a\n  property; and the referencing sign is pinned to an exact expected array. Separately,\n  `tests/test_gpu_pca.py` compared the implementation against a line-for-line copy of its\n  own `_svd_numpy` branch and compared with `abs(corr)`, which is sign-invariant, so\n  `pin_component_signs` was uncovered too; it now checks against an eigendecomposition of\n  the scatter matrix, asserts the documented sign convention directly, and exercises the\n  CUDA fallback's control flow without a GPU. **No estimator changed.** All ten repairs\n  are verified by mutation, including the reverse of each constant, so a test asserting\n  \"not significant\" also rejects \"always significant\"."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Four of the audit's nine claims did not reproduce and no code was changed for them.**\n  Mutating both shuffle p-values to `1/(n+1)`, `shuffle_r2_ci.p_val` to 0.001,\n  `fdr_correct` to return its input, and `laplacian_reference` to skip its un-permute all\n  failed the existing suite. The catching tests are\n  `test_api_consistency.py::TestAlternativeAndAlpha::test_case_and_whitespace_are_folded_not_ignored`,\n  `test_independent_audit_semantics.py::TestMonteCarloPValueConvention::test_shuffle_r2_ci_uses_one_plus_k_over_b_plus_one`,\n  `test_jrsa_correctness.py::TestMultipleCorrectionFallback::test_multiple_correction_bh_matches_fdr_correct`\n  and `test_spectral.py::TestLaplacianReference::test_channel_order_un_permutes_back_to_input_positions`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Four tests asserted things that could not be false.** `test_docs_nwb_workflow.py`\n  asserted a token was absent from `re.findall` output, which returns match substrings\n  that can never contain a longer string -- and the pattern had no `re.MULTILINE`, so the\n  list was empty regardless. `test_representative_workflow.py`, whose own docstring calls\n  it \"the load-bearing assertion\", blocked `omission` with a meta-path finder defining\n  `find_module`, dropped from the protocol in 3.12: on 3.14.3 a `find_module` blocker\n  imports the blocked module anyway, while a `find_spec` blocker raises. With the blocker\n  made live, the workflow still runs without `omission`, so the claim was true and simply\n  untested. `test_jnwb_frozen_boundary.py` iterates `AUTHORIZED_EXCEPTIONS`, which is\n  `set()`; the loop is correct and stays, and the detector it depends on is now exercised\n  directly, so the first exception added is checked by code known to work. Three tests in\n  `test_jnwb_core.py` kept their assertions behind `if 'error' not in result:`: replacing\n  all 14 public `StatisticalAnalysis` callables with a stub returning `{'error': ...}`\n  left 23 of 26 tests passing. Each repair is verified by a mutation that reintroduces the\n  condition it names, and the two pattern-driven tests additionally fail when their\n  pattern stops matching, rather than going quietly blind a second time."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Dict-style access on the result dataclasses now fails the way a dict fails.**\n  `DirectedResult`, `VFlipResult`, `XFlipResult`, `ZFlipResult` and `AperiodicFitResult`\n  each carried a copied `__getitem__`/`get` pair, introduced \"so callers written against\n  the older dict-returning functions in this module keep working\". It did not keep them\n  working. `__getitem__` was `return getattr(self, key)`, so a missing key raised\n  `AttributeError` and a migrated call site's `except KeyError` did not catch it; and\n  with no `__contains__` defined, `\"method\" in result` fell back to the integer index\n  protocol and raised `TypeError: attribute name must be string, not 'int'`. The\n  behaviour was only ever tested for keys that were present, which is how five copies of\n  a broken promise survived. A miss now raises `KeyError`, a non-string key is a miss\n  rather than a `TypeError`, and `in` answers. **Every key that resolved before resolves\n  to the same value**; only the behaviour on a key that does not resolve changed."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`jrsa` recorded a `batch_size` it never used.** The parameter was accepted,\n  documented as \"Chunk size for large arrays\", and copied into the result's\n  `parameters` -- and nothing chunked. `_chunk_tensor`, the module's only chunking\n  helper, had no callers: across `batch_size` None, 1, 4, 32 and 10000 the value, p-value\n  and interval are identical, and the helper is entered zero times. A result could\n  therefore carry `batch_size=32` in its provenance for a run that made one pass. This is\n  the defect already fixed here for `device` and `backend`, and the same rule applies --\n  `parameters` carries the request, `execution` carries what ran -- so\n  `execution['batch_size']` is now recorded, and is always None because jrsa does not\n  chunk. The helper is deleted rather than left where it reads as an implementation.\n  **No number changes.**"
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`jrsa`'s confidence interval does not follow `alpha`, and now says so.** `alpha`\n  sets the significance threshold for the multiple-comparison correction; it never\n  reaches `_bootstrap`, which takes a fixed 2.5/97.5 percentile interval. `alpha=0.5`\n  and `alpha=0.01` return the same interval. The docstrings for `alpha` and `ci` state\n  the fixed 95% level; the interval itself is unchanged, and a test pins it so that\n  changing the level has to be deliberate."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`classify_layer_from_depth` still called `jnwb.laminar` forthcoming.** It has\n  shipped: the module imports and `vflip`, `VFlipResult`, `xflip` and `XFlipResult` are\n  all exported. A reader following the cross-reference was told the thing they were being\n  sent to did not exist yet. The qualifier is removed and `docs/api.md`, which is\n  generated from the docstrings, is regenerated."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The import benchmark was timing an import it had slowed down 3.3x, and its record\n  was five releases stale.** `scripts/benchmark_import.py` started `tracemalloc` before\n  its timer, so the import it measured ran with allocation tracing on. Seven interleaved\n  fresh-process repetitions: 7724 ms traced against 2317 ms clean. Moving the\n  `tracemalloc.start()` below the timed region is not the fix -- the allocations have\n  already happened by then and the peak comes back 0.0 MB -- so timing and memory are now\n  measured by separate probes in separate processes. The regenerated record reports\n  2151 ms warm where the old one reported 6244 ms, and 10460 ms cold where it reported\n  39342 ms. Nothing gated the record, unlike the vFLIP one, so\n  `artifacts/benchmarks/import_profile.txt` still announced \"jnwb 0.1.6 (111 public\n  symbols)\" at 0.2.4 with 155, and `import_breakdown.json` was older still at 0.1.5 --\n  while itself recording an importtime tree of 1898 ms against its own 6859 ms warm\n  median, the same contradiction visible inside one file. The regenerated pair is 2348 ms\n  and 2151 ms: two measurement methods that now agree within 9%. `tests/test_import_profile_receipt.py` now fails when\n  either record names a different version than `jnwb.__version__`, when the timing probe\n  instruments the import, and when the probe's own number disagrees with an independent\n  wall-clock import. `--write` regenerates both records, so the gate is satisfiable by\n  the command the repository rules file documents. The superseded `vflip_calibration_0.2.2.md` and\n  `vflip_calibration_raw.json`, which described the pre-density-normalized support score\n  and carried no estimator hash, are deleted."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`docs/install.md` claimed the deferred imports keep `import jnwb` fast.** They do not.\n  `import jnwb` takes about 1.9 s, and about 1.8 s of that is `scipy`, `pandas` and `pynwb`,\n  which the eagerly imported surface needs. What the deferrals buy is keeping\n  `scikit-learn`, `statsmodels`, `matplotlib` and `joblib` out of the import, which nothing\n  guarded until now -- the existing extras test only covers packages declared as extras, and\n  these are not. `tests/test_import_lazy.py` now pins the eager third-party surface, so a\n  newly added eager heavy dependency fails a test instead of reaching a release. The install\n  page says what the import costs and where the time goes."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`xflip` re-summed the same diagonal slice inside its dynamic-programming loop.**\n  `_optimal_contiguous_partition` answered the off-diagonal half of `W(u, v)` from a 2-D\n  prefix sum in constant time, then computed the diagonal half as\n  `np.sum(np.diag(corr)[u:v])` on every call. `np.diag` returns a view, so nothing was\n  copied, but the call, the slice and the reduction together cost 4.82 of the 5.56\n  microseconds an `interval_w` call took -- 87% of it -- and the DP makes about 93000 of\n  them at 256 channels, once for the observed matrix and once per surrogate. Prefix-\n  summing the diagonal once makes `xflip` 3.6x to 3.9x faster on the partition step at\n  128 channels and above, and 3.3x end to end at 128 channels with the default 200\n  surrogates: 10.63 s to 3.22 s. `block_bounds`, `boundaries`, `labels`, `modularity`\n  and every p-value are unchanged. The change is not bit-identical in the DP's internal\n  values -- a difference of two running totals rounds differently from a pairwise\n  reduction, by up to 4e-15 here -- but those values cannot reach the answer: for a\n  fixed `(k, j)` every candidate partition tiles `[0, j)`, so the per-block diagonal\n  terms sum to the same constant in every candidate and cancel out of the comparison,\n  and the returned modularity is computed separately from the labels."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Two CUDA paths were slower than their CPU siblings, one by 23x, because they\n  launched one kernel per element.** `UnitAnalyzer._acg_vectorized` had two GPU branches\n  and neither was usable at scale: below 30000 spikes it built the full `N x N`\n  difference matrix, which at 29999 spikes -- just under the threshold the code treated\n  as safe -- asks for 6.71 GiB of device memory for one autocorrelogram; at or above\n  30000 it chunked by 1000 and then looped in Python *inside* the chunk, so 35000 spikes\n  meant 35001 uploads of a loop-invariant `bin_edges`, 35000 `cupy.histogram` launches\n  and 70000 forced device-to-host synchronisations. `_welch_csd_gpu` appended one device\n  array per Welch segment, 127 of them for a 16384-sample trace at `nperseg=256`. The\n  cost was the launches, not the host/device transfers: at 35000 spikes the launches are\n  76% of the accounted time and the transfers 24%. One `_acg_histogram` now serves both\n  devices and histograms once per chunk rather than once per spike, with the chunk width\n  taken from the widest window actually present; one strided index builds every Welch\n  segment at once; and because `harmonic_analysis`, `spectral_tilt` and `band_power` all\n  call the Welch helper as `_welch_csd_gpu(trace, trace, ...)` and keep only `pxx`, a\n  `y is x` short circuit stops it computing its own second half and discarding it.\n  Paired on an RTX A4000, `T_cuda / T_cpu` for the autocorrelogram goes from 23.302 to\n  0.060 at 35000 spikes, and the Welch helper from 1.493 to 0.100 at `nperseg=256`.\n  Every output is unchanged bit for bit: the autocorrelogram counts match the previous\n  implementation on both devices, and 112 of 112 Welch arrays across 28 input cases are\n  identical. The three entry points remain slower on CUDA below roughly 22500 samples,\n  where the fixed transfer-and-plan cost is most of the call; that crossover is now\n  documented in each `device:` parameter rather than papered over by routing on input\n  length, which would make the answer depend on trace length. Record:\n  `artifacts/benchmarks/gpu_launch_overhead_0.2.5.md`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**With a GPU present, two `device='cuda'` requests were denied in silence.**\n  `jnwb/_backend.py` covered two denial reasons -- no usable device, and a device that\n  failed part-way through -- and missed the third: a device that exists but which this\n  code path cannot use. `vflip` assigned the resolver's answer to `_` and `laminar.py`\n  contains no cupy or torch call anywhere, so the request could never be honoured;\n  `fit_var_bivariate` gated its GPU branch on `... == CUDA and ridge <= 0`, after\n  resolving. Measured on an RTX A4000 by counting `cupy.asarray`: both reached the GPU\n  zero times and warned zero times. The caller *without* a GPU was warned and the caller\n  *with* one was not, so the better the hardware the quieter the denial. A new\n  `jnwb._backend.warn_no_gpu_path` names that third reason, `rdm`'s existing inline\n  warning now goes through it, and every `device='cuda'` call either reaches the GPU or\n  says why not. Two further defects found while reproducing: `select_optimal_lag`\n  re-resolved the device inside its lag loop, so one call with `max_lag=6` emitted six\n  identical warnings (`granger_causality(order='auto')` reaches it up to `2*max_lag + 2`\n  times), and every one of those warnings named `fit_var_bivariate`, which is not\n  exported. Public entry points now resolve once and announce under their own name;\n  `fit_var_bivariate` and `select_optimal_lag` take a `context` argument for it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`device=` changed the numbers `gpu_pca` and `compute_population_trajectory`\n  returned.** The repository rules file invariant 6 says the device never changes a number; on a live\n  RTX A4000 both broke it. `gpu_pca` cast to float32 inside its CUDA branch while\n  `_svd_numpy` stayed in float64, and neither function pinned an SVD sign, so\n  `gpu_pca(X(4000, 60), n_components=3)` disagreed across devices by\n  `max|cpu - cuda| = 8.005` on the returned projections. Align the signs by hand and the\n  residue was 6.5e-04, the float32 part. `compute_population_trajectory` was float64 on\n  both devices already -- it uses `torch.as_tensor`, not a cast -- and differed only by\n  sign, which showed as `max_rel = 2.0`, a trajectory reflected through the origin.\n  The working dtype is now chosen before the device branch, by numpy's own linalg\n  promotion rule, so both branches see one array; float16 input consequently works\n  instead of being rejected on CPU and silently computed in float32 on CUDA. A new\n  `jnwb.gpu_pca.pin_component_signs` forces each component's largest-magnitude loading\n  positive -- the `sklearn.utils.extmath.svd_flip` convention -- and both functions apply\n  it to whichever branch ran. Measured after: 3.1e-12 and 6.5e-13, with no post-hoc\n  alignment. `explained_variance_ratio` is unchanged, being sign-invariant. Component\n  signs may now differ from previous releases; the subspace, the variance and everything\n  reconstructed from the pair are identical. The CUDA path remains the faster of the two\n  in float64 (24.2 ms against 29.8 ms on an A4000)."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Tutorial 00 broke on the two most common foreign-file shapes.** It is the page for a\n  file you know nothing about, and it read `acquisition[\"rate_hz\"]` unguarded while\n  iterating `info[\"acquisitions\"]` alone. A file storing `timestamps` instead of a\n  constant rate printed `None Hz` and then died at section 4 with an uncaught\n  `AcquisitionNotFoundError: Series 'lfp' has no constant sampling rate`. A file whose LFP\n  lives in a processing module -- where an `LFP` container usually lives -- printed no\n  continuous line at all, silently skipped the alignment, and still claimed \"Layout\n  discovered and aligned without assuming a schema\"; the string `processing_continuous`\n  did not appear in the script. It now reads both lists, says in words what each absent\n  value means, catches an `NWBInspectError` from a series it cannot read, and closes by\n  reporting what actually happened. On a processing-module file it recovers the injected\n  23.0 Hz it previously never looked for."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`epoch_continuous` turned a non-finite onset into an in-bounds extraction of\n  nothing.** `np.round(nan * fs).astype(np.int64)` is `INT64_MIN`, and `idx + n_pre` then\n  overflowed to a large *positive* start with a large *negative* end. The bounds test\n  `0 <= start and end <= n_samples` is true of that pair, so the window took the\n  in-bounds branch and `arr[start:end]` returned an empty slice: one epoch of shape\n  `(0,)`, reported as a clean extraction, beside a `time_axis_s` of 800 samples. Mixed\n  with one valid onset it reached `np.stack` and raised `ValueError: all input arrays\n  must have the same shape` -- a numpy error naming neither the onset nor the argument.\n  A non-finite onset now raises `InvalidOnsetValueError` naming its index, which is the\n  refusal `events` and `event_onsets` already gave for the same value."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Onsets on a different clock from the data returned a confident all-NaN array.**\n  `start_time` is seconds in the NWB specification and milliseconds in plenty of the\n  toolboxes that write these files. Onsets of 1000-5000 against a 1.0 s recording gave\n  `epoch_continuous` shape `(5, 800)`, correct dtype, correct time axis, every value NaN,\n  and no warning; the mean is NaN, the spectrum peaks at 0 Hz and the figure is blank.\n  Under `boundary_policy=\"nan\"`, a warning is now issued when most epochs fall entirely\n  outside `[0, n_samples)`, naming both spans and the likely unit. A single stray event\n  does not warn, and an epoch overhanging either edge of the recording is ordinary and\n  still silent. `time_unit` on an `EventTable` remains a label: the interval table\n  carries no extent to check it against, so the check lives where the onsets meet the\n  continuous data."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A sampling rate was read from one series and reported beside another's samples.**\n  `_find_series_leaf` walked a container's whole subtree with `visititems` and took the\n  first `data` leaf and the first `rate` leaf **independently**. On an `LFP` container\n  holding `lfp_alpha` at 1000 Hz and `lfp_beta` at 500 Hz, `inspect(path)` reported\n  `rate_hz: 500.0` beside `data_path: .../lfp_alpha/data` and `data_shape: [100, 4]` --\n  `lfp_beta`'s rate against `lfp_alpha`'s array. `inspect(nwb)` said 1000 Hz and\n  `acquisition_channel` returned `lfp_alpha` at 1000 Hz: three answers for one object.\n  A rate that belongs to different samples is not a visible error; it shifts every\n  frequency by the ratio of the two rates. `data` and `rate` now always come from the\n  same group, and a container holding several series yields several members rather than\n  one blend of them."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`acquisition_channel` returned a transposed recording as a channel trace.** The\n  channel axis of a 2-D series was decided by `shape[0] >= shape[1]` -- whichever side is\n  longer -- and `acquisition_channel` did not consult even that: it always sliced\n  `data[:, channel]` and bounds-checked `shape[1]`. On a channel-major `(64, 1000)`\n  `ElectricalSeries` with 64 electrodes, `channel=0` returned the 64 samples `data[:, 0]`\n  -- one instant across all channels -- as a 1000 Hz trace; `channel=999` returned\n  another such slice instead of raising; and `channel=1000` raised `Channel index 1000\n  out of range for series 'es' with 1000 channels` for a file with 64 of them. pynwb\n  itself warns on write that such data \"is oriented incorrectly\", so this is an\n  orientation real files are in. The axis is now read from the series' own electrode\n  region -- not from the longer side, and not from the whole electrode table, since a\n  series may cover a subset of a 384-channel probe -- at all three sites that report\n  `layout` and in `acquisition_channel` itself. Where the electrode count settles nothing\n  (neither dimension matches it, or the array is square so both do) `layout` is\n  `\"ambiguous\"` and reading a channel raises `AmbiguousLayoutError` rather than return a\n  plausible-looking array with the wrong meaning. Time-by-channel files are unaffected,\n  and now hold by the electrode count rather than by being taller than wide."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**jnwb could not read a single-column table that plain pynwb reads.** The smallest\n  units table a lab writes has one column, so on disk\n  `colnames = array(['spike_times'])`. jnwb's builder repair scalarizes any length-1\n  array attribute -- it exists for `description = array(['probe desc'])` -- which turned\n  that into the string `'spike_times'`, and the next `list(...)` spelled it out one\n  character per column: `ConstructError ... 'colnames': array(['s','p','i','k','e','_',\n  't','i','m','e','s','spike_times'])`. Every entry point failed on a file pynwb reads\n  without complaint: `inspect`, `events`, `unit_spike_times`, `acquisition_channel`,\n  `get_all_units_metadata` and `electrode_inventory`. `colnames` is specified as a\n  sequence, so it is excluded from the scalarization, and the `list(...)` is guarded as\n  well. This affects **any** single-column `DynamicTable`, not only `units` -- a\n  one-column table in a processing module failed identically, and the units-specific\n  guard could not have saved it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`decoding` refused valid label sets and reported a false status for others.**\n  `np.bincount(labels.astype(int))` counts every integer below the maximum as a class,\n  including absent ones, and refuses anything that is not a contiguous non-negative\n  integer. One separable 40-trial dataset, 20 per class, relabelled: `{0, 1}` gave\n  accuracy 0.846; `{1, 2}` and `{0, 2}` gave `status=\"insufficient_trials_for_cv\"` with\n  every metric NaN; `{-1, 1}` raised `'list' argument must have no negative elements`;\n  `{'a', 'b'}` raised `invalid literal for int()`. `nested_cv_linear_svm`,\n  `majority_baseline` and `fold_majority_baseline` now count with `np.unique`, so any\n  two-class label set of adequate size decodes and every metric is identical across\n  relabellings. A new `status=\"insufficient_classes_for_cv\"` covers a single-class input,\n  which is not a claim about trial counts. Contiguous 0-based integer labels produce\n  byte-identical results."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`f1` and `auc` depended on what the classes were called.** Both were left to\n  scikit-learn's `pos_label=1` default, so `{0, 1}` scored f1 = 0.857143 and the same\n  trials as `{1, 2}` scored 0.842105. `{0, 2}` and `{'a', 'b'}` raised\n  `pos_label=1 is not a valid label`, and a bare `except ValueError` turned that into a\n  NaN AUC for a computable value. The positive class is now `classes[1]`, the second in\n  sorted order, which is the class `decision_function` scores toward."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The two-step partition pipeline could not consume its own output.**\n  `assign_outer_folds` accepts string group ids and reports `outer_fold_status=\"valid\"`;\n  `build_inner_validation_partitions` then raised\n  `invalid literal for int() with base 10: 'c2'` on that frame. Group ids are opaque\n  labels and are no longer cast to `int`. Fold indices and trial ids, which are genuinely\n  positional, still are."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`Dataset` could not be used as the dict key its own docstring advertises.** The\n  dataclass-generated `__eq__` compared the field tuples, which evaluates\n  `units_a == units_b` to a DataFrame and then takes its truth value, raising\n  `ValueError: The truth value of a DataFrame is ambiguous`. A dict consults `__eq__` on\n  every hash collision -- including between a key and an equal copy of it -- so\n  `d[dataset] = x` raised for the one use the custom `__hash__` exists to enable.\n  `Dataset` and `EpochCollection` now compare their DataFrame fields with\n  `DataFrame.equals`. Equality stays finer than `Dataset.__hash__`, which is the\n  direction the hash/eq contract requires."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`Result` claimed to be serializable without qualification.** `statistics` is\n  `Dict[str, Any]` and in this package normally holds NumPy values, for which\n  `json.dumps(result.to_dict())` raises `TypeError: Object of type ndarray is not JSON\n  serializable`. The contract now states the condition and the `default=` escape hatch.\n  `to_dict()` still converts nothing, so no value is coerced or rounded on export."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`ontology` documented an immutability it does not have.** `frozen=True` prevents\n  rebinding an attribute, not mutation of the list, dict or DataFrame it points at:\n  `dataset.sessions.append(...)` succeeds. The module docstring now says so. The unused\n  `hashlib`, `json`, `numpy`, `pathlib.Path` and `logging` imports, which advertised\n  content-hashing and serialization the module never implemented, are removed."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`python -m jnwb.mcp_server` did not start the MCP server.** The launch command in\n  `docs/10_extending_jnwb_and_verification.md` failed with \"'jnwb.mcp_server' is a package and\n  cannot be directly executed\", including against the published wheel with the `mcp` extra\n  installed, because the `if __name__ == \"__main__\"` guard sat in `__init__.py`, which a package\n  never satisfies. A `__main__.py` now runs the server and the unreachable guard is gone. The\n  entrypoint test previously asserted only that a FastMCP object exists; it now runs the\n  documented command."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`events` nulled an absent code column in silence.** On a file whose interval table has no\n  `codes` column -- the usual case for a file from another lab -- `jnwb.events(path)` returned\n  `code_column=None, codes=()` with no warning, and `jnwb.events(path, code_column=\"condition\")`\n  for a column that does not exist returned the same thing rather than failing, while\n  `event_onsets` with that argument raised. The two now agree: a column named by the caller must\n  exist, and the default name being absent warns and names the columns that do."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Documentation for getting a file in, rather than only for analysing one.** `docs/agents.md`\n  states what `pip install jnwb` does and does not deliver to an agent, documents the three MCP\n  tools with a client configuration, and lists the nine skills.\n  `examples/tutorials/00_your_own_file.py` discovers a layout instead of asserting a fixture's\n  values. Common mistakes gains section 9 on assuming a schema. README and quickstart show\n  `code_column=`. The sdist now ships `skills/` and `AGENTS.md`."
-        }
-      ]
     }
   ],
   "ci": {
@@ -1782,7 +1517,7 @@
     ]
   },
   "api": {
-    "total": 199,
+    "total": 202,
     "groups": [
       {
         "module": "jnwb",
@@ -1839,6 +1574,9 @@
           "vflip_from_lfp",
           "label_layers",
           "VFlipResult",
+          "vflip2",
+          "vflip2_from_lfp",
+          "VFlip2Result",
           "xflip",
           "XFlipResult",
           "zflip",
@@ -2229,8 +1967,8 @@
       }
     ],
     "peak_memory": {
-      "jnwb_version": "0.2.11",
-      "commit": "13f64787607cb4e4412d33382f880e77a751ea51",
+      "jnwb_version": "0.2.12",
+      "commit": "6bbdcb2a66d3239dbe74f5010b1e183107bd5eeb",
       "working_tree_clean": true,
       "python": "3.14.3",
       "platform": "Windows AMD64",
@@ -2238,44 +1976,44 @@
       "operations": [
         {
           "name": "control_256mib",
-          "peak_mib": 411.4,
+          "peak_mib": 409.2,
           "added_mib": 256.0,
           "added_is": "exact"
         },
         {
           "name": "complex_tfr_16x4000_40freqs",
-          "peak_mib": 199.8,
-          "added_mib": 44.3,
+          "peak_mib": 196.7,
+          "added_mib": 44.2,
           "added_is": "exact"
         },
         {
           "name": "compute_multitaper_psd_64x8192",
-          "peak_mib": 179.6,
+          "peak_mib": 176.7,
           "added_mib": 20.2,
           "added_is": "exact"
         },
         {
           "name": "bandpass_filter_64x60000",
-          "peak_mib": 272.4,
+          "peak_mib": 270.1,
           "added_mib": 88.2,
           "added_is": "exact"
         },
         {
           "name": "wpli_600000",
-          "peak_mib": 206.9,
-          "added_mib": 42.3,
+          "peak_mib": 203.1,
+          "added_mib": 41.8,
           "added_is": "exact"
         },
         {
           "name": "cluster_permutation_test_20x500_200perm",
-          "peak_mib": 155.5,
-          "added_mib": 0.3,
+          "peak_mib": 152.7,
+          "added_mib": 0.2,
           "added_is": "exact"
         },
         {
           "name": "jrsa_200x40_200perm",
-          "peak_mib": 318.9,
-          "added_mib": 163.4,
+          "peak_mib": 315.5,
+          "added_mib": 162.9,
           "added_is": "exact"
         }
       ]
@@ -2283,229 +2021,229 @@
     "import": {
       "python": "3.14.3",
       "platform": "Windows-11-10.0.26300-SP0",
-      "version": "0.2.11",
-      "symbols": 197,
+      "version": "0.2.12",
+      "symbols": 202,
       "torch_loaded": false,
       "cold": {
-        "ms": 8708.568300004117,
-        "modules": 1380,
-        "version": "0.2.11",
-        "symbols": 197,
+        "ms": 22436.229300001287,
+        "modules": 1381,
+        "version": "0.2.12",
+        "symbols": 202,
         "torch_loaded": false,
-        "peak_mb": 102.1961259841919
+        "peak_mb": 102.30134010314941
       },
-      "warm_median_ms": 2378.2697999995435,
-      "warm_mean_ms": 2388.298260004376,
-      "warm_stdev_ms": 229.89401344961252,
-      "warm_min_ms": 2094.8361000046134,
-      "warm_max_ms": 2751.3681999989785,
-      "warm_peak_mb": 88.73247909545898,
-      "modules": 1380,
+      "warm_median_ms": 2139.778100001422,
+      "warm_mean_ms": 2151.271600000473,
+      "warm_stdev_ms": 65.68441291040624,
+      "warm_min_ms": 2073.908400001528,
+      "warm_max_ms": 2280.0901000009617,
+      "warm_peak_mb": 88.95087718963623,
+      "modules": 1381,
       "runs": 10,
       "breakdown": {
-        "jnwb_total_ms": 2657.521,
+        "jnwb_total_ms": 2246.045,
         "top_jnwb_modules": [
           {
             "name": "jnwb",
-            "self_ms": 1.704,
-            "cum_ms": 2657.521
+            "self_ms": 1.527,
+            "cum_ms": 2246.045
           },
           {
             "name": "jnwb.rsa",
-            "self_ms": 12.611,
-            "cum_ms": 1139.035
+            "self_ms": 2.574,
+            "cum_ms": 1007.563
           },
           {
             "name": "jnwb.jrsa",
-            "self_ms": 1.317,
-            "cum_ms": 776.045
+            "self_ms": 1.068,
+            "cum_ms": 681.036
           },
           {
             "name": "jnwb.permutation",
-            "self_ms": 0.911,
-            "cum_ms": 600.969
+            "self_ms": 1.053,
+            "cum_ms": 523.807
           },
           {
             "name": "jnwb.nwb_io",
-            "self_ms": 0.962,
-            "cum_ms": 371.404
+            "self_ms": 0.881,
+            "cum_ms": 270.772
           },
           {
             "name": "jnwb.laminar",
-            "self_ms": 2.875,
-            "cum_ms": 164.838
+            "self_ms": 1.861,
+            "cum_ms": 135.083
           },
           {
             "name": "jnwb.compression",
-            "self_ms": 1.052,
-            "cum_ms": 93.771
+            "self_ms": 1.059,
+            "cum_ms": 77.76
           },
           {
             "name": "jnwb._rng",
-            "self_ms": 0.756,
-            "cum_ms": 21.816
+            "self_ms": 0.783,
+            "cum_ms": 22.486
           },
           {
             "name": "jnwb.connectivity",
-            "self_ms": 1.15,
-            "cum_ms": 13.76
-          },
-          {
-            "name": "jnwb.nwb_integrity",
-            "self_ms": 6.747,
-            "cum_ms": 10.943
-          },
-          {
-            "name": "jnwb.laminar_curation",
-            "self_ms": 9.621,
-            "cum_ms": 9.621
+            "self_ms": 1.063,
+            "cum_ms": 8.555
           },
           {
             "name": "jnwb.spectral",
-            "self_ms": 1.296,
-            "cum_ms": 6.832
+            "self_ms": 1.348,
+            "cum_ms": 7.33
           },
           {
-            "name": "jnwb.nwb_validate",
-            "self_ms": 5.297,
-            "cum_ms": 5.297
+            "name": "jnwb.nwb_integrity",
+            "self_ms": 4.304,
+            "cum_ms": 6.188
           },
           {
-            "name": "jnwb.tfr_accumulator",
-            "self_ms": 4.1,
-            "cum_ms": 4.908
-          },
-          {
-            "name": "jnwb.addressing",
-            "self_ms": 4.197,
-            "cum_ms": 4.197
-          },
-          {
-            "name": "jnwb.connectivity._information",
-            "self_ms": 3.813,
-            "cum_ms": 3.813
-          },
-          {
-            "name": "jnwb.nwb_events",
-            "self_ms": 3.377,
-            "cum_ms": 3.377
-          },
-          {
-            "name": "jnwb.laminar._vflip",
-            "self_ms": 2.928,
-            "cum_ms": 2.928
+            "name": "jnwb.laminar_curation",
+            "self_ms": 2.685,
+            "cum_ms": 2.685
           },
           {
             "name": "jnwb.trajectory",
-            "self_ms": 1.051,
-            "cum_ms": 2.569
+            "self_ms": 0.877,
+            "cum_ms": 2.462
           },
           {
-            "name": "jnwb.connectivity._trials",
-            "self_ms": 2.247,
-            "cum_ms": 2.247
+            "name": "jnwb.laminar._vflip",
+            "self_ms": 2.425,
+            "cum_ms": 2.425
+          },
+          {
+            "name": "jnwb.laminar._xflip",
+            "self_ms": 2.087,
+            "cum_ms": 2.087
+          },
+          {
+            "name": "jnwb.nwb_validate",
+            "self_ms": 2.047,
+            "cum_ms": 2.047
+          },
+          {
+            "name": "jnwb.laminar._zflip",
+            "self_ms": 2.011,
+            "cum_ms": 2.011
+          },
+          {
+            "name": "jnwb.laminar._vflip2",
+            "self_ms": 2.004,
+            "cum_ms": 2.004
+          },
+          {
+            "name": "jnwb.jrsa._result",
+            "self_ms": 1.911,
+            "cum_ms": 1.911
+          },
+          {
+            "name": "jnwb.addressing",
+            "self_ms": 1.885,
+            "cum_ms": 1.885
           }
         ],
         "top_third_party": [
           {
             "name": "pandas",
-            "self_ms": 2.056,
-            "cum_ms": 598.89
-          },
-          {
-            "name": "scipy.spatial.distance",
-            "self_ms": 0.047,
-            "cum_ms": 469.658
-          },
-          {
-            "name": "scipy.spatial",
-            "self_ms": 1.359,
-            "cum_ms": 469.611
+            "self_ms": 1.703,
+            "cum_ms": 521.456
           },
           {
             "name": "scipy.stats._stats_py",
-            "self_ms": 59.601,
-            "cum_ms": 465.559
+            "self_ms": 51.955,
+            "cum_ms": 442.602
+          },
+          {
+            "name": "scipy.spatial.distance",
+            "self_ms": 0.036,
+            "cum_ms": 389.833
+          },
+          {
+            "name": "scipy.spatial",
+            "self_ms": 1.033,
+            "cum_ms": 389.798
           },
           {
             "name": "scipy.spatial._kdtree",
-            "self_ms": 2.483,
-            "cum_ms": 418.148
+            "self_ms": 1.709,
+            "cum_ms": 345.886
           },
           {
             "name": "pynwb",
-            "self_ms": 14.697,
-            "cum_ms": 370.442
+            "self_ms": 13.184,
+            "cum_ms": 269.892
           },
           {
             "name": "pandas.core.api",
-            "self_ms": 1.002,
-            "cum_ms": 300.828
+            "self_ms": 1.11,
+            "cum_ms": 237.879
           },
           {
             "name": "scipy.spatial._ckdtree",
-            "self_ms": 1.444,
-            "cum_ms": 283.408
+            "self_ms": 1.368,
+            "cum_ms": 220.99
           },
           {
             "name": "scipy.sparse",
-            "self_ms": 1.741,
-            "cum_ms": 281.965
-          },
-          {
-            "name": "scipy.sparse._csr",
-            "self_ms": 1.996,
-            "cum_ms": 231.905
-          },
-          {
-            "name": "scipy.sparse._compressed",
-            "self_ms": 2.737,
-            "cum_ms": 228.126
-          },
-          {
-            "name": "scipy._lib._util",
-            "self_ms": 2.223,
-            "cum_ms": 223.234
-          },
-          {
-            "name": "scipy._lib._array_api",
-            "self_ms": 2.464,
-            "cum_ms": 221.011
+            "self_ms": 1.537,
+            "cum_ms": 219.622
           },
           {
             "name": "scipy.stats.distributions",
-            "self_ms": 1.065,
-            "cum_ms": 193.169
+            "self_ms": 1.04,
+            "cum_ms": 204.421
+          },
+          {
+            "name": "scipy.sparse._csr",
+            "self_ms": 1.033,
+            "cum_ms": 191.018
+          },
+          {
+            "name": "scipy.sparse._compressed",
+            "self_ms": 1.425,
+            "cum_ms": 189.032
+          },
+          {
+            "name": "scipy._lib._util",
+            "self_ms": 1.575,
+            "cum_ms": 185.643
+          },
+          {
+            "name": "scipy._lib._array_api",
+            "self_ms": 1.958,
+            "cum_ms": 184.068
           },
           {
             "name": "scipy.optimize",
-            "self_ms": 1.646,
-            "cum_ms": 185.823
+            "self_ms": 1.292,
+            "cum_ms": 158.332
           },
           {
             "name": "scipy._external.array_api_compat.numpy",
-            "self_ms": 2.311,
-            "cum_ms": 182.683
-          },
-          {
-            "name": "pandas.core.groupby",
-            "self_ms": 0.864,
-            "cum_ms": 157.888
-          },
-          {
-            "name": "pandas.core.groupby.generic",
-            "self_ms": 2.745,
-            "cum_ms": 157.024
+            "self_ms": 2.167,
+            "cum_ms": 156.366
           },
           {
             "name": "numpy",
-            "self_ms": 4.342,
-            "cum_ms": 142.518
+            "self_ms": 2.337,
+            "cum_ms": 125.179
           },
           {
-            "name": "pandas.core.frame",
-            "self_ms": 7.222,
-            "cum_ms": 135.54
+            "name": "scipy.spatial.distance",
+            "self_ms": 3.624,
+            "cum_ms": 123.188
+          },
+          {
+            "name": "scipy.stats._continuous_distns",
+            "self_ms": 55.439,
+            "cum_ms": 119.329
+          },
+          {
+            "name": "pandas.core.groupby",
+            "self_ms": 0.707,
+            "cum_ms": 118.275
           }
         ],
         "heavy_third_party_roots": [
@@ -2980,6 +2718,18 @@
       "export": "vflip_from_lfp[n_channels]",
       "order": "O(n)",
       "evidence": "n_channels: exponent +1.04, admissible T(C)",
+      "module": "jnwb.laminar"
+    },
+    {
+      "export": "vflip2[n_channels]",
+      "order": "O(n^2)",
+      "evidence": "n_channels: exponent +2.19, admissible T(C^2*F)",
+      "module": "jnwb.laminar"
+    },
+    {
+      "export": "vflip2_from_lfp[n_samples]",
+      "order": "O(n)",
+      "evidence": "n_samples: exponent +0.90, admissible T(n log L)",
       "module": "jnwb.laminar"
     },
     {
@@ -3853,6 +3603,14 @@
       "url": "https://doi.org/10.1152/jn.1975.38.2.356"
     },
     {
+      "text": "Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x)",
+      "url": "https://doi.org/10.1038/s41593-025-02168-x"
+    },
+    {
+      "text": "Mendoza-Halliday, D., et al. (2023). (variable) Frequency-based Layer Identification Procedure (FLIP and vFLIP) for spectrolaminar analysis, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp)",
+      "url": "https://doi.org/10.5061/dryad.9w0vt4bnp"
+    },
+    {
       "text": "Nolte, G., et al. (2004). Identifying true brain interaction from EEG data using the imaginary part of coherency. *Clinical Neurophysiology* 115(10), 2292-2307. [doi:10.1016/j.clinph.2004.04.029](https://doi.org/10.1016/j.clinph.2004.04.029)",
       "url": "https://doi.org/10.1016/j.clinph.2004.04.029"
     },
@@ -4185,6 +3943,34 @@
       "light": "assets/fig20_bad_channels_and_trials.png",
       "dark": "assets/fig20_bad_channels_and_trials.dark.png",
       "docs_page": "https://jnwb.readthedocs.io/en/latest/05_artifact_detection_and_repair/"
+    },
+    {
+      "id": "fig21_open_data_psth_db",
+      "title": "fig21_open_data_psth_db",
+      "light": "assets/fig21_open_data_psth_db.png",
+      "dark": "assets/fig21_open_data_psth_db.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig24_statistics_groups_cluster",
+      "title": "fig24_statistics_groups_cluster",
+      "light": "assets/fig24_statistics_groups_cluster.png",
+      "dark": "assets/fig24_statistics_groups_cluster.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig25_laminar_csd_flips",
+      "title": "fig25_laminar_csd_flips",
+      "light": "assets/fig25_laminar_csd_flips.png",
+      "dark": "assets/fig25_laminar_csd_flips.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig26_ensembles_rdm_decoding",
+      "title": "fig26_ensembles_rdm_decoding",
+      "light": "assets/fig26_ensembles_rdm_decoding.png",
+      "dark": "assets/fig26_ensembles_rdm_decoding.dark.png",
+      "docs_page": null
     }
   ],
   "showcases": {
