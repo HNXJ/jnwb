@@ -46,7 +46,7 @@ Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verb
 - Private helpers that shared a name now state their rule; tests/test_helper_rule_names.py
 - scripts/release_gate.py: index-hidden edits count; publication jobs refuse continue-on-error; 0e takes a concluded run
 - scripts/release_gate.py: condition 6 refuses twine and reusable publication jobs; examples/, data/ never ship
-- Releases 0.2.9, 0.2.8, 0.2.4 and 0.1.8 to 0.1.0 move to artifacts/archive/changelog_0.1.0-0.2.9.md.
+- Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4 and 0.1.8 to 0.1.0 move to artifacts/archive/changelog_0.1.0-0.2.9.md.
 - `scripts/release_gate.py` step 8 checks that the tutorials import the built wheel.
 - scripts/stack_parse.py: gates 15, 17 and STEP 0a share one stack reader; HTML and deep headings read.
 - skills/jnwb-qc/SKILL.md moves routing rows to references/ pages.
@@ -55,6 +55,7 @@ Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verb
 - skills/jnwb-laminar/SKILL.md moves routing rows to references/ pages.
 - jnwb/laminar/_vflip.py: `vflip` no longer calls its support score Omega, the name of vFLIP2's statistic
 - [results change] jnwb/laminar/_xflip.py: `xflip` defaults to a homogeneous null; p-values move at a fixed int seed.
+- [results change] jnwb/laminar_curation.py: `curate_and_label`'s xFLIP p-values follow that null at a fixed int seed.
 - jnwb/laminar/_xflip.py: `surrogate_method='autocorr_preserving'` keeps the old independent-channel null.
 - jnwb/laminar/_xflip.py: `n_samples` gives a matrix the homogeneous null; without it, a warning.
 
