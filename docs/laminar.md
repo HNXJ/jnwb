@@ -1,8 +1,8 @@
 # Laminar Depth
 
-Four operations read cortical depth from the contacts of one linear probe shaft. Each returns
-`accepted=False`, and no depth, when the recording does not support its pattern, so read
-`accepted` before any number. Probe geometry and the unit-to-layer lookup are on
+Five operations read cortical depth from the contacts of one linear probe shaft. Each returns
+`accepted=False` when the recording does not support its pattern, so read `accepted` before
+any number. Probe geometry and the unit-to-layer lookup are on
 [Addressing & Metadata](02_paths_addressing_metadata.md), with the identifiability criteria of
 a `zflip` delay; the [laminar tutorial](tutorials/06_laminar.md) runs the same calls on a
 longer synthetic session.
@@ -10,6 +10,7 @@ longer synthetic session.
 | Operation | Reads | Returns |
 |---|---|---|
 | `vflip` | a channels-by-frequency PSD | the crossover contact between superficial gamma and deep alpha-beta power |
+| `vflip2` | a channels-by-frequency PSD, or LFP through `vflip2_from_lfp` | the published vFLIP2's best window, its omega, orientation and crossover row |
 | `label_layers` | an accepted `vflip` result and its probe geometry | `"superficial"`, `"input"`, `"deep"` or `"na"` per contact |
 | `xflip` | channels-by-time data or a correlation matrix | contiguous blocks of correlated contacts, tested against surrogates |
 | `zflip` | channels-by-time LFP in depth order | the phase-delay gradient across contacts, and an apparent velocity |
@@ -63,6 +64,36 @@ FLIP or vFLIP crossover. Compare a `vflip` crossover with one from the paper's p
 as two different estimators.
 
 A fit with no support at all scores `-inf`, so no finite `min_support_score` accepts it.
+
+## `vflip2`, the published vFLIP2
+
+`vflip2` ports vFLIP2.m of Major et al. (2025) step by step; its docstring lists the steps
+with their MATLAB lines and the known differences from the vFLIP2 description, which the port
+reproduces rather than fixes. It searches every window of rows at least one layer 4 thick
+(0.586 mm by default), finds a low band (4-70 Hz) and a high band (40-150 Hz) where the two
+halves of the window differ, and scores the window by omega. The window is accepted when
+omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so they can be
+read. Omega counts frequency bins, so it changes with the bin width and frequency range of
+the PSD.
+
+Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,
+with more alpha-beta power, lies in the window's higher rows, and `"inverted"` when it lies
+in the lower rows. `vflip2_from_lfp` computes vFLIP2.m's Hanning-window PSD from continuous
+LFP (cut into 1 s trials) or from trials, then calls `vflip2`.
+
+```python
+fit2 = jnwb.vflip2_from_lfp(rec.lfp, fs, contact_spacing=100.0)
+assert fit2.accepted and abs(fit2.crossover_channel - 11.5) <= 1
+
+# The accepted window restricts xflip and zflip to its rows; its orientation names
+# zflip's depth direction.
+blocks2 = jnwb.xflip(rec.lfp, window=fit2, contact_spacing=100.0, rng=0)
+delay2 = jnwb.zflip(rec.lfp, fs, orientation=fit2, window=fit2, rng=0)
+```
+
+`xflip` given `contact_spacing` reports `boundaries_um` from row 0 and sets its shortest
+block to the layer-4 thickness in contacts. A rejected `VFlip2Result`, or one with no window,
+raises `ValueError` in both.
 
 ## Declaring the shallow end
 

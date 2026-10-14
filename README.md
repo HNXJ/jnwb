@@ -12,7 +12,7 @@
 
 # `jnwb`
 
-Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electrophysiology: addressing, spikes, LFP, spectral analysis, statistics, population methods, decoding, connectivity, laminar CSD, filtering, QC, and visualization.
+Dataset-agnostic Python library for Neurodata Without Borders (NWB 2.0+) electrophysiology: addressing, spikes, LFP, spectral analysis, statistics, population methods, decoding, connectivity, laminar depth (CSD, the published vFLIP2), filtering, QC, and visualization.
 
 **Documentation**: [https://jnwb.readthedocs.io/](https://jnwb.readthedocs.io/) | **Source**: [https://github.com/HNXJ/jnwb](https://github.com/HNXJ/jnwb)
 

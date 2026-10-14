@@ -1456,7 +1456,8 @@ class TestVFlipEdges:
         page = " ".join((pathlib.Path(__file__).resolve().parents[1] / "docs" / "laminar.md")
                         .read_text(encoding="utf-8").split())
         assert "not a FLIP or vFLIP crossover" in page
-        for call in ("jnwb.vflip(", "jnwb.xflip(", "jnwb.zflip(", "jnwb.label_layers("):
+        for call in ("jnwb.vflip(", "jnwb.xflip(", "jnwb.zflip(", "jnwb.label_layers(",
+                     "jnwb.vflip2_from_lfp("):
             assert call in page, call
 
     @staticmethod

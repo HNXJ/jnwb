@@ -42,7 +42,7 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07, 15-09, 15-10, 15-08 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07, 15-09, 15-10 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
 ### 15-01 Omega's dependence on every `vflip2` parameter
@@ -65,13 +65,6 @@ Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by:
 Writes: `jnwb/laminar_curation.py`, its tests.
 - `fuse_laminar_anchors` takes `vflip_um` and `xflip_um` but not `vflip2`'s crossover. Proposal: `vflip2_um`, set only from an accepted result, reported beside `vflip_um` and fused under the same rule. Check: an accepted `vflip2` crossover moves the fused anchor as `vflip_um` would at the same position; a rejected one leaves it unchanged. Waits: not stated.
 Accept: the check passes. Ruling: Hamm 2026-10-13, `vflip2_um` sits beside `vflip_um`.
-
-### 15-08 `vflip2` in the user docs
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `docs/laminar.md`, `README.md`.
-- `docs/laminar.md` and `docs/10_operation_specifications.md` never name `vflip2`, omega or `vflip2_from_lfp`, and `README.md:15` names only laminar CSD (Muse review, 2026-10-14). Check: `docs/laminar.md` has a `vflip2` section stating its bands, omega, the cut, the 0-based rows, `vflip2_from_lfp`, and the `window=` and `orientation=` hand-off to `xflip` and `zflip`, each claim matching the docstring; `python scripts/docs_build.py` passes. Waits: not stated.
-Accept: the check passes.
 
 ### 15-09 `xflip`'s layer-4 thickness and window message
 
