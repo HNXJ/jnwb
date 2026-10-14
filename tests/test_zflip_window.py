@@ -207,3 +207,31 @@ def test_a_bad_window_is_refused(window, match):
     with pytest.raises(ValueError, match=match):
         jnwb.zflip(_probe(0), FS, orientation="superficial_to_deep", window=window,
                    n_surrogates=0)
+
+
+def _window_fields(result):
+    return (result.proximal_channel, result.distal_channel, result.orientation)
+
+
+@pytest.mark.parametrize("change", [{"distal_channel": 22}, {"proximal_channel": 7},
+                                    {"orientation": "inverted"}],
+                         ids=["distal", "proximal", "orientation"])
+def test_window_and_orientation_from_different_vflip2_results_are_refused(upright, change):
+    other = dataclasses.replace(upright, **change)
+    assert other.accepted and _window_fields(other) != _window_fields(upright), (
+        "fixture must be a different accepted result"
+    )
+    with pytest.raises(ValueError, match="different vflip2 results") as err:
+        jnwb.zflip(_probe(0), FS, orientation=other, window=upright, n_surrogates=0)
+    assert f"({upright.proximal_channel}, {upright.distal_channel}" in str(err.value)
+    assert f"({other.proximal_channel}, {other.distal_channel}" in str(err.value)
+
+
+def test_the_same_or_an_equal_vflip2_result_is_accepted(upright):
+    copy = dataclasses.replace(upright)
+    assert copy is not upright and _window_fields(copy) == _window_fields(upright), (
+        "fixture must be an equal, distinct result"
+    )
+    for orientation in (upright, copy):
+        res = jnwb.zflip(_probe(0), FS, orientation=orientation, window=upright, n_surrogates=0)
+        assert res.window == (6, 23) and res.orientation == "superficial_to_deep"

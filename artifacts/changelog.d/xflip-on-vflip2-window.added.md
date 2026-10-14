@@ -3,3 +3,4 @@
   `contact_spacing` (um) adds `boundaries_um`, measured from row 0, and makes `min_block_size` default to the
   layer 4 thickness in contacts, as `vflip2` sizes its windows. `min_block_size` now defaults to None, which is 2
   without `contact_spacing`; calls without the new arguments are unchanged.
+- `xflip` names a window outside the probe by its sorted rows; `tests/test_xflip_window.py`.

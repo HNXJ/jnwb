@@ -112,7 +112,9 @@ def _window_rows(window: Any, n_rows: int) -> Tuple[int, int]:
             )
     first, last = sorted(int(r) for r in rows)
     if first < 0 or last >= n_rows:
-        raise ValueError(f"window rows {rows} fall outside the probe's rows 0..{n_rows - 1}")
+        raise ValueError(
+            f"window rows ({first}, {last}) fall outside the probe's rows 0..{n_rows - 1}"
+        )
     return first, last
 
 
@@ -510,6 +512,7 @@ def xflip(
     rng: Optional[Union[np.random.Generator, int]] = None,
     window: Optional[Union[VFlip2Result, Tuple[int, int]]] = None,
     contact_spacing: Optional[float] = None,
+    layer4_thickness_mm: Optional[float] = None,
 ) -> XFlipResult:
     """Cross-Channel Laminar Correlation Profile (xFLIP).
 
@@ -579,7 +582,7 @@ def xflip(
             rejected. Costs about one fixed-count call at each candidate count.
         min_block_size: Minimum channel count required per block. Default None: 2, or with
             `contact_spacing` the layer 4 thickness in contacts,
-            ceil(`LAYER4_THICKNESS_MM` / spacing in mm): the least row distance `vflip2` allows
+            ceil(`layer4_thickness_mm` / spacing in mm): the least row distance `vflip2` allows
             between a window's proximal and distal rows (6 at 100 um; its window then spans 7 rows).
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
@@ -619,6 +622,10 @@ def xflip(
         contact_spacing: Inter-contact distance in um. When given, the result carries
             `boundaries_um`, each boundary row times the spacing, measured from probe row 0,
             and `min_block_size` defaults to the layer 4 thickness in contacts.
+        layer4_thickness_mm: Layer 4 thickness in mm, default None: `LAYER4_THICKNESS_MM`, as
+            `vflip2` uses. It sets the default `min_block_size` only, and only with
+            `contact_spacing` and without an explicit `min_block_size`; otherwise it has no effect.
+            When given it must be finite and positive.
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
@@ -629,7 +636,8 @@ def xflip(
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed
             matrix, or contains invalid configuration parameters; if `window` is a rejected
             `VFlip2Result` or one with no window, names rows outside the probe, or holds fewer
-            rows than `min_block_size`; if `contact_spacing` is not finite and positive.
+            rows than `min_block_size`; if `contact_spacing`, or `layer4_thickness_mm` when given,
+            is not finite and positive.
         TypeError: If `rng` is not an int, a Generator or None; a float or bool seed is
             refused rather than truncated. If `window` is neither a `VFlip2Result` nor a pair
             of ints.
@@ -642,11 +650,14 @@ def xflip(
         np.isfinite(contact_spacing) and contact_spacing > 0
     ):
         raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
+    layer4 = LAYER4_THICKNESS_MM if layer4_thickness_mm is None else float(layer4_thickness_mm)
+    if not (np.isfinite(layer4) and layer4 > 0):
+        raise ValueError(f"layer4_thickness_mm must be finite and positive, got {layer4}")
     if min_block_size is None:
         # vflip2's arithmetic for its least proximal-to-distal distance, so the two agree to the last bit.
         min_block_size = (
             2 if contact_spacing is None
-            else int(math.ceil(LAYER4_THICKNESS_MM / (contact_spacing / 1000.0)))
+            else int(math.ceil(layer4 / (contact_spacing / 1000.0)))
         )
     if min_block_size < 1:
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")

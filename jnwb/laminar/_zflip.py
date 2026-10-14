@@ -170,6 +170,11 @@ def _require_accepted_vflip2(result: VFlip2Result, argument: str) -> None:
         )
 
 
+def _vflip2_fields(result: VFlip2Result) -> Tuple[Any, Any, Any]:
+    """The fields that name a vflip2 window and its orientation."""
+    return (result.proximal_channel, result.distal_channel, result.orientation)
+
+
 def _window_rows(window: Any, n_channels: int) -> Tuple[int, int]:
     """(first, last) probe rows, inclusive and ascending, of a window zflip may fit."""
     if isinstance(window, VFlip2Result):
@@ -345,7 +350,8 @@ def zflip(
             None.
         ValueError: If `orientation` is not one of the two orders or an accepted
             `VFlip2Result` with a window, `window` is not such a result or a pair of rows
-            inside the probe spanning at least 3 contacts, input is not
+            inside the probe spanning at least 3 contacts, `window` and `orientation` are
+            different `VFlip2Result`s (their windows or orientations differ), input is not
             a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
@@ -359,8 +365,10 @@ def zflip(
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     gen, seed_entropy = recorded_rng(seed, "zflip")
+    orientation_vflip2: Optional[VFlip2Result] = None
     if isinstance(orientation, VFlip2Result):
         _require_accepted_vflip2(orientation, "orientation")
+        orientation_vflip2 = orientation
         orientation = _VFLIP2_TO_ZFLIP_ORIENTATION[orientation.orientation]
     if orientation not in _ZFLIP_ORIENTATIONS:
         raise ValueError(
@@ -382,6 +390,15 @@ def zflip(
     row0 = 0
     if window is not None:
         window_rows = _window_rows(window, n_channels)
+        if (isinstance(window, VFlip2Result) and orientation_vflip2 is not None
+                and _vflip2_fields(window) != _vflip2_fields(orientation_vflip2)):
+            raise ValueError(
+                "zflip got two different vflip2 results: window "
+                f"({window.proximal_channel}, {window.distal_channel}, {window.orientation!r}) and "
+                f"orientation ({orientation_vflip2.proximal_channel}, "
+                f"{orientation_vflip2.distal_channel}, {orientation_vflip2.orientation!r}); "
+                "pass one result for both."
+            )
         row0 = window_rows[0]
         lfp = lfp[window_rows[0]:window_rows[1] + 1]
         n_channels = lfp.shape[0]

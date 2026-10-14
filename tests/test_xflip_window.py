@@ -167,3 +167,28 @@ def test_a_window_that_is_not_two_int_rows_is_refused(probe, window):
 def test_a_bad_contact_spacing_is_refused(spacing):
     with pytest.raises(ValueError, match="contact_spacing must be finite and positive"):
         xflip(np.eye(6), contact_spacing=spacing, n_surrogates=0)
+
+
+def test_layer4_thickness_sets_the_default_shortest_block(probe):
+    _, data = probe
+    rows = 16 - 10 + 1  # the window (10, 16) holds 7 contacts
+    assert 6 <= rows < 8, "fixture must lie between the default and the 0.8 mm shortest block"
+    assert math.ceil(0.8 / (100.0 / 1000.0)) == 8, "precondition: 0.8 mm is 8 contacts at 100 um"
+    default = xflip(data, window=(10, 16), contact_spacing=100.0, n_surrogates=0)
+    assert "with min_block_size 6" in default.rejection_reason, "default: 6 contacts at 100 um"
+    with pytest.raises(ValueError, match="hold 7 contacts, fewer than min_block_size 8"):
+        xflip(data, window=(10, 16), contact_spacing=100.0, layer4_thickness_mm=0.8,
+              n_surrogates=0)
+
+
+@pytest.mark.parametrize("thickness", [0.0, -0.8, np.nan, np.inf])
+def test_a_bad_layer4_thickness_is_refused(thickness):
+    with pytest.raises(ValueError, match="layer4_thickness_mm must be finite and positive"):
+        xflip(np.eye(6), contact_spacing=100.0, layer4_thickness_mm=thickness, n_surrogates=0)
+
+
+def test_an_out_of_probe_window_names_its_rows_sorted():
+    data = np.random.default_rng(0).normal(size=(32, 200))
+    assert data.shape[0] == 32
+    with pytest.raises(ValueError, match=r"window rows \(3, 40\) fall outside"):
+        xflip(data, window=(40, 3), n_surrogates=0)

@@ -1,0 +1,2 @@
+- `fuse_laminar_anchors` takes `vflip2_um` and anchors on it before `vflip_um`; `jnwb/laminar_curation.py`.
+- `fuse_laminar_anchors`'s `distance_um` gains `vflip` and `vflip2`; `tests/test_laminar_curation.py`.

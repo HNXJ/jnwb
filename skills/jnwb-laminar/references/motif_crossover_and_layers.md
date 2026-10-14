@@ -27,4 +27,5 @@
   - `jnwb.detect_bad_channels(data, fs)`;
   - `jnwb.interpolate_channel_runs(data, bad_mask)`;
   - `jnwb.evoked_csd_sink(erp, times_ms, *, pitch_um)`; the `erp` must be aligned to the stimulus itself;
-  - `jnwb.fuse_laminar_anchors()`, which grades an anchor from per-window estimates.
+  - `jnwb.fuse_laminar_anchors()`, which grades an anchor from per-window estimates; `vflip2_um` (um from row 0,
+    an accepted `VFlip2Result`'s `crossover_channel * contact_spacing`) anchors before `vflip_um`.
