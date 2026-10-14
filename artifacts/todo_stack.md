@@ -52,12 +52,12 @@ Writes: `artifacts/evidence/0.2.12/vflip2_sensitivity.md`, its script, `tests/te
 - Omega is ln(G x S_d x B_d x channel span x n_low x n_high x bin width^2); S_d is unnormalized and the band minima count bins, so omega and acceptance move with bin width and frequency range (vFLIP2.m lines 238, 264, 454, 474 to 476). Check: on the Dryad `power_example` and 50 seeded synthetic probes, one parameter varied at a time (bin width 0.5, 1, 2 Hz; upper frequency 150, 200, 250 Hz; spacing 50, 100, 200 um by resampling; layer-4 thickness 0.4, 0.586, 0.8 mm; orientation; `omega_cut` 4, 6, 8), the evidence file tables omega, its change from the default, and acceptance flips, each value written by the script; the test pins the bin-width shift of omega to 2 ln(ratio) plus the band-count terms. Waits: not stated.
 Accept: the table regenerates; the docstring states each dependence with its measured size. Ruling after: which fixed constants become parameters, defaults staying vFLIP2.m's.
 
-### 15-03 `vflip2` recovers a known layer 4 in simulation
+### 15-03 `vflip2` on seeded synthetic probes, characterized
 
 Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_simulation.md`.
-- No test shows `vflip2` finds a planted crossover. Check: on 100 seeded probes with a planted alpha-beta/gamma crossover at a known contact (32 contacts, 100 um), the accepted crossover lies within one contact of it in at least 90; on 100 probes with no laminar gradient, at most 5 are accepted. Waits: not stated.
-Accept: both rates hold and the evidence file names seeds and counts. The same table on Andre Bastos's simulation code is 15-11 (ruled 2026-10-14).
+Writes: `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_simulation.md`.
+- No record says how `vflip2`'s crossover and acceptance behave on `synth_laminar_motif`. Check: the evidence file, written by the script on seeds 0 to 99 (32 contacts, 100 um), tables planted and null acceptance and the crossover offset, and states that the generator's amplitude-weight crossover and vFLIP2's relative-power crossing differ; the test pins the script's counts on a seeded subset. Waits: not stated.
+Accept: the check passes. Ruled 2026-10-14: characterization only; the 90 and 5 thresholds are 15-11.
 
 ### 15-07 Laminar anchors take `vflip2`
 
