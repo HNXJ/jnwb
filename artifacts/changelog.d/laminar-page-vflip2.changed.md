@@ -1,0 +1,1 @@
+- docs/laminar.md: a `vflip2` section (bands, omega and its cut, rows, the LFP path, xflip and zflip hand-off).
