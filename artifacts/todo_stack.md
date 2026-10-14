@@ -46,7 +46,7 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 | 5 | F figures and citations | 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
 | any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
 | any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-02, 15-03, 15-06, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-02, 15-03, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
 ### 12-21 A jaxfne simulation as jnwb ground truth
@@ -77,13 +77,6 @@ Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by:
 Writes: `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_simulation.md`.
 - No test shows `vflip2` finds a planted crossover. Check: on 100 seeded probes with a planted alpha-beta/gamma crossover at a known contact (32 contacts, 100 um), the accepted crossover lies within one contact of it in at least 90; on 100 probes with no laminar gradient, at most 5 are accepted. When Andre's simulation code arrives, the same table runs on it. Waits: not stated.
 Accept: both rates hold and the evidence file names seeds and counts.
-
-### 15-06 `zflip` on `vflip2`'s frame
-
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/laminar/_zflip.py`, `tests/test_zflip.py`, the skill row.
-- `zflip` fits its phase gradient over every contact and requires `orientation` by name (ruling 2026-09-24). Proposal: `window=` as in 15-05; the orientation of an accepted `VFlip2Result` may be passed as the `orientation` argument's source (`"upright"` maps to `"superficial_to_deep"`); a rejected result is refused. Check: on a probe with a planted delay gradient inside the window and none outside, `zflip(window=v2)` recovers the planted delay within its stated tolerance and the whole-probe fit does not. Waits: not stated.
-Accept: the check passes. Ruling: Hamm 2026-10-13, an accepted `vflip2` result may supply the orientation.
 
 ### 15-07 Laminar anchors take `vflip2`
 
