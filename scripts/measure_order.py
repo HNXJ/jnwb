@@ -193,6 +193,16 @@ def _vflip2(n_channels: int, _tmp: Path) -> Callable[[], object]:
     return lambda: jnwb.vflip2(psd, freqs, contact_spacing=100.0)
 
 
+def _vflip2_from_lfp(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """White-noise continuous LFP on 8 channels at 1000 Hz, cut into 1 s trials."""
+    import jnwb
+
+    lfp = np.random.default_rng(0).normal(size=(8, n_samples))
+    assert isinstance(jnwb.vflip2_from_lfp(lfp[:, :1000], 1000, contact_spacing=100.0),
+                      jnwb.VFlip2Result), "fixture must run"
+    return lambda: jnwb.vflip2_from_lfp(lfp, 1000, contact_spacing=100.0)
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -262,6 +272,11 @@ SPECS: Dict[str, Spec] = {
         "n_channels", (16, 32, 64, 160),
         "150 bins at 1 Hz, contact_spacing=100 um (window step 1, shortest window 6), motif probe",
         _vflip2,
+    ),
+    "vflip2_from_lfp[n_samples]": Spec(
+        "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
+        "8 channels of white noise at fs=1000 (1 s trials, 1024-point FFT), contact_spacing=100 um",
+        _vflip2_from_lfp,
     ),
     "fuse_laminar_anchors[n_windows]": Spec(
         "n_windows", (1_000, 10_000, 100_000, 1_000_000),

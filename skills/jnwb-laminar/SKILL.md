@@ -21,6 +21,7 @@ The "Motif, crossover and layers" routing rows live in [`references/motif_crosso
 The "The workflow, step by step" routing rows live in [`references/workflow_step_by_step.md`](references/workflow_step_by_step.md).
 
 - `jnwb.vflip2(psd, freqs, *, contact_spacing, orientation="both", layer4_thickness_mm=None, omega_cut=6.0)`: vFLIP2 (Major et al. 2025), ported from its MATLAB code. Returns `VFlip2Result`: the best window's omega and `accepted`, true when omega exceeds `omega_cut`. Below the cut it returns that window with `accepted=False` and `motif_quality="absent"`.
+- `jnwb.vflip2_from_lfp(lfp, fs, *, contact_spacing, orientation="both", layer4_thickness_mm=None, omega_cut=6.0)`: `vflip2` on LFP, with the PSD computed as vFLIP2.m computes it for `raw` (continuous, `(n_channels, n_samples)`, cut into 1 s trials) and `raw_cut` input (`(n_channels, n_samples, n_trials)` or a list of trials). vFLIP2.m labels PSD column k as k Hz, so the bands are those labels.
 
 ## 3. Invariants & Safeguards
 1. **`support_score` is not vFLIP2's omega.** `VFlipResult.support_score` (`jnwb/laminar/_vflip.py`) is jnwb's own score, with no published source, not the omega of the published vFLIP2 code, so vFLIP2's acceptance tiers never apply to it. Say which estimator placed every anchor.

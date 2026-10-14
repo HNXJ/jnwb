@@ -87,6 +87,8 @@ gallery_src/
 !tests/fixtures/showcase_record.json
 # vFLIP2.m's outputs on stored inputs, which tests/test_vflip2.py compares against.
 !tests/fixtures/vflip2_matlab_reference.json
+# vFLIP2.m's PSD and outputs on stored LFP, which tests/test_vflip2_from_lfp.py compares against.
+!tests/fixtures/vflip2_from_lfp_matlab_reference.json
 # The OpenScope GLO showcase record and its figures, which the dashboard build reads.
 !artifacts/showcases/openscope_glo.json
 !artifacts/showcases/openscope_glo/figures/*.png

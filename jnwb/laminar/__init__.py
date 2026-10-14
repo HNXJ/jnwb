@@ -53,6 +53,7 @@ from ._vflip import (
 from ._vflip2 import (
     VFlip2Result,
     vflip2,
+    vflip2_from_lfp,
 )
 from ._labels import (
     LAYER_BOUNDARY_TOL_CONTACTS,

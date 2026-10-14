@@ -380,3 +380,156 @@ def vflip2(
         omega_cut=float(omega_cut),
         motif_quality=quality,
     )
+
+
+#: vFLIP2.m's `foi`, the frequencies its PSD is computed at before they are moved to the
+#: padded FFT grid (line 531).
+_FOI_HZ = np.arange(1, 151, dtype=float)
+
+#: Bytes of complex FFT output held at once while the trial periodograms are computed.
+_FFT_CHUNK_BYTES = 1 << 28
+
+
+def _matlab_round_array(x: np.ndarray) -> np.ndarray:
+    """MATLAB's round on non-negative values: halves go up, unlike numpy's half-to-even."""
+    whole = np.trunc(x)
+    return whole + (x - whole >= 0.5)
+
+
+def _matlab_hanning(n: int) -> np.ndarray:
+    """MATLAB's `hanning(n)`: the symmetric Hann window without its zero end points."""
+    half = n // 2 if n % 2 == 0 else (n + 1) // 2
+    w = 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(1, half + 1) / (n + 1)))
+    return np.concatenate((w, w[::-1] if n % 2 == 0 else w[-2::-1]))
+
+
+def _psd_hanning(trials, fs: float) -> np.ndarray:
+    """vFLIP2.m's compute_psd_hanning (lines 530-610): (n_channels, n_freqs) mean power.
+
+    `trials` is an (n_channels, n_samples, n_trials) array or a list of (n_channels,
+    n_samples_k) arrays, as vFLIP2.m's numeric and cell `raw_cut` inputs.
+    """
+    if isinstance(trials, np.ndarray):
+        lengths = [trials.shape[1]] * trials.shape[2]
+        groups = [np.moveaxis(trials, 2, 0)]
+    else:
+        lengths = [t.shape[1] for t in trials]
+        groups = [t[None] for t in trials]
+    padding = 1 << (max(lengths) - 1).bit_length()  # 2^nextpow2 (line 544)
+    pad = padding / fs
+    endnsample = int(_matlab_round_array(np.array(pad * fs)))
+    fboi = _matlab_round_array(_FOI_HZ * pad) + 1
+    foi = (fboi - 1) / pad
+    freqboi = np.unique(_matlab_round_array(foi / (fs / endnsample)) + 1).astype(int)
+    if freqboi[-1] > endnsample:
+        raise ValueError(
+            f"fs={fs} puts 150 Hz past the padded FFT length {endnsample}; vFLIP2.m indexes "
+            "out of range there")
+    columns = freqboi - 1
+    power = []
+    for group in groups:
+        n = group.shape[2]
+        tap = _matlab_hanning(n)
+        tap = tap / np.linalg.norm(tap)
+        chunk = max(1, _FFT_CHUNK_BYTES // (16 * group.shape[1] * endnsample))
+        for start in range(0, group.shape[0], chunk):
+            dat = np.asarray(group[start:start + chunk], dtype=float)
+            dat = dat - dat.sum(axis=2, keepdims=True) * (1.0 / n)  # dat*x'*pinv(x*x')
+            spectrum = np.fft.fft(dat * tap, n=endnsample, axis=2)[:, :, columns]
+            power.append(np.abs(spectrum * np.sqrt(2.0 / endnsample)) ** 2)
+    return np.concatenate(power, axis=0).mean(axis=0)
+
+
+def vflip2_from_lfp(
+    lfp,
+    fs: float,
+    *,
+    contact_spacing: float,
+    orientation: str = "both",
+    layer4_thickness_mm: Optional[float] = None,
+    omega_cut: float = OMEGA_CUT,
+) -> VFlip2Result:
+    """vFLIP2 on LFP: vFLIP2.m's Hanning-window PSD, then :func:`vflip2` on it.
+
+    Ports vFLIP2.m's `raw` and `raw_cut` DataTypes (lines 104-118). The PSD is
+    compute_psd_hanning (lines 530-610), step by step:
+
+    1. Continuous `lfp` is cut into consecutive 1 s trials, the remainder dropped
+       (split_into_trials, lines 612-619).
+    2. FFT length: the next power of two at or above the longest trial (lines 544-546).
+    3. Frequencies: 1 to 150 Hz, each moved to the nearest bin of the padded FFT, duplicates
+       dropped (lines 531, 548-552).
+    4. Each trial and channel: mean removed, a Hanning window (MATLAB's `hanning`, no zero
+       end points) divided by its norm, zero padding, FFT, scaled by sqrt(2 / FFT length)
+       and squared (lines 583-604). vFLIP2.m also rotates the phase by one sample (lines
+       570-580, 598-600); power does not change, so the port skips it.
+    5. Power averaged over trials (line 609).
+
+    vFLIP2.m then sets the bin width to 1 Hz (line 118) and labels PSD column k as k Hz
+    (line 130). Column k holds the FFT bin nearest k Hz (step 3), within half a bin: with
+    1 s trials at 1000 Hz the FFT has 1024 points and every column lies within 0.49 Hz of
+    its label. This port passes the same labels to :func:`vflip2`, so its bands are those
+    labels.
+
+    Args:
+        lfp: (n_channels, n_samples) continuous voltage, vFLIP2.m's `raw`; or
+            (n_channels, n_samples, n_trials), or a list of (n_channels, n_samples_k)
+            trials, its `raw_cut`.
+        fs: Sampling rate in Hz, finite and positive. A non-integer rate is accepted for
+            trial-cut input. Continuous input needs an integer rate: vFLIP2.m reshapes it
+            into trials of `fs` samples (line 618).
+        contact_spacing, orientation, layer4_thickness_mm, omega_cut: As :func:`vflip2`.
+
+    Returns:
+        :class:`VFlip2Result`, as :func:`vflip2` on the PSD.
+
+    Raises:
+        ValueError: `fs` not finite and positive, or not an integer for continuous input;
+            `lfp` not 2-D, 3-D or a non-empty list of 2-D trials with one channel count;
+            continuous `lfp` shorter than one trial; an `fs` low enough that 150 Hz falls
+            past the FFT length; and every error :func:`vflip2` raises.
+
+    References:
+        Mendoza-Halliday, D., et al. Code: vFLIP2.m, Dryad doi:10.5061/dryad.9w0vt4bnp,
+        version 8 (2025-11-04, CC0).
+        This port matches vFLIP2.m's PSD and output on the same input
+        (tests/test_vflip2_from_lfp.py).
+    """
+    if isinstance(fs, bool) or not isinstance(fs, (int, float, np.integer, np.floating)):
+        raise ValueError(f"fs must be a real number, got {fs!r}")
+    fs = float(fs)
+    if not (np.isfinite(fs) and fs > 0):
+        raise ValueError(f"fs must be finite and positive, got {fs}")
+    if isinstance(lfp, (list, tuple)):
+        trials = [np.asarray(t, dtype=float) for t in lfp]
+        if not trials or any(t.ndim != 2 for t in trials):
+            raise ValueError("a list lfp must hold one or more (n_channels, n_samples) trials")
+        if len({t.shape[0] for t in trials}) != 1 or min(t.shape[1] for t in trials) < 1:
+            raise ValueError("every trial must have the same channel count and a sample")
+    else:
+        lfp = np.asarray(lfp, dtype=float)
+        if lfp.ndim == 3:
+            if min(lfp.shape) < 1:
+                raise ValueError(f"lfp has an empty axis, shape {lfp.shape}")
+            trials = lfp
+        elif lfp.ndim == 2:
+            if not fs.is_integer():
+                raise ValueError(
+                    f"continuous lfp needs an integer fs, got {fs}: vFLIP2.m cuts it into "
+                    "trials of fs samples")
+            per_trial = int(fs)
+            n_trials = lfp.shape[1] // per_trial
+            if lfp.shape[0] < 1 or n_trials < 1:
+                raise ValueError(
+                    f"continuous lfp needs at least one {per_trial}-sample trial, got shape "
+                    f"{lfp.shape}")
+            trials = lfp[:, :n_trials * per_trial].reshape(lfp.shape[0], n_trials, per_trial)
+            trials = trials.transpose(0, 2, 1)
+        else:
+            raise ValueError(
+                "lfp must be (n_channels, n_samples) or (n_channels, n_samples, n_trials), "
+                f"got shape {lfp.shape}")
+    psd = _psd_hanning(trials, fs)
+    freqs = np.arange(1, psd.shape[1] + 1, dtype=float)
+    return vflip2(psd, freqs, contact_spacing=contact_spacing, orientation=orientation,
+                  layer4_thickness_mm=layer4_thickness_mm, omega_cut=omega_cut)
