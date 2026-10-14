@@ -1,0 +1,1 @@
+- `zflip` takes `window=` and an accepted `VFlip2Result` as `orientation`; `tests/test_zflip_window.py`.

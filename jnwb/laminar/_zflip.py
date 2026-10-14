@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 from .._dictlike import DictAccessMixin
 from .._rng import Default, RNGLike, recorded_rng, resolve_seed_alias
@@ -15,6 +15,7 @@ from ..spectral import (
     _require_identifiable_segmentation,
     _wpli_from_cross_spectra,
 )
+from ._vflip2 import VFlip2Result
 from ._xflip import _surrogate_phase_randomize
 
 
@@ -70,7 +71,8 @@ class ZFlipResult(DictAccessMixin):
             is identifiable, which requires every adjacent pair's wPLI >= min_wpli and every
             contact's in-band power fraction >= min_band_power_fraction.
         rejection_reason: Diagnostic string explaining rejection, or None if accepted.
-        n_channels: Number of channels evaluated.
+        n_channels: Number of channels evaluated: the window's rows when ``window`` was
+            given, else every row.
         pitch_um: Inter-contact spacing in micrometers, if supplied.
         orientation: The contact order the caller stated: ``'superficial_to_deep'`` (row 0
             superficial) or ``'deep_to_superficial'`` (row 0 deep).
@@ -78,6 +80,10 @@ class ZFlipResult(DictAccessMixin):
             seed for an int `rng`, the fresh OS entropy drawn for `rng=None`, and the child
             seed drawn from a `Generator`. Passing it back as `rng` reproduces `p_value`.
             None when no surrogates were drawn.
+        window: ``(first, last)`` probe rows of the window the fit used, both inclusive, or
+            None when every row was used. Entry ``k`` of each ``adjacent_*`` array is the pair
+            of probe rows ``first + k`` and ``first + k + 1``; contact indices in
+            ``rejection_reason`` are probe rows.
     """
 
     adjacent_wpli: np.ndarray
@@ -96,6 +102,7 @@ class ZFlipResult(DictAccessMixin):
     pitch_um: Optional[float] = None
     orientation: Optional[str] = None
     surrogate_seed_entropy: Optional[int] = None
+    window: Optional[Tuple[int, int]] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -116,6 +123,7 @@ class ZFlipResult(DictAccessMixin):
             "pitch_um": float(self.pitch_um) if self.pitch_um is not None else None,
             "orientation": self.orientation,
             "surrogate_seed_entropy": self.surrogate_seed_entropy,
+            "window": self.window,
         }
 
 
@@ -140,11 +148,63 @@ def _linear_to_roundoff(rows: np.ndarray) -> np.ndarray:
     return rms <= _LINEAR_ROUNDOFF_EPS * np.finfo(float).eps * scale
 
 
+# vflip2's "upright" puts the deep group in the distal (higher) rows of its window, so row 0
+# is the superficial end; "inverted" puts it in the proximal (lower) rows.
+_VFLIP2_TO_ZFLIP_ORIENTATION = {"upright": "superficial_to_deep",
+                                "inverted": "deep_to_superficial"}
+
+
+def _require_accepted_vflip2(result: VFlip2Result, argument: str) -> None:
+    """Refuse a vflip2 result that was rejected or found no window."""
+    if not result.accepted:
+        raise ValueError(
+            f"zflip refuses a rejected vflip2 result as {argument}: omega {result.omega} does "
+            f"not exceed omega_cut {result.omega_cut}."
+        )
+    if (result.proximal_channel is None or result.distal_channel is None
+            or result.orientation not in _VFLIP2_TO_ZFLIP_ORIENTATION):
+        raise ValueError(
+            f"zflip refuses a vflip2 result with no window as {argument}: proximal_channel "
+            f"{result.proximal_channel}, distal_channel {result.distal_channel}, orientation "
+            f"{result.orientation!r}."
+        )
+
+
+def _window_rows(window: Any, n_channels: int) -> Tuple[int, int]:
+    """(first, last) probe rows, inclusive and ascending, of a window zflip may fit."""
+    if isinstance(window, VFlip2Result):
+        _require_accepted_vflip2(window, "window")
+        pair = (window.proximal_channel, window.distal_channel)
+    else:
+        try:
+            pair = tuple(window)
+        except TypeError:
+            pair = ()
+    if len(pair) != 2 or not all(isinstance(r, (int, np.integer)) and not isinstance(r, bool)
+                                 for r in pair):
+        raise ValueError(
+            f"window must be an accepted VFlip2Result or a (proximal, distal) pair of integer "
+            f"probe rows; got {window!r}."
+        )
+    first, last = sorted(int(r) for r in pair)
+    if first < 0 or last >= n_channels:
+        raise ValueError(
+            f"window rows ({first}, {last}) fall outside the probe's rows 0 to {n_channels - 1}."
+        )
+    if last - first + 1 < 3:
+        raise ValueError(
+            f"window rows ({first}, {last}) hold {last - first + 1} contact(s); zflip requires "
+            "at least 3."
+        )
+    return first, last
+
+
 def zflip(
     lfp_matrix: np.ndarray,
     fs: float,
     *,
-    orientation: str,
+    orientation: Union[str, VFlip2Result],
+    window: Union[VFlip2Result, Tuple[int, int], None] = None,
     freq_range: Tuple[float, float] = (15.0, 35.0),
     pitch_um: Optional[float] = None,
     nperseg: Optional[int] = None,
@@ -233,7 +293,18 @@ def zflip(
             anatomical direction from this and the sign of the row-order delay gradient,
             so the wrong value reverses it; nothing in the LFP can detect that. It has no
             default, because the row order alone says nothing about depth; any other value
-            raises ValueError.
+            raises ValueError. An accepted :class:`VFlip2Result` computed on the same rows
+            may supply it instead: ``"upright"`` (the deep group in the window's distal,
+            higher rows) is ``'superficial_to_deep'`` and ``"inverted"`` is
+            ``'deep_to_superficial'``. A rejected result, or one with no window, raises
+            ValueError.
+        window: Fit only these contacts: an accepted :class:`VFlip2Result`, whose
+            ``proximal_channel`` and ``distal_channel`` rows are used, or a
+            ``(proximal, distal)`` pair of probe rows. Both ends are included, and the pair
+            may come in either order; the window keeps the probe's row order, so
+            ``orientation`` still names row 0's end. It must lie inside the probe and hold at
+            least 3 contacts, and only its rows need be finite. None (default) uses every
+            row. The result's ``window`` and ``rejection_reason`` report probe rows.
         freq_range: `(min_freq, max_freq)` in Hz over which the linear phase slope is fitted.
         pitch_um: Inter-contact spacing along the shaft in micrometers (optional).
         nperseg: Welch segment length for STFT; defaults to ``min(max(N // 2, 8), 256)``,
@@ -272,7 +343,9 @@ def zflip(
     Raises:
         TypeError: If `orientation` is not given, or `rng` is not an int, a Generator or
             None.
-        ValueError: If `orientation` is not one of the two orders, input is not
+        ValueError: If `orientation` is not one of the two orders or an accepted
+            `VFlip2Result` with a window, `window` is not such a result or a pair of rows
+            inside the probe spanning at least 3 contacts, input is not
             a finite 2D array of at least 3 channels, `fs <= 0`,
             `freq_range` is not an increasing non-negative pair, `alpha` is outside (0, 1),
             `n_surrogates < 0`, a threshold is outside [0, 1], or the segmentation yields
@@ -286,6 +359,9 @@ def zflip(
     """
     seed = resolve_seed_alias(rng, seed, alias_name='seed', func_name='zflip')
     gen, seed_entropy = recorded_rng(seed, "zflip")
+    if isinstance(orientation, VFlip2Result):
+        _require_accepted_vflip2(orientation, "orientation")
+        orientation = _VFLIP2_TO_ZFLIP_ORIENTATION[orientation.orientation]
     if orientation not in _ZFLIP_ORIENTATIONS:
         raise ValueError(
             f"zflip needs orientation='superficial_to_deep' (row 0 is the most superficial "
@@ -301,6 +377,14 @@ def zflip(
     n_channels, n_samples = lfp.shape
     if n_channels < 3:
         raise ValueError(f"zflip requires at least 3 channels along the probe shaft; got {n_channels}.")
+    # Contact indices below are window rows; row0 turns them into probe rows.
+    window_rows: Optional[Tuple[int, int]] = None
+    row0 = 0
+    if window is not None:
+        window_rows = _window_rows(window, n_channels)
+        row0 = window_rows[0]
+        lfp = lfp[window_rows[0]:window_rows[1] + 1]
+        n_channels = lfp.shape[0]
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive and finite; got {fs}.")
     if pitch_um is not None and (pitch_um <= 0 or not np.isfinite(pitch_um)):
@@ -360,6 +444,7 @@ def zflip(
             n_channels=n_channels,
             pitch_um=pitch_um,
             orientation=orientation,
+            window=window_rows,
         )
 
     f_band = freqs[mask]
@@ -454,7 +539,8 @@ def zflip(
         if not flat_contacts:
             p_val = float((1 + exceed_count) / (1 + n_surrogates))
         pair_p[tested_pairs] = (1 + pair_exceed[tested_pairs]) / (1 + n_surrogates)
-    uncoupled_pairs = [(i, i + 1) for i in range(n_channels - 1) if pair_p[i] > alpha]
+    uncoupled_pairs = [(row0 + i, row0 + i + 1) for i in range(n_channels - 1)
+                       if pair_p[i] > alpha]
     # No pair is identifiable without its null: a pair whose surrogates were not drawn
     # (n_surrogates=0, or a flat contact in the pair) has a NaN p and fails.
     adj_identifiable &= pair_p <= alpha
@@ -522,11 +608,11 @@ def zflip(
     reasons: List[str] = []
     if flat_contacts:
         if constant_contacts:
-            reasons.append(f"Contact(s) {constant_contacts} constant: adjacent wPLI and delay "
-                           "undefined, mean wPLI not tested")
+            reasons.append(f"Contact(s) {[row0 + c for c in constant_contacts]} constant: "
+                           "adjacent wPLI and delay undefined, mean wPLI not tested")
         if ramp_contacts:
-            reasons.append(f"Contact(s) {ramp_contacts} linear in time to round-off: adjacent "
-                           "wPLI and delay undefined, mean wPLI not tested")
+            reasons.append(f"Contact(s) {[row0 + c for c in ramp_contacts]} linear in time to "
+                           "round-off: adjacent wPLI and delay undefined, mean wPLI not tested")
     elif n_surrogates == 0:
         reasons.append("Surrogate test not performed (n_surrogates=0): surrogates are needed "
                        "to establish a delay, so no adjacent pair is identifiable")
@@ -534,7 +620,8 @@ def zflip(
         reasons.append(f"Non-significant coupling vs phase surrogates (p = {p_val:.4f} > {alpha})")
     if not has_coupling and not flat_contacts:
         reasons.append(f"Mean adjacent wPLI ({mean_wpli_val:.4f}) below min_wpli ({min_wpli:.4f})")
-    weak_pairs = [(i, i + 1) for i in range(n_channels - 1) if adj_wpli[i] < min_wpli]
+    weak_pairs = [(row0 + i, row0 + i + 1) for i in range(n_channels - 1)
+                  if adj_wpli[i] < min_wpli]
     if weak_pairs:
         reasons.append(f"Adjacent pair(s) {weak_pairs} wPLI below min_wpli ({min_wpli:.4f}): "
                        "delay not identified")
@@ -542,7 +629,7 @@ def zflip(
         reasons.append(f"Adjacent pair(s) {uncoupled_pairs} wPLI not significant against "
                        f"its own phase surrogates (p > {alpha}): delay not identified")
     if out_of_band_contacts:
-        reasons.append(f"Contact(s) {out_of_band_contacts} carry less than "
+        reasons.append(f"Contact(s) {[row0 + c for c in out_of_band_contacts]} carry less than "
                        f"{min_band_power_fraction:.4f} of their power inside freq_range "
                        f"{freq_range}: delay not identified")
     if phase_failed_pairs:
@@ -573,4 +660,5 @@ def zflip(
         pitch_um=pitch_um,
         orientation=orientation,
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
+        window=window_rows,
     )
