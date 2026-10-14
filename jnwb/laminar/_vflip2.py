@@ -237,6 +237,14 @@ def vflip2(
     6. Checks: a peak in each band profile on its half of the window, peaks at least one
        layer 4 apart, a crossover between them, and no two of the three on one row.
 
+    Sensitivity at these defaults, measured on the Dryad power example (omega 13.28): omega
+    moves by +0.37 with 0.5 Hz bins and -0.32 with 2 Hz bins, by -0.42 when the PSD ends at
+    150 Hz, by +0.29 at 50 um and -0.31 at 200 um spacing, and by -2.42 with
+    orientation="inverted"; the layer-4 thickness leaves it unchanged. On 50 seeded
+    synthetic probes acceptance flips in 12 with 2 Hz bins, in 22 at 200 um spacing and in
+    11 at omega_cut=8. With the bands on the same columns, scaling the bin width by r moves
+    omega by exactly 2 ln(r).
+
     Known differences from the vFLIP2 description (vFLIP2_Description.pdf). The port
     reproduces each as published and does not fix it:
 
