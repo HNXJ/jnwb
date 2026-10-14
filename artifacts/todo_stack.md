@@ -42,7 +42,6 @@ cleaning, organizing, a major doc update and the dashboard's view of each work's
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | none |
 | 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07, 15-09, 15-10, 15-08 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
 
