@@ -4,7 +4,7 @@ Each pair below names two different things. Every page uses these terms in these
 
 | Term | Means | Not to be confused with |
 |---|---|---|
-| operation | one exported jnwb function or class: a tested computation with documented inputs, units and failure behaviour | a workflow |
+| operation | one exported jnwb function or class: a tested computation with documented inputs, units and failure behavior | a workflow |
 | workflow | a sequence of operations a caller composes for one question; jnwb ships none, so a workflow lives in the caller's code | a pipeline, which jnwb is not |
 | session | one NWB file | a recording |
 | recording | one continuous data series within a session, such as an LFP `ElectricalSeries` | a session |

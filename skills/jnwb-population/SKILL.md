@@ -37,7 +37,7 @@ Population decoders (linear SVM), cross-validated representational geometry, sta
 
 ## 3. Invariants & Safeguards
 1. **No CV leakage**: preprocessing (centering, scaling) and hyperparameter selection happen inside the training fold of `nested_cv_linear_svm`.
-2. **Majority baseline**: report decoding accuracy against the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns, `fold_majority_baseline` inside your own folds, or `majority_baseline(labels)` outside cross-validation -- never against $1/K$ when class counts are unbalanced.
+2. **Majority baseline**: report decoding accuracy against the `majority_baseline_accuracy` that `nested_cv_linear_svm` returns, `fold_majority_baseline` inside your own folds, or `majority_baseline(labels)` outside cross-validation, never against $1/K$ when class counts are unbalanced.
 3. **jRSA alignment**: input feature matrices share the condition/trial dimension before second-order distance matrices are computed.
 
 ## 4. Minimal Workflow

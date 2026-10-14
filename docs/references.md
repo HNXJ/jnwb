@@ -174,5 +174,5 @@ convention.
 
 ## Computation
 
-- [CuPy](https://docs.cupy.dev/en/stable/) — the GPU path behind `device='cuda'`.
-- [joblib](https://joblib.readthedocs.io/en/stable/) — the worker processes behind `n_jobs`.
+- [CuPy](https://docs.cupy.dev/en/stable/): the GPU path behind `device='cuda'`.
+- [joblib](https://joblib.readthedocs.io/en/stable/): the worker processes behind `n_jobs`.

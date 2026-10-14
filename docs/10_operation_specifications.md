@@ -2,7 +2,7 @@
 
 The architectural and numerical contracts every 0.2 release holds to: what a function
 does with randomness and devices, how it reports a fit it cannot support, the shapes and
-units it speaks in, and -- per operation -- the estimator, the result type, and the
+units it speaks in, and, per operation, the estimator, the result type, and the
 failure semantics.
 
 These are contracts for callers. The rules for *adding* an operation are in
@@ -30,7 +30,7 @@ than the function's first draw from it:
 integer base seed, which the plan returns as `seed`.
 
 - **The default you see is the seed you get.** Most `rng` parameters default to the seed the
-  function will use -- `42`, `0`, or no default at all where the caller must choose -- so
+  function will use (`42`, `0`, or no default at all where the caller must choose), so
   `inspect.signature` and `help()` report the stream a bare call draws. A body that reads a
   `None` default and substitutes a fixed seed is a repaired defect: five functions did that, so
   two calls a caller believed were independent returned the same null. `jnwb/_rng.py` holds the
@@ -78,7 +78,7 @@ integer base seed, which the plan returns as `seed`.
     until 0.2.5 and named the minority: of the ten exported functions taking a 2-D
     continuous signal, eight are channel-major (`bipolar_reference`,
     `laplacian_reference`, `channel_correlation_matrix`, `current_source_density_1d`,
-    `voltage_curvature_1d`, `vflip_from_lfp`, `xflip`, `zflip` -- the spatial, re-reference
+    `voltage_curvature_1d`, `vflip_from_lfp`, `xflip`, `zflip`: the spatial, re-reference
     and depth family, for which a channel axis is the axis being operated on) and two are
     time-major (`compute_psd`, whose `axis` argument selects it explicitly and defaults to
     0, and `epoch_continuous`, which returns `(n_events, n_window_samples, n_channels)`).

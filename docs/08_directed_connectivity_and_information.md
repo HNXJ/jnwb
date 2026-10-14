@@ -162,7 +162,7 @@ the discretization (`estimator`, `bins`) as well as on the coupling.
 calibrated under zero-lag mixing: two noisy copies of one white source, with no directed
 coupling, test significant in both directions. Use `"quantile"`.
 
-`"quantile"` is safe under zero-lag mixing only for a white common source: a coloured one gives
+`"quantile"` is safe under zero-lag mixing only for a white common source: a colored one gives
 X's past information about Y's present beyond Y's noisy past, and TE, like Granger, rejects. The
 surrogate p compares plug-in values; `bias_correction` changes only the estimate. At 4 bins and
 `k = l = 1` a white common source is rejected at 0.025 to 0.06 for a nominal 0.05 (n = 500 to

@@ -277,7 +277,7 @@ json.dumps(result.to_dict(), default=lambda o: o.tolist())
 ```
 
 **Immutability.** All of these except `Figure` are `frozen` dataclasses. `frozen` prevents
-rebinding an attribute, not mutation of the object it points at -- `ds.sessions.append(...)`
+rebinding an attribute, not mutation of the object it points at; `ds.sessions.append(...)`
 succeeds. Treat the contained lists, dicts and frames as read-only.
 
 **Deprecated.** `create_aligned_dataset`, `create_result` and `create_figure` forward to the

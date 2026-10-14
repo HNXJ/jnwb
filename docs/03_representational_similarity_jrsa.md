@@ -23,7 +23,7 @@ graph LR
 ### Key Capabilities
 - **Metrics** (14):
   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
-  `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy`` — jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats. The SSR F-test, `"phase_slope"` and the TE each take one series per input.
+  `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy``. jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats. The SSR F-test, `"phase_slope"` and the TE each take one series per input.
 - **Direction of the directed metrics**:
 
   | Metric | `jrsa(x1, x2, ...)` measures | Compare |
@@ -33,7 +33,7 @@ graph LR
   | `"phase_slope"` | positive when x1 leads x2 | the same sign as `jnwb.phase_slope_index(X, Y).x_to_y` |
 - **Tensor alignment**: 2D, 3D, and 4D tensors, with automatic trial/time alignment (`align="auto"`, `lag=0`).
 - **Resampling**: permutation distributions (`permutations=1000`), bootstrap confidence intervals (`bootstrap=500`), and FDR correction (`correction="fdr_bh"`).
-- **CPU arithmetic**: `jrsa` has no GPU path; every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic, so `backend="cupy"` gives the same numbers on the CPU; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`. `n_jobs` parallelises over CPU workers, and `res.execution` records what ran.
+- **CPU arithmetic**: `jrsa` has no GPU path; every metric computes in NumPy on the CPU. Inputs may be NumPy arrays, `scipy.sparse` matrices (densified), JAX arrays, and torch tensors or CuPy arrays on any device (copied to the host); a masked array with a masked element raises. `backend` is recorded and moves no arithmetic, so `backend="cupy"` gives the same numbers on the CPU; `device="cuda"` warns and runs on the CPU, and `execution["device"]` records `cpu`. `n_jobs` parallelizes over CPU workers, and `res.execution` records what ran.
 
 ---
 
@@ -126,7 +126,7 @@ res.execution["null"]   # "block"
 
 ### Sliding Windows
 
-`jrsa` analyses one window per call; `sliding=True` raises `NotImplementedError`. `window` is a
+`jrsa` analyzes one window per call; `sliding=True` raises `NotImplementedError`. `window` is a
 `(start, stop)` pair of sample indices along the aligned axis, so a sliding-window analysis is a
 loop over windows:
 

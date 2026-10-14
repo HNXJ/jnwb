@@ -260,7 +260,7 @@ when it lags them; `lfp_leads_spikes` carries the same fact so the convention ne
 remembered. Read `lag_corrected_pvalue`, not `correlation['parametric']['pval']`: the
 latter is the p at the winning lag and pays nothing for having searched the others. On
 white noise over 101 lags it falls below 0.05 in 99.5% of runs. The inputs here *are*
-independent white noise, and the corrected p is 0.892 -- the right answer, from the right
+independent white noise, and the corrected p is 0.892: the right answer, from the right
 field.
 
 ## References

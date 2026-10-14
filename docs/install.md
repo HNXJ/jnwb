@@ -108,7 +108,7 @@ time. The `visual_qc` and `vis` submodules are likewise deferred. This keeps `sc
 The import still takes about 1.9 s, and about 1.8 s of that is
 `scipy`, `pandas` and `pynwb`, which the eager surface needs: roughly 1.1 s for the first `scipy`
 submodule imported, then 0.3 s each for `pandas` and `pynwb`, on top of 0.1 s for `numpy`. jnwb's
-own module bodies are about 0.05 s of it. Deferring any single module does not change this --
+own module bodies are about 0.05 s of it. Deferring any single module does not change this.
 `scipy` alone is imported at module scope by seven eagerly imported modules, so whichever one
 runs first is charged the shared cost and the rest are free. Import the package once at process
 start rather than per task.
