@@ -522,7 +522,9 @@ def xflip(
             It applies to a matrix input only, and refuses raw time series, which carry their own
             sample count. With it, `'auto'` and `'homogeneous'` draw the surrogate correlation
             matrices as described under `surrogate_method`; without it a matrix has no sample count
-            and its surrogates permute channels.
+            and its surrogates permute channels. The Wishart draw treats the samples as
+            independent, so for autocorrelated data such as LFP pass the effective number of
+            independent samples: the raw count makes the null too narrow and the test too liberal.
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy. A `Generator`
             gives up one draw, a child seed the surrogates run on. The seed used is
             returned as `surrogate_seed_entropy`.

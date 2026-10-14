@@ -2,8 +2,7 @@
 
 Phase-randomized surrogates make channels independent, so a volume-conducted probe with no
 boundary sits at the omnibus p floor. The homogeneous null keeps the probe's lag-averaged
-correlation, so a partition is significant only beyond smooth spatial decay. The boundary-free
-probe is the one in ``artifacts/evidence/0.2.12/xflip_null_probe.py``.
+correlation, so a partition is significant only beyond smooth spatial decay.
 
 This module is slow, roughly three minutes: test_false_positive_rate_on_boundary_free_probes
 runs 200 probes and takes about 160 s of it. The suite has no slow marker, so the note stands
@@ -115,6 +114,19 @@ def test_correlation_matrix_with_n_samples_is_not_significant_on_a_boundary_free
         assert res.method == "precomputed"
         n_above += int(res.p_values["omnibus"] > ALPHA)
     assert n_above >= 4, f"omnibus p > {ALPHA} on {n_above} of 5 seeds; need at least 4"
+
+
+def test_correlation_matrix_with_n_samples_accepts_two_blocks():
+    """The Wishart null must still reject a real boundary: five two-block seeds as matrices."""
+    n_accepted = 0
+    for seed in range(5):
+        corr = np.corrcoef(_two_blocks(seed))
+        assert corr[:12, :12][~np.eye(12, dtype=bool)].mean() > corr[:12, 12:].mean() + 0.3, (
+            "fixture must have two blocks")
+        res = jnwb.xflip(corr, n_surrogates=N_SURROGATES, rng=seed, n_samples=N_T)
+        assert res.method == "precomputed"
+        n_accepted += int(res.accepted and abs(res.boundaries[0] - 12) <= 1)
+    assert n_accepted >= 4, f"accepted at 12 +- 1 on {n_accepted} of 5 seeds; need at least 4"
 
 
 def test_correlation_matrix_without_n_samples_warns_once_and_names_the_limit():
