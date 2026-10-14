@@ -708,6 +708,13 @@ ACCEPTED_HANDLER_RECOVERY = {
         "because the cond > 1e12 branch above the try already routes to pinv; that branch is "
         "the same substitution written without an exception, and neither is this item's "
         "named scope. Proposed as a new problem row.",
+    ("laminar/_xflip.py", "_window_rows", "TypeError", ("rows",), False, 1):
+        "A non-iterable window becomes rows = (), which fails the two-int check on the next "
+        "line and raises TypeError naming the window. The substitute never reaches a "
+        "computation; it routes to the refusal.",
+    ("laminar/_zflip.py", "_window_rows", "TypeError", ("pair",), False, 1):
+        "As in _xflip._window_rows: pair = () fails the two-int check on the next line, "
+        "which raises ValueError naming the window.",
     ("nam.py", "<module>", "ImportError", ("_BaseModule", "_TORCH_AVAILABLE"), False, 1):
         "Module-level torch import guard. It sets _TORCH_AVAILABLE = False -- the label is "
         "exactly what the handler writes down.",
