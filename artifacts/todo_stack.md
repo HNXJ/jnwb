@@ -92,7 +92,7 @@ Accept: both rates hold and the evidence file names seeds and counts.
 Release: deferred-0.2.12. Ruling: Hamm 2026-10-13, the homogeneous null. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
 Writes: `jnwb/laminar/_xflip.py`, `tests/test_xflip*.py`, the xflip calibration receipt, `artifacts/frozen_validated.json` (re-verified entry), a changelog fragment.
 - Phase-randomized surrogates make channels independent, so the omnibus p was 1/101 on 10 of 10 boundary-free volume-conducted probes (`artifacts/evidence/0.2.12/xflip_null_probe.py`). New null: the lag-averaged correlation r(d) = mean of corr[i, i+d] forms a Toeplitz matrix (eigenvalues floored at 0), and each surrogate is the channels' independent phase-randomized series, standardized and mixed by its Cholesky factor; the partition search and selection rerun on each surrogate. Matrix input needs `n_samples` for Wishart draws. Check: that probe accepts at most 1 of 10 with p > 0.05 in at least 9; a two-block probe (distinct sources per block) still accepts in at least 9 of 10; the false-positive rate over 200 boundary-free seeds is at most 0.05 + 2 SE. Waits: not stated.
-Accept: the check passes; `zflip` needs no change (`artifacts/evidence/0.2.12/zflip_null_probe.py`: 0 of 10 delay-free probes accepted, p near 1).
+Accept: the check passes; fig25 panel D (`docs/generate_figures.py`) is regenerated, since it prints the omnibus p; `zflip` needs no change (`artifacts/evidence/0.2.12/zflip_null_probe.py`: 0 of 10 delay-free probes accepted, p near 1).
 
 ### 15-05 `xflip` on `vflip2`'s frame
 
