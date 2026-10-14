@@ -43,6 +43,8 @@ CLAIMS = [
      "max_trial_fraction", 0.5),
     ("jnwb-lfp-spectral", "`orientation` has no default", jnwb.zflip, "orientation",
      NO_DEFAULT),
+    ("jnwb-lfp-spectral", "(`layer4_thickness_mm`, default vflip2's)", jnwb.xflip,
+     "layer4_thickness_mm", None),
     ("jnwb-lfp-spectral", "`robust` defaults to False", jnwb.aperiodic_fit, "robust", False),
     ("jnwb-nwb-data", "(default column `codes`)", jnwb.events, "code_column", "codes"),
     ("jnwb-nwb-data", "(default column `codes`)", jnwb.event_onsets, "code_column", "codes"),

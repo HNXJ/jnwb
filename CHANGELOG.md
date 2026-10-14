@@ -54,7 +54,7 @@ Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verb
 - skills/jnwb-nwb-data/SKILL.md moves routing rows to references/ pages.
 - skills/jnwb-laminar/SKILL.md moves routing rows to references/ pages.
 - jnwb/laminar/_vflip.py: `vflip` no longer calls its support score Omega, the name of vFLIP2's statistic
-- jnwb/laminar/_xflip.py: `xflip` defaults to a homogeneous null, which keeps smooth spatial decay.
+- [results change] jnwb/laminar/_xflip.py: `xflip` defaults to a homogeneous null; p-values move at a fixed int seed.
 - jnwb/laminar/_xflip.py: `surrogate_method='autocorr_preserving'` keeps the old independent-channel null.
 - jnwb/laminar/_xflip.py: `n_samples` gives a matrix the homogeneous null; without it, a warning.
 

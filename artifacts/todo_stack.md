@@ -42,7 +42,8 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 ### 15-11 `vflip2` recovers a planted vFLIP2 crossover
 
-Release: deferred-0.2.13. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Release: deferred-0.2.13.
+Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
 Writes: `jnwb/testing/synth.py`, `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.13/vflip2_simulation.md`.
 - No generator plants vFLIP2's own relative-power crossover, so no test shows `vflip2` recovering it: on `synth_laminar_motif` (amplitude-weight crossover) 20 of 100 accepted crossovers lie within one contact and 18 of 100 noise-only probes are accepted at omega_cut 6 (`artifacts/evidence/0.2.12/vflip2_simulation.md`). Check: on 100 seeded probes from a generator whose planted crossover is where the relative band-power profiles cross (32 contacts, 100 um), the accepted crossover lies within one contact in at least 90, and at most 5 of 100 noise-only probes are accepted; the same table then runs on Andre Bastos's simulation code. Waits: needs the generator and his code; 0.2.12 ships the characterization only.
 Accept: both rates hold and the evidence file names seeds and counts. Ruled 2026-10-14 (15-03 split and characterization).

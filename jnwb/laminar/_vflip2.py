@@ -34,7 +34,7 @@ class VFlip2Result(DictAccessMixin):
     Attributes:
         accepted: True when `omega` exceeds `omega_cut`. vFLIP2.m returns NaN otherwise;
             this result keeps the best window's values so a rejection can be read.
-        omega: Natural log of G * S_d * B_d * channel span * band widths for the best window.
+        omega: Natural log of |G| * S_d * B_d * channel span * band widths for the best window.
         goodness: G, the product of the two band profiles' R-squared under a second-degree
             fit, zero unless both fits have p < 0.05, signed positive when the low band rises
             and the high band falls with channel index.
