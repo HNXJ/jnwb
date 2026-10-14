@@ -1552,6 +1552,7 @@ def fig25_laminar_csd_flips():
                  s=24, zorder=3, label="Delay identifiable")
     ax_c.set_xlabel("Adjacent contact pair (index)")
     ax_c.set_ylabel("wPLI (dimensionless)")
+    ax_c.set_ylim(0.0, 1.05)  # wPLI's full range: a near-constant profile must look flat
     style.panel_title(ax_c, "C", "Traveling wave between adjacent contacts\n(jnwb.zflip)")
     velocity = zflip.apparent_velocity_m_s
     velocity_text = "not identifiable" if velocity is None else f"{velocity:.2f} m/s"
