@@ -34,8 +34,8 @@ Every figure the documentation generators draw (`docs/generate_figures.py` and
 | minus sign | no drawn text puts an ASCII hyphen where a minus belongs |
 | variables | a legend entry for a named variable has that variable's colour, in every figure |
 
-The three generators are `docs/generate_figures.py`, `examples/quickstart_jnwb.py` and
-`examples/tutorials/09_open_data.py`, the last drawn from a synthetic result. Each check is
+The generators are `docs/generate_figures.py` and `examples/quickstart_jnwb.py`; the open-data
+figure (fig21) is drawn by the first from the tutorial's analysis of its excerpt. Each check is
 first shown to reject a figure built to break it.
 """
 from __future__ import annotations
@@ -753,35 +753,10 @@ def _draw_quickstart(out_dir: Path) -> dict[str, Drawn]:
     return found
 
 
-def _tutorial_result() -> dict:
-    """A synthetic result of the shape the tutorial's `analyze` returns: four layers of a PSTH
-    and band power at five contacts, one of them below zero."""
-    t_ms = np.arange(-250.0, 750.0, 10.0)
-    onset = np.where(t_ms > 0, 1.0 - np.exp(-t_ms / 80.0), 0.0)
-    layers = {f"VISpm layer {i}": {"n_units": 6 + i, "rate_hz": 5.0 + (3.0 + 2.0 * i) * onset}
-              for i in range(4)}
-    return {"psth": {"t_ms": t_ms, "layers": layers},
-            "lfp": {"db": np.array([1.2, 0.6, -0.4, 0.3, 0.8]),
-                    "depth_um": np.array([50.0, 150.0, 250.0, 350.0, 450.0]),
-                    "location": ["VISpm", "VISpm", "VISpm", "CA1", "CA1"]}}
-
-
-def _draw_tutorial() -> dict[str, Drawn]:
-    found = {}
-    with matplotlib.rc_context():
-        matplotlib.rcdefaults()
-        tutorial = _load_registered(TUTORIAL, "_tutorial_09")
-        for theme, ink in tutorial.THEMES.items():
-            found[f"{ink['stem']}.png"] = _finish(Drawn(tutorial.draw(_tutorial_result(), theme)))
-            plt.close("all")
-    return found
-
-
 @pytest.fixture(scope="module")
 def drawn(tmp_path_factory):
     generator, found = _draw_doc_figures()
     found.update(_draw_quickstart(tmp_path_factory.mktemp("quickstart")))
-    found.update(_draw_tutorial())
     found["generator"] = generator
     return found
 
@@ -796,10 +771,7 @@ def _registry():
 
 NAMES = [n for key in _registry() for n in (key, key.replace(".png", ".dark.png"))] + [
     "jnwb_quickstart.png", "jnwb_quickstart.dark.png"]
-#: The tutorial's figure, drawn from a synthetic result. It is on no page, so the checks that
-#: judge a figure as a page shows it do not read it; the style checks do.
-TUTORIAL_NAMES = ["09_open_data.png", "09_open_data.dark.png"]
-STYLE_NAMES = NAMES + TUTORIAL_NAMES
+STYLE_NAMES = NAMES
 
 #: Figures that still fail a check, by check and figure, with what is wrong. A listed figure that
 #: starts to pass fails the suite, so the entry is removed with the repair.
@@ -834,6 +806,10 @@ AWAITING.update({("displayed size at the mobile width", embed): _MOBILE_TEXT_TOO
     "08_directed_connectivity_and_information.md:fig17_spectral_granger.png",
     "08_directed_connectivity_and_information.md:fig18_psi_narrowband_trap.png",
     "09_decoding_and_visual_qc.md:fig07_population_decoding.png",
+    "09_open_data.md:fig21_open_data_psth_db.png",
+    "05_statistics.md:fig24_statistics_groups_cluster.png",
+    "06_laminar.md:fig25_laminar_csd_flips.png",
+    "07_ensembles.md:fig26_ensembles_rdm_decoding.png",
     "coherence_and_tfr.md:fig05_complex_tfr_coi.png",
     "coherence_and_tfr.md:fig12_coherence_zero_lag.png",
     "common_mistakes.md:fig14_causal_vs_gaussian_step.png",
@@ -885,7 +861,7 @@ def _embeds():
         for stem, width in _img_widths(text):
             out.append((page.name, Path(stem).name + ".png", width,
                         captions.get(f"{stem}.png#only-light", "")))
-        for match in re.finditer(r"^!\[[^\]]*\]\((assets/[^)\s]+?)\.png#only-light\)", text, re.M):
+        for match in re.finditer(r"^!\[[^\]]*\]\(((?:\.\./)?assets/[^)\s]+?)\.png#only-light\)", text, re.M):
             out.append((page.name, Path(match.group(1)).name + ".png", PAGE_WIDTH_PX,
                         captions.get(f"{match.group(1)}.png#only-light", "")))
     return out
@@ -1870,22 +1846,13 @@ def test_every_named_variable_is_drawn_by_the_documentation_figures_and_the_quic
         assert seen == set(VARIABLE_LABELS), f"{name} names only {sorted(seen)}"
 
 
-def test_the_tutorial_figure_comes_in_light_and_dark_and_takes_its_style(drawn, tmp_path):
-    tutorial = _load_registered(TUTORIAL, "_tutorial_09_plot")
-    with matplotlib.rc_context():
-        paths = tutorial.plot(_tutorial_result(), tmp_path)
-    assert [p.name for p in paths] == ["09_open_data.dark_page1.png", "09_open_data_page1.png"]
-    import matplotlib.image as mpimg
-
-    light, dark = (mpimg.imread(tmp_path / n) for n in ("09_open_data_page1.png",
-                                                       "09_open_data.dark_page1.png"))
-    assert light.shape[2] == dark.shape[2] == 4 and not np.array_equal(light, dark)
-    assert not _style_violations(TUTORIAL.read_text(encoding="utf-8"))
-    assert not _theme_contrast_failures(TUTORIAL.read_text(encoding="utf-8"))
-    for name in TUTORIAL_NAMES:
-        item = drawn[name]
-        theme = "dark" if ".dark" in name else "light"
-        assert _dim_ink_share(item.rgba, PAGE[theme], item.exempt) <= MAX_DIM_INK_SHARE, name
+def test_the_open_data_script_draws_no_figure_and_its_figure_has_two_variants(drawn):
+    """The open-data figure is drawn by the generator from the script's analysis; the script keeps
+    its computation and its prints. Its light and dark variants are two different images."""
+    source = TUTORIAL.read_text(encoding="utf-8")
+    assert "matplotlib" not in source and "save_figure_suite" not in source, "the script draws"
+    light, dark = drawn["fig21_open_data_psth_db.png"], drawn["fig21_open_data_psth_db.dark.png"]
+    assert light.rgba.shape[2] == dark.rgba.shape[2] == 4 and not np.array_equal(light.rgba, dark.rgba)
 
 
 def test_the_style_checks_catch_their_cases():

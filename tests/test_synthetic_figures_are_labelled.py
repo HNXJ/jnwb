@@ -16,9 +16,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = REPO_ROOT / "docs"
 
-#: Figures computed from real data, by image path relative to `docs/`. None ship today; the
-#: open-data tutorial prints its numbers rather than drawing them.
-EMPIRICAL = {}
+#: Figures computed from real data, by the image path as the page writes it (the light variant).
+#: fig21 draws the open-data tutorial's analysis of its DANDI 000253 excerpt.
+EMPIRICAL = {
+    "../assets/figures/fig21_open_data_psth_db.png#only-light": "DANDI 000253 excerpt, examples/data/",
+}
 #: Images that are not figures, by path.
 DECORATION = {"assets/jnwb-logo.png": "the project logo on the landing page"}
 

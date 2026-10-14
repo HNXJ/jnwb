@@ -1,7 +1,8 @@
-"""Generate 20 canonical figures for jnwb documentation.
+"""Generate 24 canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
-truth, producing reproducible figures for docs/assets/figures/. The palette, fonts, size tiers,
+truth, producing reproducible figures for docs/assets/figures/. Figure 21 is the one empirical
+figure: it draws the open-data tutorial's analysis of its DANDI 000253 excerpt. The palette, fonts, size tiers,
 line widths and the figure width come from docs/figure_style.py.
 
 Regenerate with the Matplotlib release the compared CI leg pins (`matplotlib==` in
@@ -17,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -39,6 +41,7 @@ from matplotlib.patches import Patch
 
 import figure_style as style
 import jnwb
+from jnwb import StatisticalAnalysis
 from jnwb.laminar import CANONICAL_VFLIP_BANDS
 from jnwb.testing import synth_laminar_motif
 
@@ -1385,6 +1388,250 @@ def fig20_bad_channels_and_trials():
     plt.close(fig)
 
 
+#: fig21 reads the open-data tutorial's analysis: the script's `analyze()`, loaded by path because its
+#: name starts with a digit. The figure and the page show one analysis, not two.
+OPEN_DATA_SCRIPT = REPO_ROOT / "examples" / "tutorials" / "09_open_data.py"
+
+
+def _open_data_run():
+    """The tutorial's analysis, run through this module's `jnwb`, so the figure records the calls it makes."""
+    spec = importlib.util.spec_from_file_location("_open_data_tutorial", OPEN_DATA_SCRIPT)
+    tutorial = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = tutorial  # the script's dataclass looks its module up while it loads
+    spec.loader.exec_module(tutorial)
+    tutorial.jnwb = jnwb
+    return tutorial, tutorial.analyze(tutorial.EXCERPT)
+
+
+def fig21_open_data_psth_db():
+    """Figure 21: Empirical. PSTH of good cortical units by layer and high-gamma power by depth, from the DANDI 000253 excerpt."""
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    tutorial, res = _open_data_run()
+    t_ms = res["psth"]["t_ms"]
+    for color, (where, layer) in zip(style.SERIES, res["psth"]["layers"].items()):
+        ax_a.plot(t_ms, layer["rate_hz"], color=color, lw=style.LW, label=f"{where} (n={layer['n_units']})")
+        ax_a.annotate(where, (t_ms[-1], layer["rate_hz"][-1]), xytext=(4, 0), textcoords="offset points",
+                      va="center", fontsize=style.SMALL, color=C_DARK)
+    lo_ms, hi_ms = 1e3 * np.asarray(tutorial.POST_S)  # the grating on screen, as the tutorial names it
+    ax_a.axvspan(lo_ms, hi_ms, color=C_HIGHLIGHT, alpha=0.4, zorder=0, lw=0)
+    ax_a.set(xlabel="Time from grating onset (ms)", ylabel="Rate (Hz)")
+    style.panel_title(ax_a, "A", "PSTH of good units by layer\n(jnwb.raster_psth)")
+    ax_a.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+
+    lf = res["lfp"]
+    ax_b.plot(lf["db"], lf["depth_um"], color=style.SERIES[0], linestyle="none", marker="o", ms=5)
+    for db, depth, where in zip(lf["db"], lf["depth_um"], lf["location"]):
+        ax_b.annotate(where, (db, depth), xytext=(6, 0), textcoords="offset points", va="center",
+                      fontsize=style.SMALL, color=C_DARK)
+    ax_b.axvline(0.0, color=style.NEUTRAL, lw=style.LW_THIN)
+    low, high = jnwb.CANONICAL_BANDS["high_gamma"]
+    ax_b.set(xlabel=f"{low:.0f}–{high:.0f} Hz power, grating vs gray (dB)", ylabel="Contact position on probe (µm)")
+    style.panel_title(ax_b, "B", "LFP band power by depth\n(jnwb.aggregate_to_db)")
+
+    fig.tight_layout()
+    _save(fig, "fig21_open_data_psth_db.png")
+    plt.close(fig)
+
+
+#: fig24 to fig26 draw the seeded inputs of tutorials 05 to 07, in the order each script draws them,
+#: and call the same public functions. Each figure's numbers are printed from its own results.
+FIG24_PERMUTATIONS = 100
+
+
+def fig24_statistics_groups_cluster():
+    """Figure 24: Synthetic. Two groups of trial rates with the bootstrap interval of their difference, and a cluster permutation test over time bins, from the statistics tutorial."""
+    fig, (ax_a, ax_b) = plt.subplots(1, 2, figsize=(style.WIDTH, 3.6), dpi=style.DPI)
+
+    rng = np.random.default_rng(42)
+    group_a = rng.normal(loc=12.0, scale=2.5, size=30)
+    group_b = rng.normal(loc=15.0, scale=2.5, size=30)
+    comp = StatisticalAnalysis.exploratory_compare(group_a, group_b)
+    StatisticalAnalysis.bootstrap_ci(group_b, n_bootstrap=1000, rng=rng)
+    jnwb.permute_labels(np.array(["condA"] * 30 + ["condB"] * 30), scheme="global", rng=rng)
+    time_a = rng.normal(loc=0.0, size=(15, 50))
+    time_b = rng.normal(loc=0.0, size=(15, 50))
+    time_b[:, 20:30] += 1.5
+    clust = jnwb.cluster_permutation_test(time_a, time_b, n_permutations=FIG24_PERMUTATIONS, rng=rng)
+    assert clust["clusters"], "fig24 must hold the injected cluster"
+    best = clust["clusters"][0]
+
+    diff = float(np.mean(group_a) - np.mean(group_b))
+    ci_lo, ci_hi = comp["mean_diff_ci"]["bootstrap_ci"]
+    assert ci_lo <= diff <= ci_hi, "the library's interval must cover A minus B, its sign convention"
+    for x, values, color in ((0, group_a, style.SERIES[0]), (1, group_b, style.SERIES[1])):
+        ax_a.scatter(np.full(values.size, x), values, s=12, color=color, alpha=0.7, edgecolors="none")
+        ax_a.hlines(values.mean(), x - 0.25, x + 0.25, color=color, lw=style.LW)
+    ax_a.set_xticks([0, 1], ["Group A", "Group B"])
+    ax_a.set_ylabel("Trial rate (Hz)")
+    style.panel_title(ax_a, "A", "Trial rates by group, with the difference\nand its bootstrap interval")
+    ax_a.legend(handles=[Patch(visible=False, label=f"Difference A − B = {style.num(diff, '.2f')} Hz; 95% "
+                                                    f"bootstrap interval [{style.num(ci_lo, '.2f')}, "
+                                                    f"{style.num(ci_hi, '.2f')}] Hz")],
+                frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    bins = np.arange(time_a.shape[1])
+    ax_b.plot(bins, time_a.mean(axis=0), color=style.SERIES[0], lw=style.LW, label="Condition A mean")
+    ax_b.plot(bins, time_b.mean(axis=0), color=style.SERIES[1], lw=style.LW, label="Condition B mean")
+    low, high = ax_b.get_ylim()
+    ax_b.fill_between(bins, low, high, where=np.asarray(best["mask"], dtype=bool), color=C_HIGHLIGHT,
+                      alpha=0.4, lw=0, label=f"Cluster, p = {best['p_value']:.3f} "
+                                             f"({FIG24_PERMUTATIONS} permutations)")
+    ax_b.set_xlabel("Time bin (index)")
+    ax_b.set_ylabel("Mean value (a.u.)")
+    style.panel_title(ax_b, "B", "Cluster permutation test\n(jnwb.cluster_permutation_test)")
+    ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
+
+    fig.tight_layout()
+    _save(fig, "fig24_statistics_groups_cluster.png")
+    plt.close(fig)
+
+
+FIG25_FS = 1000.0
+FIG25_N_CH = 16
+FIG25_N_SAMPLES = 2000
+FIG25_PITCH_UM = 100.0
+FIG25_BLOCK = 8
+
+
+def fig25_laminar_csd_flips():
+    """Figure 25: Synthetic. The current source density, vFLIP band profiles, zFLIP adjacent-contact wPLI and xFLIP contact correlations of the laminar tutorial's signals."""
+    fig = plt.figure(figsize=(style.WIDTH, 6.2), dpi=style.DPI)
+    ax_a, ax_b = fig.add_subplot(2, 2, 1), fig.add_subplot(2, 2, 2)
+    ax_c, ax_d = fig.add_subplot(2, 2, 3), fig.add_subplot(2, 2, 4)
+
+    rng = np.random.default_rng(42)
+    times = np.arange(FIG25_N_SAMPLES) / FIG25_FS
+    lfp = np.zeros((FIG25_N_CH, FIG25_N_SAMPLES))
+    for ch in range(FIG25_N_CH):
+        signal = np.sin(2.0 * np.pi * 20.0 * times - ch * 0.15)
+        lfp[ch] = signal + 0.2 * rng.normal(size=FIG25_N_SAMPLES)
+    blocks = np.empty((2 * FIG25_BLOCK, FIG25_N_SAMPLES))
+    for b in range(2):
+        source = rng.normal(size=FIG25_N_SAMPLES)
+        rows = slice(b * FIG25_BLOCK, (b + 1) * FIG25_BLOCK)
+        blocks[rows] = 0.8 * source + 0.6 * rng.normal(size=(FIG25_BLOCK, FIG25_N_SAMPLES))
+
+    # A: current source density over depth and time
+    csd = jnwb.current_source_density_1d(lfp, pitch_um=FIG25_PITCH_UM, conductivity_s_per_m=0.3)
+    csd = csd / float(np.abs(csd).max())  # normalized to its peak, so the colorbar needs no offset
+    t_ms = times * 1e3
+    limit = float(np.abs(csd).max())
+    image = ax_a.imshow(csd, aspect="auto", cmap="RdBu_r", vmin=-limit, vmax=limit, interpolation="nearest",
+                        extent=(t_ms[0], t_ms[-1], csd.shape[0] - 0.5, -0.5))
+    fig.colorbar(image, ax=ax_a).set_label("Normalized CSD (a.u.)")
+    ax_a.set_xlabel("Time (ms)")
+    ax_a.set_ylabel("Depth site (index)")
+    style.panel_title(ax_a, "A", "Current source density\n(jnwb.current_source_density_1d)")
+
+    # B: the vFLIP band profiles and the crossover the estimator returns
+    vflip = jnwb.vflip_from_lfp(lfp, FIG25_FS, min_support_score=0.0, orientation="auto")
+    freqs, psd = jnwb.compute_psd(lfp, fs=FIG25_FS, axis=1)
+    low, high = _band_profiles(psd, freqs, (CANONICAL_VFLIP_BANDS["low"], CANONICAL_VFLIP_BANDS["high"]))
+    depth = np.arange(FIG25_N_CH)
+    ax_b.plot(low, depth, color=style.SERIES[0], lw=style.LW, label="Low band")
+    ax_b.plot(high, depth, color=style.SERIES[3], lw=style.LW, label="High band")
+    if vflip.accepted:
+        ax_b.axhline(vflip.crossover_contact, color=C_DARK, ls="--", lw=style.LW_THIN,
+                     label=f"Crossover, contact {vflip.crossover_contact} (jnwb.vflip)")
+    else:
+        ax_b.plot([], [], " ", label=f"Not accepted: {vflip.rejection_reason} (jnwb.vflip)")
+    ax_b.invert_yaxis()
+    ax_b.set_xlabel("Normalized band power (dimensionless)")
+    ax_b.set_ylabel("Contact index (dimensionless)")
+    style.panel_title(ax_b, "B", "vFLIP band profiles and its verdict\n(jnwb.vflip)")
+    ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
+
+    # C: zFLIP's wPLI between adjacent contacts, with the pairs whose delay is identifiable marked
+    zflip = jnwb.zflip(lfp, FIG25_FS, orientation="superficial_to_deep", pitch_um=FIG25_PITCH_UM,
+                       freq_range=(15.0, 25.0), n_surrogates=20, seed=42)
+    pairs = np.arange(FIG25_N_CH - 1)
+    identifiable = np.asarray(zflip.adjacent_identifiable, dtype=bool)
+    ax_c.plot(pairs, zflip.adjacent_wpli, color=style.SERIES[0], lw=style.LW, label="Adjacent-contact wPLI")
+    ax_c.scatter(pairs[identifiable], np.asarray(zflip.adjacent_wpli)[identifiable], color=style.SERIES[0],
+                 s=24, zorder=3, label="Delay identifiable")
+    ax_c.set_xlabel("Adjacent contact pair (index)")
+    ax_c.set_ylabel("wPLI (dimensionless)")
+    style.panel_title(ax_c, "C", "Traveling wave between adjacent contacts\n(jnwb.zflip)")
+    velocity = zflip.apparent_velocity_m_s
+    velocity_text = "not identifiable" if velocity is None else f"{velocity:.2f} m/s"
+    ax_c.legend(handles=[Patch(visible=False, label=f"Apparent velocity {velocity_text}, "
+                                                    f"surrogate p = {zflip.p_value:.3f}")],
+                frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    # D: xFLIP's two blocks as the correlation between contacts, with the boundary it tests
+    xflip = jnwb.xflip(blocks, n_blocks=2, min_block_size=3, n_surrogates=200, rng=0)
+    assert xflip.accepted, xflip.rejection_reason
+    corr = np.corrcoef(blocks)
+    boundary = FIG25_BLOCK - 0.5
+    image_d = ax_d.imshow(corr, cmap="magma", vmin=float(corr.min()), vmax=float(corr.max()),
+                          interpolation="nearest")
+    ax_d.axhline(boundary, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+    ax_d.axvline(boundary, color=style.SERIES[1], ls="--", lw=style.LW_THIN)
+    fig.colorbar(image_d, ax=ax_d).set_label("Pearson r (dimensionless)")
+    ax_d.set_xlabel("Contact index (dimensionless)")
+    ax_d.set_ylabel("Contact index (dimensionless)")
+    style.panel_title(ax_d, "D", "Contact correlation\n(jnwb.xflip)")
+    ax_d.legend(handles=[Patch(visible=False, label=f"Omnibus p = {xflip.p_values['omnibus']:.4f}")],
+                frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.3))
+
+    fig.tight_layout()
+    _save(fig, "fig25_laminar_csd_flips.png")
+    plt.close(fig)
+
+
+def fig26_ensembles_rdm_decoding():
+    """Figure 26: Synthetic. An RDM, the second-order similarity of two RDMs, and nested cross-validated decoding, from the ensembles tutorial's patterns."""
+    fig, (ax_a, ax_b, ax_c) = plt.subplots(1, 3, figsize=(style.WIDTH, 3.6), dpi=style.DPI,
+                                           gridspec_kw={"width_ratios": [0.95, 1.0, 1.5]})
+
+    rng = np.random.default_rng(42)
+    n_conditions, n_units = 6, 30
+    patterns_v1 = rng.normal(loc=1.0, scale=0.5, size=(n_conditions, n_units))
+    patterns_v2 = patterns_v1 + 0.3 * rng.normal(size=(n_conditions, n_units))
+    time_series_1 = rng.normal(size=(n_conditions, n_units, 10))
+    time_series_2 = time_series_1 + 0.2 * rng.normal(size=(n_conditions, n_units, 10))
+    X = rng.normal(size=(40, n_units))
+    X[:20, :5] += 0.8
+    y = np.array([0] * 20 + [1] * 20)
+
+    square = jnwb.rdm(patterns_v1, metric="correlation", condensed=False)
+    vec1 = jnwb.rdm(patterns_v1, metric="correlation", condensed=True)
+    vec2 = jnwb.rdm(patterns_v2, metric="correlation", condensed=True)
+    rho, _ = jnwb.rdm_similarity(vec1, vec2, metric="spearman")
+    cv = jnwb.nested_cv_linear_svm(X, y, n_splits=3)
+
+    image = ax_a.imshow(square, cmap="magma", vmin=0.0, vmax=float(square.max()), interpolation="nearest")
+    ax_a.set_xlabel("Condition index")
+    ax_a.set_ylabel("Condition index")
+    fig.colorbar(image, ax=ax_a, fraction=0.046).set_label("Distance (dimensionless)")
+    style.panel_title(ax_a, "A", "RDM, pattern set 1\n(jnwb.rdm)")
+
+    ax_b.scatter(vec1, vec2, color=style.SERIES[0], s=14, edgecolors="none")
+    ax_b.set_xlabel("Pair distance, set 1 (dimensionless)")
+    ax_b.set_ylabel("Pair distance, set 2 (dimensionless)")
+    style.panel_title(ax_b, "B", "Second-order similarity\n(jnwb.rdm_similarity)")
+    ax_b.legend(handles=[Patch(visible=False, label=f"Spearman rho = {rho:.2f}")],
+                frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2))
+
+    folds = np.asarray(cv["fold_accuracies"]) * 100
+    ax_c.bar(range(1, folds.size + 1), folds, color=style.SERIES[0], width=0.5, edgecolor=C_DARK, lw=style.EDGE)
+    ax_c.axhline(cv["accuracy"] * 100, color=style.SERIES[3], lw=style.LW,
+                 label=f"Outer-CV mean ({cv['accuracy'] * 100:.1f}%)")
+    ax_c.axhline(cv["majority_baseline_accuracy"] * 100, color=style.VARIABLE["baseline"], ls="--",
+                 lw=style.LW_THIN, label=f"Majority baseline ({cv['majority_baseline_accuracy'] * 100:.1f}%)")
+    ax_c.set_ylim(0, 135)
+    ax_c.set_yticks(range(0, 101, 20))
+    ax_c.set_xlabel("Outer CV fold")
+    ax_c.set_ylabel("Decoding accuracy (%)")
+    style.panel_title(ax_c, "C", "Outer-fold accuracy\n(jnwb.nested_cv_linear_svm)")
+    ax_c.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
+
+    fig.tight_layout()
+    _save(fig, "fig26_ensembles_rdm_decoding.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -1408,6 +1655,10 @@ FIGURES = {
     "fig18_psi_narrowband_trap.png": fig18_psi_narrowband_trap,
     "fig19_rdms_and_jrsa.png": fig19_rdms_and_jrsa,
     "fig20_bad_channels_and_trials.png": fig20_bad_channels_and_trials,
+    "fig21_open_data_psth_db.png": fig21_open_data_psth_db,
+    "fig24_statistics_groups_cluster.png": fig24_statistics_groups_cluster,
+    "fig25_laminar_csd_flips.png": fig25_laminar_csd_flips,
+    "fig26_ensembles_rdm_decoding.png": fig26_ensembles_rdm_decoding,
 }
 
 

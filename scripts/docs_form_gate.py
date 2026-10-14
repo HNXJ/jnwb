@@ -83,11 +83,13 @@ GENERATORS: Tuple[Path, ...] = (Path("docs") / "generate_figures.py",
                                 Path("docs") / "figure_style.py")
 
 #: A themed figure on a page, as a Markdown image line or an `<img>` tag: (stem, ".dark", scheme).
-IMAGE_LINE = re.compile(r"^!\[[^\]]*\]\((assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)
-IMG_TAG = re.compile(r'<img src="(assets/[^"]+?)(\.dark)?\.png#only-(light|dark)"')
+#: A page below `docs/` reaches `assets/` through `../`; the stem keeps it, relative to the page.
+IMAGE_LINE = re.compile(
+    r"^!\[[^\]]*\]\(((?:\.\./)*assets/[^)\s]+?)(\.dark)?\.png#only-(light|dark)\)$", re.M)
+IMG_TAG = re.compile(r'<img src="((?:\.\./)*assets/[^"]+?)(\.dark)?\.png#only-(light|dark)"')
 #: A figure file referenced with no scheme fragment, in a link, an image or an attribute.
 BARE_FIGURE = re.compile(
-    r"[(\"](assets/(?:figures/[^)\s\"#]+|jnwb_quickstart[^)\s\"#]*)\.png)[)\"]")
+    r"[(\"]((?:\.\./)*assets/(?:figures/[^)\s\"#]+|jnwb_quickstart[^)\s\"#]*)\.png)[)\"]")
 
 #: Page backgrounds of the built site (`docs/_theme_override.css`), by theme.
 PAGE = {"light": "#ffffff", "dark": "#1b1b1b"}
@@ -543,7 +545,7 @@ def check_figures(root: Path) -> Result:
         if schemes != {"light", "dark"}:
             violations.append(f"{name}: {stem} is shown only under {sorted(schemes)}")
         for suffix in (".png", ".dark.png"):
-            if not (docs / f"{stem}{suffix}").is_file():
+            if not (docs / Path(name).parent / f"{stem}{suffix}").is_file():
                 violations.append(f"{name}: {stem}{suffix} is missing")
     generators = [root / g for g in GENERATORS]
     for generator in generators:
