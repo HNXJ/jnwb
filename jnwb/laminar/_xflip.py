@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
+import warnings
 import numpy as np
 from .._dictlike import DictAccessMixin
 from .._rng import recorded_rng
 from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.linalg import toeplitz
 from scipy.spatial.distance import squareform
 from scipy.stats import rankdata
 from ..permutation import _TIE_RTOL, _count_at_least_as_extreme, _count_each_at_least_as_extreme
@@ -137,6 +139,59 @@ def _surrogate_phase_randomize(data: np.ndarray, rng: np.random.Generator) -> np
 
     surrogate_fft = magnitudes * np.exp(1j * rand_phases)
     return np.fft.irfft(surrogate_fft, n=n_samples, axis=1)
+
+
+def _homogeneous_factor(corr: np.ndarray) -> np.ndarray:
+    """Cholesky factor of the Toeplitz matrix of a correlation matrix's lag averages.
+
+    r(d) is the mean of the d-th diagonal of `corr`, the correlation at lag d averaged over
+    contact pairs. The Toeplitz matrix of r is floored at zero eigenvalue and rescaled to unit
+    diagonal. The smallest diagonal jitter from 1e-10 up to 1e-7 that lets the factorization
+    succeed is added; if none does, the matrix is not a usable null and the call raises.
+    """
+    n = corr.shape[0]
+    r = np.array([np.mean(np.diagonal(corr, offset=d)) for d in range(n)])
+    values, vectors = np.linalg.eigh(toeplitz(r))
+    psd = (vectors * np.maximum(values, 0.0)) @ vectors.T
+    scale = np.sqrt(np.diag(psd))
+    unit = psd / np.outer(scale, scale)
+    for jitter in (1e-10, 1e-9, 1e-8, 1e-7):
+        try:
+            return np.linalg.cholesky(unit + jitter * np.eye(n))
+        except np.linalg.LinAlgError:
+            continue
+    raise RuntimeError(
+        "The homogeneous null's Toeplitz correlation needs a diagonal jitter above 1e-7 "
+        "to factor; the probe's lag averages are not a usable null."
+    )
+
+
+def _surrogate_homogeneous(
+    raw_data: np.ndarray, factor: np.ndarray, rng: np.random.Generator
+) -> np.ndarray:
+    """Phase-randomized channels mixed so that they carry the probe's lag-averaged correlation.
+
+    Each channel's phase randomization is standardized to mean 0 and SD 1, then mixed by the
+    Cholesky factor of the probe's Toeplitz correlation (`_homogeneous_factor` of its Pearson
+    correlation). The surrogate keeps each channel's spectrum and the smooth spatial decay of
+    the probe, and nothing else.
+    """
+    z = _surrogate_phase_randomize(raw_data, rng)
+    z = (z - z.mean(axis=1, keepdims=True)) / z.std(axis=1, keepdims=True)
+    return factor @ z
+
+
+def _surrogate_wishart(factor: np.ndarray, n_samples: int, rng: np.random.Generator) -> np.ndarray:
+    """A correlation matrix drawn as the sample correlation of the homogeneous null.
+
+    The draw is Wishart with n_samples - 1 degrees of freedom and scale equal to the
+    homogeneous null's correlation (`factor` is its Cholesky factor), normalized to unit
+    diagonal.
+    """
+    a = factor @ rng.standard_normal((factor.shape[0], n_samples - 1))
+    w = a @ a.T
+    scale = np.sqrt(np.diag(w))
+    return w / np.outer(scale, scale)
 
 
 def _compute_contrast(corr: np.ndarray, labels: np.ndarray) -> float:
@@ -374,14 +429,16 @@ def xflip(
     min_boundary_drop: float = 0.05,
     channel_axis: int = 0,
     is_corr_matrix: Optional[bool] = None,
+    n_samples: Optional[int] = None,
     rng: Optional[Union[np.random.Generator, int]] = None,
 ) -> XFlipResult:
     """Cross-Channel Laminar Correlation Profile (xFLIP).
 
     Evaluates cross-channel correlation blocks along laminar electrode array shafts,
     partitions contacts into contiguous laminar compartments via exact 1D dynamic
-    programming, and tests boundary significance against temporal autocorrelation-preserving
-    Fourier phase surrogates.
+    programming, and tests boundary significance against surrogates that keep each probe's
+    smooth spatial decay (the default for raw time series), so only a boundary beyond that
+    decay can be significant.
 
     Mathematical Estimator:
         1. Correlation Estimation:
@@ -401,10 +458,14 @@ def xflip(
            objective was :math:`\\sum_{u \\le i < j < v} (R_{ij} - \\bar{R})`, which moved
            the cut beside an uncorrelated background toward the middle of the probe.
         3. Statistical Null Testing:
-           Constructs surrogates preserving each channel's empirical power spectrum and
-           temporal autocorrelation :math:`R_{cc}(\\tau)` via independent Fourier phase
-           randomization (when raw time-series data is provided), or channel identity permutation
-           (when a precomputed correlation matrix is provided).
+           The default null for raw time series (`'homogeneous'`) keeps the probe's smooth
+           spatial decay: independent Fourier phase-randomized channels, each standardized, are
+           mixed by the Cholesky factor of the probe's lag-averaged (Toeplitz) correlation. A
+           boundary must exceed that decay to be significant. A precomputed correlation matrix
+           with `n_samples` draws its surrogates from a Wishart distribution with the same
+           scale. The independent-channel null (`'autocorr_preserving'`, which keeps each
+           channel's power spectrum and temporal autocorrelation) and channel identity
+           permutation test independent channels, not a boundary beyond smooth spatial decay.
         4. Monte Carlo P-value Resolution:
            Evaluates partition contrast :math:`Q = \\bar{r}_{\\text{within}} - \\bar{r}_{\\text{between}}`:
            :math:`p = \\frac{1 + \\sum_{s=1}^S \\mathbb{I}(Q_s \\ge Q - \\epsilon)}{1 + S}`,
@@ -441,7 +502,14 @@ def xflip(
         n_surrogates: Number of Monte Carlo surrogate iterations (default: 200). If 0,
             surrogate p-values are not computed (NaN) and the result is never accepted:
             not testing is not the same as passing, and `rejection_reason` says so.
-        surrogate_method: `'auto'` (default), `'autocorr_preserving'`, or `'permute_channels'`.
+        surrogate_method: `'auto'` (default), `'homogeneous'`, `'autocorr_preserving'`, or
+            `'permute_channels'`. `'homogeneous'` is the null described in step 3: each surrogate
+            keeps the probe's lag-averaged correlation, so a smooth spatial decay such as volume
+            conduction is not significant. For a correlation matrix it needs `n_samples`. `'auto'`
+            is `'homogeneous'` for raw time series, and for a matrix given `n_samples`; a matrix
+            without `n_samples` gets `'permute_channels'` and a `UserWarning`. `'autocorr_preserving'`
+            makes channels independent, so a volume-conducted probe with no boundary sits at the
+            omnibus p floor; it tests independent channels, not a boundary beyond smooth spatial decay.
         alpha: Significance threshold for omnibus surrogate test (default: 0.05).
         min_contrast: Minimum modularity contrast required for acceptance (default: 0.05).
         min_boundary_drop: Minimum drop between within-block neighbor correlations and cross-boundary
@@ -450,6 +518,11 @@ def xflip(
         channel_axis: Axis corresponding to channels in raw time-series input (default: 0).
         is_corr_matrix: Explicit boolean override specifying whether `data` is a precomputed
             correlation matrix. If None, auto-detected from shape, symmetry, and values.
+        n_samples: Number of samples the correlation matrix was estimated from (default: None).
+            It applies to a matrix input only, and refuses raw time series, which carry their own
+            sample count. With it, `'auto'` and `'homogeneous'` draw the surrogate correlation
+            matrices as described under `surrogate_method`; without it a matrix has no sample count
+            and its surrogates permute channels.
         rng: An int seed, a NumPy Generator, or None for fresh OS entropy. A `Generator`
             gives up one draw, a child seed the surrogates run on. The seed used is
             returned as `surrogate_seed_entropy`.
@@ -474,6 +547,8 @@ def xflip(
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
     if n_surrogates < 0:
         raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    if n_samples is not None and n_samples < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
     # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were
     # equally unchecked: alpha=5.0 with min_boundary_drop=0.0 accepted a smooth spatial
     # gradient in 15 of 15 seeds. `zflip` already range-checks the identical parameter.
@@ -521,6 +596,11 @@ def xflip(
         else:
             is_corr = False
 
+    if not is_corr and n_samples is not None:
+        raise ValueError(
+            "n_samples is the sample count of a correlation matrix; raw time series carry their "
+            "own sample count, so pass the data without n_samples."
+        )
     if not is_corr:
         if channel_axis == 1:
             raw_data = arr.T
@@ -565,7 +645,25 @@ def xflip(
 
     # Resolve surrogate method
     if surrogate_method == "auto":
-        eff_surrogate_method = "autocorr_preserving" if raw_data is not None else "permute_channels"
+        if raw_data is not None or n_samples is not None:
+            eff_surrogate_method = "homogeneous"
+        else:
+            eff_surrogate_method = "permute_channels"
+            warnings.warn(
+                "xflip was given a correlation matrix without n_samples, so its surrogates permute "
+                "channels and the p tests independent channels, not a boundary beyond smooth spatial "
+                "decay. Pass n_samples, the number of samples the matrix was estimated from, for the "
+                "homogeneous null.",
+                UserWarning,
+                stacklevel=2,
+            )
+    elif surrogate_method == "homogeneous":
+        if raw_data is None and n_samples is None:
+            raise ValueError(
+                "surrogate_method='homogeneous' on a precomputed correlation matrix requires "
+                "n_samples, the number of samples the matrix was estimated from."
+            )
+        eff_surrogate_method = "homogeneous"
     elif surrogate_method in ("autocorr_preserving", "phase_randomize"):
         if raw_data is None:
             raise ValueError(
@@ -579,7 +677,7 @@ def xflip(
     else:
         raise ValueError(
             f"Unknown surrogate_method '{surrogate_method}'. "
-            "Supported: 'auto', 'autocorr_preserving', 'permute_channels'."
+            "Supported: 'auto', 'homogeneous', 'autocorr_preserving', 'permute_channels'."
         )
 
     # Check structural feasibility
@@ -647,11 +745,19 @@ def xflip(
         surr_q_all = np.empty((n_surrogates, len(candidates)), dtype=float)
         boundary_exceed = [{b: 0 for b in part[1]} for part in observed]
 
+        if eff_surrogate_method == "homogeneous":
+            null_factor = _homogeneous_factor(corr if raw_data is None else np.corrcoef(raw_data))
         for s_idx in range(n_surrogates):
-            if eff_surrogate_method == "autocorr_preserving":
+            if eff_surrogate_method == "homogeneous":
+                if raw_data is None:
+                    surr_corr = _surrogate_wishart(null_factor, n_samples, gen)
+                else:
+                    surr_raw = _surrogate_homogeneous(raw_data, null_factor, gen)
+                    surr_corr = _compute_correlation_matrix(surr_raw, method)
+            elif eff_surrogate_method == "autocorr_preserving":
                 surr_raw = _surrogate_phase_randomize(raw_data, gen)
                 surr_corr = _compute_correlation_matrix(surr_raw, method)
-            else:
+            elif eff_surrogate_method == "permute_channels":
                 if contiguous:
                     perm = gen.permutation(n_channels)
                     surr_corr = corr[perm, :][:, perm]
@@ -661,6 +767,8 @@ def xflip(
                     surr_corr = np.eye(n_channels, dtype=float)
                     surr_corr[triu_idx] = perm_vals
                     surr_corr[triu_idx[1], triu_idx[0]] = perm_vals
+            else:
+                raise ValueError(f"No surrogate generator for surrogate_method '{eff_surrogate_method}'.")
 
             for i, k in enumerate(candidates):
                 surr_q_all[s_idx, i] = partition(surr_corr, k)[2]

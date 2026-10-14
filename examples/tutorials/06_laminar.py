@@ -88,8 +88,8 @@ def main() -> None:
     # 5. xFLIP Correlation Blocks
     # Synthetic: two contiguous blocks of 8 contacts, each driven by its own shared source,
     # so the true boundary sits between contacts 7 and 8. `xflip` partitions the contacts
-    # into contiguous blocks and tests the partition against phase-randomised surrogates,
-    # which keep each contact's autocorrelation and destroy the cross-contact coupling.
+    # into contiguous blocks and tests the partition against surrogates that keep each
+    # contact's autocorrelation and the probe's smooth decay of correlation with distance.
     n_per_block = 8
     blocks = np.empty((2 * n_per_block, n_samples))
     for b in range(2):

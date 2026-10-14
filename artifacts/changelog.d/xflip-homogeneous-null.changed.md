@@ -1,0 +1,3 @@
+- jnwb/laminar/_xflip.py: `xflip` defaults to a homogeneous null, which keeps smooth spatial decay.
+- jnwb/laminar/_xflip.py: `surrogate_method='autocorr_preserving'` keeps the old independent-channel null.
+- jnwb/laminar/_xflip.py: `n_samples` gives a matrix the homogeneous null; without it, a warning.
