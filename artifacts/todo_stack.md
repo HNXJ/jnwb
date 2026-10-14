@@ -37,25 +37,14 @@ Three lanes run at once; a wave opens when the lanes it depends on have merged. 
 one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 Scope ruled 2026-10-12 (`artifacts/rulings/2026-10-12.md`, full-release scope): 0.2.12 covers
-cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for 12-21, not for the contributed dashboard cards; pull request #31
+cleaning, organizing, a major doc update and the dashboard's view of each work's replications. The release waits for neither 12-21 (moved to 0.2.13, `artifacts/rulings/2026-10-14.md`) nor the contributed dashboard cards; pull request #31
 (`jnwb-laminar`) merged into `dev` on 2026-10-13.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 4 | H harness | 12-01, 12-05 | `scripts/harness_gate.py`, process tests | none |
-| 5 | F figures and citations | 14-05, 12-08 | `docs/`, `examples/tutorials/` | none |
-| any | J ground truth | 12-21 | the files 12-21 names | jaxfne's excerpt |
-| any | D deprecation | 12-13's `gpu_pca` path | `jnwb/gpu_pca.py`, its test, `docs/api.md` | Hamm names the replacement |
-| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
+| 5 | L laminar (focus, Hamm 2026-10-13) | 15-01, 15-03, 15-07, 15-09, 15-10, 15-08 | `jnwb/laminar/`, `tests/test_vflip2*.py`, `tests/test_xflip*.py`, `tests/test_zflip*.py`, `skills/jnwb-laminar/`, their `docs/` rows | none |
 | last | Z closure | `main` merged into `dev`; the blocker pass rerun at HEAD; `release_gate.py` | the receipt | every row above |
-
-### 12-21 A jaxfne simulation as jnwb ground truth
-
-Release: deferred-0.2.12.
-Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: jaxfne delivering the excerpt.
-Writes: `examples/data/jaxfne_*.nwb`, `examples/data/jaxfne_*.provenance.json`, `tests/test_jaxfne_ground_truth.py`.
-- No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8, 2026-10-12). Check: a small NWB excerpt with a provenance file, whose simulated directed coupling and delay are stated in it, is recovered by the jnwb connectivity call within a tolerance the provenance states, and a shuffled control is not. Waits: needs jaxfne's excerpt; nothing shipped changes.
-Accept: the check passes.
 
 ### 15-01 Omega's dependence on every `vflip2` parameter
 
@@ -66,10 +55,10 @@ Accept: the table regenerates; the docstring states each dependence with its mea
 
 ### 15-03 `vflip2` recovers a known layer 4 in simulation
 
-Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: Andre Bastos's simulation code for the second half.
+Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
 Writes: `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.12/vflip2_simulation.md`.
-- No test shows `vflip2` finds a planted crossover. Check: on 100 seeded probes with a planted alpha-beta/gamma crossover at a known contact (32 contacts, 100 um), the accepted crossover lies within one contact of it in at least 90; on 100 probes with no laminar gradient, at most 5 are accepted. When Andre's simulation code arrives, the same table runs on it. Waits: not stated.
-Accept: both rates hold and the evidence file names seeds and counts.
+- No test shows `vflip2` finds a planted crossover. Check: on 100 seeded probes with a planted alpha-beta/gamma crossover at a known contact (32 contacts, 100 um), the accepted crossover lies within one contact of it in at least 90; on 100 probes with no laminar gradient, at most 5 are accepted. Waits: not stated.
+Accept: both rates hold and the evidence file names seeds and counts. The same table on Andre Bastos's simulation code is 15-11 (ruled 2026-10-14).
 
 ### 15-07 Laminar anchors take `vflip2`
 
@@ -77,3 +66,24 @@ Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by:
 Writes: `jnwb/laminar_curation.py`, its tests.
 - `fuse_laminar_anchors` takes `vflip_um` and `xflip_um` but not `vflip2`'s crossover. Proposal: `vflip2_um`, set only from an accepted result, reported beside `vflip_um` and fused under the same rule. Check: an accepted `vflip2` crossover moves the fused anchor as `vflip_um` would at the same position; a rejected one leaves it unchanged. Waits: not stated.
 Accept: the check passes. Ruling: Hamm 2026-10-13, `vflip2_um` sits beside `vflip_um`.
+
+### 15-08 `vflip2` in the user docs
+
+Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Writes: `docs/laminar.md`, `README.md`.
+- `docs/laminar.md` and `docs/10_operation_specifications.md` never name `vflip2`, omega or `vflip2_from_lfp`, and `README.md:15` names only laminar CSD (Muse review, 2026-10-14). Check: `docs/laminar.md` has a `vflip2` section stating its bands, omega, the cut, the 0-based rows, `vflip2_from_lfp`, and the `window=` and `orientation=` hand-off to `xflip` and `zflip`, each claim matching the docstring; `python scripts/docs_build.py` passes. Waits: not stated.
+Accept: the check passes.
+
+### 15-09 `xflip`'s layer-4 thickness and window message
+
+Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Writes: `jnwb/laminar/_xflip.py`, `tests/test_xflip_window.py`.
+- `xflip`'s default `min_block_size` uses `LAYER4_THICKNESS_MM` (`_xflip.py:645-650`) while `vflip2` takes `layer4_thickness_mm` (`_vflip2.py:294`), so a non-default thickness gives the two different shortest windows; the out-of-probe message echoes the unsorted pair (`_xflip.py:114-115`). Check: `xflip(..., contact_spacing=100, layer4_thickness_mm=0.8)` defaults `min_block_size` to 8, and the message for `window=(40, 3)` on 32 rows names `(3, 40)`. Waits: not stated.
+Accept: the check passes; the sweep tests (`tests/test_unit_suffixed_parameters.py`, `tests/test_substitution_class_sweep.py`) pass.
+
+### 15-10 `zflip` with two `vflip2` results
+
+Release: deferred-0.2.12. Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
+Writes: `jnwb/laminar/_zflip.py`, `tests/test_zflip_window.py`.
+- `zflip(window=a, orientation=b)` with two different accepted `VFlip2Result`s takes the window from one and the orientation from the other without a check (`_zflip.py:362-364`, `383-386`). Check: two results whose windows or orientations differ raise ValueError; the same result passed twice is accepted. Waits: not stated.
+Accept: the check passes.
