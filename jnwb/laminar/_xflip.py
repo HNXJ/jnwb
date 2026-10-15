@@ -635,8 +635,8 @@ def xflip(
 
     Returns:
         XFlipResult container with `block_bounds`, `boundaries`, `labels`, `modularity`,
-        `p_values`, `accepted`, `rejection_reason`, `surrogate_seed_entropy`, `window` and
-        `boundaries_um`.
+        `p_values`, `accepted`, `rejection_reason`, `surrogate_seed_entropy`, `window`,
+        `boundaries_um` and `null_method`.
 
     Raises:
         ValueError: If data is non-2D, non-finite, ill-conditioned/non-symmetric precomputed

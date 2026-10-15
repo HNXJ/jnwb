@@ -131,6 +131,9 @@ def test_results_change_names_the_seed_kind(tmp_path):
         root = _tree(tmp_path / seed.replace(" ", "_"),
                      HEADER + _release("0.2.12", "### Changed\n\n" + named + "\n"))
         assert check_changelog_form(root) == [], seed
+    inside = "- [results change] `widget()` is nondeterministic (tests/test_widget.py)."
+    root = _tree(tmp_path / "inside", HEADER + _release("0.2.12", "### Changed\n\n" + inside + "\n"))
+    assert len(check_changelog_form(root)) == 1, "a kind inside another word is not named"
 
 
 def test_a_process_term_is_refused(tmp_path):

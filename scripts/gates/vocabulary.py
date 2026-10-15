@@ -287,7 +287,8 @@ def _changelog_entry_violations(root: Path, lineno: int, line: str) -> List[str]
             found.append(f"CHANGELOG.md:{lineno} names {name!r}, which is not in the tree.")
         elif name.startswith("test_") and "." not in name and not (root / "tests" / f"{name}.py").is_file():
             found.append(f"CHANGELOG.md:{lineno} names the test {name!r}, which is not in tests/.")
-    if "[results change]" in line and not any(kind in line for kind in CHANGELOG_SEED_KINDS):
+    if "[results change]" in line and not any(
+            re.search(rf"\b{re.escape(kind)}\b", line) for kind in CHANGELOG_SEED_KINDS):
         found.append(
             f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed', "
             "'Generator' nor 'deterministic'."
