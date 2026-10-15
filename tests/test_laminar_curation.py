@@ -278,7 +278,8 @@ class TestFuseLaminarAnchors:
         out = jnwb.fuse_laminar_anchors(vflip_um=610.0, vflip2_um=600.0, window_um=self.WIN,
                                         consistency_deep=0.9, consistency_superficial=0.8)
         assert out["anchor_source"] == "vflip2" and out["anchor_um"] == 600.0
-        assert out["grade"] == "A"
+        # 15-18: both landmarks present reads 'unresolved' and caps the grade at 'B'.
+        assert out["agreement"] == "unresolved" and out["grade"] == "B"
         assert out["distance_um"]["vflip"] == 10.0 and out["distance_um"]["vflip2"] == 0.0
 
     @pytest.mark.parametrize("kwargs, source, anchor", [

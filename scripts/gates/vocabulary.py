@@ -229,8 +229,8 @@ CHANGELOG_PROCESS_TERMS: Tuple[str, ...] = (
 #: A file or test name: `vis.py`, `pyproject.toml`, `docs/api.md`, `test_csd`.
 CHANGELOG_NAME = re.compile(r"[\w./-]+\.(?:py|md|json|ya?ml|toml|txt|cff|ipynb)(?!\w)|\btest_\w+")
 
-#: The seed kinds a `[results change]` marker may name.
-CHANGELOG_SEED_KINDS: Tuple[str, ...] = ("int seed", "Generator")
+#: The seed kinds a `[results change]` marker may name; `deterministic` for a change no seed drives.
+CHANGELOG_SEED_KINDS: Tuple[str, ...] = ("int seed", "Generator", "deterministic")
 
 #: Entries under a release heading at or after this version meet the full template. Older entries
 #: are checked for process phrases and kind headings only. `[Unreleased]` is the next release.
@@ -289,8 +289,8 @@ def _changelog_entry_violations(root: Path, lineno: int, line: str) -> List[str]
             found.append(f"CHANGELOG.md:{lineno} names the test {name!r}, which is not in tests/.")
     if "[results change]" in line and not any(kind in line for kind in CHANGELOG_SEED_KINDS):
         found.append(
-            f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed' nor "
-            "'Generator'."
+            f"CHANGELOG.md:{lineno} carries [results change] but names neither 'int seed', "
+            "'Generator' nor 'deterministic'."
         )
     return found
 

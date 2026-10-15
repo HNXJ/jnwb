@@ -1,0 +1,1 @@
+- `fuse_laminar_anchors` reports `agreement` and `separation_contacts`; jnwb/laminar_curation.py

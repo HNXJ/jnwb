@@ -363,6 +363,7 @@ def fuse_laminar_anchors(
     min_ok_windows: int = 3,
     consistency_a: float = 0.75,
     consistency_b: float = 0.60,
+    contact_spacing_um: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Choose the laminar anchor and grade it; report how the other estimates sit against it.
 
@@ -387,6 +388,14 @@ def fuse_laminar_anchors(
     unstable or inconsistent, D because neither vFLIP nor vFLIP2 gave an anchor and the motif
     crossing alone places it. F carries none.
 
+    When both the vFLIP2 and the vFLIP crossovers are present, the two landmarks are not yet
+    compared against a calibrated agreement threshold (roadmap 15-19), so their agreement
+    reads ``"unresolved"`` and the grade is capped at ``"B"``: an ``"A"`` becomes a ``"B"``,
+    every other grade is unchanged, and a valid primary anchor is never rejected. B is then
+    a laminar claim on the primary anchor, not a consensus. The values ``"agree"`` and
+    ``"disagree"`` are reserved until that calibration and are never emitted now. With the
+    secondary landmark absent the agreement reads ``"unavailable"``.
+
     Args:
         vflip_um: vFLIP crossover position, um, NaN or None if rejected.
         vflip2_um: vFLIP2 crossover position, um from probe row 0:
@@ -403,16 +412,33 @@ def fuse_laminar_anchors(
         min_ok_windows: Fewest windows with an estimate.
         consistency_a: Consistency needed for grades A and D.
         consistency_b: Consistency needed for grade B.
+        contact_spacing_um: Contact spacing, um, that the vFLIP2-vFLIP separation is read
+            in; ``separation_contacts`` is ``abs(vflip2_um - vflip_um) / contact_spacing_um``.
+            None (or a missing landmark) leaves it NaN. Must be finite and positive.
 
     Returns:
         Dict with ``anchor_um``, ``anchor_source`` (``"vflip2"``, ``"vflip"``, ``"motif"`` or
-        ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``
+        ``None``), ``grade``, ``stable``, ``window_sd_um``, ``n_windows_ok``, ``consistency``,
+        ``agreement`` (``"unresolved"`` when both crossovers are present, else
+        ``"unavailable"``), ``separation_contacts`` (the crossover separation in contact
+        spacings, NaN without ``contact_spacing_um`` or with a landmark missing)
         and ``distance_um`` (a dict with ``vflip``, ``vflip2``, ``xflip`` and ``csd``, NaN where
         an estimate or the anchor is missing; 0.0 for a vFLIP or vFLIP2 estimate that is the
         anchor).
+
+    Raises:
+        ValueError: If ``contact_spacing_um`` is given but is not finite and positive.
     """
     def fin(x: Optional[float]) -> bool:
         return x is not None and bool(np.isfinite(x))
+
+    if contact_spacing_um is not None:
+        spacing = float(contact_spacing_um)
+        if not np.isfinite(spacing) or spacing <= 0:
+            raise ValueError(
+                f"contact_spacing_um must be positive and finite, got {contact_spacing_um!r}")
+    else:
+        spacing = None
 
     w = np.asarray([] if window_um is None else window_um, dtype=float)
     n_ok = int(np.isfinite(w).sum())
@@ -432,8 +458,17 @@ def fuse_laminar_anchors(
     dist = {k: (abs(float(v) - anchor) if fin(v) and np.isfinite(anchor) else float("nan"))
             for k, v in (("vflip", vflip_um), ("vflip2", vflip2_um), ("xflip", xflip_um),
                          ("csd", csd_um))}
+    both = fin(vflip2_um) and fin(vflip_um)
+    agreement = "unresolved" if both else "unavailable"
+    if both and spacing is not None:
+        separation = abs(float(vflip2_um) - float(vflip_um)) / spacing
+    else:
+        separation = float("nan")
+    if agreement == "unresolved" and grade == "A":
+        grade = "B"
     return {"anchor_um": anchor, "anchor_source": source, "grade": grade, "stable": bool(stable),
-            "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin, "distance_um": dist}
+            "window_sd_um": sd, "n_windows_ok": n_ok, "consistency": cmin,
+            "agreement": agreement, "separation_contacts": separation, "distance_um": dist}
 
 
 # ------------------------------------------------------------------- spectral profiles
@@ -852,7 +887,8 @@ def curate_and_label(
         csd_um=nan if csd is None else csd["strongest_position_um"],
         window_um=win * pitch, consistency_deep=consist_d, consistency_superficial=consist_s,
         stable_sd_um=stable_sd_um, min_ok_windows=min_ok_windows,
-        consistency_a=consistency_a, consistency_b=consistency_b)
+        consistency_a=consistency_a, consistency_b=consistency_b,
+        contact_spacing_um=pitch)
     if fused["grade"] == "F":
         labels[:] = "na"
     return finish(
