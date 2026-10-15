@@ -1,7 +1,7 @@
 """Tests for jnwb.paths external-data root resolution and working-tree path resolution.
 
-Tests explicit overrides, primary JNWB_* variables, deprecated legacy OMISSION_* variables
-with warnings, precedence resolution, and path composition.
+Tests explicit overrides, primary JNWB_* variables, precedence resolution, and path
+composition.
 """
 from __future__ import annotations
 
@@ -19,9 +19,6 @@ def _clear_path_env_vars(monkeypatch):
         paths.ENV_NWB_DIR, paths.ENV_TFR_DIR, paths.ENV_META_DIR,
         paths.ENV_CONNDB_DIR, paths.ENV_ANALYSIS_DIR,
         paths.ENV_OUTPUTS_DIR, paths.ENV_ARTIFACTS_DIR,
-        paths.LEGACY_ENV_NWB_DIR, paths.LEGACY_ENV_TFR_DIR, paths.LEGACY_ENV_META_DIR,
-        paths.LEGACY_ENV_CONNDB_DIR, paths.LEGACY_ENV_ANALYSIS_DIR,
-        paths.LEGACY_ENV_OUTPUTS_DIR, paths.LEGACY_ENV_ARTIFACTS_DIR,
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -60,52 +57,23 @@ class TestOverrideAndEnvVarPrecedence:
         monkeypatch.setenv(paths.ENV_NWB_DIR, "Y:/from_env")
         assert paths.nwb_dir(override="X:/custom") == Path("X:/custom")
 
-    def test_primary_env_var_wins_over_legacy_env_var(self, monkeypatch):
-        monkeypatch.setenv(paths.ENV_NWB_DIR, "Y:/primary")
-        monkeypatch.setenv(paths.LEGACY_ENV_NWB_DIR, "Z:/legacy")
-        # Should use primary without warning
+    def test_legacy_omission_env_var_is_ignored(self, monkeypatch):
+        """The OMISSION_* names were removed in 0.2.13: only JNWB_* is read, and silently."""
+        with pytest.raises(FileNotFoundError) as unset:
+            paths.nwb_dir()
+        monkeypatch.setenv("OMISSION_NWB_DIR", "Z:/legacy")
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
-            assert paths.nwb_dir() == Path("Y:/primary")
-            assert not any(issubclass(w.category, DeprecationWarning) for w in record)
-
-    def test_legacy_env_var_fallback_emits_deprecation_warning(self, monkeypatch):
-        monkeypatch.setenv(paths.LEGACY_ENV_NWB_DIR, "Z:/legacy")
-        with pytest.deprecated_call(match="OMISSION_NWB_DIR is deprecated"):
-            assert paths.nwb_dir() == Path("Z:/legacy")
-
-    def test_legacy_analysis_dir_subtrees_fallback_with_warning(self, monkeypatch):
-        monkeypatch.setenv(paths.LEGACY_ENV_ANALYSIS_DIR, "Z:/legacy_data")
-        with pytest.deprecated_call(match="OMISSION_ANALYSIS_DIR is deprecated"):
-            assert paths.tfr_dir() == Path("Z:/legacy_data") / paths.TFR_SUBDIR
-            assert paths.meta_dir() == Path("Z:/legacy_data") / paths.META_SUBDIR
-            assert paths.conndb_dir() == Path("Z:/legacy_data") / paths.CONNDB_SUBDIR
+            with pytest.raises(FileNotFoundError) as legacy:
+                paths.nwb_dir()
+        assert str(legacy.value) == str(unset.value)
+        assert record == []
 
     def test_primary_analysis_dir_subtrees_follow_env_var(self, monkeypatch):
         monkeypatch.setenv(paths.ENV_ANALYSIS_DIR, "Z:/synthetic_data")
         assert paths.tfr_dir() == Path("Z:/synthetic_data") / paths.TFR_SUBDIR
         assert paths.meta_dir() == Path("Z:/synthetic_data") / paths.META_SUBDIR
         assert paths.conndb_dir() == Path("Z:/synthetic_data") / paths.CONNDB_SUBDIR
-
-    @pytest.mark.parametrize("fn, primary, legacy", [
-        ("tfr_dir", "ENV_TFR_DIR", "LEGACY_ENV_TFR_DIR"),
-        ("meta_dir", "ENV_META_DIR", "LEGACY_ENV_META_DIR"),
-        ("conndb_dir", "ENV_CONNDB_DIR", "LEGACY_ENV_CONNDB_DIR"),
-    ])
-    def test_subtree_primary_env_var_wins_over_its_legacy_one(
-        self, monkeypatch, fn, primary, legacy
-    ):
-        """The order each of the three docstrings states, for its own two variables.
-
-        Covered for `nwb_dir` above, but `nwb_dir` has its own body; these three share
-        one, so an inversion in it would move all three at once.
-        """
-        monkeypatch.setenv(getattr(paths, primary), "Y:/primary")
-        monkeypatch.setenv(getattr(paths, legacy), "Z:/legacy")
-        with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            assert getattr(paths, fn)() == Path("Y:/primary")
-            assert not any(issubclass(w.category, DeprecationWarning) for w in record)
 
     @pytest.mark.parametrize("fn, primary", [
         ("tfr_dir", "ENV_TFR_DIR"),
@@ -115,6 +83,16 @@ class TestOverrideAndEnvVarPrecedence:
     def test_subtree_override_wins_over_its_env_var(self, monkeypatch, fn, primary):
         monkeypatch.setenv(getattr(paths, primary), "Y:/from_env")
         assert getattr(paths, fn)(override="X:/custom") == Path("X:/custom")
+
+    @pytest.mark.parametrize("fn, primary", [
+        ("tfr_dir", "ENV_TFR_DIR"),
+        ("meta_dir", "ENV_META_DIR"),
+        ("conndb_dir", "ENV_CONNDB_DIR"),
+    ])
+    def test_subtree_env_var_wins_over_analysis_dir(self, monkeypatch, fn, primary):
+        monkeypatch.setenv(paths.ENV_ANALYSIS_DIR, "Z:/synthetic_data")
+        monkeypatch.setenv(getattr(paths, primary), "Y:/primary")
+        assert getattr(paths, fn)() == Path("Y:/primary")
 
 
 class TestOutputsAndArtifacts:
@@ -182,23 +160,6 @@ class TestOutputsAndArtifacts:
         # Explicit override still takes precedence over env var
         assert paths.outputs_dir("run1", override="E:/override") == Path("E:/override/run1")
         assert paths.artifacts_dir("log.txt", override="E:/override") == Path("E:/override/log.txt")
-
-    def test_outputs_and_artifacts_legacy_env_vars_fallback_with_warning(self, monkeypatch):
-        monkeypatch.setenv(paths.LEGACY_ENV_OUTPUTS_DIR, "D:/legacy_project/outputs")
-        monkeypatch.setenv(paths.LEGACY_ENV_ARTIFACTS_DIR, "D:/legacy_project/artifacts")
-        with pytest.deprecated_call(match="OMISSION_OUTPUTS_DIR is deprecated"):
-            assert paths.outputs_dir("run1") == Path("D:/legacy_project/outputs/run1")
-        with pytest.deprecated_call(match="OMISSION_ARTIFACTS_DIR is deprecated"):
-            assert paths.artifacts_dir("log.txt") == Path("D:/legacy_project/artifacts/log.txt")
-
-    def test_outputs_and_artifacts_primary_wins_over_legacy(self, monkeypatch):
-        monkeypatch.setenv(paths.ENV_OUTPUTS_DIR, "D:/primary/outputs")
-        monkeypatch.setenv(paths.LEGACY_ENV_OUTPUTS_DIR, "D:/legacy/outputs")
-        with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            assert paths.outputs_dir("run1") == Path("D:/primary/outputs/run1")
-            assert not any(issubclass(w.category, DeprecationWarning) for w in record)
-
 
 class TestDescribeNeverRaises:
     def test_describe_reports_unconfigured_without_raising(self):

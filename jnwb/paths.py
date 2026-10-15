@@ -4,12 +4,11 @@ Two kinds of root, resolved differently:
 
 * **Working-directory outputs/artifacts** (:func:`outputs_dir`, :func:`artifacts_dir`):
   Precedence: explicit ``override`` argument > ``$JNWB_OUTPUTS_DIR`` >
-  deprecated legacy ``$OMISSION_OUTPUTS_DIR`` > ``Path.cwd() / 'outputs'`` or ``'artifacts'``
+  ``Path.cwd() / 'outputs'`` or ``'artifacts'``
   (process working-directory default, independent of package installation location).
 * **External data roots** (:func:`nwb_dir`, :func:`analysis_dir`, and the
   :func:`tfr_dir` / :func:`meta_dir` / :func:`conndb_dir` subtrees under it):
   Precedence: explicit ``override`` > primary ``$JNWB_*`` environment variable >
-  deprecated legacy ``$OMISSION_*`` environment variable (with deprecation warning) >
   ``None`` (raises FileNotFoundError explaining how to configure the path).
 
 :func:`describe` reports every root and whether it currently resolves -- run it
@@ -24,7 +23,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import warnings
 from pathlib import Path
 
 __all__ = [
@@ -36,13 +34,6 @@ __all__ = [
     "ENV_ANALYSIS_DIR",
     "ENV_OUTPUTS_DIR",
     "ENV_ARTIFACTS_DIR",
-    "LEGACY_ENV_NWB_DIR",
-    "LEGACY_ENV_TFR_DIR",
-    "LEGACY_ENV_META_DIR",
-    "LEGACY_ENV_CONNDB_DIR",
-    "LEGACY_ENV_ANALYSIS_DIR",
-    "LEGACY_ENV_OUTPUTS_DIR",
-    "LEGACY_ENV_ARTIFACTS_DIR",
     "DEFAULT_NWB_DIR",
     "DEFAULT_ANALYSIS_DIR",
     "TFR_SUBDIR",
@@ -83,15 +74,6 @@ ENV_ANALYSIS_DIR = "JNWB_ANALYSIS_DIR"
 ENV_OUTPUTS_DIR = "JNWB_OUTPUTS_DIR"
 ENV_ARTIFACTS_DIR = "JNWB_ARTIFACTS_DIR"
 
-# Deprecated legacy environment variable aliases
-LEGACY_ENV_NWB_DIR = "OMISSION_NWB_DIR"
-LEGACY_ENV_TFR_DIR = "OMISSION_TFR_DIR"
-LEGACY_ENV_META_DIR = "OMISSION_META_DIR"
-LEGACY_ENV_CONNDB_DIR = "OMISSION_CONNDB_DIR"
-LEGACY_ENV_ANALYSIS_DIR = "OMISSION_ANALYSIS_DIR"
-LEGACY_ENV_OUTPUTS_DIR = "OMISSION_OUTPUTS_DIR"
-LEGACY_ENV_ARTIFACTS_DIR = "OMISSION_ARTIFACTS_DIR"
-
 #: No default data-volume layout. External data lives on a separate volume with a layout
 #: specific to each machine and project. ``None`` means :func:`nwb_dir` / :func:`analysis_dir`
 #: raise a clear, actionable error naming the env var to set, instead of silently resolving
@@ -106,34 +88,24 @@ META_SUBDIR = "metadata"
 CONNDB_SUBDIR = "connectivity_databases"
 
 
-def _resolve_env(primary_var: str, legacy_var: str | None = None) -> str | None:
-    """Resolve an environment variable with explicit precedence and deprecation notice."""
+def _resolve_env(primary_var: str) -> str | None:
+    """The value of ``primary_var``, or ``None`` when it is unset or empty."""
     val = os.environ.get(primary_var)
     if val:
         return val
-    if legacy_var:
-        legacy_val = os.environ.get(legacy_var)
-        if legacy_val:
-            warnings.warn(
-                f"Environment variable ${legacy_var} is deprecated and will be removed in a future release. "
-                f"Please migrate to ${primary_var}.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            return legacy_val
     return None
 
 
 def nwb_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding the session NWB files.
 
-    Precedence: explicit ``override`` > ``$JNWB_NWB_DIR`` > ``$OMISSION_NWB_DIR`` (deprecated) >
+    Precedence: explicit ``override`` > ``$JNWB_NWB_DIR`` >
     :data:`DEFAULT_NWB_DIR` (``None`` by design -- there is no machine- or project-generic default).
     Raises ``FileNotFoundError`` naming the env var when none of those resolve to a path.
     """
     if override is not None:
         return Path(override)
-    resolved = _resolve_env(ENV_NWB_DIR, LEGACY_ENV_NWB_DIR) or DEFAULT_NWB_DIR
+    resolved = _resolve_env(ENV_NWB_DIR) or DEFAULT_NWB_DIR
     if resolved is None:
         raise FileNotFoundError(
             f"No NWB directory configured. Pass override=, or set ${ENV_NWB_DIR}."
@@ -144,14 +116,14 @@ def nwb_dir(override: str | os.PathLike | None = None) -> Path:
 def analysis_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:
     """Root of the derived-data volume: arrays, matrices, supplements, post-process output.
 
-    Precedence: explicit ``override`` > ``$JNWB_ANALYSIS_DIR`` > ``$OMISSION_ANALYSIS_DIR`` (deprecated) >
+    Precedence: explicit ``override`` > ``$JNWB_ANALYSIS_DIR`` >
     :data:`DEFAULT_ANALYSIS_DIR` (``None`` by design).
     Raises ``FileNotFoundError`` naming the env var when none of those resolve to a path.
     """
     if override is not None:
         root = Path(override)
     else:
-        resolved = _resolve_env(ENV_ANALYSIS_DIR, LEGACY_ENV_ANALYSIS_DIR) or DEFAULT_ANALYSIS_DIR
+        resolved = _resolve_env(ENV_ANALYSIS_DIR) or DEFAULT_ANALYSIS_DIR
         if resolved is None:
             raise FileNotFoundError(
                 f"No analysis directory configured. Pass override=, or set ${ENV_ANALYSIS_DIR}."
@@ -163,18 +135,17 @@ def analysis_dir(*parts: str, override: str | os.PathLike | None = None) -> Path
 def _configured_dir(
     override: str | os.PathLike | None,
     env: str,
-    legacy_env: str,
     subdir: str,
 ) -> Path:
     """The body behind `tfr_dir`, `meta_dir` and `conndb_dir`.
 
-    Precedence: explicit ``override`` > ``$env`` > ``$legacy_env`` (deprecated) >
-    ``<analysis_dir>/subdir``. Each caller supplies its own three names and documents
-    them concretely; only this resolution order is shared.
+    Precedence: explicit ``override`` > ``$env`` > ``<analysis_dir>/subdir``. Each caller
+    supplies its own two names and documents them concretely; only this resolution order
+    is shared.
     """
     if override is not None:
         return Path(override)
-    env_path = _resolve_env(env, legacy_env)
+    env_path = _resolve_env(env)
     if env_path:
         return Path(env_path)
     return Path(analysis_dir(subdir))
@@ -183,41 +154,37 @@ def _configured_dir(
 def tfr_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding precomputed TFR arrays.
 
-    Precedence: explicit ``override`` > ``$JNWB_TFR_DIR`` > ``$OMISSION_TFR_DIR`` (deprecated) >
-    ``<analysis_dir>/tfr_arrays``.
+    Precedence: explicit ``override`` > ``$JNWB_TFR_DIR`` > ``<analysis_dir>/tfr_arrays``.
     """
-    return _configured_dir(override, ENV_TFR_DIR, LEGACY_ENV_TFR_DIR, TFR_SUBDIR)
+    return _configured_dir(override, ENV_TFR_DIR, TFR_SUBDIR)
 
 
 def meta_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding session metadata sidecars (channel maps, layer exports).
 
-    Precedence: explicit ``override`` > ``$JNWB_META_DIR`` > ``$OMISSION_META_DIR`` (deprecated) >
-    ``<analysis_dir>/metadata``.
+    Precedence: explicit ``override`` > ``$JNWB_META_DIR`` > ``<analysis_dir>/metadata``.
     """
-    return _configured_dir(override, ENV_META_DIR, LEGACY_ENV_META_DIR, META_SUBDIR)
+    return _configured_dir(override, ENV_META_DIR, META_SUBDIR)
 
 
 def conndb_dir(override: str | os.PathLike | None = None) -> Path:
     """Directory holding connectivity databases, incl. layer assignments.
 
-    Precedence: explicit ``override`` > ``$JNWB_CONNDB_DIR`` > ``$OMISSION_CONNDB_DIR`` (deprecated) >
-    ``<analysis_dir>/connectivity_databases``.
+    Precedence: explicit ``override`` > ``$JNWB_CONNDB_DIR`` > ``<analysis_dir>/connectivity_databases``.
     """
-    return _configured_dir(override, ENV_CONNDB_DIR, LEGACY_ENV_CONNDB_DIR, CONNDB_SUBDIR)
+    return _configured_dir(override, ENV_CONNDB_DIR, CONNDB_SUBDIR)
 
 
 def outputs_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:
     """Path under the designated outputs directory.
 
-    Precedence: explicit ``override`` > ``$JNWB_OUTPUTS_DIR`` >
-    ``$OMISSION_OUTPUTS_DIR`` (deprecated) > ``Path.cwd() / 'outputs'``
+    Precedence: explicit ``override`` > ``$JNWB_OUTPUTS_DIR`` > ``Path.cwd() / 'outputs'``
     (process working-directory default, independent of package installation location).
     """
     if override is not None:
         root = Path(override)
     else:
-        resolved = _resolve_env(ENV_OUTPUTS_DIR, LEGACY_ENV_OUTPUTS_DIR)
+        resolved = _resolve_env(ENV_OUTPUTS_DIR)
         root = Path(resolved) if resolved else Path.cwd() / "outputs"
     return root.joinpath(*parts)
 
@@ -225,14 +192,13 @@ def outputs_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:
 def artifacts_dir(*parts: str, override: str | os.PathLike | None = None) -> Path:
     """Path under the designated artifacts directory.
 
-    Precedence: explicit ``override`` > ``$JNWB_ARTIFACTS_DIR`` >
-    ``$OMISSION_ARTIFACTS_DIR`` (deprecated) > ``Path.cwd() / 'artifacts'``
+    Precedence: explicit ``override`` > ``$JNWB_ARTIFACTS_DIR`` > ``Path.cwd() / 'artifacts'``
     (process working-directory default, independent of package installation location).
     """
     if override is not None:
         root = Path(override)
     else:
-        resolved = _resolve_env(ENV_ARTIFACTS_DIR, LEGACY_ENV_ARTIFACTS_DIR)
+        resolved = _resolve_env(ENV_ARTIFACTS_DIR)
         root = Path(resolved) if resolved else Path.cwd() / "artifacts"
     return root.joinpath(*parts)
 

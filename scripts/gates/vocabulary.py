@@ -12,9 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: Projects built on jnwb. A code string or identifier in jnwb/ containing one gives that
 #: project privileged meaning in the library.
 PROJECT_IDENTIFIERS = ("omission",)
-#: The deprecated OMISSION_*_DIR environment variables that jnwb.paths still reads, with a
-#: DeprecationWarning. The only project names jnwb/ code may contain.
-PROJECT_IDENTIFIER_ALLOWED = re.compile(r"^OMISSION_[A-Z]+_DIR$")
 
 
 def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> List[str]:
@@ -54,8 +51,6 @@ def check_no_project_identifiers_in_code(repo_root: Optional[Path] = None) -> Li
             elif isinstance(node, ast.alias):
                 text = node.name
             else:
-                continue
-            if PROJECT_IDENTIFIER_ALLOWED.match(text):
                 continue
             for project in PROJECT_IDENTIFIERS:
                 if project in text.lower():

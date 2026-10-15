@@ -111,7 +111,6 @@ from scripts.gates.docs import (
 
 from scripts.gates.vocabulary import (
     PROJECT_IDENTIFIERS,
-    PROJECT_IDENTIFIER_ALLOWED,
     check_no_project_identifiers_in_code,
     INTERNAL_PROCESS_TERMS,
     _internal_term_pattern,

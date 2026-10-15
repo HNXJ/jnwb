@@ -60,9 +60,6 @@ nwb_dir = jnwb.paths.nwb_dir()
 | `outputs` | `JNWB_OUTPUTS_DIR` | `<cwd>/outputs` | Processed tables, analysis summaries |
 | `artifacts` | `JNWB_ARTIFACTS_DIR` | `<cwd>/artifacts` | Evidence logs, metadata sidecars |
 
-Each variable still reads a legacy `OMISSION_*` alias of the same suffix, with a
-`DeprecationWarning`.
-
 ---
 
 ## 3. Memory-Bounded Array Streaming (`jnwb.io`, `stream_npz_array`)

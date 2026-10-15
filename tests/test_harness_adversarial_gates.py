@@ -609,18 +609,23 @@ class TestProjectIdentifierGate:
         repo = self._repo(tmp_path, "omission_window = (0, 1)\n")
         assert len(check_no_project_identifiers_in_code(repo)) == 1
 
-    def test_docstrings_comments_and_deprecated_env_vars_pass(self, tmp_path):
+    def test_docstrings_and_comments_pass(self, tmp_path):
         from scripts.harness_gate import check_no_project_identifiers_in_code
 
         source = (
             '"""Promoted from omission.jnwb_ext."""\n'
             "# history: came from the omission project\n"
-            "LEGACY = 'OMISSION_NWB_DIR'\n"
             "def f():\n"
             '    """Omission-era helper."""\n'
             "    return 1\n"
         )
         assert check_no_project_identifiers_in_code(self._repo(tmp_path, source)) == []
+
+    def test_the_removed_legacy_env_name_in_code_is_a_violation(self, tmp_path):
+        from scripts.harness_gate import check_no_project_identifiers_in_code
+
+        v = check_no_project_identifiers_in_code(self._repo(tmp_path, "LEGACY = 'OMISSION_NWB_DIR'\n"))
+        assert len(v) == 1 and "OMISSION_NWB_DIR" in v[0]
 
     def test_live_package_is_clean(self):
         from scripts.harness_gate import check_no_project_identifiers_in_code
