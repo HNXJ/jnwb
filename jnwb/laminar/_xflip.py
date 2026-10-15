@@ -48,6 +48,10 @@ class XFlipResult(DictAccessMixin):
             `corr_matrix`, `labels` and `n_channels` cover the window's rows only.
         boundaries_um: `boundaries` times `contact_spacing`, in um from probe row 0, or None
             when no `contact_spacing` was given.
+        null_method: The surrogate null that produced `p_values`: `'homogeneous'`,
+            `'autocorr_preserving'` or `'permute_channels'` (`'auto'` records what it
+            resolved to). None when no surrogate test ran (a refusal before the null,
+            or `n_surrogates=0`).
     """
 
     corr_matrix: np.ndarray
@@ -65,6 +69,7 @@ class XFlipResult(DictAccessMixin):
     surrogate_seed_entropy: Optional[int] = None
     window: Optional[Tuple[int, int]] = None
     boundaries_um: Optional[Tuple[float, ...]] = None
+    null_method: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert result container to dictionary for serialization."""
@@ -84,6 +89,7 @@ class XFlipResult(DictAccessMixin):
             "surrogate_seed_entropy": self.surrogate_seed_entropy,
             "window": self.window,
             "boundaries_um": self.boundaries_um,
+            "null_method": self.null_method,
         }
 
 
@@ -759,6 +765,7 @@ def xflip(
                 method=resolved_method,
                 n_channels=n_channels,
                 n_blocks=1,
+                null_method=None,
             ), rows, contact_spacing)
     else:
         raw_data = None
@@ -826,6 +833,7 @@ def xflip(
             method=resolved_method,
             n_channels=n_channels,
             n_blocks=1,
+            null_method=None,
         ), rows, contact_spacing)
 
     def partition(matrix: np.ndarray, k: int):
@@ -1006,4 +1014,5 @@ def xflip(
         n_blocks=target_k if accepted else 1,
         boundary_drops=boundary_drops,
         surrogate_seed_entropy=seed_entropy if surrogates_run else None,
+        null_method=eff_surrogate_method if surrogates_run else None,
     ), rows, contact_spacing)
