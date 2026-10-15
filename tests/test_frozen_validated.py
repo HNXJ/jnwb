@@ -37,7 +37,8 @@ def _repo(tmp_path, source=BODY, digest=None, killed_by=("tests/test_box.py::tes
         "verified_at": "0" * 40,
         "killed_by": list(killed_by),
     }
-    (tmp_path / "artifacts" / "frozen_validated.json").write_text(
+    (tmp_path / "artifacts" / "process").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "process" / "frozen_validated.json").write_text(
         json.dumps({"functions": [entry]}), encoding="utf-8")
     return tmp_path
 
@@ -96,5 +97,5 @@ def test_a_killing_test_naming_the_wrong_class_fails(tmp_path, node_id):
 def test_an_empty_register_fails(tmp_path):
     repo = _repo(tmp_path)
     for empty in ('{"functions": []}', '{"functions": {}}'):
-        (repo / "artifacts" / "frozen_validated.json").write_text(empty, encoding="utf-8")
+        (repo / "artifacts" / "process" / "frozen_validated.json").write_text(empty, encoding="utf-8")
         assert check_frozen_validated(repo) != [], empty

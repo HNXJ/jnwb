@@ -2,7 +2,7 @@
 
 The classes of defect that independent review has found in this repository's work, counted. A
 review names the class of each finding; the dispatcher adds the instance here. The file is how the
-harness learns: a class seen twice gets a mechanical check or a rule (`artifacts/cooperation.md`
+harness learns: a class seen twice gets a mechanical check or a rule (`artifacts/process/cooperation.md`
 "Routing and learning"), and the tier that missed it is raised until the check lands.
 
 | Class | Seen | Instances | Caught by | Repair | Status |

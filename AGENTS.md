@@ -10,11 +10,11 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 |---|---|
 | `jnwb/` | Source; `__init__.py` is the public API, `__all__` the symbol list; `_backend.py` decides CPU or GPU, `_parallel.py` runs `n_jobs` loops |
 | `tests/`, `scripts/` | The suite (§6); `scripts/harness_gate.py` (`GATES` is the count) and `scripts/release_gate.py`, the pre-tag check |
-| `artifacts/frozen_validated.json` | Independently verified functions; gate 19 fails when a body changes, and a review may skip an entry whose hash matches |
+| `artifacts/process/frozen_validated.json` | Independently verified functions; gate 19 fails when a body changes, and a review may skip an entry whose hash matches |
 | `skills/`, `artifacts/skills/` | Shipped and repository-only skills (§7) |
 | `artifacts/agents.md`, `artifacts/agents/` | Agent entry page; role definitions, independent of domain skills, parameterized by delegation packets: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer` |
 | `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules, `standing.md` the rulings still in force |
-| `artifacts/cooperation.md`, `artifacts/defect_classes.md` | How concurrent agents share the repository; a defect class seen twice gets a check |
+| `artifacts/process/cooperation.md`, `artifacts/process/defect_classes.md` | How concurrent agents share the repository; a defect class seen twice gets a check |
 | `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline in `artifacts/benchmarks/performance/` (`python scripts/benchmark_import.py --write`); calibration receipts in `artifacts/benchmarks/calibration/` |
 | `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
 | `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |

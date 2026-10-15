@@ -85,7 +85,7 @@ re-runs the acceptance command itself.
 | a bounded code repair with a test, or a multi-step sweep | `worker` or `worker-xhigh` in a lane | `second-reviewer`, with a mutant the integrator runs when the reviewer cannot |
 | scientific meaning, a public API, a rule-file rewrite, or a release step | the integrator or `jnwb-actor` | `jnwb-verifier` and `jnwb-critic-sonnet`, independently |
 
-- **A review names the class of each finding**, from `artifacts/defect_classes.md` or `new`; the
+- **A review names the class of each finding**, from `artifacts/process/defect_classes.md` or `new`; the
   integrator adds the instance there in the merge that resolves it.
 - **A class seen twice gets a mechanical check or a rule**, as a todo item, and until it lands,
   packets of that class route one tier up.

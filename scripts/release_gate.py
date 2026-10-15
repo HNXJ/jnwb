@@ -1183,7 +1183,12 @@ RELEASE_CYCLE = jnwb_source_version()
 NEXT_CYCLE = "{}.{}.{}".format(
     *(int(p) + (i == 2) for i, p in enumerate(
         re.match(r"(\d+)\.(\d+)\.(\d+)", RELEASE_CYCLE).groups())))
-RECEIPT_PATH = "artifacts/blocker_fixpoint_receipt.md"
+RECEIPT_PATH = "artifacts/process/blocker_fixpoint_receipt.md"
+# The path before the move to artifacts/process/. Its commits are part of the receipt's history,
+# so the history reads take both paths: a single-path read starts at the move and loses the
+# commit that recorded the finished row.
+RECEIPT_PRE_MOVE_PATH = "artifacts/blocker_fixpoint_receipt.md"
+RECEIPT_PATHS = (RECEIPT_PATH, RECEIPT_PRE_MOVE_PATH)
 TODO_PATH = "artifacts/todo_stack.md"
 # The files a commit may change after the closure pass without invalidating it. A committed
 # receipt cannot name its own commit, so it names the one the pass ran against, and the commit
@@ -1457,16 +1462,21 @@ def _finished_row_history(root: pathlib.Path, commit: str, head: str, finished: 
     # simplification follows one side of a merge, so a receipt written on both sides counted as
     # one write; and a merge that only takes one side's receipt is not a write of its own.
     listed = subprocess.run(["git", "rev-list", "--full-history", f"{commit}..{head}", "--",
-                             RECEIPT_PATH],
+                             *RECEIPT_PATHS],
                             cwd=root, capture_output=True, text=True)
     if listed.returncode != 0:
         return [f"the commits that changed {RECEIPT_PATH} after {commit[:12]} could not be "
                 f"listed: {listed.stderr.strip()[:120]}"]
 
     def blob(rev: str) -> str:
-        shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{RECEIPT_PATH}"],
-                               cwd=root, capture_output=True, text=True)
-        return shown.stdout.strip() if shown.returncode == 0 else ""
+        # The receipt's content at a commit, under whichever of its two paths holds it there. A
+        # move commit carries the same blob at the new path, so it is not a write.
+        for path in RECEIPT_PATHS:
+            shown = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{rev}:{path}"],
+                                   cwd=root, capture_output=True, text=True)
+            if shown.returncode == 0:
+                return shown.stdout.strip()
+        return ""
 
     writes, parents_of = [], {}
     for rev in listed.stdout.split():

@@ -164,7 +164,8 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
         (tmp_path / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
         (tmp_path / ".github" / "workflows" / "workflow.yml").write_text(workflow, encoding="utf-8")
     if receipt:
-        (tmp_path / "artifacts" / "blocker_fixpoint_receipt.md").write_text(
+        (tmp_path / "artifacts" / "process").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "artifacts" / "process" / "blocker_fixpoint_receipt.md").write_text(
             _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
     _git(tmp_path, "init", "-q")
     _commit(tmp_path, "the tree")
@@ -537,7 +538,7 @@ def test_an_uncommitted_edit_cannot_pass_a_commit_whose_stack_holds_required_ite
     assert any("receipt" in x and "missing at HEAD" in x for x in v), v
     dirty = [x for x in v if "uncommitted changes" in x]
     assert len(dirty) == 1 and "artifacts/todo_stack.md" in dirty[0], v
-    assert "artifacts/blocker_fixpoint_receipt.md" in dirty[0], v
+    assert "artifacts/process/blocker_fixpoint_receipt.md" in dirty[0], v
     assert "problem_stack" not in dirty[0], v
 
 
@@ -551,7 +552,7 @@ def test_a_problem_row_committed_at_head_is_seen_when_the_working_copy_drops_it(
 
 
 @pytest.mark.parametrize("path", ["problem_stack.md", "todo_stack.md",
-                                  "blocker_fixpoint_receipt.md"])
+                                  "process/blocker_fixpoint_receipt.md"])
 def test_an_uncommitted_change_to_any_file_step_0a_reads_is_named(tmp_path, path):
     """A compliant committed tree fails on an uncommitted edit to any one of the three files,
     even an edit that changes no verdict, and only that file is named."""
@@ -692,7 +693,8 @@ def _record_receipt(root, commit, found=0, finished=None):
     text = _RECEIPT.format(commit=commit, found=found)
     if finished is not None:
         text += f"| finished after the pass | {finished} |\n"
-    (root / "artifacts" / "blocker_fixpoint_receipt.md").write_text(text, encoding="utf-8")
+    (root / "artifacts" / "process").mkdir(parents=True, exist_ok=True)
+    (root / "artifacts" / "process" / "blocker_fixpoint_receipt.md").write_text(text, encoding="utf-8")
 
 
 def test_a_receipt_at_an_ancestor_followed_only_by_the_receipt_and_todo_stack_passes(tmp_path):
@@ -704,7 +706,7 @@ def test_a_receipt_at_an_ancestor_followed_only_by_the_receipt_and_todo_stack_pa
                     encoding="utf-8")
     head = _commit(root, "record the closure pass")
     assert _git(root, "diff", "--name-only", passed, head).split() == [
-        "artifacts/blocker_fixpoint_receipt.md", "artifacts/todo_stack.md"]
+        "artifacts/process/blocker_fixpoint_receipt.md", "artifacts/todo_stack.md"]
     assert check_release_readiness(root, head=head) == []
 
 

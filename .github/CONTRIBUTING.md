@@ -87,7 +87,7 @@ python scripts/docs_build.py
   (VIOLATED fails; `artifacts/fact_graph.json` is that graph written out, and is never
   committed). It fails on structure, not behaviour.
 
-**Frozen-validated functions.** `artifacts/frozen_validated.json` lists functions whose body
+**Frozen-validated functions.** `artifacts/process/frozen_validated.json` lists functions whose body
 was verified by someone other than its author and had a mutant killed by the tests it names.
 Each entry records the SHA-256 of the function's syntax tree without docstrings or comments,
 so rewording a docstring or reformatting leaves it frozen and any change to the code does not.
