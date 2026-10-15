@@ -9,9 +9,9 @@ documentation, in
 
 ## Setup
 
-Python 3.12 or newer. CI runs every declared version on both Ubuntu and Windows — six legs, and
-`pyproject.toml` is where the declared set lives — so a change must work across the whole range,
-not only at its ends.
+Python 3.12 or newer. CI runs every declared version on Ubuntu and every one but 3.15 on Windows,
+which has no h5py wheel for it yet — seven legs, and `pyproject.toml` is where the declared set
+lives — so a change must work across the whole range, not only at its ends.
 
 ```bash
 git clone https://github.com/HNXJ/jnwb.git     # with a GitHub SSH key: git@github.com:HNXJ/jnwb.git
