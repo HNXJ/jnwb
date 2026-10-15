@@ -291,7 +291,7 @@ class TestAnAbsentCodeColumnIsNotSilent:
         path = self._foreign(tmp_path)
         with pytest.warns(UserWarning) as record:
             et = events(path)
-        message = str(record[0].message)
+        message = str([w for w in record if issubclass(w.category, UserWarning)][0].message)
         assert "stimulus" in message, message
         assert "code_column" in message, message
         assert et.code_column is None

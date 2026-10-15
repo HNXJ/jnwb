@@ -169,7 +169,8 @@ class TestFallbackWarning:
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             warn_device_fallback("f", ValueError("x"))
-        assert "discarded" in str(record[0].message)
+        mine = [w for w in record if issubclass(w.category, RuntimeWarning)]
+        assert "discarded" in str(mine[0].message)
 
 
 class TestCallSitesAreRouted:

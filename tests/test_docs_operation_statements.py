@@ -102,7 +102,8 @@ def test_only_events_warns_on_a_table_without_a_codes_column():
     np.testing.assert_allclose(onsets, [1.5, 3.5])
     with pytest.warns(UserWarning, match="No 'codes' column") as record:
         jnwb.events(nwb)
-    assert "Columns: [" in str(record[0].message), "the warning no longer names the columns"
+    message = str([w for w in record if issubclass(w.category, UserWarning)][0].message)
+    assert "Columns: [" in message, "the warning no longer names the columns"
 
     row = _table_row(_page("docs/errors.md"), "No `codes` column")
     assert _ticked(row[1]) == ["events"], row[1]

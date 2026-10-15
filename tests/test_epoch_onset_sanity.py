@@ -43,7 +43,7 @@ class TestOnsetsOnADifferentClock:
     def test_the_warning_says_what_to_check(self):
         with pytest.warns(UserWarning) as caught:
             jnwb.epoch_continuous(DATA, [1000.0, 2000.0], win_s=WIN, fs=FS)
-        message = str(caught[0].message)
+        message = str([w for w in caught if issubclass(w.category, UserWarning)][0].message)
         assert "2 of 2" in message
         assert "1000 to 2000 s" in message          # where the onsets are
         assert "0 to 1 s" in message                # where the data is

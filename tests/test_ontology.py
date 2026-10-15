@@ -332,8 +332,9 @@ class TestDeprecatedFactoriesWarnAndStillWork:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             getattr(O, name)(*calls[name])
-        assert len(caught) == 1
-        text = str(caught[0].message)
+        mine = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        assert len(mine) == 1
+        text = str(mine[0].message)
         assert "Call " in text and "directly" in text, text
 
     @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)

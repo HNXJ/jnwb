@@ -78,7 +78,7 @@ def test_a_nonfinite_bin_is_reported_with_both_counts():
     rate[0] = np.nan
     with pytest.warns(RuntimeWarning) as caught:
         gaussian_smooth_rate(rate, bin_ms=BIN_MS, sigma_ms=SIGMA_MS)
-    message = str(caught[0].message)
+    message = str([w for w in caught if issubclass(w.category, RuntimeWarning)][0].message)
     assert "1 non-finite bin(s)" in message
     assert "spread to 9" in message, message
 
@@ -176,7 +176,7 @@ def test_the_report_names_both_units_and_the_conversion(tmp_path):
     path = _electrical_series_file(tmp_path, "n.a.")
     with pytest.warns(RuntimeWarning) as caught:
         acquisition_channel(str(path), "lfp_series", channel=0)
-    message = str(caught[0].message)
+    message = str([w for w in caught if issubclass(w.category, RuntimeWarning)][0].message)
     assert "'volts'" in message
     assert "'n.a.'" in message
     assert "int16" in message
