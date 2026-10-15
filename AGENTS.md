@@ -15,7 +15,7 @@ Rules and routes; the reasons are in `artifacts/rulings/history.md`. This is the
 | `artifacts/agents.md`, `artifacts/agents/` | Agent entry page; role definitions, independent of domain skills, parameterized by delegation packets: `authority`, `critic`, `actor`, `verifier`, `docs-harness`, `jnwb-developer` |
 | `artifacts/rulings/` | Hamm's rulings by date; `history.md` holds the reasons for these rules, `standing.md` the rulings still in force |
 | `artifacts/cooperation.md`, `artifacts/defect_classes.md` | How concurrent agents share the repository; a defect class seen twice gets a check |
-| `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline (`python scripts/benchmark_import.py --write`) |
+| `artifacts/evidence/`, `artifacts/archive/`, `artifacts/benchmarks/` | Per-version working evidence; closed cycles stay only while a file reads or cites them; performance baseline in `artifacts/benchmarks/performance/` (`python scripts/benchmark_import.py --write`); calibration receipts in `artifacts/benchmarks/calibration/` |
 | `docs/`, `examples/` | User docs: `api.md` lists every public symbol, `common_mistakes.md` the guarded failure modes, `references.md` the cited sources; `quickstart_jnwb.py` and the notebooks `tests/test_notebooks.py` executes |
 | `.github/CONTRIBUTING.md`, `.github/workflows/workflow.yml` | How to change code, docs, skills and releases; CI, whose publication order is a fact |
 

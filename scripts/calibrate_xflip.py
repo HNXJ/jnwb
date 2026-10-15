@@ -2,7 +2,7 @@
 
     python scripts/calibrate_xflip.py [--n-seeds 30] [--n-surrogates 200]
 
-Writes ``artifacts/benchmarks/xflip_calibration_0.2.5.md`` and
+Writes ``artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md`` and
 ``xflip_calibration_0.2.5_raw.json``. The JSON records a SHA-256 over the code of ``xflip``
 and every top-level function, class and constant it can reach in any jnwb module, with
 docstrings and comments removed, so ``tests/test_xflip_calibration_receipt.py`` fails when
@@ -513,7 +513,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=os.cpu_count(),
                     help="worker processes for the automatic-count rows; changes no number")
     ap.add_argument("--out-dir", type=pathlib.Path,
-                    default=ROOT / "artifacts" / "benchmarks")
+                    default=ROOT / "artifacts" / "benchmarks" / "calibration")
     args = ap.parse_args()
 
     t0 = time.perf_counter()

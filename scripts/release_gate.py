@@ -1341,7 +1341,7 @@ def _todo_stack_at(root: pathlib.Path, rev: str) -> Optional[str]:
 STEP_0A_PATHS = (PROBLEM_STACK, TODO_PATH, ROADMAP_PATH, RECEIPT_PATH)
 
 #: The committed peak-memory record, and the file that declares the version it must name.
-PEAK_MEMORY_PATH = "artifacts/benchmarks/peak_memory.json"
+PEAK_MEMORY_PATH = "artifacts/benchmarks/performance/peak_memory.json"
 VERSION_PATH = "jnwb/__init__.py"
 
 
@@ -2064,7 +2064,7 @@ def main() -> None:
              "-p", "no:cacheprovider", "tests/"])
     log.info("Suite wall time: %.0f s", time.monotonic() - started)
     # Peak memory is the other cost measured before a release, logged here with no threshold.
-    # Nothing is written into the tree: the committed artifacts/benchmarks/peak_memory.json is
+    # Nothing is written into the tree: the committed artifacts/benchmarks/performance/peak_memory.json is
     # refreshed before the closure pass, so the receipt covers it.
     run_cmd([sys.executable, str(REPO_ROOT / "scripts" / "measure_peak_memory.py")])
 

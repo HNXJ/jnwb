@@ -10,7 +10,7 @@ transfer_entropy(x, y, bins=4, k=l=1, quantile, n_surrogates=199, rng=s), X -> Y
             surrogates', the mechanism the 0.2.7 note names, in chi-square units
 The surrogates are rebuilt here from the recorded child seed with the function's own scheme.
 
-Usage: python te_excess_by_n.py <worktree> <n_pairs> <n> [<n> ...]
+Usage: python scripts/te_excess_by_n.py <worktree> <n_pairs> <n> [<n> ...]
 """
 import sys
 from concurrent.futures import ProcessPoolExecutor

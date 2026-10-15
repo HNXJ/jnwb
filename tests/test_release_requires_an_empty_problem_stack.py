@@ -149,12 +149,12 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
     (tmp_path / "artifacts" / "changelog.d" / "README.md").write_text("# Fragments\n", encoding="utf-8")
     for name in fragments:
         (tmp_path / "artifacts" / "changelog.d" / name).write_text("- a change\n", encoding="utf-8")
-    (tmp_path / "artifacts" / "benchmarks").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "artifacts" / "benchmarks" / "performance").mkdir(parents=True, exist_ok=True)
     (tmp_path / "jnwb").mkdir(exist_ok=True)
     (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
                                                    encoding="utf-8")
     if recorded is not None:
-        (tmp_path / "artifacts" / "benchmarks" / "peak_memory.json").write_text(
+        (tmp_path / "artifacts" / "benchmarks" / "performance" / "peak_memory.json").write_text(
             f'{{\n  "jnwb_version": "{recorded}",\n  "unit": "MiB"\n}}\n', encoding="utf-8")
     (tmp_path / "artifacts" / "problem_stack.md").write_text(
         _PROBLEMS.format(rows="\n".join(rows)) + tail, encoding="utf-8")
@@ -912,7 +912,7 @@ def test_a_missing_peak_memory_record_fails(tmp_path):
 def test_the_peak_memory_record_is_read_as_committed(tmp_path):
     """A refreshed record left uncommitted is not the one the release carries."""
     root = _tree(tmp_path, items=[_item("07-01", DEFERRED)], recorded="0.0.1")
-    (root / "artifacts" / "benchmarks" / "peak_memory.json").write_text(
+    (root / "artifacts" / "benchmarks" / "performance" / "peak_memory.json").write_text(
         f'{{"jnwb_version": "{RELEASE_CYCLE}"}}\n', encoding="utf-8")
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 2 and any("was taken for jnwb 0.0.1" in x for x in v), v

@@ -24,7 +24,7 @@ The release gate runs this without ``--write`` and fails when an operation's pea
 refreshed before the closure pass.
 
     python scripts/measure_peak_memory.py            # print the record
-    python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/peak_memory.json
+    python scripts/measure_peak_memory.py --write    # also write artifacts/benchmarks/performance/peak_memory.json
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-RECORD_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "peak_memory.json"
+RECORD_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
 MIB = 2 ** 20
 CONTROL_BYTES = 256 * MIB
 PROC_STATUS = "/proc/self/status"

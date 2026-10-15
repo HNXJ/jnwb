@@ -1354,7 +1354,7 @@ class TestVFlipNormalizationRepair:
         min-max range is taken from noisy extremes.
 
         `VFlipResult.crossover_contact` documents the shrinkage as a fitted slope, and
-        `artifacts/benchmarks/vflip_calibration_0.2.4.md` measures 0.703 at SNR 20, 0.804 at
+        `artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md` measures 0.703 at SNR 20, 0.804 at
         SNR 100 and 0.864 at SNR 1000. This pins that claim so the docstring cannot go stale
         in either direction: a slope near 1 would mean the documentation now understates the
         estimator and must be rewritten, and a slope below the band would be a regression.
@@ -1433,7 +1433,7 @@ class TestVFlipNormalizationRepair:
 
         raw = strict_loads(
             (pathlib.Path(__file__).resolve().parents[1]
-             / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
+             / "artifacts" / "benchmarks" / "calibration" / "vflip_calibration_0.2.4_raw.json"
              ).read_text(encoding="utf-8")
         )
         assert DEFAULT_MIN_SUPPORT_SCORE != 6.0

@@ -9,7 +9,7 @@ delete-one-block jackknife over its blocks: non-overlapping blocks of l on the o
 drawn blocks on a replicate. Interval: [r - q975 * se, r - q025 * se], q the quantiles of
 t* = (r* - r) / se*. The percentile interval of the same replicates is printed beside it.
 
-Usage: python calibrate_jrsa_studentized_block_bootstrap.py n_pairs n:l [n:l ...]
+Usage: python scripts/calibrate_jrsa_studentized_block_bootstrap.py n_pairs n:l [n:l ...]
 """
 import sys
 from concurrent.futures import ProcessPoolExecutor

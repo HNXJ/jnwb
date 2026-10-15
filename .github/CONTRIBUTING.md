@@ -108,7 +108,7 @@ python scripts/release_gate.py
   records another HEAD, the working tree has an uncommitted
   change, the problem stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
-  `artifacts/benchmarks/peak_memory.json` names a version other than the one the tree declares.
+  `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares.
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes
   rather than a full run: the harness gate, builds the wheel, installs it in a clean venv,
   smoke-tests the installed package and runs the tutorials against it. It catches packaging
@@ -423,7 +423,7 @@ Maintainers only, and only from a clean `dev` with the three pre-push checks gre
    YYYY-MM-DD`, which inserts the section below `[Unreleased]` and deletes the fragments it used
    (`--dry-run` prints the section only), and commit. Then, on that clean tree, run
    `python scripts/measure_peak_memory.py --write` and commit
-   `artifacts/benchmarks/peak_memory.json`. All of this lands before the closure pass, whose
+   `artifacts/benchmarks/performance/peak_memory.json`. All of this lands before the closure pass, whose
    receipt then covers the record; `release_gate.py` refuses a record that names another
    version.
 2. Commit to `dev`, push, and wait for CI to pass on that exact commit. `release_gate.py`

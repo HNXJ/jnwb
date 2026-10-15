@@ -26,11 +26,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # writer names, or a writer that names none of these files, fails rather than passing quietly.
 GENERATED_FILES = (
     "docs/api.md",
-    "artifacts/benchmarks/import_profile.txt",
-    "artifacts/benchmarks/import_breakdown.json",
-    "artifacts/benchmarks/vflip_calibration_0.2.4.md",
-    "artifacts/benchmarks/vflip_calibration_0.2.4_raw.json",
-    "artifacts/benchmarks/peak_memory.json",
+    "artifacts/benchmarks/performance/import_profile.txt",
+    "artifacts/benchmarks/performance/import_breakdown.json",
+    "artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md",
+    "artifacts/benchmarks/calibration/vflip_calibration_0.2.4_raw.json",
+    "artifacts/benchmarks/performance/peak_memory.json",
 )
 
 WRITERS = (

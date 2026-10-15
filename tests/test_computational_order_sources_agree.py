@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-INVENTORY = ROOT / "artifacts" / "benchmarks" / "complexity_inventory.md"
+INVENTORY = ROOT / "artifacts" / "benchmarks" / "performance" / "complexity_inventory.md"
 BENCHMARK = ROOT / "artifacts" / "evidence" / "0.2.6" / "computational_order.md"
 
 _EXPONENT = re.compile(r"(?<![\w.])[+-]\d+\.\d{2}(?![\w.])")

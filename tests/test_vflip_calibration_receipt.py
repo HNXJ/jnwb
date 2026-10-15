@@ -25,8 +25,8 @@ import pytest
 from jnwb.laminar import vflip, vflip_from_lfp
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RAW = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4_raw.json"
-REPORT = ROOT / "artifacts" / "benchmarks" / "vflip_calibration_0.2.4.md"
+RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip_calibration_0.2.4_raw.json"
+REPORT = ROOT / "artifacts" / "benchmarks" / "calibration" / "vflip_calibration_0.2.4.md"
 
 
 def _refuse_constant(token):

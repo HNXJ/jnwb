@@ -657,10 +657,10 @@ plausible one is worse than none.
 
 ## 6. Reconciliation with complexity claims already in the repository
 
-`artifacts/benchmarks/complexity_inventory.md` records upper bounds on time for 14 primitives,
+`artifacts/benchmarks/performance/complexity_inventory.md` records upper bounds on time for 14 primitives,
 each justified by the algorithm the implementation runs and a published reference, and labels
 each row `INV-01` to `INV-14`. It does not claim to be timed. Timing existed before this file:
-`artifacts/benchmarks/baseline_performance.json` records `time_ms` for its 21 entries, but at one
+`artifacts/benchmarks/performance/baseline_performance.json` records `time_ms` for its 21 entries, but at one
 input scale each, which fixes no exponent. This file times them over at least three scales.
 
 A bound is compared as a bound, and the columns are derived from it as follows.
@@ -680,35 +680,35 @@ other does not follow fails the suite.
 
 | Claim | Source | What it says | Spec | Bound admits | Measured | Verdict |
 |---|---|---|---|---|---|---|
-| INV-01 | `artifacts/benchmarks/complexity_inventory.md` | complex_tfr: O(C . F . T log T) | `complex_tfr[n_channels]` | +1.00 | +0.95 | within bound |
+| INV-01 | `artifacts/benchmarks/performance/complexity_inventory.md` | complex_tfr: O(C . F . T log T) | `complex_tfr[n_channels]` | +1.00 | +0.95 | within bound |
 |  |  |  | `complex_tfr[n_freqs]` | +1.00 | +0.83 | within bound |
 |  |  |  | `complex_tfr[n_samples]` | +1.10 | +1.13 | within bound |
-| INV-02 | `artifacts/benchmarks/complexity_inventory.md` | TFRAccumulator: O(R . C . F . T) | -- | -- | -- | not tested here: the bound is on the accumulate loop over R trials. The only public export is the constructor, whose cost is allocation. |
-| INV-03 | `artifacts/benchmarks/complexity_inventory.md` | compute_psd: O(C . T log N_perseg) | `compute_psd[n_channels]` | +1.00 | +1.08 | within bound |
+| INV-02 | `artifacts/benchmarks/performance/complexity_inventory.md` | TFRAccumulator: O(R . C . F . T) | -- | -- | -- | not tested here: the bound is on the accumulate loop over R trials. The only public export is the constructor, whose cost is allocation. |
+| INV-03 | `artifacts/benchmarks/performance/complexity_inventory.md` | compute_psd: O(C . T log N_perseg) | `compute_psd[n_channels]` | +1.00 | +1.08 | within bound |
 |  |  |  | `compute_psd[n_samples]` | +1.00 | +0.99 | within bound |
-| INV-04 | `artifacts/benchmarks/complexity_inventory.md` | wpli: O(T log N_perseg) | `wpli` | +1.00 | +0.96 | within bound |
-| INV-05 | `artifacts/benchmarks/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + K_seg . F) | `phase_slope_index[n_samples]` | +1.00 | +1.02 | within bound; the spec runs `jackknife=False`, which drops the jackknife term |
+| INV-04 | `artifacts/benchmarks/performance/complexity_inventory.md` | wpli: O(T log N_perseg) | `wpli` | +1.00 | +0.96 | within bound |
+| INV-05 | `artifacts/benchmarks/performance/complexity_inventory.md` | phase_slope_index: O(T log N_perseg + K_seg . F) | `phase_slope_index[n_samples]` | +1.00 | +1.02 | within bound; the spec runs `jackknife=False`, which drops the jackknife term |
 |  |  |  | `phase_slope_index[n_samples_jackknife]` | +1.00 | +1.05 | within bound; re-measured after the change in section 6.2 |
-| INV-06 | `artifacts/benchmarks/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
+| INV-06 | `artifacts/benchmarks/performance/complexity_inventory.md` | granger: O(T . P^2 + P^3) | `granger[model_order]` | +3.00 | +1.07 | within bound |
 |  |  |  | `granger[n_samples]` | +1.00 | +1.08 | within bound |
 |  |  |  | `granger_causality[model_order]` | +3.00 | +1.11 | within bound |
 |  |  |  | `granger_causality[n_samples]` | +1.00 | +1.11 | within bound |
-| INV-07 | `artifacts/benchmarks/complexity_inventory.md` | transfer_entropy: O(S . T) | `transfer_entropy[n_samples]` | +1.00 | +1.13 | within bound |
-| INV-08 | `artifacts/benchmarks/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | within bound |
+| INV-07 | `artifacts/benchmarks/performance/complexity_inventory.md` | transfer_entropy: O(S . T) | `transfer_entropy[n_samples]` | +1.00 | +1.13 | within bound |
+| INV-08 | `artifacts/benchmarks/performance/complexity_inventory.md` | vflip: O(C . F) | `vflip[n_channels]` | +1.00 | +1.07 | within bound |
 |  |  |  | `vflip[n_freqs]` | +1.00 | +0.62 | within bound |
-| INV-09 | `artifacts/benchmarks/complexity_inventory.md` | xflip: O(C^2 . T + S . C^2) | `xflip[n_channels]` | +2.00 | +1.78 | within bound |
+| INV-09 | `artifacts/benchmarks/performance/complexity_inventory.md` | xflip: O(C^2 . T + S . C^2) | `xflip[n_channels]` | +2.00 | +1.78 | within bound |
 |  |  |  | `xflip[n_samples]` | +1.00 | +0.88 | within bound |
 |  |  |  | `xflip[n_surrogates]` | +1.00 | +0.94 | within bound |
-| INV-10 | `artifacts/benchmarks/complexity_inventory.md` | zflip: O(C . T log N_perseg + S . C . F) | `zflip[n_channels]` | +1.00 | +1.03 | within bound |
+| INV-10 | `artifacts/benchmarks/performance/complexity_inventory.md` | zflip: O(C . T log N_perseg + S . C . F) | `zflip[n_channels]` | +1.00 | +1.03 | within bound |
 |  |  |  | `zflip[n_samples]` | +1.00 | +0.86 | within bound |
 |  |  |  | `zflip[n_surrogates]` | +1.00 | +0.92 | within bound |
-| INV-11 | `artifacts/benchmarks/complexity_inventory.md` | rdm: O(N^2 . D) | `rdm[n_conditions]` | +2.00 | +1.89 | within bound |
+| INV-11 | `artifacts/benchmarks/performance/complexity_inventory.md` | rdm: O(N^2 . D) | `rdm[n_conditions]` | +2.00 | +1.89 | within bound |
 |  |  |  | `rdm[n_features]` | +1.00 | +1.15 | within bound |
-| INV-12 | `artifacts/benchmarks/complexity_inventory.md` | rdm_similarity: O(N^2 log N) | `rdm_similarity[n_conditions]` | +2.16 | +2.11 | within bound |
-| INV-13 | `artifacts/benchmarks/complexity_inventory.md` | nested_cv_linear_svm: O(K . N_C . R^2 . D) | `nested_cv_linear_svm[n_features]` | +1.00 | +0.47 | within bound |
+| INV-12 | `artifacts/benchmarks/performance/complexity_inventory.md` | rdm_similarity: O(N^2 log N) | `rdm_similarity[n_conditions]` | +2.16 | +2.11 | within bound |
+| INV-13 | `artifacts/benchmarks/performance/complexity_inventory.md` | nested_cv_linear_svm: O(K . N_C . R^2 . D) | `nested_cv_linear_svm[n_features]` | +1.00 | +0.47 | within bound |
 |  |  |  | `nested_cv_linear_svm[n_folds]` | +1.00 | +1.01 | within bound |
 |  |  |  | `nested_cv_linear_svm[n_trials]` | +2.00 | +0.54 | within bound |
-| INV-14 | `artifacts/benchmarks/complexity_inventory.md` | stream_npz_array: O(E) | `stream_npz_array[n_elements_in_file]` | +1.00 | +0.01 | within bound; re-measured after the change in section 6.2 |
+| INV-14 | `artifacts/benchmarks/performance/complexity_inventory.md` | stream_npz_array: O(E) | `stream_npz_array[n_elements_in_file]` | +1.00 | +0.01 | within bound; re-measured after the change in section 6.2 |
 |  |  |  | `stream_npz_array[n_elements_sliced]` | +1.00 | +0.49 | within bound |
 | DOC-01 | `jnwb/rsa.py:70-72` | Complexity: Time: O(N^2 . D); Memory: O(N^2) for condensed or full matrix representation. | `rdm[n_conditions]` | +2.00 | +1.89 | agrees |
 |  |  |  | `rdm[n_features]` | +1.00 | +1.15 | agrees |

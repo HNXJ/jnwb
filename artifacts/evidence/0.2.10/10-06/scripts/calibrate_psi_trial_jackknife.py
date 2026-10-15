@@ -8,7 +8,7 @@ Trials of n_times samples at fs 1000 Hz, band 5-100 Hz, default nperseg. Seed s 
 leave-one-segment-out jackknife on the same data by raising the module's trial threshold.
 The rate is P(p_net < 0.05).
 
-Usage: python calibrate_psi_trial_jackknife.py <worktree> <n_seeds> <trials>x<n_times> ...
+Usage: python scripts/calibrate_psi_trial_jackknife.py <worktree> <n_seeds> <trials>x<n_times> ...
 """
 import sys
 import warnings

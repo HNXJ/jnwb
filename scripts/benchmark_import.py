@@ -29,8 +29,8 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PROFILE_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "import_profile.txt"
-BREAKDOWN_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "import_breakdown.json"
+PROFILE_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "import_profile.txt"
+BREAKDOWN_PATH = REPO_ROOT / "artifacts" / "benchmarks" / "performance" / "import_breakdown.json"
 
 # Nothing here may instrument the import: `tracemalloc` in particular triples it.
 PROBE = """

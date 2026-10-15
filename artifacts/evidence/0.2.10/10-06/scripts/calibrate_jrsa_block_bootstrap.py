@@ -4,7 +4,7 @@ Pair s: two independent AR(1) series, coefficient 0.9, unit innovations, 100 bur
 dropped, drawn from default_rng(s). The true correlation is 0, so coverage is the share of
 intervals holding 0. Each call: jrsa(x, y, metric, bootstrap=999, permutations=0, rng=s, ...).
 
-Usage: python calibrate_jrsa_block_bootstrap.py <worktree> <n_pairs> <metric> [n:null:block_len ...]
+Usage: python scripts/calibrate_jrsa_block_bootstrap.py <worktree> <n_pairs> <metric> [n:null:block_len ...]
 """
 import sys
 from concurrent.futures import ProcessPoolExecutor

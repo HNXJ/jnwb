@@ -30,8 +30,8 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 from tests.test_vflip_calibration_receipt import _with_prose_edited  # noqa: E402
 
-RAW = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5_raw.json"
-REPORT = ROOT / "artifacts" / "benchmarks" / "xflip_calibration_0.2.5.md"
+RAW = ROOT / "artifacts" / "benchmarks" / "calibration" / "xflip_calibration_0.2.5_raw.json"
+REPORT = ROOT / "artifacts" / "benchmarks" / "calibration" / "xflip_calibration_0.2.5.md"
 
 
 def _raw():
@@ -113,7 +113,7 @@ def test_receipt_and_generator_exist():
 def test_the_receipt_without_a_generator_is_gone():
     """The defect repaired here was a receipt nobody could reproduce, not its contents."""
     for stale in ("xflip_calibration_0.2.3.md", "xflip_calibration_raw.json"):
-        assert not (ROOT / "artifacts" / "benchmarks" / stale).exists(), (
+        assert not (ROOT / "artifacts" / "benchmarks" / "calibration" / stale).exists(), (
             f"{stale} is a calibration receipt with no generator; it was replaced by "
             "xflip_calibration_0.2.5.md and scripts/calibrate_xflip.py"
         )

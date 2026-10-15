@@ -7,7 +7,7 @@ New default: nperseg=None (190 samples, 20 segments). Scenarios, seed s per pair
   lead        x white, y = x delayed 5 samples + 1.0 e (a true lead of x)
 The rate is P(p_net < 0.05) of the jackknife t test, over bands (5, 100) Hz and None.
 
-Usage: python calibrate_psi_default_segments.py <worktree> <n_seeds>
+Usage: python scripts/calibrate_psi_default_segments.py <worktree> <n_seeds>
 """
 import sys
 from concurrent.futures import ProcessPoolExecutor

@@ -2,7 +2,7 @@
 
     python scripts/calibrate_vflip.py [--n-seeds 30] [--n-jobs -1]
 
-Writes ``artifacts/benchmarks/vflip_calibration_0.2.4.md`` and ``vflip_calibration_0.2.4_raw.json``.
+Writes ``artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md`` and ``vflip_calibration_0.2.4_raw.json``.
 The JSON records a SHA-256 over the code of ``vflip_from_lfp``, which every trial below runs,
 and every top-level function, class and constant it reaches in any jnwb module, ``vflip``
 included, with docstrings and comments removed; ``tests/test_vflip_calibration_receipt.py``
@@ -80,7 +80,7 @@ OPEN_GATE = -1e9
 ALT_SNR = 20.0
 #: Fraction of the shaft used for the deliberately off-centre alternative crossover.
 OFF_CENTRE_FRACTION = 0.4
-OUT_DIR = ROOT / "artifacts" / "benchmarks"
+OUT_DIR = ROOT / "artifacts" / "benchmarks" / "calibration"
 
 
 def estimator_sources() -> list[tuple[str, str]]:

@@ -110,7 +110,7 @@
       "properties": {
         "baseline": {
           "type": "array",
-          "description": "artifacts/benchmarks/baseline_performance.json",
+          "description": "artifacts/benchmarks/performance/baseline_performance.json",
           "items": {
             "type": "object",
             "required": ["name", "time_ms", "peak_mb", "scale"],
@@ -119,7 +119,7 @@
         },
         "peak_memory": {
           "type": ["object", "null"],
-          "description": "artifacts/benchmarks/peak_memory.json, fields copied as recorded",
+          "description": "artifacts/benchmarks/performance/peak_memory.json, fields copied as recorded",
           "properties": {
             "jnwb_version": {"type": "string"}, "commit": {"type": "string"},
             "python": {"type": "string"}, "platform": {"type": "string"}, "unit": {"type": "string"},
@@ -133,7 +133,7 @@
             }
           }
         },
-        "import": {"type": ["object", "null"], "description": "artifacts/benchmarks/import_breakdown.json, as recorded"}
+        "import": {"type": ["object", "null"], "description": "artifacts/benchmarks/performance/import_breakdown.json, as recorded"}
       }
     },
     "order": {
