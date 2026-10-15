@@ -38,12 +38,12 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 1 | L laminar | 15-11 | `jnwb/testing/synth.py`, `tests/test_vflip2*.py`, `scripts/vflip2_simulation.py`, `artifacts/evidence/0.2.13/` | a generator; Andre Bastos's simulation code for its second half |
+| 1 | L laminar | 15-11 | `jnwb/testing/synth.py`, `jnwb/testing/__init__.py`, `tests/test_vflip2*.py`, `scripts/vflip2_simulation.py`, `artifacts/evidence/0.2.13/` | a generator; Andre Bastos's simulation code for its second half |
 
 ### 15-11 `vflip2` recovers a planted vFLIP2 crossover
 
 Release: deferred-0.2.13.
 Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: none.
-Writes: `jnwb/testing/synth.py`, `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.13/vflip2_simulation.md`.
-- No generator plants vFLIP2's own relative-power crossover, so no test shows `vflip2` recovering it: on `synth_laminar_motif` (amplitude-weight crossover) 20 of 100 accepted crossovers lie within one contact and 18 of 100 noise-only probes are accepted at omega_cut 6 (`artifacts/evidence/0.2.12/vflip2_simulation.md`). Check: on 100 seeded probes from a generator whose planted crossover is where the relative band-power profiles cross (32 contacts, 100 um), the accepted crossover lies within one contact in at least 90, and at most 5 of 100 noise-only probes are accepted; the same table then runs on Andre Bastos's simulation code. Waits: needs the generator and his code; 0.2.12 ships the characterization only.
-Accept: both rates hold and the evidence file names seeds and counts. Ruled 2026-10-14 (15-03 split and characterization).
+Writes: `jnwb/testing/synth.py`, `jnwb/testing/__init__.py`, `scripts/vflip2_simulation.py`, `tests/test_vflip2_simulation.py`, `artifacts/evidence/0.2.13/vflip2_simulation.md`, `artifacts/evidence/0.2.13/vflip2_oracle.json`.
+- No generator plants vFLIP2's own relative-power crossover, so no test shows `vflip2` recovering it: on `synth_laminar_motif` (amplitude-weight crossover) 20 of 100 accepted crossovers lie within one contact and 18 of 100 noise-only probes are accepted at omega_cut 6 (`artifacts/evidence/0.2.12/vflip2_simulation.md`). Check: the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`, which sets the generator, the window-specific oracle frozen before any noisy run, the five runs, six measures with Clopper-Pearson intervals, and descriptive targets (at least 90/100 unconditional recovery, at most 5/100 null acceptance) reported as met or missed, never tuned; the same table then runs on Andre Bastos's simulation code. Waits: needs the generator and his code; 0.2.12 ships the characterization only.
+Accept: the CI tests the design names pass, the oracle matches its independent recomputation, and the evidence file names entropy, counts, intervals and `target_met`. Ruled 2026-10-14 (15-03 split) and 2026-10-15 (15-11 design).
