@@ -14,8 +14,8 @@ live item that will; a ruling held by nothing else says "the ruling".
 |---|---|---|---|
 | Autonomy and decisions | Grade each option 0 to 100 and act by grade; two defensible options with a material trade-off come to Hamm | 2026-09-25 | `AGENTS.md` §12 |
 | Problem stack | Empty for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_problem_stack.py` |
-| Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/cooperation.md` |
-| Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/cooperation.md` |
+| Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/process/cooperation.md` |
+| Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/process/cooperation.md` |
 | The agents' chat | `F:/cowork/jnwb-bus/jchat/jchat.py`, bound to 127.0.0.1, is the one chat center; a client that cannot reach it uses the room files | 2026-09-29 | the ruling (`2026-09-29.md`, "The agents' chat hub") |
 | Corpus access | Read the raw NWB on `D:` read-only; write only to `E:` or the scratchpad; no corpus identifier in `jnwb/`, `docs/`, `skills/` or `tests/` | 2026-09-22 | the ruling; gate 6 for the identifiers (`scripts/harness_gate.py`) |
 | Branches | Only `main`, `dev` and `gh-pages` stay on the remote; merged work is deleted | 2026-09-23 | the ruling |

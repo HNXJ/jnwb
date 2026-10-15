@@ -42,7 +42,8 @@ MIB = 2 ** 20
 CONTROL_BYTES = 256 * MIB
 PROC_STATUS = "/proc/self/status"
 PROC_CLEAR_REFS = "/proc/self/clear_refs"
-#: RP-7: the 0.2.7 record (commit 66766b2a, artifacts/benchmarks/peak_memory.json) holds the
+#: RP-7: the 0.2.7 record (commit 66766b2a; now
+#: artifacts/benchmarks/performance/peak_memory.json) holds the
 #: largest peak of the fixed set, its control row. The threshold is that peak plus the margin.
 PEAK_BASELINE_0_2_7_MIB = 404.7
 PEAK_MARGIN = 0.25
