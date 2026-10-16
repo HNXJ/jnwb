@@ -82,6 +82,8 @@ gallery_src/
 !artifacts/benchmarks/*/*.json
 !examples/data/*.provenance.json
 !artifacts/process/frozen_validated.json
+!artifacts/evidence/0.2.13/vflip2_oracle.json
+!artifacts/evidence/0.2.13/vflip2_recovery.json
 # The dashboard's template and data contract; its built data.json stays out.
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json

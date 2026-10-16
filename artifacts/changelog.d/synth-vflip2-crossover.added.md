@@ -1,0 +1,1 @@
+- Add `synth_vflip2_crossover`, a planted vFLIP2 crossover generator (`jnwb/testing/synth.py`).

@@ -12,6 +12,7 @@ from .nwb_fixtures import (
 )
 from .synth import (
     SynthLaminarReceipt,
+    SynthVFlip2Receipt,
     build_canonical_tutorial_nwb,
     synth_ar_noise,
     synth_correlation_blocks,
@@ -19,6 +20,7 @@ from .synth import (
     synth_periodic_response,
     synth_phase_gradient,
     synth_unequal_groups,
+    synth_vflip2_crossover,
     synth_white_noise,
 )
 
@@ -26,6 +28,7 @@ __all__ = [
     "SynthLaminarReceipt",
     "SynthNWBBuildOptions",
     "SynthNWBReceipt",
+    "SynthVFlip2Receipt",
     "build_canonical_tutorial_nwb",
     "build_synth_nwb",
     "canonical_co_resident_options",
@@ -37,6 +40,7 @@ __all__ = [
     "synth_periodic_response",
     "synth_phase_gradient",
     "synth_unequal_groups",
+    "synth_vflip2_crossover",
     "synth_white_noise",
     "task_only_options",
     "write_synth_nwb",

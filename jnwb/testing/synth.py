@@ -35,6 +35,26 @@ class SynthLaminarReceipt:
     beta_freq: float
 
 
+@dataclass(frozen=True)
+class SynthVFlip2Receipt:
+    """Ground-truth receipt for a probe from `synth_vflip2_crossover`.
+
+    `low_weight` and `high_weight` are the per-contact band-power weights after clipping, so
+    `high_weight` is 1 minus `low_weight` at every contact.
+    """
+
+    lfp: np.ndarray
+    fs: float
+    z0: int
+    low_band_hz: Tuple[float, float]
+    high_band_hz: Tuple[float, float]
+    tau_s: float
+    phi: float
+    snr: float
+    low_weight: np.ndarray
+    high_weight: np.ndarray
+
+
 def synth_white_noise(
     shape: Union[int, Sequence[int]],
     *,
@@ -478,6 +498,105 @@ def synth_laminar_motif(
         pitch_um=float(pitch_um),
         gamma_freq=float(gamma_freq),
         beta_freq=float(beta_freq),
+    )
+
+
+#: Planted band edges of `synth_vflip2_crossover`: 18 +/- 5 Hz and 75 +/- 15 Hz.
+VFLIP2_LOW_BAND_HZ = (13.0, 23.0)
+VFLIP2_HIGH_BAND_HZ = (60.0, 90.0)
+
+
+def synth_vflip2_crossover(
+    n_channels: int = 32,
+    n_samples: int = 5000,
+    fs: float = 1000.0,
+    *,
+    z0: int,
+    snr: float = 4.0,
+    tau_s: float = 0.03,
+    background: bool = True,
+    rng: Optional[Union[np.random.Generator, int]] = None,
+) -> SynthVFlip2Receipt:
+    """Generate a probe whose band-power crossover is the one vFLIP2 normalizes and averages.
+
+    Unlike `synth_laminar_motif`, the planted crossover is in band power. Contact `c` has
+    low-band (18 +/- 5 Hz) weight ``w_L = 0.5 + (c - z0) / (n_channels - 1)``, clipped to
+    [0.05, 0.95], and high-band (75 +/- 15 Hz) weight ``w_H = 1 - w_L``. The background is AR(1)
+    with time constant `tau_s`, stationary variance 1, independent across contacts.
+
+    Draw order from one generator: the background (the stationary first sample, then the
+    innovations), the low-band source, the high-band source. A probe with `snr=0` or
+    `background=False` makes the same draws, so it shares the probe's sources or background.
+
+    Args:
+        n_channels: Number of contacts (default 32).
+        n_samples: Number of time samples (default 5000).
+        fs: Sampling rate in Hz (default 1000.0).
+        z0: Contact index where the two band weights are equal. Keyword-only and required.
+        snr: Ratio of the planted signal's total variance to the background's, per contact
+            (default 4.0). Zero gives the background alone.
+        tau_s: Background AR(1) time constant in seconds (default 0.03).
+        background: False omits the background; the draws are still made.
+        rng: Optional NumPy Generator or integer seed.
+
+    Returns:
+        SynthVFlip2Receipt with the probe and its ground truth.
+    """
+    if n_channels < 4:
+        raise ValueError(f"n_channels must be at least 4; got {n_channels}")
+    if n_samples < 64:
+        raise ValueError(f"n_samples must be at least 64 for the zero-phase filter; got {n_samples}")
+    if fs <= 0 or not np.isfinite(fs):
+        raise ValueError(f"fs must be strictly positive, got {fs}")
+    if VFLIP2_HIGH_BAND_HZ[1] >= fs / 2.0:
+        raise ValueError(
+            f"fs={fs} Hz puts the high band {VFLIP2_HIGH_BAND_HZ} at or above Nyquist")
+    if not isinstance(z0, (int, np.integer)) or isinstance(z0, bool):
+        raise TypeError(f"z0 must be an int contact index, not a bool or a float, got {z0!r}")
+    if not 0 <= z0 <= n_channels - 1:
+        raise ValueError(f"z0 must be a contact index in [0, {n_channels - 1}], got {z0}")
+    if snr < 0 or not np.isfinite(snr):
+        raise ValueError(f"snr must be non-negative and finite, got {snr}")
+    if tau_s <= 0 or not np.isfinite(tau_s):
+        raise ValueError(f"tau_s must be strictly positive, got {tau_s}")
+
+    gen = resolve_rng(rng, func_name="synth_vflip2_crossover")
+    phi = float(np.exp(-1.0 / (fs * tau_s)))
+    innovation_sd = float(np.sqrt(1.0 - phi * phi))
+
+    # 1. Background: stationary first sample (variance 1), then innovations of s.d. sqrt(1 - phi^2).
+    first = gen.normal(0.0, 1.0, size=n_channels)
+    innovations = gen.normal(0.0, innovation_sd, size=(n_channels, n_samples - 1))
+    drive = np.concatenate([first[:, None], innovations], axis=1)
+    background_lfp = signal.lfilter([1.0], [1.0, -phi], drive, axis=-1)
+    if not background:
+        background_lfp = np.zeros_like(background_lfp)
+
+    # 2. and 3. Band-passed sources, each rescaled to unit sample variance.
+    sos_low = signal.butter(4, VFLIP2_LOW_BAND_HZ, btype="bandpass", fs=fs, output="sos")
+    sos_high = signal.butter(4, VFLIP2_HIGH_BAND_HZ, btype="bandpass", fs=fs, output="sos")
+    src_low = signal.sosfiltfilt(sos_low, gen.normal(0.0, 1.0, size=(n_channels, n_samples)), axis=-1)
+    src_high = signal.sosfiltfilt(sos_high, gen.normal(0.0, 1.0, size=(n_channels, n_samples)), axis=-1)
+    src_low = src_low / src_low.std(axis=-1, keepdims=True)
+    src_high = src_high / src_high.std(axis=-1, keepdims=True)
+
+    contacts = np.arange(n_channels, dtype=float)
+    low_weight = np.clip(0.5 + (contacts - z0) / (n_channels - 1), 0.05, 0.95)
+    high_weight = 1.0 - low_weight
+    planted = np.sqrt(snr) * (np.sqrt(low_weight)[:, None] * src_low
+                              + np.sqrt(high_weight)[:, None] * src_high)
+
+    return SynthVFlip2Receipt(
+        lfp=background_lfp + planted,
+        fs=float(fs),
+        z0=int(z0),
+        low_band_hz=VFLIP2_LOW_BAND_HZ,
+        high_band_hz=VFLIP2_HIGH_BAND_HZ,
+        tau_s=float(tau_s),
+        phi=phi,
+        snr=float(snr),
+        low_weight=low_weight,
+        high_weight=high_weight,
     )
 
 

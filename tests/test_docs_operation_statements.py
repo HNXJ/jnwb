@@ -338,6 +338,8 @@ def _rng_probes():
         "synth.synth_phase_gradient": lambda r: synth.synth_phase_gradient(3, 100, 1000.0, rng=r),
         "synth.synth_unequal_groups": lambda r: synth.synth_unequal_groups(3, 4, 2, rng=r),
         "synth.synth_laminar_motif": lambda r: synth.synth_laminar_motif(16, 2000, rng=r),
+        "synth.synth_vflip2_crossover": lambda r: synth.synth_vflip2_crossover(
+            32, 500, 1000.0, z0=12, rng=r),
         "synth.build_canonical_tutorial_nwb": lambda r: synth.build_canonical_tutorial_nwb(
             seed=r, duration_s=2.0, n_trials=2),
         "testing.SynthNWBBuildOptions": lambda r: build_synth_nwb(
