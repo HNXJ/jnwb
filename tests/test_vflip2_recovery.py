@@ -165,7 +165,10 @@ def test_frozen_oracle_is_gated_and_matches_plain_numpy():
     idx = doc["children"][f"{kind}_{count}_A"]["index"]
     out = rec.oracle_job((kind, count, "A", z0, idx, kids[idx]))
     assert out["plain_mismatches"] == []
-    assert np.array_equal(out["psd"], np.array(doc["psd"][kind][str(z0)]["psd"], dtype=float))
+    # The oracle was stored on one platform; FFT rounding differs across platforms, and the
+    # smallest bins sit three decades below the largest, so their relative error is amplified.
+    np.testing.assert_allclose(out["psd"], np.array(doc["psd"][kind][str(z0)]["psd"], dtype=float),
+                               rtol=1e-9, atol=0)
 
 
 def test_one_sided_nan_is_indeterminate_and_gates_nothing():
