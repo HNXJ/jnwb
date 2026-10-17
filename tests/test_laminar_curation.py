@@ -236,6 +236,7 @@ class TestEvokedCsdSink:
         mask = np.zeros(erp.shape[0], bool)
         mask[:5] = True
         out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask)
+        assert out, "the result holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in out.values())
 
     def test_exactly_min_contacts_usable_is_enough(self):
@@ -245,6 +246,7 @@ class TestEvokedCsdSink:
         out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=16)
         assert abs(out["strongest_contact"] - 20) <= 1
         short = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH, usable_mask=mask, min_contacts=17)
+        assert short, "the result holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in short.values())
 
     def test_refuses_no_baseline_and_bad_pitch(self):
@@ -627,6 +629,7 @@ class TestParametersReachTheirConsumers:
         at = jnwb.curate_and_label(x, FS, min_contacts=k, **kw)
         assert np.isfinite(at.csd["strongest_contact"])
         over = jnwb.curate_and_label(x, FS, min_contacts=k + 1, **kw)
+        assert over.csd, "the CSD holds no values, so the check below passes on nothing"
         assert all(np.isnan(v) for v in over.csd.values())
 
     def test_min_contacts_reaches_every_vflip_call(self, monkeypatch):

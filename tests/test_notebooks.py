@@ -209,5 +209,6 @@ def test_exit_hook_is_not_left_registered(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError):
         _execute(path, tmp_path, monkeypatch, kernel_argv=_silent_kernel_argv(tmp_path))
     own = [f for f in registered if getattr(f, "__self__", None).__class__ is nbclient.NotebookClient]
+    assert own, "no notebook exit hook was registered, so the check below passes on nothing"
     assert all(f in removed for f in own)
 

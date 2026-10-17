@@ -2307,4 +2307,5 @@ class TestCoherenceWithAConstantChannel:
         rng = np.random.default_rng(1)
         x, y = rng.standard_normal(4000), rng.standard_normal(4000)
         out = cross_area_coherence(x, y, **self.KW)
+        assert out["band_coherence"], "the result holds no band values, so the check below passes on nothing"
         assert all(np.isfinite(v) for v in out["band_coherence"].values())

@@ -72,6 +72,10 @@ def test_examples_still_ships_in_neither_artifact():
     )
 
     manifest = (REPO_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    assert any(
+        line.split("#", 1)[0].split()[:1] in (["graft"], ["include"], ["recursive-include"])
+        for line in manifest.splitlines()
+    ), "MANIFEST.in has no graft or include line, so the check below reads nothing"
     for line in manifest.splitlines():
         directive = line.split("#", 1)[0].split()
         if directive and directive[0] in {"graft", "include", "recursive-include"}:

@@ -164,6 +164,7 @@ def test_the_clock_check_refuses_an_offset_beyond_its_bound(tutorial):
     clock = tutorial.derive_clock(data["lfp"], data["trains"])
     good = data["quality"] == "good"
     lags = tutorial.check_clock(clock, data, good)["lags_s"]
+    assert lags, "the clock check returned no lags, so the check below passes on nothing"
     assert all(abs(lag) <= tutorial.OFFSET_BOUND_S for lag, _ in lags.values())
 
     shifted = dataclasses.replace(clock, offset_s=clock.offset_s + 3 * tutorial.OFFSET_BOUND_S)

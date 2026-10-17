@@ -791,7 +791,10 @@ def test_a_held_item_deleted_without_the_receipt_recording_it_fails(tmp_path, fi
     gone = [x for x in v if "gone at HEAD" in x]
     assert len(gone) == 1 and gone[0].endswith(": 99-930"), v
     # A row naming an id that was never held is refused as well, and says so.
-    assert all("not held open" in x for x in v if x not in gone), v
+    others = [x for x in v if x not in gone]
+    if finished in ("99-933", "99-9300"):  # id-shaped; "x99-930" is no id and is not read
+        assert others, f"the receipt names {finished!r}, which was never held, and nothing refused it"
+    assert all("not held open" in x for x in others), v
 
 
 def _later_row(tmp_path, *, row_in_first, delete_in_first, row_later=None, delete_later=False):

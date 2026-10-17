@@ -138,6 +138,7 @@ def test_readme_capability_table_symbols_exist():
     text = README.read_text(encoding="utf-8")
     table_section = text.split("## Capabilities", 1)[1].split("## Installation", 1)[0]
     symbols = re.findall(r"`([a-zA-Z_][a-zA-Z0-9_]*)`", table_section)
+    assert symbols, "the capability table names no symbol, so the check below passes on nothing"
     for symbol in symbols:
         assert hasattr(jnwb, symbol), f"README capability table references missing jnwb.{symbol}"
 

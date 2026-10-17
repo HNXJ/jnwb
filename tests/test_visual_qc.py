@@ -111,6 +111,7 @@ def test_plot_unit_waveforms_ignores_nan_samples_across_spikes_and_refuses_dead_
     holes[0, :, ::2] = np.nan
     holes[1, :, 1::2] = np.nan
     (holes_fig,) = plot_unit_waveforms([7], {7: holes}, channels="all")
+    assert holes_fig.axes[0].get_lines(), "the figure holds no line, so the check below passes on nothing"
     assert all(np.isfinite(ln.get_ydata()).all() for ln in holes_fig.axes[0].get_lines())
     plt.close("all")
 

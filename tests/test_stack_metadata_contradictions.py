@@ -467,6 +467,7 @@ class TestTheUnwrappingIsNotALineScan:
 
     def test_no_span_is_empty(self):
         flat, spans = _unwrapped_spans("A. B.  \n\n  C.")
+        assert spans, "the input yields no spans, so the check below passes on nothing"
         assert all(flat[a:b].strip() for a, b in spans)
 
 
