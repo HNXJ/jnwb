@@ -111,7 +111,7 @@ Autonomy sets who drives §3 and when Hamm intervenes. `autonomy != authority`: 
 
 ## 13. Workspace
 
-- The canonical clone is `C:/workspace/jnwb`; `E:/repos/jnwb` and `D:/cowork/jnwb` follow `origin/dev`.
+- The canonical clone is `C:/workspace/jnwb`; every other local copy carries a `_temp_` prefix and is disposable.
 - Claims, verifications and asks go in the jchat room `p-jnwb`.
 - Harness and rule questions go to `@jynx-claude-keeper doctor` in conference.
 - Cross-workspace alignment meets weekly (in the jynx repository: artifacts/policy.md, section 10).
