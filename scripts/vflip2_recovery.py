@@ -44,8 +44,10 @@ if str(ROOT) not in sys.path:
 
 import jnwb  # noqa: E402
 
-if pathlib.Path(jnwb.__file__).resolve().parent != (ROOT / "jnwb").resolve():
-    raise SystemExit(f"jnwb was imported from {jnwb.__file__}, not from {ROOT}; "
+# Under JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the import must come from there.
+_EXPECTED = pathlib.Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or ROOT).resolve()
+if _EXPECTED not in pathlib.Path(jnwb.__file__).resolve().parents:
+    raise SystemExit(f"jnwb was imported from {jnwb.__file__}, not from {_EXPECTED}; "
                      "run this script from its own repository")
 
 from jnwb.laminar import _vflip2 as V  # noqa: E402

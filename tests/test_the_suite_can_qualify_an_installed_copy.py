@@ -408,6 +408,57 @@ def test_the_guard_actually_stands_aside_when_the_variable_is_set(tmp_path: Path
     )
 
 
+def _scripts_the_tests_import() -> list[str]:
+    """`scripts.x` modules any test module imports, however it spells the import."""
+    names: set[str] = set()
+    for module in _test_modules():
+        source = module.read_text(encoding="utf-8")
+        names.update(re.findall(r"\bimport scripts\.([\w.]+)", source))
+        for group in re.findall(r"\bfrom scripts import ([\w ,]+)", source):
+            names.update(part.split()[0] for part in group.split(",") if part.strip())
+    return sorted(names)
+
+
+def test_every_script_a_test_imports_accepts_the_installed_copy(tmp_path: Path) -> None:
+    """The wheel leg's condition: jnwb is already imported from elsewhere, the variable names it.
+
+    A script whose guard compares `jnwb.__file__` with the checkout alone refuses there, and a
+    refusal at import time is a collection error that stops the whole leg
+    (`scripts/vflip2_sensitivity.py` on bafcbbca, `scripts/vflip2_recovery.py` on c761b2ff).
+    `_checkout_jnwb()`, where a script defines it, is called too.
+    """
+    import shutil
+
+    site = tmp_path / "site"
+    shutil.copytree(ROOT / "jnwb", site / "jnwb", ignore=shutil.ignore_patterns("__pycache__"))
+    names = _scripts_the_tests_import()
+    assert "vflip2_recovery" in names, names
+    probe = textwrap.dedent(f"""
+        import importlib, pathlib, sys
+        import jnwb
+        site = pathlib.Path({str(site)!r}).resolve()
+        assert site in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__
+        sys.path.append({str(ROOT)!r})
+        failed = []
+        for name in {names!r}:
+            try:
+                module = importlib.import_module("scripts." + name)
+                if hasattr(module, "_checkout_jnwb"):
+                    module._checkout_jnwb()
+            except BaseException as exc:
+                failed.append(f"{{name}}: {{type(exc).__name__}}: {{exc}}")
+        print("\\n".join(failed))
+    """)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(site)
+    env["JNWB_EXPECTED_PACKAGE_ROOT"] = str(site)
+    result = subprocess.run([sys.executable, "-c", probe], cwd=tmp_path, capture_output=True,
+                            text=True, timeout=600, env=env)
+    assert result.returncode == 0, result.stderr[-2000:]
+    failed = result.stdout.strip()
+    assert not failed, f"these scripts refuse the copy JNWB_EXPECTED_PACKAGE_ROOT names:\n{failed}"
+
+
 def _build_steps() -> list[dict]:
     workflow = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")
