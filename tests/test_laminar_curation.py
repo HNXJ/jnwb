@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -140,6 +141,34 @@ def _sink_erp(n=32, pitch=PITCH, at=20, sigma_um=75.0, t_peak=60.0):
     spatial = -np.exp(-0.5 * ((c - at) * pitch / sigma_um) ** 2)
     temporal = np.exp(-0.5 * ((t - t_peak) / 15.0) ** 2)
     return spatial[:, None] * temporal[None, :], t
+
+
+class TestUndefinedScales:
+    def test_a_dead_contact_is_flagged_without_a_warning(self):
+        x = np.random.default_rng(0).normal(size=(16, 4000))
+        x[2] = 0.0
+        assert not x[2].any(), "fixture must hold a dead contact"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = jnwb.detect_bad_channels(x, FS)
+        assert np.flatnonzero(out["bad_mask"]).tolist() == [2]
+        assert out["log_power"][2] == -np.inf
+        assert np.isfinite(np.delete(out["log_power"], 2)).all()
+
+    def test_a_flat_baseline_leaves_the_sink_undefined(self):
+        erp, t = _sink_erp()
+        found = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)["strongest_contact"]
+        assert abs(found - 20) <= 1, "fixture must hold a sink the baseline can scale"
+        erp[:, t < 0] = 0.0
+        out = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)
+        assert all(np.isnan(v) for v in out.values()), out
+
+    def test_the_robust_z_fallbacks(self):
+        from jnwb.laminar_curation import _robust_z_std_fallback as z
+        assert np.isnan(z(np.full(8, np.nan))).all()
+        np.testing.assert_array_equal(z(np.full(5, 3.0)), np.zeros(5))
+        v = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 10.0])
+        assert z(v)[-1] == pytest.approx(10.0 / np.std(v), rel=1e-12)
 
 
 class TestEvokedCsdSink:

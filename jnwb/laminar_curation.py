@@ -66,7 +66,11 @@ def _robust_z_std_fallback(values: np.ndarray) -> np.ndarray:
     values = np.asarray(values, dtype=float)
     med = np.nanmedian(values)
     mad = np.nanmedian(np.abs(values - med)) * 1.4826
-    scale = mad if mad > 0 else (np.nanstd(values) or 1.0)
+    if mad > 0:
+        scale = mad
+    else:
+        sd = np.nanstd(values)
+        scale = sd if sd > 0 else 1.0  # constant values z to 0; all-NaN values stay NaN
     return (values - med) / scale
 
 
@@ -148,7 +152,8 @@ def detect_bad_channels(
     Returns:
         Dict with ``bad_mask`` (``(n_channels,)`` bool), ``neighbor_correlation`` (the last
         pass, ``(n_channels,)``) and ``log_power`` (``(n_channels,)``, log10 of the mean
-        PSD in the band, in the units of ``data`` squared per Hz).
+        PSD in the band, in the units of ``data`` squared per Hz; ``-inf`` for a contact with
+        no power in the band).
 
     Raises:
         ValueError: On a non-finite input, an invalid band or fewer than 3 contacts.
@@ -171,10 +176,13 @@ def detect_bad_channels(
     sel = (freqs >= lo_hz) & (freqs <= hi_hz)
     if not sel.any():
         raise ValueError("no PSD bin falls in power_band_hz; lengthen the epochs or widen the band")
-    log_power = np.log10(psd[:, sel].mean(axis=1))
     q = max(1, int(round(fs / float(correlation_fs_hz))))
     reduced = signal.decimate(epochs, q, axis=-1) if q > 1 else epochs
-    corr = np.corrcoef(reduced.reshape(n, -1))
+    # A dead contact is the input this detector exists for: its log power is -inf and its
+    # correlation undefined, and both flag it below, so neither warns.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_power = np.log10(psd[:, sel].mean(axis=1))
+        corr = np.corrcoef(reduced.reshape(n, -1))
     bad = np.zeros(n, dtype=bool)
     local = np.full(n, np.nan)
     for _ in range(int(max_iterations)):
@@ -247,7 +255,7 @@ def _csd(erp: np.ndarray, times_ms: np.ndarray, usable: np.ndarray, sigma: float
     vu = gaussian_filter1d(v[idx], sigma, axis=0)
     vp = np.vstack([vu[:1], vu, vu[-1:]])
     c = -voltage_curvature_1d(vp, pitch, axis=0) * (pitch * 1e-6) ** 2
-    return c, idx, float(c[:, base].std() or 1.0)
+    return c, idx, float(c[:, base].std())
 
 
 def evoked_csd_sink(
@@ -299,7 +307,7 @@ def evoked_csd_sink(
         Dict with ``strongest_contact`` (index into the full shaft, NaN when below
         ``min_sink_z`` or too few contacts), ``strongest_z``, ``strongest_position_um``,
         ``earliest_contact``, ``earliest_onset_ms`` and ``earliest_position_um``; NaN where
-        undefined.
+        undefined, and all NaN when the baseline CSD is flat.
 
     Raises:
         ValueError: If the shapes disagree, no sample precedes 0 ms, or ``pitch_um`` is invalid.
@@ -325,6 +333,8 @@ def evoked_csd_sink(
     if usable.sum() < int(min_contacts):
         return out
     c, idx, base = _csd(e, t, usable, float(smooth_um) / pitch, pitch)
+    if not base > 0:
+        return out  # a flat baseline CSD leaves every z-score undefined
     win = (t >= sink_window_ms[0]) & (t < sink_window_ms[1])
     zc = c[:, win].min(axis=1) / base
     k = int(np.argmin(zc))

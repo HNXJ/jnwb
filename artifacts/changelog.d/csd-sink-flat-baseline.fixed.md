@@ -1,0 +1,1 @@
+- `evoked_csd_sink` returns NaN on a flat baseline instead of z-scoring by 1.0 (`jnwb/laminar_curation.py`).

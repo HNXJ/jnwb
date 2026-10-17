@@ -438,7 +438,6 @@ if __name__ == "__main__":
 
     repaired, frac, diag = repair_lfp_trials(base, times_ms=None, reward_window_ms=None)
     assert diag["n_flagged_cells"] >= 1, "self-test FAILED: injected spike not flagged"
-    assert (7, ) or True
     flagged_here = np.abs(repaired[7, :, 100] - base[7, :, 100]).max() > 1.0
     assert flagged_here, "self-test FAILED: flagged cell was not substituted"
     untouched = np.allclose(repaired[0], base[0])
