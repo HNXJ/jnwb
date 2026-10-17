@@ -965,7 +965,7 @@ class TestAlternativeWithoutPermutations:
         greater = oa.jrsa(self.x1, self.x2, metric="pearson", alternative="greater", rng=0,
                           **kw)
         assert float(less.p) == pytest.approx(p2 / 2, rel=1e-9) and float(less.p) < 1e-50
-        assert float(greater.p) == 1.0 - p2 / 2
+        assert float(greater.p) == pytest.approx(1.0 - p2 / 2, rel=1e-12)
         # Per lag, on each lag's own sign. The fixture needs lags of both signs: with one
         # sign throughout, taking every lag's side from the first lag would pass too.
         g = np.random.default_rng(11)

@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
+GITHUB_DIR = Path(__file__).resolve().parents[1] / ".github"
 
 
 LINK = re.compile(r"\]\(([^)#]+)(?:#[^)]*)?\)")
@@ -35,6 +36,15 @@ def broken_links(docs_dir: Path, pages: "list[Path] | None" = None) -> "list[str
 def test_mkdocs_markdown_internal_links_resolve():
     offenders = broken_links(DOCS_DIR)
     assert offenders == [], "broken internal doc links: " + "; ".join(offenders)
+
+
+def test_the_github_pages_links_resolve():
+    """`.github/*.md` resolves its links from `.github/`, not from the repository root, so a
+    link written from the root lands on a path that is not there."""
+    pages = sorted(GITHUB_DIR.glob("*.md"))
+    assert pages, "fixture must find .github pages"
+    offenders = broken_links(GITHUB_DIR, pages)
+    assert offenders == [], "broken links in .github pages: " + "; ".join(offenders)
 
 
 def test_the_agent_entry_page_links_resolve(tmp_path):

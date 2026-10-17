@@ -218,5 +218,5 @@ Kept here so they are not re-proposed as improvements.
 |---|---|
 | A global word ceiling across all pages | fails the reference pages for being long, which is what a reference is |
 | "Prefer active voice" | not checkable twice with the same answer |
-| "Every page opens with a summary paragraph" | would add words to the four pages already over their ceiling |
+| "Every page opens with a summary paragraph" | would add words to the eleven pages already over their ceiling |
 | "Figures are inline SVG, never raster" | forbids what nine pages do today, which is the signal that the rule is wrong rather than the pages |

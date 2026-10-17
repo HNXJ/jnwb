@@ -81,8 +81,8 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
 # Stamped into every file this module writes, as `conversion_script` and inside each converted
 # dataset's `stored_dtype_note`. Both used to name `scripts/convert_nwb_compressed.py`,
-# which has never existed in this repository -- 22 of 22 real sessions carry that dead path, and
-# nothing ever resolved it, which is how it survived a release. Provenance that names a script
+# which this repository deleted on 2026-08-19 -- 22 of 22 real sessions carry that dead path, and
+# nothing resolved it, which is how it survived a release. Provenance that names a script
 # nobody can run does not merely fail to help; it sends a reader somewhere that does not exist.
 # The repair is to name the public entry point that actually performed the conversion, NOT to add
 # a script that makes the old string true -- that would satisfy the stamp rather than the caller.
@@ -662,7 +662,7 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
 
         dst.attrs["conversion_script"] = CONVERSION_ENTRY_POINT
         # INTENTIONAL BREAK, stated at the change site per the "invariants do not change silently"
-        # rule: this field used to read "v2", the version of a script that never existed. It now
+        # rule: this field used to read "v2", the version of a script that had been deleted. It now
         # versions the thing `conversion_script` actually names, so the pair resolves together.
         dst.attrs["conversion_script_version"] = _jnwb_version
         dst.attrs["conversion_date"] = time.strftime("%Y-%m-%d")

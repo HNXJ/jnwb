@@ -2,10 +2,10 @@
 
 Everything you need to make a change and get it merged: the mechanics first, then the
 rules a change is held to. The working rules for agents and the repository map live in
-[`AGENTS.md`](AGENTS.md). The contracts a *caller* can rely on -- randomness, devices,
+[`AGENTS.md`](../AGENTS.md). The contracts a *caller* can rely on -- randomness, devices,
 shapes, units, and what each operation does when it cannot support a fit -- are
 documentation, in
-[`docs/10_operation_specifications.md`](docs/10_operation_specifications.md).
+[`docs/10_operation_specifications.md`](../docs/10_operation_specifications.md).
 
 ## Setup
 
@@ -236,7 +236,7 @@ produced six false kills in 0.2.5 and hid a real gap behind them.
 ## Documentation rule
 
 - **Truth Precedence**: Code and direct empirical receipts define implemented behavior. Documentation must describe actual behavior without claiming stronger scientific capabilities than what is implemented and verified.
-- **Form**: every page follows [`docs/documentation_form.md`](docs/documentation_form.md), the
+- **Form**: every page follows [`docs/documentation_form.md`](../docs/documentation_form.md), the
   contract for tables, vocabulary, length, navigation and figures. It is kept off the
   published site.
 - **Dashboard**: `scripts/build_dashboard.py` builds the site from committed records, and
@@ -396,7 +396,7 @@ Every contributor adheres to these scientific invariants:
 
 ## Where the work is queued
 
-[`artifacts/todo_stack.md`](artifacts/todo_stack.md) holds the remaining work, grouped by
+[`artifacts/todo_stack.md`](../artifacts/todo_stack.md) holds the remaining work, grouped by
 the version that will carry it, most consequential first. It holds only what is not yet
 done — a finished item is deleted, because git and the changelog already record it. If you
 finish something, delete it from the stack in the same commit.

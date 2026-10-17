@@ -171,6 +171,7 @@ class TestTheWarningNamesTheFunctionTheCallerInvoked:
         messages = _runtime_warnings(
             lambda: granger_causality(x, y, order=5, device="cuda", ridge=0.1))
 
+        assert messages, "the GPU request must warn, or the check below passes on nothing"
         assert all("fit_var_bivariate" not in m for m in messages)
 
     def test_select_optimal_lag_never_names_it_either(self, pretend_gpu, signals):
@@ -178,6 +179,7 @@ class TestTheWarningNamesTheFunctionTheCallerInvoked:
         messages = _runtime_warnings(
             lambda: select_optimal_lag(x, y, max_lag=4, device="cuda", ridge=0.1))
 
+        assert messages, "the GPU request must warn, or the check below passes on nothing"
         assert all("fit_var_bivariate" not in m for m in messages)
 
     def test_a_gpu_failure_mid_computation_names_it_too(self, pretend_gpu, monkeypatch,
