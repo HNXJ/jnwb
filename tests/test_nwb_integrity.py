@@ -812,6 +812,20 @@ class TestCheckWaveformBlocksDense:
         assert rep.units[0].best_dev == 15.0 and rep.units[1].best_dev == 15.0
         assert rep.units[0].matched_row is None and rep.units[1].matched_row is None
 
+    def test_one_nan_row_leaves_best_dev_finite(self, tmp_path):
+        """`best_dev` is the smallest deviation over the finite rows; one NaN channel must not
+        turn it NaN while another row still matches (roadmap 12-24)."""
+        from jnwb import check_waveform_blocks
+
+        blocks = _dense_stack()
+        nan_row = (_DENSE_CHANNEL[0] + 1) % blocks.shape[2]
+        blocks[0][:, nan_row] = np.nan
+        assert np.isnan(blocks[0]).any() and np.isfinite(blocks[0][:, _DENSE_CHANNEL[0]]).all()
+        rep = check_waveform_blocks(_dense_write(tmp_path / "nanrow.nwb", blocks), rtol=1e-9)
+        first = rep.units[0]
+        assert first.status == "owned" and first.matched_row == _DENSE_CHANNEL[0]
+        assert first.best_dev == 0.0
+
     def test_a_nan_amplitude_is_unknown_not_unowned(self, tmp_path):
         from jnwb import check_waveform_blocks
 

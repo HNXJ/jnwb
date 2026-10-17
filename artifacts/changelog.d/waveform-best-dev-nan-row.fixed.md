@@ -1,0 +1,1 @@
+- `check_waveform_blocks` reports a finite `best_dev` when one row of a block is NaN; it was NaN.
