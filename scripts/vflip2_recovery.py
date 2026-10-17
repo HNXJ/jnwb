@@ -39,12 +39,14 @@ import numpy as np  # noqa: E402
 from scipy import signal, stats  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# Under JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the checkout stays off the path,
+# so the import below reaches the copy the variable names.
+if not os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
 
 import jnwb  # noqa: E402
 
-# Under JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the import must come from there.
 _EXPECTED = pathlib.Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or ROOT).resolve()
 if _EXPECTED not in pathlib.Path(jnwb.__file__).resolve().parents:
     raise SystemExit(f"jnwb was imported from {jnwb.__file__}, not from {_EXPECTED}; "

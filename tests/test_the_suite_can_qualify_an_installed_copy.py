@@ -458,6 +458,30 @@ def test_every_script_a_test_imports_accepts_the_installed_copy(tmp_path: Path) 
     failed = result.stdout.strip()
     assert not failed, f"these scripts refuse the copy JNWB_EXPECTED_PACKAGE_ROOT names:\n{failed}"
 
+    # Run by path, as a test's subprocess does, with nothing imported yet: a script that still
+    # prepends the checkout imports it and refuses it (test_vflip2_recovery's caller test on
+    # 15b4b5aa), or worse, measures it while the variable names the installed copy.
+    paths = {n: ROOT / "scripts" / (n.replace(".", "/") + ".py") for n in names}
+    guarded = [n for n in names if "jnwb.__file__" in paths[n].read_text(encoding="utf-8")]
+    assert "vflip2_recovery" in guarded, guarded
+    by_path = []
+    for name in guarded:
+        script = paths[name]
+        run = textwrap.dedent(f"""
+            import pathlib, runpy, sys
+            ns = runpy.run_path({str(script)!r}, run_name="_probe_")
+            if "_checkout_jnwb" in ns:
+                ns["_checkout_jnwb"]()
+            import jnwb
+            site = pathlib.Path({str(site)!r}).resolve()
+            assert site in pathlib.Path(jnwb.__file__).resolve().parents, jnwb.__file__
+        """)
+        result = subprocess.run([sys.executable, "-c", run], cwd=tmp_path, capture_output=True,
+                                text=True, timeout=600, env=env)
+        if result.returncode != 0:
+            by_path.append(f"{name}: {(result.stderr.strip().splitlines() or ['?'])[-1]}")
+    assert not by_path, "run by path, these scripts do not use the named copy:\n" + "\n".join(by_path)
+
 
 def _build_steps() -> list[dict]:
     workflow = yaml.safe_load(

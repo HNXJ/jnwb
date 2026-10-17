@@ -676,14 +676,17 @@ def check_recorded_order(exports: Sequence[str], record_text: str) -> Tuple[List
 def _checkout_jnwb():
     """This tree's jnwb, for the command line. A copy in site-packages would be measured
     silently, so the checkout goes first and the import is verified to have used it. Under
-    JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the import must come from there."""
+    JNWB_EXPECTED_PACKAGE_ROOT (CI's installed-wheel leg) the checkout stays off the path and
+    the import must come from there."""
     import os
 
-    if str(REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(REPO_ROOT))
+    expected = os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT")
+    if not expected:
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
     import jnwb
 
-    root = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or REPO_ROOT).resolve()
+    root = Path(expected or REPO_ROOT).resolve()
     location = Path(jnwb.__file__).resolve()
     if root not in location.parents:
         raise RuntimeError(f"imported jnwb from {location}, not from {root}")
