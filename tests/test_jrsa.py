@@ -22,6 +22,7 @@ literal list on both sides is a fixed point that agrees with itself whatever the
 """
 
 import contextlib
+import inspect
 import io
 import re
 import warnings
@@ -277,38 +278,12 @@ def test_the_withdrawn_methods_raise_rather_than_falling_back(method):
 
 
 # ---------------------------------------------------------------------------
-# align_mode -- accepted, ignored and deprecated
+# align_mode -- removed in 0.2.13, as the 0.2.11 deprecation announced
 # ---------------------------------------------------------------------------
 
-def _pair():
-    """Equal-length vectors. jrsa refuses unequal shapes before alignment, so no input it
-    accepts reaches the resampler and `align_mode` has no effect on any of them."""
+def test_align_mode_is_gone_and_passing_it_raises():
+    assert "align_mode" not in inspect.signature(jnwb.jrsa).parameters
     rng = np.random.default_rng(0)
-    return rng.normal(size=30), rng.normal(size=30)
-
-
-def test_passing_align_mode_warns_deprecation():
-    a, b = _pair()
-    with pytest.warns(DeprecationWarning,
-                      match="align_mode has no effect and will be removed in 0.2.13"):
+    a, b = rng.normal(size=30), rng.normal(size=30)
+    with pytest.raises(TypeError, match="align_mode"):
         jnwb.jrsa(a, b, metric="pearson", stats=False, align_mode="sample")
-
-
-def test_align_mode_leaves_the_result_unchanged():
-    a, b = _pair()
-    kwargs = dict(metric="pearson", stats=True, permutations=10, null="iid", rng=0)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        given = jnwb.jrsa(a, b, align_mode="sample", **kwargs)
-    plain = jnwb.jrsa(a, b, **kwargs)
-    np.testing.assert_allclose(given.value, plain.value, rtol=1e-12)
-    np.testing.assert_allclose(given.p, plain.p, rtol=1e-12)
-
-
-def test_not_passing_align_mode_emits_no_deprecation_warning():
-    a, b = _pair()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        jnwb.jrsa(a, b, metric="pearson", stats=False)
-    deprecations = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-    assert deprecations == [], [str(w.message) for w in deprecations]

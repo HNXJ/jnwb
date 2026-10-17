@@ -1241,7 +1241,7 @@ class TestSimilarityEdges:
 
         t10, t7 = np.linspace(0.0, 1.0, 10), np.linspace(0.0, 1.0, 7)
         x1, x2 = np.stack([t10 ** power, 2.0 - t10 ** power]), np.zeros((2, 7))
-        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+        out1, out2 = _resample_axis(x1, x2, 1, 10, 7, align)
         np.testing.assert_allclose(out1, np.stack([t7 ** power, 2.0 - t7 ** power]),
                                    rtol=0, atol=1e-12)
         assert out2 is x2
@@ -1283,7 +1283,7 @@ class TestSimilarityEdges:
         monkeypatch.setitem(sys.modules, "scipy.interpolate", None)
         x1, x2 = np.arange(10.0)[None], np.arange(7.0)[None]
         with pytest.raises(ImportError):
-            _resample_axis(x1, x2, 1, 10, 7, align, "fraction")
+            _resample_axis(x1, x2, 1, 10, 7, align)
 
     def test_no_metric_or_resampler_holds_a_cupy_branch(self):
         """IB-48: `_to_backend` hands every metric a NumPy array, so the CuPy branches of

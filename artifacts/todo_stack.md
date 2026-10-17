@@ -39,7 +39,6 @@ one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 1 | L laminar | 15-11 | `scripts/vflip2_recovery.py`, `tests/test_vflip2_recovery.py`, `artifacts/evidence/0.2.13/vflip2_recovery.*` | Andre Bastos's simulation code |
-| 1 | A api | 15-21 | `jnwb/jrsa/__init__.py`, `tests/test_jrsa.py` | nothing |
 
 ### 15-11 `vflip2` recovers a planted vFLIP2 crossover
 
@@ -48,10 +47,3 @@ Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: Andre Bastos's simulation
 Writes: `scripts/vflip2_recovery.py`, `tests/test_vflip2_recovery.py`, `artifacts/evidence/0.2.13/vflip2_recovery.md`, `artifacts/evidence/0.2.13/vflip2_recovery.json`.
 - The generator half landed in 1dbcedbf (`synth_vflip2_crossover`, the frozen oracle, `artifacts/evidence/0.2.13/vflip2_recovery.md`: recovery 29 of 100, matched null 24 of 100, grid 63 of 100, both targets missed and untuned). The same table has not run on Andre Bastos's simulation code. Check: `vflip2_recovery.md` gains a section for his code with the six measures, intervals and `target_met`, under the contract in `artifacts/evidence/0.2.13/vflip2_generator_design.md`. Waits: needs his code; nothing shipped changes.
 Accept: the CI tests the design names pass and the evidence file names entropy, counts, intervals and `target_met` for his code. Ruled 2026-10-14 (15-03 split) and 2026-10-15 (15-11 design).
-
-### 15-21 `jrsa(align_mode=)` removed as announced
-
-Release: deferred-0.2.13.
-Role: jnwb-developer. Skill: jnwb-population. Blocked by: none.
-Writes: `jnwb/jrsa/__init__.py`, `tests/test_jrsa.py`, `artifacts/changelog.d/jrsa-align-mode.removed.md`.
-- 15-21: the 0.2.11 entry of `CHANGELOG.md` and the warning at `jnwb/jrsa/__init__.py:423` promise removal in 0.2.13, and no stack held it (open-stack scan, 2026-10-15) -> `jrsa(align_mode=...)` still warns instead of raising `TypeError`. Check: `inspect.signature(jnwb.jrsa)` has no `align_mode`, and a test passing it expects `TypeError`. Waits: announced one release ahead; nothing computes differently.

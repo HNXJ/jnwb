@@ -123,7 +123,7 @@ def _standardize_dimensions(x1, x2, adim, labels):
     return x1, x2, axis_map
 
 
-def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
+def _align_dimensions(x1, x2, axis_map, align, verbose):
     """Align x1 and x2 along each axis in axis_map."""
     aligned_axes = ()
     if x2 is None:
@@ -148,7 +148,7 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
         n1, n2 = x1.shape[ax], x2.shape[ax]
         if n1 == n2:
             continue
-        x1, x2 = _resample_axis(x1, x2, ax, n1, n2, align, align_mode)
+        x1, x2 = _resample_axis(x1, x2, ax, n1, n2, align)
         aligned_axes_list.append(ax)
         if verbose:
             print(f"[jrsa] aligned axis {ax} ({name}): {n1} → {n2 if n2 < n1 else n1}")
@@ -160,7 +160,7 @@ def _align_dimensions(x1, x2, axis_map, align, align_mode, verbose):
 ALIGN_MODES = ("auto", "downsample", "upsample", "nearest", "interpolate", "linear", "cubic")
 
 
-def _resample_axis(x1, x2, axis, n1, n2, align, align_mode):
+def _resample_axis(x1, x2, axis, n1, n2, align):
     """Resample one array along *axis* to match the other, respecting GPU/CPU."""
     xp1 = _get_xp(x1)
     xp2 = _get_xp(x2)

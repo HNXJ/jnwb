@@ -1206,13 +1206,13 @@ class TestTheRepairsFoundByThisSweep:
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 25))
         with pytest.raises(ValueError, match="bogus"):
-            _align_dimensions(a1, a2, {"aligned": 1}, "bogus", "fraction", False)
+            _align_dimensions(a1, a2, {"aligned": 1}, "bogus", False)
 
     def test_a_recognised_align_still_aligns(self):
         from jnwb.jrsa import _align_dimensions
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 25))
-        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", "fraction", False)
+        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", False)
         assert o1.shape == o2.shape == (8, 25)
         assert axes == (1,)
 
@@ -1221,5 +1221,5 @@ class TestTheRepairsFoundByThisSweep:
         from jnwb.jrsa import _align_dimensions
         rng = np.random.default_rng(0)
         a1, a2 = rng.normal(size=(8, 40)), rng.normal(size=(8, 40))
-        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", "fraction", False)
+        o1, o2, axes = _align_dimensions(a1, a2, {"aligned": 1}, "downsample", False)
         assert axes == ()
