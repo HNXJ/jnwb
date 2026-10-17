@@ -98,15 +98,20 @@ def _check_channels_first(data: np.ndarray, name: str, ndim: Tuple[int, ...]) ->
 
 
 def _local_neighbor_correlation(corr: np.ndarray, bad: np.ndarray, window: int) -> np.ndarray:
-    """Median correlation of each contact with the good contacts within ``window`` of it."""
+    """Median correlation of each contact with the good contacts within ``window`` of it.
+
+    A pair whose correlation is undefined (a constant contact) is left out of the median, so a
+    dead contact leaves its neighbours' values defined instead of making them NaN.
+    """
     n = len(corr)
     out = np.full(n, np.nan)
     for i in range(n):
         lo, hi = max(0, i - window), min(n, i + window + 1)
         if hi - lo < 2 * window + 1:  # near an end: take the nearest 2*window+1 contacts
             lo, hi = (0, min(n, 2 * window + 1)) if lo == 0 else (max(0, n - 2 * window - 1), n)
-        picks = [m for m in range(lo, hi) if m != i and not bad[m]]
-        out[i] = np.median(corr[i, picks]) if picks else np.nan
+        picks = corr[i, [m for m in range(lo, hi) if m != i and not bad[m]]]
+        picks = picks[np.isfinite(picks)]
+        out[i] = np.median(picks) if picks.size else np.nan
     return out
 
 

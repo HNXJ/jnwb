@@ -155,6 +155,17 @@ class TestUndefinedScales:
         assert out["log_power"][2] == -np.inf
         assert np.isfinite(np.delete(out["log_power"], 2)).all()
 
+    @pytest.mark.parametrize("n", [4, 6, 8, 16])
+    def test_a_dead_contact_flags_only_itself_on_a_short_probe(self, n):
+        rng = np.random.default_rng(1)
+        x = 2.0 * rng.normal(size=4000)[None, :] + rng.normal(size=(n, 4000))
+        x[2] = 0.0
+        assert np.corrcoef(x[[0, 1]])[0, 1] > 0.5, "fixture must correlate its live contacts"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = jnwb.detect_bad_channels(x, FS, max_iterations=1)
+        assert np.flatnonzero(out["bad_mask"]).tolist() == [2]
+
     def test_a_flat_baseline_leaves_the_sink_undefined(self):
         erp, t = _sink_erp()
         found = jnwb.evoked_csd_sink(erp, t, pitch_um=PITCH)["strongest_contact"]
