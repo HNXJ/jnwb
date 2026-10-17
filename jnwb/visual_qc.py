@@ -370,17 +370,30 @@ def plot_noise_vs_signal(
     Returns:
         matplotlib figure
 
+    Raises:
+        ValueError: If ``units_df`` lacks ``snr``, ``firing_rate``, ``waveform_duration`` or
+            ``quality``; the message names each absent column.
+
     Example:
         >>> fig = plot_noise_vs_signal(all_units)
         >>> fig.savefig('noise_vs_signal.png')
     """
+    # Every panel reads one of these; `area` is optional and its panel says so when absent.
+    required = ('snr', 'firing_rate', 'waveform_duration', 'quality')
+    absent = [col for col in required if col not in units_df.columns]
+    if absent:
+        raise ValueError(
+            f"plot_noise_vs_signal: units_df has no {absent} column; each panel plots one of "
+            f"{list(required)}, so the figure cannot be drawn without them."
+        )
+
     fig, axes = plt.subplots(2, 2, figsize=figsize)
     fig.suptitle('Signal vs. Noise Tradeoffs', fontsize=14, fontweight='bold')
 
     # SNR vs Firing Rate
     ax = axes[0, 0]
-    snr_vals = pd.to_numeric(units_df.get('snr', []), errors='coerce')
-    fr_vals = pd.to_numeric(units_df.get('firing_rate', []), errors='coerce')
+    snr_vals = pd.to_numeric(units_df['snr'], errors='coerce')
+    fr_vals = pd.to_numeric(units_df['firing_rate'], errors='coerce')
     ax.scatter(fr_vals, snr_vals, alpha=0.5, s=30)
     ax.set_xlabel('Firing Rate (spikes/sec)')
     ax.set_ylabel('SNR')
@@ -389,7 +402,7 @@ def plot_noise_vs_signal(
 
     # SNR vs Waveform Duration
     ax = axes[0, 1]
-    wd_vals = pd.to_numeric(units_df.get('waveform_duration', []), errors='coerce')
+    wd_vals = pd.to_numeric(units_df['waveform_duration'], errors='coerce')
     ax.scatter(wd_vals, snr_vals, alpha=0.5, s=30)
     ax.set_xlabel(_with_unit('Waveform Duration', duration_unit))
     ax.set_ylabel('SNR')
@@ -398,7 +411,7 @@ def plot_noise_vs_signal(
 
     # Quality vs Firing Rate
     ax = axes[1, 0]
-    q_vals = pd.to_numeric(units_df.get('quality', []), errors='coerce')
+    q_vals = pd.to_numeric(units_df['quality'], errors='coerce')
     ax.scatter(fr_vals, q_vals, alpha=0.5, s=30)
     ax.set_xlabel('Firing Rate (spikes/sec)')
     ax.set_ylabel('Quality')

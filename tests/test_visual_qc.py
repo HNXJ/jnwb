@@ -4,6 +4,7 @@ matplotlib.use("Agg")  # headless test environment, no display needed
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pytest
 
 from jnwb.visual_qc import (
     plot_unit_waveforms,
@@ -278,6 +279,20 @@ def test_plot_noise_vs_signal_returns_2x2_figure():
     assert isinstance(fig, plt.Figure)
     assert len(fig.axes) == 4
     plt.close(fig)
+
+
+def test_plot_noise_vs_signal_names_a_missing_quality_column():
+    units = _units_df().drop(columns=["quality"])
+    with pytest.raises(ValueError, match="quality"):
+        plot_noise_vs_signal(units)
+
+
+def test_plot_noise_vs_signal_names_every_absent_column_it_needs():
+    units = _units_df().drop(columns=["quality", "waveform_duration"])
+    with pytest.raises(ValueError) as excinfo:
+        plot_noise_vs_signal(units)
+    assert "quality" in str(excinfo.value)
+    assert "waveform_duration" in str(excinfo.value)
 
 
 def test_compare_session_quality_bars_match_session_count():
