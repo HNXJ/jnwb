@@ -810,6 +810,7 @@ algorithm column still describes the replaced code for both rows.
 | `Result` | result container | frozen dataclass, no __post_init__. |
 | `SKILLS_URL` | constant | A str literal. |
 | `SqueezedAttributeWarning` | exception class | Warning subclass; construction is O(1) in every input dimension. |
+| `ContainerTypeContradictionWarning` | exception class | Warning subclass; construction is O(1) in every input dimension. |
 | `StatisticalAnalysis` | stateful class | Namespace class: no own __init__ ('__init__' in vars(...) is False), signature (), 0.07 us to construct. |
 | `TFRAnalyzer` | stateful class | TFRAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitAnalyzer` | stateful class | UnitAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |

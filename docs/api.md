@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 202 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 203 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -203,6 +203,7 @@ All 202 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
+| jnwb.ContainerTypeContradictionWarning | class | *A container's declared ``neurodata_type`` disagrees with what the file stores under it.* |
 | jnwb.MissingRequiredNWBFieldError | class | *A required NWB field is absent from the on-disk builder tree.* |
 | jnwb.SqueezedAttributeWarning | class | *A length-1 array attribute was collapsed to a scalar while reading a malformed file.* |
 | jnwb.nwb_read_io | function | `(path: 'Any', mode: 'str' = 'r', allow_missing: 'Union[Sequence[str], str, None]' = None, **kwargs: 'Any') -> 'Iterator[NWBHDF5IO]'`<br>*Open an NWB file for reading, with jnwb's builder repairs applied.* |

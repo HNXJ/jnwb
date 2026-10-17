@@ -44,6 +44,7 @@ ERRORS = [
     "AmbiguousLayoutError",
     "ChannelIndexError",
     "ColumnNotFoundError",
+    "ContainerTypeContradictionWarning",
     "IntervalTableNotFoundError",
     "InvalidOnsetValueError",
     "MissingRequiredNWBFieldError",

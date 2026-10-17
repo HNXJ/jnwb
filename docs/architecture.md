@@ -178,7 +178,7 @@ and [Directed Connectivity](08_directed_connectivity_and_information.md) the dir
 | `nwb_integrity` | Read-only ragged-index and waveform-block checks of an NWB table and one guarded index repair | `check_ragged_indices`, `repair_ragged_index`, `RaggedIndexReport`, `RaggedIndexRepair`, `RaggedIndexRepairRefused`, `check_waveform_blocks`, `WaveformBlockReport` |
 | `nwb_validate` | Layered NWB validation: read, pynwb schema (cached and installed core), integrity, NWB Inspector, DANDI | `validate_nwb`, `NWBValidationReport` |
 | `nwb_events` | Event codes and onsets from a named interval table | `events`, `event_onsets`, `resolve_interval_table`, `EventTable` |
-| `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning` |
+| `nwb_io` | NWB reads with scoped builder repairs; a missing required field is refused unless named in `allow_missing` | `read_nwb`, `nwb_read_io`, `MissingRequiredNWBFieldError`, `SqueezedAttributeWarning`, `ContainerTypeContradictionWarning` |
 | `continuous` | Epoching a continuous signal around event onsets | `epoch_continuous` |
 | `io` | Slices of NPZ arrays read without loading the whole archive | `io`, `stream_npz_array` |
 | `addressing` | Spatial channel-to-area addressing and a geometric depth class | `map_peak_channel_to_area`, `classify_layer_from_depth`, `enrich_units_dataframe` |

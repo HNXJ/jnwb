@@ -248,3 +248,10 @@ def test_a_series_with_no_unit_does_not_warn(tmp_path):
     with h5py.File(path, "r+") as handle:
         del handle["acquisition/es/data"].attrs["unit"]
     assert _warnings_from_inspect(str(path)) == []
+
+
+def test_the_warning_is_exported_by_name():
+    """A caller filters or catches it as `jnwb.ContainerTypeContradictionWarning` (ruled
+    2026-09-29, D8 (a)), the same class `inspect` raises."""
+    assert "ContainerTypeContradictionWarning" in jnwb.__all__
+    assert jnwb.ContainerTypeContradictionWarning is ContainerTypeContradictionWarning
