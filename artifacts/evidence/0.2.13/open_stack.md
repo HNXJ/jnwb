@@ -1,79 +1,65 @@
-# Open stack (jnwb, 2026-10-15)
+# Open stack (jnwb, 2026-10-17)
 
-Everything open on `dev` after 1dbcedbf (15-11's generator half, pushed), grouped by who moves it next. Sources: `artifacts/problem_stack.md` (0 rows), `artifacts/todo_stack.md`, `artifacts/roadmap.md` (39 rows: 34 `deferred-0.2.13`, 5 `deferred-0.2.14`), the session's open work. A repository-wide scan for anything else that looks open is running and will be merged as section E.
+Everything open on `dev` after 52f2a17b, grouped by who moves it next. Sources: `artifacts/problem_stack.md` (0 rows), `artifacts/todo_stack.md` (15-11 only), `artifacts/roadmap.md` (35 rows: 30 `deferred-0.2.13`, 5 `deferred-0.2.14`), and the 2026-10-17 re-audit (A: numerical half, 19 probes; A2: I/O half, 11 probes; B: tests and docs).
+
+Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` half; audit B's hygiene rows; audit A's four code rows (the fifth, `_cluster.py` `rng=0`, is the module convention: 11 public functions default `rng` to a plain int); A2's F2. A2's F1 is not a defect: `unit_census_report` refusing a frame without its metric columns is documented in `skills/jnwb-nwb-data/references/addressing_and_metadata.md` and pinned by `test_tiers_census_and_folds_refuse_or_label_what_their_rows_say`. The `alignment_review_0.2.5.md:197` pointer is a dated receipt for a file that moved in c0c625ab. `scripts/measure_order.py` has a caller (`tests/test_computational_order_sources_agree.py`).
 
 ## A. Waits on a ruling by Hamm
 
 | Item | Open question | Source |
 |---|---|---|
 | 0.2.13 theme | The cycle runs on goal and §11 acceptance until a theme is ruled | `todo_stack.md:9` |
+| 12-24 | An all-NaN block: "unowned" (the 2026-10-10 ruling) or "unknown", in both layouts | roadmap |
 | 15-13 | `vflip2` above 200 um spacing: refuse, or a doc line | roadmap |
 | 15-15 | Whether `curate_and_label` runs `vflip2` | roadmap |
-| 15-19 / item 8 | A measured `omega_cut`, or a data-driven threshold: scientific ruling. Evidence now: recovery 29/100, matched null 24/100, grid 63/100, both targets missed (`artifacts/evidence/0.2.13/vflip2_recovery.md`) | roadmap, 15-11 |
-| 15-20 | The apparatus bound, after the inventory. Two candidate checks from the Muse gates lane wait there: warning reads filter by category; every named artifact path is tracked | roadmap, goal 10 |
-| 07-21, 07-22 | Public NWB mutation API, then execution and cache API: shape from 08-08 | roadmap |
-| 12-13 | `gpu_pca`'s replacement | roadmap |
-| 12-23 | Block-constant label permutation: new public API | roadmap |
-| 11-04, 14-06, 13-04 | Pitfall estimator and curation-screen shapes (0.2.14) | roadmap |
-| 12-05 | The process-test prune list | roadmap |
+| 15-19 | A measured `omega_cut` or a data-driven threshold (recovery 29/100, matched null 24/100) | roadmap |
+| 15-17 | The Wishart effective-n | roadmap |
+| 15-20, 12-05 | The apparatus bound after the inventory; the prune list | roadmap |
+| 07-21, 07-22, 12-13, 12-23, 11-04, 14-06, 14-07, 13-04 | Public API shapes | roadmap |
 | 11-32 | Holder cells | roadmap |
-| `scripts/measure_order.py` | Keep or remove: no live caller beyond the 0.2.6 order evidence | archive sweep |
-| `jnwb-sim-benchmark` skill | Proposal only; skills change by amendment and need the capability gate | session |
+| Open rulings | `window` retargeting (2026-09-27); dark plot `theme=` (2026-10-04); showcase publication at Gate B (2026-10-12); which CI run qualifies, dev or main (2026-10-15 R5) | `artifacts/rulings/` |
+| Shipped-surface choices | The legacy constructor path names no removal version (`docs/02_paths_addressing_metadata.md:285`); `jrsa(sliding=True)` raises `NotImplementedError`; `bilinear.py` and `nam.py` stay experimental; goal 8 records peak memory with no threshold | scan |
+| `jnwb-sim-benchmark` skill | Proposal only; skills change by amendment | session |
 
 ## B. Executable by agents now
 
 | Item | Next step | Source |
 |---|---|---|
-| 15-14 | A working `vflip2` hand-off in `docs/laminar.md` (needs a block-structured probe) | roadmap |
-| 15-16 | Repo-root guards that ignore `JNWB_EXPECTED_PACKAGE_ROOT` | roadmap |
-| 11-05 | Export `ContainerTypeContradictionWarning` | roadmap |
-| 11-01, 11-02, 12-24 | NWB reading edges, diagnostics | roadmap |
-| 12-10, 14-05, 07-05 | One unfamiliar dataset, tutorial figures 03-04, downstream paper agent | roadmap |
-| 12-04, 09-07, 12-06 | Gate reach, defect-class checks, process identifiers | roadmap |
+| 11-01 (with A2 F3) | `inspect` flags a `neurodata_type` no reader knows; needs the reader's known-type set exposed without breaking embedded extensions | roadmap, audit A2 |
+| 11-02 | Compression, unit-table and addressing edges | roadmap |
+| 12-10, 07-05 | One unfamiliar dataset through the skills; downstream paper agent | roadmap |
+| 12-04, 09-07, 12-06 | Gate reach, defect-class checks, process identifiers (re-measure 12-06's counts first) | roadmap |
+| Strict xfails | Word-pattern misses; mobile-width AWAITING ledger | `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py` |
+| WaveMAP units | Volts vs microvolts reading of source labels | `docs/tutorials/10_wavemap.md:20` |
 | Fact closure group | 10-10, 11-06, 09-04, 11-07, 12-11, 11-03, 11-09, 12-08, 12-07: ruled to wait; facts report UNHELD, nothing public claims them | roadmap |
-| Dangling pointer | `artifacts/archive/0.2.5/alignment_review_0.2.5.md:197` names `artifacts/capability_review_0.1.7.md`, a path that does not exist | prune sweep |
 
 ## C. Waits on someone outside the repository
 
 | Item | Waits on | Source |
 |---|---|---|
-| 15-11 second half | Andre Bastos's simulation code | todo stack lanes |
+| 15-11 second half | Andre Bastos's simulation code; the todo stack cannot empty before it | todo stack |
+| Issues #32, #33 | A. Bastos's answer to the review | `artifacts/rulings/2026-10-13.md:14` |
 | 12-21 | jaxfne's excerpt | roadmap |
 | 14-08 | The lab pipeline's code | roadmap |
-| jchat additions | Keeper's answer to asks 61-62 (locks, events feed, lanes board, CI ingress, ruling kind, usage totals) | p-jynx |
+| Metal path, GPU tests | Hardware | `jnwb/_backend.py:40`, `tests/test_adversarial_inputs.py:122` |
 
 ## D. Housekeeping
 
 | Item | State |
 |---|---|
-| 40 local lane branches | Kept; 8 hold `_temp_` WIP snapshots (dash-app, dash-gen, dash-pages, k1, k3, m, w, y2) |
-| Worktrees | jnwb, jnwb-main, jnwb-pr31 remain |
-| Scratch clones | cl-* under the session scratchpad; deleted after integration |
-| Evidence prune | Dropped: archived todo stacks cite almost all closed evidence; 2 probe scripts were the only uncited files |
-| Data correction | V3v on ses-260724 is an open defect (memory note; omission project) |
+| Local branches | 11 (`dash-app`, `dash-gen`, `dash-pages`, `lane-k1`, `lane-k3`, `lane-m`, `lane-w`, `lane-y2`, `_temp_never-sweep`, `main`, `dev`) |
+| Worktrees | `C:/workspace/jnwb` (dev), `C:/workspace/_temp_jnwb-main` (main) |
+| `E:/repos/jnwb` | Rename to `_temp_` blocked by a handle no unelevated scan finds |
+| Unreleased fragments | 10 in `artifacts/changelog.d/` |
+| Data correction | V3v on ses-260724 (omission project) |
 
-## E. Repository scan (Muse, 76 rows; new items only)
+## E. Useful actions, none blocking
 
-Rows that duplicate A to D, or describe a closed decision (B2 removed; 12-22 split done, no SKILL.md over 10 KB; the 2026-10-06 ruling's 0.2.10 defects) are left out.
-
-| Item | Open | Source | Who |
-|---|---|---|---|
-| `jrsa(align_mode=)` removal | Promised for 0.2.13 by the shipped CHANGELOG (0.2.11 entry) and the warning text; now todo item 15-21 | `jnwb/jrsa/__init__.py:423`, `CHANGELOG.md:95` | agents |
-| Legacy constructor path | "Will be removed", no version named | `docs/02_paths_addressing_metadata.md:285` | Hamm: name a version or drop the line |
-| `jrsa(sliding=True)` | Raises `NotImplementedError` | `jnwb/jrsa/__init__.py:222` | Hamm: implement or keep the refusal |
-| Experimental modules | `bilinear.py`, `nam.py` outside `__all__`, marked experimental | `jnwb/bilinear.py:2`, `jnwb/nam.py:2` | Hamm: promote, keep or remove |
-| Metal path | Implemented, never run on Metal hardware, declared unverified | `jnwb/_backend.py:40` | needs hardware |
-| Unreleased fragments | 4 in `artifacts/changelog.d/` (15-17, 15-18 twice, B2) plus 15-11's | `CHANGELOG.md:9` | release step |
-| WaveMAP units | Volts vs microvolts reading of source labels unverified | `docs/tutorials/10_wavemap.md:20` | agents |
-| 0.2.12 sensitivity | Upper-frequency columns not run (PSD ends at 150 Hz) | `artifacts/evidence/0.2.12/vflip2_sensitivity.md:53` | 15-19 |
-| 15-17 calibration | Wishart effective-n needs its own ruling | `artifacts/roadmap.md:23` | Hamm |
-| Frozen-waveform ownership | One question open in section 5 | `artifacts/evidence/0.2.11/frozen-waveform-disposition.md:4` | unknown |
-| Unit QC inventory | A "why open" row | `artifacts/evidence/0.2.9/unit_qc_inventory.md:65` | unknown |
-| S5 recount | 17 vs 20 sites | `artifacts/evidence/0.2.13/fact_dispositions.md:37` | 11-07 |
-| Goal 8 | Peak memory recorded with no threshold | `artifacts/goal.md:22` | Hamm |
-| Open rulings | `window` retargeting to the next axis (2026-09-27); dark plot `theme=` (2026-10-04, 09-10); all-NaN block verdict (2026-10-10, 11-41); showcase publication at Gate B (2026-10-12); which CI run qualifies, dev or main (2026-10-15 R5) | `artifacts/rulings/` | Hamm |
-| Issues #32, #33 | Open until A. Bastos answers the review | `artifacts/rulings/2026-10-13.md:14` | A. Bastos |
-| Strict xfails | Word-pattern check misses; mobile-width AWAITING ledger (~33 entries) | `tests/test_skill_decline_behaviour.py:927`, `tests/test_figure_form.py:778` | agents |
-| GPU paths | Skipped without hardware in CI | `tests/test_adversarial_inputs.py:122` | environment |
-
-Not scanned: live GitHub state, `C:/workspace/jnwb-showcase`, history beyond the clone.
+| Action | Why |
+|---|---|
+| Derive `PYTHON_SUPPORTED` from `pyproject.toml` | one source for the interpreter set (fact R6) |
+| A shared non-empty assertion helper for tests | audit B found `all(...)` over possibly-empty lists twice |
+| An exact-case pointer check | a pointer that resolves only on a case-insensitive filesystem passes on Windows |
+| Move evidence probes that hard-code `C:/workspace/jnwb` to repository-relative paths | they fail in any other clone |
+| `detect_bad_channels` on few independent contacts | 6 white-noise contacts flag all 6 through the iterative cascade; 16 flag only a dead one. Correlated LFP is the documented input; a doc line or a minimum-contact note may help |
+| Size-1 dimensions in `nwb_inspect` layout resolution | a `(1, 1)` series raises `AmbiguousLayoutError` though both readings agree; documented and safe |
