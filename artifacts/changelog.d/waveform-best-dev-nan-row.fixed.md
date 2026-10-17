@@ -1,1 +1,1 @@
-- `check_waveform_blocks` reports a finite `best_dev` when one row of a block is NaN; it was NaN.
+- `check_waveform_blocks` gives a finite `best_dev` when one block row is NaN (`jnwb/nwb_integrity.py`).

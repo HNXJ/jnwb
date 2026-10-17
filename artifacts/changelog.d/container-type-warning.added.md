@@ -1,1 +1,1 @@
-- `jnwb.ContainerTypeContradictionWarning` is exported, so the warning `inspect` raises when a container's declared `neurodata_type` disagrees with what the file stores can be caught by name.
+- Export `ContainerTypeContradictionWarning`, which `inspect` raises on a contradicted type (`jnwb/__init__.py`).
