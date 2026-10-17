@@ -1633,6 +1633,149 @@ def fig26_ensembles_rdm_decoding():
     plt.close(fig)
 
 
+#: fig27's planted rate step: the seed, the trial count, the baseline and response rates in Hz,
+#: the onset in ms, and the fit guards. The step is sustained to the window's end, so the trace
+#: matches the plateau the onset model fits; the tolerance and R² floor sit far from the measured
+#: error (3.1 ms) and R² (0.99).
+FIG27_SEED = 11
+FIG27_N_TRIALS = 80
+FIG27_BASE_HZ = 6.0
+FIG27_RESP_HZ = 60.0
+FIG27_T0_MS = 80.0
+FIG27_TOL_MS = 15.0
+FIG27_MIN_R2 = 0.8
+
+
+def fig27_spiking_psth_onset():
+    """Figure 27: Synthetic. The raster and PSTH of Poisson spikes with a planted rate step, the
+    causal smoothing and the exponential onset fit of the spiking tutorial, with the fit over the
+    data."""
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.WIDTH, 4.2), sharex=True, dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1.2, 1]})
+
+    rng = np.random.default_rng(FIG27_SEED)
+    onsets = np.arange(FIG27_N_TRIALS) * 1.5
+    t0_s = FIG27_T0_MS / 1000.0
+    relatives, trains = [], []
+    for start in onsets:
+        base = rng.uniform(-0.1, t0_s, rng.poisson(FIG27_BASE_HZ * (t0_s + 0.1)))
+        resp = rng.uniform(t0_s, 0.4, rng.poisson(FIG27_RESP_HZ * (0.4 - t0_s)))
+        rel = np.sort(np.concatenate([base, resp]))
+        relatives.append(rel)
+        trains.extend(rel + start)
+    trains = np.asarray(trains)
+
+    for idx, rel in enumerate(relatives):
+        ax_a.vlines(rel * 1000, idx, idx + 0.8, color=C_DARK, lw=style.LW_THIN)
+    ax_a.axvline(0, color=style.NEUTRAL, ls=":", lw=style.LW_THIN)
+    ax_a.set_ylim(-0.5, FIG27_N_TRIALS + 0.5)
+    ax_a.set_ylabel("Trial index")
+    style.panel_title(ax_a, "A", f"Spike raster ({FIG27_N_TRIALS} trials)")
+
+    # The PSTH, smoothing and fit are the calls the spiking tutorial draws with, on its window
+    # and bin width.
+    t_ms, rate_hz, sem_hz = jnwb.raster_psth(trains, onsets, win_ms=(-100.0, 400.0), bin_ms=10.0)
+    smooth_hz = jnwb.causal_exp_smooth(rate_hz, bin_ms=10.0, tau_ms=25.0)
+    fit = jnwb.fit_exponential_onset(t_ms, smooth_hz, t0_bounds_ms=(0.0, 200.0))
+    assert abs(fit["t0"] - FIG27_T0_MS) <= FIG27_TOL_MS, "fig27 must recover the planted onset"
+    assert fit["r2"] > FIG27_MIN_R2, "fig27 must hold a non-degenerate onset fit"
+    pred = jnwb.onset_model(t_ms, fit["t0"], fit["tau"], fit["amplitude"], fit["baseline"])
+
+    ax_b.plot(t_ms, rate_hz, color=style.VARIABLE["observed"], lw=style.LW, label="Mean rate")
+    ax_b.fill_between(t_ms, rate_hz - sem_hz, rate_hz + sem_hz, color=style.VARIABLE["observed"],
+                      alpha=0.35, lw=0, label="±1 SEM")
+    ax_b.plot(t_ms, smooth_hz, color=style.VARIABLE["smoothed"], lw=style.LW,
+              label="Causal smoothing (jnwb.causal_exp_smooth)")
+    ax_b.plot(t_ms, pred, color=style.VARIABLE["fitted"], lw=style.LW_THICK,
+              label=f"Onset fit: t0 = {style.num(fit['t0'], '.1f')} ms "
+                    f"(R² = {style.num(fit['r2'], '.2f')})")
+    ax_b.axvline(fit["t0"], color=style.VARIABLE["fitted"], ls=(0, (6, 3)), lw=style.LW_THIN)
+    ax_b.axvline(FIG27_T0_MS, color=style.VARIABLE["truth"], ls=":", lw=style.LW,
+                 label=f"Ground truth (t0 = {FIG27_T0_MS:.0f} ms)")
+    ax_b.set_ylim(0, float(np.max(rate_hz + sem_hz)) * 1.3)
+    ax_b.set_xlabel("Time relative to onset (ms)")
+    ax_b.set_ylabel("Firing rate (Hz)")
+    style.panel_title(ax_b, "B", "PSTH and onset fit (jnwb.raster_psth, jnwb.fit_exponential_onset)")
+    ax_b.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=2)
+
+    fig.tight_layout()
+    _save(fig, "fig27_spiking_psth_onset.png")
+    plt.close(fig)
+
+
+#: fig28's planted coupling: the shared rhythm, its lag on channel 1 in samples at 1000 Hz, the
+#: record length, and the band the coupling is read in with its off-band control. The lag is a
+#: fraction of a cycle, so the coupling is non-zero-lag; the margins below sit far from the
+#: measured band-power ratio (39.7) and wPLI values (0.75 coupled, 0.05 control).
+FIG28_SEED = 23
+FIG28_FS = 1000.0
+FIG28_SECONDS = 30.0
+FIG28_RHYTHM_HZ = 20.0
+FIG28_LAG_SAMPLES = 8
+FIG28_BAND_HZ = (15.0, 30.0)
+FIG28_OFFBAND_HZ = (40.0, 55.0)
+FIG28_MIN_POWER_RATIO = 5.0
+FIG28_MIN_WPLI_GAP = 0.3
+
+
+def fig28_lfp_spectral_wpli():
+    """Figure 28: Synthetic. The Welch spectrum and the wPLI of two LFP channels sharing a rhythm
+    with a fixed lag on one channel, against an independent-noise control."""
+    fig, (ax_a, ax_b) = plt.subplots(2, 1, figsize=(style.WIDTH, 4.2), sharex=True, dpi=style.DPI,
+                                     gridspec_kw={"height_ratios": [1, 1]})
+
+    rng = np.random.default_rng(FIG28_SEED)
+    t = np.arange(int(FIG28_SECONDS * FIG28_FS)) / FIG28_FS
+    shared = 1.5 * np.sin(2.0 * np.pi * FIG28_RHYTHM_HZ * t)
+    ch0 = shared + rng.standard_normal(len(t))
+    ch1 = np.roll(shared, FIG28_LAG_SAMPLES) + rng.standard_normal(len(t))
+    control = rng.standard_normal(len(t))
+
+    # The spectrum and band powers are the calls the LFP tutorial draws with.
+    freqs, psd = jnwb.compute_psd(ch0, fs=FIG28_FS)
+    beta = jnwb.band_power(ch0, fs=FIG28_FS, freq_range=FIG28_BAND_HZ, normalize=False)
+    off = jnwb.band_power(ch0, fs=FIG28_FS, freq_range=FIG28_OFFBAND_HZ, normalize=False)
+    assert beta / off > FIG28_MIN_POWER_RATIO, "fig28 must hold band power above the noise"
+    coupled = jnwb.wpli(ch0, ch1, fs=FIG28_FS, freq_range=FIG28_BAND_HZ)
+    independent = jnwb.wpli(ch0, control, fs=FIG28_FS, freq_range=FIG28_BAND_HZ)
+    assert independent["wpli"] < coupled["wpli"] < 1.0, "fig28 must order the wPLI below one"
+    assert coupled["wpli"] - independent["wpli"] > FIG28_MIN_WPLI_GAP, \
+        "fig28 must hold the coupling clear of the control"
+
+    ax_a.plot(freqs, psd, color=style.NEUTRAL, lw=style.LW_THIN)
+    ax_a.axvspan(FIG28_BAND_HZ[0], FIG28_BAND_HZ[1], color=C_HIGHLIGHT, alpha=0.4, lw=0)
+    ax_a.set_xlim(0.0, 60.0)
+    ax_a.set_ylabel("Power spectral density\n(a.u.²/Hz)")
+    style.panel_title(ax_a, "A", "Welch spectrum (jnwb.compute_psd)")
+    ax_a.legend(handles=[
+        Line2D([], [], color=style.NEUTRAL, lw=style.LW_THIN, label="Welch PSD"),
+        Patch(color=C_HIGHLIGHT, alpha=0.4,
+              label=f"{FIG28_BAND_HZ[0]:.0f}−{FIG28_BAND_HZ[1]:.0f} Hz band"),
+    ], frameon=False, loc="upper right")
+
+    band = (coupled["freqs"] >= FIG28_BAND_HZ[0]) & (coupled["freqs"] <= FIG28_BAND_HZ[1])
+    coupled_mean = float(np.mean(coupled["wpli_spectrum"][band]))
+    control_mean = float(np.mean(independent["wpli_spectrum"][band]))
+    ax_b.plot(coupled["freqs"], coupled["wpli_spectrum"], color=style.SERIES[0], lw=style.LW)
+    ax_b.plot(independent["freqs"], independent["wpli_spectrum"], color=style.SERIES[1], lw=style.LW)
+    ax_b.set_xlim(0.0, 60.0)
+    ax_b.set_ylim(0.0, 1.05)  # wPLI's full range: the control must read as low against it
+    ax_b.set_xlabel("Frequency (Hz)")
+    ax_b.set_ylabel("wPLI (dimensionless)")
+    style.panel_title(ax_b, "B", "wPLI against an independent-noise control (jnwb.wpli)")
+    ax_b.legend(handles=[
+        Line2D([], [], color=style.SERIES[0], lw=style.LW,
+               label=f"Lagged shared rhythm, band mean {style.num(coupled_mean, '.2f')}"),
+        Line2D([], [], color=style.SERIES[1], lw=style.LW,
+               label=f"Independent-noise control, band mean {style.num(control_mean, '.2f')}"),
+        Patch(visible=False, label=f"{coupled['n_segments']} Welch segments"),
+    ], frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=1)
+
+    fig.tight_layout()
+    _save(fig, "fig28_lfp_spectral_wpli.png")
+    plt.close(fig)
+
+
 #: Every committed figure and the function that writes it. A PNG in FIGURE_DIR that is not a
 #: key here has no generator, and the maintenance test fails on it.
 FIGURES = {
@@ -1660,6 +1803,8 @@ FIGURES = {
     "fig24_statistics_groups_cluster.png": fig24_statistics_groups_cluster,
     "fig25_laminar_csd_flips.png": fig25_laminar_csd_flips,
     "fig26_ensembles_rdm_decoding.png": fig26_ensembles_rdm_decoding,
+    "fig27_spiking_psth_onset.png": fig27_spiking_psth_onset,
+    "fig28_lfp_spectral_wpli.png": fig28_lfp_spectral_wpli,
 }
 
 

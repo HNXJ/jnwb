@@ -76,7 +76,6 @@ Use of jnwb from outside: a new dataset, a downstream agent, tutorial figures.
 |---|---|---|---|---|
 | 12-10 | One unfamiliar dataset through the skills | The DANDI 000253 tutorial runs inspection to export in direct Python (`tests/test_open_data_example.py`), but no test runs the same question through the router and skills and requires the same numbers and the same refusals (external review 2026-10-11, P2). | New coverage of a path whose operations are already tested; it cannot make release evidence falsely pass. | deferred-0.2.13 |
 | 07-05 | A downstream paper agent can consume jnwb | `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335 is unreviewed. | After 11-02; new downstream capability, not a defect. | deferred-0.2.13 |
-| 14-05 | Tutorial figures for 03 and 04 | Tutorials 03 and 04 read the noise-free test fixture (`canonical_co_resident_options(seed=42)`): the onset fit lands at t0 = 0.0 ms with R² = 0.03 and the 15 to 30 Hz wPLI is 1.000 on power at the numerical floor, so neither has a figure. | A synthetic input that gives a non-degenerate fit and coupling, without changing the test fixture. | deferred-0.2.13 |
 
 ## Harness and gates
 
