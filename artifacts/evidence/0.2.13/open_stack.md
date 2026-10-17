@@ -2,7 +2,7 @@
 
 Everything open on `dev` after 52f2a17b, grouped by who moves it next. Sources: `artifacts/problem_stack.md` (0 rows), `artifacts/todo_stack.md` (15-11 only), `artifacts/roadmap.md` (35 rows: 30 `deferred-0.2.13`, 5 `deferred-0.2.14`), and the 2026-10-17 re-audit (A: numerical half, 19 probes; A2: I/O half, 11 probes; B: tests and docs).
 
-Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` half; audit B's hygiene rows; audit A's four code rows (the fifth, `_cluster.py` `rng=0`, is the module convention: 11 public functions default `rng` to a plain int); A2's F2. A2's F1 is not a defect: `unit_census_report` refusing a frame without its metric columns is documented in `skills/jnwb-nwb-data/references/addressing_and_metadata.md` and pinned by `test_tiers_census_and_folds_refuse_or_label_what_their_rows_say`. The `alignment_review_0.2.5.md:197` pointer is a dated receipt for a file that moved in c0c625ab. `scripts/measure_order.py` has a caller (`tests/test_computational_order_sources_agree.py`).
+Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` half; audit B's hygiene rows; audit A's four code rows (the fifth, `_cluster.py` `rng=0`, is the module convention: 11 public functions default `rng` to a plain int); A2's F2; `detect_bad_channels` flagging a whole short probe for one dead contact (found while closing audit A). Two candidate actions were dropped: `PYTHON_SUPPORTED` is gate 8's independent declaration that the classifiers are checked against, and the evidence probes that name `C:/workspace/jnwb` are receipts. A2's F1 is not a defect: `unit_census_report` refusing a frame without its metric columns is documented in `skills/jnwb-nwb-data/references/addressing_and_metadata.md` and pinned by `test_tiers_census_and_folds_refuse_or_label_what_their_rows_say`. The `alignment_review_0.2.5.md:197` pointer is a dated receipt for a file that moved in c0c625ab. `scripts/measure_order.py` has a caller (`tests/test_computational_order_sources_agree.py`).
 
 ## A. Waits on a ruling by Hamm
 
@@ -57,9 +57,5 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` h
 
 | Action | Why |
 |---|---|
-| Derive `PYTHON_SUPPORTED` from `pyproject.toml` | one source for the interpreter set (fact R6) |
-| A shared non-empty assertion helper for tests | audit B found `all(...)` over possibly-empty lists twice |
-| An exact-case pointer check | a pointer that resolves only on a case-insensitive filesystem passes on Windows |
-| Move evidence probes that hard-code `C:/workspace/jnwb` to repository-relative paths | they fail in any other clone |
-| `detect_bad_channels` on few independent contacts | 6 white-noise contacts flag all 6 through the iterative cascade; 16 flag only a dead one. Correlated LFP is the documented input; a doc line or a minimum-contact note may help |
+| Non-empty preconditions in tests | a 2026-10-17 sweep of `tests/*.py` classed 40 `all(...)`/`not any(...)`/loop asserts over run-time collections as able to pass on nothing, and 27 as unsure; the class is seen twice, so it needs a check |
 | Size-1 dimensions in `nwb_inspect` layout resolution | a `(1, 1)` series raises `AmbiguousLayoutError` though both readings agree; documented and safe |
