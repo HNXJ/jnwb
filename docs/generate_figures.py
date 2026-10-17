@@ -1,4 +1,4 @@
-"""Generate 24 canonical figures for jnwb documentation.
+"""Generate the canonical figures for jnwb documentation.
 
 Each figure draws results of public jnwb calls on synthetic test signals with known ground
 truth, producing reproducible figures for docs/assets/figures/. Figure 21 is the one empirical
@@ -19,17 +19,23 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
 # The repository root, for jnwb, and this folder, for the style module. Guarded: the suite
 # executes this module in-process, and an unconditional prepend there puts the checkout ahead
-# of an installed jnwb.
+# of an installed jnwb. Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it
+# names wins.
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
-for _path in (REPO_ROOT, HERE):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+elif str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 
 import matplotlib
 matplotlib.use("Agg")

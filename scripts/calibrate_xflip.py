@@ -66,7 +66,11 @@ import numpy as np
 import scipy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
+# Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(ROOT) not in sys.path:
+        sys.path.append(str(ROOT))
+elif str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import jnwb  # noqa: E402

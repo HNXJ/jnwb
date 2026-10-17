@@ -32,6 +32,7 @@ import argparse
 import json
 import platform
 import subprocess
+import os
 import sys
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
@@ -200,7 +201,11 @@ def _child(name: str, prepeak_mib: int = 0) -> None:
     ``prepeak_mib`` touches and frees that much first, so a test can put the peak above the
     operation's before it runs, as a large import would.
     """
-    if str(REPO_ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+    elif str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     import numpy as np
     import jnwb

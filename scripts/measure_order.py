@@ -50,7 +50,11 @@ def import_checkout_jnwb():
     Importing this module must not touch ``sys.path``: a test that imports it while qualifying an
     installed jnwb would otherwise start timing, or testing, the checkout instead.
     """
-    if str(ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(ROOT) not in sys.path:
+            sys.path.append(str(ROOT))
+    elif str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     import jnwb
 

@@ -483,6 +483,72 @@ def test_every_script_a_test_imports_accepts_the_installed_copy(tmp_path: Path) 
     assert not by_path, "run by path, these scripts do not use the named copy:\n" + "\n".join(by_path)
 
 
+def _prepends_blind_to_the_variable(source: str, name: str) -> list[str]:
+    """`sys.path.insert(0, X)` of a repository directory with no enclosing branch on the variable.
+
+    Guarded against duplicates, such a prepend is a no-op inside the suite but still decides the
+    import when a test runs the script by path under the variable: the child imports the
+    checkout while the variable names the installed copy. A test on scripts that guard
+    `jnwb.__file__` missed seven such scripts on 4ed0c50f, because their failure is silent.
+    """
+    tree = ast.parse(source)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    keyed = {"JNWB_EXPECTED_PACKAGE_ROOT"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and "JNWB_EXPECTED_PACKAGE_ROOT" in ast.unparse(node.value):
+            keyed |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+    keyed_re = re.compile(r"\b(" + "|".join(map(re.escape, sorted(keyed))) + r")\b")
+    offenders = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "insert" and ast.unparse(node.func.value) == "sys.path"
+                and len(node.args) == 2 and not _inserted_target_ok(node.args[1])):
+            continue
+        target = ast.unparse(node.args[1])
+        if target == "str(HERE)":
+            continue  # the script's own folder, which holds no jnwb
+        up, keyed_branch = parents.get(node), False
+        while up is not None and not keyed_branch:
+            keyed_branch = isinstance(up, ast.If) and bool(keyed_re.search(ast.unparse(up.test)))
+            up = parents.get(up)
+        if not keyed_branch:
+            offenders.append(f"{name}:{node.lineno} prepends {target} whatever the variable says")
+    return offenders
+
+
+#: Prepends that import the tree a caller names on purpose, so the variable has no say.
+PREPENDS_THAT_SELECT_A_NAMED_TREE = {
+    # `_import_jnwb(repo)` imports the tree it is about to mutate and removes the entry after.
+    "scripts/mutation_harness.py": "str(repo)",
+}
+
+
+def test_every_checkout_prepend_stands_aside_for_the_variable() -> None:
+    """Every file in the in-process trees, not only those a test imports or that guard `__file__`."""
+    scripts = sorted(p for tree in IN_PROCESS_TREES for p in (ROOT / tree).rglob("*.py"))
+    assert (ROOT / "scripts" / "vflip2_simulation.py") in scripts, "scripts/ is no longer scanned"
+    offenders = []
+    for script in scripts:
+        rel = script.relative_to(ROOT).as_posix()
+        found = _prepends_blind_to_the_variable(script.read_text(encoding="utf-8"), rel)
+        exempt = PREPENDS_THAT_SELECT_A_NAMED_TREE.get(rel)
+        if exempt:
+            assert any(f"prepends {exempt} " in o for o in found), f"{rel}: the exemption is stale"
+            found = [o for o in found if f"prepends {exempt} " not in o]
+        offenders += found
+    assert not offenders, "these choose the checkout under JNWB_EXPECTED_PACKAGE_ROOT:\n" + "\n".join(offenders)
+    # The scanner on the form it was written for and on the two accepted forms.
+    blind = "import sys\nif str(ROOT) not in sys.path:\n    sys.path.insert(0, str(ROOT))\n"
+    assert _prepends_blind_to_the_variable(blind, "old.py"), "the blind prepend was not seen"
+    for source in (
+        "import os, sys\nif os.environ.get('JNWB_EXPECTED_PACKAGE_ROOT'):\n    pass\n"
+        "elif str(ROOT) not in sys.path:\n    sys.path.insert(0, str(ROOT))\n",
+        "import os, sys\nexpected = os.environ.get('JNWB_EXPECTED_PACKAGE_ROOT')\n"
+        "if not expected:\n    sys.path.insert(0, str(ROOT))\n",
+    ):
+        assert not _prepends_blind_to_the_variable(source, "ok.py"), f"flagged: {source!r}"
+
+
 def _build_steps() -> list[dict]:
     workflow = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "workflow.yml").read_text(encoding="utf-8")

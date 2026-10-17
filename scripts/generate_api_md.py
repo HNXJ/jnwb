@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import os
 import sys
 import types
 import typing
@@ -276,7 +277,11 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
     root = repo_root or REPO_ROOT
     import sys
 
-    if str(root) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(root) not in sys.path:
+            sys.path.append(str(root))
+    elif str(root) not in sys.path:
         sys.path.insert(0, str(root))
     import jnwb
     from jnwb._lazy_exports import OPTIONAL_SUBMODULES

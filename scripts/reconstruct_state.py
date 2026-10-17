@@ -32,6 +32,7 @@ import datetime
 import pathlib
 import re
 import subprocess
+import os
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -138,7 +139,11 @@ def build() -> str:
 
     # Guarded: `build()` also runs inside the suite, and an unconditional prepend there put
     # the checkout ahead of an installed jnwb for every test after it.
-    if str(REPO_ROOT) not in sys.path:
+    # Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+    if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.append(str(REPO_ROOT))
+    elif str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     try:
         from scripts.release_gate import problem_rows

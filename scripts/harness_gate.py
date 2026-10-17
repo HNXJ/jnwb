@@ -50,7 +50,11 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple, Union
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
+# Under JNWB_EXPECTED_PACKAGE_ROOT the checkout goes last, so the copy it names wins.
+if os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT"):
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.append(str(REPO_ROOT))
+elif str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 # The one stack reader, shared with STEP 0a (scripts/stack_parse.py): gates 15 and 17 read the
 # same items, at any heading depth, that STEP 0a reads.
