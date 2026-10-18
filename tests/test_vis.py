@@ -385,7 +385,8 @@ def test_spectrolaminar_map_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     freqs = np.linspace(1, 150, 150)
     depths = np.linspace(0.0, 1.0, 32)
-    rel_power = np.random.uniform(0.1, 1.0, size=(150, 32))
+    rng = np.random.default_rng(1)
+    rel_power = rng.uniform(0.1, 1.0, size=(150, 32))
 
     plot_spectrolaminar_map(
         canvas=canvas,
@@ -472,7 +473,8 @@ def test_csd_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     depths = np.linspace(0.0, 1.0, 16)
     time_ms = np.linspace(-100, 300, 100)
-    csd = np.random.randn(16, 100)
+    rng = np.random.default_rng(2)
+    csd = rng.standard_normal((16, 100))
 
     plot_csd(
         canvas=canvas,

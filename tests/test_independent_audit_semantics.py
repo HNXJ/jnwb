@@ -197,7 +197,8 @@ class TestJrsaMetricIdentity:
 
 class TestBandPowerNormalize:
     def test_normalize_without_baseline_raises(self):
-        x = np.random.randn(1000)
+        rng = np.random.default_rng(20)
+        x = rng.standard_normal(1000)
         with pytest.raises(ValueError, match="baseline"):
             jnwb.band_power(x, fs=1000.0, freq_range=(10, 30), normalize=True, baseline=None)
 
@@ -244,7 +245,8 @@ class TestFinalAuditRecurrence:
             jnwb.spike_mutual_information([], [0.1], (0.0, 1.0))
 
     def test_band_power_empty_freq_range_raises(self):
-        sig = np.random.randn(1000)
+        rng = np.random.default_rng(21)
+        sig = rng.standard_normal(1000)
         with pytest.raises(ValueError, match="no Welch bins"):
             jnwb.band_power(sig, fs=1000.0, freq_range=(600.0, 700.0), normalize=False)
 

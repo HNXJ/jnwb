@@ -13,8 +13,9 @@ class TestOptionalDependencies(unittest.TestCase):
         """Verify BilinearLogisticRegression works with core numpy + sklearn."""
         import numpy as np
         model = jnwb.bilinear.BilinearLogisticRegression(rank=2, n_iter=5)
-        X = np.random.randn(20, 5, 10)
-        y = np.random.choice([0, 1], size=20)
+        rng = np.random.default_rng(22)
+        X = rng.standard_normal((20, 5, 10))
+        y = rng.choice([0, 1], size=20)
         model.fit(X, y)
         preds = model.predict(X)
         self.assertEqual(len(preds), 20)

@@ -1450,7 +1450,8 @@ class TestWelchCsdGpuParity:
             pytest.skip("CUDA GPU not available")
         from jnwb.spectral import _welch_csd_gpu
 
-        x = np.random.randn(50)
+        rng = np.random.default_rng(23)
+        x = rng.standard_normal(50)
         f_gpu, p_gpu, py_gpu, csd_gpu = _welch_csd_gpu(x, x, fs=100.0, nperseg=64)
         assert len(f_gpu) == len(p_gpu) == 33
         assert np.all(np.isfinite(p_gpu))
