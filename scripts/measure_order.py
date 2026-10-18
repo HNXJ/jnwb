@@ -58,8 +58,9 @@ def import_checkout_jnwb():
         sys.path.insert(0, str(ROOT))
     import jnwb
 
-    if ROOT not in Path(jnwb.__file__).resolve().parents:
-        raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {ROOT}; refusing to time it")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or ROOT).resolve()
+    if expected not in Path(jnwb.__file__).resolve().parents:
+        raise SystemExit(f"jnwb imported from {jnwb.__file__}, not from {expected}; refusing to time it")
     return jnwb
 
 

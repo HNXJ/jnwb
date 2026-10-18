@@ -229,8 +229,9 @@ def measure(name: str, prepeak_mib: int = 0) -> Dict[str, object]:
         raise RuntimeError(f"{name} failed in its child process:\n{proc.stderr[-2000:]}")
     out = json.loads(proc.stdout.strip().splitlines()[-1])
     package = Path(out["jnwb"]).resolve()
-    if REPO_ROOT not in package.parents:
-        raise RuntimeError(f"{name} measured jnwb from {package}, not from this checkout")
+    expected = Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or REPO_ROOT).resolve()
+    if expected not in package.parents:
+        raise RuntimeError(f"{name} measured jnwb from {package}, not from {expected}")
     added, added_is = added_bytes(out)
     return {"peak_mib": round(max(out["peak_start"], out["after"]) / MIB, 1),
             "added_mib": round(added / MIB, 1),

@@ -516,6 +516,31 @@ def _prepends_blind_to_the_variable(source: str, name: str) -> list[str]:
     return offenders
 
 
+def test_a_script_that_defers_to_the_variable_also_checks_the_copy_it_names() -> None:
+    """Deferring the import but asserting the checkout afterwards refuses the installed copy.
+
+    `measure_order.py` and `measure_peak_memory.py` took the variable-aware import on fb503614
+    and kept `ROOT not in Path(jnwb.__file__).parents`, which failed four tests on the
+    installed-wheel leg of ef808649 and none in the checkout suite.
+    """
+    scripts = sorted(p for tree in IN_PROCESS_TREES for p in (ROOT / tree).rglob("*.py"))
+    offenders = []
+    for script in scripts:
+        source = script.read_text(encoding="utf-8")
+        if "JNWB_EXPECTED_PACKAGE_ROOT" not in source:
+            continue
+        for node in ast.walk(ast.parse(source)):
+            if not (isinstance(node, ast.Compare) and len(node.ops) == 1
+                    and isinstance(node.ops[0], (ast.In, ast.NotIn))
+                    and isinstance(node.left, ast.Name)
+                    and node.left.id in {"ROOT", "REPO_ROOT"}):
+                continue
+            right = ast.unparse(node.comparators[0])
+            if right.endswith(".parents") and ("jnwb" in right or "package" in right):
+                offenders.append(f"{script.relative_to(ROOT).as_posix()}:{node.lineno} {ast.unparse(node)}")
+    assert not offenders, "these assert the checkout after deferring to the variable:\n" + "\n".join(offenders)
+
+
 #: Prepends that import the tree a caller names on purpose, so the variable has no say.
 PREPENDS_THAT_SELECT_A_NAMED_TREE = {
     # `_import_jnwb(repo)` imports the tree it is about to mutate and removes the entry after.
