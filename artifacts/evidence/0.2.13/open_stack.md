@@ -64,12 +64,6 @@ Eight read-only passes, two efforts per lane (L1 numerics, L2 data and laminar, 
 
 | Id | Where | Question |
 |---|---|---|
-| F-01 | `jnwb/permutation.py:63`, `jnwb/jrsa/_inference.py:147` | The default two-sided rule counts `abs(null) >= abs(obs)`, which assumes a null centred on 0. For a non-negative metric (cosine, MI, TE) a lower-tail observation gets p = 1.0: cosine 0.620 against a null with minimum 0.701 gives 1.0, where the one-sided `less` p is 0.0005. A centred two-sided rule, a per-metric default, or a refusal |
-| F-02 | `jnwb/statistics/_firing.py:118` | `n_trials < 2` returns a literal `p_value_fire_shuffle` of 1.0 from a fallback branch (AGENTS.md section 1): NaN with a reason, or refuse |
-| F-03 | `jnwb/statistics/_analysis.py:738`, `:791` | `confirmatory_compare` takes no `rng`, so its bootstrap CI always draws from `DEFAULT_SEED` (fact S5 asks for an explicit `rng`; `docs/07_statistical_inference_and_nulls.md:12` says resampling functions take one): add `rng=` to the public signature |
-| F-04 | `jnwb/laminar/_vflip2.py:541` | `vflip2_from_lfp` labels PSD column k as k Hz. A trial shorter than `fs` samples pads to 2^n bins about 1.95 Hz apart (512 samples at 1 kHz), and a 20 Hz tone is labelled 10. Compare with vFLIP2.m before repair |
-| F-05 | `jnwb/laminar/_vflip2.py:431` | Below `fs` = 300 Hz the columns above Nyquist hold mirrored power (`fs` 250: column 140 equals column 110); only a column past the FFT length raises. Refuse, or guard the band |
-| F-06 | `jnwb/jrsa/_metrics.py:256` | Plug-in 32-bin MI with no bias correction: independent inputs give 1.99 nats at N = 60 and 0.32 at N = 1000. Estimator choice |
 | F-07 | `jnwb/vis/laminar.py:310`, `:322` | Legend text "Gamma (50–150 Hz)" and "Alpha/Beta (10–30 Hz)" for caller-supplied powers, against `CANONICAL_BANDS` (`spectral/_common.py:63`) and the vFLIP bands; joins the 12-10 band-edge question |
 | F-08 | `jnwb/laminar_curation.py:912` | Only grade F clears labels; the docstring (`:684`) says a fit that does not hold carries none, and grade C still emits them |
 | F-09 | `jnwb/continuous.py:34` | Window-to-sample conversion uses `round()`, which ties to even ((-0.25, 0.25) s at 10 Hz gives samples [-2, 2)); the tie rule is unstated |
@@ -84,6 +78,7 @@ Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
+| F-01 to F-06 | high to med | `permutation.py`, `jrsa`, `statistics/_firing.py`, `statistics/_analysis.py`, `laminar/_vflip2.py`, `jrsa/_metrics.py` | Ruled 2026-10-18 (`artifacts/rulings/2026-10-18.md`): the two-sided p is twice the smaller tail; NaN p below 2 trials; `rng=` on the two compare functions; `vflip2_from_lfp` refuses bins coarser than 1 Hz and `fs` below 300 Hz; the MI bias is documented |
 | F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
 | F-20 | med | `jnwb/spectral/_psd.py:586` | `aperiodic_fit` r_squared on a flat spectrum is round-off over round-off (0.91 fixed, -1.5e9 knee); `spectral_tilt` returns NaN there |
 | F-22 | med | `jnwb/permutation.py:138`, `:152` | A NaN group label never matches `groups == g`, so its labels are never permuted and nothing is refused |
@@ -107,5 +102,10 @@ Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F
 | F-54 | low | tests | `isinstance`-only assertions under names that claim a value (`test_statistics_api_split.py:144`, `test_connectivity.py:405`; both values are pinned elsewhere); the GPU-fallback warning runs only without a GPU (`test_spectral.py:1376`); the omission-boundary comparison skips on every CI leg (`test_addressing.py:568`); the no-verbose path never runs (`test_release_recovery_gates.py:65`); `test_jrsa_no_fabricated_failures.py:3` cites `artifacts/.lab/`, which does not exist |
 | F-56 | low | `jnwb/connectivity/_granger.py:34`, `jnwb/laminar/_xflip.py:672`, `jnwb/testing/synth.py:200` | NaN passes the guard of `ridge` (returns NaN), `n_surrogates` (no error) and `freq_hz` (300 non-finite samples) |
 | F-57 | low | `jnwb/vis/spectral.py:64`; `plot_granger_spectra`, `plot_rsm_heatmap`, the `ci_*` arguments in `vis/laminar.py`, `sig_mask` in `vis/spectral.py` | The NaN colour range of F-34 in `plot_spectral_modulation_matrix`; no shape check against the axes; an empty string `SOURCE ARTIFACTS` passes as `[""]` |
+| F-58 | med | `jnwb/vis/laminar.py:159`, `:478` | A crossover or layer boundary outside the depth range is dropped with no warning (1200 um on mm depths draws nothing) |
+| F-59 | med | `jnwb/vis/hierarchy.py:107`, `:137`, `:171` | A NaN gives a NaN fit line and annotation with no warning; error-bar lengths go negative when a CI does not bracket its value; the annotation sits below the data when every `ci_high` is negative |
+| F-60 | med | `jnwb/vis/spiking.py:294`, `:70` | `plot_sorted_heatmap` accepts a `time_ms` of the wrong length; a sixth condition reuses the first colour |
+| F-61 | med | `docs/04_spectral_analysis_and_tfr.md:142` | The documented `aperiodic_fit` example passes the 0 Hz bin from `compute_psd` and raises |
+| F-62 | low | docs and comments | `docs/04_spectral_analysis_and_tfr.md:52` calls the `normalize=True` result a ratio (it is dB); `docs/02_paths_addressing_metadata.md:169` says a missing metric makes a unit Unknown (with a critical failure it is Poor); `CHANGELOG.md:96` contradicts itself on the bound at U = 5 and 6; `vis/theme.py:26` says 8 colours (9); `vis/hierarchy.py:105` says robust (OLS); `vis/laminar.py:348` crossover x_max is NaN when a trace holds NaN |
 
 Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
