@@ -380,6 +380,13 @@ class TestPhaseSlopeIndex:
         rev = phase_slope_index(y, x, fs=1000.0, bands=(14, 30), nperseg=256)
         assert fwd.net == pytest.approx(-rev.net, abs=1e-9)
 
+    @pytest.mark.parametrize("noverlap", [256, 300, -1])
+    def test_an_overlap_outside_the_segment_is_refused(self, noverlap):
+        x = np.random.default_rng(5).standard_normal(2000)
+        with pytest.raises(ValueError, match="noverlap must be in"):
+            phase_slope_index(x, np.roll(x, 3), fs=1000.0, bands=(14, 30), nperseg=256,
+                              noverlap=noverlap)
+
     def test_multiband_psi_omnibus_pvalue(self):
         """Multi-band PSI computes omnibus top-level p-value rather than extracting first band (0.2.3-REV-08)."""
         from scipy import signal, stats

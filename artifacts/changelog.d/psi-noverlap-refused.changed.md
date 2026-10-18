@@ -1,0 +1,1 @@
+- `phase_slope_index` refuses a `noverlap` outside [0, nperseg) instead of clipping it (`jnwb/connectivity/_psi.py`).
