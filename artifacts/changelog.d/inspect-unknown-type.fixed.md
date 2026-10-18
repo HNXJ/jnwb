@@ -1,0 +1,1 @@
+- `inspect` warns on a `neurodata_type` no namespace defines; the read refusal says why (`jnwb/nwb_inspect.py`).

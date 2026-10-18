@@ -13,11 +13,14 @@ the *content* of each message.
 """
 from __future__ import annotations
 
+import subprocess
+import sys
 import warnings
 from datetime import datetime, timezone
 
 import h5py
 import numpy as np
+import pynwb
 import pytest
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from pynwb.ecephys import LFP, ElectricalSeries
@@ -255,3 +258,68 @@ def test_the_warning_is_exported_by_name():
     2026-09-29, D8 (a)), the same class `inspect` raises."""
     assert "ContainerTypeContradictionWarning" in jnwb.__all__
     assert jnwb.ContainerTypeContradictionWarning is ContainerTypeContradictionWarning
+
+
+def _relabelled(tmp_path, ndt: str) -> str:
+    """A valid file whose second series is relabelled on disk to ``ndt``."""
+    path = tmp_path / "relabelled.nwb"
+    nwbfile = _base_file("relabelled")
+    nwbfile.add_acquisition(TimeSeries(name="known", data=np.zeros(100), unit="V", rate=1000.0))
+    nwbfile.add_acquisition(TimeSeries(name="odd", data=np.ones(100), unit="V", rate=1000.0))
+    _write(nwbfile, path)
+    with h5py.File(path, "r+") as handle:
+        handle["acquisition/odd"].attrs["neurodata_type"] = ndt
+    return str(path)
+
+
+def test_a_type_no_namespace_defines_warns_and_the_read_refusal_names_it(tmp_path):
+    """`inspect` lists the series while pynwb leaves it out of the object model, so the
+    listing and the read disagree unless both say why."""
+    path = _relabelled(tmp_path, "MadeUpSeries")
+    assert "MadeUpSeries" not in pynwb.get_type_map().namespace_catalog.get_namespace(
+        "core").get_registered_types(), "the fixture's type must be unknown to core"
+    messages = _warnings_from_inspect(path)
+    assert {m.split(":", 1)[0] for m in messages} == {"/acquisition/odd"}
+    assert "'MadeUpSeries', which namespace 'core' does not define" in messages[0]
+    with pytest.raises(jnwb.AcquisitionNotFoundError,
+                       match="declares neurodata_type 'MadeUpSeries', which namespace 'core'"):
+        jnwb.acquisition_channel(path, name="odd", channel=0)
+    data, _ = jnwb.acquisition_channel(path, name="known", channel=0)
+    assert data.shape == (100,)
+
+
+def test_a_type_the_file_embeds_an_extension_for_does_not_warn(tmp_path):
+    """A type defined by a namespace cached in the file is known to the reader."""
+    from pynwb import get_class, load_namespaces
+    from pynwb.spec import NWBGroupSpec, NWBNamespaceBuilder
+
+    ns_name = "ndx-jnwb-type-probe"
+    spec = NWBGroupSpec(neurodata_type_def="ProbeSeries", neurodata_type_inc="TimeSeries",
+                        doc="a series type defined by an extension")
+    builder = NWBNamespaceBuilder(doc="probe", name=ns_name, version="0.1.0",
+                                  author="jnwb", contact="none")
+    builder.include_type("TimeSeries", namespace="core")
+    builder.add_spec(f"{ns_name}.extensions.yaml", spec)
+    builder.export(f"{ns_name}.namespace.yaml", outdir=str(tmp_path))
+    load_namespaces(str(tmp_path / f"{ns_name}.namespace.yaml"))
+    ProbeSeries = get_class("ProbeSeries", ns_name)
+
+    path = tmp_path / "extension.nwb"
+    nwbfile = _base_file("extension")
+    nwbfile.add_acquisition(ProbeSeries(name="probe", data=np.zeros(100), unit="V", rate=1000.0))
+    _write(nwbfile, path)
+    with h5py.File(path, "r") as handle:
+        assert handle["acquisition/probe"].attrs["neurodata_type"] == "ProbeSeries"
+        assert ns_name in handle["specifications"], "the fixture must embed its namespace"
+    # A fresh interpreter has not loaded the namespace, so only the copy cached in the file
+    # can make the type known; inspect in this process would see the namespace loaded above.
+    probe = """
+import sys, warnings, jnwb
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    jnwb.inspect(sys.argv[1])
+print(sum(issubclass(x.category, jnwb.ContainerTypeContradictionWarning) for x in w))
+"""
+    out = subprocess.run([sys.executable, "-c", probe, str(path)], capture_output=True,
+                         text=True, check=True)
+    assert out.stdout.strip() == "0", out.stdout + out.stderr
