@@ -2,14 +2,13 @@
 
 Everything open on `dev` after 52f2a17b, grouped by who moves it next. Sources: `artifacts/problem_stack.md` (0 rows), `artifacts/todo_stack.md` (15-11 only), `artifacts/roadmap.md` (35 rows: 30 `deferred-0.2.13`, 5 `deferred-0.2.14`), and the 2026-10-17 re-audit (A: numerical half, 19 probes; A2: I/O half, 11 probes; B: tests and docs).
 
-Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` half; audit B's hygiene rows; audit A's four code rows (the fifth, `_cluster.py` `rng=0`, is the module convention: 11 public functions default `rng` to a plain int); A2's F2; `detect_bad_channels` flagging a whole short probe for one dead contact (found while closing audit A). Two candidate actions were dropped: `PYTHON_SUPPORTED` is gate 8's independent declaration that the classifiers are checked against, and the evidence probes that name `C:/workspace/jnwb` are receipts. A2's F1 is not a defect: `unit_census_report` refusing a frame without its metric columns is documented in `skills/jnwb-nwb-data/references/addressing_and_metadata.md` and pinned by `test_tiers_census_and_folds_refuse_or_label_what_their_rows_say`. The `alignment_review_0.2.5.md:197` pointer is a dated receipt for a file that moved in c0c625ab. `scripts/measure_order.py` has a caller (`tests/test_computational_order_sources_agree.py`).
+Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fixed; the all-NaN block keeps `unowned`, ruled 2026-10-17); 12-04's P-238 (`collect_selector` keeps ids with a space); audit B's hygiene rows; audit A's four code rows (the fifth, `_cluster.py` `rng=0`, is the module convention: 11 public functions default `rng` to a plain int); A2's F2; `detect_bad_channels` flagging a whole short probe for one dead contact (found while closing audit A). Two candidate actions were dropped: `PYTHON_SUPPORTED` is gate 8's independent declaration that the classifiers are checked against, and the evidence probes that name `C:/workspace/jnwb` are receipts. A2's F1 is not a defect: `unit_census_report` refusing a frame without its metric columns is documented in `skills/jnwb-nwb-data/references/addressing_and_metadata.md` and pinned by `test_tiers_census_and_folds_refuse_or_label_what_their_rows_say`. The `alignment_review_0.2.5.md:197` pointer is a dated receipt for a file that moved in c0c625ab. `scripts/measure_order.py` has a caller (`tests/test_computational_order_sources_agree.py`).
 
 ## A. Waits on a ruling by Hamm
 
 | Item | Open question | Source |
 |---|---|---|
 | 0.2.13 theme | The cycle runs on goal and §11 acceptance until a theme is ruled | `todo_stack.md:9` |
-| 12-24 | An all-NaN block: "unowned" (the 2026-10-10 ruling) or "unknown", in both layouts | roadmap |
 | 15-13 | `vflip2` above 200 um spacing: refuse, or a doc line | roadmap |
 | 15-15 | Whether `curate_and_label` runs `vflip2` | roadmap |
 | 15-19 | A measured `omega_cut` or a data-driven threshold (recovery 29/100, matched null 24/100) | roadmap |
@@ -28,7 +27,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24's `best_dev` h
 | 11-01 (with A2 F3) | `inspect` flags a `neurodata_type` no reader knows; needs the reader's known-type set exposed without breaking embedded extensions | roadmap, audit A2 |
 | 11-02 | Compression, unit-table and addressing edges | roadmap |
 | 12-10, 07-05 | One unfamiliar dataset through the skills; downstream paper agent | roadmap |
-| 12-04, 09-07, 12-06 | Gate reach, defect-class checks, process identifiers (re-measure 12-06's counts first) | roadmap |
+| 12-04, 09-07, 12-06 | P-266 needs flow-sensitive alias tracking in the contract gate (a redesign); defect-class checks; process identifiers (re-measure 12-06's counts first) | roadmap |
 | Strict xfails | Word-pattern misses; mobile-width AWAITING ledger | `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py` |
 | WaveMAP units | Volts vs microvolts reading of source labels | `docs/tutorials/10_wavemap.md:20` |
 | Fact closure group | 10-10, 11-06, 09-04, 11-07, 12-11, 11-03, 11-09, 12-08, 12-07: ruled to wait; facts report UNHELD, nothing public claims them | roadmap |

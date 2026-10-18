@@ -814,7 +814,7 @@ class TestCheckWaveformBlocksDense:
 
     def test_one_nan_row_leaves_best_dev_finite(self, tmp_path):
         """`best_dev` is the smallest deviation over the finite rows; one NaN channel must not
-        turn it NaN while another row still matches (roadmap 12-24)."""
+        turn it NaN while another row still matches."""
         from jnwb import check_waveform_blocks
 
         blocks = _dense_stack()
