@@ -181,8 +181,7 @@ def detect_bad_channels(
     sel = (freqs >= lo_hz) & (freqs <= hi_hz)
     if not sel.any():
         raise ValueError("no PSD bin falls in power_band_hz; lengthen the epochs or widen the band")
-    q = max(1, int(round(fs / float(correlation_fs_hz))))
-    reduced = signal.decimate(epochs, q, axis=-1) if q > 1 else epochs
+    reduced = _decimated_for_correlation(epochs, fs, correlation_fs_hz)
     # A dead contact is the input this detector exists for: its log power is -inf and its
     # correlation undefined, and both flag it below, so neither warns.
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -489,6 +488,12 @@ def fuse_laminar_anchors(
 # ------------------------------------------------------------------- spectral profiles
 
 
+def _decimated_for_correlation(x: np.ndarray, fs: float, correlation_fs_hz: float) -> np.ndarray:
+    """``x`` decimated along its last axis to about ``correlation_fs_hz``; unchanged if already there."""
+    q = max(1, int(round(fs / float(correlation_fs_hz))))
+    return signal.decimate(x, q, axis=-1) if q > 1 else x
+
+
 def _band_profiles(psd: np.ndarray, freqs: np.ndarray, use: np.ndarray,
                    low: Tuple[float, float], high: Tuple[float, float]) -> Tuple[np.ndarray, np.ndarray]:
     """Per-band depth profiles rescaled to [0, 1] over the usable contacts; NaN elsewhere.
@@ -789,8 +794,8 @@ def curate_and_label(
     win_id = np.minimum((np.arange(n_ep) * n_windows) // n_ep, n_windows - 1)
     win_psd = [signal.welch(x[:, win_id == k], fs=fs, nperseg=seg, axis=-1)[1].mean(axis=1)
                for k in range(n_windows)]
-    q = max(1, int(round(fs / bad_channel_kwargs.get("correlation_fs_hz", CORRELATION_FS_HZ))))
-    reduced = (signal.decimate(x, q, axis=-1) if q > 1 else x).reshape(n, -1)
+    reduced = _decimated_for_correlation(
+        x, fs, bad_channel_kwargs.get("correlation_fs_hz", CORRELATION_FS_HZ)).reshape(n, -1)
 
     smooth_ch, lobe_ch = ch(smooth_um), max(2, int(round(ch(min_lobe_um))))
     use = ~unusable

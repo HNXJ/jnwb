@@ -20,6 +20,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | Shipped-surface choices | The legacy constructor path names no removal version (`docs/02_paths_addressing_metadata.md:285`); `jrsa(sliding=True)` raises `NotImplementedError`; `bilinear.py` and `nam.py` stay experimental; goal 8 records peak memory with no threshold | scan |
 | 11-02 hard-linked `select=` | A cast rewrites one hard-link name; the other keeps float64 and `verify=True` passes (documented in `compress_fp32`). Keep, refuse, or re-point every name at the new dataset (recommended) | probe 2026-10-17 |
 | 12-10 skill gaps | A blind session through the skills missed the tutorial's LFP clock and its dB by 0.08 to 0.21: no skill page puts tick-valued timestamps on session time (the tutorial's `derive_clock` is its own code, so a page or a public function), and none states the `CANONICAL_BANDS` edges. Skill pages change by amendment | `artifacts/evidence/0.2.13/agent_session_dandi000253/` |
+| P-335 (07-05) | `curate_and_label`'s defaults are stated working values with no receipt or source, and its inner stages are not public parts: calibrate, cite, or keep as stated; expose the stages or not | `artifacts/evidence/0.2.13/p335_laminar_curation_review.md` |
 | `jnwb-sim-benchmark` skill | Proposal only; skills change by amendment | session |
 
 ## B. Executable by agents now
