@@ -97,28 +97,34 @@ def test_inspect_nwb_lists_the_series_shapes_and_rates_that_jnwb_inspect_lists(t
     assert [a["rate_hz"] for a in direct["acquisitions"]] == [None], direct["acquisitions"]
 
 
-def test_get_event_codes_refuses_the_gratings_table_that_the_tutorial_codes_by_orientation(tutorial):
-    """The tutorial reads the gratings codes from `orientation`. `get_event_codes_and_timings` takes
-    no code column: it picks one by name, and it refuses the table when no name matches. No column
-    of this table matches, so the tool refuses. The test asserts that refusal and its reason; there
-    are no onsets on the tool side to compare with the tutorial's."""
-    tutorial_events = jnwb.events(EXCERPT, table=tutorial.GRATINGS, code_column="orientation")
-    info = jnwb.inspect(EXCERPT)
-    columns = [
-        c["name"] for t in info["interval_tables"] if t["name"] == tutorial.GRATINGS
-        for c in t["columns"]
-    ]
-    # Non-empty precondition: the tutorial's events exist and the column it reads is in the table.
-    assert tutorial_events.n_events > 0 and "orientation" in columns, columns
+def test_get_event_codes_with_the_tutorials_code_column_returns_the_tutorials_events(tutorial):
+    """The tutorial codes the gratings by `orientation`. Named as `code_column`, the tool returns
+    the same onsets, stops and codes as `jnwb.events`; without it, no column matches the tool's
+    name rule and it refuses, listing the table's columns."""
+    direct = jnwb.events(EXCERPT, table=tutorial.GRATINGS, code_column="orientation")
+    assert direct.n_events > 0, "the tutorial's gratings table must hold events"
+    table_path = f"/intervals/{tutorial.GRATINGS}"
 
-    res = get_event_codes_and_timings(str(EXCERPT), event_group_path=f"/intervals/{tutorial.GRATINGS}")
-    assert "events" not in res, "the tool returned events for a table it could not read codes from"
-    assert res.get("error_type") == "ParseError", res
-    assert "Could not find a code column" in res["error"], res["error"]
-    assert f"/intervals/{tutorial.GRATINGS}" in res["error"], res["error"]
-    # The reason, from the tool's name rule: no column is named as its rule expects, and none
-    # carries "code" in its name.
-    assert not [c for c in columns if "code" in c.lower() or c in ("value", "type")], columns
+    res = get_event_codes_and_timings(str(EXCERPT), event_group_path=table_path,
+                                      code_column="orientation")
+    assert "error" not in res, res
+    assert res["total_events"] == direct.n_events
+    np.testing.assert_allclose([r["start_time"] for r in res["events"]], direct.onsets,
+                               rtol=1e-12, atol=0)
+    np.testing.assert_allclose([r["stop_time"] for r in res["events"]], direct.stop_times,
+                               rtol=1e-12, atol=0)
+    # Blank gratings store orientation NaN, so the codes compare with NaN equal to NaN.
+    np.testing.assert_array_equal([float(r["code"]) for r in res["events"]],
+                                  [float(c) for c in direct.codes])
+
+    refused = get_event_codes_and_timings(str(EXCERPT), event_group_path=table_path)
+    assert refused.get("error_type") == "ParseError", refused
+    assert "Could not find a code column" in refused["error"], refused["error"]
+    assert "'orientation'" in refused["error"] and "code_column=" in refused["error"], refused
+
+    absent = get_event_codes_and_timings(str(EXCERPT), event_group_path=table_path,
+                                         code_column="no_such_column")
+    assert absent.get("error_type") == "ParseError", absent
 
 
 def test_prepare_signal_reference_names_the_timestamps_the_derived_clock_reads(tutorial, excerpt_clock):

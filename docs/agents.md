@@ -34,7 +34,7 @@ python -m jnwb.mcp_server
 | Tool | Signature | Returns |
 |---|---|---|
 | `inspect_nwb` | `(file_path)` | Structure and metadata: acquisitions, units, electrodes, every interval table with columns and sample values |
-| `get_event_codes_and_timings` | `(file_path, event_group_path=None)` | Event and trial codes with their timestamps |
+| `get_event_codes_and_timings` | `(file_path, event_group_path=None, code_column=None)` | Event and trial codes with their timestamps |
 | `prepare_signal_reference` | `(file_path, dataset_path)` | A dataset's shape, scaling, timing and layout, and the jnwb call that reads it in physical units, without loading it |
 
 Wire it into an MCP-speaking client the usual way:
