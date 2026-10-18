@@ -18,6 +18,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | 11-32 | Holder cells | roadmap |
 | Open rulings | `window` retargeting (2026-09-27); dark plot `theme=` (2026-10-04); showcase publication at Gate B (2026-10-12); which CI run qualifies, dev or main (2026-10-15 R5) | `artifacts/rulings/` |
 | Shipped-surface choices | The legacy constructor path names no removal version (`docs/02_paths_addressing_metadata.md:285`); `jrsa(sliding=True)` raises `NotImplementedError`; `bilinear.py` and `nam.py` stay experimental; goal 8 records peak memory with no threshold | scan |
+| 11-02 hard-linked `select=` | A cast rewrites one hard-link name; the other keeps float64 and `verify=True` passes (documented in `compress_fp32`). Keep, refuse, or re-point every name at the new dataset (recommended) | probe 2026-10-17 |
 | `jnwb-sim-benchmark` skill | Proposal only; skills change by amendment | session |
 
 ## B. Executable by agents now
@@ -25,7 +26,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | Item | Next step | Source |
 |---|---|---|
 | 11-01 (with A2 F3) | `inspect` flags a `neurodata_type` no reader knows; needs the reader's known-type set exposed without breaking embedded extensions | roadmap, audit A2 |
-| 11-02 | The `select=` cast and `classify_layer_from_depth` (D10's ruling); P-348, P-192, P-296 and P-344 closed 2026-10-17 | roadmap |
+| 11-02 | `classify_layer_from_depth` waits on D10's ruling; the `select=` cast is in section A; P-348, P-192, P-296 and P-344 closed 2026-10-17 | roadmap |
 | 12-10, 07-05 | One unfamiliar dataset through the skills; downstream paper agent | roadmap |
 | 12-04, 09-07, 12-06 | P-266 needs flow-sensitive alias tracking in the contract gate (a redesign); 09-07's rewrite, second-home and state-awareness checks (the second needs a forbidden-phrase column in the rulings tables, Hamm's files); 12-06 waits on 12-04, 12-05, 12-07, 12-08 | roadmap |
 | Strict xfails | Word-pattern misses are the heuristic's documented limit; the mobile-width ledger is a figure-size choice | `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py` |
@@ -56,4 +57,3 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | Action | Why |
 |---|---|
 | 27 unsure rows of the non-empty sweep | 16 positive checks gained floors and 20 negatives are correct on empty (2026-10-17); the class is ledgered with a rule; 27 rows need a helper or caller read before classing | sweep receipts, `artifacts/process/defect_classes.md` |
-| Size-1 dimensions in `nwb_inspect` layout resolution | a `(1, 1)` series raises `AmbiguousLayoutError` though both readings agree; documented and safe |
