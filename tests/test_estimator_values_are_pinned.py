@@ -246,6 +246,29 @@ class TestCoefRowsKeepsTheTwoIntervalBoundsApart:
                 row["ci_hi"] - row["estimate"]), row
 
 
+class TestCoefRowsKeepsEveryFixedEffect:
+    def test_a_fixed_effect_whose_name_starts_with_group_is_kept(self):
+        rng = np.random.default_rng(11)
+        frame = pd.DataFrame({"Groupsize": rng.normal(size=80),
+                              "Group": rng.choice(["A", "B"], size=80)})
+        frame["y"] = 1.5 * frame["Groupsize"] + rng.normal(scale=0.5, size=80)
+        res = smf.ols("y ~ Groupsize + Group", data=frame).fit()
+
+        terms = [row["term"] for row in coef_rows(res, model="ols")]
+
+        assert terms == list(res.params.index), terms
+
+    def test_the_random_effect_variances_of_a_mixed_model_are_dropped(self):
+        rng = np.random.default_rng(12)
+        frame = pd.DataFrame({"x": rng.normal(size=120), "g": np.repeat(np.arange(12), 10)})
+        frame["y"] = frame["x"] + rng.normal(size=12)[frame["g"]] + rng.normal(size=120)
+        res = smf.mixedlm("y ~ x", data=frame, groups=frame["g"], re_formula="~x").fit()
+
+        terms = [row["term"] for row in coef_rows(res, model="lmm")]
+
+        assert terms == list(res.params.index[:res.k_fe]) == ["Intercept", "x"], terms
+
+
 class TestSpikeMutualInformationIsReportedInBits:
     def test_two_identical_balanced_trains_carry_exactly_one_bit(self):
         """MI(x, x) is H(x), and a balanced binary occupancy has H = 1 bit exactly.

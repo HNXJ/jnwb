@@ -88,14 +88,16 @@ def coef_rows(
 ) -> List[Dict]:
     """Flatten a fitted (Mixed)LM's coefficient table into one dict per term.
 
-    Always drops the random-effect ``"Group Var"`` term plus whichever variance-component term
-    ``exclude_vc`` names. Rename estimate/stat columns via ``estimate_key`` and ``stat_key`` when
-    the fitted model uses non-default field names (e.g. z-scored outcomes).
+    Keeps the fixed effects only: for a mixed model, the first ``k_fe`` parameters, so every
+    random-effect variance and covariance is dropped, as is whichever term ``exclude_vc`` names.
+    Rename estimate/stat columns via ``estimate_key`` and ``stat_key`` when the fitted model
+    uses non-default field names (e.g. z-scored outcomes).
     """
     rows = []
-    exclude = {"Group Var", exclude_vc}
-    for name in res.params.index:
-        if name.startswith("Group") or name in exclude:
+    k_fe = getattr(res, "k_fe", None)
+    names = res.params.index if k_fe is None else res.params.index[:k_fe]
+    for name in names:
+        if name == exclude_vc:
             continue
         row = {"model": model}
         if band is not None:
