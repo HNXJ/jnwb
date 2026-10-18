@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import pathlib
 import re
 import subprocess
@@ -54,11 +55,16 @@ def recorded_head(text: str) -> str | None:
 COMMAND_TIMEOUT_S = 900
 
 
-def run(*cmd: str) -> str:
+#: Seconds the CI query may take: it reaches the network, and a reader waits on it.
+CI_TIMEOUT_S = 30
+
+
+def run(*cmd: str, timeout: float | None = None) -> str:
     """Run a command in the repository and return its stripped stdout, or an error marker."""
     try:
         proc = subprocess.run(
-            cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_S
+            cmd, cwd=REPO_ROOT, capture_output=True, text=True,
+            timeout=COMMAND_TIMEOUT_S if timeout is None else timeout,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:  # pragma: no cover - environment
         return f"UNRESOLVED ({type(exc).__name__})"
@@ -118,6 +124,78 @@ def harness_verdict() -> tuple[str, str]:
 
 def count_lines(text: str) -> int:
     return len([line for line in text.splitlines() if line.strip()])
+
+
+def worktree_rows() -> list[str]:
+    """One row per linked worktree: path, HEAD, branch, and ``prunable`` when git says so."""
+    out = run("git", "worktree", "list", "--porcelain")
+    if out.startswith("UNRESOLVED"):
+        return [f"| {out} | | | |"]
+    rows = []
+    for block in out.split("\n\n"):
+        fields = dict(line.partition(" ")[::2] for line in block.splitlines())
+        note = "prunable" if "prunable" in fields else ""
+        branch = fields.get("branch", "(detached)").removeprefix("refs/heads/")
+        rows.append(f"| `{fields.get('worktree', '?')}` | `{fields.get('HEAD', '?')[:12]}` "
+                    f"| `{branch}` | {note} |")
+    return rows
+
+
+def branch_rows(base: str = "dev") -> list[str]:
+    """One row per local branch; ``stale`` when every commit it holds is already in ``base``.
+
+    ``base`` and ``main`` are never stale: they are the branches the others land on."""
+    out = run("git", "for-each-ref", "refs/heads", "--format=%(refname:short) %(objectname)")
+    if out.startswith("UNRESOLVED"):
+        return [f"| {out} | | |"]
+    rows = []
+    for line in out.splitlines():
+        name, sha = line.split()
+        if name in {base, "main"}:
+            rows.append(f"| `{name}` | `{sha[:12]}` |  |")
+            continue
+        cherry = run("git", "cherry", base, name)
+        stale = not cherry.startswith("UNRESOLVED") and "+ " not in cherry
+        note = f"stale: every commit is in {base}" if stale else ""
+        rows.append(f"| `{name}` | `{sha[:12]}` | {note} |")
+    return rows
+
+
+def newest_dev_run() -> str:
+    """The newest CI run on ``dev``, and ``RED`` when it failed; unresolved without ``gh``."""
+    out = run("gh", "run", "list", "--branch", "dev", "--limit", "1",
+              "--json", "headSha,status,conclusion,workflowName", timeout=CI_TIMEOUT_S)
+    if out.startswith("UNRESOLVED"):
+        return out
+    try:
+        runs = json.loads(out)
+    except ValueError:
+        return "UNRESOLVED (gh printed no JSON)"
+    if not runs:
+        return "UNRESOLVED (no run listed)"
+    newest = runs[0]
+    text = (f"`{newest['headSha'][:12]}` {newest['workflowName']} {newest['status']} "
+            f"{newest['conclusion'] or ''}").rstrip()
+    return f"RED: {text}" if newest["conclusion"] in {"failure", "timed_out"} else text
+
+
+#: A ledger status that names a landed check, gate, rule or repair; any other status is open.
+_CLOSED_STATUS = re.compile(r"^(repaired|check landed|gated|rule)\b")
+
+
+def open_defect_classes(path: pathlib.Path | None = None) -> str:
+    """The ledger's classes with no landed check, each with its count; twice-seen ones first."""
+    path = path or REPO_ROOT / "artifacts" / "process" / "defect_classes.md"
+    if not path.exists():
+        return "UNRESOLVED (file absent)"
+    found = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 6 or not cells[1].isdigit() or ":" not in cells[0]:
+            continue
+        if not _CLOSED_STATUS.match(cells[-1]):
+            found.append((-int(cells[1]), cells[0].split(":")[0]))
+    return "; ".join(f"{name} (seen {-n})" for n, name in sorted(found)) or "none"
 
 
 def build() -> str:
@@ -219,6 +297,21 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 |---|---|
 | `scripts/harness_gate.py` | {gate_verdict} |
 | PASS lines | {gate_pass} |
+
+## Awareness
+
+| Worktree | HEAD | Branch | Note |
+|---|---|---|---|
+{chr(10).join(worktree_rows())}
+
+| Local branch | HEAD | Note |
+|---|---|---|
+{chr(10).join(branch_rows())}
+
+| Quantity | Value |
+|---|---|
+| Newest CI run on `dev` | {newest_dev_run()} |
+| Open defect classes | {open_defect_classes()} |
 
 ## Release readiness
 
