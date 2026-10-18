@@ -73,7 +73,7 @@ Use of jnwb from outside: a new dataset, a downstream agent, tutorial figures.
 
 | ID | Theme | Defect | Waits | Release |
 |---|---|---|---|---|
-| 12-10 | One unfamiliar dataset through the skills | The DANDI 000253 tutorial runs inspection to export in direct Python (`tests/test_open_data_example.py`), but no test runs the same question through the router and skills and requires the same numbers and the same refusals (external review 2026-10-11, P2). | New coverage of a path whose operations are already tested; it cannot make release evidence falsely pass. | deferred-0.2.13 |
+| 12-10 | One unfamiliar dataset through the skills | The MCP tools and the skills' routing answer the DANDI 000253 question with the tutorial's numbers and refusals (`tests/test_open_data_through_the_agent_surface.py`, 2026-10-17); no recorded agent session runs it through the router and skills end to end (external review 2026-10-11, P2). | New coverage of a path whose operations are already tested; it cannot make release evidence falsely pass. | deferred-0.2.13 |
 | 07-05 | A downstream paper agent can consume jnwb | `jnwb.preflight` outcomes are not scored as data, results do not name their input's sha256 and object path (IA-27's tests for `resolve_nwb_path`, `sha256_file` and `require` land with it), `CONTRIBUTING.md` states no intake, and P-335 is unreviewed. | After 11-02; new downstream capability, not a defect. | deferred-0.2.13 |
 
 ## Harness and gates

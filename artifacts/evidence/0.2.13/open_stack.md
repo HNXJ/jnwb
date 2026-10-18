@@ -26,7 +26,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | Item | Next step | Source |
 |---|---|---|
 | 11-02 | `classify_layer_from_depth` waits on D10's ruling; the `select=` cast is in section A; P-348, P-192, P-296 and P-344 closed 2026-10-17 | roadmap |
-| 12-10, 07-05 | One unfamiliar dataset through the skills; downstream paper agent | roadmap |
+| 12-10, 07-05 | A recorded agent session on the DANDI 000253 question (the MCP and routing half is tested); downstream paper agent | roadmap |
 | 12-04, 09-07, 12-06 | P-266 needs flow-sensitive alias tracking in the contract gate (a redesign); 09-07's rewrite, second-home and state-awareness checks (the second needs a forbidden-phrase column in the rulings tables, Hamm's files); 12-06 waits on 12-04, 12-05, 12-07, 12-08 | roadmap |
 | Strict xfails | Word-pattern misses are the heuristic's documented limit; the mobile-width ledger is a figure-size choice | `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py` |
 | Fact closure group | 10-10, 11-06, 09-04, 11-07, 12-11, 11-03, 11-09, 12-08, 12-07: ruled to wait; facts report UNHELD, nothing public claims them | roadmap |
