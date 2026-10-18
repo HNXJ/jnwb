@@ -790,6 +790,14 @@ ACCEPTED_HANDLER_RECOVERY = {
         "not a fabricated identifier.",
     ("nwb_inspect.py", "_h5_channel_count", "TypeError", (), True, 1):
         "Returns None when the HDF5 electrode region has no length. Absence.",
+    ("nwb_inspect.py", "_registered_types", "Exception", (), True, 1):
+        "Returns None when the file's namespaces cannot be loaded, and the caller then "
+        "claims nothing about any type. Absence: no warning is invented.",
+    ("nwb_inspect.py", "_unknown_type", "OSError", (), True, 1):
+        "Returns None when the file cannot be stat'ed: no type is called unknown. Absence.",
+    ("nwb_inspect.py", "_why_unread", "OSError", (), True, 1):
+        "Returns \"\" when the source file cannot be opened: the refusal keeps its plain "
+        "not-found text and adds no reason. Absence.",
     ("nwb_inspect.py", "_pynwb_channel_count", "TypeError", (), True, 1):
         "The pynwb twin of _h5_channel_count: None when series.electrodes has no length. "
         "Absence.",
