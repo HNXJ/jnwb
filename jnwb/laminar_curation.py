@@ -403,7 +403,7 @@ def fuse_laminar_anchors(
     crossing alone places it. F carries none.
 
     When both the vFLIP2 and the vFLIP crossovers are present, the two landmarks are not yet
-    compared against a calibrated agreement threshold (roadmap 15-19), so their agreement
+    compared against a calibrated agreement threshold, so their agreement
     reads ``"unresolved"`` and the grade is capped at ``"B"``: an ``"A"`` becomes a ``"B"``,
     every other grade is unchanged, and a valid primary anchor is never rejected. B is then
     a laminar claim on the primary anchor, not a consensus. The values ``"agree"`` and

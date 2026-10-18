@@ -209,7 +209,7 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 "Remove it from select=."
             )
     # A cast writes one new dataset, and every other hard link to the source dataset is
-    # re-pointed at it (ruled 2026-10-18), so each of those names is cast as well. A name
+    # re-pointed at it, so each of those names is cast as well. A name
     # reached through a soft link is cast under its own name and leaves its target alone.
     hard = [p for p in paths if isinstance(src.get(p, getlink=True), h5py.HardLink)]
     names = _hard_link_names(src, [src[p] for p in hard])
