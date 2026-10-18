@@ -1730,7 +1730,10 @@ class TestCrossSpectralRatioFamilyIdentifiability:
             out = jnwb.wpli(x, y, fs=self.FS, freq_range=(10.0, 40.0))
             values.append(np.nanmean(out["wpli_debiased_sq"]))
         mean_null = float(np.mean(values))
-        assert abs(mean_null) < 0.05, f"debiased wPLI null mean {mean_null:.4f}"
+        # Plain wPLI squared has a null mean near 0.02 here, so 0.01 separates the two; a
+        # constant output has no spread across seeds.
+        assert abs(mean_null) < 0.01, f"debiased wPLI null mean {mean_null:.4f}"
+        assert np.std(values) > 0, values
 
     def test_plain_wpli_null_bias_falls_as_segment_count_rises(self):
         means = []
@@ -2230,7 +2233,10 @@ class TestAperiodicFitRobust:
         default = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode)
         robust = aperiodic_fit(self.FREQS, peaked, (2.0, 40.0), mode=mode, robust=True)
         assert default.exponent - 2.0 > 0.15, default
-        assert abs(robust.exponent - 2.0) < 0.03 if mode == "fixed" else robust.exponent < 2.2
+        # The knee fit trades exponent for knee, so its tolerance is wider; it must still beat
+        # the default fit.
+        tolerance = 0.03 if mode == "fixed" else 0.15
+        assert abs(robust.exponent - 2.0) < min(tolerance, abs(default.exponent - 2.0)), robust
         assert robust.accepted and robust.mode == mode
         on_clean = aperiodic_fit(self.FREQS, clean, (2.0, 40.0), mode=mode, robust=True)
         assert abs(on_clean.exponent - 2.0) < 0.01, on_clean

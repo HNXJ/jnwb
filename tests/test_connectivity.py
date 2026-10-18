@@ -534,8 +534,18 @@ class TestDirectedConnectivityAndNetwork:
         rng = np.random.default_rng(6)
         x = rng.standard_normal((10, 200))
         y = rng.standard_normal((10, 200))
-        result = directed_connectivity(x, y, method="granger", order=2)
-        assert isinstance(result, DirectedResult)
+        cases = [("granger", jnwb.granger, {"order": 2}),
+                 ("psi", jnwb.phase_slope_index, {"fs": 1000.0, "bands": (14, 30)}),
+                 ("te", jnwb.transfer_entropy, {})]
+        methods = set()
+        for name, direct, kwargs in cases:
+            result = directed_connectivity(x, y, method=name, **kwargs)
+            expected = direct(x, y, **kwargs)
+            assert isinstance(result, DirectedResult)
+            assert result.method == expected.method, name
+            np.testing.assert_array_equal(result.x_to_y, expected.x_to_y)
+            methods.add(result.method)
+        assert len(methods) == len(cases), methods
 
     def test_directed_network_returns_all_pairs(self):
         rng = np.random.default_rng(7)
