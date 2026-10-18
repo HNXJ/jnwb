@@ -797,12 +797,16 @@ def collect_selector(worktree: Path, selector: Sequence[str]) -> tuple[tuple[str
     """Node ids the selector actually collects, plus the raw output for a diagnostic."""
     proc = _pytest(worktree, ["--collect-only", "-q", *selector])
     output = proc.stdout + proc.stderr
+    # `-q --collect-only` prints the node ids first and ends that block with a blank line; what
+    # follows (warnings, the count) is not read, so a parametrized id may contain a space.
     collected = []
     for raw in proc.stdout.splitlines():
         line = _normalize(raw)
-        if not line or line.startswith(("ERROR", "FAILED", "E ", "!!!")):
+        if not line:
+            break
+        if line.startswith(("ERROR", "FAILED", "E ", "!!!")):
             continue
-        if ".py::" in line and " " not in line:
+        if ".py::" in line and not raw.startswith((" ", "\t")):
             collected.append(line)
     return tuple(collected), output
 
