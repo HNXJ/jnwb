@@ -25,7 +25,7 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 | Item | Next step | Source |
 |---|---|---|
 | 11-01 (with A2 F3) | `inspect` flags a `neurodata_type` no reader knows; needs the reader's known-type set exposed without breaking embedded extensions | roadmap, audit A2 |
-| 11-02 | P-296, P-344, the `select=` cast and `classify_layer_from_depth` (D10's ruling); P-348 and P-192 closed 2026-10-17 | roadmap |
+| 11-02 | P-344, the `select=` cast and `classify_layer_from_depth` (D10's ruling); P-348, P-192 and P-296 closed 2026-10-17 | roadmap |
 | 12-10, 07-05 | One unfamiliar dataset through the skills; downstream paper agent | roadmap |
 | 12-04, 09-07, 12-06 | P-266 needs flow-sensitive alias tracking in the contract gate (a redesign); 09-07's rewrite, second-home and state-awareness checks (the second needs a forbidden-phrase column in the rulings tables, Hamm's files); 12-06 waits on 12-04, 12-05, 12-07, 12-08 | roadmap |
 | Strict xfails | Word-pattern misses are the heuristic's documented limit; the mobile-width ledger is a figure-size choice | `tests/test_skill_decline_behaviour.py`, `tests/test_figure_form.py` |

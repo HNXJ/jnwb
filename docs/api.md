@@ -16,7 +16,7 @@ All 203 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.io | module | *Streaming array slice reader for NPZ archives without full-file RAM allocation.* |
 | jnwb.paths | module | *Central path resolution for jnwb.* |
 | jnwb.vis | module | *jnwb.vis -- Publication-grade electrophysiology visualization engine in pure Plotly.* |
-| jnwb.visual_qc | module | *Visual Quality Control and Multi-Session Inspection* |
+| jnwb.visual_qc | module | *Visual quality control and multi-session inspection.* |
 
 ## Module: jnwb.addressing
 

@@ -81,7 +81,7 @@ FILT = dict(compression="gzip", compression_opts=1, shuffle=True)
 
 # Stamped into every file this module writes, as `conversion_script` and inside each converted
 # dataset's `stored_dtype_note`. Both used to name `scripts/convert_nwb_compressed.py`,
-# which this repository deleted on 2026-08-19 -- 22 of 22 real sessions carry that dead path, and
+# which no longer exists -- 22 of 22 real sessions carry that dead path, and
 # nothing resolved it, which is how it survived a release. Provenance that names a script
 # nobody can run does not merely fail to help; it sends a reader somewhere that does not exist.
 # The repair is to name the public entry point that actually performed the conversion, NOT to add

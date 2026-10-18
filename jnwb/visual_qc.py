@@ -1,15 +1,7 @@
 """
-Visual Quality Control and Multi-Session Inspection
+Visual quality control and multi-session inspection.
 
-New orthogonal jnwb module for QC visualization.
-Consolidates logic from archived Y-files:
-- jnwb_visual_qc/ folder
-- jnwb_visual_qc_multisession/ folder
-
-Provides functions for plotting waveforms, noise distributions, and unit metrics
-across single or multiple sessions for visual inspection and validation.
-
-Author: New jnwb module
+Plots waveforms, noise distributions and unit metrics for one or several sessions.
 """
 
 import logging

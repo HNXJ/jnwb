@@ -672,15 +672,11 @@ def enrich_units_dataframe(
     # to derive stability from, so no `is_stable` is added: an all-<NA> column would be a
     # label with no data behind it.
 
-    # Force conversion of core types. snr/unit_id are stored as dtype=str
-    # (object) on some sessions but float64 on others — the same cross-session dtype
-    # inconsistency already worked around
-    # for snr in scripts/filter_units.py. unit_id is used as an identity
-    # key for equality/isin comparisons throughout the codebase (session.py
-    # get_spike_times, factories.py dataset_from_session, etc.) - an
-    # object-dtype string column silently fails every such comparison
-    # (df['unit_id'] == 156 is always False if the stored value is the
-    # string '156.0'), confirmed 2026-07-12. Coerced here at the source.
+    # snr and unit_id are stored as strings (object dtype) in some sessions and float64 in
+    # others. unit_id is an identity key for equality and isin comparisons (session.py
+    # get_spike_times, factories.py dataset_from_session), and a string column fails every
+    # one silently: df['unit_id'] == 156 is False when the stored value is '156.0'.
+    # Coerced here at the source.
     for col in ['firing_rate', 'waveform_duration', 'snr', 'unit_id']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
