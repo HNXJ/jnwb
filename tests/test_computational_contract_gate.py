@@ -73,6 +73,28 @@ def through_a_helper(x, device="cpu"):
     return _helper(x, device=device)
 
 
+def overwrites_device_first(x, device="cpu"):
+    device = "cpu"
+    if resolve_device(device, context="overwrites_device_first") == CUDA:
+        return x
+    return x
+
+
+def defaults_device_in_a_branch(x, device=None):
+    if device is None:
+        device = "cpu"
+    if resolve_device(device, context="defaults_device_in_a_branch") == CUDA:
+        return x
+    return x
+
+
+def converts_device_first(x, device="cpu"):
+    device = str(device).lower()
+    if resolve_device(device, context="converts_device_first") == CUDA:
+        return x
+    return x
+
+
 def maps_in_parallel(x, n_jobs=1):
     return parallel_map(abs, x, n_jobs=n_jobs)
 
@@ -139,9 +161,11 @@ def _flagged(violations):
 
 
 def test_the_execution_check_fails_on_an_argument_that_selects_nothing(fixture_module):
-    seeded = ["ignores_device", "discards_the_answer", "ignores_n_jobs", "validates_backend_only"]
+    seeded = ["ignores_device", "discards_the_answer", "ignores_n_jobs", "validates_backend_only",
+              "overwrites_device_first"]
     controls = ["branches_on_the_answer", "declares_cpu_only", "through_a_helper",
-                "maps_in_parallel", "refuses_and_announces_backend", "Record"]
+                "maps_in_parallel", "refuses_and_announces_backend", "Record",
+                "defaults_device_in_a_branch", "converts_device_first"]
     violations, records = gate.check_execution_switch(
         _callables(fixture_module, seeded + controls),
         scope=("jnwb", fixture_module.__name__))
