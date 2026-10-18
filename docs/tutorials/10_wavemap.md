@@ -17,8 +17,9 @@ python examples/tutorials/10_wavemap.py figures/   # keeps it
 
 The units table of the DANDI 000253 excerpt that [Open Data](09_open_data.md) describes:
 `units/waveform_mean`, one mean waveform per unit, and `units/id`. The source labels the
-waveforms volts; the values read as microvolts, and that reading is unverified. The figure plots
-normalized amplitude, so no step depends on the unit.
+waveforms volts, but their peak-to-peak amplitudes run from 31 to 483, the range of extracellular
+spikes in microvolts, so they are read as microvolts. The figure plots normalized amplitude, so no
+step depends on the unit.
 
 ## The steps
 
