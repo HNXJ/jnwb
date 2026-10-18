@@ -35,6 +35,8 @@ Attaches standardized `unit_id`, `area`, and `depth_class` columns directly to u
 enriched_units = jnwb.enrich_units_dataframe(units_df, electrodes_df)
 ```
 
+The join needs a `peak_channel_id` column on `units_df`. Without one, every row gets `area=None`, `group_name=None` and `depth_class='Unknown'`, and a `UserWarning` names the filled columns when `electrodes_df` has rows.
+
 `jnwb.get_all_units_metadata` emits `depth_class` the same way, and `jnwb.unit_census_report` with `group_by=None` groups by it. None of these writes a `layer` column.
 
 ### Unit to Layer (`peak_channel_id` with `label_layers`)

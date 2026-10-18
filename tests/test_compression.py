@@ -1572,3 +1572,53 @@ class TestTheSoftLinkedRegularTimestampsMessage:
             "it cannot be cast to float32. Remove it from select=."
         )
         assert list(out.iterdir()) == []
+
+
+class TestARelativeSoftLinkResolvesToItsTargetWhenCompressed:
+    """A relative soft link opens a path from the group that holds it, through a component below
+    that group (`sub/timestamps`). After compression the alias reads the target's values, and the
+    target stays linked. The resolver is `_soft_link_targets`; the target is found through it.
+
+    The proxy to avoid: an alias at the root or in the target's own group, which a root-relative
+    resolver also reads. The fixture asserts the path does not resolve from the root.
+    """
+
+    def test_the_alias_reads_the_target_values_after_compression(self, tmp_path):
+        src = _selectable_file(tmp_path / "rel_multi.nwb")
+        stamps = np.arange(400) / 1000.0
+        with h5py.File(src, "a") as f:
+            f.create_dataset("acquisition/a/sub/timestamps", data=stamps)
+            f["acquisition/a/alias"] = h5py.SoftLink("sub/timestamps")
+            assert f.get("sub/timestamps") is None  # the path does not resolve from the root
+            assert f["acquisition/a/alias"] == f["acquisition/a/sub/timestamps"]
+        dst = tmp_path / "ok.nwb"
+        stats = jnwb.compress_fp32(src, dst, verify=False, select=[OTHER])
+        assert stats["timestamps_kept_linked"] == ["acquisition/a/sub/timestamps"]
+        assert stats["timestamps_collapsed"] == []
+        with h5py.File(dst, "r") as f:
+            np.testing.assert_array_equal(f["acquisition/a/alias"][:], stamps)
+
+
+class TestNamingASoftLinkToAGuardedDatasetNamesItsTarget:
+    """`select=` naming a soft link to `convolved_spike_train` is refused, and the message names
+    the link and the guarded array it opens, as the refusal in `_resolve_selection` states.
+
+    The proxy to avoid: `match="source dtype"` alone, which any refusal of a guarded path passes.
+    """
+
+    def test_the_message_names_the_link_and_its_target(self, tmp_path):
+        from jnwb.compression import CONVOLVED_PATH
+
+        src = _file_with_aliases(tmp_path / "alias.nwb")
+        with h5py.File(src, "r") as f:
+            assert isinstance(f.get("aliases/soft_conv", getlink=True), h5py.SoftLink)
+            assert f["aliases/soft_conv"] == f[CONVOLVED_PATH]
+        out = tmp_path / "out"
+        out.mkdir()
+        stable = (
+            "select= names aliases/soft_conv, a link to " + CONVOLVED_PATH
+            + ", which compress_fp32 always rewrites at its source dtype"
+        )
+        with pytest.raises(ValueError, match=re.escape(stable)):
+            jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=["aliases/soft_conv"])
+        assert list(out.iterdir()) == []
