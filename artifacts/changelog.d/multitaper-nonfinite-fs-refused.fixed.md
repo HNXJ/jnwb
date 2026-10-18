@@ -1,0 +1,1 @@
+- `compute_multitaper_psd` refuses a non-finite `fs` (`jnwb/spectral/_psd.py`).

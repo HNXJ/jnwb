@@ -677,6 +677,32 @@ class TestDegenerateCutOffs:
                 with pytest.raises(ValueError, match=f"audit_units: {name} is"):
                     audit_units(frame, **{name: bad})
 
+    def test_snr_analysis_refuses_a_non_finite_cut_off(self):
+        """NaN passed `snr >= threshold` as False for every unit: no unit passed, no error."""
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="get_snr_analysis: snr_threshold is"):
+                get_snr_analysis(_synthetic_units(), snr_threshold=bad)
+
+    def test_unit_metadata_refuses_a_non_finite_quality_threshold(self, tmp_path):
+        """NaN passed `quality >= threshold` as False for every unit: the filter kept none."""
+        import pynwb
+        from datetime import datetime, timezone
+
+        nwb = pynwb.NWBFile(session_description="q", identifier="q-nan",
+                            session_start_time=datetime.now(timezone.utc))
+        nwb.add_unit_column(name="quality", description="quality")
+        nwb.add_unit(spike_times=[0.1, 0.9], quality=1.0)
+        nwb.add_unit(spike_times=[0.2, 0.8], quality=2.0)
+        path = tmp_path / "ses-01_nan.nwb"
+        with pynwb.NWBHDF5IO(str(path), "w") as io:
+            io.write(nwb)
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="get_all_units_metadata: quality_threshold is"):
+                get_all_units_metadata(path, filter_quality=True, quality_threshold=bad)
+            # Refused with the filter off too: the cut-off is validated on every call.
+            with pytest.raises(ValueError, match="get_all_units_metadata: quality_threshold is"):
+                get_all_units_metadata(path, quality_threshold=bad)
+
     def test_stability_rule_refuses_a_degenerate_threshold_or_empty_labels(self):
         from jnwb.addressing import enrich_units_dataframe
 

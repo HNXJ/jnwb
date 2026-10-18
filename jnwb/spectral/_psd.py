@@ -13,6 +13,7 @@ from ._common import (
     _require_finite_nonempty_trace,
     _require_two_samples,
     _flat_as_zero,
+    _require_positive_fs,
     _resolve_fs,
 )
 
@@ -750,7 +751,7 @@ def compute_multitaper_psd(
 
     Args:
         data: Continuous time series array of arbitrary shape.
-        fs: Sampling frequency in Hz. Must be strictly positive.
+        fs: Sampling frequency in Hz. Must be finite and strictly positive.
         nw: Time-halfbandwidth product (default: 3.0). Must be strictly positive.
         k_tapers: Number of DPSS tapers to average (default: max(1, int(2 * nw - 1))).
             Must be in range [1, N] where N is length of `data` along `axis`.
@@ -763,15 +764,14 @@ def compute_multitaper_psd(
                 A finite trace constant along `axis` has an exactly zero PSD.
 
     Raises:
-        ValueError: If `fs <= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains non-finite values (NaN or Inf).
+        ValueError: If `fs` is NaN, infinite or `<= 0`, `nw <= 0`, `k_tapers` is out of bounds, or `data` contains non-finite values (NaN or Inf).
 
     References:
         Thomson, D. J. (1982). Spectrum estimation and harmonic analysis. Proc. IEEE.
         doi:10.1109/PROC.1982.12433 -- the multitaper estimate from DPSS tapers. The K
         eigenspectra are averaged with equal weight; no adaptive weighting is applied.
     """
-    if fs <= 0:
-        raise ValueError(f"Sampling frequency fs must be strictly positive; got {fs}.")
+    _require_positive_fs(fs, "compute_multitaper_psd")
     if nw <= 0:
         raise ValueError(f"Time-halfbandwidth product nw must be strictly positive; got {nw}.")
 

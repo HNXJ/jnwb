@@ -82,7 +82,8 @@ def cluster_permutation_test(
             or maximum absolute value for 'both').
 
     Raises:
-        ValueError: If inputs have mismatched shapes, threshold <= 0, n_permutations < 1,
+        ValueError: If inputs have mismatched shapes, threshold is NaN, infinite or <= 0,
+            n_permutations < 1,
             invalid tail specification, or invalid group configuration.
         TypeError: If rng is provided but not an instance of numpy.random.Generator.
 
@@ -97,8 +98,11 @@ def cluster_permutation_test(
     """
     from scipy import ndimage
 
-    if threshold <= 0:
-        raise ValueError(f"Cluster threshold must be strictly positive; got {threshold}.")
+    if not np.isfinite(threshold) or threshold <= 0:
+        raise ValueError(
+            "cluster_permutation_test: threshold must be finite and strictly positive; "
+            f"got {threshold!r}."
+        )
     if n_permutations < 1:
         raise ValueError(f"n_permutations must be >= 1; got {n_permutations}.")
     if tail not in ("both", "greater", "less"):

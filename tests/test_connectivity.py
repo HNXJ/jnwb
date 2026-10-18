@@ -448,6 +448,13 @@ class TestTransferEntropy:
                                              r"estimator='quantile'"):
             transfer_entropy(x[0], x[1], estimator="symbolic", n_surrogates=0)
 
+    def test_an_unknown_bias_correction_is_refused_and_names_the_accepted_values(self):
+        """'miller' used to fall through to the plug-in value with no error."""
+        x = np.random.default_rng(0).normal(size=(2, 200))
+        for bad in ("miller", "MM"):
+            with pytest.raises(ValueError, match=r"bias_correction.*'mm'.*None"):
+                transfer_entropy(x[0], x[1], bias_correction=bad, n_surrogates=0)
+
 
 def _zero_lag_pair(n, seed):
     """Two noisy copies of one white source: no directed coupling and no lead."""

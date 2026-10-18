@@ -768,6 +768,13 @@ class TestComputeMultitaperPsd:
         with pytest.raises(ValueError, match="finite"):
             compute_multitaper_psd(x, fs=1000.0)
 
+    def test_a_non_finite_fs_is_refused(self):
+        # NaN passed `fs <= 0` and returned a non-finite PSD; inf raised ZeroDivisionError.
+        x = np.random.default_rng(0).normal(size=200)
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="compute_multitaper_psd: fs"):
+                compute_multitaper_psd(x, fs=bad)
+
 
 class TestVoltageCurvatureAndCSD:
     def test_known_quadratic_potential_curvature(self):
@@ -813,6 +820,15 @@ class TestVoltageCurvatureAndCSD:
             current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=0.0)
         with pytest.raises(ValueError, match="strictly positive"):
             current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=-0.3)
+
+    def test_a_nan_or_infinite_pitch_or_conductivity_is_refused(self):
+        # NaN passes `<= 0`, so both functions returned an all-NaN array with no error.
+        lfp = np.ones((5, 10))
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="voltage_curvature_1d: pitch_um"):
+                voltage_curvature_1d(lfp, pitch_um=bad)
+            with pytest.raises(ValueError, match="current_source_density_1d: conductivity_s_per_m"):
+                current_source_density_1d(lfp, pitch_um=50.0, conductivity_s_per_m=bad)
 
     def test_too_few_channels_raises(self):
         lfp = np.ones((2, 10))

@@ -1,0 +1,1 @@
+- `transfer_entropy` refuses unknown `bias_correction` values (`jnwb/connectivity/_transfer_entropy.py`).

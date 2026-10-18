@@ -162,8 +162,9 @@ def get_all_units_metadata(
         filter_quality: If True, filter to units with a finite quality >= quality_threshold,
             or, when a file's quality holds text labels, to units whose label is in
             ``stable_labels``.
-        quality_threshold: numeric quality cut-off. The default 1.0 is a convention with no
-            cited source: pass the cut-off your sorter's codes follow.
+        quality_threshold: numeric quality cut-off; NaN or infinite raises ``ValueError``. The
+            default 1.0 is a convention with no cited source: pass the cut-off your sorter's
+            codes follow.
         on_read_error: ``"skip"`` logs and continues on per-file read failures (default);
             ``"raise"`` re-raises the first read/processing error.
         stable_threshold, stable_labels: the ``is_stable`` rule, passed to
@@ -200,6 +201,8 @@ def get_all_units_metadata(
         {'incomplete.nwb': ('session_description',)}
     """
     _stable_label_set(stable_labels, "get_all_units_metadata")
+    quality_threshold = _finite_cutoff(quality_threshold, "quality_threshold",
+                                       "get_all_units_metadata")
     # Validated up front so a typo raises even when every input is an open handle,
     # for which there is no file to open.
     _normalise_allow_missing(allow_missing)
@@ -511,13 +514,14 @@ def get_snr_analysis(
         a missing, non-numeric or infinite SNR is undefined and left out of every entry.
 
     Raises:
-        ValueError: ``snr``, or with ``detail=True`` ``session_id``, occurs more than once in
-            ``units_df``.
+        ValueError: ``snr_threshold`` is NaN or infinite, or ``snr``, or with ``detail=True``
+            ``session_id``, occurs more than once in ``units_df``.
 
     Example:
         >>> snr_stats = get_snr_analysis(units_df, snr_threshold=1.0)
         >>> print(f"Units with SNR>=1.0: {snr_stats['pass_rate']:.1%}")
     """
+    snr_threshold = _finite_cutoff(snr_threshold, "snr_threshold", "get_snr_analysis")
     _refuse_repeated_columns(units_df, ("snr", "session_id") if detail else ("snr",),
                              "get_snr_analysis")
     if 'snr' not in units_df.columns:

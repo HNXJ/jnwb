@@ -85,7 +85,8 @@ def label_layers(
 
     Raises:
         ValueError: If `granular_thickness_um` is non-positive or non-finite, `probe_geometry`
-            is not linear, channel count does not match `vflip_result.n_channels`, range bounds
+            is not linear or its `nominal_pitch` is non-finite or non-positive, channel count does
+            not match `vflip_result.n_channels`, range bounds
             are invalid, `vflip_result.index_space` is not the shaft rank this geometry
             requires, the depth declaration is invalid (as in :func:`vflip`), or it differs
             from the one `vflip_result` records.
@@ -177,9 +178,10 @@ def label_layers(
 
     # 3. Determine contact positions along shaft
     nominal_pitch = getattr(probe_geometry, "nominal_pitch", None)
-    if nominal_pitch is None or nominal_pitch <= 0:
+    if nominal_pitch is None or not np.isfinite(nominal_pitch) or nominal_pitch <= 0:
         raise ValueError(
-            "probe_geometry.nominal_pitch must be strictly positive to compute layer boundaries in um"
+            "label_layers: probe_geometry.nominal_pitch must be finite and strictly positive "
+            f"to compute layer boundaries in um; got {nominal_pitch!r}."
         )
     pitch = float(nominal_pitch)
 
