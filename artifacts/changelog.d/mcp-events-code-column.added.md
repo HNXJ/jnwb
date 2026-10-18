@@ -1,1 +1,1 @@
-- MCP `get_event_codes_and_timings` takes `code_column=`; its no-column refusal lists the columns (`jnwb/mcp_server`).
+- MCP `get_event_codes_and_timings` takes `code_column=` (`jnwb/mcp_server/event_tools.py`).
