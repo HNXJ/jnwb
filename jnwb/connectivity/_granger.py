@@ -406,8 +406,10 @@ def granger_causality(
         order_2_to_1, order_1_to_2, fit21, fit12 = _fit_all(CPU, None)
     var_r1, var_u1, res_r1, res_u1 = fit21
     var_r2, var_u2, res_r2, res_u2 = fit12
-    f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else 0.0
-    f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else 0.0
+    # A zero residual variance means the fit failed, not that the influence is zero, as in
+    # `granger`.
+    f_2_to_1 = np.log(var_r1 / var_u1) if var_u1 > 0 else float("nan")
+    f_1_to_2 = np.log(var_r2 / var_u2) if var_u2 > 0 else float("nan")
 
     diag_2_to_1 = _series_diagnostics(s1, res_u1, order_2_to_1)
     diag_1_to_2 = _series_diagnostics(s2, res_u2, order_1_to_2)

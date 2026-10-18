@@ -63,6 +63,15 @@ class TestGrangerCausality:
         assert "F_2_to_1" in result
         assert "F_1_to_2" in result
 
+    def test_a_constant_target_gives_nan_not_zero_influence(self):
+        """A zero residual variance means the fit failed, as `granger` reports it."""
+        noise = np.random.default_rng(3).standard_normal(500)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = granger_causality(np.ones(500), noise, order=2)
+        assert np.isnan(result["F_2_to_1"]), result["F_2_to_1"]
+        assert np.isfinite(result["F_1_to_2"]), result["F_1_to_2"]
+
 
 class TestNetworkTopology:
     def test_thresholds_and_counts_edges(self):

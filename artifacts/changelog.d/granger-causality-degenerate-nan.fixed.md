@@ -1,0 +1,1 @@
+- Deprecated `granger_causality` reports NaN, not 0.0, for a zero residual variance (`jnwb/connectivity/_granger.py`).
