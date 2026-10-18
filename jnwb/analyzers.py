@@ -14,7 +14,8 @@ import logging
 from typing import Optional, Dict, Tuple
 import numpy as np
 from ._backend import CPU, CUDA, resolve_device, torch_cuda_available, warn_device_fallback
-from ._bins import bins_within, onset_locked_counts, onset_window, whole_bin_count
+from ._bins import (bins_within, onset_locked_counts, onset_window, refuse_nonfinite_times,
+                    whole_bin_count)
 from ._dictlike import RenamedKeyDict
 from .trajectory import _kept_components
 import pandas as pd
@@ -328,7 +329,11 @@ class UnitAnalyzer:
 
         Returns:
             Dict with raster data for plotting
+
+        Raises:
+            ValueError: If a ``trial_onsets`` entry is not finite; the message names its index.
         """
+        refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.raster", "trial_onsets")
         win_sec = (window_ms[0] / 1000, window_ms[1] / 1000)
         raster_data = []
         # spike - onset in [pre, post], both edges inclusive (`onset_window`); each trial keeps
@@ -379,8 +384,10 @@ class UnitAnalyzer:
 
         Raises:
             ValueError: If the span of ``window_ms`` is not a whole multiple of
-                ``bin_size_ms``; the message names the nearest valid windows.
+                ``bin_size_ms``; the message names the nearest valid windows. Also if a
+                ``trial_onsets`` entry is not finite; the message names its index.
         """
+        refuse_nonfinite_times(trial_onsets, "UnitAnalyzer.psth", "trial_onsets")
         n_bins   = whole_bin_count(window_ms, bin_size_ms, "UnitAnalyzer.psth", "window_ms",
                                    width_param="bin_size_ms")
         win_sec  = (window_ms[0] / 1000, window_ms[1] / 1000)

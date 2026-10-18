@@ -497,6 +497,24 @@ class TestRasterSelectsBySpikeMinusOnset(unittest.TestCase):
         self.assertEqual(r['n_spikes'], 2)
 
 
+class TestNanTrialOnsetIsRefused(unittest.TestCase):
+    """A NaN trial onset selected no spike, so its trial read as a silent zero-spike trial."""
+
+    def test_raster_refuses_a_nan_onset_and_keeps_a_finite_trial(self):
+        spikes = np.array([0.01, 1.01])
+        with self.assertRaisesRegex(ValueError, r"UnitAnalyzer\.raster: trial_onsets\[1\] is nan"):
+            UnitAnalyzer.raster(spikes, np.array([0.0, np.nan]), window_ms=(-100, 100))
+        r = UnitAnalyzer.raster(spikes, np.array([0.0, 1.0]), window_ms=(-100, 100))
+        self.assertEqual([len(t['spike_times']) for t in r['raster']], [1, 1])
+
+    def test_psth_refuses_a_nan_onset_and_keeps_a_finite_trial(self):
+        spikes = np.array([0.01, 0.02])
+        with self.assertRaisesRegex(ValueError, r"UnitAnalyzer\.psth: trial_onsets\[1\] is nan"):
+            UnitAnalyzer.psth(spikes, np.array([0.0, np.nan]), bin_size_ms=50, window_ms=(-100, 100))
+        res = UnitAnalyzer.psth(spikes, np.array([0.0, 1.0]), bin_size_ms=50, window_ms=(-100, 100))
+        self.assertEqual(res['n_trials'], 2)
+
+
 class TestUnitAnalyzerQualityMetrics(unittest.TestCase):
     """Test UnitAnalyzer quality assessment."""
 

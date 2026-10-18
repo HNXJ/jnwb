@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ._backend import CPU, CUDA, resolve_device, warn_device_fallback
-from ._bins import bin_edges, right_open_counts, whole_bin_count
+from ._bins import bin_edges, refuse_nonfinite_times, right_open_counts, whole_bin_count
 from ._spread import zscore
 from .gpu_pca import _svd_numpy, pin_component_signs
 
@@ -48,7 +48,8 @@ def build_time_resolved_matrix(
 
     Raises:
         ValueError: If the span of ``time_window_ms`` is not a whole multiple of
-            ``bin_size_ms``; the message names the nearest valid windows.
+            ``bin_size_ms``; the message names the nearest valid windows. Also if a
+            ``start_time`` is not finite; the message names its index.
     """
     n_bins = whole_bin_count(time_window_ms, bin_size_ms, "build_time_resolved_matrix",
                              "time_window_ms", width_param="bin_size_ms")
@@ -57,6 +58,8 @@ def build_time_resolved_matrix(
     bin_sec = bin_size_ms / 1000.0
     bin_centers = (bin_edges(start_sec, bin_sec, n_bins)[:-1] + bin_sec / 2.0) * 1000.0
 
+    # Checked before the empty-population return: a NaN start is refused for every call.
+    refuse_nonfinite_times(epochs_df['start_time'].values, "build_time_resolved_matrix", "start_time")
     units_df = session.get_units(quality=quality, area=area)
     if len(units_df) == 0:
         log.warning(f"No units found in area {area}")

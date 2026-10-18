@@ -1,0 +1,1 @@
+- NaN trial starts and epoch onsets are refused, not counted as zero spikes (`jnwb/_bins.py`).

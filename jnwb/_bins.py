@@ -154,3 +154,19 @@ def _distinguishing_digits(values) -> int:
         if len({f"{v:.{p}g}" for v in values}) == len(set(values)):
             return p
     return 17
+
+
+def refuse_nonfinite_times(values, func_name: str, name: str) -> None:
+    """Raise ``ValueError`` naming the first non-finite entry of a trial-time array.
+
+    A NaN trial start or onset makes every spike of its trial non-finite once the start is
+    subtracted, so the trial counts zero spikes and no error is raised. The caller drops or
+    imputes the entry.
+    """
+    arr = np.asarray(values, dtype=float).ravel()
+    bad = np.flatnonzero(~np.isfinite(arr))
+    if bad.size:
+        i = int(bad[0])
+        raise ValueError(
+            f"{func_name}: {name}[{i}] is {arr[i]}; drop or impute the non-finite {name} first."
+        )

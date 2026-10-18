@@ -155,6 +155,17 @@ class TestBinSpikes:
         with pytest.raises(ValueError, match="yields 1 bins; need >= 2"):
             bin_spikes([np.array([0.1])], window=(0.0, 0.1), bin_size_ms=100.0)
 
+    def test_a_nan_trial_start_is_refused_not_an_all_zero_trial(self):
+        # The NaN start made every spike of its trial NaN after the subtraction, so the trial
+        # counted zero spikes and no error was raised.
+        spikes = np.array([0.05, 0.15, 0.25, 0.35])
+        with pytest.raises(ValueError, match=r"bin_spikes: trial_starts\[1\] is nan"):
+            bin_spikes(spikes, window_s=(0.0, 0.2), bin_size_ms=100.0,
+                       trial_starts=[0.0, np.nan])
+        counts = bin_spikes(spikes, window_s=(0.0, 0.2), bin_size_ms=100.0,
+                            trial_starts=[0.0, 0.2])
+        assert counts.shape == (2, 2) and counts.sum() == 4
+
     STEADY_1KHZ = np.arange(0.0005, 3.0, 0.001)  # one spike per ms, off the bin edges
 
     def test_a_steady_train_reads_its_rate_in_every_bin_of_a_whole_bin_window(self):

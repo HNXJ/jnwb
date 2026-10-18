@@ -99,6 +99,19 @@ def test_build_time_resolved_matrix_bins_are_right_open_like_bin_spikes():
     assert X1.shape == (4, 2, 1) and X1[0, 0, 0] == 1 and centers.tolist() == [62.5]
 
 
+def test_build_time_resolved_matrix_refuses_a_nan_start_time():
+    """A NaN start_time made its trial count zero spikes on every unit, with no error."""
+    session = MockSession()
+    epochs = session.epochs_df.copy()
+    epochs.loc[2, 'start_time'] = np.nan
+    with pytest.raises(ValueError, match=r"build_time_resolved_matrix: start_time\[2\] is nan"):
+        build_time_resolved_matrix(session, area='V1', epochs_df=epochs,
+                                   time_window_ms=(0.0, 100.0), bin_size_ms=20.0)
+    X, _, _ = build_time_resolved_matrix(session, area='V1', epochs_df=session.epochs_df,
+                                         time_window_ms=(0.0, 100.0), bin_size_ms=20.0)
+    assert X.shape == (4, 2, 5) and X[:, 0, :].sum() == 6
+
+
 def test_compute_population_trajectory():
     session = MockSession()
     

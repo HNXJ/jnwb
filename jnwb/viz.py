@@ -13,7 +13,7 @@ from typing import Any, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ._bins import onset_locked_counts, whole_bin_count
+from ._bins import onset_locked_counts, refuse_nonfinite_times, whole_bin_count
 from ._rng import Default, RNGLike, resolve_rng, resolve_seed_alias
 
 log = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
     Raises:
         ValueError: If ``win_ms`` is not finite with end > start, ``bin_ms`` is not positive,
             or the span of ``win_ms`` is not a whole multiple of ``bin_ms``; the message names
-            the nearest valid windows.
+            the nearest valid windows. Also if an onset is not finite; the message names its index.
 
     References:
         Gerstein, G. L., & Kiang, N. Y.-S. (1960). An approach to the quantitative
@@ -155,6 +155,7 @@ def raster_psth(st, onsets, win_ms, bin_ms: float = 10.0):
         raise ValueError(f"raster_psth: bin_ms must be positive and finite, got {bin_ms}")
     n_bins = whole_bin_count(win_ms, bin_ms, "raster_psth")
     onsets = np.asarray(onsets, dtype=float)
+    refuse_nonfinite_times(onsets, "raster_psth", "onsets")
     edges = win_ms[0] + bin_ms * np.arange(n_bins + 1)
     centers = edges[:-1] + bin_ms / 2.0
     if onsets.size == 0:

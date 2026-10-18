@@ -11,7 +11,7 @@ import warnings
 from typing import Any, Optional, Tuple, Dict, List, Union
 import numpy as np
 
-from ._bins import onset_window, whole_bin_count
+from ._bins import onset_window, refuse_nonfinite_times, whole_bin_count
 from ._spread import is_constant
 from ._units import resolve_unit_alias
 from scipy import stats
@@ -68,7 +68,8 @@ def compute_response_metrics(
         - baseline_duration_s, response_duration_s: each window's length in seconds.
 
     Raises:
-        ValueError: a window whose start is at or after its stop.
+        ValueError: a window whose start is at or after its stop, or an ``epoch_onsets``
+            entry that is not finite; the message names the index.
 
     Example:
         >>> metrics = compute_response_metrics(spike_times, epoch_onsets)
@@ -119,6 +120,8 @@ def compute_response_metrics(
     metrics['baseline_duration_s'] = float(baseline_duration)
     metrics['response_duration_s'] = float(response_duration)
 
+    # Checked before the empty-train return, which would otherwise give every onset a zero row.
+    refuse_nonfinite_times(epoch_onsets, "compute_response_metrics", "epoch_onsets")
     if len(epoch_onsets) == 0 or len(spike_times) == 0:
         return metrics
 

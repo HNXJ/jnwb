@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .._bins import refuse_nonfinite_times
+
 
 def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np.ndarray:
     """Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.
@@ -20,7 +22,11 @@ def detect_trial_cycles(epochs_df: pd.DataFrame, gap_factor: float = 10.0) -> np
 
     Returns:
         (n_rows,) int array of cycle ids, in ``epochs_df``'s original row order.
+
+    Raises:
+        ValueError: if a ``start_time`` is not finite; the message names its row index.
     """
+    refuse_nonfinite_times(epochs_df["start_time"].values, "detect_trial_cycles", "start_time")
     order = np.argsort(epochs_df["start_time"].values)
     t_sorted = epochs_df["start_time"].values[order]
     gaps = np.diff(t_sorted)

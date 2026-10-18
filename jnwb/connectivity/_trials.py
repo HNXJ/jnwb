@@ -8,7 +8,7 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 from .._spread import zero_detrend_residue, zscore
 from .._units import resolve_unit_alias
-from .._bins import bin_edges, right_open_counts, whole_bin_count
+from .._bins import bin_edges, refuse_nonfinite_times, right_open_counts, whole_bin_count
 
 log = logging.getLogger(__package__)
 
@@ -168,7 +168,8 @@ def bin_spikes(
 
     Raises:
         ValueError: If the span of ``window_s`` is not a whole multiple of ``bin_size_ms``;
-            the message names the nearest valid windows.
+            the message names the nearest valid windows. Also if a ``trial_starts`` entry is
+            not finite; the message names its index.
     """
     # `window` named no unit while its neighbour `bin_size_ms` did, in the same call.
     # Both are times, one in seconds and one in milliseconds, and only one said so.
@@ -202,6 +203,7 @@ def bin_spikes(
         )
 
     if trial_starts is not None:
+        refuse_nonfinite_times(trial_starts, "bin_spikes", "trial_starts")
         st = np.asarray(spike_times, dtype=float).ravel()
         trains = (st - float(start) for start in np.asarray(trial_starts, dtype=float).ravel())
     elif isinstance(spike_times, (list, tuple)) and (
