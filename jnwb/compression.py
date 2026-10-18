@@ -185,10 +185,10 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 "with starting_time and rate, so the link stays valid, and it cannot be cast "
                 "to float32. Remove it from select=."
             )
-        # A cast rewrites the array under one name only. Through a second hard link the old
-        # values stay, and a soft-link alias named here is cast as a new dataset while its
-        # target keeps the old ones; either way the two names then disagree by the float32
-        # rounding of each sample. Casting a soft link's target keeps both names equal, except
+        # A linked irregular timestamps array stays at its source dtype, so every name that
+        # opens it reads the same sample times; a cast would change them under every hard-link
+        # name, and a soft-link alias named here would be cast as a new dataset while its
+        # target keeps the old ones. Casting a soft link's target keeps both names equal, except
         # through a top-level soft link, which the structural copy writes as an independent copy.
         hard_linked = h5py.h5o.get_info(obj.id).rc > 1
         via_soft_alias = isinstance(src.get(rel, getlink=True), h5py.SoftLink)
@@ -208,10 +208,33 @@ def _resolve_selection(src: h5py.File, select) -> list[str]:
                 "replaces with starting_time and rate and drops; it cannot be cast to float32. "
                 "Remove it from select=."
             )
-    return paths
+    # A cast writes one new dataset, and every other hard link to the source dataset is
+    # re-pointed at it (ruled 2026-10-18), so each of those names is cast as well. A name
+    # reached through a soft link is cast under its own name and leaves its target alone.
+    hard = [p for p in paths if isinstance(src.get(p, getlink=True), h5py.HardLink)]
+    names = _hard_link_names(src, [src[p] for p in hard])
+    return sorted(set(paths) | {n for p in hard for n in names.get(src[p], ())})
 
 # Every `timestamps` array in the source that is regular gets collapsed. Discovered by scan,
 # not hardcoded, since a session can carry extra tracked signals (eye/pupil/reward/photodiode).
+
+
+def _hard_link_names(f: h5py.File, objs: list) -> dict:
+    """Every hard-link name, with a leading ``/``, of each dataset in ``objs`` that has more
+    than one. One walk over the file's links, and none when no dataset has a second link.
+    """
+    shared = {o for o in objs if h5py.h5o.get_info(o.id).rc > 1}
+    out: dict = {}
+    if not shared:
+        return out
+
+    def w(name, link):
+        if isinstance(link, h5py.HardLink):
+            obj = f[name]
+            if obj in shared:
+                out.setdefault(obj, []).append("/" + name)
+    f.visititems_links(w)
+    return out
 
 
 def _is_regular(ts: np.ndarray, tol: float = 1e-6) -> tuple[bool, float]:
@@ -487,8 +510,36 @@ def _structural_copy(src: h5py.File, dst: h5py.File) -> None:
             dst.attrs[k] = v
     for key in src.keys():
         src.copy(src[key], dst, name=key, expand_refs=False)
+    _relink_across_top_level(src, dst)
     n_fixed = _resolve_references(src, dst)
     return n_fixed
+
+
+def _relink_across_top_level(src: h5py.File, dst: h5py.File) -> int:
+    """Restore hard links whose names sit under different top-level keys; returns how many.
+
+    Each top-level key is copied on its own, so one object with names under two keys arrives
+    as two independent copies, and a later write to one name no longer reaches the other.
+    Names under one key share their object after the copy and are left as they are.
+    """
+    names: dict = {}
+
+    def w(name, link):
+        if isinstance(link, h5py.HardLink):
+            obj = src[name]
+            if h5py.h5o.get_info(obj.id).rc > 1:
+                names.setdefault(obj, []).append(name)
+    src.visititems_links(w)
+    n = 0
+    for group in names.values():
+        first = group[0]
+        for name in group[1:]:
+            if name.split("/", 1)[0] == first.split("/", 1)[0] or dst.get(name) == dst.get(first):
+                continue
+            del dst[name]
+            dst[name] = dst[first]
+            n += 1
+    return n
 
 
 def compact(src_path: Path, dst_path: Path) -> int:
@@ -546,9 +597,17 @@ def _convert(src_path: Path, dst_path: Path, drop_convolved: bool, cast_paths: l
         print(f"Step 2/3: replacing the selected arrays ({len(cast_paths)} arrays, "
               "float32+chunk+compress), spike_train and convolved_spike_train "
               "(rechunk+compress in place) ...")
+        written: dict = {}
         for path in cast_paths:
             print(f"    {path}")
             src_ds = src[path]
+            if src_ds in written:
+                # Another hard-link name of a dataset already cast: point it at that one.
+                if path in dst:
+                    del dst[path]
+                dst[path] = dst[written[src_ds]]
+                continue
+            written[src_ds] = path
             chunks = _chunk_shape(src_ds.shape, 16384)
             max_err = [0.0]
 
@@ -833,10 +892,11 @@ def compress_fp32(
         select: dataset paths to cast to float32, such as
             ``["acquisition/probe_0_lfp/data"]``; a leading ``/`` is optional and ``[]`` casts
             nothing. Each path is checked, cast and reported under the name of the dataset it
-            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. A hard or soft link
-            is cast under its own name: the output holds a new float32 dataset there, the link
-            no longer opens its target, and the target keeps its source dtype unless it is
-            named too. A soft link that is itself a top-level key arrives in the output as an
+            opens, so ``a//b``, ``a/./b`` and ``a/b/`` all mean ``a/b``. Every hard link to
+            a named dataset opens the one float32 dataset the cast writes, and each of those
+            names is listed in ``cast_paths``. A soft link is cast under its own name: the
+            output holds a new float32 dataset there, the link no longer opens its target, and
+            the target keeps its source dtype unless it is named too. A soft link that is itself a top-level key arrives in the output as an
             independent copy of what it opens, so a dataset cast at another name, or a group
             holding one, keeps its source dtype under that link. The cast is IRREVERSIBLE.
             Required: omitting it or passing ``None``

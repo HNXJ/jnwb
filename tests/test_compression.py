@@ -1205,16 +1205,37 @@ class TestALinkAliasIsTheDatasetItNames:
             assert f["aliases/ext_self"] == f[OTHER]
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False,
                                    select=["aliases/ext_self"])
-        assert stats["cast_paths"] == ["/" + OTHER]
-        assert _cast_notes(tmp_path / "ok.nwb") == {OTHER: np.dtype(np.float32)}
+        # The fixture's hard alias of the same dataset is re-pointed at the cast.
+        assert stats["cast_paths"] == sorted(["/" + OTHER, "/aliases/hard_other"])
+        notes = _cast_notes(tmp_path / "ok.nwb")  # one entry: the two names open one object
+        assert list(notes.values()) == [np.dtype(np.float32)]
+        assert set(notes) <= {OTHER, "aliases/hard_other"}, notes
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert f[OTHER] == f["aliases/hard_other"]
 
-    @pytest.mark.parametrize("link", ["hard", "soft"])
-    def test_an_alias_of_a_castable_dataset_is_still_cast(self, src, tmp_path, link):
-        alias = f"aliases/{link}_other"
+    def test_a_soft_alias_of_a_castable_dataset_is_cast_under_its_own_name(self, src, tmp_path):
+        alias = "aliases/soft_other"
         self._assert_alias(src, alias, OTHER)
         stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=False, select=[alias])
         assert stats["cast_paths"] == ["/" + alias]
         assert _cast_notes(tmp_path / "ok.nwb") == {alias: np.dtype(np.float32)}
+
+    @pytest.mark.parametrize("named", ["alias", "target", "both"])
+    def test_every_hard_link_name_opens_the_one_cast_dataset(self, src, tmp_path, named):
+        """Ruled 2026-10-18: casting under one name left the other hard link at float64, and
+        `verify` checked only the named one. Each name now opens the same float32 dataset."""
+        alias = "aliases/hard_other"
+        self._assert_alias(src, alias, OTHER)
+        with h5py.File(src, "r") as f:
+            source = f[OTHER][()]
+        select = {"alias": [alias], "target": [OTHER], "both": [alias, OTHER]}[named]
+        stats = jnwb.compress_fp32(src, tmp_path / "ok.nwb", verify=True, select=select)
+        assert stats["cast_paths"] == sorted(["/" + alias, "/" + OTHER])
+        assert stats["verification"]["ok"]
+        with h5py.File(tmp_path / "ok.nwb", "r") as f:
+            assert f[alias] == f[OTHER], "both names must open one dataset"
+            assert f[alias].dtype == np.float32
+            np.testing.assert_array_equal(f[alias][()], source.astype(np.float32))
 
     @pytest.mark.parametrize("link", ["hard", "soft"])
     def test_a_regular_timestamps_array_another_link_opens_is_kept(self, src, tmp_path, link):
