@@ -186,6 +186,7 @@ class TestXFlipContiguousPartitioning:
             rng=300,
         )
         res = xflip(data, n_blocks=2, min_block_size=5, n_surrogates=0)
+        assert len(res.block_bounds) >= 2, res.block_bounds
         for st, en in res.block_bounds:
             assert (en - st) >= 5
 

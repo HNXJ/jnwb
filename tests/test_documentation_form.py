@@ -221,6 +221,7 @@ def test_a_reintroduced_superseded_term_is_named_with_its_page(row):
 def test_the_discriminator_would_not_fire_on_the_preferred_form():
     """The other half: the seeded check must be sensitive to the superseded form, not to
     any sentence at all."""
+    assert VOCABULARY, "the vocabulary contract parsed to no rows"
     for row in VOCABULARY:
         for good in row.preferred:
             clean = [("clean_page.md", f"A sentence using {good} in prose.")]

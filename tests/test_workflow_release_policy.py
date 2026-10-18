@@ -261,6 +261,7 @@ class TestATagPushReusesTheDevRunOfItsCommit:
             assert job["env"]["QUALIFIED_BY"] == "${{ needs.qualified.outputs.run_id }}", jid
             report, *work = job["steps"]
             assert report["if"] == "env.QUALIFIED_BY != ''" and "$QUALIFIED_BY" in report["run"]
+            assert work, (jid, "a leg has no work steps after its report step")
             for step in work:
                 condition = " ".join(str(step.get("if", "")).split())
                 assert re.fullmatch(r"(?:.+ && )?env\.QUALIFIED_BY == ''", condition), (

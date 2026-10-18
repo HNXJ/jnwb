@@ -1774,6 +1774,7 @@ def test_the_drawn_colours_stay_apart_under_colour_vision_deficiency(drawn, name
 
 
 def test_the_palette_stays_apart_under_colour_vision_deficiency():
+    assert STYLE.HIGHLIGHT, "the palette names no highlight colour"
     for theme, highlight in STYLE.HIGHLIGHT.items():
         assert not _cvd_failures([*STYLE.SERIES, highlight, STYLE.NEUTRAL]), theme
 

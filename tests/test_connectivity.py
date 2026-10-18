@@ -1016,6 +1016,7 @@ class TestPsiInferenceIsNotOverstated:
         with pytest.warns(RuntimeWarning, match="agree to rounding"):
             res = phase_slope_index(x, x.copy(), fs=100.0, nperseg=64, bands=bands)
         assert res.diagnostics["n_segments"] >= 8
+        assert res.per_band, "phase_slope_index reported no band to test for NaN"
         assert all(np.isnan(b["z"]) for b in res.per_band.values())
         assert res.p_net is None
         assert res.diagnostics["ok_for_interpretation"] is False

@@ -194,9 +194,11 @@ def test_report_is_rendered_from_the_raw_receipt():
     raw = _raw()
     report = REPORT.read_text(encoding="utf-8")
     assert raw["estimator_sha256"][:16] in report
+    assert raw["nulls"], "the receipt holds no null rows"
     for name, cell in raw["nulls"].items():
         assert f"| `{name}` |" in report
         assert f"{cell['false_positive_rate']:.3f}" in report
+    assert raw["auto_count"]["rows"], "the receipt holds no auto-count rows"
     for row in raw["auto_count"]["rows"]:
         assert (
             f"| `{row['null']}` | `{row['contiguous']}` | {row['n_seeds']} | "

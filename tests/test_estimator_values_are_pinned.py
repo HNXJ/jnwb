@@ -240,6 +240,7 @@ class TestCoefRowsKeepsTheTwoIntervalBoundsApart:
         """An OLS interval is estimate +/- t*se, so the two half-widths are equal."""
         rows = coef_rows(self._fit(), model="ols", estimate_key="estimate", stat_key="t")
 
+        assert rows, "the fit produced no coefficient rows"
         for row in rows:
             assert (row["estimate"] - row["ci_lo"]) == pytest.approx(
                 row["ci_hi"] - row["estimate"]), row

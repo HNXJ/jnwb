@@ -826,6 +826,7 @@ def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises()
     width, step, lag = scope["width"], scope["step"], 5
     values = scope["values"]
     assert values.shape == (len(range(0, 50 - width + 1, step)),) == (7,)
+    assert len(scope["starts"]) == values.shape[0], "the docs loop must yield one start per window"
     for s, value in zip(scope["starts"], values):
         sliced = jnwb.jrsa(x1[..., s:s + width], x2[..., s:s + width], metric="pearson",
                            lag=lag, rng=0)

@@ -206,6 +206,7 @@ class TestRepairBandArtifactsShapeContract:
         power, freqs = self._power()
         _, frac_upper = repair_band_artifacts(power, freqs)
         _, frac_both = repair_band_artifacts(power, freqs, sided="both")
+        assert frac_upper, "the default bands must report a flagged fraction for each band"
         for band in frac_upper:
             assert frac_both[band] >= frac_upper[band]
 

@@ -74,6 +74,7 @@ def test_the_excerpt_is_the_published_data_and_ships_outside_the_wheel(provenanc
         "the provenance describes a different excerpt; rebuild both together")
     assert provenance["dandiset"]["license"] == "CC-BY-4.0"
     assert provenance["dandiset"]["doi"] == "10.48324/dandi.000253/0.240503.0152"
+    assert provenance["assets"], "the provenance lists no source assets"
     for asset in provenance["assets"].values():
         assert UUID.match(asset["asset_id"]), asset
         assert asset["sha256_verified_locally"] == asset["sha256"], (
