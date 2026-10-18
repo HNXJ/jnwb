@@ -1,0 +1,1 @@
+- `jnwb/vis/spectral.py`: `plot_spectral_modulation_matrix` refuses a matrix not shaped (areas, bands).

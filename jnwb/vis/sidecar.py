@@ -92,6 +92,15 @@ class EpistemicArgumentObject:
         bar_claim = d.get("BARRED CLAIM", d.get("BARRED_CLAIM", ""))
         src = d.get("SOURCE ARTIFACTS", d.get("SOURCE_ARTIFACTS", []))
         meta = d.get("METADATA", {})
+        if isinstance(src, str):
+            src = [src]
+        elif isinstance(src, (list, tuple)):
+            src = list(src)
+        else:
+            raise TypeError(
+                f"EpistemicArgumentObject.from_dict: 'SOURCE ARTIFACTS' must be a string or a list/tuple "
+                f"of paths/hashes; got {type(src).__name__}."
+            )
 
         return cls(
             QUESTION=q,
@@ -101,7 +110,7 @@ class EpistemicArgumentObject:
             RESULT=res,
             LICENSED_CLAIM=lic_claim,
             BARRED_CLAIM=bar_claim,
-            SOURCE_ARTIFACTS=list(src),
+            SOURCE_ARTIFACTS=src,
             METADATA=meta,
         )
 

@@ -95,6 +95,21 @@ def test_sidecar_serialization(tmp_path, sample_argument_data):
     assert loaded.RESULT == sample_argument_data["RESULT"]
 
 
+def test_sidecar_source_artifacts_string_is_one_path(sample_argument_data):
+    """A bare string SOURCE ARTIFACTS value was split into one list entry per character."""
+    sample_argument_data["SOURCE ARTIFACTS"] = "receipt.json"  # precondition: a bare string
+    obj = EpistemicArgumentObject.from_dict(sample_argument_data)
+    assert obj.SOURCE_ARTIFACTS == ["receipt.json"]
+
+
+def test_sidecar_source_artifacts_accepts_a_tuple_and_refuses_other_types(sample_argument_data):
+    sample_argument_data["SOURCE ARTIFACTS"] = ("a.json", "b.json")
+    assert EpistemicArgumentObject.from_dict(sample_argument_data).SOURCE_ARTIFACTS == ["a.json", "b.json"]
+    sample_argument_data["SOURCE ARTIFACTS"] = 5
+    with pytest.raises(TypeError, match="SOURCE ARTIFACTS"):
+        EpistemicArgumentObject.from_dict(sample_argument_data)
+
+
 # ==============================================================================
 # 2. Canvas & Relative Domain Mathematics Tests
 # ==============================================================================
@@ -419,9 +434,10 @@ def test_spectrolaminar_map_refuses_values_outside_unit_range(bad):
 
 
 def test_spectrolaminar_map_accepts_the_closed_unit_range_with_gaps():
-    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5]])
+    # Non-square on purpose: a square rel_power is refused because its layout is not stated.
+    rel_power = np.array([[0.0, 1.0], [np.nan, 0.5], [0.2, 0.3]])
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
-    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0]),
+    plot_spectrolaminar_map(canvas, 0, 0, rel_power=rel_power, freqs=np.array([1.0, 2.0, 3.0]),
                             depths=np.array([0.0, 1.0]), depth_unit="relative")
     assert any(isinstance(t, go.Heatmap) for t in canvas.fig.data)
 
@@ -764,6 +780,18 @@ def test_spectral_modulation_matrix_primitive():
     assert any(isinstance(t, go.Heatmap) for t in traces)
 
 
+def test_spectral_modulation_matrix_refuses_a_shape_that_does_not_match_its_axes():
+    """The matrix was drawn against area and band labels of another length without a word."""
+    bands = ["θ", "α", "β", "γ"]
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_spectral_modulation_matrix(canvas, 0, 0, delta_db_matrix=np.zeros((2, 4)),
+                                    areas=["A1", "A2"], bands=bands)  # precondition: shapes agree
+    fresh = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=r"delta_db_matrix shape \(3, 4\).*expected \(2, 4\)"):
+        plot_spectral_modulation_matrix(fresh, 0, 0, delta_db_matrix=np.zeros((3, 4)),
+                                        areas=["A1", "A2"], bands=bands)
+
+
 def test_decoding_timecourse_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     time_ms = np.linspace(-100, 400, 100)
@@ -785,3 +813,13 @@ def test_decoding_timecourse_primitive():
 
     traces = canvas.fig.data
     assert len(traces) >= 3  # chance line, CI lower, CI upper fill, main line
+
+
+def test_decoding_cluster_annotation_names_no_p_value():
+    """The annotation read "p < 0.05" for every cluster, whatever test the caller ran."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    time_ms = np.linspace(-100, 400, 100)
+    plot_decoding_timecourse(canvas, 0, 0, time_ms=time_ms, accuracy=np.full(100, 0.6),
+                             sig_clusters=[(100.0, 220.0)])
+    (note,) = [a.text for a in canvas.fig.layout.annotations if a.text and "cluster" in a.text.lower()]
+    assert note == "<b>cluster</b>"

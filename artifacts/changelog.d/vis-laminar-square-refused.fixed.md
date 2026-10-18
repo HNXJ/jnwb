@@ -1,0 +1,1 @@
+- `jnwb/vis/laminar.py`: `plot_spectrolaminar_map` refuses a square `rel_power`, which does not state its layout.

@@ -1,0 +1,1 @@
+- `jnwb/vis/laminar.py`: `plot_csd` sets its colour range from finite values; an all-non-finite matrix raises.

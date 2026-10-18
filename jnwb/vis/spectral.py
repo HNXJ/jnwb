@@ -47,10 +47,18 @@ def plot_spectral_modulation_matrix(
         cmap: Diverging colormap name (default 'RdBu_r' centered at 0).
         title: Panel title.
         colorbar_title: Title for colorbar.
+
+    Raises:
+        ValueError: ``delta_db_matrix`` does not have shape [len(areas), len(bands)].
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     delta_db_matrix = np.asarray(delta_db_matrix, dtype=float)
+    if delta_db_matrix.shape != (len(areas), len(bands)):
+        raise ValueError(
+            f"plot_spectral_modulation_matrix: delta_db_matrix shape {delta_db_matrix.shape} does not match "
+            f"areas and bands; expected ({len(areas)}, {len(bands)})."
+        )
 
     # Symmetric scale around zero
     vmax = float(np.percentile(np.abs(delta_db_matrix), 98))

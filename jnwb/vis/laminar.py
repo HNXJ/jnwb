@@ -74,9 +74,10 @@ def plot_spectrolaminar_map(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` is empty or
-            does not match ``freqs`` and ``depths``, ``rel_power`` holds an infinite value, or
-            a finite value of ``rel_power`` lies outside [0, 1].
+        ValueError: ``depth_unit`` is not one of the three units, ``rel_power`` is empty, square
+            (its orientation is not stated) or does not match ``freqs`` and ``depths``,
+            ``rel_power`` holds an infinite value, or a finite value of ``rel_power`` lies
+            outside [0, 1].
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -88,9 +89,17 @@ def plot_spectrolaminar_map(
         raise ValueError("rel_power is empty; pass one fraction in [0, 1] per frequency and depth.")
 
     # Ensure shape is [depths, freqs] for heatmap display (x=freqs, y=depths)
-    if rel_power.shape == (len(freqs), len(depths)):
+    fits_freq_depth = rel_power.shape == (len(freqs), len(depths))
+    fits_depth_freq = rel_power.shape == (len(depths), len(freqs))
+    if fits_freq_depth and fits_depth_freq:
+        raise ValueError(
+            f"plot_spectrolaminar_map: rel_power is square {rel_power.shape} for {len(freqs)} freqs and "
+            f"{len(depths)} depths, so its orientation cannot be read from the shape; pass non-square "
+            "data, or transpose it to [n_depths, n_freqs] yourself."
+        )
+    if fits_freq_depth:
         z_data = rel_power.T
-    elif rel_power.shape == (len(depths), len(freqs)):
+    elif fits_depth_freq:
         z_data = rel_power
     else:
         raise ValueError(
@@ -230,7 +239,8 @@ def plot_opposing_gradients(
             white matter.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units.
+        ValueError: ``depth_unit`` is not one of the three units, or a profile's shape is not
+            the shape of ``depths``.
     """
     depth_title = _depth_axis_title(depth_unit)
     x_axis, y_axis = canvas.get_axis_names(row, col)
@@ -238,6 +248,12 @@ def plot_opposing_gradients(
     gamma_power = np.asarray(gamma_power, dtype=float)
     alphabeta_power = np.asarray(alphabeta_power, dtype=float)
     depths = np.asarray(depths, dtype=float)
+    for name, profile in (("gamma_power", gamma_power), ("alphabeta_power", alphabeta_power)):
+        if profile.shape != depths.shape:
+            raise ValueError(
+                f"plot_opposing_gradients: {name} shape {profile.shape} does not match depths shape "
+                f"{depths.shape}; pass one value per depth."
+            )
 
     # Gamma CI envelope (fill='tonexty')
     if ci_gamma is not None:
@@ -415,7 +431,8 @@ def plot_csd(
 
     Raises:
         ValueError: ``value_unit`` is not a non-empty string, ``colorbar_title`` is blank or
-            names ``value_unit``, or ``depth_unit`` is not one of the three units.
+            names ``value_unit``, ``depth_unit`` is not one of the three units, or ``csd_matrix``
+            does not have shape [len(depths), len(time_ms)] or holds no finite value.
     """
     colorbar_label = checked_colorbar_label(colorbar_title, value_unit)
     depth_title = _depth_axis_title(depth_unit)
@@ -424,9 +441,17 @@ def plot_csd(
     csd_matrix = np.asarray(csd_matrix, dtype=float)
     time_ms = np.asarray(time_ms, dtype=float)
     depths = np.asarray(depths, dtype=float)
+    if csd_matrix.shape != (len(depths), len(time_ms)):
+        raise ValueError(
+            f"plot_csd: csd_matrix shape {csd_matrix.shape} does not match depths and time_ms; "
+            f"expected ({len(depths)}, {len(time_ms)})."
+        )
 
-    # Robust symmetric scale centered at 0
-    vmax = float(np.percentile(np.abs(csd_matrix), 98))
+    # Robust symmetric scale centered at 0, from the finite values only (a NaN is drawn as a gap)
+    finite_abs = np.where(np.isfinite(csd_matrix), np.abs(csd_matrix), np.nan)
+    if np.isnan(finite_abs).all():
+        raise ValueError("plot_csd: csd_matrix holds no finite value; the colour range needs at least one.")
+    vmax = float(np.nanpercentile(finite_abs, 98))
     vmin = -vmax
 
     cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_label)

@@ -134,7 +134,7 @@ def plot_decoding_timecourse(
             y=y_bar,
             xref=x_axis,
             yref=y_axis,
-            text="<b>p < 0.05 (Cluster)</b>",
+            text="<b>cluster</b>",
             showarrow=False,
             xanchor="left",
             yanchor="bottom",
