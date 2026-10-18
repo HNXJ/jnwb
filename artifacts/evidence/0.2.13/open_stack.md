@@ -75,45 +75,25 @@ Eight read-only passes, two efforts per lane (L1 numerics, L2 data and laminar, 
 | F-09 | `jnwb/continuous.py:34` | Window-to-sample conversion uses `round()`, which ties to even ((-0.25, 0.25) s at 10 Hz gives samples [-2, 2)); the tie rule is unstated |
 | F-10 | `tests/test_state_basis_is_checked.py:216`, `:259`; `tests/test_state_reconstruction.py:237` | Skip on every CI leg because `artifacts/state.md` is ignored and CI never generates it: generate it in CI, or keep them local |
 | F-11 | `.github/workflows/workflow.yml:277` | `test-pandas3` is `continue-on-error`; keep it non-blocking? |
+| F-36 | `jnwb/vis/state_space.py:177`, `:205` | `plot_rsm_heatmap`'s default title says "Similarity", its default colour bar and hover "Dissimilarity", and the docstring calls the input neither: change the `colorbar_title` default to "Similarity", or the title |
+| F-55 | `jnwb/statistics/_trials.py` `assign_subblock_quartiles` | A NaN `start_time` lands in the last quartile (`[0, 3, 1, 2]`): refuse it like `detect_trial_cycles`, or keep the order rule |
 
 ### F2. Executable by agents
 
-A NaN trial start or onset that becomes a zero row is one class seen three times (F-12 to F-14), so it needs a shared check before the repairs.
+Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F-40, F-42, F-43, and two items of F-53. F-37 was shown false: `vflip_from_lfp` treats a channel with a NaN sample as bad, as its docstring says. A non-finite trial start is now refused at seven sites, checked by `tests/test_nonfinite_trial_starts_are_refused.py`.
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| F-12 | med | `jnwb/connectivity/_trials.py:204` | A NaN `trial_start` yields an all-zero row, no warning |
-| F-13 | med | `jnwb/trajectory.py:83` | A NaN trial start yields a zero row, not NaN |
-| F-14 | med | `jnwb/spiking.py:133` | A NaN epoch onset counts as a zero-spike trial and dilutes the response rate (4.44 with n = 3 against 6.67 with n = 2) |
-| F-15 | high | `jnwb/statistics/_trials.py:27` | One NaN `start_time` makes the median gap NaN, so every trial falls in one cycle |
-| F-16 | med | `jnwb/statistics/_analysis.py:189`, `:352`, `:506` | An unpaired Inf is kept: mean inf with a finite nonparametric p and a NaN CI bound |
-| F-17 | med | `jnwb/connectivity/_transfer_entropy.py:168` | A `bias_correction` other than `"mm"` or None (a typo) returns the plug-in value silently |
 | F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
-| F-19 | med | `jnwb/spectral/_psd.py:731` | The multitaper path accepts `fs` NaN (non-finite PSD); `fs` inf raises ZeroDivisionError |
 | F-20 | med | `jnwb/spectral/_psd.py:586` | `aperiodic_fit` r_squared on a flat spectrum is round-off over round-off (0.91 fixed, -1.5e9 knee); `spectral_tilt` returns NaN there |
-| F-21 | med | `jnwb/connectivity/_granger.py:409` | The deprecated `granger_causality` returns F = 0.0 for a constant target, which `granger` refuses (`:656`) |
 | F-22 | med | `jnwb/permutation.py:138`, `:152` | A NaN group label never matches `groups == g`, so its labels are never permuted and nothing is refused |
-| F-23 | med | `jnwb/statistics/_regression.py:98` | `coef_rows` drops every term starting "Group", including the fixed effects `Group[T.B]` and `Groupsize` |
 | F-24 | med | `jnwb/onset_fitting.py:259` | A valid `min_amplitude` above the rise raises scipy's "initial guess outside bounds" |
 | F-25 | med | `jnwb/addressing.py:354`, `:621` | The area split keys on group_name else location, `enrich` on group_name else probe: one geometry, two area maps |
 | F-26 | med | `jnwb/addressing.py:352`, `:365` | An unmatched or None probe key gives every contact the first listed area, silently |
 | F-27 | med | `jnwb/addressing.py:680` | `enrich` coerces string unit ids to NaN |
 | F-28 | med | `jnwb/metadata.py:790` | `audit_electrodes` keeps only the first area of a multi-area label ("V1, V2") |
-| F-29 | med | `jnwb/metadata.py:536`, `:124` | `get_snr_analysis` and `get_all_units_metadata` accept a NaN threshold and keep no unit (`audit_units` refuses it) |
 | F-30 | med | `jnwb/metadata.py:1072` | `old_new_summary_table` drops units with a missing area (`groupby` dropna; `unit_census_report` keeps them) |
-| F-31 | med | `jnwb/vis/sidecar.py:104` | `list(src)` splits a string `SOURCE ARTIFACTS` into characters |
-| F-32 | med | `jnwb/vis/laminar.py:91` | A square `rel_power` (n_freqs = n_depths) is always transposed; both layouts are documented, so the square case should refuse or take the layout |
-| F-33 | med | `jnwb/vis/laminar.py:238`, `:424`; `jnwb/vis/spectral.py:63` | No shape check against the axes: a mislabelled plot |
-| F-34 | med | `jnwb/vis/laminar.py:429` | One NaN in `csd_matrix` makes the percentile colour range NaN |
-| F-35 | med | `jnwb/vis/state_space.py:137` | "p < 0.05 (Cluster)" is printed for any caller-supplied cluster |
-| F-36 | med | `jnwb/vis/state_space.py` RSM plot | Title "Similarity", colour bar and hover "Dissimilarity" |
-| F-37 | med | `docs/10_operation_specifications.md:121` | `vflip_from_lfp` "propagates PSD and vflip validation errors"; NaN input returns `accepted=False` |
-| F-38 | med | `tests/test_connectivity.py:517` | "dispatches_by_method" calls one method and asserts `isinstance`; a stub that ignores `method` passes |
-| F-39 | med | `tests/test_spectral.py:2233` | The knee branch asserts only `robust.exponent < 2.2` (true 2.0, observed 2.127); 0.5 passes |
-| F-40 | med | `tests/test_spectral.py:1733` | The debiased-wPLI null tolerance of 0.05 passes plain wPLI² (null mean 0.021) and a zero output; observed -0.0015, sd over seeds 0.016 |
 | F-41 | med | `tests/test_api_md_is_interpreter_independent.py:145` | The cross-interpreter byte check never runs in CI (no `JNWB_MATRIX_PYTHONS`; Linux legs have no `py`) |
-| F-42 | low | `jnwb/spectral/_reference.py:177`, `:250`; `jnwb/statistics/_cluster.py:100`; `jnwb/laminar/_labels.py:180` | NaN passes a `<= 0` guard (pitch, sigma, cluster threshold, duck-typed geometry pitch): all-NaN output, zero clusters, every contact 'deep' |
-| F-43 | low | `jnwb/connectivity/_psi.py:264`, `:269` | `noverlap >= nperseg` is clipped to `nperseg - 1` with no warning |
 | F-44 | low | `jnwb/jrsa/_stages.py:404`, `:349` | An integer window width is off by one (5 gives 4 samples); the standardize warning says it "overrides and negates" normalize, and the output stays in [0, 1] |
 | F-45 | low | `jnwb/jrsa/_metrics.py:30`, `:50`, `:125` | The 1e-12 offset gives t = 4.2e6 at abs(r) = 1 (exact inf); the metric helpers truncate mismatched rows (unreachable through `jrsa`) |
 | F-46 | low | `jnwb/addressing.py:228`, `:313` | A peak channel id is truncated by `int(float())` (2.7 gives 2) |
@@ -123,7 +103,9 @@ A NaN trial start or onset that becomes a zero row is one class seen three times
 | F-50 | low | `jnwb/unit_quality.py:681`, `jnwb/spiking.py:422`, `jnwb/continuous.py:114` | One or two spikes give contamination 0.0 with no reason; descending LFP timestamps drop every spike and the warning names the wrong window; an invalid `onset_unit` passes when onsets are empty |
 | F-51 | low | `jnwb/vis/canvas.py:112`, `:132`; `jnwb/vis/hierarchy.py:188` | "maximum 235 mm" only warns; `int()` maps rank 0.5 to '0' |
 | F-52 | low | docstrings | `gaussian_smooth_rate` returns float64 for float32 (`spiking.py:592`); `fdr_correct` flattens 2-D input against "same shape" (`statistics/_analysis.py:15`); `rng=1.5` with a seed raises ValueError, documented TypeError (`permutation.py:187`); `morlet_wavelet` "exactly for n_cycles >= 3" (0.99972 to 1.00004, `tfr.py:102`); the spectral-average Granger "returns the time-domain value" (0.0577 against 0.0601, `connectivity/_granger.py:866`); "No floor" above a 1e-4 floor (`laminar/_vflip.py:704`) |
-| F-53 | low | docs and skills | The p-value floor omits the two-sided factor 2 (`docs/10_operation_specifications.md:117` against `docs/07_statistical_inference_and_nulls.md:83`); `stream_npz_array` promises TypeError and raises IndexError (`docs/10_operation_specifications.md:118`); `install.md:46` says 'cpu' is every device default (jrsa: 'auto'); `lfp` against `lfp_data` and a call without `fs` (`docs/10_operation_specifications.md:121`, `docs/03_representational_similarity_jrsa.md:33`); the anchor at `common_mistakes.md:438` fails GitHub's slug; landmark-viz `SKILL.md:49` shows a label the code never draws |
+| F-53 | low | docs and skills | `stream_npz_array` promises TypeError and raises IndexError (`docs/10_operation_specifications.md:118`); `lfp` against `lfp_data` and a call without `fs` (`docs/10_operation_specifications.md:121`, `docs/03_representational_similarity_jrsa.md:33`); the anchor at `common_mistakes.md:438` fails GitHub's slug; landmark-viz `SKILL.md:49` shows a label the code never draws |
 | F-54 | low | tests | `isinstance`-only assertions under names that claim a value (`test_statistics_api_split.py:144`, `test_connectivity.py:405`; both values are pinned elsewhere); the GPU-fallback warning runs only without a GPU (`test_spectral.py:1376`); the omission-boundary comparison skips on every CI leg (`test_addressing.py:568`); the no-verbose path never runs (`test_release_recovery_gates.py:65`); `test_jrsa_no_fabricated_failures.py:3` cites `artifacts/.lab/`, which does not exist |
+| F-56 | low | `jnwb/connectivity/_granger.py:34`, `jnwb/laminar/_xflip.py:672`, `jnwb/testing/synth.py:200` | NaN passes the guard of `ridge` (returns NaN), `n_surrogates` (no error) and `freq_hz` (300 non-finite samples) |
+| F-57 | low | `jnwb/vis/spectral.py:64`; `plot_granger_spectra`, `plot_rsm_heatmap`, the `ci_*` arguments in `vis/laminar.py`, `sig_mask` in `vis/spectral.py` | The NaN colour range of F-34 in `plot_spectral_modulation_matrix`; no shape check against the axes; an empty string `SOURCE ARTIFACTS` passes as `[""]` |
 
 Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
