@@ -239,11 +239,11 @@ class StatisticalAnalysis:
             if len(valid1) < 2:
                 raise ValueError(
                     "compare_groups(paired=True) requires at least two paired observations "
-                    f"after NaN exclusion; got n={len(valid1)}"
+                    f"after excluding non-finite values; got n={len(valid1)}"
                 )
         else:
-            valid1 = group1[~np.isnan(group1)]
-            valid2 = group2[~np.isnan(group2)]
+            valid1 = group1[np.isfinite(group1)]
+            valid2 = group2[np.isfinite(group2)]
 
         result: Dict = {
             "n1": len(valid1),
@@ -373,7 +373,7 @@ class StatisticalAnalysis:
         run_param, run_nonparam = _resolve_test_choice(test, "compare_multiple_groups")
 
         group_data = [np.asarray(g).flatten() for g in groups.values()]
-        group_data = [g[~np.isnan(g)] for g in group_data]
+        group_data = [g[np.isfinite(g)] for g in group_data]
         group_names = list(groups.keys())
 
         k = len(group_data)
@@ -518,7 +518,7 @@ class StatisticalAnalysis:
         rng = resolve_rng(rng, func_name="bootstrap_ci")
 
         data = np.asarray(data).flatten()
-        data = data[~np.isnan(data)]
+        data = data[np.isfinite(data)]
 
         mean = np.mean(data)
         sem = stats.sem(data)

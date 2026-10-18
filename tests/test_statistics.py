@@ -1354,3 +1354,19 @@ def test_bootstrap_ci_draws_the_resamples_a_per_resample_loop_draws(statistic_fu
     assert res["bootstrap_std"] == float(np.std(stats_ref))
     assert rng.random() == reference.random()
 
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_an_unpaired_non_finite_value_is_excluded_like_a_paired_one(bad):
+    rng = np.random.default_rng(21)
+    g1, g2 = rng.normal(size=12), rng.normal(0.5, size=12)
+    with_bad = np.append(g1, bad)
+    res = StatisticalAnalysis.compare_groups(with_bad, g2, paired=False, n_bootstrap=200)
+    ref = StatisticalAnalysis.compare_groups(g1, g2, paired=False, n_bootstrap=200)
+    assert res["n1"] == 12
+    assert np.isfinite(res["mean1"]) and res["mean1"] == ref["mean1"]
+    assert res["mean_diff_ci"]["bootstrap_ci"] == ref["mean_diff_ci"]["bootstrap_ci"]
+    multi = StatisticalAnalysis.compare_multiple_groups({"a": with_bad, "b": g2, "c": g1})
+    assert multi == StatisticalAnalysis.compare_multiple_groups({"a": g1, "b": g2, "c": g1})
+    assert StatisticalAnalysis.bootstrap_ci(with_bad, n_bootstrap=200) == \
+        StatisticalAnalysis.bootstrap_ci(g1, n_bootstrap=200)
+
