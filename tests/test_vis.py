@@ -658,11 +658,13 @@ def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_ref
 
 def test_multi_condition_raster_psth_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=120.0, rows=2, cols=1, row_height_ratios=[1.2, 1.0])
-    st = np.sort(np.random.uniform(0, 100, 500))
+    st = np.sort(np.random.default_rng(0).uniform(0, 100, 500))
     onsets = {
         "Condition A": np.array([5.0, 15.0, 25.0, 35.0]),
         "Condition B": np.array([45.0, 55.0, 65.0, 75.0]),
     }
+    for t0 in onsets.values():
+        assert any(((st > t - 0.1) & (st < t + 0.3)).any() for t in t0), "each condition needs a spike"
 
     plot_multi_condition_raster_psth(
         canvas=canvas,
