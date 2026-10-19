@@ -83,6 +83,8 @@ from jnwb.testing import (  # noqa: E402
 )
 
 N_SAMPLES = 400
+#: The AR(1) row draws more samples than the others.
+AR_N_SAMPLES = 600
 FS = 1000.0
 MIN_BLOCK_SIZE = 3
 ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
@@ -235,7 +237,7 @@ def _white_noise(seed: int, n_ch: int = 16):
 
 
 def _ar_noise(seed: int, n_ch: int = 16):
-    data = synth_ar_noise(600, n_channels=n_ch, fs=FS, tau_s=0.030, rng=seed + 700)
+    data = synth_ar_noise(AR_N_SAMPLES, n_channels=n_ch, fs=FS, tau_s=0.030, rng=seed + 700)
     return data, {"surrogate_method": "autocorr_preserving"}
 
 
@@ -409,7 +411,7 @@ def render(raw: dict) -> str:
         f"| surrogates | {raw['n_surrogates']} |",
         f"| `min_block_size` | {MIN_BLOCK_SIZE} |",
         f"| `alpha` | {raw['alpha']} |",
-        f"| samples per channel | {N_SAMPLES} |",
+        f"| samples per channel | {N_SAMPLES}; {AR_N_SAMPLES} in the `ar_noise` row |",
         f"| `contiguous` | default (`True`) |",
         "",
         f"A rate of 0 over {n} seeds bounds the true rate at roughly "

@@ -16,7 +16,7 @@ it reported were conditional on a setting it did not name.
 | surrogates | 200 |
 | `min_block_size` | 3 |
 | `alpha` | 0.05 |
-| samples per channel | 400 |
+| samples per channel | 400; 600 in the `ar_noise` row |
 | `contiguous` | default (`True`) |
 
 A rate of 0 over 30 seeds bounds the true rate at roughly 0.10 at 95% confidence, not at 0; rates are reported, not claimed as exact.

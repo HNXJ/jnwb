@@ -359,8 +359,7 @@ def render(record):
         "and planted); xflip's default `auto` (homogeneous) for the others. Each table gives "
         "the method.",
         "- The new cells draw 400 samples. The 0.2.5 receipt's `ar_noise` row draws 600 "
-        "(`scripts/calibrate_xflip.py:238`) while its operating point says 400. The receipt is "
-        "unchanged.",
+        "(`AR_N_SAMPLES` in `scripts/calibrate_xflip.py`), as its operating point states.",
         f"- Per-channel scaling leaves the omnibus p unchanged: max absolute difference "
         f"{scaling['max_abs_diff']:g} over {len(scaling['pairs'])} pairs (sigma {sigmas}, seeds "
         f"0 to {scaling['n_seeds'] - 1}; `design_checks.scaling`). {scaling_note}",

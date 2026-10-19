@@ -24,7 +24,7 @@ Statements:
 - Planted cells add the receipt's correlation blocks to the nuisance at its middle value. Each component is scaled by one positive factor to unit mean power per contact, so correlations and the contacts' relative powers are kept. The average-reference cell sums white noise with the blocks and re-references the sum to its channel average.
 - Exact recovery means accepted with one boundary at contact 8. Within one contact means accepted with one boundary at contact 7, 8 or 9.
 - Surrogates: `autocorr_preserving` for the AR(1)-noise cells (common reference, null and planted); xflip's default `auto` (homogeneous) for the others. Each table gives the method.
-- The new cells draw 400 samples. The 0.2.5 receipt's `ar_noise` row draws 600 (`scripts/calibrate_xflip.py:238`) while its operating point says 400. The receipt is unchanged.
+- The new cells draw 400 samples. The 0.2.5 receipt's `ar_noise` row draws 600 (`AR_N_SAMPLES` in `scripts/calibrate_xflip.py`), as its operating point states.
 - Per-channel scaling leaves the omnibus p unchanged: max absolute difference 0 over 6 pairs (sigma 0.5, 1, seeds 0 to 2; `design_checks.scaling`). So a heterogeneity cell tests the same null as white noise.
 - The gates do not move the omnibus p. With min_contrast and min_boundary_drop at 0, p is identical in every pair: identical = True over 6 pairs (`design_checks.gates`). The gates enter after p.
 
