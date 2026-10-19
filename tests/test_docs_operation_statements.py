@@ -818,13 +818,13 @@ def test_the_jrsa_direction_table_matches_the_connectivity_functions():
     assert jnwb.phase_slope_index(d, f, **kw).x_to_y > 0
 
 
-# --------------------------------------------------------------- the loop that replaces sliding=True
+# --------------------------------------------- the loop and the one-call sliding analysis
 
 
-def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises():
+def test_the_sliding_window_loop_and_the_one_call_analysis_agree():
     page = _page("docs/03_representational_similarity_jrsa.md")
     section = page.split("### Sliding Windows", 1)[1].split("## 4.", 1)[0]
-    assert "`sliding=True` raises `NotImplementedError`" in _flat(section)
+    assert "every window in one call with `sliding=True`" in _flat(section)
     code = re.search(r"```python\n(.*?)```", section, re.S)[1]
 
     x1 = np.random.default_rng(2).normal(size=(12, 10, 50))
@@ -835,13 +835,19 @@ def test_the_sliding_window_loop_gives_one_value_per_window_and_sliding_raises()
     values = scope["values"]
     assert values.shape == (len(range(0, 50 - width + 1, step)),) == (7,)
     assert len(scope["starts"]) == values.shape[0], "the docs loop must yield one start per window"
+    ps = []
     for s, value in zip(scope["starts"], values):
         sliced = jnwb.jrsa(x1[..., s:s + width], x2[..., s:s + width], metric="pearson",
                            lag=lag, rng=0)
         assert value == float(sliced.value), s
+        ps.append(float(sliced.p))
     assert len({round(float(v), 12) for v in values}) == len(values), "windows repeat one value"
-    with pytest.raises(NotImplementedError):
-        jnwb.jrsa(x1, x2, metric="pearson", sliding=True)
+    one_call = jnwb.jrsa(x1, x2, metric="pearson", window=width, step=step, sliding=True,
+                         lag=lag, rng=0)
+    np.testing.assert_allclose(one_call.value, values, rtol=1e-12)
+    np.testing.assert_array_equal(one_call.p, ps)
+    with pytest.raises(ValueError, match="sliding=True needs window to be an int width"):
+        jnwb.jrsa(x1, x2, metric="pearson", window=(0, width), sliding=True)
 
 
 # --------------------------------------------------------------- transfer entropy source window

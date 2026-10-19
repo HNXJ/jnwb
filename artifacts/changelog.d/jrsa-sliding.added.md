@@ -1,0 +1,1 @@
+- `jrsa(sliding=True)` runs every window in one call, with a family-wise `q` (`jnwb/jrsa/__init__.py`).

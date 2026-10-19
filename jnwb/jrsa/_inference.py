@@ -80,6 +80,73 @@ def _permutation_test(x1, x2, metric_fn, n_perm, rng, axis=-1, n_jobs=1,
     return np.asarray(null)
 
 
+def _sliding_null(pairs, metric_fn, n_perm, rng, *, axis=-1, n_jobs=1, scheme="iid",
+                  block_len=None, **kwargs):
+    """Permutation null of every window, shape ``(n_perm, n_windows)``.
+
+    `pairs` holds the lagged (x1, x2) of each window. Each permutation draws its seed as
+    `_permutation_test` does, then one index of the window length (`_null_index`), which is
+    applied to x2 at the same offsets in every window. Window k's column is therefore the null
+    that `_permutation_test` gives for that window alone with the same `rng`.
+    """
+    n = pairs[0][0].shape[axis]
+    _check_null_axis(n, scheme, block_len)
+    seeds = rng.integers(0, 2**31 - 1, size=n_perm)
+
+    def _run_single_perm(seed):
+        local_rng = np.random.default_rng(seed)
+        idx = _null_index(local_rng, n, scheme, block_len)
+        out = []
+        for x1_k, x2_k in pairs:
+            x2_work = x2_k if x2_k is not None else x1_k
+            x2_perm = np.take(x2_work, idx, axis=axis)
+            v, *_ = metric_fn(x1_k, x2_perm, axis=axis, **kwargs)
+            out.append(float(np.mean(v)) if isinstance(v, np.ndarray) else float(v))
+        return out
+
+    null = parallel_map(_run_single_perm, seeds, n_jobs=n_jobs)
+    return np.asarray(null, dtype=float).reshape(n_perm, len(pairs))
+
+
+def _family_wise_p(values, null, alternative):
+    """Family-wise p of each window, against the maximum statistic over the windows.
+
+    For ``'greater'`` a permutation's null value is its largest window statistic, and a window's
+    p is ``(1 + #{permutations whose maximum >= the window's value}) / (n + 1)``. For ``'less'``
+    the smallest statistic and ``<=``. For ``'two-sided'`` the smaller of the two, doubled and
+    capped at 1, as `_p_from_count` forms it. The counts come from `_count_at_least_as_extreme`
+    and the p-values from `_p_from_count`. A non-finite null entry leaves the maximum or minimum
+    of its permutation; a permutation with no finite entry leaves n; a window whose value is
+    non-finite gets NaN.
+    """
+    null = np.asarray(null, dtype=float)
+    finite = np.isfinite(null)
+    kept = finite.any(axis=1)
+    null, finite = null[kept], finite[kept]
+    n = null.shape[0]
+    upper = np.max(np.where(finite, null, -np.inf), axis=1) if n else np.empty(0)
+    lower = np.min(np.where(finite, null, np.inf), axis=1) if n else np.empty(0)
+    out = np.full(len(values), np.nan)
+    for k, value in enumerate(values):
+        obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
+        if n == 0 or not np.isfinite(obs):
+            continue
+        greater = _p_from_count(_count_at_least_as_extreme(upper, obs, "greater"), n, "greater")
+        less = _p_from_count(_count_at_least_as_extreme(lower, obs, "less"), n, "less")
+        if alternative == "greater":
+            out[k] = greater
+        elif alternative == "less":
+            out[k] = less
+        elif alternative == "two-sided":
+            out[k] = min(1.0, 2.0 * min(greater, less))
+        else:
+            raise ValueError(
+                f"_family_wise_p: unrecognized alternative {alternative!r}; "
+                "expected 'greater', 'less' or 'two-sided'."
+            )
+    return out
+
+
 #: Tail specifications `alternative=` accepts, written out rather than derived from the
 #: dispatch in `_p_from_null`.
 ALTERNATIVES = ("two-sided", "greater", "less")

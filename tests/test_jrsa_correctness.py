@@ -989,14 +989,15 @@ class TestAlternativeWithoutPermutations:
         assert "upper-tail F-test" in str(err.value) and "halving" in str(err.value)
 
 
-def test_sliding_windows_are_refused_and_the_loop_is_named():
-    """`sliding=True` was accepted and ignored: value and p were identical to
-    `sliding=False`, with no warning. It is refused, and the message names the loop."""
+def test_sliding_windows_take_an_int_width_not_a_pair():
+    """`sliding=True` was accepted and ignored: value and p were identical to `sliding=False`,
+    with no warning. A pair is a window, not a width, so `sliding=True` refuses it and the
+    message names `window`; `sliding=False` takes the pair as before."""
     rng = np.random.default_rng(0)
     x1 = rng.normal(size=(6, 8, 40))
     x2 = x1 + rng.normal(size=(6, 8, 40))
-    with pytest.raises(NotImplementedError, match=r"sliding=True.*window=\(s, s \+ w\)"):
-        oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=True, stats=False)
+    with pytest.raises(ValueError, match=r"sliding=True needs window to be an int width"):
+        oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=True, permutations=9)
     oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=False, stats=False)
 
 

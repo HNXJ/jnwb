@@ -127,9 +127,10 @@ res.execution["null"]   # "block"
 
 ### Sliding Windows
 
-`jrsa` analyzes one window per call; `sliding=True` raises `NotImplementedError`. `window` is a
-`(start, stop)` pair of sample indices along the aligned axis, so a sliding-window analysis is a
-loop over windows:
+`jrsa` analyzes one window per call, or every window in one call with `sliding=True`. There
+`window` is the width and `step` the stride, in samples along the aligned axis, and the result
+holds one value per window: `p` is each window's raw p, and `q` its family-wise p from the
+maximum statistic over the windows. A loop of single-window calls gives the same values and p:
 
 ```python
 # x1, x2: (12 conditions, 100 units, 50 timepoints); the aligned axis is time

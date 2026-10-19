@@ -388,7 +388,7 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
 
 
 def _make_windows(x1, x2, axis_map, window, sliding):
-    """Extract the analysis window. `jrsa` refuses `sliding=True` before this runs.
+    """Extract the analysis window. `jrsa` calls `_sliding_windows` instead when `sliding=True`.
 
     `window` is in sample indices along the aligned axis. The clamping below used to be
     silent in both directions: `(-500, 500)` on a 6-sample axis became `(0, 6)` -- the
@@ -432,6 +432,41 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     if x2 is not None:
         x2 = x2[tuple(slices)]
     return x1, x2, (start, stop)
+
+
+def _sliding_windows(x1, x2, axis_map, window, step):
+    """Windows of `window` samples along the window axis, one starting every `step` samples.
+
+    Windows start at 0, step, 2 * step, ... while ``start + window <= n``. `window` and `step`
+    must be ints, `window` no longer than the axis; `jrsa` checks them here, before any work.
+    Returns the windowed x1 and x2 of each window, and each ``(start, stop)``.
+    """
+    ax = axis_map[_window_axis_name(axis_map)]
+    n = x1.shape[ax]
+    if not _is_axis_index(window) or window < 1:
+        raise ValueError(
+            "jrsa: sliding=True needs window to be an int width in samples, at least 1; "
+            f"got window={window!r}."
+        )
+    if window > n:
+        raise ValueError(
+            f"jrsa: window={window} is longer than the {n}-sample window axis; sliding=True "
+            "needs window <= n."
+        )
+    if not _is_axis_index(step) or step < 1:
+        raise ValueError(
+            "jrsa: sliding=True needs step to be an int stride in samples, at least 1; "
+            f"got step={step!r}. There is no default stride."
+        )
+    x1_list, x2_list, windows = [], [], []
+    for start in range(0, n - window + 1, step):
+        stop = start + window
+        slices = [slice(None)] * x1.ndim
+        slices[ax] = slice(start, stop)
+        x1_list.append(x1[tuple(slices)])
+        x2_list.append(None if x2 is None else x2[tuple(slices)])
+        windows.append((start, stop))
+    return x1_list, x2_list, windows
 
 
 def _apply_lag(x1, x2, axis_map, lag, axis=-1):
