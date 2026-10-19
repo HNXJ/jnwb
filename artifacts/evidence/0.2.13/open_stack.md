@@ -6,21 +6,14 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 
 ## A. Waits on a ruling by Hamm
 
+Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 15-15, 15-17, 15-19, 15-20 and 12-05, 12-13, 12-23's permutation half, the open rulings (`window`, Gate B, R5; the dark `theme=` was ruled 2026-10-04), the shipped-surface choices, 12-10, P-335 and the `jnwb-sim-benchmark` skill. 07-21 and 07-22 were ruled 2026-09-29 and move to 0.2.14.
+
 | Item | Open question | Source |
 |---|---|---|
-| 0.2.13 theme | The cycle runs on goal and §11 acceptance until a theme is ruled | `todo_stack.md:9` |
-| 15-13 | `vflip2` above 200 um spacing: refuse, or a doc line | roadmap |
-| 15-15 | Whether `curate_and_label` runs `vflip2` | roadmap |
-| 15-19 | A measured `omega_cut` or a data-driven threshold (recovery 29/100, matched null 24/100) | roadmap |
-| 15-17 | The Wishart effective-n | roadmap |
-| 15-20, 12-05 | The apparatus bound after the inventory; the prune list | roadmap |
-| 07-21, 07-22, 12-13, 12-23, 11-04, 14-06, 14-07, 13-04 | Public API shapes | roadmap |
-| 11-32 | Holder cells | roadmap |
-| Open rulings | `window` retargeting (2026-09-27); dark plot `theme=` (2026-10-04); showcase publication at Gate B (2026-10-12); which CI run qualifies, dev or main (2026-10-15 R5) | `artifacts/rulings/` |
-| Shipped-surface choices | The legacy constructor path names no removal version (`docs/02_paths_addressing_metadata.md:285`); `jrsa(sliding=True)` raises `NotImplementedError`; `bilinear.py` and `nam.py` stay experimental; goal 8 records peak memory with no threshold | scan |
-| 12-10 skill gaps | A blind session through the skills missed the tutorial's LFP clock and its dB by 0.08 to 0.21: no skill page puts tick-valued timestamps on session time (the tutorial's `derive_clock` is its own code, so a page or a public function), and none states the `CANONICAL_BANDS` edges. Skill pages change by amendment | `artifacts/evidence/0.2.13/agent_session_dandi000253/` |
-| P-335 (07-05) | `curate_and_label`'s defaults are stated working values with no receipt or source, and its inner stages are not public parts: calibrate, cite, or keep as stated; expose the stages or not | `artifacts/evidence/0.2.13/p335_laminar_curation_review.md` |
-| `jnwb-sim-benchmark` skill | Proposal only; skills change by amendment | session |
+| 11-04, 14-06, 14-07, 13-04 | Public API shapes, all `deferred-0.2.14` | roadmap |
+| 12-23, second half | A percentile bootstrap over mice: a shape for `bootstrap_ci`, or the showcase keeps its own | roadmap |
+| 11-32 | Holder cells; ruled 2026-10-11 to wait with 09-04 and 10-10 | roadmap |
+| Goal 8 text | `artifacts/goal.md` is Hamm's: the 20% peak-memory rule of 2026-10-19 needs his edit there | rulings 2026-10-19 |
 
 ## B. Executable by agents now
 
@@ -62,15 +55,7 @@ Eight read-only passes, two efforts per lane (L1 numerics, L2 data and laminar, 
 
 ### F1. Waits on a ruling
 
-| Id | Where | Question |
-|---|---|---|
-| F-07 | `jnwb/vis/laminar.py:310`, `:322` | Legend text "Gamma (50–150 Hz)" and "Alpha/Beta (10–30 Hz)" for caller-supplied powers, against `CANONICAL_BANDS` (`spectral/_common.py:63`) and the vFLIP bands; joins the 12-10 band-edge question |
-| F-08 | `jnwb/laminar_curation.py:912` | Only grade F clears labels; the docstring (`:684`) says a fit that does not hold carries none, and grade C still emits them |
-| F-09 | `jnwb/continuous.py:34` | Window-to-sample conversion uses `round()`, which ties to even ((-0.25, 0.25) s at 10 Hz gives samples [-2, 2)); the tie rule is unstated |
-| F-10 | `tests/test_state_basis_is_checked.py:216`, `:259`; `tests/test_state_reconstruction.py:237` | Skip on every CI leg because `artifacts/state.md` is ignored and CI never generates it: generate it in CI, or keep them local |
-| F-11 | `.github/workflows/workflow.yml:277` | `test-pandas3` is `continue-on-error`; keep it non-blocking? |
-| F-36 | `jnwb/vis/state_space.py:177`, `:205` | `plot_rsm_heatmap`'s default title says "Similarity", its default colour bar and hover "Dissimilarity", and the docstring calls the input neither: change the `colorbar_title` default to "Similarity", or the title |
-| F-55 | `jnwb/statistics/_trials.py` `assign_subblock_quartiles` | A NaN `start_time` lands in the last quartile (`[0, 3, 1, 2]`): refuse it like `detect_trial_cycles`, or keep the order rule |
+None. F-07 was ruled 2026-10-18; F-09, F-10, F-28 and F-36 on 2026-10-19 (`artifacts/rulings/2026-10-19.md`). F-08 was shown false (C and D labels are documented sensitivity checks); F-11 closed as documented (`workflow.yml:272`, hdmf caps pandas below 3); F-55 is refused under the non-finite-start rule.
 
 ### F2. Executable by agents
 
@@ -78,6 +63,7 @@ Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
+| F-07, F-09, F-10, F-36, F-55 | med | see F1 | Implement as ruled: F-07 `gamma_band` and `alphabeta_band` keywords; F-09 the right-open containment rule; F-10 one CI leg generates `state.md`; F-36 the RDM title; F-55 a NaN `start_time` refused |
 | F-01 to F-06 | high to med | `permutation.py`, `jrsa`, `statistics/_firing.py`, `statistics/_analysis.py`, `laminar/_vflip2.py`, `jrsa/_metrics.py` | Ruled 2026-10-18 (`artifacts/rulings/2026-10-18.md`): the two-sided p is twice the smaller tail; NaN p below 2 trials; `rng=` on the two compare functions; `vflip2_from_lfp` refuses bins coarser than 1 Hz and `fs` below 300 Hz; the MI bias is documented |
 | F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
 | F-20 | med | `jnwb/spectral/_psd.py:586` | `aperiodic_fit` r_squared on a flat spectrum is round-off over round-off (0.91 fixed, -1.5e9 knee); `spectral_tilt` returns NaN there |

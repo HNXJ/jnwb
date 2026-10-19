@@ -6,7 +6,8 @@ stack holds the current window only; the rest of 0.2.13 and later is one row per
 closed on 2026-10-14 with every item done or ruled to 0.2.13 (`git log -- artifacts/todo_stack.md`,
 `artifacts/rulings/2026-10-14.md`).
 
-Theme and acceptance: `artifacts/goal.md` and `AGENTS.md` §11, until Hamm rules the 0.2.13 theme.
+Theme (ruled 2026-10-19): inference and refusal correctness: the 2026-10-18 audit's repairs, the
+rulings of 2026-10-18 and 2026-10-19, and 12-10. Acceptance: `artifacts/goal.md` and `AGENTS.md` §11.
 
 Every item here carries `deferred-0.2.13`, the one deferred value `scripts/release_gate.py` accepts
 while the declared version is 0.2.12 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
