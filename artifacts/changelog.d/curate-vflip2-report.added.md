@@ -1,0 +1,1 @@
+- `curate_and_label` reports vFLIP2 and its anchor distance; it never anchors (`jnwb/laminar_curation.py`).

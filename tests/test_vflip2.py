@@ -192,12 +192,34 @@ def test_a_contact_spacing_above_200_um_is_refused():
         vflip2(psd, _freqs(case, psd), contact_spacing=200.5)
 
 
+def test_a_contact_spacing_of_201_um_is_refused():
+    case, psd = _clean_psd()
+    with pytest.raises(ValueError, match=r"vflip2.*contact_spacing.*200"):
+        vflip2(psd, _freqs(case, psd), contact_spacing=201.0)
+
+
 def test_a_contact_spacing_of_200_um_still_searches_windows():
     rec = synth_vflip2_crossover(n_channels=32, n_samples=5000, fs=1000.0, z0=16, rng=0)
     # Precondition: the planted probe passes a window at 100 um, so a None at 200 um would
     # mean the 200 um search found nothing.
     assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=100.0).omega is not None
     assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=200.0).omega is not None
+
+
+def test_a_contact_spacing_of_199_um_still_searches_windows():
+    rec = synth_vflip2_crossover(n_channels=32, n_samples=5000, fs=1000.0, z0=16, rng=0)
+    # Precondition: the planted probe passes a window at 100 um, so the 199 um search is
+    # compared with a search that finds one.
+    assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=100.0).omega is not None
+    assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=199.0).omega is not None
+
+
+def test_a_reversed_orientation_at_200_um_still_runs():
+    rec = synth_vflip2_crossover(n_channels=32, n_samples=5000, fs=1000.0, z0=16, rng=0)
+    # Precondition: the best window at 200 um is upright, so "inverted" is the reversed search.
+    assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=200.0).orientation == "upright"
+    reversed_search = vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=200.0, orientation="inverted")
+    assert reversed_search.orientation in (None, "inverted")
 
 
 def test_non_uniform_freqs_are_refused():
