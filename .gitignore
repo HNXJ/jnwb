@@ -85,6 +85,8 @@ gallery_src/
 !artifacts/evidence/0.2.13/vflip2_oracle.json
 !artifacts/evidence/0.2.13/vflip2_recovery.json
 !artifacts/evidence/0.2.13/compress_scaling.json
+!artifacts/evidence/0.2.13/vflip2_nuisance.json
+!artifacts/evidence/0.2.13/xflip_nuisance.json
 # The dashboard's template and data contract; its built data.json stays out.
 !scripts/dashboard/index.html
 !scripts/dashboard/data.schema.json
