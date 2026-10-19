@@ -284,4 +284,4 @@ succeeds. Treat the contained lists, dicts and frames as read-only.
 
 **Deprecated.** `create_aligned_dataset`, `create_result` and `create_figure` forward to the
 constructor of the same name and add nothing. They were never exported in `__all__`; they
-now warn, and will be removed. Call the dataclass, or `Dataset.with_alignment`, directly.
+now warn, and will be removed in 0.2.14. Call the dataclass, or `Dataset.with_alignment`, directly.

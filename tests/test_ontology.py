@@ -338,6 +338,21 @@ class TestDeprecatedFactoriesWarnAndStillWork:
         assert "Call " in text and "directly" in text, text
 
     @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
+    def test_the_warning_names_the_removal_release(self, name, parts):
+        calls = {
+            "create_aligned_dataset": (parts["Dataset"], parts["Alignment"]),
+            "create_result": (parts["Question"], {}, parts["Provenance"], parts["Lineage"]),
+            "create_figure": (parts["Result"], parts["Interpretation"]),
+        }
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            getattr(O, name)(*calls[name])
+        mine = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        assert len(mine) == 1
+        text = str(mine[0].message)
+        assert "will be removed in 0.2.14;" in text, text
+
+    @pytest.mark.parametrize("name", DEPRECATED_FACTORIES)
     def test_the_deprecation_is_announced_in_the_changelog(self, name):
         from pathlib import Path
 

@@ -49,7 +49,13 @@ def assign_subblock_quartiles(epochs_df: pd.DataFrame, n_quantiles: int = 4) -> 
 
     Returns:
         (n_rows,) int array of quantile bucket ids, in ``epochs_df``'s original row order.
+
+    Raises:
+        ValueError: if a ``start_time`` is not finite; the message names its row index.
     """
+    refuse_nonfinite_times(
+        epochs_df["start_time"].values, "assign_subblock_quartiles", "start_time"
+    )
     order = np.argsort(epochs_df["start_time"].values)
     n = len(order)
     q = np.empty(n, dtype=int)

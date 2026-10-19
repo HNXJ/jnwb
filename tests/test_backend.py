@@ -22,6 +22,8 @@ from jnwb._backend import (
     warn_device_fallback,
 )
 
+pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
+
 
 class TestCapabilityProbes:
     def test_probes_return_booleans(self):

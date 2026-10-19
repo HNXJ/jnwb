@@ -1,0 +1,1 @@
+- `assign_subblock_quartiles` refuses a NaN start_time instead of the last quartile (`jnwb/statistics/_trials.py`).

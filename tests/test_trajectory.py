@@ -10,6 +10,9 @@ from jnwb import (
     compute_population_trajectory,
 )
 
+pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
+
+
 class MockSession:
     """Mock matching the real OmissionSession identity convention: 'unit_id' is a per-probe
     kilosort cluster id that can have gaps relative to the row index (deliberately offset here,

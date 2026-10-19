@@ -35,6 +35,8 @@ from jnwb._backend import torch_cuda_available
 from jnwb.gpu_pca import gpu_pca, pin_component_signs
 from jnwb.trajectory import compute_population_trajectory
 
+pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
+
 requires_cuda = pytest.mark.skipif(
     not torch_cuda_available(), reason="no CUDA device on this machine"
 )

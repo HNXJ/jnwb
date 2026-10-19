@@ -247,7 +247,7 @@ All 203 core functions, classes, and constants exported in the top-level jnwb na
 
 | Symbol | Type | Signature / Description |
 |---|---|---|
-| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'RNGLike' = <required>, seed: 'Any' = <required>) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
+| jnwb.build_permutation_plan | function | `(labels: 'Iterable[object]', groups: 'Iterable[object]', *, n_permutations: 'int', rng: 'RNGLike' = <required>, seed: 'Any' = <required>, blocks: 'Optional[Iterable[object]]' = None) -> 'dict'`<br>*Create an explicit within-group null plan (a manifest of digested draws); no model fitting occurs.* |
 | jnwb.permute_labels | function | `(y, *, groups = None, scheme: 'str', rng: 'RNGLike')`<br>*Permute labels under an explicitly named exchangeability scheme.* |
 
 ## Module: jnwb.rsa

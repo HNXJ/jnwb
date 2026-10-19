@@ -5,6 +5,7 @@ analysis uses ``compute_population_trajectory``.
 """
 
 import logging
+import warnings
 from typing import Tuple
 import numpy as np
 
@@ -75,7 +76,10 @@ def gpu_pca(
     n_components: int = 3,
     device: str = "cuda"
 ) -> Tuple[np.ndarray, np.ndarray, float]:
-    """
+    """Deprecated; removed in 0.2.14.
+
+    Use ``compute_population_trajectory``, or a PCA on a z-scored matrix.
+
     Perform PCA via SVD on a 2D matrix (n_samples, n_features).
     Center and scale features automatically.
 
@@ -89,6 +93,12 @@ def gpu_pca(
         components: (n_components, n_features) principal component vectors (V_top)
         explained_variance_ratio: Fraction of total variance explained by kept components
     """
+    warnings.warn(
+        "gpu_pca is deprecated in 0.2.13 and removed in 0.2.14; use "
+        "compute_population_trajectory, or a PCA on a z-scored matrix.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if matrix.ndim != 2:
         raise ValueError(f"gpu_pca expects a 2D matrix, got shape {matrix.shape}")
 

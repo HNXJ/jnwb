@@ -11,7 +11,7 @@ Every call site MUST name a `scheme` explicitly -- there is no default. A bare
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 import numpy as np
 
@@ -169,6 +169,40 @@ def permute_labels(
     return out
 
 
+def _block_structure(labels, groups, blocks):
+    """Block code per sample, and the first sample of each block, in code order.
+
+    A block must carry one label and lie inside one group. A block that breaks either rule is
+    refused by name, before any draw.
+    """
+    codes, uniques = pd.factorize(blocks, sort=False, use_na_sentinel=False)
+    by_block = pd.DataFrame({"block": codes, "label": labels, "group": groups}).groupby("block")
+    block_ids = np.asarray(uniques).tolist()
+    multi = np.flatnonzero(by_block["label"].nunique(dropna=False).to_numpy() > 1)
+    if multi.size:
+        raise ValueError(
+            f"build_permutation_plan: blocks={block_ids[multi[0]]!r} holds more than one label; "
+            "a label that varies inside a block cannot be permuted as one unit."
+        )
+    spanning = np.flatnonzero(by_block["group"].nunique(dropna=False).to_numpy() > 1)
+    if spanning.size:
+        raise ValueError(
+            f"build_permutation_plan: blocks={block_ids[spanning[0]]!r} spans more than one "
+            "group; a block must lie inside one group."
+        )
+    _, first = np.unique(codes, return_index=True)
+    return codes, first
+
+
+def _permute_blocks(labels, groups, codes, first, rng):
+    """One draw of block-constant labels: the block labels are permuted among the blocks of
+    each group by :func:`permute_labels`, then every sample takes its block's new label."""
+    block_labels = permute_labels(
+        labels[first], groups=groups[first], scheme="within_group", rng=rng
+    )
+    return block_labels[codes]
+
+
 def build_permutation_plan(
     labels: Iterable[object],
     groups: Iterable[object],
@@ -176,6 +210,7 @@ def build_permutation_plan(
     n_permutations: int,
     rng: RNGLike = Default(REQUIRED),
     seed: Any = Default(REQUIRED),
+    blocks: Optional[Iterable[object]] = None,
 ) -> dict:
     """Create an explicit within-group null plan (a manifest of digested draws); no model
     fitting occurs.
@@ -192,6 +227,10 @@ def build_permutation_plan(
             Generator gives one int drawn from it and ``None`` one int from a fresh
             ``default_rng()``. The base used is returned as ``seed``, and passing it back
             as ``rng`` reproduces the plan. (``seed`` is the old spelling and still works.)
+        blocks: optional block id per sample, same length as ``labels``. A block is permuted
+            as one unit: the block labels of each group are permuted among that group's
+            blocks, and every sample takes its block's new label. A block must carry one
+            label and lie inside one group.
 
     Returns:
         dict with ``draw_manifest`` (DataFrame: permutation, seed, label_digest, n_samples,
@@ -200,6 +239,8 @@ def build_permutation_plan(
 
     Raises:
         TypeError: If ``rng`` is not an int, a Generator or None, or ``groups`` is None.
+        ValueError: If ``blocks`` has the wrong length, or a block holds more than one label
+            or spans more than one group.
     """
     if groups is None:
         raise TypeError(
@@ -216,17 +257,30 @@ def build_permutation_plan(
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:
         raise ValueError("labels and groups must be one-dimensional and equally sized")
+    block_plan = None
+    if blocks is not None:
+        block_array = np.asarray(list(blocks))
+        if block_array.ndim != 1 or block_array.shape != y.shape:
+            raise ValueError(
+                "build_permutation_plan: blocks must be one-dimensional with one block id per "
+                f"label; got shape {block_array.shape} for {len(y)} labels."
+            )
+        block_plan = _block_structure(y, group_array, block_array)
     if n_permutations < 1:
         raise ValueError("n_permutations must be positive")
     draws = []
     for permutation in range(n_permutations):
         draw_seed = int(seed + permutation)
-        permuted = permute_labels(
-            y,
-            groups=group_array,
-            scheme="within_group",
-            rng=np.random.default_rng(draw_seed),
-        )
+        draw_rng = np.random.default_rng(draw_seed)
+        if block_plan is None:
+            permuted = permute_labels(
+                y,
+                groups=group_array,
+                scheme="within_group",
+                rng=draw_rng,
+            )
+        else:
+            permuted = _permute_blocks(y, group_array, *block_plan, draw_rng)
         digest = hashlib.sha256(np.ascontiguousarray(permuted).tobytes()).hexdigest()
         draws.append(
             {

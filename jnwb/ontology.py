@@ -627,7 +627,7 @@ class Figure:
 
 def _deprecated_factory(old: str, new: str) -> None:
     warnings.warn(
-        f"{old} is deprecated and will be removed in a future release; it forwards to "
+        f"{old} is deprecated and will be removed in 0.2.14; it forwards to "
         f"{new} and adds nothing. Call {new} directly.",
         DeprecationWarning,
         stacklevel=3,

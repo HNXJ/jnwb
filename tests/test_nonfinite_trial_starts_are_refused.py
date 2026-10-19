@@ -17,7 +17,7 @@ from jnwb import build_time_resolved_matrix
 from jnwb.analyzers import UnitAnalyzer
 from jnwb.connectivity import bin_spikes
 from jnwb.spiking import compute_response_metrics
-from jnwb.statistics import detect_trial_cycles
+from jnwb.statistics import assign_subblock_quartiles, detect_trial_cycles
 from jnwb.viz import raster_psth
 
 SPIKES = np.array([0.01, 0.05, 1.01, 2.02])
@@ -53,6 +53,10 @@ def _cycles(starts):
     return detect_trial_cycles(pd.DataFrame({"start_time": starts}))
 
 
+def _quartiles(starts):
+    return assign_subblock_quartiles(pd.DataFrame({"start_time": starts}))
+
+
 def _raster(onsets):
     raster = UnitAnalyzer.raster(SPIKES, onsets, window_ms=(-100, 100))["raster"]
     return np.array([len(trial["spike_times"]) for trial in raster])
@@ -73,6 +77,8 @@ SITES = [
     pytest.param(_response, "compute_response_metrics", "epoch_onsets",
                  id="compute_response_metrics"),
     pytest.param(_cycles, "detect_trial_cycles", "start_time", id="detect_trial_cycles"),
+    pytest.param(_quartiles, "assign_subblock_quartiles", "start_time",
+                 id="assign_subblock_quartiles"),
     pytest.param(_raster, "UnitAnalyzer.raster", "trial_onsets", id="UnitAnalyzer.raster"),
     pytest.param(_psth, "UnitAnalyzer.psth", "trial_onsets", id="UnitAnalyzer.psth"),
     pytest.param(_raster_psth, "raster_psth", "onsets", id="raster_psth"),
