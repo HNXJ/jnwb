@@ -386,6 +386,7 @@ __all__ = [
     'assign_subblock_quartiles',
     'shuffle_r2_ci',
     'cross_modal_comparison',
+    'effective_sample_size',
 
     # Visual QC
     'visual_qc',

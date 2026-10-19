@@ -112,6 +112,7 @@ LISTED_IN_ALL = (
     "shuffle_pvalue_paired", "shuffle_pvalue_unpaired", "detect_trial_cycles",
     "assign_subblock_quartiles", "shuffle_r2_ci", "cross_modal_comparison",
     "clopper_pearson", "exact_sign_flip", "mann_whitney_p_floor", "fdr_correct",
+    "effective_sample_size",
     # viz
     "setup_vector_graphics", "apply_tight_auto_axis", "save_figure_suite",
     "resample_onsets", "raster_psth",
@@ -143,7 +144,7 @@ IMPORTED_FROM = {
                         "rate_in_window", "shuffle_pvalue_paired", "shuffle_pvalue_unpaired",
                         "detect_trial_cycles", "assign_subblock_quartiles", "shuffle_r2_ci",
                         "cross_modal_comparison", "clopper_pearson", "exact_sign_flip",
-                        "mann_whitney_p_floor", "fdr_correct"),
+                        "mann_whitney_p_floor", "fdr_correct", "effective_sample_size"),
     "jnwb.viz": ("setup_vector_graphics", "apply_tight_auto_axis", "save_figure_suite",
                  "resample_onsets", "raster_psth"),
 }

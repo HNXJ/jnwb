@@ -1,6 +1,6 @@
 # Complete API Reference
 
-All 203 core functions, classes, and constants exported in the top-level jnwb namespace.
+All 204 core functions, classes, and constants exported in the top-level jnwb namespace.
 
 > Generated from `jnwb.__all__`, `inspect.signature`, and runtime docstrings. Do not edit by hand — run `python scripts/generate_api_md.py --write`.
 
@@ -303,6 +303,7 @@ All 203 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.cluster_permutation_test | function | `(X: 'np.ndarray', Y: 'np.ndarray', *, paired: 'bool' = False, groups: 'Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]' = None, scheme: 'Optional[str]' = None, threshold: 'float' = 2.0, n_permutations: 'int' = 1000, tail: 'str' = 'both', rng: 'RNGLike' = 0, n_jobs: 'int' = 1) -> 'Dict[str, Union[np.ndarray, List[Dict[str, Union[float, np.ndarray]]]]]'`<br>*Non-parametric cluster-based permutation test for multidimensional signals (Maris & Oostenveld, 2007).* |
 | jnwb.cross_modal_comparison | function | `(tfr_data: 'np.ndarray', spike_data: 'np.ndarray', lag_range_ms: 'Tuple[int, int]' = (-500, 500), bin_ms: 'Optional[float]' = None, n_permutations: 'int' = 1000, rng: 'RNGLike' = None, *, seed: 'Any' = None) -> 'Dict'`<br>*Trial-averaged correlation between a TFR-derived signal and a spike-count signal.* |
 | jnwb.detect_trial_cycles | function | `(epochs_df: 'pd.DataFrame', gap_factor: 'float' = 10.0) -> 'np.ndarray'`<br>*Detect temporal cluster ("cycle") boundaries in a trial table via a gap threshold.* |
+| jnwb.effective_sample_size | function | `(x: 'np.ndarray') -> 'float'`<br>*Effective number of independent samples in autocorrelated data.* |
 | jnwb.exact_sign_flip | function | `(diffs: 'Union[Sequence[float], np.ndarray]', alternative: 'str' = 'two-sided', n_mc: 'int' = 10000, rng: 'RNGLike' = 42) -> 'Tuple[float, float, float]'`<br>*Exact paired sign-flip permutation test for paired sample differences.* |
 | jnwb.fdr_correct | function | `(p_values: 'Union[Sequence[float], np.ndarray]', method: 'str' = 'bh') -> 'np.ndarray'`<br>*Benjamini-Hochberg (or compatible) FDR across a hypothesis family.* |
 | jnwb.fire_indicator | function | `(spike_times: 'np.ndarray', onsets_s: 'np.ndarray', window_ms) -> 'np.ndarray'`<br>*Vectorized boolean fire indicator, one entry per onset, constant window.* |

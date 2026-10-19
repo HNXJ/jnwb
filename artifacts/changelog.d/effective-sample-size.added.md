@@ -1,0 +1,1 @@
+- `effective_sample_size(x)`: effective sample count of autocorrelated data (`jnwb/statistics/_autocorrelation.py`).

@@ -208,6 +208,15 @@ def _vflip2_from_lfp(n_samples: int, _tmp: Path) -> Callable[[], object]:
     return lambda: jnwb.vflip2_from_lfp(lfp, 1000, contact_spacing=100.0)
 
 
+def _effective_sample_size(n_samples: int, _tmp: Path) -> Callable[[], object]:
+    """White noise on 8 channels; the count stays near n."""
+    import jnwb
+
+    x = np.random.default_rng(0).normal(size=(8, n_samples))
+    assert jnwb.effective_sample_size(x[:, :1000]) > 500, "fixture must be near-white"
+    return lambda: jnwb.effective_sample_size(x)
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -282,6 +291,11 @@ SPECS: Dict[str, Spec] = {
         "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
         "8 channels of white noise at fs=1000 (1 s trials, 1024-point FFT), contact_spacing=100 um",
         _vflip2_from_lfp,
+    ),
+    "effective_sample_size[n_samples]": Spec(
+        "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),
+        "8 channels of white noise; one FFT of at least 2n - 1 points per channel",
+        _effective_sample_size,
     ),
     "fuse_laminar_anchors[n_windows]": Spec(
         "n_windows", (1_000, 10_000, 100_000, 1_000_000),

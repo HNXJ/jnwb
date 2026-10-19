@@ -44,6 +44,7 @@ EXPORT_MODULES: dict[str, str] = {
     "assign_subblock_quartiles": "statistics",
     "shuffle_r2_ci": "statistics",
     "cross_modal_comparison": "statistics",
+    "effective_sample_size": "statistics",
     # metadata
     "get_all_units_metadata": "metadata",
     "classify_unit_quality": "metadata",

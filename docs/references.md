@@ -7,7 +7,7 @@ a test holds the two to each other. Every DOI below resolved at doi.org on 2026-
 the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04, the WaveMAP
 sources on 2026-10-08, Major et al. 2025 and the Dryad dataset on 2026-10-13, the SciPy, CircStat, Pitman, Mann
 and Whitney, Efron, Shannon, Nawrot, Cunningham and Yu, Varma and Simon, Cortes and Vapnik,
-PREP, Leys, and Gerstein and Kiang sources on 2026-10-13). Each matched the title, authors and year of its Crossref record, except
+PREP, Leys, and Gerstein and Kiang sources on 2026-10-13, and Geyer 1992 on 2026-10-19). Each matched the title, authors and year of its Crossref record, except
 the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
@@ -91,6 +91,7 @@ omega, so vFLIP2's acceptance tiers do not apply to it.
 | Pitman, E. J. G. (1937). Significance tests which may be applied to samples from any populations. *Journal of the Royal Statistical Society Series B* 4(1), 119-130. [doi:10.2307/2984124](https://doi.org/10.2307/2984124) | The paired permutation (sign-flip) null over all 2^N sign assignments. jnwb enumerates it exactly at N <= 20 and draws Monte Carlo sign-flips above that, with the Phipson and Smyth (2010) p-value | `exact_sign_flip`, `shuffle_pvalue_paired`, `paired_fire_prob_test` |
 | Mann, H. B., & Whitney, D. R. (1947). On a test of whether one of two random variables is stochastically larger than the other. *The Annals of Mathematical Statistics* 18(1), 50-60. [doi:10.1214/aoms/1177730491](https://doi.org/10.1214/aoms/1177730491) | The rank-permutation null: the extreme allocation has probability 1/comb(n1+n2, n1), doubled for the two-sided floor and capped at 1. jnwb reports this attainable-p floor only, not the U test | `mann_whitney_p_floor` |
 | Efron, B. (1979). Bootstrap methods: another look at the jackknife. *The Annals of Statistics* 7(1). [doi:10.1214/aos/1176344552](https://doi.org/10.1214/aos/1176344552) | The nonparametric bootstrap, resampling with replacement; the percentile interval over the resamples is jnwb's choice and is not in this paper. Computed by `compare_groups` through its resampling helper. `exploratory_compare` only forwards there and strips the correction block; its p-values stay raw | `StatisticalAnalysis.exploratory_compare` |
+| Geyer, C. J. (1992). Practical Markov chain Monte Carlo. *Statistical Science* 7(4), 473-483. [doi:10.1214/ss/1177011137](https://doi.org/10.1214/ss/1177011137) | The initial positive sequence: the autocorrelations, averaged over channels, are summed from lag 1 while their mean stays positive, and the effective sample size is $n / (1 + 2 \sum_k \rho_k)$, clipped to $[2, n]$ | `effective_sample_size` |
 
 ## Spiking population measures
 

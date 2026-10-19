@@ -404,6 +404,7 @@ contradicts a written claim it appears in section 6.
 | `cross_modal_comparison[n_permutations]` | n_permutations | 100, 200, 500, 1000 | 146.7, 242.9, 522.3, 1035 | +0.85 | 0.996 | 7x | O(n) | O(n log n) per permutation | derived | ORDER |
 | `cross_modal_comparison[n_samples]` | n_samples | 3000, 10000, 25000, 50000 | 173.2, 278.1, 551.9, 1231 | +0.68 | 0.946 | 7x | sub-linear | O(n log n) per permutation | derived | ORDER |
 | `detect_trial_cycles` | n_rows | 100000, 400000, 1500000, 5000000 | 5.34, 27.4, 160.1, 910.0 | +1.31 | 0.998 | 170x | O(n)-O(n^1.5) | T(n log n) | derived | ORDER |
+| `effective_sample_size[n_samples]` | n_samples | 10000, 100000, 1000000, 4000000 | 11.42, 134.4, 1539, 6651 | +1.06 | 1.000 | 582x | O(n) | T(C*n log n) | derived | agree |
 | `exact_sign_flip[n_mc]` | n_mc | 20000, 60000, 200000, 600000 | 9.98, 30.4, 97.8, 331.9 | +1.02 | 0.999 | 33x | O(n) | T(B*n) | derived | CONSTANT |
 | `exact_sign_flip[n_samples_exact]` | n_samples | 2, 5, 10, 15, 20 | 0.17, 0.16, 0.24, 4.05, 149.1 | +2.47 | 0.596 | 870x | O(n^2)-O(n^3) (POOR FIT) | O(2^(N/2)*N) known; true lower bound unknown | unknown | ORDER |
 | `exact_sign_flip[n_samples_mc]` | n_samples | 25, 75, 250, 750 | 5.05, 14.4, 49.1, 155.6 | +1.01 | 1.000 | 31x | O(n) | T(B*n) | derived | agree |
