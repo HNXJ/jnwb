@@ -1253,6 +1253,50 @@ class TestAperiodicFit:
         assert res.freq_range == (2.0, 50.0)
 
 
+class TestAperiodicFitRSquaredOnFlatSpectrum:
+    """A flat log power has no variance for the fit to explain, so r_squared is NaN. Round-off
+    in the total sum of squares was reported as a fit quality (0.8 in fixed mode, -1e9 in knee)."""
+
+    @staticmethod
+    def _log_power_ss_and_tol(psd):
+        log_power = np.log10(psd)
+        ss_tot = float(np.sum((log_power - log_power.mean()) ** 2))
+        tol = log_power.size * np.finfo(float).eps * max(1.0, float(np.max(np.abs(log_power)))) ** 2
+        return ss_tot, tol
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_round_off_flat_spectrum_has_nan_r_squared(self, mode):
+        freqs = np.arange(1.0, 51.0)
+        psd = np.random.default_rng(0).uniform(1.0, 1.0 + 1e-15, size=freqs.size)
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert 0.0 < ss_tot <= tol, "fixture must be flat to round-off, not exactly flat"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 50.0), mode=mode)
+        assert res.accepted
+        assert np.isnan(res.r_squared)
+
+    @pytest.mark.parametrize("mode", ["fixed", "knee"])
+    def test_exactly_flat_spectrum_has_nan_r_squared(self, mode):
+        freqs = np.arange(1.0, 51.0)
+        psd = np.full(freqs.size, 0.37)
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert ss_tot == 0.0, "fixture must be exactly flat"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 50.0), mode=mode)
+        assert res.accepted
+        assert np.isnan(res.r_squared)
+
+    @pytest.mark.parametrize("mode, expected", [("fixed", 0.9976468465367427),
+                                                ("knee", 0.9976468465367426)])
+    def test_one_over_f_with_noise_keeps_its_r_squared(self, mode, expected):
+        """Pinned on the unmodified code: a fit with variance to explain keeps its value."""
+        rng = np.random.default_rng(3)
+        freqs = np.arange(1.0, 101.0)
+        psd = 10.0 ** (0.5 - 1.2 * np.log10(freqs)) * (1.0 + 0.05 * rng.normal(size=freqs.size))
+        ss_tot, tol = self._log_power_ss_and_tol(psd)
+        assert ss_tot > tol, "fixture must have variance to explain"
+        res = aperiodic_fit(freqs, psd, freq_range=(1.0, 100.0), mode=mode)
+        np.testing.assert_allclose(res.r_squared, expected, rtol=1e-12)
+
+
 class TestRelativePower:
     def test_numerical_distinction_under_unequal_baselines(self):
         """Under unequal baselines, mean of ratios, ratio of means, and mean dB strictly diverge."""

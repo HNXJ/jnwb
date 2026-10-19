@@ -99,6 +99,17 @@ def _count_each_at_least_as_extreme(values, *, atol: float = 0.0) -> np.ndarray:
     return values.size - np.searchsorted(ordered, thresholds, side="left")
 
 
+def _refuse_missing_groups(groups, func_name: str) -> None:
+    """Refuse a group array holding NaN or None: a missing id equals no group, so its samples
+    would keep their labels unpermuted and nothing would say so."""
+    missing = int(np.count_nonzero(pd.isna(np.asarray(groups))))
+    if missing:
+        raise ValueError(
+            f"{func_name}: groups holds {missing} missing label(s) (NaN or None); every sample "
+            "needs a group id, since a missing id matches no group and its sample is never permuted."
+        )
+
+
 def permute_labels(
     y,
     *,
@@ -127,6 +138,9 @@ def permute_labels(
 
     Returns:
         A permuted copy of `y`, same shape and dtype.
+
+    Raises:
+        ValueError: If ``scheme='within_group'`` and ``groups`` holds a NaN or None id.
     """
     y = np.asarray(y)
     if scheme not in SCHEMES:
@@ -142,6 +156,7 @@ def permute_labels(
     groups = np.asarray(groups)
     if groups.shape[0] != y.shape[0]:
         raise ValueError(f"groups length {groups.shape[0]} != y length {y.shape[0]}")
+    _refuse_missing_groups(groups, "permute_labels")
     # A group holding a single distinct label cannot be permuted: rng.permutation of a
     # constant is that constant. If NO group holds two distinct labels -- the nested design
     # where each group carries exactly one condition -- every draw is the original labelling
@@ -239,8 +254,8 @@ def build_permutation_plan(
 
     Raises:
         TypeError: If ``rng`` is not an int, a Generator or None, or ``groups`` is None.
-        ValueError: If ``blocks`` has the wrong length, or a block holds more than one label
-            or spans more than one group.
+        ValueError: If ``blocks`` has the wrong length, ``groups`` holds a NaN or None, or a
+            block holds more than one label or spans more than one group.
     """
     if groups is None:
         raise TypeError(
@@ -257,6 +272,7 @@ def build_permutation_plan(
     group_array = np.asarray(list(groups))
     if y.ndim != 1 or group_array.shape != y.shape:
         raise ValueError("labels and groups must be one-dimensional and equally sized")
+    _refuse_missing_groups(group_array, "build_permutation_plan")
     block_plan = None
     if blocks is not None:
         block_array = np.asarray(list(blocks))

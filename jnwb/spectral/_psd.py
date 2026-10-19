@@ -404,6 +404,7 @@ class AperiodicFitResult(DictAccessMixin):
         exponent: Aperiodic spectral slope / exponent `chi` (positive for 1/f decay), or None if fit rejected.
         knee: Knee parameter `k` (>0.0 for knee mode, None for fixed mode or rejected fit).
         r_squared: Coefficient of determination (R^2) of the fit in log10 space, or None if fit rejected.
+            NaN when the log power is flat to round-off (no variance to explain).
         freq_range: Evaluated frequency range `(f_min, f_max)` in Hz.
         mode: Fitting model (`'fixed'` or `'knee'`).
         accepted: Whether the optimization successfully converged to a valid fit.
@@ -584,7 +585,10 @@ def aperiodic_fit(
             k = float(popt[2])
             fitted = _knee_model(f_sel, b, chi, k)
         ss_res = float(np.sum((log_power - fitted) ** 2))
-        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
+        # A total at or below len * eps * max(1, max|log_power|)**2 is round-off over round-off:
+        # a flat spectrum has no variance to explain, so r2 is NaN there.
+        flat_tol = log_power.size * np.finfo(float).eps * max(1.0, float(np.max(np.abs(log_power)))) ** 2
+        r2 = float(1.0 - (ss_res / ss_tot)) if ss_tot > flat_tol else float("nan")
         return b, chi, k, r2, fitted
 
     def _fit_single_1d(p_1d: np.ndarray) -> AperiodicFitResult:

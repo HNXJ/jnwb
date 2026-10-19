@@ -90,10 +90,14 @@ def synth_ar_noise(
     sigma_innov: float = 1.0,
     rng: Optional[Union[np.random.Generator, int]] = None,
 ) -> np.ndarray:
-    """Generate stationary autoregressive AR(p) noise with controllable autocorrelation.
+    """Generate autoregressive AR(p) noise with controllable autocorrelation.
 
     Provides non-white noise preserving temporal persistence and 1/f spectral tilt
     without introducing cross-channel correlation.
+
+    The filter starts from rest and discards the first ``max(200, 20 * p)`` samples as
+    burn-in, which does not make the output stationary: when ``tau_s * fs`` is large compared
+    with the burn-in, the first returned samples carry less than the stationary variance.
 
     Args:
         n_samples: Number of time samples to generate (must be strictly positive).

@@ -1,0 +1,1 @@
+- `aperiodic_fit` gives a NaN `r_squared` for a spectrum flat to round-off (`jnwb/spectral/_psd.py`).

@@ -512,6 +512,24 @@ def test_opposing_gradients_refuses_a_band_that_is_not_two_finite_numbers_low_be
     assert len(canvas.fig.data) == 0, "a refused band must draw nothing"
 
 
+def test_opposing_gradients_crossover_line_is_finite_with_a_nan_in_a_trace():
+    """The crossover line ends at the largest finite power of either trace, so one NaN sample
+    in a trace does not make the reference line end at NaN."""
+    depths = np.linspace(0.0, 1.0, 20)
+    gamma = 1.0 - depths
+    gamma[5] = np.nan
+    assert int(np.isnan(gamma).sum()) == 1, "fixture must hold one NaN sample"
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(canvas, 0, 0, gamma_power=gamma, alphabeta_power=depths,
+                            depths=depths, crossover_depth=0.4, depth_unit="relative")
+    crossover = [t for t in canvas.fig.data
+                 if t.y is not None and len(t.y) == 2 and all(v == 0.4 for v in t.y)]
+    assert len(crossover) == 1, "the crossover line must be drawn once"
+    x_max = crossover[0].x[1]
+    assert np.isfinite(x_max)
+    assert x_max == pytest.approx(1.05)
+
+
 def test_csd_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     depths = np.linspace(0.0, 1.0, 16)

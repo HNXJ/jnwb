@@ -169,7 +169,8 @@ nwb_files = ["sub-01_ses-01.nwb", "sub-01_ses-02.nwb"]
 units_df = jnwb.get_all_units_metadata(nwb_files, filter_quality=False)
 
 # Attaches quality_class ('Good'|'Fair'|'Poor'|'Unknown'), is_valid, issue_flags.
-# A missing or non-numeric metric makes the unit 'Unknown'; the thresholds have no cited source.
+# A missing or non-numeric metric makes the unit 'Unknown', unless a measured quality or snr below
+# its cut-off makes it 'Poor'; the thresholds have no cited source.
 classified_units = jnwb.classify_unit_quality(units_df)
 
 # Generate a census summary grouped by brain area

@@ -82,6 +82,38 @@ class TestPermuteLabelsContract:
             )
 
 
+class TestMissingGroupLabelIsRefused:
+    """A missing group id matches no group, so its samples would keep their labels unpermuted
+    and no call would say so."""
+
+    def test_permute_labels_refuses_a_nan_group_and_counts_it(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0.0, 0.0, 1.0, 1.0, 1.0, np.nan])
+        assert int(np.isnan(groups).sum()) == 1, "fixture must hold one NaN group"
+        with pytest.raises(ValueError, match=r"permute_labels.*groups.*1 missing"):
+            permute_labels(labels, groups=groups, scheme="within_group", rng=np.random.default_rng(0))
+
+    def test_permute_labels_refuses_a_none_group_in_an_object_array(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0, 0, 1, 1, None, 1], dtype=object)
+        assert sum(g is None for g in groups) == 1, "fixture must hold one None group"
+        with pytest.raises(ValueError, match=r"permute_labels.*groups.*1 missing"):
+            permute_labels(labels, groups=groups, scheme="within_group", rng=np.random.default_rng(0))
+
+    def test_build_permutation_plan_refuses_missing_groups_and_counts_them(self):
+        labels, groups = [0, 1, 0, 1, 0, 1], [0.0, 0.0, 1.0, 1.0, np.nan, np.nan]
+        with pytest.raises(ValueError, match=r"build_permutation_plan.*groups.*2 missing"):
+            build_permutation_plan(labels, groups, n_permutations=2, rng=0)
+
+    def test_all_finite_groups_are_unchanged(self):
+        labels = np.array([0, 1, 0, 1, 0, 1])
+        groups = np.array([0.0, 0.0, 1.0, 1.0, 1.0, 1.0])
+        out = permute_labels(labels, groups=groups, scheme="within_group",
+                             rng=np.random.default_rng(0))
+        # Pinned on the unmodified code: the finite-group path is untouched.
+        assert out.tolist() == [0, 1, 0, 0, 1, 1]
+
+
 class TestWithinGroupPreservesGroupComposition:
     def test_per_group_label_counts_unchanged(self):
         rng = np.random.default_rng(42)

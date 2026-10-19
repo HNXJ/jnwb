@@ -371,7 +371,7 @@ def plot_opposing_gradients(
 
     # Layer 4 crossover dashed reference line
     if crossover_depth is not None and np.min(depths) <= crossover_depth <= np.max(depths):
-        x_max = max(np.max(gamma_power), np.max(alphabeta_power)) * 1.05
+        x_max = np.nanmax([np.nanmax(gamma_power), np.nanmax(alphabeta_power)]) * 1.05
         canvas.fig.add_trace(
             go.Scatter(
                 x=[0, x_max],
