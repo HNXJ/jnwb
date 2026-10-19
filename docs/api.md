@@ -371,3 +371,12 @@ All 203 core functions, classes, and constants exported in the top-level jnwb na
 | jnwb.normalize_waveforms | function | `(waveforms, *, subtract_mean: 'bool' = True) -> 'np.ndarray'`<br>*Scale each row so its largest absolute value is 1, after removing its mean.* |
 | jnwb.wavemap | function | `(waveforms, *, resolution: 'float', n_neighbors: 'int' = 20, min_dist: 'float' = 0.1, metric: 'str' = 'euclidean', embedding: 'bool' = True, rng: 'RNGLike' = 42) -> 'WaveMAPResult'`<br>*Cluster normalized mean waveforms on their UMAP graph with Louvain (Lee et al. 2021).* |
 | jnwb.wavemap_resolution_sweep | function | `(waveforms, resolutions: 'Sequence[float]', *, n_runs: 'int' = 25, fraction: 'float' = 0.8, n_neighbors: 'int' = 20, metric: 'str' = 'euclidean', rng: 'RNGLike' = 42) -> 'Dict[str, np.ndarray]'`<br>*Modularity and cluster count across resolutions, over random subsets of units.* |
+
+## Experimental
+
+Outside `jnwb.__all__`, imported by name, with no stability promise: a release may change or remove them without a deprecation.
+
+| Symbol | Type | Description |
+|---|---|---|
+| jnwb.bilinear | module | *Optional/experimental: bilinear (rank-K) logistic regression for 2D neural decoding.* |
+| jnwb.nam | module | *Optional/experimental: Neural Additive Model (NAM) for (N x T) decoding.* |

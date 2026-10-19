@@ -273,6 +273,11 @@ def _module_for_symbol(jnwb: Any, name: str) -> str:
     return "jnwb"
 
 
+#: Submodules outside ``jnwb.__all__`` that are documented apart, with no stability promise. Their
+#: rows are read from source, as optional submodules are, so ``nam`` needs no PyTorch here.
+EXPERIMENTAL_SUBMODULES = ("bilinear", "nam")
+
+
 def generate_api_markdown(repo_root: Path | None = None) -> str:
     root = repo_root or REPO_ROOT
     import sys
@@ -314,6 +319,19 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
             typ = _object_type_name(obj)
             lines.append(f"| jnwb.{symbol} | {typ} | {_format_cell(obj, typ)} |")
         lines.append("")
+
+    lines += [
+        "## Experimental",
+        "",
+        "Outside `jnwb.__all__`, imported by name, with no stability promise: a release may "
+        "change or remove them without a deprecation.",
+        "",
+        "| Symbol | Type | Description |",
+        "|---|---|---|",
+    ]
+    for name in EXPERIMENTAL_SUBMODULES:
+        lines.append(f"| jnwb.{name} | module | {_optional_submodule_cell(name)} |")
+    lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
 
