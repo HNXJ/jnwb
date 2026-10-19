@@ -99,7 +99,7 @@ Cut adjective stacks, negation ("X is not Y"), restated obviousness, repeated ca
 
 ## 11. Release acceptance
 
-A release opens only when documentation is low-verbosity and consistently formed, code is low-complexity and switchable, the open stack holds no row, no required item remains, and an independent blocker-focused closure pass finds no new blocker; a finding that blocks nothing waits in the todo stack. A problem leaves repaired, shown false (evidence that survives a hostile reader, in the commit message), or moved to the todo stack as `Release: required-<cycle>` if it blocks, else `Release: deferred-<next>`, which `scripts/release_gate.py` derives from the declared version. Never delete a row because its repair is inconvenient. Full text: `artifacts/rulings/standing.md`.
+A release opens only when documentation is low-verbosity and consistently formed, code is low-complexity and switchable, the open stack holds no row, no required item remains, and an independent blocker-focused closure pass finds no new blocker; it checks each advertised scientific claim against the deferred rows, and a claim resting on one makes that row required or is cut. A finding that blocks nothing waits in the todo stack. A problem leaves repaired, shown false (evidence that survives a hostile reader, in the commit message), or moved to the todo stack as `Release: required-<cycle>` if it blocks, else `Release: deferred-<next>`, which `scripts/release_gate.py` derives from the declared version. Never delete a row because its repair is inconvenient. Full text: `artifacts/rulings/standing.md`.
 
 ## 12. Autonomy
 

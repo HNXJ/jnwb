@@ -159,6 +159,8 @@ only when all three hold at once:
    implemented and declared unverified.
 3. **The open stack holds no row, no required item remains, and an independent blocker-focused
    closure pass finds no new blocker.** A finding that blocks nothing waits in the todo stack.
+   The closure pass checks each scientific claim the docs, skills and README advertise against the
+   deferred rows: a claim that rests on a deferred row makes that row required, or the claim is cut.
 
 A problem leaves the stack repaired, shown false (evidence that survives a hostile reader in the
 commit message), or moved to the todo stack marked `Release: required-<cycle>` if it meets the

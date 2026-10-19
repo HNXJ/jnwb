@@ -66,8 +66,15 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 | F-44 | low | `jnwb/jrsa/_stages.py:404`, `:349` | An integer window width is off by one (5 gives 4 samples); the standardize warning says it "overrides and negates" normalize, and the output stays in [0, 1] |
 | F-45 | low | `jnwb/jrsa/_metrics.py:30`, `:50`, `:125` | The 1e-12 offset gives t = 4.2e6 at abs(r) = 1 (exact inf); the metric helpers truncate mismatched rows (unreachable through `jrsa`) |
 | F-64 | med | `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md` | Every swept value of the 15 `curate_and_label` defaults gives the same counts (5 of 24 planted anchors within one pitch, 0 of 24 nulls graded A or B), though `smooth_um` moves 96 of 192 anchors, `min_lobe_amplitude` 38 and `min_lobe_um` 19 (raw record, per seed against the default). At the defaults all 24 planted anchors come from vFLIP (grades A 2, C 22) and miss by -420 to +917 um, so recovery on `synth_vflip2_crossover` probes is bounded by vFLIP, and the sweep cannot show whether a default is well placed |
+| F-65 | med | `jnwb/jrsa/_inference.py:211` (`_p_from_null`) | A NaN null draw stays in the denominator: 3 finite draws give p = 0.5, one NaN more gives 0.4; ruled 2026-10-19 to drop and report |
+| F-66 | low | `tests/test_jrsa.py:233` | `test_every_documented_correction_is_actually_accepted` asserts only the recorded name; with one p, `fdr_bh` and `bonferroni` both give q = p = 0.1818 |
+| F-67 | low | `tests/test_nwb_integrity.py:565` | The docstring blames pynwb for a wrong-block read; `_w27_write(order=(1, 0, 2, 3))` stores unit 1's block under unit 0, and pynwb returns the stored bytes |
+| F-68 | low | `jnwb/artifact_repair.py:57` (`flagged_to_intervals`, private) | Empty input raises `IndexError: index 0 is out of bounds` |
+| F-69 | low | `jnwb/nwb_io.py:150` (`_repair_builder`) | Bytes column names stay bytes and the three data columns are appended again as str, giving 9 names for 3; whether HDMF yields bytes names from a real file is unchecked |
+| F-70 | med | `jnwb/compression.py:459` (`_resolve_references`) | A reference whose target is absent from the destination is left pointing into the source with no warning; reading it raises `KeyError: 'Unable to open object by token'` |
+| F-71 | low | `docs/10_operation_specifications.md:91` | Lists `aggregate_over=0` under "Axis arguments default to" while `aggregate_to_db`'s default is None |
 
-Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
+The eight unconfirmed items were reproduced 2026-10-19: seven are F-65 to F-71; `test_laminar_curation.py:199` rejects contacts 19 to 21 around the planted sink at 20, which is the claim its name makes.
 
 ## G. External snapshot audit 2026-10-19 (sol-critic, a zip of `origin/dev` before 62a0708f)
 
@@ -75,4 +82,3 @@ F02 (vflip2 above 200 um) was repaired in 62a0708f; F03's agreement half is show
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| G-04 | med | release closure | Audit F08: the closure pass checks each advertised scientific claim against the deferred rows, not only the deferred labels |
