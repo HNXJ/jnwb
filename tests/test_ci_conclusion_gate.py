@@ -129,7 +129,7 @@ class StubRunner:
 def _runner(jobs, *, run_sha=SHA, run_status="completed", view_sha=None, list_payload=None):
     runs = list_payload if list_payload is not None else [{
         "databaseId": RUN_ID, "headSha": run_sha, "status": run_status,
-        "conclusion": "failure", "workflowName": "Other",
+        "conclusion": "failure", "workflowName": "Other", "headBranch": "main",
     }]
     view = {"jobs": jobs, "headSha": run_sha if view_sha is None else view_sha,
             "conclusion": "failure"}
@@ -241,9 +241,12 @@ def test_the_sha_is_re_checked_on_the_second_gh_call():
 
 def test_the_commit_is_passed_to_gh_and_the_newest_matching_run_is_chosen():
     runner = _runner(jobs=_all_green(), list_payload=[
-        {"databaseId": 1, "headSha": SHA, "status": "completed", "workflowName": "Other"},
-        {"databaseId": 99, "headSha": SHA, "status": "completed", "workflowName": "Other"},
-        {"databaseId": 50, "headSha": OTHER_SHA, "status": "completed", "workflowName": "Other"},
+        {"databaseId": 1, "headSha": SHA, "status": "completed", "workflowName": "Other",
+         "headBranch": "main"},
+        {"databaseId": 99, "headSha": SHA, "status": "completed", "workflowName": "Other",
+         "headBranch": "main"},
+        {"databaseId": 50, "headSha": OTHER_SHA, "status": "completed", "workflowName": "Other",
+         "headBranch": "main"},
     ])
     check_ci_conclusion(SHA, required=OTHER_REQUIRED, runner=runner)
     assert SHA in runner.calls[0], runner.calls[0]
@@ -253,6 +256,43 @@ def test_the_commit_is_passed_to_gh_and_the_newest_matching_run_is_chosen():
 def test_select_run_for_commit_rejects_a_non_list_payload():
     run, reason = select_run_for_commit(SHA, json.dumps({"headSha": SHA}))
     assert run is None and "expected a list" in reason
+
+
+# --------------------------------------------------------------------------------------
+# A release is qualified by the main run at the tag's commit, and by no other run
+# --------------------------------------------------------------------------------------
+
+def _dev_run(run_id=RUN_ID):
+    return {"databaseId": run_id, "headSha": SHA, "headBranch": "dev", "status": "completed",
+            "conclusion": "success", "workflowName": "CI/CD"}
+
+
+def test_a_passed_dev_run_alone_does_not_qualify_the_commit():
+    """The pipeline went green on dev at this commit and nothing ran on main: not a release."""
+    dev = _dev_run()
+    assert dev["headBranch"] == "dev" and dev["conclusion"] == "success", dev
+    run, reason = select_run_for_commit(SHA, json.dumps([dev]))
+    assert run is None and "exist only on dev" in reason, (run, reason)
+    runner = StubRunner(list_stdout=json.dumps([dev]),
+                        view_stdout=json.dumps({"jobs": _all_green(), "headSha": SHA}))
+    outcome = check_ci_conclusion(SHA, required=OTHER_REQUIRED, runner=runner)
+    assert outcome.status == CI_UNRESOLVED and "exist only on dev" in outcome.detail, outcome
+    assert len(runner.calls) == 1, "the dev run's jobs must not be fetched"
+
+
+def test_the_main_run_is_selected_beside_a_newer_dev_run():
+    """The newest run of the commit is the dev run; the release is qualified by the older main run."""
+    dev, main = _dev_run(run_id=20), dict(_dev_run(run_id=10), headBranch="main")
+    assert dev["databaseId"] > main["databaseId"] and main["headBranch"] == "main", (dev, main)
+    run, reason = select_run_for_commit(SHA, json.dumps([dev, main]))
+    assert reason is None and run["databaseId"] == 10, (run, reason)
+
+
+def test_the_query_asks_gh_for_the_branch_of_each_run():
+    runner = _runner(jobs=_all_green())
+    check_ci_conclusion(SHA, required=OTHER_REQUIRED, runner=runner)
+    fields = runner.calls[0][runner.calls[0].index("--json") + 1].split(",")
+    assert "headBranch" in fields, runner.calls[0]
 
 
 # --------------------------------------------------------------------------------------

@@ -21,6 +21,7 @@ always returns one.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import subprocess
@@ -55,6 +56,8 @@ RELEASE_STEP = f"release-step-{RELEASE_CYCLE}"
 # A cycle past the next one, for a deferral that skips a cycle. Derived, like DEFERRED, so the
 # cases keep their meaning when the declared version moves.
 AFTER_NEXT = "{}.{}.{}".format(*(int(p) + (i == 2) for i, p in enumerate(NEXT_CYCLE.split("."))))
+# The release before this one, derived the same way: the tag a constructed tree is released from.
+PREVIOUS_CYCLE = "{}.{}.{}".format(*(int(p) - (i == 2) for i, p in enumerate(RELEASE_CYCLE.split("."))))
 
 _OPEN = """# Open stack
 
@@ -138,7 +141,18 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
     ``recorded`` is the version the peak-memory record names, ``None`` for no record.
     ``artifacts/changelog.d/`` holds its README and each name in ``fragments``.
     ``roadmap`` is the roadmap's text, ``None`` for no roadmap. ``workflow`` is the CI workflow's
-    text, ``None`` for no workflow file."""
+    text, ``None`` for no workflow file. The repository opens with the previous release, tagged
+    ``v<PREVIOUS_CYCLE>`` with a record that holds no operation, so the growth check has a release
+    to compare with and nothing to report."""
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "jnwb").mkdir(exist_ok=True)
+    (tmp_path / "artifacts" / "benchmarks" / "performance").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{PREVIOUS_CYCLE}'\n",
+                                                   encoding="utf-8")
+    (tmp_path / "artifacts" / "benchmarks" / "performance" / "peak_memory.json").write_text(
+        _record(PREVIOUS_CYCLE, {}), encoding="utf-8")
+    _commit(tmp_path, "the previous release")
+    _git(tmp_path, "tag", f"v{PREVIOUS_CYCLE}")
     if roadmap is not None:
         (tmp_path / "artifacts").mkdir(parents=True, exist_ok=True)
         (tmp_path / "artifacts" / "roadmap.md").write_text(roadmap, encoding="utf-8")
@@ -150,9 +164,11 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
     (tmp_path / "jnwb").mkdir(exist_ok=True)
     (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
                                                    encoding="utf-8")
+    record = tmp_path / "artifacts" / "benchmarks" / "performance" / "peak_memory.json"
     if recorded is not None:
-        (tmp_path / "artifacts" / "benchmarks" / "performance" / "peak_memory.json").write_text(
-            f'{{\n  "jnwb_version": "{recorded}",\n  "unit": "MiB"\n}}\n', encoding="utf-8")
+        record.write_text(_record(recorded, {}), encoding="utf-8")
+    else:
+        record.unlink(missing_ok=True)
     (tmp_path / "artifacts" / "open_stack.md").write_text(
         _OPEN.format(rows="\n".join(rows)) + tail, encoding="utf-8")
     (tmp_path / "artifacts" / "todo_stack.md").write_text(
@@ -164,7 +180,6 @@ def _tree(tmp_path, *, rows=(), tail="", items=(), commit=HEAD, found=0, receipt
         (tmp_path / "artifacts" / "process").mkdir(parents=True, exist_ok=True)
         (tmp_path / "artifacts" / "process" / "blocker_fixpoint_receipt.md").write_text(
             _RECEIPT.format(commit=commit, found=found), encoding="utf-8")
-    _git(tmp_path, "init", "-q")
     _commit(tmp_path, "the tree")
     return tmp_path
 
@@ -921,6 +936,149 @@ def test_the_peak_memory_record_is_read_as_committed(tmp_path):
         f'{{"jnwb_version": "{RELEASE_CYCLE}"}}\n', encoding="utf-8")
     v = check_release_readiness(root, head=HEAD)
     assert len(v) == 2 and any("was taken for jnwb 0.0.1" in x for x in v), v
+
+
+# --- the record may not grow past the bound since the previous release without a reason -----------
+
+def _record(version, operations):
+    """A peak-memory record as ``scripts/measure_peak_memory.py`` writes it: name -> added MiB."""
+    return json.dumps({"jnwb_version": version, "unit": "MiB", "operations": {
+        name: {"peak_mib": added + 100.0, "added_mib": added, "added_is": "exact"}
+        for name, added in operations.items()}}, indent=2) + "\n"
+
+
+def _changelog(*sections):
+    """A CHANGELOG.md with each (version, body) as a dated section, after ``[Unreleased]``."""
+    return "# Changelog\n\n## [Unreleased]\n\n" + "".join(
+        f"## [{version}] - 2026-10-19\n\n{body}\n\n" for version, body in sections)
+
+
+def _growth_tree(tmp_path, *, before, after, changelog=None, tag=True, before_dir=None):
+    """Two commits. The previous release declares PREVIOUS_CYCLE with the record ``before`` (a dict
+    of name -> added MiB, or None for no record), in ``before_dir`` when given, and is tagged
+    ``v<PREVIOUS_CYCLE>`` unless ``tag`` is False. HEAD declares RELEASE_CYCLE with the record
+    ``after`` and CHANGELOG.md ``changelog`` when given."""
+    _git(tmp_path, "init", "-q")
+    perf = tmp_path / "artifacts" / "benchmarks" / "performance"
+    perf.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "jnwb").mkdir(exist_ok=True)
+    (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{PREVIOUS_CYCLE}'\n",
+                                                   encoding="utf-8")
+    if before is not None:
+        where = tmp_path / before_dir if before_dir is not None else perf
+        where.mkdir(parents=True, exist_ok=True)
+        (where / "peak_memory.json").write_text(_record(PREVIOUS_CYCLE, before), encoding="utf-8")
+    _commit(tmp_path, "the previous release")
+    if tag:
+        _git(tmp_path, "tag", f"v{PREVIOUS_CYCLE}")
+    (tmp_path / "jnwb" / "__init__.py").write_text(f"__version__ = '{RELEASE_CYCLE}'\n",
+                                                   encoding="utf-8")
+    (perf / "peak_memory.json").write_text(_record(RELEASE_CYCLE, after), encoding="utf-8")
+    if changelog is not None:
+        # Bytes, not text: a text-mode write on Windows commits CRLF, and a CRLF heading never matches.
+        (tmp_path / "CHANGELOG.md").write_bytes(changelog.encode("utf-8"))
+    _commit(tmp_path, "the release")
+    return tmp_path
+
+
+def _growth(root):
+    from scripts.release_gate import peak_memory_growth_violations
+    return peak_memory_growth_violations(root)
+
+
+KEY = "jrsa_200x40_200perm"
+
+
+def test_thirty_percent_and_six_mib_fails(tmp_path):
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0})
+    assert 26.0 - 20.0 > 0.20 * 20.0 and 26.0 - 20.0 >= 5.0, "the fixture must exceed both bounds"
+    v = _growth(root)
+    assert len(v) == 1, v
+    assert KEY in v[0] and "20.0" in v[0] and "26.0" in v[0] and "30.0%" in v[0], v
+    assert f"name the operation in CHANGELOG.md's {RELEASE_CYCLE} section" in v[0], v
+
+
+def test_thirty_percent_and_four_mib_passes(tmp_path):
+    root = _growth_tree(tmp_path, before={KEY: 13.5}, after={KEY: 17.5})
+    assert 17.5 - 13.5 > 0.20 * 13.5 and 17.5 - 13.5 < 5.0, "over the fraction, under the floor"
+    assert _growth(root) == []
+
+
+def test_fifteen_percent_and_fifty_mib_passes(tmp_path):
+    root = _growth_tree(tmp_path, before={KEY: 333.5}, after={KEY: 383.5})
+    assert 383.5 - 333.5 >= 5.0 and 383.5 - 333.5 <= 0.20 * 333.5, "over the floor, under the fraction"
+    assert _growth(root) == []
+
+
+def test_thirty_percent_and_six_mib_with_the_operation_in_the_declared_section_passes(tmp_path):
+    from scripts.release_body import changelog_section
+    changelog = _changelog((RELEASE_CYCLE, f"- `{KEY}` keeps one more block of trials: +6 MiB."))
+    assert KEY in changelog_section(changelog, RELEASE_CYCLE), "the fixture must name the key"
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0}, changelog=changelog)
+    assert _growth(root) == []
+
+
+def test_a_reason_in_another_versions_section_does_not_count(tmp_path):
+    from scripts.release_body import changelog_section
+    changelog = _changelog((RELEASE_CYCLE, "- Peak memory measured again."),
+                           (PREVIOUS_CYCLE, f"- `{KEY}` keeps one more block of trials."))
+    assert KEY not in changelog_section(changelog, RELEASE_CYCLE), "the key is in the wrong section"
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0}, changelog=changelog)
+    v = _growth(root)
+    assert len(v) == 1 and KEY in v[0], v
+
+
+def test_a_longer_operation_name_in_the_section_is_not_a_reason(tmp_path):
+    from scripts.release_body import changelog_section
+    changelog = _changelog((RELEASE_CYCLE, f"- `{KEY}_v2` keeps one more block of trials."))
+    assert KEY in changelog_section(changelog, RELEASE_CYCLE), "the fixture must contain the prefix"
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0}, changelog=changelog)
+    v = _growth(root)
+    assert len(v) == 1 and KEY in v[0], v
+
+
+def test_no_previous_tag_fails_closed(tmp_path):
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 20.0}, tag=False)
+    assert _git(root, "tag", "--list") == "", "the fixture must carry no tag"
+    v = _growth(root)
+    assert len(v) == 1 and "no release tag" in v[0] and RELEASE_CYCLE in v[0], v
+
+
+def test_a_previous_tag_without_the_record_fails_closed(tmp_path):
+    from scripts.release_gate import PEAK_MEMORY_PATH
+    root = _growth_tree(tmp_path, before=None, after={KEY: 20.0})
+    assert _git(root, "tag", "--list") == f"v{PREVIOUS_CYCLE}", "the fixture must be tagged"
+    absent = subprocess.run(["git", "-C", str(root), "cat-file", "-e",
+                             f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH}"], capture_output=True)
+    assert absent.returncode != 0, "the fixture must leave the record out of the tag"
+    v = _growth(root)
+    assert len(v) == 1 and f"v{PREVIOUS_CYCLE}" in v[0] and "absent" in v[0], v
+
+
+def test_a_previous_release_with_the_record_at_its_old_path_is_compared(tmp_path):
+    """Releases up to v0.2.12 kept the record one directory up."""
+    from scripts.release_gate import PEAK_MEMORY_PATH_BEFORE_0_2_13
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0},
+                        before_dir="artifacts/benchmarks")
+    kept = subprocess.run(["git", "-C", str(root), "cat-file", "-e",
+                           f"v{PREVIOUS_CYCLE}:{PEAK_MEMORY_PATH_BEFORE_0_2_13}"], capture_output=True)
+    assert kept.returncode == 0, "the fixture must hold the record at the old path"
+    v = _growth(root)
+    assert len(v) == 1 and KEY in v[0] and "30.0%" in v[0], v
+
+
+def test_an_operation_added_or_removed_is_not_reported(tmp_path):
+    before, after = {"old_op": 10.0, KEY: 20.0}, {"new_op": 900.0, KEY: 20.0}
+    root = _growth_tree(tmp_path, before=before, after=after)
+    assert set(before) ^ set(after) == {"old_op", "new_op"}, "the fixture must add and remove one"
+    assert _growth(root) == []
+
+
+def test_the_readiness_gate_reports_the_growth(tmp_path):
+    """The growth check sits in STEP 0a's condition 4, so a violation refuses the release."""
+    root = _growth_tree(tmp_path, before={KEY: 20.0}, after={KEY: 26.0})
+    v = check_release_readiness(root)
+    assert any(KEY in x and "CHANGELOG.md" in x for x in v), v
 
 
 def test_the_gate_reads_the_record_the_instrument_writes():

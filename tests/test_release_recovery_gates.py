@@ -253,7 +253,7 @@ class TestCiRunSelection:
     @staticmethod
     def _run(run_id, status, conclusion=""):
         return {"databaseId": run_id, "headSha": TestCiRunSelection.SHA, "status": status,
-                "conclusion": conclusion, "workflowName": "CI"}
+                "conclusion": conclusion, "workflowName": "CI", "headBranch": "main"}
 
     @staticmethod
     def _gh(runs, jobs_payload):

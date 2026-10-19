@@ -11,7 +11,7 @@ cheaper check that can refuse the release runs before it.
   0b. The declared version is not one the package index already serves
   0c. Every declared dependency floor installs on the declared interpreter
   0d. The release body's version, Python support and install command match package metadata
-  0e. CI concluded success, per required leg, for the exact commit being qualified
+  0e. CI concluded success, per required leg, for the exact commit being qualified, on main
   2. Harness pre-flight gates
   2a. Recorded mutation gaps still hold at HEAD
   2b. API docs generator drift check, on this interpreter and on the Python floor
@@ -737,8 +737,12 @@ def required_ci_jobs(workflow: Optional[str] = None,
 
 
 def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Optional[str]]:
-    """``(run, None)`` or ``(None, reason)`` for the newest concluded run whose head is ``sha``, or
-    the newest run of it when none has concluded.
+    """``(run, None)`` or ``(None, reason)`` for the newest concluded run of ``sha`` on ``main``, or
+    the newest such run when none has concluded.
+
+    A release is qualified by the ``main`` run at the tag's commit. A run on any other branch, a
+    ``dev`` push or a pull request, is not a candidate however it concluded, and the reason names
+    the branches the commit's runs are on.
 
     The SHA comparison is the whole point. ``gh run list --commit`` is asked for the right
     run, and the answer is checked anyway: a gate that trusts the query and reports on the
@@ -767,8 +771,15 @@ def select_run_for_commit(sha: str, stdout: str) -> Tuple[Optional[dict], Option
     # pull-request run in progress beside the push run that passed is not a failure. The newest
     # concluded run decides; a commit with none is held by its newest run. Newest first is gh's
     # order; databaseId is monotonic, so re-derive rather than assume.
-    concluded = [r for r in matching if r.get("status") == "completed"]
-    return max(concluded or matching, key=lambda r: r.get("databaseId") or 0), None
+    on_main = [run for run in matching if run.get("headBranch") == "main"]
+    if not on_main:
+        branches = sorted({str(r.get("headBranch") or "(no branch)") for r in matching})
+        return None, (
+            f"runs for {sha[:12]} exist only on {', '.join(branches)}; a release is qualified by "
+            "the main run at the tag SHA, so merge the commit to main and let CI run there"
+        )
+    concluded = [r for r in on_main if r.get("status") == "completed"]
+    return max(concluded or on_main, key=lambda r: r.get("databaseId") or 0), None
 
 
 class JobVerdict(NamedTuple):
@@ -828,7 +839,7 @@ def check_ci_conclusion(sha: str,
     """Resolve the CI verdict for exactly the commit ``sha``.
 
     Fails closed. Every way of not reaching an answer -- no ``gh`` on PATH, no
-    authentication, no network, no run for this SHA, a run still executing, unreadable
+    authentication, no network, no run of this SHA on main, a run still executing, unreadable
     output -- returns :data:`CI_UNRESOLVED` with a reason that says which, and the caller
     treats that as non-passing. The alternative fails hardest when the network is down,
     which is when a release is least verifiable.
@@ -866,7 +877,7 @@ def check_ci_conclusion(sha: str,
 
     stdout, error = invoke([
         "gh", "run", "list", "--commit", sha, "--limit", "20",
-        "--json", "databaseId,headSha,status,conclusion,workflowName",
+        "--json", "databaseId,headBranch,headSha,status,conclusion,workflowName",
     ])
     if error is not None:
         return CIOutcome(CI_UNRESOLVED, error, [], [])
@@ -1332,6 +1343,8 @@ STEP_0A_PATHS = (OPEN_STACK, TODO_PATH, ROADMAP_PATH, RECEIPT_PATH)
 
 #: The committed peak-memory record, and the file that declares the version it must name.
 PEAK_MEMORY_PATH = "artifacts/benchmarks/performance/peak_memory.json"
+#: Where releases up to v0.2.12 kept the record; read only for a previous release.
+PEAK_MEMORY_PATH_BEFORE_0_2_13 = "artifacts/benchmarks/peak_memory.json"
 VERSION_PATH = "jnwb/__init__.py"
 
 
@@ -1356,6 +1369,97 @@ def peak_memory_record_violation(root: pathlib.Path, rev: str = "HEAD") -> Optio
                 f"{declared.group(1)}; run `python scripts/measure_peak_memory.py --write` and "
                 "commit it with the version")
     return None
+
+
+#: An operation's added MiB may grow by more than this fraction of the previous release's value, and
+#: by at least the floor, only with a reason in the declared version's CHANGELOG.md section.
+PEAK_MEMORY_GROWTH_FRACTION = 0.20
+PEAK_MEMORY_GROWTH_FLOOR_MIB = 5.0
+_RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+
+def _previous_release_tag(root: pathlib.Path, rev: str, version: str) -> Optional[str]:
+    """The newest ``vX.Y.Z`` tag that is an ancestor of ``rev`` and names a version other than
+    ``version``, or ``None``."""
+    listed = subprocess.run(["git", "tag", "--list", "v*"], cwd=root, capture_output=True,
+                            text=True)
+    if listed.returncode != 0:
+        return None
+    candidates = sorted(
+        (tag for tag in listed.stdout.split() if _RELEASE_TAG_RE.match(tag) and tag[1:] != version),
+        key=lambda tag: _version_tuple(tag[1:]), reverse=True)
+    for tag in candidates:
+        ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", tag, rev], cwd=root,
+                                  capture_output=True)
+        if ancestry.returncode == 0:
+            return tag
+    return None
+
+
+def _peak_rows(text: Optional[str]) -> Optional[dict]:
+    """Each operation's added MiB in a peak-memory record, or ``None`` when the record is absent or
+    holds no ``operations`` mapping with an ``added_mib`` for each operation."""
+    try:
+        operations = json.loads(text)["operations"]
+        return {str(name): float(row["added_mib"]) for name, row in operations.items()}
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return None
+
+
+def _names_operation(section: str, name: str) -> bool:
+    """Whether ``section`` names ``name`` as a whole token, not as the start of a longer name."""
+    return re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", section) is not None
+
+
+def peak_memory_growth_violations(root: pathlib.Path, rev: str = "HEAD") -> List[str]:
+    """Why an operation's peak-memory growth since the previous release is unexplained; empty when
+    none is.
+
+    The previous release is the newest ``vX.Y.Z`` tag that is an ancestor of ``rev`` and names a
+    version other than the one ``rev`` declares. An operation in both records is a violation when
+    its added MiB rose by more than the fraction of the previous value and by at least the floor,
+    unless the declared version's CHANGELOG.md section names it. An operation added or removed is
+    not compared. Fails closed: when a record, the tag or the declared version cannot be read, the
+    comparison is reported as not made.
+    """
+    # Local import: scripts/release_body.py imports this module, so a top-level import would cycle.
+    from scripts.release_body import changelog_section
+
+    declared = _VERSION_RE.search(_text_at(root, rev, VERSION_PATH) or "")
+    if declared is None:
+        return [f"{VERSION_PATH} declares no __version__ at {rev}, so the peak-memory growth "
+                "against the previous release could not be compared"]
+    version = declared.group(1)
+    previous = _previous_release_tag(root, rev, version)
+    if previous is None:
+        return [f"no release tag v<X.Y.Z> other than {version} is an ancestor of {rev}, so the "
+                "peak-memory growth against the previous release could not be compared"]
+    before = _peak_rows(_text_at(root, previous, PEAK_MEMORY_PATH)
+                        or _text_at(root, previous, PEAK_MEMORY_PATH_BEFORE_0_2_13))
+    if before is None:
+        return [f"{PEAK_MEMORY_PATH} (or {PEAK_MEMORY_PATH_BEFORE_0_2_13}) is absent or "
+                f"unreadable at {previous}, the previous release, "
+                "so the peak-memory growth could not be compared"]
+    after = _peak_rows(_text_at(root, rev, PEAK_MEMORY_PATH))
+    if after is None:
+        return [f"{PEAK_MEMORY_PATH} is absent or unreadable at {rev}, so the peak-memory growth "
+                f"against {previous} could not be compared"]
+    changelog = _text_at(root, rev, "CHANGELOG.md")
+    section = (changelog_section(changelog, version) if changelog is not None else None) or ""
+    violations: List[str] = []
+    for name in sorted(set(before) & set(after)):
+        growth = after[name] - before[name]
+        if growth <= PEAK_MEMORY_GROWTH_FRACTION * before[name] or growth < PEAK_MEMORY_GROWTH_FLOOR_MIB:
+            continue
+        if _names_operation(section, name):
+            continue
+        share = f"+{100 * growth / before[name]:.1f}%" if before[name] > 0 else "from zero"
+        violations.append(
+            f"{name}: added {before[name]:.1f} MiB at {previous} and {after[name]:.1f} MiB at "
+            f"{rev}, {share} (the bound is {100 * PEAK_MEMORY_GROWTH_FRACTION:.0f}% and "
+            f"{PEAK_MEMORY_GROWTH_FLOOR_MIB:.0f} MiB); name the operation in CHANGELOG.md's "
+            f"{version} section with the reason")
+    return violations
 
 
 def uncommitted_paths(root: pathlib.Path) -> Optional[List[str]]:
@@ -1563,7 +1667,8 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
          commit is HEAD or an ancestor of HEAD that differs from it only in the receipt and
          the todo stack, where no item held open at the receipt's commit changed its release,
          and every one deleted since is one the receipt records as finished;
-      4. the committed peak-memory record names the version HEAD declares;
+      4. the committed peak-memory record names the version HEAD declares, and no operation in it
+         grew past the bound since the previous release without a reason in CHANGELOG.md;
       5. ``artifacts/changelog.d/`` holds nothing but its README, so every fragment is in CHANGELOG.md.
       6. the workflow at HEAD exists, and no publication job in it continues on error, so a failed
          upload cannot read as a release.
@@ -1660,10 +1765,12 @@ def check_release_readiness(root: pathlib.Path = REPO_ROOT,
             f"the closure pass found {found} new release-blocking problem(s); the fixpoint is "
             "zero NEW BLOCKERS, not zero new observations")
 
-    # 4. the peak-memory record is this version's
+    # 4. the peak-memory record is this version's, and no operation in it grew past the bound
     stale_record = peak_memory_record_violation(root)
     if stale_record:
         violations.append(stale_record)
+    else:
+        violations.extend(peak_memory_growth_violations(root))
 
     # 5. every changelog fragment has been assembled into CHANGELOG.md
     leftover = unassembled_fragments(root)
@@ -1914,7 +2021,8 @@ def main() -> None:
                 "A tag must name a commit whose pipeline ran and passed, leg by leg. An "
                 "aggregate 'no failure' is not that: a job with `needs:` reports `skipped` "
                 "when its dependency failed, so a red suite can leave the build job showing "
-                "no red at all. Push this commit, let CI finish green, then re-run. To tag "
+                "no red at all. Merge this commit to main, let CI finish green on main, then "
+                "re-run. To tag "
                 "without CI evidence anyway, set %s=1 -- deliberately, and knowing it is "
                 "recorded here as unverified.", SKIP_CI_ENV)
             sys.exit(1)
