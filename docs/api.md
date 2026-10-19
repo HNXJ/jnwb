@@ -379,5 +379,5 @@ Outside `jnwb.__all__`, imported by name, with no stability promise: a release m
 
 | Symbol | Type | Description |
 |---|---|---|
-| jnwb.bilinear | module | *Optional/experimental: bilinear (rank-K) logistic regression for 2D neural decoding.* |
-| jnwb.nam | module | *Optional/experimental: Neural Additive Model (NAM) for (N x T) decoding.* |
+| `jnwb.bilinear` | module | *Optional/experimental: bilinear (rank-K) logistic regression for 2D neural decoding.* |
+| `jnwb.nam` | module | *Optional/experimental: Neural Additive Model (NAM) for (N x T) decoding.* |

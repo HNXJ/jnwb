@@ -1,12 +1,17 @@
 """`docs/api.md` lists the experimental submodules apart, with no stability promise."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import jnwb
-from scripts.generate_api_md import EXPERIMENTAL_SUBMODULES, generate_api_markdown
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# `scripts/` is not in the wheel; `append`, so the installed package is not shadowed.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.append(str(REPO_ROOT))
+
+from scripts.generate_api_md import EXPERIMENTAL_SUBMODULES, generate_api_markdown  # noqa: E402
 
 
 def test_the_experimental_submodules_stay_outside_all():
@@ -20,5 +25,5 @@ def test_the_page_lists_them_after_the_public_surface_with_no_stability_promise(
     assert sep, "the page has no Experimental section"
     assert "no stability promise" in section
     for name in EXPERIMENTAL_SUBMODULES:
-        assert f"| jnwb.{name} | module |" in section
-        assert f"| jnwb.{name} |" not in head
+        assert f"| `jnwb.{name}` | module |" in section
+        assert f"jnwb.{name} |" not in head

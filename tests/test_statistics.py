@@ -1266,8 +1266,8 @@ def test_the_source_list_follows_definitions_into_the_package_submodules():
     from tests._sources import _defining_file, public_definition_files
 
     assert {p.name for p in public_definition_files("jnwb.statistics")} == {
-        "_analysis.py", "_cluster.py", "_firing.py", "_regression.py", "_tests.py",
-        "_trials.py"}
+        "_analysis.py", "_autocorrelation.py", "_cluster.py", "_firing.py", "_regression.py",
+        "_tests.py", "_trials.py"}
     assert StatisticalAnalysis.__module__ == "jnwb.statistics"
     assert _defining_file(StatisticalAnalysis).name == "_analysis.py"
 

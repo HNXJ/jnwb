@@ -95,6 +95,7 @@ MODULE_DISPOSITION: Dict[str, Disposition] = {
     "spectral._psd": "module-internal",
     "spectral._reference": "module-internal",
     "statistics._analysis": "module-internal",
+    "statistics._autocorrelation": "module-internal",
     "statistics._cluster": "module-internal",
     "statistics._firing": "module-internal",
     "statistics._regression": "module-internal",

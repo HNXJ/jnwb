@@ -330,7 +330,8 @@ def generate_api_markdown(repo_root: Path | None = None) -> str:
         "|---|---|---|",
     ]
     for name in EXPERIMENTAL_SUBMODULES:
-        lines.append(f"| jnwb.{name} | module | {_optional_submodule_cell(name)} |")
+        # Backticked, so the rows of `jnwb.__all__` stay the only ones `| jnwb.NAME |` matches.
+        lines.append(f"| `jnwb.{name}` | module | {_optional_submodule_cell(name)} |")
     lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
