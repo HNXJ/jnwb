@@ -167,14 +167,16 @@ class TestFitExponentialOnset:
                                   "r2": 0.9942184425037668}),
     ], ids=["default_floor", "floor_5"])
     def test_a_call_that_worked_before_gives_the_same_fit(self, kwargs, expected):
-        """Pinned on the unmodified code: a guess already inside its bounds is not moved."""
+        """Pinned on the unmodified code: a guess already inside its bounds is not moved. The
+        optimizer stops at its own tolerance, so Linux and Windows BLAS agree to about 3e-9
+        relative (CI, 2026-10-19); the pin holds to 1e-7."""
         rng = np.random.default_rng(0)
         t = np.arange(-100.0, 600.0, 5.0)
         rate = onset_model(t, 50.0, 20.0, 30.0, 5.0) + rng.normal(0.0, 1.0, size=t.size)
         fit = fit_exponential_onset(t, rate, t0_bounds=(0.0, 600.0), baseline_window=(-100.0, 0.0),
                                     **kwargs)
         for key, value in expected.items():
-            np.testing.assert_allclose(fit[key], value, rtol=1e-12)
+            np.testing.assert_allclose(fit[key], value, rtol=1e-7)
 
 
 class TestANoiseOnlyPSTH:
