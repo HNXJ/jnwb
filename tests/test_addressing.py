@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import numpy as np
@@ -13,6 +14,7 @@ from jnwb.addressing import (
     parse_probe_areas,
     probe_geometry,
     ProbeGeometry,
+    _probe_key_column,
     _resolve_electrode_row,
 )
 
@@ -873,6 +875,70 @@ def test_a_multi_area_contact_with_a_missing_probe_key_is_refused(missing):
     assert elec["group_name"].isna().sum() == 1, "the fixture must leave one contact unkeyed"
     with pytest.raises(ValueError, match=r"'group_name'.*\['A'\]"):
         map_peak_channel_to_area(3, elec)
+
+
+def test_a_multi_area_label_grouped_only_by_location_is_refused():
+    # A location names no probe: two probes can carry one label, so it cannot key them.
+    elec = pd.DataFrame({"location": ["V1, V2"] * 4}, index=[0, 1, 2, 3])
+    assert "group_name" not in elec.columns and "probe" not in elec.columns, \
+        "the fixture must have no probe column"
+    with pytest.raises(ValueError, match="no probe is named"):
+        map_peak_channel_to_area(1, elec)
+
+
+def test_a_multi_area_probe_is_resolved_by_position_along_its_own_probe():
+    # Two probes share one multi-area label; each contact's position is along its own probe.
+    elec = pd.DataFrame(
+        {"location": ["V1, V2"] * 8, "probe": ["P1"] * 4 + ["P2"] * 4}, index=range(8)
+    )
+    assert elec["location"].nunique() == 1, "the fixture must give both probes one label"
+    assert elec["probe"].value_counts().to_dict() == {"P1": 4, "P2": 4}
+    areas = [map_peak_channel_to_area(ch, elec) for ch in range(8)]
+    assert areas == ["V1", "V1", "V2", "V2", "V1", "V1", "V2", "V2"]
+
+
+@pytest.mark.parametrize("columns, expected", [
+    (["group_name", "group", "probe", "device"], "group_name"),
+    (["group", "probe", "device", "location"], "group"),
+    (["probe", "device", "location"], "probe"),
+    (["device", "location"], "device"),
+    (["location"], None),
+])
+def test_the_probe_key_is_the_first_of_group_name_group_probe_device_and_never_location(columns, expected):
+    elec = pd.DataFrame({column: ["x"] for column in columns})
+    assert _probe_key_column(elec) == expected
+
+
+def test_a_multi_area_probe_named_only_by_device_resolves_by_position():
+    elec = pd.DataFrame({"location": ["V1, V2"] * 8, "device": ["D1"] * 4 + ["D2"] * 4},
+                        index=range(8))
+    assert elec["location"].nunique() == 1, "the fixture must give both probes one label"
+    areas = [map_peak_channel_to_area(ch, elec) for ch in range(8)]
+    assert areas == ["V1", "V1", "V2", "V2", "V1", "V1", "V2", "V2"]
+
+
+@pytest.mark.parametrize("column", ["group", "device"])
+def test_probe_geometry_still_names_its_probe_by_group_or_device(column):
+    elec = pd.DataFrame({
+        "x": [0.0] * 4 + [1000.0] * 4,
+        "y": [0.0] * 8,
+        "z": [0.0, 50.0, 100.0, 150.0] * 2,
+        column: ["A"] * 4 + ["B"] * 4,
+        "channel_id": range(8),
+    })
+    geom = probe_geometry(elec, probe_name="A")
+    assert geom.probe_name == "A"
+    assert geom.contact_positions.shape == (4, 3)
+
+
+def test_enrich_names_the_probe_of_a_group_column_by_its_name():
+    elec = pd.DataFrame(
+        {"location": ["V1"], "group": [SimpleNamespace(name="probeA")], "z": [500.0],
+         "depth_unit": ["um"]},
+        index=[0],
+    )
+    enriched = enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0]}), elec)
+    assert enriched["group_name"].tolist() == ["probeA"]
 
 
 def test_a_fractional_channel_id_is_refused_not_truncated_to_a_channel():

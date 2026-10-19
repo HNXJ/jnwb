@@ -3,7 +3,7 @@ jnwb.vis.state_space -- Decoding and representational similarity panels in pure 
 
 - ``plot_decoding_timecourse``: a cross-validated decoding time course with a CI ribbon and
   bars over caller-supplied significant clusters.
-- ``plot_rsm_heatmap``: a representational similarity or dissimilarity matrix heatmap.
+- ``plot_rsm_heatmap``: a representational dissimilarity matrix (RDM) heatmap.
 """
 
 from __future__ import annotations
@@ -173,17 +173,17 @@ def plot_rsm_heatmap(
     rsm_matrix: np.ndarray,
     condition_labels: Sequence[str],
     cmap: str = "Viridis",
-    title: Optional[str] = "Representational Similarity Matrix (RSM)",
+    title: Optional[str] = "Representational Dissimilarity Matrix (RDM)",
     colorbar_title: str = "Dissimilarity",
 ) -> None:
     """
-    Render a Representational Similarity Matrix (RSM / RDM) heatmap.
+    Render a representational dissimilarity matrix (RDM) heatmap.
 
     Args:
         canvas: PlotlyPublicationCanvas instance.
         row: Grid row index.
         col: Grid column index.
-        rsm_matrix: 2D symmetric array of shape [n_conditions, n_conditions].
+        rsm_matrix: 2D symmetric dissimilarity matrix (RDM) of shape [n_conditions, n_conditions].
         condition_labels: List of condition names.
         cmap: Colormap name.
         title: Panel title.

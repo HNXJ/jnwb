@@ -250,6 +250,24 @@ def _identifier_column(electrodes_df: pd.DataFrame) -> Optional[str]:
     return None
 
 
+def _probe_key_column(electrodes_df: pd.DataFrame) -> Optional[str]:
+    """The column that groups contacts into probes: 'group_name', 'group', 'probe' or 'device',
+    the first present; None when none is.
+
+    Each names probe hardware. A location never names a probe: two probes can carry one
+    multi-area label.
+    """
+    for col in ('group_name', 'group', 'probe', 'device'):
+        if col in electrodes_df.columns:
+            return col
+    return None
+
+
+def _probe_label(value):
+    """A probe's name: the ``name`` of a PyNWB electrode group, else the value itself."""
+    return getattr(value, "name", value)
+
+
 def map_peak_channel_to_area(peak_channel_id: float, electrodes_df: pd.DataFrame) -> Optional[str]:
     """
     Map peak channel ID to brain area location.
@@ -364,12 +382,13 @@ def _area_from_row(peak_channel_id, idx, row, electrodes_df: pd.DataFrame,
     # Outside the handler above, which would log a refusal and return None instead of raising.
     # Multi-area probe (e.g. "V1, V2, V3" on one 128-channel probe): resolve by the channel's
     # POSITION within the probe, not just the first listed area.
-    group_col = 'group_name' if 'group_name' in electrodes_df.columns else col_to_check
-    return _area_by_probe_position(idx, areas, group_col, row.get(group_col),
+    group_col = _probe_key_column(electrodes_df)
+    probe_key = None if group_col is None else row.get(group_col)
+    return _area_by_probe_position(idx, areas, group_col, probe_key,
                                    electrodes_df, probe_cache)
 
 
-def _area_by_probe_position(idx, areas: tuple, group_col: str, probe_key,
+def _area_by_probe_position(idx, areas: tuple, group_col: Optional[str], probe_key,
                             electrodes_df: pd.DataFrame, probe_cache: dict) -> str:
     """The area of channel ``idx`` on a multi-area probe, by its position along that probe.
 
@@ -377,6 +396,11 @@ def _area_by_probe_position(idx, areas: tuple, group_col: str, probe_key,
     or one no channel carries, is refused: no probe is named, so no position is known, and the
     first listed area would be a guess for every contact.
     """
+    if group_col is None:
+        raise ValueError(
+            f"_area_by_probe_position: no probe is named for channel {idx!r}: the table has neither "
+            "a 'group_name' nor a 'probe' column, and a location never names one."
+        )
     # Only plain scalar keys are cached, so every cache key hashes.
     cacheable = isinstance(probe_key, (str, int, float, np.number))
     missing = probe_key is None or (np.ndim(probe_key) == 0 and bool(pd.isna(probe_key)))
@@ -646,7 +670,7 @@ def enrich_units_dataframe(
         # Units share channels, so each channel is resolved and classified once and every
         # unit on it reads the cached answer: the per-unit step is a dict lookup instead of
         # three comparisons over the whole electrode table.
-        col_group = 'group_name' if 'group_name' in electrodes_df.columns else ('probe' if 'probe' in electrodes_df.columns else None)
+        col_group = _probe_key_column(electrodes_df)
         resolve = _electrode_row_resolver(electrodes_df)
         probe_cache: dict = {}
         per_channel: dict = {}
@@ -662,7 +686,7 @@ def enrich_units_dataframe(
                 _area_from_row(x, idx, row, electrodes_df, probe_cache),
                 _depth_class_from_row(x, row, electrodes_df, depth_unit, threshold,
                                       threshold_unit),
-                row.get(col_group) if row is not None and col_group is not None else None,
+                _probe_label(row.get(col_group)) if row is not None and col_group is not None else None,
             )
             return per_channel[key]
 
@@ -881,11 +905,7 @@ def probe_geometry(
             raise ValueError("Electrodes table is empty")
 
         # Probe filtering across possible group columns
-        group_col = None
-        for cand in ("group_name", "group", "probe", "device"):
-            if cand in df.columns:
-                group_col = cand
-                break
+        group_col = _probe_key_column(df)
 
         resolved_probe_name = probe_name
         if group_col is not None:

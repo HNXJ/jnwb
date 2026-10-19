@@ -485,6 +485,33 @@ def test_opposing_gradients_primitive():
     assert len(traces) >= 6  # 2 bounds for gamma CI, 2 bounds for AB CI, 2 main lines
 
 
+def test_opposing_gradients_legend_names_the_bands_it_was_given():
+    """The legend names the vFLIP bands by default, and the bands the caller passes."""
+    depths = np.linspace(0.0, 1.0, 20)
+    default = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(default, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                            depths=depths, depth_unit="relative")
+    assert [t.name for t in default.fig.data if t.name] == ["Gamma (50–150 Hz)", "Alpha/Beta (8–30 Hz)"]
+
+    given = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_opposing_gradients(given, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                            depths=depths, depth_unit="relative", gamma_band=(40, 90))
+    assert [t.name for t in given.fig.data if t.name] == ["Gamma (40–90 Hz)", "Alpha/Beta (8–30 Hz)"]
+    assert any(t.hovertemplate and "Gamma (40–90 Hz)" in t.hovertemplate for t in given.fig.data)
+
+
+@pytest.mark.parametrize("arg", ["gamma_band", "alphabeta_band"])
+@pytest.mark.parametrize("band", [(40.0, 40.0), (90.0, 40.0), (float("nan"), 90.0),
+                                  (40.0, float("inf")), (40.0,), "40-90"])
+def test_opposing_gradients_refuses_a_band_that_is_not_two_finite_numbers_low_below_high(arg, band):
+    depths = np.linspace(0.0, 1.0, 20)
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    with pytest.raises(ValueError, match=arg):
+        plot_opposing_gradients(canvas, 0, 0, gamma_power=1.0 - depths, alphabeta_power=depths,
+                                depths=depths, depth_unit="relative", **{arg: band})
+    assert len(canvas.fig.data) == 0, "a refused band must draw nothing"
+
+
 def test_csd_primitive():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     depths = np.linspace(0.0, 1.0, 16)
@@ -659,6 +686,15 @@ def test_rsm_heatmap_draws_the_inputs():
     canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
     plot_rsm_heatmap(canvas, 0, 0, np.array([[0.0, 0.2], [0.7, 0.0]]), ["a", "b"])
     assert canvas.fig.data[0].z[0][1] == 0.2
+
+
+def test_rsm_heatmap_default_title_names_the_dissimilarity_matrix():
+    """The input is a dissimilarity matrix, so the default title says so, as the colour bar does."""
+    canvas = PlotlyPublicationCanvas(layout="1col", height_mm=90.0, rows=1, cols=1)
+    plot_rsm_heatmap(canvas, 0, 0, np.array([[0.0, 0.5], [0.5, 0.0]]), ["a", "b"])
+    assert canvas.fig.data[0].colorbar.title.text == "Dissimilarity"
+    assert "<b>Representational Dissimilarity Matrix (RDM)</b>" in [
+        a.text for a in canvas.fig.layout.annotations]
 
 
 def test_multi_condition_raster_psth_reads_a_steady_rate_to_the_last_bin_and_refuses_partial_bins():

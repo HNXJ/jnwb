@@ -17,6 +17,8 @@ import jnwb
 area_name = jnwb.map_peak_channel_to_area(peak_channel_id=0, electrodes_df=electrodes_df)
 ```
 
+A probe is named by its `group_name` column, else `group`, else `probe`, else `device` (each names probe hardware), and a location never names one, so a multi-area label on a table with none of them is refused. Every comma or slash in `location` separates areas, so a sub-label such as a layer belongs in its own column.
+
 ### Geometric Depth Class (`classify_layer_from_depth`)
 
 Thresholds probe electrode depth ($z$-coordinate) into a geometric depth class, with explicit unit safety. The class is a cut on depth, not a cortical layer; the electrophysiological laminar identity is `jnwb.label_layers`.

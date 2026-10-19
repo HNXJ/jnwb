@@ -9,11 +9,12 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
 
+from ..laminar._vflip import CANONICAL_VFLIP_BANDS
 from .canvas import PlotlyPublicationCanvas
 from .theme import COLORS, FONT_FAMILY, FONT_SIZES, checked_colorbar_label, configure_axis
 
@@ -29,6 +30,23 @@ def _depth_axis_title(depth_unit: str) -> str:
     if not isinstance(depth_unit, str) or depth_unit not in _DEPTH_AXIS_TITLES:
         raise ValueError(f"depth_unit must be 'mm', 'um' or 'relative'; got {depth_unit!r}")
     return _DEPTH_AXIS_TITLES[depth_unit]
+
+
+def _hz_band_text(argument: str, band) -> str:
+    """The Hz range a legend names, e.g. ``'8–30 Hz'``; refuses a band that is not two finite
+    numbers with low < high."""
+    values = np.asarray(band)
+    if values.shape != (2,) or values.dtype.kind not in "iuf":
+        raise ValueError(
+            f"plot_opposing_gradients: {argument} must be two numbers (low, high) in Hz; got {band!r}."
+        )
+    low, high = (float(v) for v in values)
+    if not (np.isfinite(low) and np.isfinite(high) and low < high):
+        raise ValueError(
+            f"plot_opposing_gradients: {argument} must be two finite numbers with low < high, in Hz; "
+            f"got {band!r}."
+        )
+    return f"{low:g}–{high:g} Hz"
 
 
 def plot_spectrolaminar_map(
@@ -212,6 +230,8 @@ def plot_opposing_gradients(
     title: Optional[str] = "Opposing Laminar Gradients",
     *,
     depth_unit: str,
+    gamma_band: Tuple[float, float] = CANONICAL_VFLIP_BANDS["high"],
+    alphabeta_band: Tuple[float, float] = CANONICAL_VFLIP_BANDS["low"],
 ) -> None:
     """
     Render opposing gamma vs. alpha/beta laminar power gradients with caller-supplied intervals.
@@ -237,12 +257,18 @@ def plot_opposing_gradients(
             1 = white matter). Required; it labels the depth axis. Depths are drawn as given:
             ``'relative'`` values outside [0, 1] are channels above the pia or below the
             white matter.
+        gamma_band: Frequency band of the gamma profile, (low, high) in Hz; the legend names it.
+            Defaults to the vFLIP high band.
+        alphabeta_band: Frequency band of the alpha/beta profile, (low, high) in Hz; the legend
+            names it. Defaults to the vFLIP low band.
 
     Raises:
-        ValueError: ``depth_unit`` is not one of the three units, or a profile's shape is not
-            the shape of ``depths``.
+        ValueError: ``depth_unit`` is not one of the three units, a profile's shape is not
+            the shape of ``depths``, or a band is not two finite numbers with low < high.
     """
     depth_title = _depth_axis_title(depth_unit)
+    gamma_text = _hz_band_text("gamma_band", gamma_band)
+    alphabeta_text = _hz_band_text("alphabeta_band", alphabeta_band)
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     gamma_power = np.asarray(gamma_power, dtype=float)
@@ -323,11 +349,11 @@ def plot_opposing_gradients(
             x=gamma_power,
             y=depths,
             mode="lines",
-            name="Gamma (50–150 Hz)",
+            name=f"Gamma ({gamma_text})",
             line=dict(color=gamma_color, width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Gamma: %{x:.3f}<br>Depth: %{y:.3f}<extra></extra>",
+            hovertemplate=f"Gamma ({gamma_text}): %{{x:.3f}}<br>Depth: %{{y:.3f}}<extra></extra>",
         )
     )
     canvas.fig.add_trace(
@@ -335,11 +361,11 @@ def plot_opposing_gradients(
             x=alphabeta_power,
             y=depths,
             mode="lines",
-            name="Alpha/Beta (10–30 Hz)",
+            name=f"Alpha/Beta ({alphabeta_text})",
             line=dict(color=alphabeta_color, width=1.5),
             xaxis=x_axis,
             yaxis=y_axis,
-            hovertemplate="Alpha/Beta: %{x:.3f}<br>Depth: %{y:.3f}<extra></extra>",
+            hovertemplate=f"Alpha/Beta ({alphabeta_text}): %{{x:.3f}}<br>Depth: %{{y:.3f}}<extra></extra>",
         )
     )
 

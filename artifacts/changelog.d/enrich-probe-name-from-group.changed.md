@@ -1,0 +1,1 @@
+- `enrich_units_dataframe` takes `group_name` from the `group`/`probe`/`device` key column (`jnwb/addressing.py`).

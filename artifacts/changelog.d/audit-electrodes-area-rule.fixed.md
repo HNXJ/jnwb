@@ -1,0 +1,1 @@
+- `audit_electrodes` counts each contact's area by the addressing rule (`jnwb/metadata.py`).

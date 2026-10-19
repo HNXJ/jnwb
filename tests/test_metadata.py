@@ -162,13 +162,40 @@ class TestAuditUnits:
 
 class TestAuditElectrodes:
     def test_counts_areas_and_unit_assignment(self):
-        elec_df = pd.DataFrame({"location": ["V1, layer4", "V1, layer2", "PFC, layer5"]})
+        # Two contacts share probe A, so "V1, layer4" splits them by position; the sub-label
+        # counts as an area of its own.
+        elec_df = pd.DataFrame({"location": ["V1, layer4", "V1, layer4", "PFC"],
+                                "group_name": ["A", "A", "B"]})
         units_df = pd.DataFrame({"peak_channel_id": [1, None, 3]})
         result = audit_electrodes(elec_df, units_df)
         assert result["total_electrodes"] == 3
-        assert result["areas_represented"] == {"V1": 2, "PFC": 1}
+        assert result["areas_represented"] == {"V1": 1, "layer4": 1, "PFC": 1}
         assert result["units_assigned"] == 2
         assert result["assignment_rate"] == pytest.approx(2 / 3)
+
+    def test_a_multi_area_probe_counts_each_contact_once_by_its_position(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4, "group_name": ["P"] * 4})
+        assert elec_df["group_name"].nunique() == 1, "the fixture must be one probe"
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 2, "V2": 2}
+
+    def test_a_sub_label_after_a_comma_counts_as_an_area(self):
+        elec_df = pd.DataFrame({"location": ["V1, layer4"] * 2, "group_name": ["P"] * 2})
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 1, "layer4": 1}
+
+    def test_a_multi_area_contact_with_no_probe_key_raises(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4})
+        with pytest.raises(ValueError, match="no probe is named"):
+            audit_electrodes(elec_df)
+
+    def test_a_multi_area_contact_with_a_missing_probe_value_raises(self):
+        elec_df = pd.DataFrame({"location": ["V1, V2"] * 4, "group_name": ["A", "A", "A", None]})
+        assert elec_df["group_name"].isna().sum() == 1, "the fixture must leave one contact unkeyed"
+        with pytest.raises(ValueError, match="'group_name'"):
+            audit_electrodes(elec_df)
+
+    def test_single_area_labels_and_missing_locations_count_as_before(self):
+        elec_df = pd.DataFrame({"location": ["V1", "PFC", None]})
+        assert audit_electrodes(elec_df)["areas_represented"] == {"V1": 1, "PFC": 1, "Unknown": 1}
 
     def test_missing_units_df_gives_zero_assignment(self):
         elec_df = pd.DataFrame({"location": ["V1"]})

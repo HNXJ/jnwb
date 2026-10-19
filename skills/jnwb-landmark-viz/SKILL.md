@@ -30,7 +30,7 @@ Each takes the `canvas` and the `row` and `col` of its panel first; the rows nam
 - `jnwb.vis.spiking.plot_multi_condition_raster_psth(canvas, row_raster, col_raster, row_psth, col_psth, st, onsets)`: one raster and one PSTH panel over conditions.
 - `jnwb.vis.spiking.plot_sorted_heatmap(canvas, row, col, rate_matrix, time_ms, *, value_unit)`: sorted population responses.
 - `jnwb.vis.state_space.plot_decoding_timecourse(canvas, row, col, time_ms, accuracy)`: decoding accuracy over time.
-- `jnwb.vis.state_space.plot_rsm_heatmap(canvas, row, col, rsm_matrix, condition_labels)`: a representational similarity matrix.
+- `jnwb.vis.state_space.plot_rsm_heatmap(canvas, row, col, rsm_matrix, condition_labels)`: a representational dissimilarity matrix (RDM).
 - `jnwb.vis.spectral.plot_spectral_modulation_matrix(canvas, row, col, delta_db_matrix, areas, bands)`: ΔdB by area and band.
 - `jnwb.vis.spectral.plot_granger_spectra(canvas, row, col, freqs, gc_ff, gc_fb)`: the two directed spectra.
 - `jnwb.vis.hierarchy.plot_hierarchy_regression(canvas, row, col, hierarchy_ranks, values, ci_low, ci_high, area_labels, *, y_label)`: values against hierarchy rank.

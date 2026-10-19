@@ -1,0 +1,1 @@
+- `plot_rsm_heatmap` defaults to the title "Representational Dissimilarity Matrix (RDM)" (`jnwb/vis/state_space.py`).

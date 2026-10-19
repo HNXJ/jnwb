@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from pynwb import NWBFile
 from jnwb.addressing import (
-    _STABLE_QUALITY_LABELS, _finite_cutoff, _passes_cutoff, _quality_is_stable,
+    _STABLE_QUALITY_LABELS, _area_from_row, _finite_cutoff, _passes_cutoff, _quality_is_stable,
     _refuse_repeated_columns, _stable_label_set,
 )
 from jnwb.nwb_io import WAIVED_REQUIREMENTS_ATTR, _normalise_allow_missing, nwb_read_io
@@ -789,10 +789,16 @@ def audit_electrodes(elec_df: pd.DataFrame, units_df: Optional[pd.DataFrame] = N
         'units_assigned': 0,
     }
 
-    # Area representation
+    # Area representation: each contact takes the area the addressing rule gives its position on
+    # its probe, so a multi-area probe splits by position, a sub-label after a comma counts as
+    # an area, and a missing probe key raises.
     if 'location' in elec_df.columns:
-        areas = elec_df['location'].apply(lambda x: str(x).split(',')[0].strip() if pd.notna(x) else 'Unknown')
-        area_counts = areas.value_counts()
+        probe_cache: dict = {}
+        areas = pd.Series(
+            [_area_from_row(idx, idx, row, elec_df, probe_cache) for idx, row in elec_df.iterrows()],
+            index=elec_df.index, dtype=object,
+        )
+        area_counts = areas.fillna('Unknown').value_counts()
         result['areas_represented'] = area_counts.to_dict()
 
     # Unit assignments
