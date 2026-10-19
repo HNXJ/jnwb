@@ -76,6 +76,7 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 | F-59 | med | `jnwb/vis/hierarchy.py:107`, `:137`, `:171` | A NaN gives a NaN fit line and annotation with no warning; error-bar lengths go negative when a CI does not bracket its value; the annotation sits below the data when every `ci_high` is negative |
 | F-60 | med | `jnwb/vis/spiking.py:294`, `:70` | `plot_sorted_heatmap` accepts a `time_ms` of the wrong length; a sixth condition reuses the first colour |
 | F-62 | low | `CHANGELOG.md:96` | The entry contradicts itself on the bound at U = 5 and 6 |
+| F-63 | low | `scripts/calibrate_xflip.py:238`; `artifacts/benchmarks/calibration/xflip_calibration_0.2.5.md` | The AR row draws 600 samples while the receipt's operating point states 400 |
 
 Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
 
