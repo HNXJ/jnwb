@@ -315,6 +315,21 @@ def test_refractory_contamination_undefined_input_is_nan_with_a_reason():
                                       censored_ms=1.0)
 
 
+def test_one_or_two_spikes_give_no_contamination_estimate():
+    # One or two spikes leave at most one interval: there is no estimate, so the result is NaN
+    # with a reason, not the 0.0 that an interval-free train gives. Three spikes are estimable.
+    def run(spikes):
+        return jnwb.refractory_contamination(np.asarray(spikes, dtype=float), duration_s=10.0,
+                                             refractory_ms=2.0, censored_ms=0.0)
+    for spikes in ([1.0], [1.0, 5.0]):
+        assert len(spikes) < 3, "fixture must hold fewer than three spikes"
+        got = run(spikes)
+        assert got["n_spikes"] == len(spikes)
+        assert np.isnan(got["contamination"]) and "fewer than three" in got["reason"], got
+    three = run([1.0, 5.0, 9.0])
+    assert three["contamination"] == 0.0 and three["reason"] is None
+
+
 def test_a_zero_length_block_is_refused():
     with pytest.raises(ValueError, match="zero-length block"):
         jnwb.presence_ratio(np.array([0.5]), np.array([[0.0, 1.0], [1.0, 1.0]]))

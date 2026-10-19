@@ -27,7 +27,8 @@ def fdr_correct(
         method: Passed to ``scipy.stats.false_discovery_control``. Default "bh".
 
     Returns:
-        np.ndarray: FDR-adjusted q-values, same shape as input (flattened 1-D).
+        np.ndarray: FDR-adjusted q-values, a 1-D array of ``p_values.size`` entries. A 2-D
+        input is flattened in C order first, so the result is not the input's shape.
 
     References:
         Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.
@@ -93,7 +94,8 @@ class StatisticalAnalysis:
             method: passed to ``scipy.stats.false_discovery_control``
 
         Returns:
-            FDR-adjusted q-values, same shape as input (flattened 1-D)
+            FDR-adjusted q-values, a 1-D array of ``p_values.size`` entries. A 2-D input is
+            flattened in C order first, so the result is not the input's shape.
 
         References:
             Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. J. R.

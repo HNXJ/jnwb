@@ -254,8 +254,9 @@ def build_permutation_plan(
 
     Raises:
         TypeError: If ``rng`` is not an int, a Generator or None, or ``groups`` is None.
-        ValueError: If ``blocks`` has the wrong length, ``groups`` holds a NaN or None, or a
-            block holds more than one label or spans more than one group.
+        ValueError: If ``blocks`` has the wrong length, ``groups`` holds a NaN or None, a
+            block holds more than one label or spans more than one group, or ``seed`` is given
+            with a different value from ``rng``. A float ``rng`` with no ``seed`` is a TypeError.
     """
     if groups is None:
         raise TypeError(
