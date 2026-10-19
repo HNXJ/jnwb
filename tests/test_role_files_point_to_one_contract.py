@@ -1,7 +1,7 @@
 """Each role file points to the one packet contract and the one loading order; it keeps no copy.
 
 `artifacts/agents/authority.md` kept a loading order of its own that reached neither the
-direction, the goal, the state nor the problem stack, and five role files each listed a private
+direction, the goal, the state nor the open stack, and five role files each listed a private
 subset of the packet fields, none of which named `BASELINE COMMIT`. The packet and its return
 contract are defined in `artifacts/skills/jnwb-fact-action` section 5 and the order in
 `AGENTS.md` section 3. So a role file names at most one packet field, one return field and one
@@ -32,7 +32,7 @@ REVIEW_POINTER = "artifacts/skills/jnwb-review"
 
 #: The files `AGENTS.md` section 3 loads after itself. Two in one block is an order written out.
 AUTHORITY_FILES = ("direction.md", "goal.md", "fact_stack.md", "state.md",
-                   "problem_stack.md", "todo_stack.md")
+                   "open_stack.md", "todo_stack.md")
 SKILL_POINTER = re.compile(r"artifacts/skills/([\w-]+)")
 
 

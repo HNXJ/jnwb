@@ -7,7 +7,7 @@ from typing import List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from scripts.gates.stacks_form import (
-    TODO_STACK, PROBLEM_STACK, _blocked_by_none_contradictions,
+    TODO_STACK, OPEN_STACK, _blocked_by_none_contradictions,
     _miscounted_summaries, _stale_item_totals,
     _suspected_truncated_writes, _writes_fields,
 )
@@ -56,10 +56,6 @@ GENERATED_FROM = (
 )
 
 
-#: A problem row as the `## Open` table writes one: the id alone and unmarked in the first cell.
-_CANONICAL_OPEN_ROW = re.compile(r"^\| P-\d+ \|")
-
-
 def _row_delimiters(line: str) -> int:
     return _ESCAPED_PIPE.sub("", line).count("|")
 
@@ -77,17 +73,12 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
     half the work (P-108). A glob passes, because `docs/*.md` conflicts honestly with
     `docs/api.md` while `docs/` conflicts with everything and says nothing.
 
-    **Every problem row carries its own table's column count.** Each table in the problem stack
-    is held to its own header, so a row with a missing cell, or an unescaped `|` inside a code
+    **Every table row carries its own table's column count.** Each table in the open stack is
+    held to its own header, so a row with a missing cell, or an unescaped `|` inside a code
     span, is reported. This shipped five times in one session, when the stack had two tables of
-    four columns each but not the same four.
-
-    **`## Open` holds one table and nothing else.** The section exists, its only table has the
-    header `ID | Problem | Found by` and its separator, and every other non-blank line in it is
-    a row whose first cell is a bare `P-<n>`. `scripts/release_gate.py` STEP 0a reads every
-    other line there as an untriaged problem; this check says which of them are not in the form
-    a reader of the table can see. A well-formed row passes here, because recording a problem
-    is how it gets triaged, and refusing it is the release's job.
+    four columns each but not the same four. Prose is not checked, and an open stack with no
+    table passes: a release needs it to hold no table row, which STEP 0a decides. A missing
+    open stack is a violation, because the sweep would otherwise read nothing.
     """
     root = repo_root or REPO_ROOT
     violations: List[str] = []
@@ -151,15 +142,15 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
                         "spans them."
                     )
 
-    problem_path = root / PROBLEM_STACK
-    if not problem_path.is_file():
+    open_path = root / OPEN_STACK
+    if not open_path.is_file():
         violations.append(
-            f"STACK_FORM: {PROBLEM_STACK} is missing; the sweep is broken, not the tree"
+            f"STACK_FORM: {OPEN_STACK} is missing; the sweep is broken, not the tree"
         )
         return violations
 
-    header, header_line, rows, fenced = None, 0, 0, False
-    for lineno, raw in enumerate(problem_path.read_text(encoding="utf-8").splitlines(), 1):
+    header, header_line, fenced = None, 0, False
+    for lineno, raw in enumerate(open_path.read_text(encoding="utf-8").splitlines(), 1):
         if raw.lstrip().startswith("```"):
             fenced = not fenced
             continue
@@ -169,35 +160,16 @@ def check_stack_form_consistency(repo_root: Optional[Path] = None) -> List[str]:
         if not line.startswith("|"):
             header = None  # a blank line or a heading ends the table
             continue
-        rows += 1
         count = _row_delimiters(line)
         if header is None:
             header, header_line = count, lineno
             continue
         if count != header:
             violations.append(
-                f"STACK_FORM: {PROBLEM_STACK}:{lineno} has {count} cell delimiters against the "
+                f"STACK_FORM: {OPEN_STACK}:{lineno} has {count} cell delimiters against the "
                 f"{header} its table declares at line {header_line}. Either a cell is missing, "
                 "or a `|` inside a code span was left unescaped -- GFM splits cells before it "
                 r"parses inline code, so write `\|` even inside backticks."
-            )
-    if not rows:
-        violations.append(f"STACK_FORM: no table row found in {PROBLEM_STACK}; the sweep is broken")
-
-    from scripts.release_gate import OPEN_HEADER, open_section_content
-
-    open_content = open_section_content(problem_path.read_text(encoding="utf-8"))
-    if open_content is None:
-        violations.append(
-            f"STACK_FORM: {PROBLEM_STACK} has no '## Open' section, so STEP 0a cannot say whether "
-            "any problem is untriaged"
-        )
-    for lineno, line in open_content or []:
-        if not _CANONICAL_OPEN_ROW.match(line):
-            violations.append(
-                f"STACK_FORM: {PROBLEM_STACK}:{lineno} under '## Open' is neither the "
-                f"'{' | '.join(OPEN_HEADER)}' header, its separator, nor a row whose first cell "
-                f"is a bare P-<n>: {line[:80]!r}. Write the problem as a row of that table."
             )
 
     # The generation closure is a file that points at other files, so it goes stale without

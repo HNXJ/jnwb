@@ -224,9 +224,9 @@ def build() -> str:
     elif str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     try:
-        from scripts.release_gate import problem_rows
+        from scripts.release_gate import open_rows
 
-        _rows = problem_rows(REPO_ROOT)
+        _rows = open_rows(REPO_ROOT)
         problems = "UNRESOLVED (file absent)" if _rows is None else len(_rows)
     except Exception as exc:  # pragma: no cover - defensive
         problems = f"UNRESOLVED ({type(exc).__name__})"
@@ -315,14 +315,14 @@ that also has jnwb installed imports the installed copy; the probe fails rather 
 
 ## Release readiness
 
-`AGENTS.md` section 11, as amended 2026-09-23, requires an empty problem stack, no item still
+`AGENTS.md` section 11, as amended 2026-09-23, requires an open stack with no table row, no item still
 required this cycle, and an independent blocker-focused pass finding no new blocker. Deferred
 work stays in the todo stack.
 
 | Stack | Remaining |
 |---|---|
 | `artifacts/todo_stack.md` | {todo_items} items |
-| `artifacts/problem_stack.md` | {problems} problem rows (0 at release) |
+| `artifacts/open_stack.md` | {problems} table rows (0 at release) |
 """
 
 

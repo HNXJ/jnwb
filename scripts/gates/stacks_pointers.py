@@ -85,7 +85,7 @@ def check_stack_pointers_resolve(repo_root: Optional[Path] = None) -> List[str]:
       "the blocker direction is checked" refers to a sweep somebody ran, not to a check in any
       script.
     * A problem row's ``Answered in`` -> a live item: `scripts/release_gate.py` STEP 0a requires
-      the problem stack to hold no row at release, so no such cell is left to resolve.
+      the open stack to hold no row at release, so no such cell is left to resolve.
     * The todo stack's ``P-NN`` -> a problem row: the id labels a row that has left the problem
       stack, and it resolves through that file's git history rather than against the tree.
 

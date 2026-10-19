@@ -106,7 +106,7 @@ python scripts/release_gate.py
 
 - **`release_gate.py`** — first refuses the release while `artifacts/state.md` is present and
   records another HEAD, the working tree has an uncommitted
-  change, the problem stack holds a row, a todo item is still required for this cycle, or the
+  change, the open stack holds a row, a todo item is still required for this cycle, or the
   closure receipt is missing or nonzero (`AGENTS.md` §11, condition 3), or while the committed
   `artifacts/benchmarks/performance/peak_memory.json` names a version other than the one the tree declares.
   It then runs every check that takes minutes, and the suite last, so a failure costs minutes

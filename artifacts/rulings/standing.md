@@ -13,7 +13,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Subject | Rule | Ruled | Held by |
 |---|---|---|---|
 | Autonomy and decisions | Grade each option 0 to 100 and act by grade; two defensible options with a material trade-off come to Hamm | 2026-09-25 | `AGENTS.md` §12 |
-| Problem stack | Empty for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_problem_stack.py` |
+| Open stack | Holds no row for a release; a problem leaves repaired, shown false, or moved into the todo stack as `required-` or `deferred-` | 2026-09-23 | `AGENTS.md` §11, `tests/test_release_requires_an_empty_open_stack.py` |
 | Concurrent agents | One integrator writes `dev`; workers execute claimed packets in their own clones; the project-state files are the only shared truth | 2026-09-25 | `artifacts/process/cooperation.md` |
 | Standard tasks | None runs on a schedule; each runs on request; the four on-demand tasks are T8 to T11, read-only, from a clone at a named SHA | 2026-09-25, 2026-09-29 | `artifacts/process/cooperation.md` |
 | The agents' chat | `F:/cowork/jnwb-bus/jchat/jchat.py`, bound to 127.0.0.1, is the one chat center; a client that cannot reach it uses the room files | 2026-09-29 | the ruling (`2026-09-29.md`, "The agents' chat hub") |
@@ -81,7 +81,7 @@ live item that will; a ruling held by nothing else says "the ruling".
 | Gate 21 | Runs the computational-contract checks the suite runs | 2026-09-26 | `scripts/computational_contract_gate.py` |
 | Version literals | The live-version scan reads every string literal and skips versions after a comparison operator | 2026-09-26 | `tests/test_prose_version_claims_are_live.py` |
 | Package version | Bumped at the release step, with the CHANGELOG heading and the import profile; `dev` keeps the last release version until then | 2026-09-27 | `CONTRIBUTING.md` |
-| Release gate receipt | STEP 0a accepts the fixpoint receipt when only the receipt and the todo stack changed since its commit, refuses an item relabelled from `required-` after it, counts a deleted held item as done only when the receipt names it, and accepts `release-step-<cycle>` items | 2026-09-23, 2026-09-28 | `scripts/release_gate.py`, `tests/test_release_requires_an_empty_problem_stack.py` |
+| Release gate receipt | STEP 0a accepts the fixpoint receipt when only the receipt and the todo stack changed since its commit, refuses an item relabelled from `required-` after it, counts a deleted held item as done only when the receipt names it, and accepts `release-step-<cycle>` items | 2026-09-23, 2026-09-28 | `scripts/release_gate.py`, `tests/test_release_requires_an_empty_open_stack.py` |
 | Unparseable todo headings | An item-depth heading with no id and no release field is reported by the readiness step; `##` structure is exempt | 2026-09-28 | `scripts/release_gate.py` |
 | Peak memory | The release gate measures peak RSS without writing; the committed record is refreshed before the closure pass | 2026-09-27, 2026-09-28 | `scripts/measure_peak_memory.py`, `scripts/release_gate.py` |
 | Publication order | The tag push publishes to TestPyPI, a verify job checks it with the build job's smoke script, and PyPI requires that job | 2026-09-22, 2026-09-25, 2026-09-28 | `.github/workflows/workflow.yml`, `tests/test_workflow_release_policy.py` |
@@ -157,7 +157,7 @@ only when all three hold at once:
    admits, recorded where not obvious; 32/64-bit precision through one mechanism; CPU, parallel
    CPU, CUDA and JAX Metal through one mechanism; the first three exercised here, Metal
    implemented and declared unverified.
-3. **The problem stack is empty, no required item remains, and an independent blocker-focused
+3. **The open stack holds no row, no required item remains, and an independent blocker-focused
    closure pass finds no new blocker.** A finding that blocks nothing waits in the todo stack.
 
 A problem leaves the stack repaired, shown false (evidence that survives a hostile reader in the

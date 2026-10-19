@@ -103,6 +103,8 @@ INTERNAL_PROCESS_TERMS: Tuple[str, ...] = (
     "todo_stack.md",
     "problem stack",
     "problem_stack.md",
+    "open stack",
+    "open_stack.md",
     "fact_stack.md",
     "harness gate",
     "harness_gate.py",

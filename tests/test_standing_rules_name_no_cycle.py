@@ -16,11 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: `required-0.2.6`, `deferred-0.2.7`, `release-step-0.2.6`: a label naming one cycle.
 LITERAL_LABEL = re.compile(r"\b(?:required|deferred|release-step)-\d+\.\d+\.\d+")
 
-#: Files that state rules for every cycle. The problem stack's header is one; its rows are not.
+#: Files that state rules for every cycle. The open stack's rows are not, and it states none.
 STANDING_FILES = ("AGENTS.md", ".github/CONTRIBUTING.md", "artifacts/process/cooperation.md",
                   "artifacts/fact_stack.md")
 STANDING_GLOBS = ("artifacts/agents/*.md", "artifacts/skills/*/SKILL.md")
-PROBLEM_STACK = REPO_ROOT / "artifacts" / "problem_stack.md"
 
 
 def _standing_texts() -> "dict[str, str]":
@@ -29,17 +28,13 @@ def _standing_texts() -> "dict[str, str]":
         paths.extend(sorted(REPO_ROOT.glob(pattern)))
     texts = {p.relative_to(REPO_ROOT).as_posix(): p.read_text(encoding="utf-8")
              for p in paths if p.is_file()}
-    header = PROBLEM_STACK.read_text(encoding="utf-8").split("\n## Open", 1)[0]
-    texts["artifacts/problem_stack.md (header)"] = header
     return texts
 
 
 def test_the_sweep_reads_the_rules_it_is_written_for():
     texts = _standing_texts()
     assert "required-<cycle>" in texts["AGENTS.md"], "AGENTS.md no longer states the template"
-    assert "deferred-<next>" in texts["artifacts/problem_stack.md (header)"], (
-        "the problem stack's header was not read, or no longer states the template"
-    )
+    assert "deferred-<next>" in texts["AGENTS.md"], "AGENTS.md no longer states deferred-<next>"
     assert len(texts) >= 8, f"only {len(texts)} files read: {sorted(texts)}"
 
 

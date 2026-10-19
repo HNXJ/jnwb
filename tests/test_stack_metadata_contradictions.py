@@ -322,7 +322,7 @@ class TestTheSuppressionsAreVisibleAndCorrect:
             "Stop: if the page turns out to be blocked on a ruling, stop and record it.\n",
             encoding="utf-8",
         )
-        (tmp_path / "artifacts" / "problem_stack.md").write_text(
+        (tmp_path / "artifacts" / "open_stack.md").write_text(
             "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"
             "| P-01 | a row | repaired | evidence |\n",
             encoding="utf-8",
@@ -341,7 +341,7 @@ class TestTheSuppressionsAreVisibleAndCorrect:
         # The other direction, so the test above cannot pass by suppressing everything.
         (tmp_path / "artifacts").mkdir()
         (tmp_path / "artifacts" / "todo_stack.md").write_text(CONTRADICTED, encoding="utf-8")
-        (tmp_path / "artifacts" / "problem_stack.md").write_text(
+        (tmp_path / "artifacts" / "open_stack.md").write_text(
             "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"
             "| P-01 | a row | repaired | evidence |\n",
             encoding="utf-8",
@@ -438,7 +438,7 @@ class TestASummaryCountAgreesWithWhatItNames:
     def test_the_gate_reports_a_miscount(self, tmp_path):
         (tmp_path / "artifacts").mkdir()
         (tmp_path / "artifacts" / "todo_stack.md").write_text(self.STALE, encoding="utf-8")
-        (tmp_path / "artifacts" / "problem_stack.md").write_text(
+        (tmp_path / "artifacts" / "open_stack.md").write_text(
             "| ID | Problem | Disposition | Evidence |\n|---|---|---|---|\n"
             "| P-01 | a row | repaired | evidence |\n",
             encoding="utf-8",
@@ -542,7 +542,7 @@ This item is blocked on a ruling nobody has made.
 def _write_tree(tmp_path, todo):
     (tmp_path / "artifacts" / "agents").mkdir(parents=True)
     (tmp_path / "artifacts" / "todo_stack.md").write_text(todo, encoding="utf-8")
-    (tmp_path / "artifacts" / "problem_stack.md").write_text(PROBLEMS, encoding="utf-8")
+    (tmp_path / "artifacts" / "open_stack.md").write_text(PROBLEMS, encoding="utf-8")
     (tmp_path / "artifacts" / "agents" / "jnwb-developer.md").write_text("", encoding="utf-8")
     (tmp_path / "skills" / "jnwb-real").mkdir(parents=True)
     (tmp_path / "skills" / "jnwb-real" / "SKILL.md").write_text("", encoding="utf-8")

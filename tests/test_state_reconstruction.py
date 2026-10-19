@@ -143,7 +143,7 @@ def test_it_reports_the_slots_a_packet_needs(generated: str):
         "| Skills |",
         "| Agent roles |",
         "ALL HARNESS GATES PASSED",
-        "problem rows",
+        "table rows",
     ):
         assert expected in generated, f"state.md no longer reports {expected!r}"
 

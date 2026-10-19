@@ -30,7 +30,6 @@ Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 1
 | Item | Waits on | Source |
 |---|---|---|
 | 15-11 second half | Andre Bastos's simulation code; the todo stack cannot empty before it | todo stack |
-| Issues #32, #33 | A. Bastos's answer to the review | `artifacts/rulings/2026-10-13.md:14` |
 | 12-21 | jaxfne's excerpt | roadmap |
 | 14-08 | The lab pipeline's code | roadmap |
 | Metal path, GPU tests | Hardware | `jnwb/_backend.py:40`, `tests/test_adversarial_inputs.py:122` |

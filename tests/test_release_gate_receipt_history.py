@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
 from scripts.release_gate import _finished_row_history  # noqa: E402
-from tests.test_release_requires_an_empty_problem_stack import (  # noqa: E402
+from tests.test_release_requires_an_empty_open_stack import (  # noqa: E402
     DEFERRED, _RECEIPT, _commit, _git, _item, _repository)
 
 OLD = "artifacts/blocker_fixpoint_receipt.md"

@@ -41,7 +41,7 @@ if not TRACKED:
 NAMED = [
     "artifacts/goal.md",
     "artifacts/fact_stack.md",
-    "artifacts/problem_stack.md",
+    "artifacts/open_stack.md",
     "artifacts/todo_stack.md",
     "artifacts/direction.md",
     ".github/CONTRIBUTING.md",
