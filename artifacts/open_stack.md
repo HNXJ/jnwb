@@ -58,7 +58,7 @@ None. F-07 was ruled 2026-10-18; F-09, F-10, F-28 and F-36 on 2026-10-19 (`artif
 
 ### F2. Executable by agents
 
-Closed 2026-10-19: F-10, F-20, F-22, F-24, F-49, F-61 (37775ce4, 1ab48ae1); F-01 to F-07, F-09, F-25 to F-28, F-30, F-36, F-46 to F-48, F-55, F-56 (b286db16, 9dc35302, 5b5184f2, 62a0708f, 25e452d2, c8f70616); G-02 and G-03 (d1af0665). Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F-40, F-42, F-43, and two items of F-53. F-37 was shown false: `vflip_from_lfp` treats a channel with a NaN sample as bad, as its docstring says. A non-finite trial start is now refused at seven sites, checked by `tests/test_nonfinite_trial_starts_are_refused.py`.
+Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, F-20, F-22, F-24, F-49, F-61 (37775ce4, 1ab48ae1); F-01 to F-07, F-09, F-25 to F-28, F-30, F-36, F-46 to F-48, F-55, F-56 (b286db16, 9dc35302, 5b5184f2, 62a0708f, 25e452d2, c8f70616); G-02 and G-03 (d1af0665). Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F-40, F-42, F-43, and two items of F-53. F-37 was shown false: `vflip_from_lfp` treats a channel with a NaN sample as bad, as its docstring says. A non-finite trial start is now refused at seven sites, checked by `tests/test_nonfinite_trial_starts_are_refused.py`.
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
@@ -85,5 +85,4 @@ F02 (vflip2 above 200 um) was repaired in 62a0708f; F03's agreement half is show
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| G-01 | high | `skills/` | Swept 2026-10-19 (188 vflip2 mentions); the fusion's docstring and docs/10 row now state the null acceptance (c3addf1f). Left for amendment: `skills/jnwb-laminar/references/motif_crossover_and_layers.md:30-31` and `skills/jnwb-lfp-spectral/references/laminar_depth.md:5` present an accepted fit as an anchor with no null acceptance |
 | G-04 | med | release closure | Audit F08: the closure pass checks each advertised scientific claim against the deferred rows, not only the deferred labels |
