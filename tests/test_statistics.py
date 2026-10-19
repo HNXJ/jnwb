@@ -98,13 +98,13 @@ class TestFireIndicator:
 
 
 class TestPairedFireProbTest:
-    def test_too_few_trials_returns_nan_and_p_one(self):
+    def test_too_few_trials_returns_nan_p(self):
         result = paired_fire_prob_test(
             np.array([True]), np.array([False]), n_shuffles=10, n_bootstrap=10,
             rng=np.random.default_rng(0),
         )
         assert np.isnan(result["risk_difference"])
-        assert result["p_value_fire_shuffle"] == 1.0
+        assert np.isnan(result["p_value_fire_shuffle"]), result["p_value_fire_shuffle"]
 
     def test_all_target_none_null_has_max_risk_difference(self):
         rng = np.random.default_rng(0)
@@ -436,6 +436,16 @@ class TestExactSignFlip:
         obs, p_lt, _ = exact_sign_flip([1.0, 2.0, 3.0], alternative="less")
         assert p_lt == pytest.approx(1.0, abs=1e-12)
 
+    def test_the_monte_carlo_two_sided_floor_is_the_smallest_attainable_p(self):
+        # 25 equal positive differences: no sign flip but the identity reaches the observed mean,
+        # so each p is its smallest attainable value, and the floor must equal it.
+        diffs = np.ones(25)
+        assert diffs.size > 20, "fixture must take the Monte Carlo branch"
+        for alt, expected in (("two-sided", 2.0 / 1001.0), ("greater", 1.0 / 1001.0)):
+            _, p, p_floor = exact_sign_flip(diffs, alternative=alt, n_mc=1000, rng=0)
+            assert p == pytest.approx(expected, rel=1e-12)
+            assert p_floor == pytest.approx(expected, rel=1e-12)
+
     def test_direct_enumeration_with_zeros_and_ties(self):
         # diffs with zero and ties
         diffs = np.array([0.0, 2.0, -2.0, 4.0])
@@ -481,7 +491,7 @@ class TestExactSignFlip:
         assert obs == pytest.approx(np.mean(diffs), abs=1e-12)
         # With all positive differences, null sign flips will rarely match obs
         assert p_val < 0.01
-        assert p_floor == pytest.approx(1.0 / 1001.0, abs=1e-12)
+        assert p_floor == pytest.approx(2.0 / 1001.0, abs=1e-12)
 
     def test_statistical_analysis_method_equivalence(self):
         res1 = exact_sign_flip([1.0, 2.0, 3.0])
@@ -1376,4 +1386,41 @@ def test_an_unpaired_non_finite_value_is_excluded_like_a_paired_one(bad):
     assert multi == StatisticalAnalysis.compare_multiple_groups({"a": g1, "b": g2, "c": g1})
     assert StatisticalAnalysis.bootstrap_ci(with_bad, n_bootstrap=200) == \
         StatisticalAnalysis.bootstrap_ci(g1, n_bootstrap=200)
+
+
+class TestExploratoryAndConfirmatoryTakeAnRng:
+    """Both entry points draw their bootstrap interval from `rng`, as compare_groups does. The
+    default is the seed compare_groups uses, so the default interval is unchanged."""
+
+    G1 = np.random.default_rng(3).normal(size=30)
+    G2 = np.random.default_rng(4).normal(0.4, size=30)
+
+    def test_exploratory_compare_passes_rng_to_the_bootstrap(self):
+        ci = {
+            seed: StatisticalAnalysis.exploratory_compare(
+                self.G1, self.G2, n_bootstrap=300, rng=seed)["mean_diff_ci"]["bootstrap_ci"]
+            for seed in (1, 2)
+        }
+        assert ci[1] != ci[2], ci
+
+    def test_confirmatory_compare_passes_rng_to_the_bootstrap(self):
+        ci = {
+            seed: StatisticalAnalysis.confirmatory_compare(
+                self.G1, self.G2, "mean A > mean B", n_bootstrap=300, rng=seed
+            )["mean_diff_ci"]["bootstrap_ci"]
+            for seed in (1, 2)
+        }
+        assert ci[1] != ci[2], ci
+
+    def test_the_default_reproduces_the_compare_groups_interval(self):
+        ref = StatisticalAnalysis.compare_groups(
+            self.G1, self.G2, n_bootstrap=300)["mean_diff_ci"]["bootstrap_ci"]
+        explore = StatisticalAnalysis.exploratory_compare(self.G1, self.G2, n_bootstrap=300)
+        confirm = StatisticalAnalysis.confirmatory_compare(
+            self.G1, self.G2, "mean A > mean B", n_bootstrap=300)
+        explicit = StatisticalAnalysis.exploratory_compare(
+            self.G1, self.G2, n_bootstrap=300, rng=42)
+        assert explore["mean_diff_ci"]["bootstrap_ci"] == ref
+        assert confirm["mean_diff_ci"]["bootstrap_ci"] == ref
+        assert explicit["mean_diff_ci"]["bootstrap_ci"] == ref
 

@@ -8,7 +8,7 @@ import numpy as np
 from .._rng import DEFAULT_SEED, RNGLike, resolve_rng
 from .._spread import is_constant as _is_constant
 from scipy import stats
-from ..permutation import _count_at_least_as_extreme
+from ..permutation import _count_at_least_as_extreme, _p_from_count
 from ._tests import clopper_pearson, mann_whitney_p_floor, exact_sign_flip, _tie_tolerance, _zero_spread_t
 
 
@@ -633,7 +633,7 @@ class StatisticalAnalysis:
 
         k = _count_at_least_as_extreme(perm_diffs, obs_diff, "two-sided",
                                        atol=_tie_tolerance(combined))
-        p_value = (1 + k) / (n_permutations + 1)
+        p_value = _p_from_count(k, n_permutations, "two-sided")
 
         return {
             "observed_difference": float(obs_diff),
@@ -655,6 +655,7 @@ class StatisticalAnalysis:
         group2: np.ndarray,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        rng: RNGLike = DEFAULT_SEED,
         *,
         test: str = "both",
     ) -> Dict:
@@ -663,6 +664,8 @@ class StatisticalAnalysis:
 
         Pass ``test="parametric"`` or ``test="nonparametric"`` to name one primary test;
         only that one is computed and only its keys are returned. The default runs both.
+        ``rng`` seeds the bootstrap interval, as in ``compare_groups``; its default is the
+        seed ``compare_groups`` uses.
 
         Every p-value in the result is raw. No key in it is FDR-corrected, and no key
         claims to be: corrected values are spelled ``q_`` and are returned only by
@@ -686,7 +689,7 @@ class StatisticalAnalysis:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             result = StatisticalAnalysis.compare_groups(
-                group1, group2, paired=paired, n_bootstrap=n_bootstrap, test=test
+                group1, group2, paired=paired, n_bootstrap=n_bootstrap, rng=rng, test=test
             )
         result.pop("multiple_comparison", None)
         result["api"] = "exploratory"
@@ -742,6 +745,7 @@ class StatisticalAnalysis:
         alpha: float = 0.05,
         paired: bool = False,
         n_bootstrap: int = 2000,
+        rng: RNGLike = DEFAULT_SEED,
     ) -> Dict:
         """
         **Confirmatory** two-group comparison.
@@ -767,6 +771,7 @@ class StatisticalAnalysis:
             alpha: Significance threshold (default 0.05).
             paired: Whether to use a paired test.
             n_bootstrap: Bootstrap iterations for CI.
+            rng: Int seed or ``Generator`` for the bootstrap interval, as in ``compare_groups``.
 
         Returns:
             Dict with all exploratory_compare keys plus:
@@ -789,7 +794,7 @@ class StatisticalAnalysis:
                 f"confirmatory_compare: alpha must be in (0, 1), got {alpha}."
             )
         result = StatisticalAnalysis.exploratory_compare(
-            group1, group2, paired=paired, n_bootstrap=n_bootstrap
+            group1, group2, paired=paired, n_bootstrap=n_bootstrap, rng=rng
         )
         param_p = result["parametric"]["pval"]
         nonparam_p = result["non_parametric"]["pval"]

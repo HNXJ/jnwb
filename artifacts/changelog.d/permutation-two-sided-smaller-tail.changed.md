@@ -1,0 +1,1 @@
+- Two-sided permutation p is twice the smaller tail, capped at 1, for every metric (`jnwb/permutation.py`).

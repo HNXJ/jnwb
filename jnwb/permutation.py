@@ -41,7 +41,8 @@ def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float 
 
     - ``'greater'``: ``null >= observed - tol``;
     - ``'less'``: ``null <= observed + tol``;
-    - ``'two-sided'``: ``|null| >= |observed| - tol``.
+    - ``'two-sided'``: the smaller of those two counts. The two-sided p is twice the p of
+      that tail, capped at 1; :func:`_p_from_count` forms it.
 
     ``_TIE_RTOL`` is 100 machine epsilons, scipy's width. It is round-off: a draw of untied
     continuous data lands that close to the observed value with probability of order
@@ -55,13 +56,27 @@ def _count_at_least_as_extreme(null, observed, alternative: str, *, atol: float 
     null = np.asarray(null, dtype=float)
     obs = float(observed)
     tol = _tie_width(obs, atol)
+    upper = int(np.count_nonzero(null >= obs - tol))
+    lower = int(np.count_nonzero(null <= obs + tol))
     if alternative == "greater":
-        hit = null >= obs - tol
+        return upper
     elif alternative == "less":
-        hit = null <= obs + tol
+        return lower
     else:
-        hit = np.abs(null) >= abs(obs) - tol
-    return int(np.count_nonzero(hit))
+        return min(upper, lower)
+
+
+def _p_from_count(count, n_draws: int, alternative: str) -> float:
+    """Permutation p from a count of :func:`_count_at_least_as_extreme` over ``n_draws`` draws.
+
+    One-sided: ``(1 + count) / (n_draws + 1)``. Two-sided: ``min(1, 2 min(p_greater, p_less))``,
+    which is ``min(1, 2 (1 + count) / (n_draws + 1))`` for the smaller-tail count that
+    ``'two-sided'`` returns. ``n_draws`` counts every draw, NaN draws included.
+    """
+    if alternative not in _TAILS:
+        raise ValueError(f"alternative must be one of {list(_TAILS)}; got {alternative!r}")
+    p = (1.0 + count) / (n_draws + 1.0)
+    return min(1.0, 2.0 * p) if alternative == "two-sided" else float(p)
 
 
 def _tie_width(observed, atol: float = 0.0):

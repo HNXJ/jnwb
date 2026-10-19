@@ -1841,7 +1841,10 @@ class TestRowsAgainstTheLiveCall:
 
         a, b = np.arange(20.0) + 100.0, np.arange(20.0)
         for fn in (jnwb.shuffle_pvalue_paired, jnwb.shuffle_pvalue_unpaired):
-            assert fn(a, b, 49, np.random.default_rng(0))[1] == pytest.approx(1.0 / 50.0), fn
+            assert fn(a, b, 49, np.random.default_rng(0),
+                      alternative="greater")[1] == pytest.approx(1.0 / 50.0), fn
+            # Two-sided is twice the smaller tail's floor, so the default floor is 2 / (n + 1).
+            assert fn(a, b, 49, np.random.default_rng(0))[1] == pytest.approx(2.0 / 50.0), fn
 
         plan = jnwb.build_permutation_plan([0, 1, 0, 1], [1, 1, 2, 2], n_permutations=2, rng=3)
         digests = plan["draw_manifest"]["label_digest"]

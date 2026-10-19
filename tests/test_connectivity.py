@@ -692,7 +692,8 @@ class TestFewTrialSurrogates:
         y = 0.3 * np.roll(x, 1, axis=1) + g.normal(size=(7, 200))
         res = granger(x, y, order=1, n_surrogates=19, rng=0)
         sur = res.diagnostics["surrogates"]
-        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.05)
+        # p_net is two-sided: twice the smaller tail's 1 / 20. The 0.2.6 value was 0.05.
+        assert (res.p_x_to_y, res.p_y_to_x, res.p_net) == (0.05, 0.7, 0.1)
         np.testing.assert_allclose(
             [sur["null_mean_x_to_y"], sur["null_mean_y_to_x"]],
             [0.00035468224425054724, 0.0006370039765307248], rtol=1e-12, atol=0,

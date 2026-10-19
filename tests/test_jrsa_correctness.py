@@ -1108,12 +1108,13 @@ class TestTimeAxisNullKeepsAutocorrelation:
         assert len(np.unique(np.round(res.null_distribution, 12))) > 50
 
     def test_a_short_axis_cannot_report_p_below_one_in_n(self):
-        """x2 = x1 puts the observed value above every rotation, so the exact p is 1/6 on a
-        6-sample axis. Drawing shifts from 1..n-1 left the identity out and reported
-        1 / (permutations + 1) = 0.001."""
+        """x2 = x1 puts the observed value at the top of the rotations. The identity is one of
+        six, so the greater tail's exact p is 1/6 and the two-sided p, twice the smaller tail,
+        is 1/3 on a 6-sample axis. Drawing shifts from 1..n-1 left the identity out and
+        reported 1 / (permutations + 1) = 0.001."""
         x = np.random.default_rng(0).standard_normal(6)
         p = float(oa.jrsa(x, x, metric="cosine", permutations=999, rng=0).p)
-        assert 0.12 < p < 0.22, p
+        assert p == pytest.approx(1 / 3, abs=0.05), p
 
     def test_the_default_rotates_the_time_axis_of_every_row(self):
         """(trials, time): the shift runs along time, the same for every row. Rotating the
@@ -1173,7 +1174,9 @@ class TestTimeAxisNullKeepsAutocorrelation:
         x = rng.normal(size=80)
         y = 0.5 * x + rng.normal(size=80)
         res = oa.jrsa(x, y, metric="pearson", permutations=99, bootstrap=200, rng=3, null="iid")
-        assert float(res.p) == 0.01
+        # Two-sided floor: twice 1 / (permutations + 1). The 0.2.6 value was 0.01; the interval
+        # below is unchanged.
+        assert float(res.p) == 0.02
         np.testing.assert_allclose(res.ci, [0.20568213024810308, 0.5753485564085722],
                                    rtol=1e-12, atol=0)
 

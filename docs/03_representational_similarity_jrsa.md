@@ -24,6 +24,7 @@ graph LR
 - **Metrics** (14):
   `"rsa"`, `"pearson"`, `"spearman"`, `"cosine"`, `"kendall"`, `"distance_correlation"`, `"mutual_information"`, `"transfer_entropy_histogram_nats"`, `"phase_slope"`, `"granger_ssr_ftest"`, `"hsic"`, `"cka"`, `"rv"`, `"procrustes"`.
   `"granger_ssr_ftest"` and `"transfer_entropy_histogram_nats"` are **not** the same estimands as connectivity ``granger`` or ``transfer_entropy``. jRSA exposes the statsmodels SSR F-test and a plug-in histogram TE in nats. The SSR F-test, `"phase_slope"` and the TE each take one series per input.
+  `"mutual_information"` is a plug-in histogram estimate on 32 bins, biased upward at small N: for independent inputs it averages about 2.0 nats at N = 60 and 0.32 nats at N = 1000. Only its permutation p compares across N, not its magnitude.
 - **Direction of the directed metrics**:
 
   | Metric | `jrsa(x1, x2, ...)` measures | Compare |
@@ -97,7 +98,7 @@ count.
 | `null=` | Resampling | Valid when |
 |---|---|---|
 | `None` (default) | `"circular_shift"` for the paired metrics; the axis-0 metrics have no default and raise `ValueError` | see those rows |
-| `"circular_shift"` | rotate x2 by a random shift of 0 to n - 1 samples | each series is stationary; autocorrelation is kept. p cannot fall below about 1/n |
+| `"circular_shift"` | rotate x2 by a random shift of 0 to n - 1 samples | each series is stationary; autocorrelation is kept. Two-sided p cannot fall below about 2/n |
 | `"block"` | permute consecutive blocks of `block_len` samples, which must be given | `block_len` spans several autocorrelation times. On independent AR(1) series with coefficient 0.9 (200 samples, 80 pairs), `block_len=20` rejected at p ≤ 0.05 for 0.30 of pairs with `"cka"` and 0.125 with `"pearson"`; `block_len=50` for 0.062 and 0.037 |
 | `"iid"` | permute single samples | samples are independent. On two independent AR(1) series with coefficient 0.9 it rejects at p ≤ 0.05 about half the time |
 
@@ -142,8 +143,8 @@ per_window = [
 values = np.array([float(r.value) for r in per_window])   # one value per window
 ```
 
-The lag drops 5 of each window's 20 samples, so the circular-shift null runs on 15 and p
-cannot fall below about 1/15, which is above 0.05.
+The lag drops 5 of each window's 20 samples, leaving 15 pairs. The circular-shift null rotates
+all 20, so p cannot fall below about 2/20, which is above 0.05.
 
 Each call forms its own permutation null, so correct the per-window p-values together
 (for example with `jnwb.StatisticalAnalysis.fdr_correct`) before reading any one of them.

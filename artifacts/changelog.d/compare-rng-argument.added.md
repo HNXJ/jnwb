@@ -1,0 +1,1 @@
+- `exploratory_compare` and `confirmatory_compare` take `rng` for the bootstrap CI (`jnwb/statistics/_analysis.py`).

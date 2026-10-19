@@ -1,0 +1,1 @@
+- The Monte Carlo two-sided `p_floor` of `exact_sign_flip` is 2 / (n_mc + 1) (`jnwb/statistics/_tests.py`).

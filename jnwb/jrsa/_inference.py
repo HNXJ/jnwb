@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from .._parallel import parallel_map
-from ..permutation import _count_at_least_as_extreme
+from ..permutation import _count_at_least_as_extreme, _p_from_count
 
 
 #: Accepted values of `null=`. None resolves per metric inside `jrsa`.
@@ -145,7 +145,7 @@ def _p_from_null(value, null_dist, alternative):
     if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
         return np.asarray(np.nan, dtype=np.float64)
     k = _count_at_least_as_extreme(null_dist, obs, alternative)
-    p = (1 + k) / (n + 1)
+    p = _p_from_count(k, n, alternative)
     return np.asarray(p, dtype=np.float64)
 
 

@@ -424,6 +424,15 @@ def _psd_hanning(trials, fs: float) -> np.ndarray:
         lengths = [t.shape[1] for t in trials]
         groups = [t[None] for t in trials]
     padding = 1 << (max(lengths) - 1).bit_length()  # 2^nextpow2 (line 544)
+    if padding < fs:
+        # Bins of the padded FFT are fs / padding Hz wide; past 1 Hz they cannot hold the
+        # 1 Hz grid. Let P be the smallest power of two at or above fs: a trial pads to P
+        # exactly when it is longer than P / 2.
+        minimum = (1 << (int(np.ceil(fs)) - 1).bit_length()) // 2 + 1
+        raise ValueError(
+            f"vflip2_from_lfp: trials of {max(lengths)} samples pad to a {padding}-point FFT, "
+            f"whose bins are {fs / padding:.3g} Hz wide at fs={fs:g}; each trial needs at least "
+            f"{minimum} samples for 1 Hz bins")
     pad = padding / fs
     endnsample = int(_matlab_round_array(np.array(pad * fs)))
     fboi = _matlab_round_array(_FOI_HZ * pad) + 1
@@ -483,19 +492,21 @@ def vflip2_from_lfp(
         lfp: (n_channels, n_samples) continuous voltage, vFLIP2.m's `raw`; or
             (n_channels, n_samples, n_trials), or a list of (n_channels, n_samples_k)
             trials, its `raw_cut`.
-        fs: Sampling rate in Hz, finite and positive. A non-integer rate is accepted for
-            trial-cut input. Continuous input needs an integer rate: vFLIP2.m reshapes it
-            into trials of `fs` samples (line 618).
+        fs: Sampling rate in Hz, finite and at least 300 Hz, so the 150 Hz band edge lies below
+            the Nyquist frequency. A non-integer rate is accepted for trial-cut input.
+            Continuous input needs an integer rate: vFLIP2.m reshapes it into trials of `fs`
+            samples (line 618).
         contact_spacing, orientation, layer4_thickness_mm, omega_cut: As :func:`vflip2`.
 
     Returns:
         :class:`VFlip2Result`, as :func:`vflip2` on the PSD.
 
     Raises:
-        ValueError: `fs` not finite and positive, or not an integer for continuous input;
-            `lfp` not 2-D, 3-D or a non-empty list of 2-D trials with one channel count;
-            continuous `lfp` shorter than one trial; an `fs` low enough that 150 Hz falls
-            past the FFT length; and every error :func:`vflip2` raises.
+        ValueError: `fs` not finite and positive, below 300 Hz, or not an integer for
+            continuous input; `lfp` not 2-D, 3-D or a non-empty list of 2-D trials with one
+            channel count; continuous `lfp` shorter than one trial; trials too short for 1 Hz
+            bins, which the message gives as the minimum length; and every error
+            :func:`vflip2` raises.
 
     References:
         Mendoza-Halliday, D., et al. Code: vFLIP2.m, Dryad doi:10.5061/dryad.9w0vt4bnp,
@@ -508,6 +519,10 @@ def vflip2_from_lfp(
     fs = float(fs)
     if not (np.isfinite(fs) and fs > 0):
         raise ValueError(f"fs must be finite and positive, got {fs}")
+    if fs / 2 < 150:
+        raise ValueError(
+            f"vflip2_from_lfp: fs must be at least 300 Hz, so that the Nyquist frequency fs / 2 "
+            f"reaches the 150 Hz band edge; got fs={fs:g}")
     if isinstance(lfp, (list, tuple)):
         trials = [np.asarray(t, dtype=float) for t in lfp]
         if not trials or any(t.ndim != 2 for t in trials):

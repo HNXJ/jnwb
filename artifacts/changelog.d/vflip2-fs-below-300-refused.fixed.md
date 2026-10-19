@@ -1,0 +1,1 @@
+- `vflip2_from_lfp` refuses `fs` below 300 Hz, where 150 Hz lies above Nyquist (`jnwb/laminar/_vflip2.py`).

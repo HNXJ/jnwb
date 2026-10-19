@@ -77,8 +77,8 @@ def paired_fire_prob_test(
 
     Returns:
         dict with p_fire_target, p_fire_baseline, risk_difference (+ CI),
-        odds_ratio (+ CI), p_value_fire_shuffle, n_trials. All-NaN/p=1.0 when fewer than 2
-        paired trials are available.
+        odds_ratio (+ CI), p_value_fire_shuffle, n_trials. The risk difference, the odds
+        ratio and p_value_fire_shuffle are NaN when fewer than 2 paired trials are available.
 
     References:
         Pitman, E. J. G. (1937). Significance tests which may be applied to
@@ -115,7 +115,7 @@ def paired_fire_prob_test(
             "odds_ratio": float("nan"),
             "odds_ratio_ci_lo": float("nan"),
             "odds_ratio_ci_hi": float("nan"),
-            "p_value_fire_shuffle": 1.0,
+            "p_value_fire_shuffle": float("nan"),
             "n_trials": int(n),
         }
 

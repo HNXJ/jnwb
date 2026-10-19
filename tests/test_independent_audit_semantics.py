@@ -24,12 +24,14 @@ class TestMonteCarloPValueConvention:
         def diff(idx):
             left = [combined[i] for i in idx[:n_x]]
             right = [combined[i] for i in idx[n_x:]]
-            return abs(sum(left) / len(left) - sum(right) / len(right))
+            return sum(left) / len(left) - sum(right) / len(right)
 
         obs = diff(np.arange(len(combined)))
         local_rng = np.random.default_rng(0)
-        k = sum(diff(local_rng.permutation(len(combined))) >= obs for _ in range(99))
-        expected = (1 + k) / (99 + 1)
+        draws = [diff(local_rng.permutation(len(combined))) for _ in range(99)]
+        # Two-sided: twice the smaller tail's (1 + k) / (B + 1), capped at 1.
+        k = min(sum(d >= obs for d in draws), sum(d <= obs for d in draws))
+        expected = min(1.0, 2 * (1 + k) / (99 + 1))
         assert res["pval"] == pytest.approx(expected)
 
     def test_shuffle_r2_ci_uses_one_plus_k_over_b_plus_one(self):
@@ -59,7 +61,9 @@ class TestMonteCarloPValueConvention:
         # subscript was unwrapping that stray axis. The assertion is about the
         # Monte-Carlo convention, not about `p` being indexable -- the sibling test
         # above asserts the same convention on a plain scalar.
-        assert float(p) == pytest.approx(2.0 / 6.0)
+        # Two-sided: the upper tail holds 1 of the 5 draws, the lower tail 4; the smaller
+        # tail gives 2 (1 + 1) / (5 + 1).
+        assert float(p) == pytest.approx(2.0 * (1 + 1) / (5 + 1))
 
 
 class TestCompareGroupsPairedContract:

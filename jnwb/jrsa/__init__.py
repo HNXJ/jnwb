@@ -252,8 +252,10 @@ def jrsa(
     alternative : str
         two-sided | greater | less; anything else raises before any computation. It sets
         the tail of `p`. With a permutation null (`stats=True`, `permutations > 0`) the tail
-        is counted on the null. Without one, `p` is the metric's parametric p, which is
-        two-sided; a one-sided alternative halves it when `value` lies on the requested
+        is counted on the null; two-sided is twice the smaller tail's p, capped at 1, so a
+        non-negative metric gets its lower tail too. Without a null, `p` is the metric's
+        parametric p, which is two-sided; a one-sided alternative halves it when `value`
+        lies on the requested
         side and gives ``1 - p/2`` otherwise. The `granger_ssr_ftest` parametric p is an
         upper-tail F-test of a non-negative F, which has no side to halve on, so that metric
         raises for a one-sided alternative without a permutation null.

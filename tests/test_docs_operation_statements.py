@@ -297,7 +297,11 @@ def _rng_probes():
         "StatisticalAnalysis.bootstrap_ci": lambda r: sa.bootstrap_ci(a, n_bootstrap=20, rng=r),
         "StatisticalAnalysis.compare_groups": lambda r: sa.compare_groups(a, b, n_bootstrap=20,
                                                                           rng=r),
+        "StatisticalAnalysis.confirmatory_compare": lambda r: sa.confirmatory_compare(
+            a, b, "mean A > mean B", n_bootstrap=20, rng=r),
         "StatisticalAnalysis.exact_sign_flip": lambda r: sa.exact_sign_flip(a, n_mc=20, rng=r),
+        "StatisticalAnalysis.exploratory_compare": lambda r: sa.exploratory_compare(
+            a, b, n_bootstrap=20, rng=r),
         "StatisticalAnalysis.permutation_test": lambda r: sa.permutation_test(
             a, b, n_permutations=20, rng=r),
         "cluster_permutation_test": lambda r: jnwb.cluster_permutation_test(
@@ -406,7 +410,8 @@ def test_the_statistics_page_states_the_default_seed_and_links_the_table():
     assert "(10_operation_specifications.md#1-rng-convention)" in text
     defaults = {q: p.default for q, p in _public_rng_parameters()
                 if q.startswith("StatisticalAnalysis.")}
-    assert len(defaults) == 4 and all(d == 42 for d in defaults.values()), defaults
+    # Four methods took `rng` first; exploratory_compare and confirmatory_compare take it too.
+    assert len(defaults) == 6 and all(d == 42 for d in defaults.values()), defaults
 
 
 # --------------------------------------------------------------- structured returns
@@ -756,8 +761,11 @@ def test_the_sliding_window_recipe_states_the_floor_its_null_imposes():
     lag = int(re.search(r"lag=(\d+)", recipe)[1])
     n = width - lag
     text = _flat(recipe)
-    assert f"runs on {n} and p cannot fall below about 1/{n}, which is above 0.05" in text
-    assert 1 / n > 0.05
+    # The shift rotates the whole window, so the identity is one of `width` rotations, and the
+    # two-sided p is twice the greater tail's 1 / width.
+    assert f"leaving {n} pairs. The circular-shift null rotates all {width}, so p cannot fall " \
+           f"below about 2/{width}, which is above 0.05" in text
+    assert 2 / width > 0.05
 
     # x2 is x1 moved back by the lag, so the lagged pairs are identical and the observed
     # value is the largest any shift can give: p sits at the floor.
@@ -765,7 +773,7 @@ def test_the_sliding_window_recipe_states_the_floor_its_null_imposes():
     x2 = np.roll(x1, -lag, axis=-1)
     res = jnwb.jrsa(x1, x2, metric="pearson", window=(0, width), lag=lag, rng=0)
     assert res.execution["n_overlap"] == n
-    assert res.p > 0.05 and abs(res.p - 1 / n) < 0.03, res.p
+    assert res.p > 0.05 and abs(res.p - 2 / width) < 0.03, res.p
 
 
 # --------------------------------------------------------------- directed jrsa metrics

@@ -1,0 +1,1 @@
+- `paired_fire_prob_test` gives a NaN shuffle p for fewer than 2 trials, not 1.0 (`jnwb/statistics/_firing.py`).
