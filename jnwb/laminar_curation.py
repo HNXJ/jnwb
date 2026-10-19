@@ -404,7 +404,10 @@ def fuse_laminar_anchors(
     - with only a motif anchor, ``"D"`` is stable with consistency at least
       ``consistency_a``, otherwise ``"F"``; with no anchor, ``"F"``.
 
-    A and B carry a laminar claim. C and D are sensitivity checks: C because the anchor is
+    A and B carry a laminar claim. An accepted vFLIP2 fit is not by itself evidence of a
+    crossover (``omega_cut`` 6 accepts 18 of 100 noise-only probes; see
+    :func:`~jnwb.laminar.vflip2`), so with a vFLIP2 anchor that claim rests on the stability and
+    consistency checks above. C and D are sensitivity checks: C because the anchor is
     unstable or inconsistent, D because neither vFLIP nor vFLIP2 gave an anchor and the motif
     crossing alone places it. F carries none.
 
