@@ -91,7 +91,10 @@ ALPHA = float(inspect.signature(xflip).parameters["alpha"].default)
 def _module_table(modname: str):
     """(source, {name: top-level def or assignment node}, {name: (module, name)} imported
     from another jnwb module) for the module ``modname``."""
-    source = inspect.getsource(importlib.import_module(modname))
+    module = importlib.import_module(modname)
+    source = inspect.getsource(module)
+    # A package resolves its relative imports against itself, a module against its parent.
+    package = modname if hasattr(module, "__path__") else modname.rpartition(".")[0]
     tree = ast.parse(source)
     nodes, imported = {}, {}
     for node in tree.body:
@@ -105,7 +108,7 @@ def _module_table(modname: str):
             nodes[node.target.id] = node
         elif isinstance(node, ast.ImportFrom):
             origin = importlib.util.resolve_name(
-                "." * node.level + (node.module or ""), modname.rpartition(".")[0]
+                "." * node.level + (node.module or ""), package
             ) if node.level else (node.module or "")
             if origin == "jnwb" or origin.startswith("jnwb."):
                 for alias in node.names:

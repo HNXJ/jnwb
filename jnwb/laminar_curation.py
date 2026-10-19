@@ -581,7 +581,8 @@ class LaminarCurationResult(DictAccessMixin):
         labels: ``(n_channels,)`` array of str from :data:`LABELS`, in the channel order given.
         grade: ``"A"``..``"D"`` or ``"F"`` from :func:`fuse_laminar_anchors`; every label is
             ``"na"`` for ``"F"``.
-        anchor_um: Anchor position from the first contact, um; NaN for grade F.
+        anchor_um: Anchor position from the first contact, um; NaN when no estimate exists. A
+            grade F with a motif crossing keeps that crossing here, but makes no claim on it.
         anchor_source: ``"vflip"``, ``"motif"`` or None; ``curate_and_label`` passes no vFLIP2 crossover.
         superficial_at_high_index: True when the superficial side is at the higher contact
             index; None when no anchor.
