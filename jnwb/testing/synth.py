@@ -197,7 +197,7 @@ def synth_periodic_response(
         raise ValueError(f"n_samples must be strictly positive, got {n_samples}")
     if fs <= 0 or not np.isfinite(fs):
         raise ValueError(f"fs must be strictly positive, got {fs}")
-    if freq_hz <= 0 or freq_hz >= fs / 2.0:
+    if not np.isfinite(freq_hz) or freq_hz <= 0 or freq_hz >= fs / 2.0:
         raise ValueError(f"freq_hz must be in (0, Nyquist); got {freq_hz}")
 
     gen = resolve_rng(rng, func_name="synth_periodic_response")

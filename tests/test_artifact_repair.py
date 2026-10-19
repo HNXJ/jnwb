@@ -118,6 +118,20 @@ class TestIntervalHelpers:
         assert np.allclose(out[0:5], seg[0:5])
         assert np.allclose(out[15:], seg[15:])
 
+    def test_one_sample_interval_at_left_edge_is_repaired(self):
+        # A one-sample interval on the first sample used to be clipped to nothing and skipped.
+        seg = np.array([[100.0], [1.0], [2.0], [3.0]])
+        out = interpolate_intervals(seg, [(0, 1)])
+        assert out[0, 0] == 1.0, out[:, 0]
+        assert np.allclose(out[1:], seg[1:])
+
+    def test_one_sample_interval_at_right_edge_is_repaired(self):
+        # Same for the last sample: it is held to the last good sample.
+        seg = np.array([[1.0], [2.0], [3.0], [100.0]])
+        out = interpolate_intervals(seg, [(3, 4)])
+        assert out[3, 0] == 3.0, out[:, 0]
+        assert np.allclose(out[:3], seg[:3])
+
 
 class TestDetectBandOutliers:
     """The detection rule, exposed so its tail is a stated argument rather than a buried detail."""

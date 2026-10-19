@@ -1482,3 +1482,13 @@ class TestEstimatorEdgesRound2:
         cond = directed_network({"x": x, "y": y, "z": z}, method="gc", order=2, fdr=False,
                                 conditional=True)
         assert cond["matrix"].shape == (3, 3)
+
+
+class TestRidgeMustBeFinite:
+    @pytest.mark.parametrize("ridge", [float("nan"), float("inf")])
+    def test_a_non_finite_ridge_is_refused(self, ridge):
+        # NaN compared false against `ridge <= 0`, so it went to the solver as a NaN penalty.
+        rng = np.random.default_rng(0)
+        x, y = rng.normal(size=(2, 400))
+        with pytest.raises(ValueError, match="ridge"):
+            jnwb.granger(x, y, order=2, ridge=ridge, n_surrogates=0)

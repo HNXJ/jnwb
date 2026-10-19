@@ -111,6 +111,12 @@ def epoch_continuous(
     time_axis_s = np.arange(n_pre, n_post, dtype=np.float64) / fs
     n_samples = arr.shape[0]
 
+    # Checked before the empty-onsets return: a bad unit or policy is refused with no onsets too.
+    if onset_unit not in ("seconds", "samples"):
+        raise ValueError(f"Unknown onset_unit: '{onset_unit}'. Expected 'seconds' or 'samples'")
+    if boundary_policy not in ("nan", "error", "drop"):
+        raise ValueError(f"Unknown boundary_policy: '{boundary_policy}'. Expected 'nan', 'error', or 'drop'")
+
     onsets_arr = np.asarray(onsets)
     if onsets_arr.size == 0:
         empty_ret = np.empty((0,), dtype=np.int64)
@@ -119,11 +125,6 @@ def epoch_continuous(
         else:
             empty_epochs = np.empty((0, n_win, arr.shape[1]), dtype=arr.dtype)
         return (empty_epochs, time_axis_s, empty_ret) if return_indices else (empty_epochs, time_axis_s)
-
-    if onset_unit not in ("seconds", "samples"):
-        raise ValueError(f"Unknown onset_unit: '{onset_unit}'. Expected 'seconds' or 'samples'")
-    if boundary_policy not in ("nan", "error", "drop"):
-        raise ValueError(f"Unknown boundary_policy: '{boundary_policy}'. Expected 'nan', 'error', or 'drop'")
 
     onsets_f = onsets_arr.astype(np.float64)
     # A non-finite onset used to be cast to int64, which makes NaN INT64_MIN, and

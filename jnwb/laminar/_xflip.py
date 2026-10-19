@@ -669,8 +669,11 @@ def xflip(
         raise ValueError(f"min_block_size must be >= 1, got {min_block_size}")
     if n_blocks is not None and n_blocks < 1:
         raise ValueError(f"n_blocks must be >= 1, got {n_blocks}")
-    if n_surrogates < 0:
-        raise ValueError(f"n_surrogates must be >= 0, got {n_surrogates}")
+    # NaN compared false against `< 0`, so it reached the surrogate loop. Non-finite is tested
+    # first because int() of NaN or Inf raises a different error.
+    if not np.isfinite(n_surrogates) or int(n_surrogates) != n_surrogates or n_surrogates < 0:
+        raise ValueError(f"n_surrogates must be an integer >= 0, got {n_surrogates}")
+    n_surrogates = int(n_surrogates)
     if n_samples is not None and n_samples < 2:
         raise ValueError(f"n_samples must be >= 2, got {n_samples}")
     # `is_sig = p <= alpha` is vacuously true for alpha >= 1, and the two thresholds were

@@ -347,3 +347,10 @@ def test_a_refused_seed_is_named_as_the_caller_spelled_it(builder, argument):
     message = str(info.value)
     assert f"{argument} must be an int seed" in message
     assert "rng must be" not in message
+
+
+@pytest.mark.parametrize("freq_hz", [float("nan"), float("inf")])
+def test_synth_periodic_response_refuses_a_non_finite_frequency(freq_hz):
+    # NaN compared false against both bounds of the Nyquist check, so it was synthesised.
+    with pytest.raises(ValueError, match="freq_hz"):
+        synth_periodic_response(5, 500, fs=1000.0, freq_hz=freq_hz, rng=0)

@@ -1,0 +1,1 @@
+- `xflip` refuses a NaN, infinite or non-integer `n_surrogates` (`jnwb/laminar/_xflip.py`).

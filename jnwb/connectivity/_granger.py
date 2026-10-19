@@ -31,6 +31,8 @@ def _residual_variance(residuals: np.ndarray) -> float:
 
 def _ridge_lstsq(A: np.ndarray, b: np.ndarray, ridge: float) -> np.ndarray:
     """Least squares with optional ridge on non-intercept columns."""
+    if not np.isfinite(ridge):
+        raise ValueError(f"_ridge_lstsq: ridge must be finite, got {ridge}")
     if ridge <= 0:
         beta, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
         return beta
@@ -865,9 +867,10 @@ def granger_spectral(
     instantaneous-causality-normalized transfer function. The estimate is >= 0 at
     every frequency by construction.
 
-    Geweke's decomposition means the frequency average returns the time-domain
-    value, so ``x_to_y`` here is directly comparable to ``granger(X, Y).x_to_y``
-    — a large disagreement is a symptom (usually VAR misspecification), not noise.
+    Geweke's decomposition means the frequency average approaches the time-domain
+    value as the fitted past grows, so ``x_to_y`` here is comparable to
+    ``granger(X, Y).x_to_y``. In a finite fit the two differ slightly; a large
+    disagreement is a symptom (usually VAR misspecification), not noise.
 
     Args:
         X, Y: any signal accepted by :func:`as_trials`

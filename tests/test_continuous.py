@@ -202,3 +202,8 @@ class TestEpochContinuous:
             epoch_continuous(np.zeros((10, 10, 10)), [0.0], win_s=(-0.1, 0.1), fs=1000.0)
         with pytest.raises(ValueError, match="Unknown boundary_policy"):
             epoch_continuous(data, [0.0], win_s=(-0.1, 0.1), fs=1000.0, boundary_policy="invalid")  # type: ignore[arg-type]
+        # Validated before the empty-onsets return, so a bad unit is refused with no onsets too.
+        with pytest.raises(ValueError, match="Unknown onset_unit"):
+            epoch_continuous(data, [], win_s=(-0.1, 0.1), fs=1000.0, onset_unit="ms")
+        with pytest.raises(ValueError, match="Unknown boundary_policy"):
+            epoch_continuous(data, [], win_s=(-0.1, 0.1), fs=1000.0, boundary_policy="invalid")  # type: ignore[arg-type]

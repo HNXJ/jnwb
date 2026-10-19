@@ -100,9 +100,9 @@ def morlet_wavelet(
         fs: Sampling rate in Hz (must be > 0).
         n_cycles: Number of wavelet cycles (must be > 0).
         normalization: 'amplitude' (L1-scaled such that a unit cosine 1.0 * cos(2*pi*f0*t)
-            yields |z| = 1.0 at f0, exactly for n_cycles >= 3 and to within the intrinsic
-            bandwidth of a very short wavelet below that) or 'energy' (L2-normalized such
-            that sum(|w|^2) = 1.0).
+            yields |z| = 1.0 at f0 to within 3e-4 at n_cycles 3, 5 and 7, measured at fs
+            1000 Hz over f0 of 5 to 150 Hz; the error grows below 3 cycles, to about 0.6 at
+            n_cycles 1) or 'energy' (L2-normalized such that sum(|w|^2) = 1.0).
         cutoff_sigma: Kernel truncation half-width in units of sigma_t (default 4.0).
 
     Returns:

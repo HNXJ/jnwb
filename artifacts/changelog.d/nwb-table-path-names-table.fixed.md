@@ -1,0 +1,1 @@
+- `/intervals/<table>/<column>` is refused under its full name, not read as table `<column>` (`jnwb/nwb_events.py`).

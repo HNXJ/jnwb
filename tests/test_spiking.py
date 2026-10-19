@@ -347,6 +347,17 @@ class TestPhaseLockingIndex:
         assert result["rayleigh_pvalue"] >= 0.0
         assert not str(result["rayleigh_pvalue"]).startswith("-")
 
+    def test_descending_lfp_timestamps_are_refused(self):
+        """Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
+        the warning printed the reversed window. Refuse them, also with no spikes."""
+        lfp_timestamps = np.linspace(10.0, 0.0, 10000)
+        lfp_phase = np.mod(2 * np.pi * 5 * lfp_timestamps, 2 * np.pi) - np.pi
+        spikes = np.linspace(0.5, 9.5, 40)
+        with pytest.raises(ValueError, match="phase_locking_index.*lfp_timestamps"):
+            phase_locking_index(spikes, lfp_phase, lfp_timestamps)
+        with pytest.raises(ValueError, match="lfp_timestamps"):
+            phase_locking_index(np.array([]), lfp_phase, lfp_timestamps)
+
 
 class TestPairwisePhaseConsistency:
     def _ppc_explicit_o_n2(self, phases: np.ndarray) -> float:

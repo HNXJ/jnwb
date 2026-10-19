@@ -66,7 +66,7 @@ class EventTable:
 def _normalize_table_name(table: str) -> str:
     clean = table.strip()
     if clean.startswith("/intervals/"):
-        return clean.split("/", 3)[-1]
+        return clean[len("/intervals/"):]
     if clean.startswith("intervals/"):
         return clean.split("/", 1)[-1]
     return clean

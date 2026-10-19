@@ -403,6 +403,18 @@ def phase_locking_index(
         'n_spikes': len(unit_spike_times)
     }
 
+    lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
+    steps = np.diff(lfp_timestamps)
+    if np.any(steps <= 0):
+        # Descending timestamps made the window t_lo > t_hi, so every spike was excluded and
+        # the warning printed the reversed window.
+        bad = int(np.argmax(steps <= 0))
+        raise ValueError(
+            "phase_locking_index: lfp_timestamps must be strictly increasing; sample "
+            f"{bad + 1} ({lfp_timestamps[bad + 1]:g} s) does not come after sample {bad} "
+            f"({lfp_timestamps[bad]:g} s)."
+        )
+
     if len(unit_spike_times) == 0:
         return result
 
@@ -423,7 +435,6 @@ def phase_locking_index(
     # maximal resultant -- with p = 0.0; mixing five of them with five in-range spikes
     # gave p = 0.0234 where the five real spikes alone give p = 0.8335.
     unit_spike_times = np.asarray(unit_spike_times, dtype=float)
-    lfp_timestamps = np.asarray(lfp_timestamps, dtype=float)
     t_lo, t_hi = float(lfp_timestamps[0]), float(lfp_timestamps[-1])
     in_range = (unit_spike_times >= t_lo) & (unit_spike_times <= t_hi)
     n_excluded = int((~in_range).sum())
@@ -575,7 +586,8 @@ def gaussian_smooth_rate(
         silent. Mask or interpolate before calling if the spread is unacceptable.
 
     Returns:
-        Smoothed array of the same shape and float dtype as `rate`.
+        Smoothed float64 array of the same shape as `rate`. The input is converted to float64
+        first, so a float32 `rate` returns float64.
 
     Raises:
         ValueError: If `bin_ms` is not finite and positive, or `sigma_ms` is not finite.

@@ -102,7 +102,7 @@ def plot_hierarchy_regression(
             )
         )
 
-    # 3. Robust Linear Fit Line
+    # 3. Least-squares linear fit line (np.polyfit, degree 1)
     if len(hierarchy_ranks) >= 3:
         slope, intercept = np.polyfit(hierarchy_ranks, values, 1)
         fit_x = np.linspace(np.min(hierarchy_ranks), np.max(hierarchy_ranks), 50)

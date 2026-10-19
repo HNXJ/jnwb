@@ -89,10 +89,12 @@ def interpolate_intervals(seg, intervals):
     n = seg.shape[0]
     for s, e in intervals:
         s_req, e_req = int(s), int(e)
-        s = max(s_req, 1)
-        e = min(e_req, n - 1)
-        if e <= s:
+        # Skip only what covers no sample of the segment. Clipping to [1, n - 1] before this
+        # test dropped a one-sample interval on either edge sample without a word.
+        if e_req <= s_req or e_req <= 0 or s_req >= n:
             continue
+        s = max(s_req, 0)
+        e = min(e_req, n)
         # The anchors are the samples just outside the interval. Clamping used to pull them
         # *inside* it whenever the interval touched an edge, so the artifact became its own
         # repair reference: [100, 0, 0, 100, 100, 100, 0, 0, 0, 100] with the interval

@@ -702,8 +702,9 @@ def vflip(
     sep_metric = float(max(1, peak_sep))
 
     metric = (p_dist * band_dist * max(1e-4, contrast) * sep_metric) / density_scale
-    # No floor: a floor reported every metric below it as one finite score, which a caller
-    # threshold under that score accepted. A metric of zero has no support at all.
+    # Contrast is floored at 1e-4 in the line above; the metric itself has no floor: a floor
+    # on it reported every metric below it as one finite score, which a caller threshold under
+    # that score accepted. A metric of zero has no support at all.
     support_score = float(np.log(metric)) if metric > 0 else -np.inf
 
     # 9. Acceptance determination
