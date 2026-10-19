@@ -348,7 +348,8 @@ def _apply_preprocessing(x1, x2, normalize, standardize, detrend):
     if normalize and standardize:
         warnings.warn(
             "Both normalize=True and standardize=True are enabled simultaneously. "
-            "Standardize (Z-scoring) overrides and negates standard range normalization [0, 1].",
+            "Standardize (Z-scoring) runs first, then normalize rescales its output to [0, 1] "
+            "along the last axis, so the result is not a z-score.",
             UserWarning
         )
     def _prep(arr):
@@ -401,9 +402,25 @@ def _make_windows(x1, x2, axis_map, window, sliding):
     ax = axis_map[_window_axis_name(axis_map)]
     n = x1.shape[ax]
     if isinstance(window, (int, float)):
-        half = int(window) // 2
+        # The width is kept whole: start where the centred window starts, stop `width` samples
+        # later. The stop used to be center + width // 2, one sample short for an odd width
+        # (window=5 gave 4 samples) and an empty slice for window=1.
+        width = int(window)
+        if width < 1:
+            raise ValueError(
+                f"jrsa: window={window!r} is a width in samples, so it must be at least 1."
+            )
+        if width > n:
+            warnings.warn(
+                f"jrsa: window={window!r} is longer than the {n}-sample aligned axis, so it covers "
+                "the whole axis and no windowing was applied. `window` is in sample indices, "
+                "not milliseconds.",
+                UserWarning,
+                stacklevel=3,
+            )
         center = n // 2
-        start, stop = max(0, center - half), min(n, center + half)
+        start = max(0, center - width // 2)
+        stop = min(n, start + width)
     else:
         requested = (int(window[0]), int(window[1]))
         start, stop = requested

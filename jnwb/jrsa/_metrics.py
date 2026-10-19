@@ -27,7 +27,7 @@ def _pearson(x1, x2, axis=-1, **kwargs):
     p_info = res["parametric"]
     r, p = p_info["statistic"], p_info["pval"]
     df = np.float64(p_info["df"])
-    t = r * np.sqrt(df) / np.sqrt(1 - r ** 2 + 1e-12)
+    t = np.copysign(np.inf, r) if abs(r) >= 1 else r * np.sqrt(df) / np.sqrt(1 - r ** 2)
     return np.float64(r), np.float64(t), np.float64(abs(r)), np.float64(p), df
 
 
@@ -47,7 +47,7 @@ def _spearman(x1, x2, axis=-1, **kwargs):
     np_info = res["non_parametric"]
     rho, p = np_info["statistic"], np_info["pval"]
     df = np.float64(np_info["df"])
-    t = rho * np.sqrt(df) / np.sqrt(1 - rho ** 2 + 1e-12)
+    t = np.copysign(np.inf, rho) if abs(rho) >= 1 else rho * np.sqrt(df) / np.sqrt(1 - rho ** 2)
     return np.float64(rho), np.float64(t), np.float64(abs(rho)), np.float64(p), df
 
 
@@ -97,6 +97,15 @@ def _rsa(x1, x2, axis=-1, rdm_metric="correlation", **kwargs):
     return np.float64(rho), np.float64(rho), np.float64(abs(rho)), np.float64(p), None
 
 
+def _require_same_rows(metric, X, Y):
+    """Raise when the paired rows of two inputs differ in number, rather than truncate them."""
+    if X.shape[0] != Y.shape[0]:
+        raise ValueError(
+            f"{metric}: x1 has {X.shape[0]} rows and x2 has {Y.shape[0]}; the rows are paired, "
+            "so neither input is truncated to the other."
+        )
+
+
 def _centred_columns(X):
     """``X`` minus its column means, with every constant column exactly 0.
 
@@ -122,9 +131,8 @@ def _cka(x1, x2, axis=-1, kernel="linear", **kwargs):
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
-    m = min(X.shape[0], Y.shape[0])
-    X, Y = X[:m], Y[:m]
-    
+    _require_same_rows("_cka", X, Y)
+
     # Standard centering: H @ K @ H.
     # For linear kernel: Kx = X @ X.T.
     # Center matrix: X_c = (I - 1/m * 11^T) @ X = X - mean(X, axis=0).
@@ -160,9 +168,8 @@ def _rv(x1, x2, axis=-1, **kwargs):
     x1, x2 = _ensure_np(x1, x2 if x2 is not None else x1)
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
-    m = min(X.shape[0], Y.shape[0])
-    X, Y = X[:m], Y[:m]
-    
+    _require_same_rows("_rv", X, Y)
+
     # Standard formula uses full gram matrices: S_xx = X @ X.T (m x m)
     # trace(S_xy @ S_xy.T) = trace(X @ Y.T @ Y @ X.T) = trace(X.T @ X @ Y.T @ Y)
     # = Frobenius norm of (X.T @ Y) squared. This drops calculation from O(m^3) to O(m * d1 * d2 + d1^3).
@@ -205,9 +212,9 @@ def _hsic(x1, x2, axis=-1, sigma=1.0, **kwargs):
     # flattening only x1 made every non-2-D call fail on x2 instead.
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
-    m = min(X.shape[0], Y.shape[0])
-    X, Y = X[:m], Y[:m]
-    
+    _require_same_rows("_hsic", X, Y)
+    m = X.shape[0]
+
     Kx = np.exp(-cdist(X, X, "sqeuclidean") / (2 * sigma ** 2))
     Ky = np.exp(-cdist(Y, Y, "sqeuclidean") / (2 * sigma ** 2))
     
@@ -234,8 +241,7 @@ def _distance_correlation(x1, x2, axis=-1, **kwargs):
     from scipy.spatial.distance import cdist
     X = x1.reshape(x1.shape[0], -1) if x1.ndim > 1 else x1[:, None]
     Y = x2.reshape(x2.shape[0], -1) if x2.ndim > 1 else x2[:, None]
-    m = min(X.shape[0], Y.shape[0])
-    X, Y = X[:m], Y[:m]
+    _require_same_rows("_distance_correlation", X, Y)
 
     def _dcov(A, B):
         A = A - A.mean(axis=0) - A.mean(axis=1, keepdims=True) + A.mean()
@@ -280,10 +286,12 @@ def _procrustes(x1, x2, axis=-1, **kwargs):
     from scipy.spatial import procrustes as sp_proc
     X = x1 if x1.ndim == 2 else x1.reshape(x1.shape[0], -1)
     Y = x2 if x2.ndim == 2 else x2.reshape(x2.shape[0], -1)
-    m = min(X.shape[0], Y.shape[0])
-    X, Y = X[:m], Y[:m]
-    n = min(X.shape[1], Y.shape[1])
-    X, Y = X[:, :n], Y[:, :n]
+    _require_same_rows("_procrustes", X, Y)
+    if X.shape[1] != Y.shape[1]:
+        raise ValueError(
+            f"_procrustes: x1 has {X.shape[1]} features and x2 has {Y.shape[1]}; the features "
+            "are paired, so neither input is truncated to the other."
+        )
     _, _, disparity = sp_proc(X, Y)
     sim = 1.0 - float(disparity)
     return np.float64(sim), np.float64(sim), np.float64(sim), None, None

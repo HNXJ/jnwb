@@ -1,0 +1,1 @@
+- `jrsa(window=w)` warns when w exceeds the axis, naming w and n; it still covers the axis (`jnwb/jrsa/_stages.py`).

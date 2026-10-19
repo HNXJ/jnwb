@@ -1,0 +1,1 @@
+- `jrsa(window=w)` keeps exactly w samples; an odd width was one short and window=1 was empty (`jnwb/jrsa/_stages.py`).

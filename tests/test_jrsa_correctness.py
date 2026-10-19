@@ -1001,6 +1001,118 @@ def test_sliding_windows_take_an_int_width_not_a_pair():
     oa.jrsa(x1, x2, metric="pearson", window=(10, 30), sliding=False, stats=False)
 
 
+def test_complex_input_is_refused_and_named():
+    """Complex input was cast to float64 with the imaginary part dropped and only numpy's
+    ComplexWarning. jrsa refuses it, names the argument and asks for a real quantity."""
+    rng = np.random.default_rng(0)
+    z = rng.normal(size=40) + 1j * rng.normal(size=40)
+    assert np.iscomplexobj(z), "fixture must be complex"
+    with pytest.raises(ValueError, match=r"jrsa: x1 .*complex") as err:
+        oa.jrsa(z, z.real, metric="pearson", stats=False)
+    assert "real" in str(err.value) and "magnitude" in str(err.value)
+    with pytest.raises(ValueError, match=r"jrsa: x2 .*complex"):
+        oa.jrsa(z.real, z, metric="pearson", stats=False)
+
+
+class TestIntegerWindowWidth:
+    """An integer `window` is a width: `window=w` keeps w samples, centred on the axis."""
+
+    @pytest.mark.parametrize("width", [1, 2, 4, 5, 10])
+    def test_an_integer_width_keeps_exactly_that_many_samples(self, width):
+        from jnwb.jrsa._stages import _make_windows
+        n = 20
+        assert n > width, "fixture must window a longer axis"
+        x1 = np.arange(n, dtype=float)
+        got, _, (start, stop) = _make_windows(x1, None, {"aligned": 0}, width, False)
+        assert got.shape[0] == width == stop - start
+        assert start == n // 2 - width // 2
+
+    def test_sliding_windows_keep_exactly_the_width(self):
+        from jnwb.jrsa._stages import _sliding_windows
+        x1 = np.arange(20, dtype=float)
+        windows, _, spans = _sliding_windows(x1, None, {"aligned": 0}, 5, 3)
+        assert spans, "fixture must give windows"
+        assert all(stop - start == 5 for start, stop in spans)
+        assert all(len(w) == 5 for w in windows)
+
+    def test_an_integer_width_longer_than_the_axis_warns_and_names_both(self):
+        """An int width past the axis covers the whole axis, as before, and now says so."""
+        from jnwb.jrsa._stages import _make_windows
+        x1 = np.arange(6, dtype=float)
+        assert 9 > x1.shape[0], "fixture must make the width longer than the axis"
+        with pytest.warns(UserWarning, match=r"window=9 .*6-sample") as record:
+            got, _, span = _make_windows(x1, None, {"aligned": 0}, 9, False)
+        assert span == (0, 6) and got.shape[0] == 6
+        assert "no windowing was applied" in str(record[0].message)
+
+    @pytest.mark.parametrize("width", [0, -3, 0.5])
+    def test_an_integer_width_below_one_is_refused(self, width):
+        from jnwb.jrsa._stages import _make_windows
+        x1 = np.arange(20, dtype=float)
+        with pytest.raises(ValueError, match=rf"window={width!r} .*at least 1"):
+            _make_windows(x1, None, {"aligned": 0}, width, False)
+
+
+def test_standardize_and_normalize_warning_states_the_output_range():
+    """With both flags set, standardize runs first and normalize rescales its output to [0, 1].
+    The warning used to say standardize 'overrides and negates' normalize, which the code does
+    not do."""
+    from jnwb.jrsa._stages import _apply_preprocessing
+    rng = np.random.default_rng(0)
+    x1 = rng.normal(size=(6, 40))
+    with pytest.warns(UserWarning) as record:
+        out, _ = _apply_preprocessing(x1, None, True, True, False)
+    (message,) = [str(w.message) for w in record if "normalize" in str(w.message)]
+    assert "[0, 1]" in message
+    assert "overrides" not in message and "negates" not in message
+    assert 0.0 <= out.min() and out.max() <= 1.0
+
+
+class TestPerfectCorrelationStatistic:
+    """At |r| = 1 the t statistic is +-inf exactly. A 1e-12 offset in the denominator gave a
+    large finite t there instead."""
+
+    @pytest.mark.parametrize("name", ["_pearson", "_spearman"])
+    def test_r_of_one_gives_positive_infinite_t(self, name):
+        from jnwb.jrsa import _metrics
+        x = np.arange(12, dtype=float)
+        r, t, *_ = getattr(_metrics, name)(x, 2.0 * x + 1.0)
+        assert r == 1.0, "fixture must be a perfect correlation"
+        assert t == np.inf
+
+    @pytest.mark.parametrize("name", ["_pearson", "_spearman"])
+    def test_r_of_minus_one_gives_negative_infinite_t(self, name):
+        from jnwb.jrsa import _metrics
+        x = np.arange(12, dtype=float)
+        r, t, *_ = getattr(_metrics, name)(x, -2.0 * x + 1.0)
+        assert r == -1.0, "fixture must be a perfect anticorrelation"
+        assert t == -np.inf
+
+
+class TestMismatchedRowsRaise:
+    """The metric helpers truncated the longer input to the shorter one's rows. They raise."""
+
+    @pytest.mark.parametrize("name", ["_cka", "_rv", "_hsic", "_distance_correlation",
+                                      "_procrustes"])
+    def test_a_helper_refuses_unequal_row_counts(self, name):
+        from jnwb.jrsa import _metrics
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(12, 3))
+        x2 = rng.normal(size=(9, 3))
+        assert x1.shape[0] != x2.shape[0], "fixture must have unequal rows"
+        with pytest.raises(ValueError, match=name):
+            getattr(_metrics, name)(x1, x2)
+
+    def test_procrustes_refuses_unequal_feature_counts(self):
+        from jnwb.jrsa._metrics import _procrustes
+        rng = np.random.default_rng(0)
+        x1 = rng.normal(size=(12, 3))
+        x2 = rng.normal(size=(12, 4))
+        assert x1.shape[1] != x2.shape[1], "fixture must have unequal features"
+        with pytest.raises(ValueError, match="_procrustes"):
+            _procrustes(x1, x2)
+
+
 class TestDirectedMetricsStateTheDirectionTheyMeasure:
     """The SSR F-test and histogram TE measure x2 -> x1, the reverse of
     `connectivity.granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads.

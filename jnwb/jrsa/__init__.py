@@ -41,6 +41,7 @@ from ._backends import (
     _get_backend,
     _to_backend,
     _ensure_np,
+    _refuse_complex_input,
 )
 from ._metrics import (
     _pearson,
@@ -513,6 +514,8 @@ def jrsa(
         resolved_device = CPU
     bk = _get_backend(backend, resolved_device)
 
+    _refuse_complex_input("x1", x1)
+    _refuse_complex_input("x2", x2)
     x1, x2 = _prepare_inputs(x1, x2, bk)
     x1, x2 = _validate_inputs(x1, x2, nan_policy, metric)
     x1, x2, axis_map = _standardize_dimensions(x1, x2, adim, labels)

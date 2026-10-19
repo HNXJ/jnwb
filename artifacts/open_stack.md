@@ -62,9 +62,6 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
-| F-44 | low | `jnwb/jrsa/_stages.py:404`, `:349` | An integer window width is off by one (5 gives 4 samples); the standardize warning says it "overrides and negates" normalize, and the output stays in [0, 1] |
-| F-45 | low | `jnwb/jrsa/_metrics.py:30`, `:50`, `:125` | The 1e-12 offset gives t = 4.2e6 at abs(r) = 1 (exact inf); the metric helpers truncate mismatched rows (unreachable through `jrsa`) |
 | F-64 | med | `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md` | Every swept value of the 15 `curate_and_label` defaults gives the same counts (5 of 24 planted anchors within one pitch, 0 of 24 nulls graded A or B), though `smooth_um` moves 96 of 192 anchors, `min_lobe_amplitude` 38 and `min_lobe_um` 19 (raw record, per seed against the default). At the defaults all 24 planted anchors come from vFLIP (grades A 2, C 22) and miss by -420 to +917 um, so recovery on `synth_vflip2_crossover` probes is bounded by vFLIP, and the sweep cannot show whether a default is well placed |
 | F-65 | med | `jnwb/jrsa/_inference.py:211` (`_p_from_null`) | A NaN null draw stays in the denominator: 3 finite draws give p = 0.5, one NaN more gives 0.4; ruled 2026-10-19 to drop and report |
 | F-66 | low | `tests/test_jrsa.py:233` | `test_every_documented_correction_is_actually_accepted` asserts only the recorded name; with one p, `fdr_bh` and `bonferroni` both give q = p = 0.1818 |
