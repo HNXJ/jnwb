@@ -853,3 +853,35 @@ class TestEnrichingWithoutAPeakChannelWarns:
             out = enrich_units_dataframe(units, electrodes, depth_unit="um")
         if case == "with peak channel":
             assert out["depth_class"].tolist() == ["Superficial", "Deep"]
+
+
+def test_a_text_unit_id_is_kept_and_a_numeric_text_id_is_coerced():
+    # The coercion exists for numeric-looking text ids: '156.0' compares unequal to 156. It
+    # applies only when every id is numeric, so a text id such as 'u1' is kept as it is.
+    text = enrich_units_dataframe(pd.DataFrame({"unit_id": ["u1", "u2"]}), None)
+    assert list(text["unit_id"]) == ["u1", "u2"]
+    numeric = enrich_units_dataframe(pd.DataFrame({"unit_id": ["156.0", "157"]}), None)
+    assert list(numeric["unit_id"]) == [156.0, 157.0]
+    assert numeric["unit_id"].dtype == float
+
+
+@pytest.mark.parametrize("missing", [None, np.nan, pd.NA])
+def test_a_multi_area_contact_with_a_missing_probe_key_is_refused(missing):
+    # Two areas on one probe: a contact's position along its probe picks its area, and a
+    # contact with no probe key has no probe to take a position on.
+    elec = pd.DataFrame({"location": ["V1, V2"] * 4, "group_name": ["A", "A", "A", missing]})
+    assert elec["group_name"].isna().sum() == 1, "the fixture must leave one contact unkeyed"
+    with pytest.raises(ValueError, match=r"'group_name'.*\['A'\]"):
+        map_peak_channel_to_area(3, elec)
+
+
+def test_a_fractional_channel_id_is_refused_not_truncated_to_a_channel():
+    elec = pd.DataFrame({"location": ["V1", "PFC", "V4"]}, index=[0, 1, 2])
+    # The precondition: truncating 2.7 would reach channel 2, which carries an area.
+    assert map_peak_channel_to_area(2.0, elec) == "V4"
+    with pytest.raises(ValueError, match="2.7"):
+        map_peak_channel_to_area(2.7, elec)
+    with pytest.raises(ValueError, match="2.7"):
+        classify_layer_from_depth(2.7, elec)
+    with pytest.raises(ValueError, match="2.7"):
+        enrich_units_dataframe(pd.DataFrame({"peak_channel_id": [0.0, 2.7]}), elec)

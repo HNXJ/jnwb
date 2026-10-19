@@ -1,0 +1,1 @@
+- A fractional channel id such as 2.7 is refused, not truncated to channel 2 (`jnwb/addressing.py`).

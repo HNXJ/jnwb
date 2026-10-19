@@ -224,9 +224,8 @@ def _resolve_electrode_row(peak_channel_id: float, electrodes_df: pd.DataFrame):
     if pd.isna(peak_channel_id) or electrodes_df is None or len(electrodes_df) == 0:
         return None, None
 
-    try:
-        val = int(float(peak_channel_id))
-    except (ValueError, TypeError, OverflowError):
+    val = _channel_key(peak_channel_id)
+    if val is None:
         return None, None
 
     id_col = _identifier_column(electrodes_df)
@@ -306,13 +305,22 @@ def _electrode_row_resolver(electrodes_df: pd.DataFrame):
 
 
 def _channel_key(peak_channel_id):
-    """The integer :func:`_resolve_electrode_row` looks up, or None where it finds nothing."""
+    """The integer :func:`_resolve_electrode_row` looks up, or None where it finds nothing.
+
+    A channel id with a fractional part is refused, not truncated: 2.7 is not channel 2.
+    """
     if pd.isna(peak_channel_id):
         return None
     try:
-        return int(float(peak_channel_id))
+        key = int(float(peak_channel_id))
     except (ValueError, TypeError, OverflowError):
         return None
+    if key != float(peak_channel_id):
+        raise ValueError(
+            f"_channel_key: peak_channel_id {peak_channel_id!r} has a fractional part; a channel "
+            "ID is an integer."
+        )
+    return key
 
 
 def _area_from_row(peak_channel_id, idx, row, electrodes_df: pd.DataFrame,
@@ -321,6 +329,7 @@ def _area_from_row(peak_channel_id, idx, row, electrodes_df: pd.DataFrame,
     if row is None:
         return None
 
+    areas = None
     try:
         # Check location or area columns in electrodes_df
         col_to_check = None
@@ -343,38 +352,57 @@ def _area_from_row(peak_channel_id, idx, row, electrodes_df: pd.DataFrame,
             if ',' not in loc_str and '/' not in loc_str:
                 return loc_str
 
-            # Multi-area probe (e.g. "V1, V2, V3" on one 128-channel
-            # probe): resolve by the channel's POSITION within the
-            # probe, not just the first listed area.
             areas = parse_probe_areas(loc_str)
 
             if len(areas) <= 1:
                 return loc_str.split(',')[0].strip()
-
-            group_col = 'group_name' if 'group_name' in electrodes_df.columns else col_to_check
-            probe_key = row.get(group_col)
-            # Only plain scalar keys are cached, so every cache key hashes.
-            cacheable = probe_key is None or isinstance(probe_key, (str, int, float, np.number))
-            probe_indices = probe_cache.get((group_col, probe_key)) if cacheable else None
-            if probe_indices is None:
-                probe_rows = electrodes_df[electrodes_df[group_col] == probe_key]
-                probe_indices = list(probe_rows.index)
-                if cacheable:
-                    probe_cache[(group_col, probe_key)] = probe_indices
-            n_channels_on_probe = len(probe_indices)
-            if n_channels_on_probe == 0:
-                return loc_str.split(',')[0].strip()
-
-            local_idx = probe_indices.index(idx)
-
-            edges = np.linspace(0, n_channels_on_probe, len(areas) + 1)
-            bin_idx = int(np.searchsorted(edges, local_idx, side='right')) - 1
-            bin_idx = min(max(bin_idx, 0), len(areas) - 1)
-            return areas[bin_idx]
     except (ValueError, KeyError, IndexError, TypeError) as e:
         log.debug(f"Failed to map peak channel {peak_channel_id} to area: {e}")
 
-    return None
+    if areas is None:
+        return None
+    # Outside the handler above, which would log a refusal and return None instead of raising.
+    # Multi-area probe (e.g. "V1, V2, V3" on one 128-channel probe): resolve by the channel's
+    # POSITION within the probe, not just the first listed area.
+    group_col = 'group_name' if 'group_name' in electrodes_df.columns else col_to_check
+    return _area_by_probe_position(idx, areas, group_col, row.get(group_col),
+                                   electrodes_df, probe_cache)
+
+
+def _area_by_probe_position(idx, areas: tuple, group_col: str, probe_key,
+                            electrodes_df: pd.DataFrame, probe_cache: dict) -> str:
+    """The area of channel ``idx`` on a multi-area probe, by its position along that probe.
+
+    The probe is the set of channels whose ``group_col`` value is ``probe_key``. A missing key,
+    or one no channel carries, is refused: no probe is named, so no position is known, and the
+    first listed area would be a guess for every contact.
+    """
+    # Only plain scalar keys are cached, so every cache key hashes.
+    cacheable = isinstance(probe_key, (str, int, float, np.number))
+    missing = probe_key is None or (np.ndim(probe_key) == 0 and bool(pd.isna(probe_key)))
+    if missing:
+        probe_indices = []
+    else:
+        probe_indices = probe_cache.get((group_col, probe_key)) if cacheable else None
+        if probe_indices is None:
+            probe_rows = electrodes_df[electrodes_df[group_col] == probe_key]
+            probe_indices = list(probe_rows.index)
+            if cacheable:
+                probe_cache[(group_col, probe_key)] = probe_indices
+    if not probe_indices:
+        listed = electrodes_df[group_col].dropna().unique().tolist()
+        raise ValueError(
+            f"_area_by_probe_position: probe key {probe_key!r} in column {group_col!r} matches "
+            f"no channel; listed keys: {listed!r}."
+        )
+    n_channels_on_probe = len(probe_indices)
+
+    local_idx = probe_indices.index(idx)
+
+    edges = np.linspace(0, n_channels_on_probe, len(areas) + 1)
+    bin_idx = int(np.searchsorted(edges, local_idx, side='right')) - 1
+    bin_idx = min(max(bin_idx, 0), len(areas) - 1)
+    return areas[bin_idx]
 
 
 _DEPTH_UNIT_SCALES: Dict[str, float] = {
@@ -676,10 +704,15 @@ def enrich_units_dataframe(
     # others. unit_id is an identity key for equality and isin comparisons (session.py
     # get_spike_times, factories.py dataset_from_session), and a string column fails every
     # one silently: df['unit_id'] == 156 is False when the stored value is '156.0'.
-    # Coerced here at the source.
-    for col in ['firing_rate', 'waveform_duration', 'snr', 'unit_id']:
+    # Coerced here at the source, but unit_id only when every id is numeric: a text id such as
+    # 'u1' would otherwise become NaN. A missing id does not count against the others.
+    for col in ['firing_rate', 'waveform_duration', 'snr']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+    if 'unit_id' in df.columns:
+        numeric_ids = pd.to_numeric(df['unit_id'], errors='coerce')
+        if (numeric_ids.notna() | df['unit_id'].isna()).all():
+            df['unit_id'] = numeric_ids
 
     # Ensure clean RangeIndex (0 to N-1) to guarantee row-position lookup in get_spike_times
     df = df.reset_index(drop=True)

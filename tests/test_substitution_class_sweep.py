@@ -740,11 +740,6 @@ ACCEPTED_HANDLER_RECOVERY = {
         "joblib absent -> serial list comprehension over the same fn, with a RuntimeWarning. "
         "Same results by the same function; only the scheduling differs, and n_jobs describes "
         "scheduling.",
-    ("addressing.py", "_resolve_electrode_row", "(ValueError, TypeError, OverflowError)",
-     (), True, 1):
-        "Returns (None, None) when the channel id will not convert to an integer. Absence: "
-        "_area_from_row returns None for a None row, so the unit gets area None and "
-        "depth_class 'Unknown'.",
     ("addressing.py", "_channel_key", "(ValueError, TypeError, OverflowError)", (), True, 1):
         "Returns None where _resolve_electrode_row would find nothing, the same conversion. "
         "Absence.",

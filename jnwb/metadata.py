@@ -1073,7 +1073,8 @@ def old_new_summary_table(
     curation pipelines. Not exported in top-level jnwb namespace.
     """
     cols = list(group_cols) + ["transition"]
-    summary = compared.groupby(cols).size().reset_index(name="n_units")
+    # dropna=False keeps a unit with a missing class in its own group, so the counts sum to the units.
+    summary = compared.groupby(cols, dropna=False).size().reset_index(name="n_units")
     return summary
 
 

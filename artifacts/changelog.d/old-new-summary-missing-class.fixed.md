@@ -1,0 +1,1 @@
+- `old_new_summary_table` counts units with a missing area or tier instead of dropping them (`jnwb/metadata.py`).

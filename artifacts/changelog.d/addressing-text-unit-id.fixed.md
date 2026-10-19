@@ -1,0 +1,1 @@
+- `enrich_units_dataframe` keeps text unit ids such as 'u1' instead of making them NaN (`jnwb/addressing.py`).

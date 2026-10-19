@@ -1246,3 +1246,18 @@ class TestUnitsMetadataWaiverAndObjectInput:
     def test_a_non_path_non_object_still_raises_type_error(self):
         with pytest.raises(TypeError):
             get_all_units_metadata(42)
+
+
+class TestOldNewSummaryTable:
+    def test_a_unit_with_a_missing_area_or_tier_is_still_counted(self):
+        from jnwb.metadata import old_new_summary_table
+
+        compared = pd.DataFrame({
+            "area": ["V1", None, "V1", "PFC"],
+            "quality_tier": ["A", "A", None, "B"],
+            "transition": ["gained", "lost", "unchanged_included", "gained"],
+        })
+        assert compared[["area", "quality_tier"]].isna().any(axis=1).sum() == 2, \
+            "the fixture must hold two units with a missing class"
+        summary = old_new_summary_table(compared)
+        assert summary["n_units"].sum() == len(compared)
