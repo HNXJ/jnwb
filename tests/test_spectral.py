@@ -1436,17 +1436,14 @@ class TestRelativePower:
     def test_device_fallback_warning_on_cuda_unavailability(self):
         """Requesting device='cuda' when unavailable emits RuntimeWarning and computes on CPU."""
         import warnings
-        import jnwb._backend as backend
         power = np.array([2.0, 4.0])
         baseline = np.array([1.0, 2.0])
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             res = relative_power(power, baseline, model="mean_of_ratios", axis=0, device="cuda")
-            # If CUDA is unavailable, RuntimeWarning is emitted by resolve_device
-            cuda_warnings = [r for r in record if issubclass(r.category, RuntimeWarning)]
-            if not backend.gpu_available():
-                assert len(cuda_warnings) >= 1
-                assert "device='cuda' was requested" in str(cuda_warnings[0].message)
+        cuda_warnings = [r for r in record if issubclass(r.category, RuntimeWarning)]
+        assert len(cuda_warnings) >= 1
+        assert "device='cuda' was requested" in str(cuda_warnings[0].message)
         assert res == pytest.approx(2.0)
 
 

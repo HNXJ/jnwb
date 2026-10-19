@@ -438,6 +438,7 @@ class TestTransferEntropy:
         result = transfer_entropy(x.astype(float), y.astype(float), k=1, l=1, delay=1,
                                    bins=4, n_surrogates=20, seed=0)
         assert isinstance(result, DirectedResult)
+        assert result.x_to_y > 0
 
     def test_the_symbolic_estimator_is_refused_and_points_to_quantile(self):
         """06-202: two noisy copies of one white source tested significant both ways under

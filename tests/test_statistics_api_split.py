@@ -152,7 +152,7 @@ class TestConfirmatoryCompare:
         )
         # With alpha=0.001 and same-distribution groups, confirmed should be False
         # (this is probabilistic; seed=0 makes it stable)
-        assert isinstance(r["confirmed_parametric"], bool)
+        assert r["confirmed_parametric"] is False
 
     def test_no_deprecated_keys(self):
         r = StatisticalAnalysis.confirmatory_compare(A, B, hypothesis=self.HYP)

@@ -74,6 +74,25 @@ class TestGrangercausalitytestsCompatibility:
         res = __import__("jnwb").jrsa(x, y, metric="granger_ssr_ftest", stats=False)
         assert res.value > 0
 
+    def test_compat_takes_the_no_verbose_branch_on_real_statsmodels(self):
+        """Runs the branch that omits verbose on any statsmodels, not only one that dropped it."""
+        import statsmodels.tsa.stattools as stattools
+
+        from jnwb.jrsa import _grangercausalitytests_compat
+
+        real = stattools.grangercausalitytests
+        seen: dict = {}
+
+        def without_verbose(data, maxlag):
+            seen.update(maxlag=maxlag)
+            return real(data, maxlag=maxlag)
+
+        data = np.random.default_rng(0).normal(size=(80, 2))
+        with patch.object(stattools, "grangercausalitytests", new=without_verbose):
+            res = _grangercausalitytests_compat(data, maxlag=2)
+        assert seen == {"maxlag": 2}
+        assert np.isfinite(res[2][1][1].aic)
+
 
 class TestApiMdDeterminism:
     def test_generator_passes_on_current_interpreter(self):

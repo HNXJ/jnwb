@@ -1,6 +1,5 @@
-"""Regression tests for P0-B (2026-08-17): jnwb.jrsa._pearson/_spearman/_procrustes used to
-fabricate r=0/p=1.0 (on insufficient-n) or disparity=1.0 (on any exception) instead of failing
-loudly. See artifacts/.lab/bug-jrsa-fabricated-failure-values-20260817.json.
+"""Regression tests: jnwb.jrsa._pearson/_spearman/_procrustes used to fabricate r=0/p=1.0
+(on insufficient-n) or disparity=1.0 (on any exception) instead of failing loudly.
 """
 from __future__ import annotations
 
