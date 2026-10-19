@@ -477,8 +477,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--smoke", action="store_true",
                         help="2 seeds and the first 2 parameters, for a quick check")
     args = parser.parse_args(argv)
-    if ROOT not in pathlib.Path(jnwb.__file__).resolve().parents:
-        raise SystemExit(f"jnwb was imported from {jnwb.__file__}, not from {ROOT}; "
+    expected = pathlib.Path(os.environ.get("JNWB_EXPECTED_PACKAGE_ROOT") or ROOT).resolve()
+    if expected not in pathlib.Path(jnwb.__file__).resolve().parents:
+        raise SystemExit(f"jnwb was imported from {jnwb.__file__}, not from {expected}; "
                          "the receipt would describe other code")
     started = time.perf_counter()
     if args.smoke:
