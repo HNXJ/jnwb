@@ -732,6 +732,10 @@ def jrsa(
     exec_meta = _make_exec_meta(bk, resolved_device, t0, random_state)
     exec_meta["null"] = null_scheme if permutation_p else None
     exec_meta["null_block_len"] = block_len if permutation_p and null_scheme == "block" else None
+    if permutation_p:
+        # NaN draws are left out of n. This counts them over every lag or window the null
+        # was formed for.
+        exec_meta["n_null_nan"] = int(np.count_nonzero(np.isnan(np.asarray(null_dist, dtype=float))))
     _n_axis = x1.shape[perm_axis]
     _overlap = [_n_axis - abs(int(l)) if x2 is not None else _n_axis for l in lags]
     exec_meta["n_overlap"] = _overlap[0] if len(lags) <= 1 else _overlap

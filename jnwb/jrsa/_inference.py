@@ -187,10 +187,13 @@ def _one_sided_parametric_p(value, p, alternative):
 def _p_from_null(value, null_dist, alternative):
     """Compute p-value from null distribution.
 
-    Returns NaN when the observed statistic or the whole null is non-finite. Comparisons
-    against NaN are all False, so the exceedance count was 0 and the p-value came out at
-    its own floor, ``1/(n+1)`` -- the *most* significant value the test can emit. A
-    constant input against a Gaussian one reported ``value: nan, p: 0.000999``.
+    ``n`` counts the draws that are not NaN: +inf and -inf are draws and count, a NaN draw
+    counts in neither ``n`` nor the exceedance count. Returns NaN when the observed
+    statistic is non-finite. A null whose every draw is NaN raises ValueError, since no
+    p-value can be formed from it. Comparisons against NaN are all False, so counting NaN
+    as a draw put the p-value at its own floor, ``1/(n+1)`` -- the *most* significant value
+    the test can emit. A constant input against a Gaussian one reported
+    ``value: nan, p: 0.000999``.
 
     Returns a 0-d array, matching `value`, `statistic` and `effect`. This used to return
     `np.atleast_1d(...)`, a shape-``(1,)`` array, for a result whose every other field was
@@ -207,11 +210,17 @@ def _p_from_null(value, null_dist, alternative):
     if hasattr(value, "get"):
         value = value.get()
     obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
-    null_dist = np.asarray(null_dist)
-    n = len(null_dist)
-    if not np.isfinite(obs) or n == 0 or not np.any(np.isfinite(null_dist)):
+    null_dist = np.asarray(null_dist, dtype=np.float64)
+    if not np.isfinite(obs) or null_dist.size == 0:
         return np.asarray(np.nan, dtype=np.float64)
-    k = _count_at_least_as_extreme(null_dist, obs, alternative)
+    draws = null_dist[~np.isnan(null_dist)]
+    if draws.size == 0:
+        raise ValueError(
+            f"_p_from_null: the permutation null has {null_dist.size} draws and every one is "
+            "NaN; none is finite, so no p-value can be formed."
+        )
+    n = int(draws.size)
+    k = _count_at_least_as_extreme(draws, obs, alternative)
     p = _p_from_count(k, n, alternative)
     return np.asarray(p, dtype=np.float64)
 

@@ -71,7 +71,8 @@ def _p_from_count(count, n_draws: int, alternative: str) -> float:
 
     One-sided: ``(1 + count) / (n_draws + 1)``. Two-sided: ``min(1, 2 min(p_greater, p_less))``,
     which is ``min(1, 2 (1 + count) / (n_draws + 1))`` for the smaller-tail count that
-    ``'two-sided'`` returns. ``n_draws`` counts every draw, NaN draws included.
+    ``'two-sided'`` returns. ``n_draws`` is the number of draws the count was taken over;
+    `_p_from_null` in :mod:`jnwb.jrsa` passes the draws that are not NaN.
     """
     if alternative not in _TAILS:
         raise ValueError(f"alternative must be one of {list(_TAILS)}; got {alternative!r}")

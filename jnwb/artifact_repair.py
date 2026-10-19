@@ -56,6 +56,8 @@ def flagged_to_intervals(flagged, fs, pad_ms=40.0, merge_gap_ms=100.0):
     deliberately distinct (see module docstring's METHOD section), so this pair is not a
     replacement for repair_lfp_trials, just its own canonical home.
     """
+    if flagged.size == 0:
+        return []
     d = np.diff(flagged.astype(np.int8))
     starts = list(np.where(d == 1)[0] + 1)
     ends = list(np.where(d == -1)[0] + 1)

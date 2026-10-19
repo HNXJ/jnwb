@@ -108,6 +108,13 @@ class TestIntervalHelpers:
         assert len(intervals) == 1
         assert intervals[0][0] <= 100 and intervals[0][1] >= 160
 
+    def test_empty_flagged_array_gives_the_same_empty_result_as_no_flags(self):
+        empty = np.zeros(0, dtype=bool)
+        assert empty.size == 0, "fixture must be empty"
+        no_flags = flagged_to_intervals(np.zeros(5, dtype=bool), fs=1000.0)
+        assert no_flags == []
+        assert flagged_to_intervals(empty, fs=1000.0) == no_flags
+
     def test_interpolate_intervals_ramps_between_anchors(self):
         seg = np.zeros((20, 2))
         seg[0:5, :] = 1.0

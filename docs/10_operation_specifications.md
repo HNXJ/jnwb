@@ -88,7 +88,7 @@ integer base seed, which the plan returns as `seed`.
   - Trial-aligned epochs: `(n_trials, n_channels, n_times)`
   - Time-frequency representations: `(n_trials, n_channels, n_freqs, n_times)` or `(n_channels, n_freqs, n_times)`
   - Spectral profiles: `(n_channels, n_freqs)`
-- Axis arguments default to explicit keywords (e.g., `axis=-1`, `aggregate_over=0`).
+- Axis arguments default to explicit keywords (e.g., `axis=-1`, `aggregate_over=None`).
 
 ### 6. Physical Units
 - Coordinates and electrode contact depths: **micrometers ($\mu\text{m}$)**.

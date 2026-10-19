@@ -1410,3 +1410,76 @@ class TestSimilarityEdges:
                 if source.path.name in ("_metrics.py", "_inference.py")
                 and "cupy" in source.text]
         assert held == []
+
+
+# ---------------------------------------------------------------------------
+# Permutation p: a NaN null draw is not counted in n; +/-inf is a draw; an all-NaN null is refused
+# ---------------------------------------------------------------------------
+
+def _pearson_with_null(monkeypatch, offsets, **kwargs):
+    """Public jrsa on a fixed pair, its permutation null replaced by the observed r plus
+    `offsets`, so every count the test relies on is known in advance."""
+    import sys
+    pair = np.random.default_rng(3)
+    x = pair.normal(size=40)
+    y = x + pair.normal(size=40)
+    r = float(oa.jrsa(x, y, metric="pearson", stats=False).value)
+    assert np.isfinite(r), "precondition: the observed r is finite"
+    draws = np.array([r + d for d in offsets], dtype=float)
+    monkeypatch.setattr(sys.modules["jnwb.jrsa"], "_permutation_test",
+                        lambda *args, **kw: draws.copy())
+    return oa.jrsa(x, y, metric="pearson", null="iid", permutations=draws.size,
+                   alternative="greater", **kwargs)
+
+
+def test_p_from_null_leaves_a_nan_draw_out_of_n():
+    from jnwb.jrsa._inference import _p_from_null
+
+    null = np.array([0.1, 0.2, 0.9, np.nan])
+    np.testing.assert_allclose(float(_p_from_null(0.5, null, "greater")), 0.5, rtol=1e-12)
+    np.testing.assert_allclose(float(_p_from_null(0.5, np.append(null, np.inf), "greater")),
+                               0.6, rtol=1e-12)
+
+
+def test_a_nan_null_draw_leaves_n_and_is_recorded_in_execution(monkeypatch):
+    res = _pearson_with_null(monkeypatch, [-1.0, -0.5, 0.5, np.nan])
+    np.testing.assert_allclose(float(res.p), 0.5, rtol=1e-12)
+    assert res.execution["n_null_nan"] == 1
+
+
+def test_a_plus_inf_null_draw_is_a_draw_and_stays_in_n(monkeypatch):
+    res = _pearson_with_null(monkeypatch, [-1.0, -0.5, 0.5, np.inf])
+    np.testing.assert_allclose(float(res.p), 0.6, rtol=1e-12)
+    assert res.execution["n_null_nan"] == 0
+
+
+def test_an_all_nan_null_is_refused_for_a_finite_observed_value(monkeypatch):
+    with pytest.raises(ValueError, match="none is finite"):
+        _pearson_with_null(monkeypatch, [np.nan] * 5)
+
+
+def test_a_metric_undefined_on_every_permutation_gives_nan_p_and_counts_each_draw():
+    x = np.full(20, 1.0)
+    y = np.random.default_rng(0).normal(size=20)
+    res = oa.jrsa(x, y, metric="pearson", null="iid", permutations=25, rng=0)
+    assert np.isnan(float(res.value)), "precondition: a constant input has no r"
+    assert np.isnan(float(res.p))
+    assert res.execution["n_null_nan"] == 25
+
+
+def test_n_null_nan_sums_over_lags():
+    x = np.full(30, 1.0)
+    y = np.random.default_rng(0).normal(size=30)
+    res = oa.jrsa(x, y, metric="pearson", lag=[0, 1, 2], null="iid", permutations=5, rng=0)
+    assert res.execution["n_null_nan"] == 3 * 5
+
+
+def test_n_null_nan_totals_over_windows_on_the_sliding_path():
+    rng = np.random.default_rng(4)
+    x1 = rng.normal(size=(60, 5))
+    x2 = rng.normal(size=(60, 5))
+    x1[12:24] = 1.0  # window 1 holds one repeated row, so every draw of its CKA is NaN
+    res = oa.jrsa(x1, x2, metric="cka", window=12, step=12, sliding=True, null="iid",
+                  permutations=99, rng=2)
+    assert not np.isfinite(res.value[1]), "precondition: window 1 has a non-finite value"
+    assert res.execution["n_null_nan"] == 99

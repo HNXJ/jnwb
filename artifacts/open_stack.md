@@ -63,13 +63,9 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
 | F-64 | med | `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md` | Every swept value of the 15 `curate_and_label` defaults gives the same counts (5 of 24 planted anchors within one pitch, 0 of 24 nulls graded A or B), though `smooth_um` moves 96 of 192 anchors, `min_lobe_amplitude` 38 and `min_lobe_um` 19 (raw record, per seed against the default). At the defaults all 24 planted anchors come from vFLIP (grades A 2, C 22) and miss by -420 to +917 um, so recovery on `synth_vflip2_crossover` probes is bounded by vFLIP, and the sweep cannot show whether a default is well placed |
-| F-65 | med | `jnwb/jrsa/_inference.py:211` (`_p_from_null`) | A NaN null draw stays in the denominator: 3 finite draws give p = 0.5, one NaN more gives 0.4; ruled 2026-10-19 to drop and report |
-| F-66 | low | `tests/test_jrsa.py:233` | `test_every_documented_correction_is_actually_accepted` asserts only the recorded name; with one p, `fdr_bh` and `bonferroni` both give q = p = 0.1818 |
-| F-67 | low | `tests/test_nwb_integrity.py:565` | The docstring blames pynwb for a wrong-block read; `_w27_write(order=(1, 0, 2, 3))` stores unit 1's block under unit 0, and pynwb returns the stored bytes |
-| F-68 | low | `jnwb/artifact_repair.py:57` (`flagged_to_intervals`, private) | Empty input raises `IndexError: index 0 is out of bounds` |
-| F-69 | low | `jnwb/nwb_io.py:150` (`_repair_builder`) | Bytes column names stay bytes and the three data columns are appended again as str, giving 9 names for 3; whether HDMF yields bytes names from a real file is unchecked |
-| F-70 | med | `jnwb/compression.py:459` (`_resolve_references`) | A reference whose target is absent from the destination is left pointing into the source with no warning; reading it raises `KeyError: 'Unable to open object by token'` |
-| F-71 | low | `docs/10_operation_specifications.md:91` | Lists `aggregate_over=0` under "Axis arguments default to" while `aggregate_to_db`'s default is None |
+| F-70 | med | `jnwb/compression.py:459`, `:463` to `:487` (`compress_fp32`) | A reference attribute under a top-level soft-link alias is left pointing into the source: reading `alias/holder` in the output raises `ValueError: Invalid HDF5 object reference`; a deleted target raises `KeyError` during compaction; the array-of-references and dataset-content branches leave the same raw reference with no warning |
+| F-72 | low | `jnwb/jrsa/_inference.py` (`_family_wise_p`) | Excludes +inf draws with `isfinite`, while `_p_from_null` keeps them as draws (ruled 2026-10-19: +inf is a valid draw) |
+| F-73 | low | `jnwb/connectivity/_common.py:210` | Passes `len(null)` to `_p_from_count`, so a NaN draw counts in n there; the 2026-10-19 jrsa ruling drops it (unchecked whether NaN draws arise) |
 
 The eight unconfirmed items were reproduced 2026-10-19: seven are F-65 to F-71; `test_laminar_curation.py:199` rejects contacts 19 to 21 around the planted sink at 20, which is the claim its name makes.
 

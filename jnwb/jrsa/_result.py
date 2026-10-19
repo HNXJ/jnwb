@@ -55,7 +55,8 @@ class JRSAResult:
     aligned_x2 : np.ndarray | None
         Internally aligned x2 (if return_input=True).
     execution : dict
-        Runtime metadata (backend, device, batch_size, runtime, memory, seed). What ran,
+        Runtime metadata (backend, device, batch_size, runtime, memory, seed, and
+        n_null_nan when a permutation null ran: the NaN draws, left out of n). What ran,
         not what was asked for; the request is in `parameters`.
     """
 

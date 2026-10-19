@@ -229,12 +229,37 @@ def test_the_docstring_parser_finds_a_plausible_list():
     assert len(set(listed)) == len(listed), f"duplicate entries: {listed}"
 
 
+def _independent_q(p, method):
+    """Adjusted p-values from the textbook formulas: scipy for the two FDR methods, the
+    closed forms for the rest. Not the statsmodels call `jrsa` makes."""
+    from scipy.stats import false_discovery_control
+
+    p = np.asarray(p, dtype=float)
+    m = p.size
+    if method in ("fdr_bh", "fdr_by"):
+        return false_discovery_control(p, method=method[len("fdr_"):])
+    if method == "bonferroni":
+        return np.minimum(1.0, m * p)
+    if method in ("holm", "holm-sidak"):
+        out = np.empty(m)
+        running = 0.0
+        for rank, idx in enumerate(np.argsort(p)):
+            factor = m - rank
+            adj = 1.0 - (1.0 - p[idx]) ** factor if method == "holm-sidak" else factor * p[idx]
+            running = max(running, min(1.0, adj))
+            out[idx] = running
+        return out
+    raise AssertionError(f"no independent formula for correction {method!r}")
+
+
 @pytest.mark.parametrize("method", _documented_corrections())
 def test_every_documented_correction_is_actually_accepted(method):
     """Discriminator for P-85, run against behaviour rather than against the map.
 
     `cluster` and `maxT` were documented and raised `ValueError`. Parametrised over the
     parsed docstring, so a future addition to the prose is checked the moment it is made.
+    The second half asks for a q on three p-values, since one p gives q = p for every
+    method and proves nothing about which one ran.
     """
     rng = np.random.default_rng(0)
     X = rng.normal(size=(6, 8, 20))
@@ -243,6 +268,18 @@ def test_every_documented_correction_is_actually_accepted(method):
         X, Y, metric="rsa", stats=True, permutations=10, null="iid", rng=0, correction=method
     )
     assert res.parameters["correction"] == method
+
+    x = np.random.default_rng(1).normal(size=60)
+    y = x + np.random.default_rng(2).normal(size=60)
+    res = jnwb.jrsa(x, y, metric="pearson", lag=[0, 1, 2], null="iid", permutations=200,
+                    rng=0, correction=method)
+    p = np.asarray(res.p, dtype=float).ravel()
+    assert p.size == 3, f"precondition: three lags give three p-values, got {p.size}"
+    if method == "none":
+        assert res.q is None
+        return
+    q = np.asarray(res.q, dtype=float).ravel()
+    np.testing.assert_allclose(q, _independent_q(p, method), rtol=1e-12, atol=0)
 
 
 def test_every_implemented_correction_is_documented():

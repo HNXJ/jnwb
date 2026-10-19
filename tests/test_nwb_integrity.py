@@ -563,9 +563,11 @@ def _w27_write(path, order=(0, 1, 2, 3), amps=_W27_AMPS, rows=_W27_ROWS):
 
 
 def test_pynwb_index_read_returns_another_units_block_without_warning(tmp_path):
-    """The defect #27 repairs nothing of: on a file whose blocks are stored out of unit
-    order, pynwb's indexed read returns another unit's block and warns nothing. Unit 0's
-    truth is 2 rows; it reads 3, the exact values of unit 1's block."""
+    """On a file whose blocks are stored out of unit order, the indexed read returns the
+    stored bytes and warns nothing. `_w27_write(order=(1, 0, 2, 3))` stores unit 1's block
+    under unit 0 and unit 0's under unit 1, so the wrong block is in the fixture itself; pynwb
+    only returns it. Unit 0's own block has 2 rows (amplitude 25); the read gives 3 rows, the
+    block of amplitude 40, which is unit 1's."""
     import warnings
 
     import pynwb
