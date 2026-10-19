@@ -106,7 +106,7 @@ DISCLOSURE_KEY = "surrogate_seed_entropy"
 #: The seed `cross_area_coherence` has always used, now visible in its signature.
 COHERENCE_DEFAULT_SEED = 42
 
-EXPECTED_TOTAL = 26
+EXPECTED_TOTAL = 28
 
 
 def _public_callables():
@@ -214,7 +214,7 @@ def test_exactly_these_three_present_none():
     )
 
 
-def test_the_other_twenty_show_the_seed_they_will_use():
+def test_the_others_show_the_seed_they_will_use():
     others = [(q, d) for q, d in _rng_parameters() if not _presents_none(d)]
     assert len(others) == EXPECTED_TOTAL - len(PRESENTS_NONE)
     for qualname, default in others:
