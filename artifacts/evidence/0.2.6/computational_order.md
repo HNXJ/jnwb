@@ -203,6 +203,7 @@ contradicts a written claim it appears in section 6.
 
 | spec | parameter | sizes | median times (ms) | exp | r2 | t-span | achieved | admissible | cls | gap |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `derive_tick_clock[n_ticks]` | n_ticks | 30000, 300000, 3000000, 12000000 | 0.3269, 1.584, 72.29, 223.1 | +1.16 | 0.971 | 682x | O(n) | T(n log n) | derived | agree |
 | `epoch_continuous[n_events]` | n_events | 2000, 6000, 20000, 60000 | 8.41, 22.2, 70.8, 213.2 | +0.95 | 0.999 | 25x | O(n) | T(E*W*C) | derived | CONSTANT |
 | `epoch_continuous[n_window_samples]` | n_window_samples | 3000, 10000, 30000, 100000 | 4.79, 10.1, 26.0, 84.2 | +0.82 | 0.990 | 18x | O(n) | T(E*W) | derived | agree |
 
@@ -755,7 +756,7 @@ algorithm column still describes the replaced code for both rows.
 
 | Category | Count |
 |---|---|
-| result container | 24 |
+| result container | 25 |
 | exception class | 13 |
 | constant | 5 |
 | stateful class | 4 |
@@ -765,7 +766,7 @@ algorithm column still describes the replaced code for both rows.
 | scalar input, domain-capped | 1 |
 | fixed-shape input | 1 |
 | plan description | 1 |
-| **Total** | **54** |
+| **Total** | **55** |
 
 | Export | Category | Reason |
 |---|---|---|
@@ -814,6 +815,7 @@ algorithm column still describes the replaced code for both rows.
 | `ContainerTypeContradictionWarning` | exception class | Warning subclass; construction is O(1) in every input dimension. |
 | `StatisticalAnalysis` | stateful class | Namespace class: no own __init__ ('__init__' in vars(...) is False), signature (), 0.07 us to construct. |
 | `TFRAnalyzer` | stateful class | TFRAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
+| `TickClock` | result container | frozen dataclass, no __post_init__, 4 scalar fields. |
 | `UnitAnalyzer` | stateful class | UnitAnalyzer defines no __init__; every member is a @staticmethod. Construction is O(1). Its static methods are not separate jnwb.__all__ names. |
 | `UnitNotFoundError` | exception class | Exception subclass; construction is O(1) in every input dimension. |
 | `VFlip2Result` | result container | frozen dataclass + DictAccessMixin (read-only accessors); no __post_init__. |

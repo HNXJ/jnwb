@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -55,23 +54,6 @@ class ClockCheckError(RuntimeError):
     """The derived LFP clock disagrees with the spikes by more than the stated bound."""
 
 
-@dataclass(frozen=True)
-class Clock:
-    """Map from LFP timestamp ticks to seconds on the spike clock, derived from the file."""
-
-    tick_step: float      # ticks between consecutive LFP samples
-    tick_rate: float      # ticks per second of the spike clock
-    first_tick: float     # timestamp of the recording's first LFP sample
-    offset_s: float       # spike-clock time of that sample
-
-    @property
-    def fs_hz(self) -> float:
-        return self.tick_rate / self.tick_step
-
-    def seconds(self, ticks) -> np.ndarray:
-        return self.offset_s + (np.asarray(ticks, dtype=np.float64) - self.first_tick) / self.tick_rate
-
-
 def read_excerpt(path: Path) -> dict:
     """Everything the analysis needs, as plain arrays, read in one pass."""
     from pynwb import NWBHDF5IO
@@ -103,27 +85,16 @@ def read_excerpt(path: Path) -> dict:
     }
 
 
-def derive_clock(lfp: dict, trains: list) -> Clock:
-    """Tick step from the timestamps; tick rate from the recording's span on both clocks.
+def derive_clock(lfp: dict, trains: list) -> jnwb.TickClock:
+    """The LFP clock from the file: the three LFP segments and every spike train.
 
     The LFP timestamps are integer ticks labeled seconds. The start and end series hold the
     recording's first and last LFP sample, and the spikes include the probe's first and last
     spike, so both spans cover the whole session and neither depends on how the excerpt was cut.
     """
-    steps = {float(s) for seg in lfp.values() for s in np.unique(np.diff(seg["ticks"]))}
-    if len(steps) != 1:
-        raise ClockCheckError(f"LFP timestamps are not uniformly stepped: {sorted(steps)[:5]}")
-    tick_step = steps.pop()
-    first_tick = float(lfp["start"]["ticks"][0])
-    tick_span = float(lfp["end"]["ticks"][-1]) - first_tick
-    spikes = np.concatenate([t for t in trains if t.size])
-    first_spike, last_spike = float(spikes.min()), float(spikes.max())
-    return Clock(
-        tick_step=tick_step,
-        tick_rate=tick_span / (last_spike - first_spike),
-        first_tick=first_tick,
-        offset_s=first_spike,   # first sample placed at the first spike; check_clock finds 6 to 9 ms
-    )
+    segments = [lfp[name]["ticks"] for name in SEGMENTS]
+    # The first sample is placed at the first spike; check_clock finds 6 to 9 ms.
+    return jnwb.derive_tick_clock(segments, trains)
 
 
 def xcorr_lag(trace: np.ndarray, times_s: np.ndarray, spikes: np.ndarray, fs: float) -> tuple:
@@ -143,7 +114,7 @@ def xcorr_lag(trace: np.ndarray, times_s: np.ndarray, spikes: np.ndarray, fs: fl
     return lags[best] / fs, float(r[best])
 
 
-def check_clock(clock: Clock, data: dict, good: np.ndarray) -> dict:
+def check_clock(clock: jnwb.TickClock, data: dict, good: np.ndarray) -> dict:
     """Refine the offset by spike-LFP cross-correlation in all three segments.
 
     The coupling channel is the one with the strongest correlation in the analysis window; the
@@ -202,7 +173,7 @@ def psth_by_layer(data: dict, onsets: np.ndarray, good: np.ndarray) -> dict:
     return {"t_ms": t_ms, "layers": out}
 
 
-def band_power_by_channel(data: dict, clock: Clock, onsets: np.ndarray) -> dict:
+def band_power_by_channel(data: dict, clock: jnwb.TickClock, onsets: np.ndarray) -> dict:
     window = data["lfp"]["window"]
     t0 = float(clock.seconds(window["ticks"][:1])[0])
     local = onsets - t0                    # seconds from the segment's first sample

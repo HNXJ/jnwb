@@ -217,6 +217,17 @@ def _effective_sample_size(n_samples: int, _tmp: Path) -> Callable[[], object]:
     return lambda: jnwb.effective_sample_size(x)
 
 
+def _derive_tick_clock(n_ticks: int, _tmp: Path) -> Callable[[], object]:
+    """Three segments of n/3 ticks at step 24, and 1000 spikes over the recording."""
+    import jnwb
+
+    third = max(1, n_ticks // 3)
+    segments = [24.0 * (np.arange(third) + k * 10 * third) for k in range(3)]
+    spikes = np.sort(np.random.default_rng(0).uniform(1.0, 2.0, 1000))
+    assert jnwb.derive_tick_clock(segments, spikes).tick_step == 24.0, "fixture must step"
+    return lambda: jnwb.derive_tick_clock(segments, spikes)
+
+
 def _cutoff(n: int, _tmp: Path) -> Callable[[], object]:
     from jnwb import unit_quality as uq
 
@@ -291,6 +302,11 @@ SPECS: Dict[str, Spec] = {
         "n_samples", (100_000, 400_000, 1_600_000, 6_400_000),
         "8 channels of white noise at fs=1000 (1 s trials, 1024-point FFT), contact_spacing=100 um",
         _vflip2_from_lfp,
+    ),
+    "derive_tick_clock[n_ticks]": Spec(
+        "n_ticks", (30_000, 300_000, 3_000_000, 12_000_000),
+        "three equal segments at tick step 24, 1000 spikes",
+        _derive_tick_clock,
     ),
     "effective_sample_size[n_samples]": Spec(
         "n_samples", (10_000, 100_000, 1_000_000, 4_000_000),

@@ -20,6 +20,8 @@ The "Addressing and metadata" routing rows live in [`references/addressing_and_m
 
 The "Compression and storage" routing rows live in [`references/compression_and_storage.md`](references/compression_and_storage.md).
 
+- Timestamps labelled seconds that hold acquisition ticks go to `jnwb.derive_tick_clock(tick_segments, spike_times)`, which returns a `jnwb.TickClock`; `seconds(ticks)` maps the ticks to session seconds. The tick segments and the spike times must each cover the whole recording, and the caller checks the offset, which is placed at the first spike.
+
 ## 3. Invariants & Safeguards
 1. **Discovery before selection:** call `inspect` to see interval table names and code columns;
    pass `table=` explicitly when more than one task-like table exists.

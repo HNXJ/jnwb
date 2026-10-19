@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import warnings
 from typing import Literal, Sequence
 
@@ -241,3 +242,136 @@ def epoch_continuous(
 
     epochs_arr = np.stack(epochs_list, axis=0)
     return (epochs_arr, time_axis_s, retained_arr) if return_indices else (epochs_arr, time_axis_s)
+
+
+@dataclass(frozen=True)
+class TickClock:
+    """Map from timestamp ticks to seconds on a spike clock, built by `derive_tick_clock`.
+
+    ``tick_step`` is the number of ticks between consecutive samples, ``tick_rate`` the ticks
+    per second on the spike clock, ``first_tick`` the timestamp of the first sample, and
+    ``offset_s`` that sample's time on the spike clock.
+    """
+
+    tick_step: float
+    tick_rate: float
+    first_tick: float
+    offset_s: float
+
+    @property
+    def fs_hz(self) -> float:
+        """Sampling rate of the series on the spike clock, in hertz."""
+        return self.tick_rate / self.tick_step
+
+    def seconds(self, ticks) -> np.ndarray:
+        """Spike-clock seconds of the tick timestamps `ticks`."""
+        ticks = np.asarray(ticks, dtype=np.float64)
+        return self.offset_s + (ticks - self.first_tick) / self.tick_rate
+
+
+def _spike_trains(spike_times) -> list[np.ndarray]:
+    """One spike train, or a sequence of them, as a list of float arrays."""
+    items = list(spike_times)
+    if items and np.ndim(items[0]) == 0:
+        items = [spike_times]
+    return [np.asarray(train, dtype=np.float64) for train in items]
+
+
+def derive_tick_clock(tick_segments: Sequence[np.ndarray], spike_times) -> TickClock:
+    """Derive the map from acquisition ticks to spike-clock seconds from one recording.
+
+    Use it for timestamps labelled seconds that hold integer acquisition ticks. The tick step
+    comes from the timestamps; the tick rate comes from the spans of both clocks.
+
+    Parameters
+    ----------
+    tick_segments:
+        1-D tick arrays in recording order. The first starts at the recording's first sample
+        and the last ends at its last, so the segments span the whole recording. Within each
+        segment consecutive ticks differ by one positive step, the same in every segment; the
+        gaps between segments are not checked.
+    spike_times:
+        One 1-D array of spike times in seconds, or a sequence of them. Their span must cover
+        the same recording as the tick segments.
+
+    Returns
+    -------
+    TickClock
+        ``tick_rate`` is the tick span over the spike span, ``first_tick`` the first tick of the
+        first segment, and ``offset_s`` the first spike. Placing the first sample at the first
+        spike is an assumption, not a measurement. The caller checks the offset against an
+        independent measure, such as spike-LFP coupling, before relying on it.
+
+    Raises
+    ------
+    ValueError
+        If there are no segments, a segment is empty or not 1-D, the tick step is not one
+        positive value across the segments, a tick or spike is not finite, there are fewer than two spikes, or
+        the spikes have zero span.
+    """
+    segments = list(tick_segments)
+    if not segments:
+        raise ValueError(
+            "derive_tick_clock: tick_segments is empty; pass the tick arrays in recording order"
+        )
+    ticks = []
+    for k, seg in enumerate(segments):
+        arr = np.asarray(seg, dtype=np.float64)
+        if arr.ndim != 1:
+            raise ValueError(
+                f"derive_tick_clock: tick_segments[{k}] must be 1-D, got shape {arr.shape}"
+            )
+        if arr.size == 0:
+            raise ValueError(f"derive_tick_clock: tick_segments[{k}] is empty")
+        bad = np.flatnonzero(~np.isfinite(arr))
+        if bad.size:
+            raise ValueError(
+                f"derive_tick_clock: tick_segments[{k}] holds {bad.size} non-finite tick(s); "
+                f"first at index {int(bad[0])}: {float(arr[bad[0]])!r}"
+            )
+        ticks.append(arr)
+    steps = {float(step) for arr in ticks for step in np.unique(np.diff(arr))}
+    if len(steps) != 1:
+        raise ValueError(
+            "derive_tick_clock: tick_segments do not share one uniform tick step; "
+            f"steps found (first five): {sorted(steps)[:5]}"
+        )
+    tick_step = steps.pop()
+    if tick_step <= 0:
+        raise ValueError(
+            f"derive_tick_clock: the tick step is {tick_step!r}; ticks must increase within "
+            "each segment"
+        )
+
+    trains = _spike_trains(spike_times)
+    for k, train in enumerate(trains):
+        if train.ndim != 1:
+            raise ValueError(
+                f"derive_tick_clock: spike_times[{k}] must be 1-D, got shape {train.shape}"
+            )
+    spikes = np.concatenate(trains) if trains else np.empty(0, dtype=np.float64)
+    if spikes.size < 2:
+        raise ValueError(
+            f"derive_tick_clock: spike_times holds {spikes.size} spike(s); "
+            "at least two are needed to set the tick rate"
+        )
+    bad = np.flatnonzero(~np.isfinite(spikes))
+    if bad.size:
+        raise ValueError(
+            f"derive_tick_clock: spike_times holds {bad.size} non-finite value(s); "
+            f"first at index {int(bad[0])}: {float(spikes[bad[0]])!r}"
+        )
+    first_spike, last_spike = float(spikes.min()), float(spikes.max())
+    if last_spike == first_spike:
+        raise ValueError(
+            f"derive_tick_clock: spike_times has zero span (every spike at {first_spike!r} s); "
+            "the tick rate is undefined"
+        )
+    first_tick = float(ticks[0][0])
+    tick_span = float(ticks[-1][-1]) - first_tick
+    return TickClock(
+        tick_step=tick_step,
+        tick_rate=tick_span / (last_spike - first_spike),
+        first_tick=first_tick,
+        offset_s=first_spike,
+    )
