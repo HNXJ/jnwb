@@ -159,6 +159,42 @@ class TestEpochContinuous:
         np.testing.assert_array_equal(epochs_sub[1], [2.0, 3.0])
         np.testing.assert_array_equal(epochs_sub[2], [4.0, 5.0])
 
+    def test_window_edges_are_containment_bounds(self):
+        """(-0.25, 0.25) s at 10 Hz holds the five samples at offsets -0.2 to 0.2 s."""
+        fs = 10.0
+        data = np.arange(100, dtype=np.float64)
+        # Precondition: both edges are exact halves, where round-half-to-even and containment differ.
+        assert -0.25 * fs == -2.5 and 0.25 * fs == 2.5
+        epochs, t_axis = epoch_continuous(data, onsets=[5.0], win_s=(-0.25, 0.25), fs=fs)
+        assert epochs.shape == (1, 5)
+        np.testing.assert_allclose(t_axis, [-0.2, -0.1, 0.0, 0.1, 0.2])
+        np.testing.assert_array_equal(epochs[0], data[48:53])
+
+    def test_a_product_just_above_an_integer_counts_as_that_integer(self):
+        fs = 100.0
+        # Precondition: 0.07 * 100 is 7 plus an ulp, so a plain ceiling would give 8 samples.
+        assert 0.07 * fs > 7.0
+        data = np.arange(1000, dtype=np.float64)
+        epochs, _ = epoch_continuous(data, onsets=[5.0], win_s=(0.0, 0.07), fs=fs)
+        assert epochs.shape == (1, 7)
+        np.testing.assert_array_equal(epochs[0], data[500:507])
+
+    def test_a_window_of_three_tenths_of_a_second_at_1000_hz_has_300_samples(self):
+        fs = 1000.0
+        data = np.arange(1000, dtype=np.float64)
+        epochs, _ = epoch_continuous(data, onsets=[0.5], win_s=(0.0, 0.3), fs=fs)
+        assert epochs.shape == (1, 300)
+        np.testing.assert_array_equal(epochs[0], data[500:800])
+
+    def test_a_symmetric_window_of_whole_samples_keeps_its_length(self):
+        fs = 1000.0
+        # Precondition: both edges are whole samples (-100 and 100), so nothing rounds.
+        assert -0.1 * fs == -100.0 and 0.1 * fs == 100.0
+        data = np.arange(1000, dtype=np.float64)
+        epochs, _ = epoch_continuous(data, onsets=[0.5], win_s=(-0.1, 0.1), fs=fs)
+        assert epochs.shape == (1, 200)
+        np.testing.assert_array_equal(epochs[0], data[400:600])
+
     def test_empty_onsets(self):
         fs = 1000.0
         data_1d = np.ones(500)

@@ -12,6 +12,17 @@ BoundaryPolicy = Literal["nan", "error", "drop"]
 OnsetUnit = Literal["seconds", "samples"]
 
 
+def _containment_sample(t_s: float, fs: float) -> int:
+    """Index of the first sample at or after `t_s` seconds, allowing for rounding in the product.
+
+    The tolerance is relative, so a product a few ulps above an integer gives that integer:
+    0.07 * 100 is 7.000000000000001, and the window (0, 0.07) s at 100 Hz holds 7 samples.
+    """
+    x = t_s * fs
+    eps = 1e-9 * max(1.0, abs(x))
+    return int(np.ceil(x - eps))
+
+
 def epoch_continuous(
     data: np.ndarray,
     onsets: np.ndarray | Sequence[float],
@@ -26,12 +37,20 @@ def epoch_continuous(
 
     Time-to-Sample Mapping
     ----------------------
-    Sample indices are computed from continuous timestamps using IEEE 754
-    round-half-to-even (banker's rounding):
+    The window edges are containment bounds: the window holds exactly the samples whose
+    times fall in the right-open interval :math:`[t_{\mathrm{pre}}, t_{\mathrm{post}})`.
+    Each edge is the first sample at or after its time:
 
     .. math::
-        n_{\mathrm{pre}} = \operatorname{round}(t_{\mathrm{pre}} \cdot f_s) \\
-        n_{\mathrm{post}} = \operatorname{round}(t_{\mathrm{post}} \cdot f_s) \\
+        n_{\mathrm{pre}} = \lceil t_{\mathrm{pre}} \cdot f_s \rceil \\
+        n_{\mathrm{post}} = \lceil t_{\mathrm{post}} \cdot f_s \rceil
+
+    A product within a relative tolerance of 1e-9 of an integer counts as that integer. At
+    10 Hz the window ``(-0.25, 0.25)`` s gives :math:`n_{\mathrm{pre}} = -2` and
+    :math:`n_{\mathrm{post}} = 3`, five samples. The onset sample index is computed from
+    continuous timestamps using IEEE 754 round-half-to-even (banker's rounding):
+
+    .. math::
         n_{\mathrm{center}} = \operatorname{round}(t_{\mathrm{onset}} \cdot f_s)
 
     The extraction window for each event spans the half-open sample interval:
@@ -102,8 +121,8 @@ def epoch_continuous(
     if t_pre >= t_post:
         raise ValueError(f"win_s[0] must be strictly less than win_s[1], got {win_s}")
 
-    n_pre = int(np.round(t_pre * fs))
-    n_post = int(np.round(t_post * fs))
+    n_pre = _containment_sample(t_pre, fs)
+    n_post = _containment_sample(t_post, fs)
     n_win = n_post - n_pre
     if n_win <= 0:
         raise ValueError(f"Window duration produced non-positive sample count: {n_win}")

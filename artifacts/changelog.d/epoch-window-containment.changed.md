@@ -1,0 +1,1 @@
+- [results change] `jnwb/continuous.py`: window edges are containment bounds, not rounded to even (deterministic).

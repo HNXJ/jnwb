@@ -269,17 +269,20 @@ def vflip2(
         orientation: ``"both"`` (default), ``"upright"`` or ``"inverted"``; the last two
             zero the goodness of windows with the other sign, as vFLIP2.m does.
         layer4_thickness_mm: Shortest window, in mm; default `LAYER4_THICKNESS_MM`.
-        omega_cut: The cut on omega, finite; vFLIP2.m fixes it at 6.
+        omega_cut: The cut on omega, finite; vFLIP2.m fixes it at 6, as here;
+            on noise-only synthetic probes it accepts 18 of 100, and 24 of 100 (95% CI 0.16 to
+            0.34) at matched SNR 0, so an accepted fit is not by itself evidence of a crossover.
 
     Returns:
         :class:`VFlip2Result`.
 
     Raises:
-        ValueError: `psd` not 2-D, `freqs` not matching or not uniform, a spacing or
-            thickness that is not finite and positive, an unknown orientation, a NaN row
-            inside the non-NaN rows, a non-NaN row with a non-finite or negative value, a
-            non-finite `omega_cut`, or a window whose low or high band falls only on
-            frequencies where every row in the window has zero power.
+        ValueError: `psd` not 2-D, `freqs` not matching or not uniform, a spacing that is
+            not finite and positive or above 200 um, a thickness that is not finite and
+            positive, an unknown orientation, a NaN row inside the non-NaN rows, a non-NaN
+            row with a non-finite or negative value, a non-finite `omega_cut`, or a window
+            whose low or high band falls only on frequencies where every row in the window
+            has zero power.
 
     References:
         Major, A. J., et al. (2025). A. J. Major et al. reply. Nature Neuroscience 29(2),
@@ -299,6 +302,8 @@ def vflip2(
         raise ValueError("freqs must be uniformly spaced and increasing")
     if not (np.isfinite(contact_spacing) and contact_spacing > 0):
         raise ValueError(f"contact_spacing must be finite and positive, got {contact_spacing}")
+    if contact_spacing > 200:
+        raise ValueError(f"vflip2: contact_spacing must be at most 200 um, got {contact_spacing}")
     layer4 = LAYER4_THICKNESS_MM if layer4_thickness_mm is None else float(layer4_thickness_mm)
     if not (np.isfinite(layer4) and layer4 > 0):
         raise ValueError(f"layer4_thickness_mm must be finite and positive, got {layer4}")

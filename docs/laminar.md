@@ -73,8 +73,10 @@ reproduces rather than fixes. It searches every window of rows at least one laye
 (0.586 mm by default), finds a low band (4-70 Hz) and a high band (40-150 Hz) where the two
 halves of the window differ, and scores the window by omega. The window is accepted when
 omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so they can be
-read. Omega counts frequency bins, so it changes with the bin width and frequency range of
-the PSD.
+read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
+24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence
+of a crossover. Omega counts frequency bins, so it changes with the bin width and frequency
+range of the PSD.
 
 Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,
 with more alpha-beta power, lies in the window's higher rows, and `"inverted"` when it lies

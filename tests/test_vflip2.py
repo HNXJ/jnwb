@@ -15,7 +15,8 @@ import numpy as np
 import pytest
 
 import jnwb
-from jnwb.laminar import VFlip2Result, vflip2
+from jnwb.laminar import VFlip2Result, vflip2, vflip2_from_lfp
+from jnwb.testing import synth_vflip2_crossover
 
 DOC = json.loads((Path(__file__).resolve().parent / "fixtures"
                   / "vflip2_matlab_reference.json").read_text(encoding="utf-8"))
@@ -183,6 +184,20 @@ def test_bad_scalar_arguments_are_refused(kwargs, match):
     args = {"contact_spacing": case["intdist"] * 1000.0, **kwargs}
     with pytest.raises(ValueError, match=match):
         vflip2(psd, _freqs(case, psd), **args)
+
+
+def test_a_contact_spacing_above_200_um_is_refused():
+    case, psd = _clean_psd()
+    with pytest.raises(ValueError, match=r"vflip2.*contact_spacing.*200"):
+        vflip2(psd, _freqs(case, psd), contact_spacing=200.5)
+
+
+def test_a_contact_spacing_of_200_um_still_searches_windows():
+    rec = synth_vflip2_crossover(n_channels=32, n_samples=5000, fs=1000.0, z0=16, rng=0)
+    # Precondition: the planted probe passes a window at 100 um, so a None at 200 um would
+    # mean the 200 um search found nothing.
+    assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=100.0).omega is not None
+    assert vflip2_from_lfp(rec.lfp, 1000.0, contact_spacing=200.0).omega is not None
 
 
 def test_non_uniform_freqs_are_refused():
