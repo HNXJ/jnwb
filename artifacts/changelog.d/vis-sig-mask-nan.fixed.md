@@ -1,0 +1,1 @@
+- `jnwb/vis/spectral.py`: a NaN cell in `sig_mask` raises ValueError; it was cast to True and marked.

@@ -1,0 +1,1 @@
+- `jnwb/vis/hierarchy.py`: NaN points leave the fit with a warning; a CI missing its value is drawn from its bounds.

@@ -1,0 +1,1 @@
+- `jnwb/vis/hierarchy.py`: the statistic note sits above the drawn data, including when every interval is negative.

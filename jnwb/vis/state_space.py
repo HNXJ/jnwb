@@ -188,10 +188,19 @@ def plot_rsm_heatmap(
         cmap: Colormap name.
         title: Panel title.
         colorbar_title: Title for colorbar.
+
+    Raises:
+        ValueError: ``rsm_matrix`` is not [len(condition_labels), len(condition_labels)].
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     rsm_matrix = np.asarray(rsm_matrix, dtype=float)
+    n_labels = len(condition_labels)
+    if rsm_matrix.shape != (n_labels, n_labels):
+        raise ValueError(
+            f"plot_rsm_heatmap: rsm_matrix shape {rsm_matrix.shape} does not match condition_labels "
+            f"({n_labels} labels); expected ({n_labels}, {n_labels})."
+        )
 
     cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
     heatmap = go.Heatmap(

@@ -9,6 +9,7 @@ jnwb.vis.laminar -- Laminar electrophysiology panels in pure Plotly.
 
 from __future__ import annotations
 
+import warnings
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -30,6 +31,19 @@ def _depth_axis_title(depth_unit: str) -> str:
     if not isinstance(depth_unit, str) or depth_unit not in _DEPTH_AXIS_TITLES:
         raise ValueError(f"depth_unit must be 'mm', 'um' or 'relative'; got {depth_unit!r}")
     return _DEPTH_AXIS_TITLES[depth_unit]
+
+
+def _warn_if_outside_depths(what: str, value, depths: np.ndarray) -> None:
+    """Warn when a depth-valued marker lies outside the depth range, where nothing is drawn for it."""
+    if value is None or not np.isfinite(value) or np.min(depths) <= value <= np.max(depths):
+        return
+    warnings.warn(
+        f"{what} {value:g} lies outside the depth range [{np.min(depths):g}, {np.max(depths):g}], "
+        "so nothing is drawn for it. A unit mismatch is the likely cause, for example micrometres "
+        "given for millimetre depths.",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 def _hz_band_text(argument: str, band) -> str:
@@ -81,7 +95,8 @@ def plot_spectrolaminar_map(
         crossover_depth: Depth of the gamma/alpha-beta crossover, computed from this
             recording (for example with ``jnwb.vflip``), in the units of ``depths``. No
             marker is drawn when None; there is no default value because the depth is
-            a property of each recording, not a constant.
+            a property of each recording, not a constant. A depth outside the range of
+            ``depths`` draws no marker and warns with a UserWarning.
         cmap: Plotly colormap name (default 'Magma').
         log_freq: If True, set frequency axis to log scale.
         title: Panel title.
@@ -174,6 +189,7 @@ def plot_spectrolaminar_map(
     y_dict["autorange"] = "reversed"
 
     # Layer 4 crossover dashed reference line
+    _warn_if_outside_depths("plot_spectrolaminar_map: crossover_depth", crossover_depth, depths)
     if crossover_depth is not None and np.min(depths) <= crossover_depth <= np.max(depths):
         line_trace = go.Scatter(
             x=[np.min(freqs), np.max(freqs)],
@@ -264,7 +280,8 @@ def plot_opposing_gradients(
 
     Raises:
         ValueError: ``depth_unit`` is not one of the three units, a profile's shape is not
-            the shape of ``depths``, or a band is not two finite numbers with low < high.
+            the shape of ``depths``, an interval array is not [n_depths, 2], or a band is not
+            two finite numbers with low < high.
     """
     depth_title = _depth_axis_title(depth_unit)
     gamma_text = _hz_band_text("gamma_band", gamma_band)
@@ -284,6 +301,11 @@ def plot_opposing_gradients(
     # Gamma CI envelope (fill='tonexty')
     if ci_gamma is not None:
         ci_gamma = np.asarray(ci_gamma, dtype=float)
+        if ci_gamma.shape != (depths.size, 2):
+            raise ValueError(
+                f"plot_opposing_gradients: ci_gamma shape {ci_gamma.shape} does not match depths shape "
+                f"{depths.shape}; expected {(depths.size, 2)}, one [lower, upper] pair per depth."
+            )
         # Lower bound
         canvas.fig.add_trace(
             go.Scatter(
@@ -316,6 +338,11 @@ def plot_opposing_gradients(
     # Alpha/Beta CI envelope
     if ci_alphabeta is not None:
         ci_alphabeta = np.asarray(ci_alphabeta, dtype=float)
+        if ci_alphabeta.shape != (depths.size, 2):
+            raise ValueError(
+                f"plot_opposing_gradients: ci_alphabeta shape {ci_alphabeta.shape} does not match depths "
+                f"shape {depths.shape}; expected {(depths.size, 2)}, one [lower, upper] pair per depth."
+            )
         canvas.fig.add_trace(
             go.Scatter(
                 x=ci_alphabeta[:, 0],
@@ -370,6 +397,7 @@ def plot_opposing_gradients(
     )
 
     # Layer 4 crossover dashed reference line
+    _warn_if_outside_depths("plot_opposing_gradients: crossover_depth", crossover_depth, depths)
     if crossover_depth is not None and np.min(depths) <= crossover_depth <= np.max(depths):
         x_max = np.nanmax([np.nanmax(gamma_power), np.nanmax(alphabeta_power)]) * 1.05
         canvas.fig.add_trace(
@@ -442,6 +470,7 @@ def plot_csd(
         time_ms: 1D array of time points relative to event (ms).
         depths: 1D array of cortical depths, in ``depth_unit``.
         layer_boundaries: Dictionary mapping layer names (e.g. 'L4', 'L5/6') to depth coordinates.
+            A boundary outside the range of ``depths`` is not drawn and warns with a UserWarning.
         cmap: Diverging colormap name (default 'RdBu_r' where blue is sink, red is source).
         title: Panel title, for example ``"Current Source Density"``. None draws no title.
         colorbar_title: Name of the quantity on the colorbar, for example ``"CSD"``; the
@@ -501,6 +530,7 @@ def plot_csd(
     # Layer boundary lines and labels
     if layer_boundaries:
         for layer_name, layer_depth in layer_boundaries.items():
+            _warn_if_outside_depths(f"plot_csd: layer boundary {layer_name!r}", layer_depth, depths)
             if np.min(depths) <= layer_depth <= np.max(depths):
                 canvas.fig.add_trace(
                     go.Scatter(

@@ -52,6 +52,8 @@ class EpistemicArgumentObject:
 
         if not isinstance(self.SOURCE_ARTIFACTS, (list, tuple)) or len(self.SOURCE_ARTIFACTS) == 0:
             raise ValueError("EpistemicArgumentObject: 'SOURCE ARTIFACTS' must be a non-empty list of paths/hashes.")
+        if any(not str(a).strip() for a in self.SOURCE_ARTIFACTS):
+            raise ValueError("EpistemicArgumentObject: 'SOURCE ARTIFACTS' entries must be non-empty strings.")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to canonical dictionary format."""

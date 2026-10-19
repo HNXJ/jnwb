@@ -1,0 +1,1 @@
+- `jnwb/vis/laminar.py`: a depth marker outside the depth range now warns; nothing is drawn for it, as before.

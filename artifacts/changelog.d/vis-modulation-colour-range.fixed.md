@@ -1,0 +1,1 @@
+- `jnwb/vis/spectral.py`: the modulation colour range ignores NaN; Granger and significance-mask shapes are checked.

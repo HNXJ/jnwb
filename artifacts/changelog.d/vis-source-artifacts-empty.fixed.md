@@ -1,0 +1,1 @@
+- `jnwb/vis/sidecar.py`: an empty SOURCE ARTIFACTS entry, such as an empty string, raises ValueError.

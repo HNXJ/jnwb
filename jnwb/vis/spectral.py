@@ -49,7 +49,8 @@ def plot_spectral_modulation_matrix(
         colorbar_title: Title for colorbar.
 
     Raises:
-        ValueError: ``delta_db_matrix`` does not have shape [len(areas), len(bands)].
+        ValueError: ``delta_db_matrix`` does not have shape [len(areas), len(bands)] or holds no
+            finite value, or ``sig_mask`` does not have that shape or holds a non-finite cell.
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
@@ -59,9 +60,25 @@ def plot_spectral_modulation_matrix(
             f"plot_spectral_modulation_matrix: delta_db_matrix shape {delta_db_matrix.shape} does not match "
             f"areas and bands; expected ({len(areas)}, {len(bands)})."
         )
+    if sig_mask is not None and np.shape(sig_mask) != (len(areas), len(bands)):
+        raise ValueError(
+            f"plot_spectral_modulation_matrix: sig_mask shape {np.shape(sig_mask)} does not match "
+            f"areas and bands; expected ({len(areas)}, {len(bands)})."
+        )
+    if sig_mask is not None and not np.isfinite(np.asarray(sig_mask, dtype=float)).all():
+        raise ValueError(
+            "plot_spectral_modulation_matrix: sig_mask holds a non-finite cell; a NaN would be "
+            "marked significant. Pass a boolean mask."
+        )
 
-    # Symmetric scale around zero
-    vmax = float(np.percentile(np.abs(delta_db_matrix), 98))
+    # Symmetric scale around zero, from the finite values only (a NaN is drawn as a gap)
+    finite_abs = np.where(np.isfinite(delta_db_matrix), np.abs(delta_db_matrix), np.nan)
+    if np.isnan(finite_abs).all():
+        raise ValueError(
+            "plot_spectral_modulation_matrix: delta_db_matrix holds no finite value; the colour range "
+            "needs at least one."
+        )
+    vmax = float(np.nanpercentile(finite_abs, 98))
     vmin = -vmax
 
     cb_cfg = canvas.get_colorbar_config(row, col, title=colorbar_title)
@@ -147,16 +164,31 @@ def plot_granger_spectra(
         ff_label: Legend label for the first-direction trace; name the areas here.
         fb_label: Legend label for the reverse-direction trace.
         title: Panel title.
+
+    Raises:
+        ValueError: ``gc_ff`` or ``gc_fb`` does not have the shape of ``freqs``, or
+            ``null_ribbon`` is not [len(freqs), 2].
     """
     x_axis, y_axis = canvas.get_axis_names(row, col)
 
     freqs = np.asarray(freqs, dtype=float)
     gc_ff = np.asarray(gc_ff, dtype=float)
     gc_fb = np.asarray(gc_fb, dtype=float)
+    for name, series in (("gc_ff", gc_ff), ("gc_fb", gc_fb)):
+        if series.shape != freqs.shape:
+            raise ValueError(
+                f"plot_granger_spectra: {name} shape {series.shape} does not match freqs shape "
+                f"{freqs.shape}; pass one value per frequency."
+            )
 
     # 1. Null ribbon (if provided)
     if null_ribbon is not None:
         null_ribbon = np.asarray(null_ribbon, dtype=float)
+        if null_ribbon.shape != (freqs.shape[0], 2):
+            raise ValueError(
+                f"plot_granger_spectra: null_ribbon shape {null_ribbon.shape} does not match freqs shape "
+                f"{freqs.shape}; expected {(freqs.shape[0], 2)}, one [lower, upper] pair per frequency."
+            )
         canvas.fig.add_trace(
             go.Scatter(
                 x=freqs,
