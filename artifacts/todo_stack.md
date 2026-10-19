@@ -35,7 +35,7 @@ lines.
 ## Lanes
 
 Three lanes run at once; a wave opens when the lanes it depends on have merged. Full suites run
-one at a time through `C:/Users/nejath/.claude/bin/suite_lock.py`.
+one at a time; on the maintainer's machine through its local `suite_lock.py`, elsewhere as `python -m pytest tests/ -q`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|

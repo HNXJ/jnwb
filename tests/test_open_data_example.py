@@ -156,7 +156,10 @@ def test_every_rate_the_analysis_uses_is_the_one_derived_from_the_file(
     assert {name for name, _ in seen} == {"band_power", "epoch_continuous", "xcorr_lag"}
     wrong = [(name, fs) for name, fs in seen if fs != pytest.approx(expected, rel=1e-9)]
     assert not wrong, f"{len(wrong)} calls used a rate other than the derived one: {wrong[:3]}"
-    n_expected = round(tutorial.POST_S[1] * expected) - round(tutorial.POST_S[0] * expected)
+    # The window edges are containment bounds, as epoch_continuous computes them.
+    from jnwb.continuous import _containment_sample
+    n_expected = (_containment_sample(tutorial.POST_S[1], expected)
+                  - _containment_sample(tutorial.POST_S[0], expected))
     assert res["lfp"]["epoch_n_samples"] == n_expected
 
 

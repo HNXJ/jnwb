@@ -95,3 +95,14 @@ Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F
 | F-62 | low | docs and comments | `docs/04_spectral_analysis_and_tfr.md:52` calls the `normalize=True` result a ratio (it is dB); `docs/02_paths_addressing_metadata.md:169` says a missing metric makes a unit Unknown (with a critical failure it is Poor); `CHANGELOG.md:96` contradicts itself on the bound at U = 5 and 6; `vis/theme.py:26` says 8 colours (9); `vis/hierarchy.py:105` says robust (OLS); `vis/laminar.py:348` crossover x_max is NaN when a trace holds NaN |
 
 Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
+
+## G. External snapshot audit 2026-10-19 (sol-critic, a zip of `origin/dev` before 62a0708f)
+
+F02 (vflip2 above 200 um) was repaired in 62a0708f; F03's agreement half is shown false (`fuse_laminar_anchors` emits only `unresolved` or `unavailable` and caps the grade at B, `jnwb/laminar_curation.py:406`); F04 was the reviewer's environment (pynwb and pytest-xdist absent); F05 was repaired in `artifacts/todo_stack.md`; F06 is 15-11, blocked on outside code; F07 is a property of a zip, covered by the R5 ruling.
+
+| Id | Sev | Where | Defect |
+|---|---|---|---|
+| G-01 | high | `skills/`, `docs/` | Audit F01: no sweep yet shows that no page claims more for an accepted vflip2 fit than the docstring now does (18 of 100 noise-only accepted; an accepted fit is not by itself evidence of a crossover) |
+| G-02 | med | `tests/test_vflip2.py` | Audit F02: the spacing bound is tested at 200 and 200.5 um only; add 199 and 201 um and a reversed-orientation case |
+| G-03 | med | `jnwb/laminar_curation.py`, `docs/10_operation_specifications.md` | Audit F03: `curate_and_label` passes no vflip2 anchor to the fusion and docs/10 does not say so; the repair is the 15-15 ruling |
+| G-04 | med | release closure | Audit F08: the closure pass checks each advertised scientific claim against the deferred rows, not only the deferred labels |
