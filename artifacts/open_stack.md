@@ -58,19 +58,14 @@ None. F-07 was ruled 2026-10-18; F-09, F-10, F-28 and F-36 on 2026-10-19 (`artif
 
 ### F2. Executable by agents
 
-Closed 2026-10-19: F-01 to F-07, F-09, F-25 to F-28, F-30, F-36, F-46 to F-48, F-55, F-56 (b286db16, 9dc35302, 5b5184f2, 62a0708f, 25e452d2, c8f70616); G-02 and G-03 (d1af0665). Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F-40, F-42, F-43, and two items of F-53. F-37 was shown false: `vflip_from_lfp` treats a channel with a NaN sample as bad, as its docstring says. A non-finite trial start is now refused at seven sites, checked by `tests/test_nonfinite_trial_starts_are_refused.py`.
+Closed 2026-10-19: F-10, F-20, F-22, F-24, F-49, F-61 (37775ce4, 1ab48ae1); F-01 to F-07, F-09, F-25 to F-28, F-30, F-36, F-46 to F-48, F-55, F-56 (b286db16, 9dc35302, 5b5184f2, 62a0708f, 25e452d2, c8f70616); G-02 and G-03 (d1af0665). Closed 2026-10-18: F-12 to F-17, F-19, F-21, F-23, F-29, F-31 to F-35, F-38 to F-40, F-42, F-43, and two items of F-53. F-37 was shown false: `vflip_from_lfp` treats a channel with a NaN sample as bad, as its docstring says. A non-finite trial start is now refused at seven sites, checked by `tests/test_nonfinite_trial_starts_are_refused.py`.
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| F-10 | med | `.github/workflows/workflow.yml` | As ruled 2026-10-19: one Linux CI leg generates `state.md` before pytest |
 | F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
-| F-20 | med | `jnwb/spectral/_psd.py:586` | `aperiodic_fit` r_squared on a flat spectrum is round-off over round-off (0.91 fixed, -1.5e9 knee); `spectral_tilt` returns NaN there |
-| F-22 | med | `jnwb/permutation.py:138`, `:152` | A NaN group label never matches `groups == g`, so its labels are never permuted and nothing is refused |
-| F-24 | med | `jnwb/onset_fitting.py:259` | A valid `min_amplitude` above the rise raises scipy's "initial guess outside bounds" |
 | F-41 | med | `tests/test_api_md_is_interpreter_independent.py:145` | The cross-interpreter byte check never runs in CI (no `JNWB_MATRIX_PYTHONS`; Linux legs have no `py`) |
 | F-44 | low | `jnwb/jrsa/_stages.py:404`, `:349` | An integer window width is off by one (5 gives 4 samples); the standardize warning says it "overrides and negates" normalize, and the output stays in [0, 1] |
 | F-45 | low | `jnwb/jrsa/_metrics.py:30`, `:50`, `:125` | The 1e-12 offset gives t = 4.2e6 at abs(r) = 1 (exact inf); the metric helpers truncate mismatched rows (unreachable through `jrsa`) |
-| F-49 | low | `jnwb/testing/synth.py:146` | A fixed 200-sample burn-in starts at 0.40 of the stationary variance (tau 0.5 s, fs 1 kHz); the docstring says stationary |
 | F-50 | low | `jnwb/unit_quality.py:681`, `jnwb/spiking.py:422`, `jnwb/continuous.py:114` | One or two spikes give contamination 0.0 with no reason; descending LFP timestamps drop every spike and the warning names the wrong window; an invalid `onset_unit` passes when onsets are empty |
 | F-51 | low | `jnwb/vis/canvas.py:112`, `:132`; `jnwb/vis/hierarchy.py:188` | "maximum 235 mm" only warns; `int()` maps rank 0.5 to '0' |
 | F-52 | low | docstrings | `gaussian_smooth_rate` returns float64 for float32 (`spiking.py:592`); `fdr_correct` flattens 2-D input against "same shape" (`statistics/_analysis.py:15`); `rng=1.5` with a seed raises ValueError, documented TypeError (`permutation.py:187`); `morlet_wavelet` "exactly for n_cycles >= 3" (0.99972 to 1.00004, `tfr.py:102`); the spectral-average Granger "returns the time-domain value" (0.0577 against 0.0601, `connectivity/_granger.py:866`); "No floor" above a 1e-4 floor (`laminar/_vflip.py:704`) |
@@ -80,8 +75,7 @@ Closed 2026-10-19: F-01 to F-07, F-09, F-25 to F-28, F-30, F-36, F-46 to F-48, F
 | F-58 | med | `jnwb/vis/laminar.py:159`, `:478` | A crossover or layer boundary outside the depth range is dropped with no warning (1200 um on mm depths draws nothing) |
 | F-59 | med | `jnwb/vis/hierarchy.py:107`, `:137`, `:171` | A NaN gives a NaN fit line and annotation with no warning; error-bar lengths go negative when a CI does not bracket its value; the annotation sits below the data when every `ci_high` is negative |
 | F-60 | med | `jnwb/vis/spiking.py:294`, `:70` | `plot_sorted_heatmap` accepts a `time_ms` of the wrong length; a sixth condition reuses the first colour |
-| F-61 | med | `docs/04_spectral_analysis_and_tfr.md:142` | The documented `aperiodic_fit` example passes the 0 Hz bin from `compute_psd` and raises |
-| F-62 | low | docs and comments | `docs/04_spectral_analysis_and_tfr.md:52` calls the `normalize=True` result a ratio (it is dB); `docs/02_paths_addressing_metadata.md:169` says a missing metric makes a unit Unknown (with a critical failure it is Poor); `CHANGELOG.md:96` contradicts itself on the bound at U = 5 and 6; `vis/theme.py:26` says 8 colours (9); `vis/hierarchy.py:105` says robust (OLS); `vis/laminar.py:348` crossover x_max is NaN when a trace holds NaN |
+| F-62 | low | `CHANGELOG.md:96` | The entry contradicts itself on the bound at U = 5 and 6 |
 
 Unconfirmed, kept for the next pass: non-finite null draws counted in n (`jrsa/_inference.py:145`); `test_laminar_curation.py:194` accepts any contact but 20; `test_jrsa_correctness.py:232` records the correction, not its effect; `test_nwb_integrity.py:565` pins pynwb's wrong-block read; `artifact_repair.py:57` IndexError on empty input; `nwb_io.py:150` bytes column names; `compression.py:459` a reference left raw when its target is absent; `docs/10_operation_specifications.md:91` `aggregate_over=0` against the signature's None.
 
@@ -91,5 +85,5 @@ F02 (vflip2 above 200 um) was repaired in 62a0708f; F03's agreement half is show
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| G-01 | high | `skills/`, `docs/` | Audit F01: no sweep yet shows that no page claims more for an accepted vflip2 fit than the docstring now does (18 of 100 noise-only accepted; an accepted fit is not by itself evidence of a crossover) |
+| G-01 | high | `skills/` | Swept 2026-10-19 (188 vflip2 mentions); the fusion's docstring and docs/10 row now state the null acceptance (c3addf1f). Left for amendment: `skills/jnwb-laminar/references/motif_crossover_and_layers.md:30-31` and `skills/jnwb-lfp-spectral/references/laminar_depth.md:5` present an accepted fit as an anchor with no null acceptance |
 | G-04 | med | release closure | Audit F08: the closure pass checks each advertised scientific claim against the deferred rows, not only the deferred labels |
