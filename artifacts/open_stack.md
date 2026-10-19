@@ -63,7 +63,6 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
 | F-18 | med | `jnwb/jrsa/_backends.py:86` | Complex input is cast to float64 and the imaginary part dropped, with only numpy's ComplexWarning |
-| F-41 | med | `tests/test_api_md_is_interpreter_independent.py:145` | The cross-interpreter byte check never runs in CI (no `JNWB_MATRIX_PYTHONS`; Linux legs have no `py`) |
 | F-44 | low | `jnwb/jrsa/_stages.py:404`, `:349` | An integer window width is off by one (5 gives 4 samples); the standardize warning says it "overrides and negates" normalize, and the output stays in [0, 1] |
 | F-45 | low | `jnwb/jrsa/_metrics.py:30`, `:50`, `:125` | The 1e-12 offset gives t = 4.2e6 at abs(r) = 1 (exact inf); the metric helpers truncate mismatched rows (unreachable through `jrsa`) |
 | F-54 | low | tests | The omission-boundary comparison skips on every CI leg (`test_addressing.py:568`): it needs the `omission` package, which no CI leg installs, and no committed fixture stands in |
