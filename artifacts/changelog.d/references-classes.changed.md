@@ -1,0 +1,1 @@
+- `docs/references.md` gains core texts and studies jnwb reproduces, each marked replicated or partially replicated.

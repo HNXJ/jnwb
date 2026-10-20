@@ -8,19 +8,13 @@ the papers by Bastos, Vezoli, Friston, Barnett and their coauthors on 2026-10-04
 sources on 2026-10-08, Major et al. 2025 and the Dryad dataset on 2026-10-13, the SciPy, CircStat, Pitman, Mann
 and Whitney, Efron, Shannon, Nawrot, Cunningham and Yu, Varma and Simon, Cortes and Vapnik,
 PREP, Leys, and Gerstein and Kiang sources on 2026-10-13, and Geyer 1992 on 2026-10-19). Each matched the title, authors and year of its Crossref record, except
-the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. Where
+the arXiv entries, matched to their DataCite records, Llobet et al. 2022, matched to bioRxiv's record of its version 1, and the Dryad dataset, matched to its DataCite record. The ISBNs of the core texts were checked on Open Library on 2026-10-20; each row gives the record's year, and names an edition only where the record does. The studies' DOIs were checked on Crossref on 2026-10-20, and Hill et al. (2011) against its article on PubMed Central. Where
 jnwb departs from the published result, the row and the docstring say how. The
 [Pitfalls](#pitfalls) table lists papers that state a pitfall rather than a method jnwb
 implements; the functions it names are those the pitfall concerns, and their docstrings do not
 cite it.
 
 ## Signal processing
-
-Filtering, convolution, sampling, the discrete Fourier transform and windowing follow the
-treatment in these two books, checked on Open Library:
-
-- Oppenheim, A. V., & Willsky, A. S. *Signals and Systems*. First published 1983.
-- Oppenheim, A. V., & Schafer, R. W. *Discrete-Time Signal Processing*. ISBN 978-0-13-198842-2.
 
 | Reference | Result implemented | Functions |
 |---|---|---|
@@ -153,6 +147,38 @@ convention.
 |---|---|---|
 | Bigdely-Shamlo, N., et al. (2015). The PREP pipeline: standardized preprocessing for large-scale EEG analysis. *Frontiers in Neuroinformatics* 9. [doi:10.3389/fninf.2015.00016](https://doi.org/10.3389/fninf.2015.00016) | Correlation-based bad-channel and bad-trial screening with robust statistics. jnwb flags median off-diagonal correlation as a robust-z low outlier against the other channels (or trials), not PREP's criteria; the cross-channel consensus that decides exclusion is jnwb's | `channel_correlation_matrix`, `bad_channels_from_correlation`, `trial_correlation_matrix`, `bad_trials_single_channel` |
 | Leys, C., et al. (2013). Detecting outliers: do not use standard deviation around the mean, use absolute deviation around the median. *Journal of Experimental Social Psychology* 49(4), 764-766. [doi:10.1016/j.jesp.2013.03.013](https://doi.org/10.1016/j.jesp.2013.03.013) | Outlier detection by absolute deviation around the median (MAD x1.4826), not SD around the mean. jnwb's thresholds, pooled global scales and one-sided defaults are its own; the cross-trial median substitution of flagged cells is not the paper's | `bad_channels_from_correlation`, `bad_trials_single_channel`, `detect_band_outliers`, `repair_band_artifacts`, `repair_lfp_trials` |
+
+## Core texts
+
+Textbooks that the implemented methods follow, with the topic jnwb takes from each.
+
+| Reference | What jnwb follows from it | Functions |
+|---|---|---|
+| Oppenheim, A. V., & Willsky, A. S. (1997). *Signals & systems*, 2nd ed. Prentice Hall. ISBN 9780138147570. | Convolution, sampling and filtering, as the filter functions follow them | `jnwb.bandpass_filter`, `jnwb.notch_filter`, `jnwb.complex_tfr` |
+| Oppenheim, A. V., & Schafer, R. W. (2010). *Discrete-time signal processing*, 3rd ed. Pearson. ISBN 9780131988422. | The discrete Fourier transform, windowing and filter design, as the spectral and filter functions follow them | `jnwb.compute_psd`, `jnwb.bandpass_filter`, `jnwb.notch_filter` |
+| Percival, D. B., & Walden, A. T. (1993). *Spectral analysis for physical applications: multitaper and conventional univariate techniques*. Cambridge University Press. ISBN 9780521435413. | Slepian (DPSS) tapers and the multitaper spectral estimate | `jnwb.compute_multitaper_psd` |
+| Bendat, J. S., & Piersol, A. G. (2010). *Random Data Analysis And Measurement Procedures*. John Wiley & Sons. ISBN 9780470248775. | Spectral estimates and the coherence function of random data | `jnwb.compute_psd`, `jnwb.cross_area_coherence` |
+| Mitra, P., & Bokil, H. (2007). *Observed Brain Dynamics*. Oxford University Press, USA. ISBN 9780195178081. | Multitaper spectra and coherence of neural time series | `jnwb.compute_multitaper_psd`, `jnwb.cross_area_coherence` |
+| Cohen, M. X. (2014). *Analyzing Neural Time Series Data: Theory and Practice*. The MIT Press. ISBN 9780262019873. | Morlet wavelet convolution for time-frequency power and phase | `jnwb.morlet_wavelet`, `jnwb.complex_tfr` |
+| Nunez, P. L., & Srinivasan, R. (2005). *Electric Fields of the Brain: The Neurophysics of EEG*. Oxford University Press, USA. ISBN 9780195050387. | Current source density across electrode contacts, from the second spatial difference of the potential | `jnwb.current_source_density_1d`, `jnwb.laplacian_reference` |
+| Grün, S., & Rotter, S. (2010). *Analysis of Parallel Spike Trains*. Springer London, Limited. ISBN 9781441956750. | Spike-count correlation and the Fano factor of parallel spike trains | `jnwb.spike_count_correlation`, `jnwb.fano_factor` |
+| Efron, B., & Tibshirani, R. J. (1993). *An introduction to the bootstrap*. Chapman & Hall. ISBN 9780412042317. | The percentile interval of the bootstrap | `jnwb.StatisticalAnalysis.bootstrap_ci` |
+| Good, P. I. (2004). *Permutation, Parametric, and Bootstrap Tests of Hypotheses*. Springer. ISBN 9780387202792. | Permutation tests: exhaustive sign flips and Monte Carlo p-values | `jnwb.cluster_permutation_test`, `jnwb.exact_sign_flip`, `jnwb.shuffle_pvalue_paired`, `jnwb.shuffle_pvalue_unpaired` |
+| Cover, T. M., & Thomas, J. A. (2005). *Elements of information theory*, 2nd ed. J. Wiley. ISBN 9780471241959. | Mutual information of discrete variables, and the conditional form behind transfer entropy | `jnwb.spike_mutual_information`, `jnwb.transfer_entropy` |
+| Hastie, T., Tibshirani, R., & Friedman, J. (2009). *The Elements of Statistical Learning: Data Mining, Inference, and Prediction*. Springer-Verlag New York. ISBN 9780387848570. | Cross-validation for model selection, nested around the linear support vector classifier | `jnwb.nested_cv_linear_svm` |
+| Fisher, N. I. (1993). *Statistical analysis of circular data*. Cambridge University Press. ISBN 9780521350181. | The mean resultant length and the Rayleigh test of circular data | `jnwb.phase_locking_index` |
+| Mardia, K. V., & Jupp, P. E. (2000). *Directional statistics*. J. Wiley. ISBN 9780471953333. | The mean resultant length of circular data | `jnwb.phase_locking_index` |
+
+## Studies jnwb reproduces
+
+A study is listed only with the test or evidence file that checks it; each row names the quantity checked and what is left out.
+
+| Reference | Result reproduced | Receipt |
+|---|---|---|
+| Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619) | **Partially replicated.** Overall kappa, .430 for 30 patients rated by six raters into five categories. The table is transcribed in the test from the R packages irr and lagree, not read from the paper; only the overall kappa is checked, to three decimals | `tests/test_spiking.py::TestFleissKappa::test_reproduces_the_worked_example_of_fleiss_1971`, runs in CI |
+| Hill, D. N., Mehta, S. B., & Kleinfeld, D. (2011). Quality metrics to accompany spike sorting of extracellular signals. *Journal of Neuroscience* 31(24), 8699-8705. [doi:10.1523/JNEUROSCI.0971-11.2011](https://doi.org/10.1523/JNEUROSCI.0971-11.2011) | **Replicated.** The worked example: $N/T$ = 10 Hz, $\tau_R$ = 3 ms, $\tau_C$ = 1 ms and $T$ = 1000 s with 20 violations give $f$ = 0.05, and the estimate equals the smaller root of the closed form at relative 1e-12. The paper gives no recording; the test builds the spike train that yields the violations | `tests/test_unit_quality.py::test_refractory_contamination_reproduces_the_worked_example_of_the_source`, runs in CI |
+| Major, A. J., et al. (2025). A. J. Major et al. reply. *Nature Neuroscience* 29(2), 284-286. [doi:10.1038/s41593-025-02168-x](https://doi.org/10.1038/s41593-025-02168-x). Code: Mendoza-Halliday, D., et al. (2023). vFLIP2.m, version 8 (2025-11-04). Dryad dataset. [doi:10.5061/dryad.9w0vt4bnp](https://doi.org/10.5061/dryad.9w0vt4bnp) | **Replicated.** The outputs of the published code vFLIP2.m (omega, goodness, bands and channels) for the three synthetic cases and the power example that have a window, and the empty result for the five cases without one, at relative 1e-9; the PSD and result from raw, trial-cut and cell LFP at the same tolerance. The check is the code's output, not a figure in the paper | `tests/test_vflip2.py::test_every_window_matches_matlab`, `tests/test_vflip2.py::test_below_the_cut_the_best_window_is_returned_and_refused`, `tests/test_vflip2.py::test_no_window_returns_an_empty_result` and `tests/test_vflip2_from_lfp.py::test_psd_and_result_match_vflip2_m`, runs in CI; `tests/test_vflip2_from_lfp.py::test_dryad_test_data_match_vflip2_m`, local (skipped in CI unless the Dryad data and reference are on disk) |
+| Siegle, J. H., et al. (2021). Survey of spiking in the mouse visual system reveals functional hierarchy. *Nature* 592(7852), 86-92. [doi:10.1038/s41586-020-03171-x](https://doi.org/10.1038/s41586-020-03171-x). Jia, X., et al. (2019). High-density extracellular probes reveal dendritic backpropagation and facilitate neuron classification. *Journal of Neurophysiology* 121(5), 1831-1847. [doi:10.1152/jn.00680.2018](https://doi.org/10.1152/jn.00680.2018) | **Partially replicated.** The waveform half-width, repolarization slope and spread (Jia et al.), and the amplitude cutoff, on fixed cases, as AllenInstitute `ecephys_spike_sorting` at commit 919992748a53 computes them. The check is that code's output, not a figure in either paper; the duration, SNR and presence ratio of Siegle et al. are not checked | `tests/test_unit_quality.py::test_the_waveform_measures_reproduce_the_source_on_a_fixed_unit` and `tests/test_unit_quality.py::test_the_amplitude_cutoff_reproduces_the_source_on_fixed_amplitudes`, runs in CI |
 
 ## Pitfalls
 

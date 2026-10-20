@@ -225,10 +225,16 @@ def read_constants(text: str) -> Dict[str, List[str]]:
 
 
 #: A method table's functions implement the row's result; a pitfall table's are those its
-#: pitfall concerns. No other table header is allowed, so a new form cannot escape either
-#: check. ``tests/test_references_resolve.py`` imports this parser, so one parser exists.
+#: pitfall concerns. A core-text table's are the functions that follow the book. A reproduction
+#: table's third cell is its receipt, so only the method and pitfall tables enter the graph. No
+#: other table header is allowed, so a new form cannot escape either check.
+#: ``tests/test_references_resolve.py`` imports this parser, so one parser exists.
 METHOD_HEADER = ("Reference", "Result implemented", "Functions")
 PITFALL_HEADER = ("Reference", "Pitfall stated", "Functions it concerns")
+CORE_HEADER = ("Reference", "What jnwb follows from it", "Functions")
+REPRODUCTION_HEADER = ("Reference", "Result reproduced", "Receipt")
+#: The tables whose functions enter the fact graph.
+FUNCTION_HEADERS = (METHOD_HEADER, PITFALL_HEADER)
 #: A DOI link on the references page. The target may hold one level of balanced parentheses,
 #: as Markdown allows and the SICI-style DOI of Torrence & Compo (1998) needs.
 PAGE_LINK = re.compile(r"\[doi:([^\]]+)\]\(https://doi\.org/((?:[^()\s]|\([^()\s]*\))+)\)")
@@ -254,7 +260,8 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
         cells = [c.strip() for c in line.strip("|").split("|")]
         if cells and cells[0] == "Reference":
             header = tuple(cells)
-            assert header in (METHOD_HEADER, PITFALL_HEADER), f"unknown table header: {line}"
+            assert header in (*FUNCTION_HEADERS, CORE_HEADER, REPRODUCTION_HEADER), (
+                f"unknown table header: {line}")
             continue
         assert len(cells) == 3, f"a references row does not have three cells: {line[:80]}"
         assert header is not None, f"a references row sits under no header: {line[:80]}"
@@ -264,10 +271,12 @@ def reference_table_rows(text: str) -> List[Tuple[Tuple[str, ...], str, str, str
 
 def reference_rows(text: str, header: Optional[Tuple[str, ...]] = None
                    ) -> List[Tuple[str, str, str]]:
-    """``(reference, result, functions)`` for the rows under ``header``, or under any header."""
+    """``(reference, result, functions)`` for the rows under ``header``, or, with none, for the
+    method and pitfall rows: the tables whose third cell lists functions."""
+    wanted = FUNCTION_HEADERS if header is None else (header,)
     return [(reference, result, functions)
             for under, _, reference, result, functions in reference_table_rows(text)
-            if header is None or under == header]
+            if under in wanted]
 
 
 def reference_row_doi(reference_cell: str) -> str:
@@ -294,6 +303,8 @@ def read_references(text: str) -> Tuple[Dict[str, Dict[str, Any]], List[List[str
     references: Dict[str, Dict[str, Any]] = {}
     cited, concerned = set(), set()
     for header, section, reference, _, functions in reference_table_rows(text):
+        if header not in FUNCTION_HEADERS:
+            continue  # a core text or a reproduction names no graph edge
         doi = reference_row_doi(reference)
         names = reference_functions(functions)
         entry = references.setdefault(doi, {"section": section, "functions": []})
