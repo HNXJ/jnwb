@@ -3,11 +3,11 @@
     python scripts/calibrate_curation.py [--n-seeds 24] [--n-jobs -1] [--out DIR] [--smoke]
 
 Each parameter in ``SWEPT`` moves alone to 0.5, 0.75, 1, 1.5 and 2 times its default, with every
-other argument held. The probes come from the planted-crossover generator
-``synth_vflip2_crossover`` only; the null is the same draws with ``snr=0``. A planted probe is
-recovered when its ``anchor_um`` lies within one contact pitch of the truth, whatever its grade; a
-second column counts grades A to D only. A null probe is accepted when it is graded A or B.
-``--smoke`` runs 2 seeds and the first 2 parameters.
+other argument held. The probes come from ``jnwb.testing.synth_laminar_motif`` only; the null is
+the same draws with ``snr=0``. A planted probe is recovered when its ``anchor_um`` lies within one
+contact pitch of the truth, whatever its grade; a second column counts grades A to D only. A null
+probe is accepted when it is graded A or B. ``--smoke`` runs 2 seeds and the first 2 parameters,
+prints the result and writes nothing.
 
 Writes ``curation_calibration_0.2.13.md`` and ``curation_calibration_0.2.13_raw.json`` to
 ``artifacts/benchmarks/calibration`` (or ``--out``). The JSON records a SHA-256 over the code
@@ -27,6 +27,7 @@ import pathlib
 import platform
 import sys
 import time
+from collections import Counter
 
 import numpy as np
 import scipy
@@ -42,18 +43,20 @@ elif str(ROOT) not in sys.path:
 import jnwb  # noqa: E402
 from jnwb._parallel import parallel_map  # noqa: E402
 from jnwb.laminar_curation import curate_and_label  # noqa: E402
-from jnwb.testing import synth_vflip2_crossover  # noqa: E402
+from jnwb.testing import synth_laminar_motif  # noqa: E402
 from scripts import calibrate_xflip as _xflip_receipt  # noqa: E402
 
 RELEASE = "0.2.13"
 STEM = f"curation_calibration_{RELEASE}"
 OUT_DIR = ROOT / "artifacts" / "benchmarks" / "calibration"
+GENERATOR = "jnwb.testing.synth_laminar_motif"
+GENERATOR_ARGS = ("orientation", "gamma_freq", "beta_freq")  # left at the generator's defaults
 FS = 1000.0
 PITCH_UM = 100.0
 N_CONTACTS = 32
 N_EPOCHS = 40
 N_SAMPLES = 1000
-SNR = 4.0
+SNR = 20.0  # the recoverable-alternative SNR of scripts/calibrate_vflip.py (ALT_SNR)
 Z0_RANGE = (10, 21)  # contacts, both ends included
 RECOVERY_TOL_UM = PITCH_UM  # one contact pitch, bound included
 ACCEPTED_GRADES = ("A", "B")
@@ -99,22 +102,28 @@ def estimator_sha256() -> str:
     return _xflip_receipt.estimator_sha256(curate_and_label)
 
 
-def _probe(seed: int, planted: bool) -> tuple[int, np.ndarray]:
-    """The crossover contact and the (contacts, epochs, samples) recording of one probe."""
+def _probe(seed: int, planted: bool) -> tuple[float, float, np.ndarray]:
+    """The crossover contact, its depth in um from the generator's receipt, and the
+    (contacts, epochs, samples) recording of one probe. Each epoch is one successive draw of
+    ``synth_laminar_motif`` from the seed's generator."""
     gen = np.random.default_rng(seed)
     z0 = int(gen.integers(Z0_RANGE[0], Z0_RANGE[1] + 1))
     snr = SNR if planted else 0.0
-    epochs = [synth_vflip2_crossover(N_CONTACTS, N_SAMPLES, FS, z0=z0, snr=snr, rng=gen).lfp
-              for _ in range(N_EPOCHS)]
-    return z0, np.ascontiguousarray(np.transpose(np.array(epochs), (1, 0, 2)))
+    receipts = [synth_laminar_motif(N_CONTACTS, N_SAMPLES, FS, c_crossover=float(z0),
+                                    pitch_um=PITCH_UM, snr=snr, rng=gen)
+                for _ in range(N_EPOCHS)]
+    epochs = [receipt.lfp for receipt in receipts]
+    return (receipts[0].crossover_contact, receipts[0].crossover_depth_um,
+            np.ascontiguousarray(np.transpose(np.array(epochs), (1, 0, 2))))
 
 
 def _run_one(job: tuple) -> dict:
     """One trial: a probe through ``curate_and_label`` with one argument moved, or none."""
     name, value, seed, planted = job
-    z0, lfp = _probe(seed, planted)
-    truth = PITCH_UM * z0 if planted else None
-    keys = {"param": name, "value": value, "seed": seed, "planted": planted, "z0": z0,
+    contact, depth, lfp = _probe(seed, planted)
+    truth = depth if planted else None
+    keys = {"param": name, "value": value, "seed": seed, "planted": planted,
+            "z0": int(contact), "crossover_contact": contact, "crossover_depth_um": depth,
             "truth_um": truth}
     kwargs = {} if name is None else {name: value}
     try:
@@ -223,6 +232,12 @@ def offset_distribution(trials: list) -> dict:
     return out
 
 
+def _generator_defaults() -> dict:
+    """The generator arguments this script leaves at their signature defaults."""
+    parameters = inspect.signature(synth_laminar_motif).parameters
+    return {name: parameters[name].default for name in GENERATOR_ARGS}
+
+
 def _held_inputs() -> dict:
     """Each argument of ``curate_and_label`` that is not swept, with its signature default.
     ``pitch_um`` and ``compute_xflip`` are fixed by this script."""
@@ -276,7 +291,8 @@ def run(n_seeds: int, n_jobs: int, params: tuple) -> dict:
         "held": _held_inputs(),
         "fixed": {"fs": FS, "pitch_um": PITCH_UM, "compute_xflip": False,
                   "n_contacts": N_CONTACTS, "n_epochs": N_EPOCHS, "n_samples": N_SAMPLES,
-                  "snr_planted": SNR, "snr_null": 0.0, "z0_range": list(Z0_RANGE)},
+                  "snr_planted": SNR, "snr_null": 0.0, "z0_range": list(Z0_RANGE),
+                  "generator": GENERATOR, "generator_defaults": _generator_defaults()},
         "recovery_tolerance_um": RECOVERY_TOL_UM,
         "accepted_grades": list(ACCEPTED_GRADES),
         "null_means": NULL_MEANS,
@@ -324,6 +340,12 @@ def render(data: dict) -> str:
     n_refused = sum(row["n_refused"] for name in data["params"]
                     for row in data["summary"][name]["rows"])
     flag_text = ", ".join(f"`{name}`" for name in data["flagged"]) or "none"
+    counts = ("k_recovered", "k_recovered_ad", "k_accepted")
+    unmoved = [name for name, summary in data["summary"].items()
+               if len({tuple(row[k] for k in counts) for row in summary["rows"]}) == 1]
+    at_default = Counter(str(t.get("anchor_source")) for t in trials
+                         if t["planted"] and t["param"] is None and not t["refused"])
+    sources = ", ".join(f"{name} {n}" for name, n in sorted(at_default.items())) or "none"
     lines = [
         "# Curation calibration: defaults of `curate_and_label`",
         "",
@@ -333,25 +355,31 @@ def render(data: dict) -> str:
          f"{len(trials)} trials. Environment: jnwb {env['jnwb']}, numpy {env['numpy']}, "
          f"scipy {env['scipy']}, Python {env['python']}."),
         "",
-        "All recordings are synthetic: `jnwb.testing.synth_vflip2_crossover` and its null. "
+        "All recordings are synthetic: `jnwb.testing.synth_laminar_motif` and its null. "
         "No project session is used.",
         "",
         "## Method",
         "",
-        "- Probe: 32 contacts at fs 1000 Hz. The crossover contact `z0` is drawn uniformly from 10 "
-        "to 21, both ends included, from the seed's generator; the planted probe has `snr=4`. The "
-        "null is the same draws with `snr=0`, so it shares the planted probe's background and "
-        "sources.",
+        "- Probe: 32 contacts at fs 1000 Hz, pitch 100 um. `jnwb.testing.synth_laminar_motif` is "
+        "called with `c_crossover` equal to the crossover contact `z0`, which is drawn uniformly "
+        "from 10 to 21, both ends included, from the seed's generator. The planted probe has "
+        f"`snr={SNR:g}`; the null is the same draws with `snr=0`, so it shares the planted probe's "
+        "background and sources. The other generator arguments are at their defaults ("
+        + ", ".join(f"`{name}` {value}" for name, value in data["fixed"]["generator_defaults"].items())
+        + "), with no bad channels.",
+        f"- Planted SNR: {SNR:g}, the `ALT_SNR` of `scripts/calibrate_vflip.py`. vFLIP's median error "
+        "at that SNR is 1.23 contacts (`artifacts/benchmarks/calibration/vflip_calibration_0.2.4.md`, "
+        "SNR sweep). That is a reference for vFLIP's own calibration, not a bound on the anchor here.",
         "- Epoch layout: `curate_and_label` takes (channels, epochs, samples), and the generator "
-        "returns (channels, samples). Each probe is therefore 40 epochs of 1000 samples, and each "
-        "epoch is one successive draw of the generator at the probe's `z0` and `snr`. This is the "
-        "layout of `tests/test_laminar_curation.py` (`synth`: `n_ep=40`, `n_s=1000`), used as the "
-        "fallback the calibration packet names.",
-        "- Truth: 100 * `z0` um. `anchor_um` is `crossover_contact * pitch` "
+        "returns (channels, samples). Each probe is therefore 40 epochs of 1000 samples, each one "
+        "successive draw of the generator at the probe's `z0` and `snr`, as in "
+        "`tests/test_laminar_curation.py` (`synth`: `n_ep=40`, `n_s=1000`).",
+        "- Truth: `crossover_depth_um` in the generator's receipt, which is `crossover_contact` "
+        "times the pitch. `anchor_um` is `crossover_contact * pitch` "
         "(`jnwb/laminar_curation.py:957`). `crossover_contact` is a 0-based row index "
-        "(`jnwb/laminar/_vflip.py:639-653`), and the planted band weights are equal at contact "
-        "`z0` (`jnwb/testing/synth.py:587-588`). Positions run from the first contact, with no "
-        "half-pitch offset.",
+        "(`jnwb/laminar/_vflip.py:639-653`); the generator's band weights are 0.5 and 0.5 at the "
+        "crossover contact (`jnwb/testing/synth.py`, `synth_laminar_motif`). Positions run from the "
+        "first contact, with no half-pitch offset.",
         "- Recovery: `|anchor_um - truth_um| <= 100` um, one pitch with the bound included. A "
         "NaN anchor is not recovered. The grade does not enter this column: a grade F anchor is "
         "the motif crossing, kept with no claim on it, and counts here when it lies within the "
@@ -385,6 +413,9 @@ def render(data: dict) -> str:
         f"- Trials: {len(trials)}; planted {n_planted}, null {len(trials) - n_planted}; "
         f"refused {n_refused}.",
         f"- FLAGGED: {flag_text}.",
+        f"- Parameters whose every swept value gives the default's three counts: "
+        f"{len(unmoved)} of {len(data['summary'])}.",
+        f"- Anchor source of the planted probes at the defaults: {sources}.",
         "",
         "## FLAGGED rows",
         "",
@@ -448,21 +479,22 @@ def render(data: dict) -> str:
         "- Defaults and held inputs: `inspect.signature(curate_and_label)`, read at run time "
         "(`jnwb/laminar_curation.py:672`; raw keys `defaults` and `held`).",
         "- Factors, seeds, epoch and sample counts, `z0` range, pitch, fs, snr, recovery tolerance "
-        "and accepted grades: constants of `scripts/calibrate_curation.py`, set by the calibration "
-        "packet (raw key `fixed`).",
+        "and accepted grades: constants of `scripts/calibrate_curation.py` (raw key `fixed`). The "
+        "generator and its defaults: `inspect.signature(synth_laminar_motif)`, read at run time "
+        "(raw keys `fixed.generator` and `fixed.generator_defaults`).",
         "- Counts and rates: recomputed from `trials` in the raw record; intervals by "
         "`jnwb.clopper_pearson`.",
         "- Offsets and the second recovery column: raw keys `offsets`, `recovery_grades` and "
         "`recovery_tolerance_um`; the offsets come from the planted default trials, by "
         "`offset_distribution`.",
         "- Truth and anchor: `jnwb/laminar_curation.py:957`, `jnwb/laminar/_vflip.py:639-653`, "
-        "`jnwb/testing/synth.py:587-588`.",
-        "- Planted and null probes: `jnwb/testing/synth.py:513` (`synth_vflip2_crossover`).",
+        "`jnwb/testing/synth.py` (`synth_laminar_motif`).",
+        "- Planted and null probes: `jnwb/testing/synth.py` (`synth_laminar_motif`).",
         "- Epoch layout: `tests/test_laminar_curation.py:30`.",
         "- Hash: `scripts/calibrate_xflip.py`, `estimator_sha256`, the rule that "
         "`scripts/calibrate_vflip.py` also uses.",
-        "- Declared version: `jnwb/__init__.py:14` (raw key `declared_version`); release from the "
-        "calibration packet.",
+        "- Declared version: `jnwb/__init__.py:14` (raw key `declared_version`); release set in "
+        "`scripts/calibrate_curation.py`.",
         "- Versions: raw key `environment`.",
     ]
     return "\n".join(lines) + "\n"
@@ -487,11 +519,15 @@ def main(argv: list[str] | None = None) -> int:
     else:
         n_seeds, params = args.n_seeds, SWEPT
     data = run(n_seeds, args.n_jobs, params)
-    args.out.mkdir(parents=True, exist_ok=True)
-    write_raw(data, args.out / f"{STEM}_raw.json")
-    (args.out / f"{STEM}.md").write_text(render(data), encoding="utf-8", newline="\n")
-    print(f"wrote {STEM}.md and {STEM}_raw.json to {args.out}: {len(data['trials'])} trials "
-          f"in {time.perf_counter() - started:.1f} s; estimator {data['estimator_sha256'][:16]}")
+    if args.smoke:
+        print(f"smoke: {len(data['trials'])} trials in {time.perf_counter() - started:.1f} s; "
+              f"estimator {data['estimator_sha256'][:16]}; no receipt written")
+    else:
+        args.out.mkdir(parents=True, exist_ok=True)
+        write_raw(data, args.out / f"{STEM}_raw.json")
+        (args.out / f"{STEM}.md").write_text(render(data), encoding="utf-8", newline="\n")
+        print(f"wrote {STEM}.md and {STEM}_raw.json to {args.out}: {len(data['trials'])} trials "
+              f"in {time.perf_counter() - started:.1f} s; estimator {data['estimator_sha256'][:16]}")
     print(f"FLAGGED: {', '.join(data['flagged']) or 'none'}")
     return 0
 

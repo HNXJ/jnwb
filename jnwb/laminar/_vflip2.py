@@ -273,8 +273,7 @@ def vflip2(
             on noise-only synthetic probes it accepts 18 of 100, and 24 of 100 (95% CI 0.16 to
             0.34) at matched SNR 0, so an accepted fit is not by itself evidence of a crossover.
             At matched SNR 0 it accepts, by contact spacing, 0 of 100 at 25 and 50 um,
-            24 at 100 um, 37 at 150 um and 39 at 200 um
-            (`artifacts/evidence/0.2.13/vflip2_nuisance.md`).
+            24 at 100 um, 37 at 150 um and 39 at 200 um.
 
     Returns:
         :class:`VFlip2Result`.

@@ -4,8 +4,8 @@
 ``curate_and_label`` reaches, by the rule of ``scripts/calibrate_xflip.py``. Changing that code
 without rerunning the script fails here; a docstring or comment edit does not.
 
-``JNWB_CURATION_RECEIPT_DIR`` points these tests at another receipt written by the same script,
-such as a smoke run. By default they read ``artifacts/benchmarks/calibration``.
+``JNWB_CURATION_RECEIPT_DIR`` points these tests at another receipt written by the same script.
+By default they read ``artifacts/benchmarks/calibration``.
 """
 
 import importlib.util
@@ -141,13 +141,29 @@ def test_a_code_edit_changes_the_receipt(monkeypatch):
     assert generator.estimator_sha256() != before
 
 
+def test_the_probes_come_from_the_laminar_motif_generator():
+    raw = _raw()
+    assert raw["fixed"]["generator"] == "jnwb.testing.synth_laminar_motif"
+    # the planted SNR is the recoverable-alternative SNR of scripts/calibrate_vflip.py (ALT_SNR)
+    assert raw["fixed"]["snr_planted"] == 20.0, "the planted SNR is not 20"
+    assert raw["fixed"]["snr_null"] == 0.0
+    method = REPORT.read_text(encoding="utf-8").split("## Method")[1].split("## Held inputs")[0]
+    assert "`jnwb.testing.synth_laminar_motif`" in method, "the Method section does not name the generator"
+    assert "`snr=20`" in method, "the Method section does not state the planted SNR"
+    assert "`ALT_SNR`" in method and "vflip_calibration_0.2.4.md" in method, (
+        "the Method section does not cite vFLIP's calibrated error at the planted SNR"
+    )
+
+
 def test_each_planted_trial_states_its_truth_in_the_anchor_frame():
     raw = _raw()
     measured = [t for t in raw["trials"] if t["planted"] and t["refused"] is None]
     assert measured, "no planted trial was measured, so the truth frame is untested"
     low, high = raw["fixed"]["z0_range"]
     for t in measured:
-        assert t["truth_um"] == raw["fixed"]["pitch_um"] * t["z0"]
+        assert t["truth_um"] == t["crossover_depth_um"], "the truth is not the generator receipt's depth"
+        assert t["crossover_depth_um"] == raw["fixed"]["pitch_um"] * t["crossover_contact"]
+        assert t["crossover_contact"] == t["z0"]
         assert low <= t["z0"] <= high
         near = t["anchor_um"] is not None and (
             abs(t["anchor_um"] - t["truth_um"]) <= raw["recovery_tolerance_um"])
@@ -228,8 +244,8 @@ def test_the_report_names_the_release_the_hash_and_every_parameter():
 
 def test_the_recovery_column_counts_grades_a_to_d_only(monkeypatch):
     mod = _generator()
-    z0, _ = mod._probe(0, True)
-    truth = mod.PITCH_UM * z0
+    contact, truth, _ = mod._probe(0, True)
+    assert truth == mod.PITCH_UM * contact  # precondition: the truth is one pitch per contact
     for grade, expected in (("F", False), ("D", True)):
         fake = types.SimpleNamespace(anchor_um=truth, anchor_source="motif", grade=grade)
         monkeypatch.setattr(mod, "curate_and_label", lambda *args, _fake=fake, **kwargs: _fake)
@@ -286,3 +302,12 @@ def test_the_report_states_the_second_column_and_the_offsets():
     report = REPORT.read_text(encoding="utf-8")
     assert "grades A to D" in report, "the report does not state the second recovery column"
     assert "## Offsets of planted anchors at defaults" in report
+
+
+def test_smoke_prints_and_writes_no_receipt(monkeypatch, tmp_path):
+    mod = _generator()
+    monkeypatch.setattr(mod, "run", lambda n_seeds, n_jobs, params: {
+        "trials": [], "estimator_sha256": "0" * 64, "flagged": []})
+    monkeypatch.setattr(mod, "render", lambda data: "")
+    assert mod.main(["--smoke", "--n-jobs", "1", "--out", str(tmp_path)]) == 0
+    assert list(tmp_path.iterdir()) == [], "the smoke run wrote files"

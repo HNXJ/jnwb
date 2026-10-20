@@ -11,8 +11,8 @@ rulings of 2026-10-18 and 2026-10-19, and 12-10. Acceptance: `artifacts/goal.md`
 Plan (ruled 2026-10-19): two checkpoints, the 0.2.13 release and the 0.2.14 release; each closes
 when its checkpoint table passes row by row.
 
-Every item here carries `deferred-0.2.13`, the one deferred value `scripts/release_gate.py` accepts
-while the declared version is 0.2.12 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
+A 0.2.14 item carries `deferred-0.2.14`, the one deferred value `scripts/release_gate.py` accepts
+once the declared version is 0.2.13 (`artifacts/evidence/0.2.8/plan/decisions.md` D2).
 
 ## How this stack is executed
 
@@ -42,16 +42,7 @@ elsewhere as `python -m pytest tests/ -q`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 1 | C calibration | 15-24 | `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13*` | nothing |
 | 2 | Checkpoint | the 0.2.13 checkpoint below | `jnwb/__init__.py`, `CHANGELOG.md`, `artifacts/changelog.d/`, `artifacts/benchmarks/performance/`, the closure receipt | wave 1 merged and the open stack empty |
-
-### 15-24 The curation calibration runs on vFLIP's own generator
-
-Release: deferred-0.2.13.
-Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
-Writes: `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
-- 15-24 (open-stack F-64): on `synth_vflip2_crossover` probes every swept `curate_and_label` default gives the same counts (5 of 24 planted anchors within one pitch), because all 24 anchors come from vFLIP and miss by -420 to +917 um. Ruled 2026-10-19: rerun on `synth_laminar_motif`, planted at `calibrate_vflip.py`'s ALT_SNR 20. Check: at the defaults the median absolute anchor offset is within the 1.5-contact criterion `calibrate_vflip.py` declares (3 seeds: 138.1 um at 100 um pitch), and the receipt's sweep rows are regenerated from the raw record. Waits: the defaults stay unless a sweep puts one outside its stable range.
-Accept: the regenerated receipt and `tests/test_curation_calibration_receipt.py` pass.
 
 ## Checkpoint 0.2.13
 
@@ -77,7 +68,7 @@ push and tag are authorized (Hamm 2026-10-19); PyPI's environment approval is Ha
 
 Theme (ruled 2026-10-19): the public NWB mutation and execution APIs (07-21, 07-22), and the
 existing tools brought to their stated contract: fact closure, reading edges, the pitfall
-estimators, the deferred laminar and curation work, and the removals ruled for 0.2.14. Items stay in
+estimators, the deferred laminar and curation work, and the removals ruled for 0.2.14. Except 16-03, items stay in
 `artifacts/roadmap.md` until step 11 above. The rulings the plan needs come first (wave 0), one
 question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of 0.2.13.
 
@@ -88,7 +79,14 @@ question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of
 | 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end), 11-01, 16-01, 16-02 | Haiku | nothing |
 | 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-32, 11-07, 12-11, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | wave-0 readings |
-| 2 | L laminar | 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
+| 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; each stops and reports when neither exists |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
+### 16-03 A calibration of what the curation defaults govern
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
+Writes: `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.14.md`, `artifacts/benchmarks/calibration/curation_calibration_0.2.14_raw.json`.
+- 16-03: on `synth_laminar_motif` probes every swept value of the 15 `curate_and_label` defaults gives the default's counts (15 of 15, `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md`); the planted anchors are vFLIP's, so the sweep places no default. Check: a probe family plants what the defaults decide (grades, bad zones, edges, layer labels), and at least one swept value of each default changes a count, or the receipt names the default the plant cannot reach. Waits: ruled 2026-10-20; the 0.2.13 receipt stands.
+Accept: the 0.2.14 receipt and its test pass; defaults change only where a sweep puts one outside its stable range.
