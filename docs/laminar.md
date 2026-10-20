@@ -107,7 +107,7 @@ lfp = motif + 3.0 * np.repeat(shared, 12, axis=0) + 12.0 * wave
 fit2 = jnwb.vflip2_from_lfp(lfp, fs, contact_spacing=100.0)
 assert fit2.accepted
 # fit2.crossover_channel is where the relative band powers cross, which need not be the
-# generator's amplitude-weight crossover (artifacts/evidence/0.2.12/vflip2_simulation.md).
+# generator's amplitude-weight crossover.
 
 # The accepted window restricts xflip and zflip to its rows; its orientation names
 # zflip's depth direction.

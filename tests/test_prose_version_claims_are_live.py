@@ -117,7 +117,6 @@ SOURCE_FORWARD_MENTIONS: dict[tuple[str, str], str] = {
     ("jnwb/ontology.py", "will be removed in 0.2.14"): "0.2.14",
 }
 SOURCE_UNRELEASED_RECORDS: dict[tuple[str, str], str] = {
-    ("jnwb/gpu_pca.py", "deprecated in 0.2.13"): "0.2.13",
 }
 
 # A version after a comparison operator is a dependency requirement, not a jnwb release.
