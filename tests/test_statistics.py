@@ -1087,8 +1087,10 @@ def test_one_observation_per_group_has_no_anova_but_an_eta_squared_of_one():
     assert np.isnan(res["df_between"]) and np.isnan(res["df_within"])
     assert res["effect_size_name"] == "eta_squared" and res["effect_size"] == 1.0
 
-    changelog = (pathlib.Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(
-        encoding="utf-8")
+    # Released blocks move from CHANGELOG.md to the archive, so both are read.
+    root = pathlib.Path(__file__).resolve().parents[1]
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8") + (
+        root / "artifacts" / "archive" / "changelog_0.1.0-0.2.9.md").read_text(encoding="utf-8")
     entry = changelog.split("  - `compare_multiple_groups` and `exploratory_multi`", 1)[1]
     entry = entry.split("\n  - ", 1)[0]
     assert "`eta_squared` is 1.0" in " ".join(entry.split()), entry

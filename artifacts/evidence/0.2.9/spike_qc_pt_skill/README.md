@@ -2,7 +2,7 @@
 
 Status: proposed for Hamm's ruling; on a branch, not on `dev`. Nothing here ships.
 
-`proposed_SKILL.md` (named so it does not load as a skill) and `scripts/` are a downstream study's single-unit curation and peak-to-trough (PT)
+`proposed_skill.md` (named so it does not load as a skill or count as a tracked `SKILL.md`) and `scripts/` are a downstream study's single-unit curation and peak-to-trough (PT)
 classification pipeline for the fourGLO NWB corpus, ported from MATLAB to Python on jnwb. It is a
 corpus convention (AGENTS.md section 4), so where it lives is a ruling:
 
