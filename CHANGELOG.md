@@ -89,7 +89,7 @@ Releases 0.2.9, 0.2.8, 0.2.6.1, 0.2.6, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 ar
 - `epoch_continuous` refuses a bad `onset_unit` or `boundary_policy` even when `onsets` is empty (`jnwb/continuous.py`).
 - `plot_opposing_gradients` ends its crossover line at a finite x when a trace holds NaN (`jnwb/vis/laminar.py`).
 - `permute_labels` and `build_permutation_plan` refuse a NaN or None group id (`jnwb/permutation.py`).
-- `voltage_curvature_1d` and `current_source_density_1d` refuse a NaN or infinite `pitch_um` or `conductivity_s_per_m` (`jnwb/spectral/_reference.py`).
+- The 1-D CSD functions refuse a NaN or infinite `pitch_um` or `conductivity_s_per_m` (`jnwb/spectral/_reference.py`).
 - `refractory_contamination` returns NaN with a reason for one or two spikes, not 0.0 (`jnwb/unit_quality.py`).
 - The Monte Carlo two-sided `p_floor` of `exact_sign_flip` is 2 / (n_mc + 1) (`jnwb/statistics/_tests.py`).
 - `compare_groups`, `compare_multiple_groups` and `bootstrap_ci` exclude Inf like NaN (`jnwb/statistics/_analysis.py`).
