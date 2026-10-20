@@ -75,7 +75,9 @@ halves of the window differ, and scores the window by omega. The window is accep
 omega exceeds `omega_cut`, 6 by default; a rejected window keeps its values so they can be
 read. The cut matches vFLIP2.m; on noise-only synthetic probes it accepts 18 of 100, and
 24 of 100 (95% CI 0.16 to 0.34) at matched SNR 0, so an accepted fit is not by itself evidence
-of a crossover. Omega counts frequency bins, so it changes with the bin width and frequency
+of a crossover. At matched SNR 0 it accepts, by contact spacing, 0 of 100 at 25 and
+50 um, 24 at 100 um, 37 at 150 um and 39 at 200 um
+(`artifacts/evidence/0.2.13/vflip2_nuisance.md`). Omega counts frequency bins, so it changes with the bin width and frequency
 range of the PSD.
 
 Rows are 0-based PSD rows in shaft order. `orientation` is `"upright"` when the deep group,

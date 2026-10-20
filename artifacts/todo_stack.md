@@ -42,26 +42,16 @@ elsewhere as `python -m pytest tests/ -q`.
 
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
-| 1 | C calibration | open-stack F-64 | `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13*` | nothing |
-| 1 | D docs | 15-19 | `jnwb/laminar/_vflip2.py` (docstring), `docs/laminar.md`, `skills/jnwb-laminar/SKILL.md` | nothing |
-| 1 | A addressing | 15-23 | `tests/test_addressing.py`, `tests/fixtures/omission_boundaries.json`, `scripts/pin_omission_boundaries.py` | nothing |
+| 1 | C calibration | 15-24 | `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13*` | nothing |
 | 2 | Checkpoint | the 0.2.13 checkpoint below | `jnwb/__init__.py`, `CHANGELOG.md`, `artifacts/changelog.d/`, `artifacts/benchmarks/performance/`, the closure receipt | wave 1 merged and the open stack empty |
 
-### 15-19 `vflip2`'s null acceptance stated by spacing
+### 15-24 The curation calibration runs on vFLIP's own generator
 
 Release: deferred-0.2.13.
 Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
-Writes: `jnwb/laminar/_vflip2.py` (docstring only), `docs/laminar.md`, `skills/jnwb-laminar/SKILL.md`.
-- 15-19: `omega_cut` 6 is kept (ruled 2026-10-19), but no docstring, page or skill line states its measured null acceptance by contact spacing (`artifacts/evidence/0.2.13/vflip2_nuisance.md`: 0 of 100 at 25 and 50 um, 24 at 100 um, 37 at 150 um, 39 at 200 um). Check: each of the three files names those counts, read from the receipt, and cites it. Waits: docs only; the rate is measured.
-Accept: the counts equal the receipt's spacing rows; the docs and skill tests pass. Skill line ruled 2026-10-19.
-
-### 15-23 The omission-boundary comparison runs in CI
-
-Release: deferred-0.2.13.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-Writes: `scripts/pin_omission_boundaries.py`, `tests/fixtures/omission_boundaries.json`, `tests/test_addressing.py`.
-- 15-23: `tests/test_addressing.py:568` skips on every CI leg because no leg installs `omission`. Ruled 2026-10-19: a script run locally against `omission` writes a small table with provenance (the `omission` commit, the jnwb commit, the date); a CI test compares jnwb's resolution with the table, and the live comparison stays local-only. Check: the new test runs on every CI leg and fails on a one-cell edit of the table. Waits: the live arm is unchanged.
-Accept: the CI run lists the test as passed on every leg.
+Writes: `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13_raw.json`.
+- 15-24 (open-stack F-64): on `synth_vflip2_crossover` probes every swept `curate_and_label` default gives the same counts (5 of 24 planted anchors within one pitch), because all 24 anchors come from vFLIP and miss by -420 to +917 um. Ruled 2026-10-19: rerun on `synth_laminar_motif`, planted at `calibrate_vflip.py`'s ALT_SNR 20. Check: at the defaults the median absolute anchor offset is within the 1.5-contact criterion `calibrate_vflip.py` declares (3 seeds: 138.1 um at 100 um pitch), and the receipt's sweep rows are regenerated from the raw record. Waits: the defaults stay unless a sweep puts one outside its stable range.
+Accept: the regenerated receipt and `tests/test_curation_calibration_receipt.py` pass.
 
 ## Checkpoint 0.2.13
 

@@ -59,7 +59,6 @@ Closed 2026-10-19: G-01 (c3addf1f and the skill clause ruled 2026-10-19); F-10, 
 
 | Id | Sev | Where | Defect |
 |---|---|---|---|
-| F-64 | med | `artifacts/benchmarks/calibration/curation_calibration_0.2.13.md` | Every swept value of the 15 `curate_and_label` defaults gives the same counts (5 of 24 planted anchors within one pitch, 0 of 24 nulls graded A or B), though `smooth_um` moves 96 of 192 anchors, `min_lobe_amplitude` 38 and `min_lobe_um` 19 (raw record, per seed against the default). At the defaults all 24 planted anchors come from vFLIP (grades A 2, C 22) and miss by -420 to +917 um, so recovery on `synth_vflip2_crossover` probes is bounded by vFLIP, and the sweep cannot show whether a default is well placed |
 
 The eight unconfirmed items were reproduced 2026-10-19: seven are F-65 to F-71; `test_laminar_curation.py:199` rejects contacts 19 to 21 around the planted sink at 20, which is the claim its name makes.
 
