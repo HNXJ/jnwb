@@ -749,6 +749,10 @@ ACCEPTED_HANDLER_RECOVERY = {
     ("compression.py", "verify_roundtrip._try_pynwb_read", "Exception", (), True, 1):
         "Returns (False, '<ExcType>: msg') from a verification helper -- a reported failure "
         "carrying its own cause.",
+    ("compression.py", "_repaired_reference", "KeyError", ("target",), False, 1):
+        "The handler sets target = None when the reference no longer opens an object in the "
+        "source. Absence: the caller then removes the reference with a UserWarning; no path is "
+        "substituted for it.",
     ("connectivity/_granger.py", "_adf_pvalue", "_ADF_NUMERICAL_FAILURES", (), True, 1):
         "Returns float('nan') for a fit that could not run on the series (LinAlgError, "
         "ValueError); _series_diagnostics reports it as stationarity_not_tested. Absence. A "

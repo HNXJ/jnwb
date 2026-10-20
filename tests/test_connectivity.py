@@ -1194,6 +1194,16 @@ class TestGrangerNotTestedIsNotPassed:
         te = transfer_entropy(constant, constant)
         assert g.diagnostics["ok_for_interpretation"] == te.diagnostics["ok_for_interpretation"] is False
 
+    def test_a_degenerate_fit_with_surrogates_reports_no_p_rather_than_the_floor(self):
+        """Every surrogate of a constant series is degenerate, so no draw is finite and no p
+        can be formed. The count used to be 1 / (n_surrogates + 1) = 1 / 21 for each direction."""
+        constant = np.ones(800)
+        g = granger(constant, constant, order=3, n_surrogates=20, rng=np.random.default_rng(0))
+        assert np.isnan(g.x_to_y)
+        assert np.isnan(g.p_x_to_y), g.p_x_to_y
+        assert np.isnan(g.p_y_to_x), g.p_y_to_x
+        assert g.p_net is None or np.isnan(g.p_net), g.p_net
+
 
 class TestDirectedEstimatorEdges:
     """Item 10-06: the PSI segment default, its pinned spectrum, the partial-band `net`, the
@@ -1493,3 +1503,34 @@ class TestRidgeMustBeFinite:
         x, y = rng.normal(size=(2, 400))
         with pytest.raises(ValueError, match="ridge"):
             jnwb.granger(x, y, order=2, ridge=ridge, n_surrogates=0)
+
+
+class TestSurrogatePNaNDraws:
+    """`_surrogate_p` counts the draws that are not NaN in n; a null with none is refused."""
+
+    def test_nan_draws_are_left_out_of_n(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([np.nan, 0.1, 0.2, 0.3, np.nan])
+        assert np.count_nonzero(np.isnan(null)) == 2, "fixture must hold two NaN draws"
+        # Three draws, none at least 0.5: (1 + 0) / (3 + 1). With n = 5 it was 1 / 6.
+        np.testing.assert_allclose(_surrogate_p(null, 0.5, "greater"), 1 / 4, rtol=1e-12)
+
+    def test_an_infinite_draw_is_a_draw(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        null = np.array([np.inf, 0.1, 0.2])
+        assert np.isinf(null[0]), "fixture must hold a +inf draw"
+        np.testing.assert_allclose(_surrogate_p(null, 0.5, "greater"), 2 / 4, rtol=1e-12)
+
+    def test_a_null_with_no_non_nan_draw_is_refused(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        with pytest.raises(ValueError, match=r"_surrogate_p: .*every one is NaN"):
+            _surrogate_p(np.full(4, np.nan), 0.5, "greater")
+
+    def test_a_non_finite_observed_value_gives_nan_whatever_the_null(self):
+        from jnwb.connectivity._common import _surrogate_p
+
+        assert np.isnan(_surrogate_p(np.array([0.1, 0.2]), np.nan, "greater"))
+        assert np.isnan(_surrogate_p(np.full(4, np.nan), np.nan, "greater"))

@@ -1,0 +1,1 @@
+- Surrogate p-values count only non-NaN draws; an all-NaN null is refused (`jnwb/connectivity/_common.py`).

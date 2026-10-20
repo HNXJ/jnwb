@@ -115,13 +115,15 @@ def _family_wise_p(values, null, alternative):
     p is ``(1 + #{permutations whose maximum >= the window's value}) / (n + 1)``. For ``'less'``
     the smallest statistic and ``<=``. For ``'two-sided'`` the smaller of the two, doubled and
     capped at 1, as `_p_from_count` forms it. The counts come from `_count_at_least_as_extreme`
-    and the p-values from `_p_from_count`. A non-finite null entry leaves the maximum or minimum
-    of its permutation; a permutation with no finite entry leaves n; a window whose value is
-    non-finite gets NaN.
+    and the p-values from `_p_from_count`. Only NaN is dropped: a NaN entry leaves the maximum or
+    minimum of its permutation, +inf and -inf are draws, and n counts the permutations with a
+    draw that is not NaN. A window whose value is non-finite gets NaN; a null with no non-NaN
+    draw is refused, as `_p_from_null` refuses it.
     """
     null = np.asarray(null, dtype=float)
-    finite = np.isfinite(null)
+    finite = ~np.isnan(null)
     kept = finite.any(axis=1)
+    rows = null.shape[0]
     null, finite = null[kept], finite[kept]
     n = null.shape[0]
     upper = np.max(np.where(finite, null, -np.inf), axis=1) if n else np.empty(0)
@@ -129,8 +131,13 @@ def _family_wise_p(values, null, alternative):
     out = np.full(len(values), np.nan)
     for k, value in enumerate(values):
         obs = float(np.mean(value)) if isinstance(value, np.ndarray) else float(value)
-        if n == 0 or not np.isfinite(obs):
+        if not np.isfinite(obs):
             continue
+        if n == 0:
+            raise ValueError(
+                f"_family_wise_p: the null has {rows} draws and every one is NaN; none is "
+                "non-NaN, so no p-value can be formed."
+            )
         greater = _p_from_count(_count_at_least_as_extreme(upper, obs, "greater"), n, "greater")
         less = _p_from_count(_count_at_least_as_extreme(lower, obs, "less"), n, "less")
         if alternative == "greater":

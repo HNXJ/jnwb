@@ -1643,3 +1643,63 @@ class TestNamingASoftLinkToAGuardedDatasetNamesItsTarget:
         with pytest.raises(ValueError, match=re.escape(stable)):
             jnwb.compress_fp32(src, out / "bad.nwb", verify=False, select=["aliases/soft_conv"])
         assert list(out.iterdir()) == []
+
+
+def _reference_file(path, dangling=False):
+    """A real group, a top-level soft link to it, and references held under both names."""
+    with h5py.File(path, "w") as f:
+        real = f.create_group("real")
+        real.create_dataset("holder", data=np.arange(5.0))
+        real.create_dataset("target", data=np.arange(3.0))
+        real["holder"].attrs["ref"] = real["target"].ref
+        real["holder"].attrs.create("refs", np.array([real["target"].ref, real["holder"].ref],
+                                                    dtype=h5py.ref_dtype), dtype=h5py.ref_dtype)
+        real.create_dataset("refds", data=np.array([real["target"].ref, real["holder"].ref],
+                                                   dtype=h5py.ref_dtype), dtype=h5py.ref_dtype)
+        f["alias"] = h5py.SoftLink("/real")
+        assert isinstance(f.get("alias", getlink=True), h5py.SoftLink), "fixture must hold a soft link"
+        f.create_dataset("processing/spike_train/spike_train_data/data",
+                         data=np.zeros((4, 2), dtype=np.int16))
+        f.create_dataset("processing/convolved_spike_train/convolved_spike_train_data/data",
+                         data=np.zeros((4, 2)))
+        if dangling:
+            gone = real.create_dataset("gone", data=np.arange(2.0))
+            real["holder"].attrs["gone"] = gone.ref
+            del real["gone"]
+
+
+class TestReferencesUnderATopLevelAlias:
+    """`compress_fp32` repairs a reference at its alias path, and removes one whose target is gone."""
+
+    def test_a_reference_attribute_under_the_alias_resolves_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            assert d[d["alias/holder"].attrs["ref"]].name == "/real/target"
+            assert d[d["real/holder"].attrs["ref"]].name == "/real/target"
+
+    def test_an_array_of_references_under_the_alias_resolves_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            names = [d[r].name for r in d["alias/holder"].attrs["refs"]]
+        assert names == ["/real/target", "/real/holder"], names
+
+    def test_dataset_content_references_under_the_alias_resolve_in_the_output(self, tmp_path):
+        src, dst = tmp_path / "refs.nwb", tmp_path / "refs.fp32.nwb"
+        _reference_file(src)
+        jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            names = [d[r].name for r in d["alias/refds"][:]]
+        assert names == ["/real/target", "/real/holder"], names
+
+    def test_a_reference_to_a_deleted_object_is_removed_with_a_warning(self, tmp_path):
+        src, dst = tmp_path / "dangling.nwb", tmp_path / "dangling.fp32.nwb"
+        _reference_file(src, dangling=True)
+        with pytest.warns(UserWarning, match=r"attribute 'gone' on /real/holder"):
+            jnwb.compress_fp32(src, dst, verify=False, overwrite=True, select=[])
+        with h5py.File(dst, "r") as d:
+            assert "gone" not in d["real/holder"].attrs
+            assert d[d["real/holder"].attrs["ref"]].name == "/real/target"

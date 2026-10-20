@@ -204,7 +204,19 @@ def _surrogate_p(null: np.ndarray, observed: float, alternative: str,
     ``Im(conj(C_f) C_{f+1})`` of size at most 1 per bin pair, so its scale is the pair count.
     ``atol`` is a tie width the caller derived itself, as transfer entropy does from its
     entropies; the wider of the two applies.
+
+    As in ``_p_from_null``, ``B`` counts the draws that are not NaN, +inf and -inf included. A
+    non-finite ``observed`` gives NaN; a null with no non-NaN draw is refused.
     """
-    k = _count_at_least_as_extreme(null, observed, alternative,
+    if not np.isfinite(float(observed)):
+        return float("nan")
+    draws = np.asarray(null, dtype=float)
+    draws = draws[~np.isnan(draws)]
+    if draws.size == 0:
+        raise ValueError(
+            f"_surrogate_p: the null has {len(null)} draws and every one is NaN; "
+            "none is non-NaN, so no p-value can be formed."
+        )
+    k = _count_at_least_as_extreme(draws, observed, alternative,
                                    atol=max(float(atol), _TIE_RTOL * scale))
-    return float(_p_from_count(k, len(null), alternative))
+    return float(_p_from_count(k, draws.size, alternative))

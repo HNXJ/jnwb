@@ -1,0 +1,1 @@
+- Sliding-window family-wise p counts +inf and -inf null draws and drops only NaN (`jnwb/jrsa/_inference.py`).

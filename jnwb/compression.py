@@ -72,6 +72,7 @@ from __future__ import annotations
 import posixpath
 import sys
 import time
+import warnings
 from pathlib import Path
 
 import h5py
@@ -441,38 +442,83 @@ def _replace_dataset_data(dst: h5py.File, path: str, new_shape, new_dtype, chunk
     return dict(ds.attrs)
 
 
+def _repaired_reference(src: h5py.File, dst: h5py.File, ref, where: str):
+    """The reference in ``dst`` to the object ``ref`` opens in ``src``, or None.
+
+    The target is the object's path in ``src``. An object reached through a top-level soft link
+    has its own path there, so its copy under the alias in ``dst`` resolves to the same target.
+    None, with a UserWarning that names ``where`` and the target, when ``ref`` no longer opens
+    an object in ``src`` (no path can name it) or the target is not in ``dst``.
+    """
+    try:
+        target = src[ref].name
+    except KeyError:
+        target = None
+    if target is not None and target in dst:
+        return dst[target].ref
+    named = target if target is not None else "an object that is no longer in the source"
+    warnings.warn(
+        f"compress_fp32: {where} refers to {named}, which is not in the output; "
+        "the reference is removed.",
+        UserWarning,
+        stacklevel=2,
+    )
+    return None
+
+
 def _resolve_references(src: h5py.File, dst: h5py.File) -> int:
     """After a per-group structural copy (references copied as raw, source-only-valid
     addresses), repair every reference by resolving its TARGET PATH in `src` and reassigning a
     freshly-created, dst-native reference at the same location in `dst`. Handles both
     attribute-valued references (single or array-of) and dataset CONTENT of reference dtype
-    (e.g. an NWB DynamicTable column of per-row object references). Returns count fixed.
+    (e.g. an NWB DynamicTable column of per-row object references). Objects under a top-level
+    soft-link alias are repaired at their alias path as well, since the copy there is
+    independent. A reference whose target is gone or not in the output is removed with a
+    UserWarning: an attribute goes, a dataset element becomes a null reference. Returns count fixed.
     """
     n_fixed = 0
 
     def fix_attrs(path: str, src_obj, dst_obj) -> None:
         nonlocal n_fixed
         for k, v in src_obj.attrs.items():
+            where = f"attribute {k!r} on {path}"
             if isinstance(v, h5py.Reference):
                 if not v:
                     continue
-                target = src[v].name
-                if target in dst:
-                    dst_obj.attrs[k] = dst[target].ref
+                fixed = _repaired_reference(src, dst, v, where)
+                if fixed is None:
+                    del dst_obj.attrs[k]
+                else:
+                    dst_obj.attrs[k] = fixed
                     n_fixed += 1
             elif isinstance(v, np.ndarray) and v.dtype.kind == "O" and v.size and isinstance(
                 np.asarray(v).flat[0], h5py.Reference
             ):
                 fixed = np.empty_like(v)
+                removed = False
                 it = np.nditer(v, flags=["refs_ok", "multi_index"])
                 for _ in it:
                     r = v[it.multi_index]
-                    fixed[it.multi_index] = dst[src[r].name].ref if r and src[r].name in dst else r
-                dst_obj.attrs[k] = fixed
-                n_fixed += 1
+                    new = r if not r else _repaired_reference(src, dst, r, where)
+                    if new is None:
+                        removed = True
+                        break
+                    fixed[it.multi_index] = new
+                if removed:
+                    del dst_obj.attrs[k]
+                else:
+                    dst_obj.attrs[k] = fixed
+                    n_fixed += 1
 
     fix_attrs("/", src, dst)
-    for name, src_obj in ((n, src[n]) for n in _all_paths(src)):
+    targets = [(n, src[n]) for n in _all_paths(src)]
+    for key in src.keys():
+        if not isinstance(src.get(key, getlink=True), h5py.SoftLink) or src.get(key) is None:
+            continue
+        targets.append((key, src[key]))
+        if isinstance(src[key], h5py.Group):
+            src[key].visititems(lambda name, obj: targets.append((f"{key}/{name}", obj)))
+    for name, src_obj in targets:
         full = "/" + name
         if full not in dst:
             continue
@@ -482,7 +528,11 @@ def _resolve_references(src: h5py.File, dst: h5py.File) -> int:
             fixed = np.empty_like(raw)
             for idx in np.ndindex(raw.shape):
                 r = raw[idx]
-                fixed[idx] = dst[src[r].name].ref if r and src[r].name in dst else r
+                if not r:
+                    fixed[idx] = r
+                    continue
+                new = _repaired_reference(src, dst, r, f"dataset {full} at {idx}")
+                fixed[idx] = new if new is not None else h5py.Reference()
             dst[full][...] = fixed
             n_fixed += 1
     return n_fixed

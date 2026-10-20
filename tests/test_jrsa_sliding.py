@@ -177,3 +177,24 @@ def test_a_window_with_a_non_finite_value_has_nan_p_and_q_and_the_others_stay_fi
     assert np.isnan(res.p[1]) and np.isnan(res.q[1])
     others = [0, 2, 3, 4]
     assert np.all(np.isfinite(res.p[others])) and np.all(np.isfinite(res.q[others]))
+
+
+@pytest.mark.parametrize("draw, alternative, expected", [
+    (np.inf, "greater", 2 / 5),   # +inf is a draw: n = 4, and it reaches the observed 0.5
+    (-np.inf, "less", 2 / 5),     # -inf is a draw on the lower tail
+    (np.nan, "greater", 1 / 4),   # NaN is dropped: n = 3, no draw reaches 0.5
+])
+def test_family_wise_p_counts_infinite_draws_and_drops_only_nan(draw, alternative, expected):
+    from jnwb.jrsa._inference import _family_wise_p
+
+    null = np.array([[draw], [0.1], [0.2], [0.3]])
+    assert np.isnan(draw) or np.isinf(draw), "fixture must hold a non-finite draw"
+    p = _family_wise_p(np.array([0.5 if alternative == "greater" else -0.5]), null, alternative)
+    np.testing.assert_allclose(p, [expected], rtol=1e-12)
+
+
+def test_family_wise_p_refuses_a_null_with_no_non_nan_draw():
+    from jnwb.jrsa._inference import _family_wise_p
+
+    with pytest.raises(ValueError, match=r"_family_wise_p: .*every one is NaN"):
+        _family_wise_p(np.array([0.5]), np.full((4, 1), np.nan), "greater")
