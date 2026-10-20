@@ -279,6 +279,29 @@ def word(term: str) -> "re.Pattern[str]":
     return re.compile(rf"\b{re.escape(term)}\b", re.I)
 
 
+_REFERENCE_HEADER = re.compile(r"^\|\s*Reference\s*\|")
+
+
+def cited_works_removed(text: str) -> str:
+    """`text` without the first cell of each row of a table headed ``| Reference |``.
+
+    That cell is a citation, and a cited title keeps its source's spelling ("Analysing the
+    information flow ..."); the other cells are jnwb's prose and stay.
+    """
+    out: List[str] = []
+    in_references = False
+    for line in text.split("\n"):
+        if not line.startswith("|"):
+            in_references = False
+        elif _REFERENCE_HEADER.match(line):
+            in_references = True
+        elif in_references:
+            cells = line.split(" | ", 1)
+            line = "| " + cells[1] if len(cells) == 2 else line
+        out.append(line)
+    return "\n".join(out)
+
+
 def vocabulary_violations(pages: List[Tuple[str, str]], rows: List[VocabularyRow]) -> List[str]:
     """Every superseded surface form still in the prose, named with its page.
 
@@ -288,7 +311,7 @@ def vocabulary_violations(pages: List[Tuple[str, str]], rows: List[VocabularyRow
     """
     found: List[str] = []
     for name, text in pages:
-        stripped = prose(text)
+        stripped = prose(cited_works_removed(text))
         for row in rows:
             scrubbed = stripped
             for good in row.preferred:
