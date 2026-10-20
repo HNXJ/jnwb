@@ -43,7 +43,7 @@ elsewhere as `python -m pytest tests/ -q`.
 | Wave | Lane | Items, in order | Owns | Waits for |
 |---|---|---|---|---|
 | 1 | C calibration | open-stack F-64 | `scripts/calibrate_curation.py`, `tests/test_curation_calibration_receipt.py`, `artifacts/benchmarks/calibration/curation_calibration_0.2.13*` | nothing |
-| 1 | D docs | 15-19, then 12-23 | `jnwb/laminar/_vflip2.py` (docstring), `docs/laminar.md`, `skills/jnwb-laminar/SKILL.md` | nothing |
+| 1 | D docs | 15-19 | `jnwb/laminar/_vflip2.py` (docstring), `docs/laminar.md`, `skills/jnwb-laminar/SKILL.md` | nothing |
 | 1 | A addressing | 15-23 | `tests/test_addressing.py`, `tests/fixtures/omission_boundaries.json`, `scripts/pin_omission_boundaries.py` | nothing |
 | 2 | Checkpoint | the 0.2.13 checkpoint below | `jnwb/__init__.py`, `CHANGELOG.md`, `artifacts/changelog.d/`, `artifacts/benchmarks/performance/`, the closure receipt | wave 1 merged and the open stack empty |
 
@@ -54,14 +54,6 @@ Role: jnwb-developer. Skill: jnwb-laminar. Blocked by: nothing.
 Writes: `jnwb/laminar/_vflip2.py` (docstring only), `docs/laminar.md`, `skills/jnwb-laminar/SKILL.md`.
 - 15-19: `omega_cut` 6 is kept (ruled 2026-10-19), but no docstring, page or skill line states its measured null acceptance by contact spacing (`artifacts/evidence/0.2.13/vflip2_nuisance.md`: 0 of 100 at 25 and 50 um, 24 at 100 um, 37 at 150 um, 39 at 200 um). Check: each of the three files names those counts, read from the receipt, and cites it. Waits: docs only; the rate is measured.
 Accept: the counts equal the receipt's spacing rows; the docs and skill tests pass. Skill line ruled 2026-10-19.
-
-### 12-23 A bootstrap over mice
-
-Release: deferred-0.2.13.
-Role: jnwb-developer. Skill: jnwb-statistics. Blocked by: nothing.
-Writes: `artifacts/roadmap.md`.
-- 12-23: the showcase's percentile bootstrap over mice (`_temp_jnwb-showcase/scripts/analyze_s1.py:77`) is the percentile mean bootstrap that `StatisticalAnalysis.bootstrap_ci` computes. Check: a probe runs both on the same per-mouse values and seed and shows equal bounds, or names the shape the showcase needs. Waits: no shipped code changes.
-Accept: the probe output in the commit that removes the row.
 
 ### 15-23 The omission-boundary comparison runs in CI
 
