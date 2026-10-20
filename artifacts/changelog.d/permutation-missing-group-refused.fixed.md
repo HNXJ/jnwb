@@ -1,1 +1,0 @@
-- `permute_labels` and `build_permutation_plan` refuse a NaN or None group id (`jnwb/permutation.py`).

@@ -1,1 +1,0 @@
-- compress_fp32 repairs references under soft links; dangling ones are dropped with a warning (`jnwb/compression.py`).

@@ -1,1 +1,0 @@
-- `derive_tick_clock(tick_segments, spike_times)` and `TickClock`: acquisition ticks to seconds (`jnwb/continuous.py`).

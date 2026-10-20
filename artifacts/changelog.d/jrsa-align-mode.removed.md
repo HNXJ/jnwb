@@ -1,1 +1,0 @@
-- `jrsa(align_mode=...)` is removed, as announced in 0.2.11; passing it raises `TypeError` (`jnwb/jrsa/__init__.py`).

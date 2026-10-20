@@ -1,1 +1,0 @@
-- `jnwb/vis/sidecar.py`: a string `SOURCE ARTIFACTS` is one path, not one entry per character.

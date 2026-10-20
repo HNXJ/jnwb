@@ -1,1 +1,0 @@
-- `interpolate_intervals` no longer skips a one-sample interval at an array edge (`jnwb/artifact_repair.py`).

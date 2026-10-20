@@ -1,1 +1,0 @@
-- `voltage_curvature_1d` and `current_source_density_1d` refuse NaN or infinite inputs (`jnwb/spectral/_reference.py`).

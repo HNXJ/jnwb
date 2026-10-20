@@ -1,1 +1,0 @@
-- `check_waveform_blocks` gives a finite `best_dev` when one block row is NaN (`jnwb/nwb_integrity.py`).

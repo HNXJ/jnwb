@@ -1,1 +1,0 @@
-- `jnwb/vis/hierarchy.py`: a fractional rank keeps its value in the tick label; rank 0.5 was labelled '0'.

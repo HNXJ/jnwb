@@ -1,1 +1,0 @@
-- `detect_bad_channels` no longer flags a whole short probe for one dead contact (`jnwb/laminar_curation.py`).

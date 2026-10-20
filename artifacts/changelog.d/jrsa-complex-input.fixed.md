@@ -1,1 +1,0 @@
-- `jrsa` refuses complex x1 or x2 instead of dropping the imaginary part (`jnwb/jrsa/_backends.py`).

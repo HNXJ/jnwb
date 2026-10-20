@@ -1,1 +1,0 @@
-- `flagged_to_intervals` returns `[]` for an empty input instead of raising `IndexError` (`jnwb/artifact_repair.py`).

@@ -1,1 +1,0 @@
-- Export `ContainerTypeContradictionWarning`, which `inspect` raises on a contradicted type (`jnwb/__init__.py`).

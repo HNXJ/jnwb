@@ -1,1 +1,0 @@
-- Add `XFlipResult.null_method` naming the surrogate null that ran (`jnwb/laminar/_xflip.py`).

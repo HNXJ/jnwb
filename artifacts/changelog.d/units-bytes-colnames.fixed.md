@@ -1,1 +1,0 @@
-- Units column names stored as bytes read as the same names as str, not as duplicates (`jnwb/nwb_io.py`).

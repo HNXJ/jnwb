@@ -1,1 +1,0 @@
-- `plot_opposing_gradients` alpha/beta legend reads 8–30 Hz, the vFLIP low band (`jnwb/vis/laminar.py`).

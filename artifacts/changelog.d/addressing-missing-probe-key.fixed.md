@@ -1,1 +1,0 @@
-- A multi-area contact with no probe key is refused, not given the first listed area (`jnwb/addressing.py`).

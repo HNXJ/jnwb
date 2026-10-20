@@ -1,1 +1,0 @@
-- `jnwb/vis/laminar.py`: opposing-gradient intervals must hold one [lower, upper] pair per depth, or ValueError.

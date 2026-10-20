@@ -1,1 +1,0 @@
-- `coef_rows` keeps every fixed effect and drops every random-effect variance (`jnwb/statistics/_regression.py`).

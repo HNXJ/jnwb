@@ -1,1 +1,0 @@
-- `gpu_pca` is deprecated in 0.2.13 and removed in 0.2.14; use `compute_population_trajectory` (`jnwb/gpu_pca.py`).

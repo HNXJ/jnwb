@@ -1,1 +1,0 @@
-- `refractory_contamination` returns NaN with a reason for one or two spikes, not 0.0 (`jnwb/unit_quality.py`).

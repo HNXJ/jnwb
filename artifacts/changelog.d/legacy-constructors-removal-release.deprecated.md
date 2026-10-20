@@ -1,1 +1,0 @@
-- `create_aligned_dataset`, `create_result` and `create_figure` will be removed in 0.2.14 (`jnwb/ontology.py`).

@@ -1,1 +1,0 @@
-- `compare_groups`, `compare_multiple_groups` and `bootstrap_ci` exclude Inf like NaN (`jnwb/statistics/_analysis.py`).

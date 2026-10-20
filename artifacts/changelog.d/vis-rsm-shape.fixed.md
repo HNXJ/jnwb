@@ -1,1 +1,0 @@
-- `jnwb/vis/state_space.py`: an RSM matrix must match its condition labels; a mismatch raises ValueError.

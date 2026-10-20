@@ -1,1 +1,0 @@
-- `get_snr_analysis` and `get_all_units_metadata` refuse a NaN or infinite cut-off (`jnwb/metadata.py`).

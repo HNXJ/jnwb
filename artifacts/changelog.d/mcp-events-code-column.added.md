@@ -1,1 +1,0 @@
-- MCP `get_event_codes_and_timings` takes `code_column=` (`jnwb/mcp_server/event_tools.py`).

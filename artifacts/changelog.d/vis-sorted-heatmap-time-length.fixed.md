@@ -1,1 +1,0 @@
-- `jnwb/vis/spiking.py`: a time axis of the wrong length, or more conditions than default colours, raises ValueError.

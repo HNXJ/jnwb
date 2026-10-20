@@ -1,1 +1,0 @@
-- `fit_exponential_onset` accepts a `min_amplitude` above the rise; start guesses are clipped (`jnwb/onset_fitting.py`).

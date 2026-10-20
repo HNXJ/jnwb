@@ -1,1 +1,0 @@
-- `jrsa(window=w)` refuses w below 1 instead of analysing an empty window (`jnwb/jrsa/_stages.py`).

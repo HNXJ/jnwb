@@ -1,1 +1,0 @@
-- jnwb/paths.py: the deprecated OMISSION_*_DIR environment variables and LEGACY_ENV_* constants; set JNWB_*_DIR.

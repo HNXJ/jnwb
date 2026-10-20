@@ -1,1 +1,0 @@
-- The warning for `standardize=True` with `normalize=True` now states the [0, 1] output (`jnwb/jrsa/_stages.py`).

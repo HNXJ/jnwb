@@ -1,1 +1,0 @@
-- `docs/api.md` gains an Experimental section for `jnwb.bilinear` and `jnwb.nam`, with no stability promise.

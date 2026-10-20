@@ -1,1 +1,0 @@
-- Paired metric helpers refuse unequal rows; procrustes also refuses unequal features (`jnwb/jrsa/_metrics.py`).

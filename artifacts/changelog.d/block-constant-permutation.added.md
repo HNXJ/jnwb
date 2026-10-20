@@ -1,1 +1,0 @@
-- `build_permutation_plan(blocks=)` permutes one label per block among each group's blocks (`jnwb/permutation.py`).

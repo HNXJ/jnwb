@@ -1,1 +1,0 @@
-- `granger` refuses a NaN or infinite `ridge` (`jnwb/connectivity/_granger.py`).

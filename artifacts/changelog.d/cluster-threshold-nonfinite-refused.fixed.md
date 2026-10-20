@@ -1,1 +1,0 @@
-- `cluster_permutation_test` refuses a NaN or infinite `threshold` (`jnwb/statistics/_cluster.py`).

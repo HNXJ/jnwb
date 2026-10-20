@@ -1,1 +1,0 @@
-- Multi-area labels are refused without a `group_name`, `group`, `probe` or `device` column (`jnwb/addressing.py`).

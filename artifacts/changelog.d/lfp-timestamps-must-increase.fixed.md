@@ -1,1 +1,0 @@
-- `phase_locking_index` refuses non-increasing `lfp_timestamps` instead of dropping every spike (`jnwb/spiking.py`).

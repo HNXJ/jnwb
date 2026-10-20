@@ -1,1 +1,0 @@
-- `jnwb/vis/state_space.py`: `plot_decoding_timecourse` labels cluster bars "cluster", not "p < 0.05".

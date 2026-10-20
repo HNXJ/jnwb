@@ -1,1 +1,0 @@
-- `vflip2` refuses `contact_spacing` above 200 um, where no window was searched (`jnwb/laminar/_vflip2.py`).

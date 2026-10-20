@@ -1,1 +1,0 @@
-- `compress_fp32` casts a hard-linked dataset once, and every hard-link name opens it (`jnwb/compression.py`).

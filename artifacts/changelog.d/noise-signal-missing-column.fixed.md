@@ -1,1 +1,0 @@
-- `plot_noise_vs_signal` raises a `ValueError` naming each absent column it needs (`jnwb/visual_qc.py`).

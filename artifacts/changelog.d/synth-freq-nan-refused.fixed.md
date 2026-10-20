@@ -1,1 +1,0 @@
-- `synth_periodic_response` refuses a NaN `freq_hz` (`jnwb/testing/synth.py`).

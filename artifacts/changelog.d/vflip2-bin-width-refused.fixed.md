@@ -1,1 +1,0 @@
-- `vflip2_from_lfp` refuses trials too short for 1 Hz bins and names the minimum length (`jnwb/laminar/_vflip2.py`).

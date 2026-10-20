@@ -1,1 +1,0 @@
-- `plot_opposing_gradients` ends its crossover line at a finite x when a trace holds NaN (`jnwb/vis/laminar.py`).

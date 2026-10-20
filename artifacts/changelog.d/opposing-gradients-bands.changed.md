@@ -1,1 +1,0 @@
-- `plot_opposing_gradients` gains `gamma_band` and `alphabeta_band` in Hz (`jnwb/vis/laminar.py`).

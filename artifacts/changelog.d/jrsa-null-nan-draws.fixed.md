@@ -1,1 +1,0 @@
-- `jrsa` permutation p leaves NaN draws out of n and refuses an all-NaN null (`jnwb/jrsa/_inference.py`).

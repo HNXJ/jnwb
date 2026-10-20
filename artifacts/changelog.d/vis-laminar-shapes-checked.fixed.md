@@ -1,1 +1,0 @@
-- `jnwb/vis/laminar.py`: `plot_opposing_gradients` and `plot_csd` refuse data shaped unlike their depth or time axes.

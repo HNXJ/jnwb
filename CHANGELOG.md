@@ -8,6 +8,117 @@ Releases 0.2.9, 0.2.8, 0.2.5, 0.2.4, 0.1.8 and 0.1.7 to 0.1.0 are archived, verb
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-10-20
+
+### Added
+
+- `docs/api.md` gains an Experimental section for `jnwb.bilinear` and `jnwb.nam`, with no stability promise.
+- `build_permutation_plan(blocks=)` permutes one label per block among each group's blocks (`jnwb/permutation.py`).
+- `exploratory_compare` and `confirmatory_compare` take `rng` for the bootstrap CI (`jnwb/statistics/_analysis.py`).
+- Export `ContainerTypeContradictionWarning`, which `inspect` raises on a contradicted type (`jnwb/__init__.py`).
+- `curate_and_label` reports vFLIP2 and its anchor distance; it never anchors (`jnwb/laminar_curation.py`).
+- `effective_sample_size(x)`: effective sample count of autocorrelated data (`jnwb/statistics/_autocorrelation.py`).
+- `fuse_laminar_anchors` reports `agreement` and `separation_contacts`; jnwb/laminar_curation.py
+- `jrsa(sliding=True)` runs every window in one call, with a family-wise `q` (`jnwb/jrsa/__init__.py`).
+- MCP `get_event_codes_and_timings` takes `code_column=` (`jnwb/mcp_server/event_tools.py`).
+- Add `synth_vflip2_crossover`, a planted vFLIP2 crossover generator (`jnwb/testing/synth.py`).
+- `derive_tick_clock(tick_segments, spike_times)` and `TickClock`: acquisition ticks to seconds (`jnwb/continuous.py`).
+- Add `XFlipResult.null_method` naming the surrogate null that ran (`jnwb/laminar/_xflip.py`).
+
+### Changed
+
+- `enrich_units_dataframe` takes `group_name` from the `group`/`probe`/`device` key column (`jnwb/addressing.py`).
+- [results change] `jnwb/continuous.py`: window edges are containment bounds, not rounded to even (deterministic).
+- [results change] jnwb/laminar_curation.py: `fuse_laminar_anchors` grades A as B with both landmarks (deterministic).
+- `jrsa(window=w)` warns when w exceeds the axis, naming w and n; it still covers the axis (`jnwb/jrsa/_stages.py`).
+- The warning for `standardize=True` with `normalize=True` now states the [0, 1] output (`jnwb/jrsa/_stages.py`).
+- `plot_opposing_gradients` alpha/beta legend reads 8–30 Hz, the vFLIP low band (`jnwb/vis/laminar.py`).
+- `plot_opposing_gradients` gains `gamma_band` and `alphabeta_band` in Hz (`jnwb/vis/laminar.py`).
+- Two-sided permutation p is twice the smaller tail, capped at 1, for every metric (`jnwb/permutation.py`).
+- `phase_slope_index` refuses a `noverlap` outside [0, nperseg) instead of clipping it (`jnwb/connectivity/_psi.py`).
+- `docs/references.md` gains core texts and studies jnwb reproduces, each marked replicated or partially replicated.
+- `plot_rsm_heatmap` defaults to the title "Representational Dissimilarity Matrix (RDM)" (`jnwb/vis/state_space.py`).
+
+### Deprecated
+
+- `gpu_pca` is deprecated in 0.2.13 and removed in 0.2.14; use `compute_population_trajectory` (`jnwb/gpu_pca.py`).
+- `create_aligned_dataset`, `create_result` and `create_figure` will be removed in 0.2.14 (`jnwb/ontology.py`).
+
+### Removed
+
+- `jrsa(align_mode=...)` is removed, as announced in 0.2.11; passing it raises `TypeError` (`jnwb/jrsa/__init__.py`).
+- jnwb/paths.py: the deprecated OMISSION_*_DIR environment variables and LEGACY_ENV_* constants; set JNWB_*_DIR.
+
+### Fixed
+
+- A fractional channel id such as 2.7 is refused, not truncated to channel 2 (`jnwb/addressing.py`).
+- Multi-area labels are refused without a `group_name`, `group`, `probe` or `device` column (`jnwb/addressing.py`).
+- A multi-area contact with no probe key is refused, not given the first listed area (`jnwb/addressing.py`).
+- `enrich_units_dataframe` keeps text unit ids such as 'u1' instead of making them NaN (`jnwb/addressing.py`).
+- `aperiodic_fit` gives a NaN `r_squared` for a spectrum flat to round-off (`jnwb/spectral/_psd.py`).
+- `audit_electrodes` counts each contact's area by the addressing rule (`jnwb/metadata.py`).
+- `detect_bad_channels` no longer flags a whole short probe for one dead contact (`jnwb/laminar_curation.py`).
+- `cluster_permutation_test` refuses a NaN or infinite `threshold` (`jnwb/statistics/_cluster.py`).
+- `coef_rows` keeps every fixed effect and drops every random-effect variance (`jnwb/statistics/_regression.py`).
+- compress_fp32 repairs references under soft links; dangling ones are dropped with a warning (`jnwb/compression.py`).
+- `compress_fp32` casts a hard-linked dataset once, and every hard-link name opens it (`jnwb/compression.py`).
+- `evoked_csd_sink` returns NaN on a flat baseline instead of z-scoring by 1.0 (`jnwb/laminar_curation.py`).
+- `paired_fire_prob_test` gives a NaN shuffle p for fewer than 2 trials, not 1.0 (`jnwb/statistics/_firing.py`).
+- `flagged_to_intervals` returns `[]` for an empty input instead of raising `IndexError` (`jnwb/artifact_repair.py`).
+- Deprecated `granger_causality` reports NaN, not 0.0, for a zero residual variance (`jnwb/connectivity/_granger.py`).
+- `granger` refuses a NaN or infinite `ridge` (`jnwb/connectivity/_granger.py`).
+- `inspect` warns on a `neurodata_type` no namespace defines; the read refusal says why (`jnwb/nwb_inspect.py`).
+- `jrsa` refuses complex x1 or x2 instead of dropping the imaginary part (`jnwb/jrsa/_backends.py`).
+- Sliding-window family-wise p counts +inf and -inf null draws and drops only NaN (`jnwb/jrsa/_inference.py`).
+- `jrsa(window=w)` refuses w below 1 instead of analysing an empty window (`jnwb/jrsa/_stages.py`).
+- `jrsa(window=w)` keeps exactly w samples; an odd width was one short and window=1 was empty (`jnwb/jrsa/_stages.py`).
+- Paired metric helpers refuse unequal rows; procrustes also refuses unequal features (`jnwb/jrsa/_metrics.py`).
+- `jrsa` permutation p leaves NaN draws out of n and refuses an all-NaN null (`jnwb/jrsa/_inference.py`).
+- `jrsa` pearson and spearman t is +-inf at |r| = 1, not a large finite value (`jnwb/jrsa/_metrics.py`).
+- `label_layers` refuses a non-finite `nominal_pitch`, which labelled every contact 'deep' (`jnwb/laminar/_labels.py`).
+- `phase_locking_index` refuses non-increasing `lfp_timestamps` instead of dropping every spike (`jnwb/spiking.py`).
+- `get_snr_analysis` and `get_all_units_metadata` refuse a NaN or infinite cut-off (`jnwb/metadata.py`).
+- `compute_multitaper_psd` refuses a non-finite `fs` (`jnwb/spectral/_psd.py`).
+- `plot_noise_vs_signal` raises a `ValueError` naming each absent column it needs (`jnwb/visual_qc.py`).
+- NaN trial starts and epoch onsets are refused, not counted as zero spikes (`jnwb/_bins.py`).
+- `/intervals/<table>/<column>` is refused under its full name, not read as table `<column>` (`jnwb/nwb_events.py`).
+- `old_new_summary_table` counts units with a missing area or tier instead of dropping them (`jnwb/metadata.py`).
+- `interpolate_intervals` no longer skips a one-sample interval at an array edge (`jnwb/artifact_repair.py`).
+- `fit_exponential_onset` accepts a `min_amplitude` above the rise; start guesses are clipped (`jnwb/onset_fitting.py`).
+- `epoch_continuous` refuses a bad `onset_unit` or `boundary_policy` even when `onsets` is empty (`jnwb/continuous.py`).
+- `plot_opposing_gradients` ends its crossover line at a finite x when a trace holds NaN (`jnwb/vis/laminar.py`).
+- `permute_labels` and `build_permutation_plan` refuse a NaN or None group id (`jnwb/permutation.py`).
+- `voltage_curvature_1d` and `current_source_density_1d` refuse NaN or infinite inputs (`jnwb/spectral/_reference.py`).
+- `refractory_contamination` returns NaN with a reason for one or two spikes, not 0.0 (`jnwb/unit_quality.py`).
+- The Monte Carlo two-sided `p_floor` of `exact_sign_flip` is 2 / (n_mc + 1) (`jnwb/statistics/_tests.py`).
+- `compare_groups`, `compare_multiple_groups` and `bootstrap_ci` exclude Inf like NaN (`jnwb/statistics/_analysis.py`).
+- `assign_subblock_quartiles` refuses a NaN start_time instead of the last quartile (`jnwb/statistics/_trials.py`).
+- Surrogate p-values count only non-NaN draws; an all-NaN null is refused (`jnwb/connectivity/_common.py`).
+- `synth_periodic_response` refuses a NaN `freq_hz` (`jnwb/testing/synth.py`).
+- `transfer_entropy` refuses unknown `bias_correction` values (`jnwb/connectivity/_transfer_entropy.py`).
+- Units column names stored as bytes read as the same names as str, not as duplicates (`jnwb/nwb_io.py`).
+- `vflip2_from_lfp` refuses trials too short for 1 Hz bins and names the minimum length (`jnwb/laminar/_vflip2.py`).
+- `vflip2_from_lfp` refuses `fs` below 300 Hz, where 150 Hz lies above Nyquist (`jnwb/laminar/_vflip2.py`).
+- `vflip2` refuses `contact_spacing` above 200 um, where no window was searched (`jnwb/laminar/_vflip2.py`).
+- `jnwb/vis/laminar.py`: `plot_csd` sets its colour range from finite values; an all-non-finite matrix raises.
+- `jnwb/vis/state_space.py`: `plot_decoding_timecourse` labels cluster bars "cluster", not "p < 0.05".
+- `jnwb/vis/laminar.py`: a depth marker outside the depth range now warns; nothing is drawn for it, as before.
+- `jnwb/vis/hierarchy.py`: a fractional rank keeps its value in the tick label; rank 0.5 was labelled '0'.
+- `jnwb/vis/hierarchy.py`: NaN points leave the fit with a warning; a CI missing its value is drawn from its bounds.
+- `jnwb/vis/hierarchy.py`: the statistic note sits above the drawn data, including when every interval is negative.
+- `jnwb/vis/laminar.py`: `plot_opposing_gradients` and `plot_csd` refuse data shaped unlike their depth or time axes.
+- `jnwb/vis/laminar.py`: `plot_spectrolaminar_map` refuses a square `rel_power`, which does not state its layout.
+- `jnwb/vis/spectral.py`: the modulation colour range ignores NaN; Granger and significance-mask shapes are checked.
+- `jnwb/vis/laminar.py`: opposing-gradient intervals must hold one [lower, upper] pair per depth, or ValueError.
+- `jnwb/vis/state_space.py`: an RSM matrix must match its condition labels; a mismatch raises ValueError.
+- `jnwb/vis/sidecar.py`: a string `SOURCE ARTIFACTS` is one path, not one entry per character.
+- `jnwb/vis/spectral.py`: a NaN cell in `sig_mask` raises ValueError; it was cast to True and marked.
+- `jnwb/vis/spiking.py`: a time axis of the wrong length, or more conditions than default colours, raises ValueError.
+- `jnwb/vis/sidecar.py`: an empty SOURCE ARTIFACTS entry, such as an empty string, raises ValueError.
+- `jnwb/vis/spectral.py`: `plot_spectral_modulation_matrix` refuses a matrix not shaped (areas, bands).
+- `check_waveform_blocks` gives a finite `best_dev` when one block row is NaN (`jnwb/nwb_integrity.py`).
+- `xflip` refuses a NaN, infinite or non-integer `n_surrogates` (`jnwb/laminar/_xflip.py`).
+
 ## [0.2.12] - 2026-10-14
 
 ### Added
