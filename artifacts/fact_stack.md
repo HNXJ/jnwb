@@ -63,8 +63,8 @@ not re-run: its verdict is the harness's or the suite's, which run it themselves
 | ID | Domain | Predicate | Held by | Ruled |
 |---|---|---|---|---|
 | I1 | numeric public operations | each declares input signal class, estimator, output estimand, unit, and frame or index base; none of the five is silently substituted across a `jnwb` boundary, and composition edges type-check | `todo:10-10` | fact stack; Q11 2026-09-29 |
-| I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `todo:10-10` | fact stack; Q11 2026-09-29 |
-| I3 | a `jnwb` function boundary | units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently; an intentional break is stated at the change site | `todo:10-10` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3) |
+| I2 | public operations | a unit change, or a wrapper or default that changes the estimand, is a named parameter or fails | `todo:11-02` | fact stack; Q11 2026-09-29 |
+| I3 | a `jnwb` function boundary | units, coordinate frames, sample rates, and 0- vs 1-indexing do not change silently; an intentional break is stated at the change site | `todo:16-10` | `AGENTS.md` §4.4; moved 2026-09-29 (Q3) |
 
 ## Science
 
@@ -78,12 +78,12 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | S6 | `device` and `n_jobs` | device and worker count never change a number | `gate:21`, `test:tests/test_execution_switch.py`, `test:tests/test_parallel.py` | `AGENTS.md` §4.6; Q13 2026-09-29 |
 | S7 | docs generators, examples, skills | a caller uses the library function instead of retyping its rule | `todo:12-11` | `AGENTS.md` §4.7; Q13 2026-09-29 |
 | S8 | text naming an estimand | the text uses no vocabulary of a higher class of `claim classes` than the estimand declares | `todo:09-04` | `AGENTS.md` §4.8; Q12 2026-09-29 |
-| S9 | data inputs | missing data fails loudly | `todo:09-04` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
-| S10 | label permutation | a permutation null names its exchangeability scheme | `todo:09-04` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
-| S11 | randomness consumers | a result reports the `rng` it used | `todo:09-04` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
-| S12 | GPU results | a result computed on GPU records that it was | `todo:09-04` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
-| S13 | delay and velocity claims | a physical latency or conduction velocity is claimed only under a verified linear unwrapped phase-frequency relation and predeclared identifiability criteria, and is reported unavailable otherwise | `todo:09-04` | `AGENTS.md` §4.8; moved 2026-09-29 (Q3) |
-| S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `todo:09-04` | `AGENTS.md` §4.8; Q12 2026-09-29 |
+| S9 | data inputs | missing data fails loudly | `todo:16-04` | `AGENTS.md` §4.1; moved 2026-09-29 (Q3) |
+| S10 | label permutation | a permutation null names its exchangeability scheme | `todo:16-05` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
+| S11 | randomness consumers | a result reports the `rng` it used | `todo:16-06` | `AGENTS.md` §4.5; moved 2026-09-29 (Q3) |
+| S12 | GPU results | a result computed on GPU records that it was | `todo:16-07` | `AGENTS.md` §4.6; moved 2026-09-29 (Q3) |
+| S13 | delay and velocity claims | a physical latency or conduction velocity is claimed only under a verified linear unwrapped phase-frequency relation and predeclared identifiability criteria, and is reported unavailable otherwise | `todo:12-21` | `AGENTS.md` §4.8; moved 2026-09-29 (Q3) |
+| S14 | every text | no vocabulary of `immunity vocabulary` is used of volume conduction or reference contamination; the claim is reduced sensitivity to zero-phase-lag coupling | `todo:16-08` | `AGENTS.md` §4.8; Q12 2026-09-29 |
 
 ## Skills
 
@@ -92,7 +92,7 @@ IDs follow the numbering of the invariants they came from; 3 and 4 moved to B1 a
 | K1 | shipped domain skills | they partition the routed operations, each owning at least `k` exclusively, the router outside the partition | `computed:partition` | 2026-09-22; Q14 2026-09-29 |
 | K2 | routing rows | every routing target starts at an export of `jnwb.__all__` and resolves on the package; the targets read are the calls in a routing bullet's head and the names in a skill table's `jnwb.` column | `computed:routes` | 2026-09-22; Q15 2026-09-29 |
 | K3 | every skill | a task ends in one of four outcomes: compose and execute, request missing information, report non-identifiability or failure, decline unsupported inference | `test:tests/test_skill_decline_behaviour.py::test_every_skill_outcome_is_tested_or_excused` | 2026-09-22 |
-| K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `todo:09-04` | 2026-09-22 |
+| K4 | `skills/` | no skill defines a manifest or receipt contract where `inspect`, `Result`, `Provenance` or `Lineage` carries the responsibility; those are extended instead | `todo:16-09` | 2026-09-22 |
 | K5 | new skills | a skill is created only for a coherent public capability surface with enough routing complexity, that no existing skill handles more simply; skill count is not an objective, and a skill whose principal behaviour would be declining, or ad-hoc implementation, is not created | `todo:11-09` | 2026-09-22 |
 
 ## Release

@@ -74,11 +74,11 @@ question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of
 
 | Wave | Lane | Items, in order | Writer | Waits for |
 |---|---|---|---|---|
-| 0 | Proposals | 11-04 (four estimators), 14-07 (`noise_correlation` signature), 13-04 (screen signature and estimand), 15-20 (inventory and prune proposal), the readings 11-07 and 12-11 wait on, 11-32's holder cells, 12-06's line-ending question | Muse drafts; Hamm rules | 0.2.13 tagged |
+| 0 | Proposals | 15-20 (inventory and prune proposal); 11-04, 14-07, 13-04, the 11-07 and 12-11 readings and 11-32's cells were ruled 2026-10-20, and 12-06's line endings on 2026-09-29 (LF, one conversion commit) | Muse drafts; Hamm rules | 0.2.13 tagged |
 | 1 | M mutation | 07-21 (the core five), then 07-22 | Muse | nothing |
 | 1 | R reading | 11-02 (D10, ruled 2026-09-29: a declared shallow end), 11-01, 16-01, 16-02 | Haiku | nothing |
 | 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
-| 2 | F facts | 10-10, 11-06, 09-04, 11-32, 11-07, 12-11, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | wave-0 readings |
+| 2 | F facts | 10-10, 11-06, 09-04, 11-32, 11-07, 12-11, 16-04 to 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
 | 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; each stops and reports when neither exists |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
