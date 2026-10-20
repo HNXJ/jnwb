@@ -13,7 +13,6 @@ Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 1
 | 11-04, 14-06, 14-07, 13-04 | Public API shapes, all `deferred-0.2.14` | roadmap |
 | 12-23, second half | A percentile bootstrap over mice: a shape for `bootstrap_ci`, or the showcase keeps its own | roadmap |
 | 11-32 | Holder cells; ruled 2026-10-11 to wait with 09-04 and 10-10 | roadmap |
-| Goal 8 text | `artifacts/goal.md` is Hamm's: the 20% peak-memory rule of 2026-10-19 needs his edit there | rulings 2026-10-19 |
 
 ## B. Executable by agents now
 
