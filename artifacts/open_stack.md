@@ -6,12 +6,10 @@ Closed since 2026-10-15: 15-14, 15-16, 15-21, 11-05, 14-05, 12-24 (`best_dev` fi
 
 ## A. Waits on a ruling by Hamm
 
-Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 15-15, 15-17, 15-19, 15-20 and 12-05, 12-13, 12-23's permutation half, the open rulings (`window`, Gate B, R5; the dark `theme=` was ruled 2026-10-04), the shipped-surface choices, 12-10, P-335 and the `jnwb-sim-benchmark` skill. 07-21 and 07-22 were ruled 2026-09-29 and move to 0.2.14.
+Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 15-15, 15-17, 15-19, 15-20 and 12-05, 12-13, 12-23's permutation half, and on the plan 11-04, 14-06, 14-07, 13-04 and 15-11, the open rulings (`window`, Gate B, R5; the dark `theme=` was ruled 2026-10-04), the shipped-surface choices, 12-10, P-335 and the `jnwb-sim-benchmark` skill. 07-21 and 07-22 were ruled 2026-09-29 and move to 0.2.14.
 
 | Item | Open question | Source |
 |---|---|---|
-| 11-04, 14-06, 14-07, 13-04 | Public API shapes, all `deferred-0.2.14` | roadmap |
-| 12-23, second half | A percentile bootstrap over mice: a shape for `bootstrap_ci`, or the showcase keeps its own | roadmap |
 | 11-32 | Holder cells; ruled 2026-10-11 to wait with 09-04 and 10-10 | roadmap |
 
 ## B. Executable by agents now
@@ -28,7 +26,7 @@ Ruled 2026-10-19 (`artifacts/rulings/2026-10-19.md`): the 0.2.13 theme, 15-13, 1
 
 | Item | Waits on | Source |
 |---|---|---|
-| 15-11 second half | Andre Bastos's simulation code; the todo stack cannot empty before it | todo stack |
+| 15-11 second half | Andre Bastos's simulation code; deferred to 0.2.15 (ruled 2026-10-19) | roadmap |
 | 12-21 | jaxfne's excerpt | roadmap |
 | 14-08 | The lab pipeline's code | roadmap |
 | Metal path, GPU tests | Hardware | `jnwb/_backend.py:40`, `tests/test_adversarial_inputs.py:122` |
