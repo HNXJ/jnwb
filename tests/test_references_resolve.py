@@ -231,7 +231,7 @@ def test_a_malformed_doi_is_rejected():
 ISBN_CELL = re.compile(r"ISBN ((?:978|979)[\d -]*\d)")
 #: The opening of a study row's result cell.
 REPRODUCTION_MARKERS = ("**Replicated.** ", "**Partially replicated.** ")
-#: A backticked span of a receipt cell: ``tests/<file>.py::<name>`` or a repository path.
+#: A backticked span of a receipt cell: ``<file>.py::<name>``, a test of the suite under ``tests/``, or a repository path.
 RECEIPT_SPAN = re.compile(r"`([^`]+)`")
 
 
@@ -302,7 +302,7 @@ def receipt_problems(studies) -> list[str]:
         for span in spans:
             if "::" in span:
                 file, _, name = span.partition("::")
-                if not (ROOT / file).is_file() or not _test_defined(ROOT / file, name):
+                if not (ROOT / "tests" / file).is_file() or not _test_defined(ROOT / "tests" / file, name):
                     problems.append(f"no such test: `{span}`")
             elif "/" in span and not (ROOT / span).exists():
                 problems.append(f"no such path: `{span}`")
