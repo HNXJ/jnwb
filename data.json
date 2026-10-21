@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "0770edb74136fe25e0a6a2ccb0100bd6b1bf8243",
-    "date": "2026-10-14T22:24:21Z"
+    "commit": "09355a7dcc70df66a8aa78f4bce1b7b9467f57ba",
+    "date": "2026-10-21T02:18:32Z"
   },
   "sources": {
     "generated": [
@@ -22,12 +22,12 @@
       "jnwb/__init__.py"
     ],
     "verified": [
-      "artifacts/frozen_validated.json"
+      "artifacts/process/frozen_validated.json"
     ],
     "performance": [
-      "artifacts/benchmarks/baseline_performance.json",
-      "artifacts/benchmarks/peak_memory.json",
-      "artifacts/benchmarks/import_breakdown.json"
+      "artifacts/benchmarks/performance/baseline_performance.json",
+      "artifacts/benchmarks/performance/peak_memory.json",
+      "artifacts/benchmarks/performance/import_breakdown.json"
     ],
     "order": [
       "artifacts/evidence/0.2.6/computational_order.md"
@@ -52,8 +52,8 @@
     ]
   },
   "release": {
-    "version": "0.2.12",
-    "date": "2026-10-14",
+    "version": "0.2.13",
+    "date": "2026-10-20",
     "python": [
       "Programming Language :: Python :: 3",
       "Programming Language :: Python :: 3.12",
@@ -62,13 +62,406 @@
       "Programming Language :: Python :: 3.15"
     ],
     "links": {
-      "pypi": "https://pypi.org/project/jnwb/0.2.12/",
+      "pypi": "https://pypi.org/project/jnwb/0.2.13/",
       "docs": "https://jnwb.readthedocs.io/en/latest/",
       "repo": "https://github.com/HNXJ/jnwb",
       "changelog": "https://github.com/HNXJ/jnwb/blob/main/CHANGELOG.md"
     }
   },
   "releases": [
+    {
+      "version": "0.2.13",
+      "date": "2026-10-20",
+      "counts": {
+        "Added": 12,
+        "Changed": 12,
+        "Deprecated": 2,
+        "Removed": 2,
+        "Fixed": 67
+      },
+      "entries": [
+        {
+          "kind": "Added",
+          "text": "`docs/api.md` gains an Experimental section for `jnwb.bilinear` and `jnwb.nam`, with no stability promise."
+        },
+        {
+          "kind": "Added",
+          "text": "`build_permutation_plan(blocks=)` permutes one label per block among each group's blocks (`jnwb/permutation.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`exploratory_compare` and `confirmatory_compare` take `rng` for the bootstrap CI (`jnwb/statistics/_analysis.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "Export `ContainerTypeContradictionWarning`, which `inspect` raises on a contradicted type (`jnwb/__init__.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`curate_and_label` reports vFLIP2 and its anchor distance; it never anchors (`jnwb/laminar_curation.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`effective_sample_size(x)`: effective sample count of autocorrelated data (`jnwb/statistics/_autocorrelation.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`fuse_laminar_anchors` reports `agreement` and `separation_contacts` (`jnwb/laminar_curation.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`jrsa(sliding=True)` runs every window in one call, with a family-wise `q` (`jnwb/jrsa/__init__.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "MCP `get_event_codes_and_timings` takes `code_column=` (`jnwb/mcp_server/event_tools.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "Add `synth_vflip2_crossover`, a planted vFLIP2 crossover generator (`jnwb/testing/synth.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "`derive_tick_clock(tick_segments, spike_times)` and `TickClock`: acquisition ticks to seconds (`jnwb/continuous.py`)."
+        },
+        {
+          "kind": "Added",
+          "text": "Add `XFlipResult.null_method` naming the surrogate null that ran (`jnwb/laminar/_xflip.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`enrich_units_dataframe` takes `group_name` from the `group`/`probe`/`device` key column (`jnwb/addressing.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "[results change] `jnwb/continuous.py`: window edges are containment bounds, not rounded to even (deterministic)."
+        },
+        {
+          "kind": "Changed",
+          "text": "[results change] jnwb/laminar_curation.py: `fuse_laminar_anchors` grades A as B with both landmarks (deterministic)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`jrsa(window=w)` warns when w exceeds the axis, naming w and n; it still covers the axis (`jnwb/jrsa/_stages.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "The warning for `standardize=True` with `normalize=True` now states the [0, 1] output (`jnwb/jrsa/_stages.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`plot_opposing_gradients` alpha/beta legend reads 8–30 Hz, the vFLIP low band (`jnwb/vis/laminar.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`plot_opposing_gradients` gains `gamma_band` and `alphabeta_band` in Hz (`jnwb/vis/laminar.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "Two-sided permutation p is twice the smaller tail, capped at 1, for every metric (`jnwb/permutation.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`phase_slope_index` refuses a `noverlap` outside [0, nperseg) instead of clipping it (`jnwb/connectivity/_psi.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "`docs/references.md` gains core texts and studies jnwb reproduces, each marked replicated or partially replicated."
+        },
+        {
+          "kind": "Changed",
+          "text": "`plot_rsm_heatmap` defaults to the title \"Representational Dissimilarity Matrix (RDM)\" (`jnwb/vis/state_space.py`)."
+        },
+        {
+          "kind": "Changed",
+          "text": "Releases 0.2.6.1 and 0.2.6 move to artifacts/archive/changelog_0.1.0-0.2.9.md."
+        },
+        {
+          "kind": "Deprecated",
+          "text": "`gpu_pca` is deprecated in 0.2.13 and removed in 0.2.14; use `compute_population_trajectory` (`jnwb/gpu_pca.py`)."
+        },
+        {
+          "kind": "Deprecated",
+          "text": "`create_aligned_dataset`, `create_result` and `create_figure` will be removed in 0.2.14 (`jnwb/ontology.py`)."
+        },
+        {
+          "kind": "Removed",
+          "text": "`jrsa(align_mode=...)` is removed, as announced in 0.2.11; passing it raises `TypeError` (`jnwb/jrsa/__init__.py`)."
+        },
+        {
+          "kind": "Removed",
+          "text": "jnwb/paths.py: the deprecated OMISSION_*_DIR environment variables and LEGACY_ENV_* constants; set JNWB_*_DIR."
+        },
+        {
+          "kind": "Fixed",
+          "text": "A fractional channel id such as 2.7 is refused, not truncated to channel 2 (`jnwb/addressing.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Multi-area labels are refused without a `group_name`, `group`, `probe` or `device` column (`jnwb/addressing.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "A multi-area contact with no probe key is refused, not given the first listed area (`jnwb/addressing.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`enrich_units_dataframe` keeps text unit ids such as 'u1' instead of making them NaN (`jnwb/addressing.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`aperiodic_fit` gives a NaN `r_squared` for a spectrum flat to round-off (`jnwb/spectral/_psd.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`audit_electrodes` counts each contact's area by the addressing rule (`jnwb/metadata.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`detect_bad_channels` no longer flags a whole short probe for one dead contact (`jnwb/laminar_curation.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`cluster_permutation_test` refuses a NaN or infinite `threshold` (`jnwb/statistics/_cluster.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`coef_rows` keeps every fixed effect and drops every random-effect variance (`jnwb/statistics/_regression.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "compress_fp32 repairs references under soft links; dangling ones are dropped with a warning (`jnwb/compression.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`compress_fp32` casts a hard-linked dataset once, and every hard-link name opens it (`jnwb/compression.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`evoked_csd_sink` returns NaN on a flat baseline instead of z-scoring by 1.0 (`jnwb/laminar_curation.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`paired_fire_prob_test` gives a NaN shuffle p for fewer than 2 trials, not 1.0 (`jnwb/statistics/_firing.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`flagged_to_intervals` returns `[]` for an empty input instead of raising `IndexError` (`jnwb/artifact_repair.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Deprecated `granger_causality` reports NaN, not 0.0, for a zero residual variance (`jnwb/connectivity/_granger.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`granger` refuses a NaN or infinite `ridge` (`jnwb/connectivity/_granger.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`inspect` warns on a `neurodata_type` no namespace defines; the read refusal says why (`jnwb/nwb_inspect.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jrsa` refuses complex x1 or x2 instead of dropping the imaginary part (`jnwb/jrsa/_backends.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Sliding-window family-wise p counts +inf and -inf null draws and drops only NaN (`jnwb/jrsa/_inference.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jrsa(window=w)` refuses w below 1 instead of analysing an empty window (`jnwb/jrsa/_stages.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jrsa(window=w)` keeps exactly w samples; an odd width was one short and window=1 was empty (`jnwb/jrsa/_stages.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Paired metric helpers refuse unequal rows; procrustes also refuses unequal features (`jnwb/jrsa/_metrics.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jrsa` permutation p leaves NaN draws out of n and refuses an all-NaN null (`jnwb/jrsa/_inference.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jrsa` pearson and spearman t is +-inf at |r| = 1, not a large finite value (`jnwb/jrsa/_metrics.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`label_layers` refuses a non-finite `nominal_pitch`, which labelled every contact 'deep' (`jnwb/laminar/_labels.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`phase_locking_index` refuses non-increasing `lfp_timestamps` instead of dropping every spike (`jnwb/spiking.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`get_snr_analysis` and `get_all_units_metadata` refuse a NaN or infinite cut-off (`jnwb/metadata.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`compute_multitaper_psd` refuses a non-finite `fs` (`jnwb/spectral/_psd.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`plot_noise_vs_signal` raises a `ValueError` naming each absent column it needs (`jnwb/visual_qc.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "NaN trial starts and epoch onsets are refused, not counted as zero spikes (`jnwb/_bins.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`/intervals/<table>/<column>` is refused under its full name, not read as table `<column>` (`jnwb/nwb_events.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`old_new_summary_table` counts units with a missing area or tier instead of dropping them (`jnwb/metadata.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`interpolate_intervals` no longer skips a one-sample interval at an array edge (`jnwb/artifact_repair.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`fit_exponential_onset` accepts a `min_amplitude` above the rise; start guesses are clipped (`jnwb/onset_fitting.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`epoch_continuous` refuses a bad `onset_unit` or `boundary_policy` even when `onsets` is empty (`jnwb/continuous.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`plot_opposing_gradients` ends its crossover line at a finite x when a trace holds NaN (`jnwb/vis/laminar.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`permute_labels` and `build_permutation_plan` refuse a NaN or None group id (`jnwb/permutation.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "The 1-D CSD functions refuse a NaN or infinite `pitch_um` or `conductivity_s_per_m` (`jnwb/spectral/_reference.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`refractory_contamination` returns NaN with a reason for one or two spikes, not 0.0 (`jnwb/unit_quality.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "The Monte Carlo two-sided `p_floor` of `exact_sign_flip` is 2 / (n_mc + 1) (`jnwb/statistics/_tests.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`compare_groups`, `compare_multiple_groups` and `bootstrap_ci` exclude Inf like NaN (`jnwb/statistics/_analysis.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`assign_subblock_quartiles` refuses a NaN start_time instead of the last quartile (`jnwb/statistics/_trials.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Surrogate p-values count only non-NaN draws; an all-NaN null is refused (`jnwb/connectivity/_common.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`synth_periodic_response` refuses a NaN `freq_hz` (`jnwb/testing/synth.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`transfer_entropy` refuses unknown `bias_correction` values (`jnwb/connectivity/_transfer_entropy.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "Units column names stored as bytes read as the same names as str, not as duplicates (`jnwb/nwb_io.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`vflip2_from_lfp` refuses trials too short for 1 Hz bins and names the minimum length (`jnwb/laminar/_vflip2.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`vflip2_from_lfp` refuses `fs` below 300 Hz, where 150 Hz lies above Nyquist (`jnwb/laminar/_vflip2.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`vflip2` refuses `contact_spacing` above 200 um, where no window was searched (`jnwb/laminar/_vflip2.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/laminar.py`: `plot_csd` sets its colour range from finite values; an all-non-finite matrix raises."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/state_space.py`: `plot_decoding_timecourse` labels cluster bars \"cluster\", not \"p < 0.05\"."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/laminar.py`: a depth marker outside the depth range now warns; nothing is drawn for it, as before."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/hierarchy.py`: a fractional rank keeps its value in the tick label; rank 0.5 was labelled '0'."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/hierarchy.py`: NaN points leave the fit with a warning; a CI missing its value is drawn from its bounds."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/hierarchy.py`: the statistic note sits above the drawn data, including when every interval is negative."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/laminar.py`: `plot_opposing_gradients` and `plot_csd` refuse data shaped unlike their depth or time axes."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/laminar.py`: `plot_spectrolaminar_map` refuses a square `rel_power`, which does not state its layout."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/spectral.py`: the modulation colour range ignores NaN; Granger and significance-mask shapes are checked."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/laminar.py`: opposing-gradient intervals must hold one [lower, upper] pair per depth, or ValueError."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/state_space.py`: an RSM matrix must match its condition labels; a mismatch raises ValueError."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/sidecar.py`: a string `SOURCE ARTIFACTS` is one path, not one entry per character."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/spectral.py`: a NaN cell in `sig_mask` raises ValueError; it was cast to True and marked."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/spiking.py`: a time axis of the wrong length, or more conditions than default colours, raises ValueError."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/sidecar.py`: an empty SOURCE ARTIFACTS entry, such as an empty string, raises ValueError."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`jnwb/vis/spectral.py`: `plot_spectral_modulation_matrix` refuses a matrix not shaped (areas, bands)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`check_waveform_blocks` gives a finite `best_dev` when one block row is NaN (`jnwb/nwb_integrity.py`)."
+        },
+        {
+          "kind": "Fixed",
+          "text": "`xflip` refuses a NaN, infinite or non-integer `n_surrogates` (`jnwb/laminar/_xflip.py`)."
+        }
+      ]
+    },
     {
       "version": "0.2.12",
       "date": "2026-10-14",
@@ -348,7 +741,7 @@
         },
         {
           "kind": "Changed",
-          "text": "`phase_slope_index` reads a jackknife spread at or below `4 * n_seg * eps * n_pairs * sqrt(U - 1)`, with `U` the jackknife units (trials or segments), as rounding and reports `sd` and `z` as NaN and the lead p as None; before 0.2.10 the bound was `8 * n_seg * eps * n_pairs`, which left out the jackknife's `sqrt(U - 1)`. The bound is lower for 3 or 4 units, unchanged for 5 and higher from 6, so `sd`, `z` and p change only for a spread between the two bounds, at rounding level. The change shipped in 0.2.10 and its section did not list it."
+          "text": "`phase_slope_index` reads a jackknife spread at or below `4 * n_seg * eps * n_pairs * sqrt(U - 1)`, with `U` the jackknife units (trials or segments), as rounding and reports `sd` and `z` as NaN and the lead p as None; before 0.2.10 the bound was `8 * n_seg * eps * n_pairs`, which left out the jackknife's `sqrt(U - 1)`. The bound is lower for 3 or 4 units, unchanged for 5, and higher from 6, so `sd`, `z` and p change only for a spread between the two bounds, at rounding level. The change shipped in 0.2.10 and its section did not list it."
         },
         {
           "kind": "Fixed",
@@ -1153,329 +1546,6 @@
           "text": "Documentation figures 1, 3, 5, 7 and 10: no legend is drawn over data. A legend without a box\n  had nothing between its text and the bars or traces under it on the transparent background, and\n  figure 5's boxed legend hid the top of the cone-of-influence contour. Figure 10 shades the\n  samples `repair_lfp_trials` replaced, not the injected window."
         }
       ]
-    },
-    {
-      "version": "0.2.6.1",
-      "date": "2026-09-25",
-      "counts": {
-        "Changed": 8,
-        "Deprecated": 1,
-        "Fixed": 2
-      },
-      "entries": [
-        {
-          "kind": "Changed",
-          "text": "**`transfer_entropy(estimator=\"symbolic\")` raises `ValueError` (breaking).** Its surrogate\n  null is not calibrated under zero-lag mixing: on two noisy copies of one white source with no\n  directed coupling it rejected at 0.05 in both directions in 19 of 20 replicates (quantile: 1\n  and 3). Use `estimator=\"quantile\"`. `symbolic_order` stays in the signature, unused;\n  `params[\"symbolic_order\"]` is removed."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa` paired metrics use a circular-shift null by default; their p-values change.** For\n  `pearson`, `spearman`, `kendall`, `cosine`, `mutual_information`, `granger_ssr_ftest`,\n  `transfer_entropy_histogram_nats` and `phase_slope`, the permutation null shifts x2 along the\n  last axis, the same shift for every row. It used to shuffle single samples as if independent:\n  on two independent AR(1) series with coefficient 0.9 it rejected at p ≤ 0.05 for 0.505 of\n  pairs, against about 0.05 now (0.04 to 0.06 over 600 to 1000 pairs). The new `null=` takes `'circular_shift'`, `'block'` (with the\n  required `block_len=`) or `'iid'`, which reproduces 0.2.6 seed for seed.\n  `result.execution['null']` records the scheme that ran. The null and `lag` act on the last\n  axis whatever `adim` names, so put time last."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa` refuses `bootstrap > 0` on a paired metric unless `null='iid'` is named (breaking).**\n  Single-sample resampling undercovers on autocorrelated data: the 95% pearson interval covered\n  0 for 0.475 of independent AR(1) pairs with coefficient 0.9. With `null='iid'` the interval\n  equals 0.2.6."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`granger`, `granger_spectral`, `phase_slope_index` and `transfer_entropy` circularly shift\n  each trial below 7 trials (it was below 3).** With 3 to 6 trials the trial re-pairing null had\n  too few distinct values: on independent noise, P(p ≤ 0.05) was 0.25 to 0.33 at 3 trials and\n  0.14 to 0.21 at 4, and is 0.02 to 0.10 at 3 to 6 now. p-values change for 3 to 6 trials;\n  1 to 2 and 7 or more are unchanged. `params[\"surrogate_scheme\"]` records the scheme."
-        },
-        {
-          "kind": "Changed",
-          "text": "`docs/common_mistakes.md` no longer calls `nested_cv_linear_svm`'s accuracy unbiased or\n  leak-free: its folds are drawn over rows, so it is an upper bound on block-held-out accuracy."
-        },
-        {
-          "kind": "Changed",
-          "text": "The phase slope index is described as the summed imaginary part of adjacent-bin coherency\n  products, which tests neither linear phase nor a delay; Granger is described as temporal-lag\n  prediction, in `docs/references.md` and in the `granger` and `granger_causality` docstrings.\n  `zflip` and `docs/02` state delay and velocity as an apparent phase delay, NaN unless its\n  identifiability gate passes."
-        },
-        {
-          "kind": "Changed",
-          "text": "`fit_exponential_onset`'s `bound_status` is documented as checking only t0 against\n  `t0_bounds_ms`; a fit to noise can read `None`, so read `r2` and `tau` too."
-        },
-        {
-          "kind": "Changed",
-          "text": "A new logo and favicon."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**`jrsa` row metrics warn when a null is formed without `null=`.** For `rsa`, `cka`, `rv`,\n  `hsic`, `distance_correlation` and `procrustes` the default (an i.i.d. permutation of axis-0\n  rows) is unchanged, so numbers are unchanged, and now emits a `UserWarning`. When axis 0 is\n  time that permutation is invalid: `cka` and `rv` rejected every independent AR(1) pair.\n  From 0.2.7 `null=` must be named for these metrics; naming any scheme silences the warning."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The directed estimators honour `rng`.** In `granger`, `granger_spectral`,\n  `phase_slope_index` and `transfer_entropy`, `rng=None` silently meant seed 0 and was recorded\n  as `seed=None`; it now draws fresh entropy. A `numpy.random.Generator` is accepted (it raised\n  `TypeError`), and a float seed raises `TypeError` (2.7 ran as seed 2). The entropy used is\n  `params[\"surrogate_seed_entropy\"]`; passing it back as `rng` reproduces p. An int seed gives\n  identical numbers."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`directed_network` does not depend on `n_jobs` with a `Generator`.** It draws one seed per\n  pair before any worker starts, and raises on contradictory `rng=` and `seed=`."
-        }
-      ]
-    },
-    {
-      "version": "0.2.6",
-      "date": "2026-09-24",
-      "counts": {
-        "Added": 9,
-        "Changed": 18,
-        "Fixed": 33,
-        "Deprecated": 4
-      },
-      "entries": [
-        {
-          "kind": "Added",
-          "text": "**`inspect` reports each continuous series' `starting_time`, and `acquisition_channel` warns\n  when it is not 0.** Sample 0 of an `acquisition_channel` array is at the series'\n  `starting_time`, while interval-table onsets are session times; nothing reported the offset,\n  so on a series starting at 5 s the documented `acquisition_channel` → `event_onsets` →\n  `epoch_continuous` path epoched 5 s away from every event and measured -0.0001 mV for a\n  1 mV evoked deflection. Every continuous entry, from a path or an in-memory file, gains\n  `starting_time` in seconds (`None` for a series stored with timestamps).\n  `acquisition_channel` raises `UserWarning` naming the shift when it is non-zero; its return\n  is unchanged. Tutorials 00, 04 and 08 and the NWB-data skill subtract it from the onsets\n  before epoching."
-        },
-        {
-          "kind": "Added",
-          "text": "**`CITATION.cff`.** Citation metadata for GitHub's \"Cite this repository\" and for archiving\n  each GitHub Release on Zenodo."
-        },
-        {
-          "kind": "Added",
-          "text": "**`compress_fp32` and `convert` take `select=`, the datasets to cast.** A keyword-only list of\n  dataset paths cast to float32, irreversibly (`select=[\"acquisition/probe_0_lfp/data\"]`). A\n  missing path, a group, a dataset that is not floating-point, a scalar dataset, a regular\n  `timestamps` array (replaced by `starting_time` and `rate`), and `spike_train` or\n  `convolved_spike_train` (always rewritten at their source dtype) are refused before anything\n  is written; naming any of the last three used to report a float32 cast of a dataset that was\n  never cast or is absent from the output. Each path is checked under the name of the dataset it\n  opens, so `a//b`, `a/./b` and `a/b/` meet the same refusals as `a/b` and are cast once under\n  that name, and a hard or soft link to a refused dataset is refused like the dataset. The\n  result gains `cast_paths`, and verification checks exactly those datasets."
-        },
-        {
-          "kind": "Added",
-          "text": "**`correlate` and `exploratory_correlate` take `method=`.** Keyword-only: `\"both\"` (the\n  default, the same values as before), `\"pearson\"` or `\"spearman\"`. Naming one computes only that\n  correlation and returns only its keys, so `n_tests` counts what was performed. An unknown\n  method raises `ValueError`."
-        },
-        {
-          "kind": "Added",
-          "text": "**`compare_groups`, `compare_multiple_groups`, `exploratory_compare` and `exploratory_multi`\n  take `test=`.** Keyword-only: `\"both\"` (the default), `\"parametric\"` or `\"nonparametric\"`.\n  Naming one runs only that test and returns only its keys. An unknown name raises `ValueError`."
-        },
-        {
-          "kind": "Added",
-          "text": "**`jnwb.vis`, a Plotly figure engine, as the optional `vis` extra.** Install it with\n  `pip install jnwb[vis]`, which adds `plotly>=6.1.1` and `kaleido>=1.0.0`; kaleido writes the\n  SVG and PNG that `PlotlyPublicationCanvas.save_and_seal` exports alongside the HTML. The core\n  dependencies are unchanged. Without the extra, `import jnwb` and every other export work,\n  and accessing `jnwb.vis` raises `ImportError` naming `pip install jnwb[vis]`.\n  `from jnwb import *` needs the extra, because `vis` is in `jnwb.__all__`."
-        },
-        {
-          "kind": "Added",
-          "text": "**An open-data tutorial on a real public recording.** `examples/tutorials/09_open_data.py`\n  and the \"Open Data\" page read a 7.8 MB excerpt of DANDI 000253 v0.240503.0152 (CC-BY-4.0,\n  doi:10.48324/dandi.000253/0.240503.0152), committed under `examples/data/` and kept out of\n  the wheel. The tutorial derives the LFP clock from the file -- the timestamps are clock ticks,\n  giving 1249.9987 Hz, with sample 0 placed within 10 ms -- then computes a PSTH by cortical\n  layer and band power by depth. `scripts/build_open_data_excerpt.py` rebuilds the excerpt\n  from the published assets after checking their SHA-256."
-        },
-        {
-          "kind": "Added",
-          "text": "**Exploratory results say they are uncorrected.** `StatisticalAnalysis.exploratory_compare`,\n  `exploratory_multi` and `exploratory_correlate` results carry `correction: \"none\"`. Their\n  p-values and `significant_*` flags were already raw; the key states it in the result itself. Corrected values stay on `confirmatory_compare`."
-        },
-        {
-          "kind": "Added",
-          "text": "**A read can waive a missing `session_description`, reachable from `import jnwb`.**\n  `jnwb.read_nwb(path, allow_missing=(\"session_description\",))` opens a file that\n  `MissingRequiredNWBFieldError` refuses by default; the field reads `\"\"`, and\n  `nwbfile.jnwb_waived_requirements` is `(\"session_description\",)` only when the waiver was\n  used. A file that has the field reads `()` whatever `allow_missing` says. `jnwb.nwb_read_io`\n  takes the same `allow_missing` and keeps the file open for reading data. It is a reader: any\n  `mode` other than `\"r\"` raises `ValueError` before the file is opened, where `\"w\"` used to\n  truncate it and `\"a\"` and `\"r+\"` opened it for writing. Write with `pynwb.NWBHDF5IO`.\n  `jnwb.SqueezedAttributeWarning` is exported so a repaired read can be caught by name.\n  `docs/errors.md` tabulates what a read returns for each on-disk state of the field."
-        },
-        {
-          "kind": "Changed",
-          "text": "**One execution switch.** `device='metal'` runs `complex_tfr` (with `dtype=np.complex64`)\n  through JAX on Apple GPUs; it is implemented and has not been run on Metal hardware. Every\n  other function warns and computes on the CPU, as do 64-bit requests on Metal.\n  `band_power` and `relative_power` no longer have GPU paths: `device='cuda'` or `'metal'`\n  warns and computes on the CPU, because their bare return values have nowhere to record the\n  device. `spectral_tilt`, `harmonic_analysis`, `imaginary_coherency`, `wpli`,\n  `granger_causality`, `UnitAnalyzer.autocorrelogram` and `compute_population_trajectory`\n  now return `device_used`. `granger_causality` recomputes on the CPU if any fit falls back,\n  where it used to mix GPU and CPU fits. `jrsa(backend='cupy'|'jax'|'torch')` and `n_jobs>1`\n  without joblib now warn instead of falling back silently."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`PopulationAnalyzer.population_trajectory` makes each component's largest loading\n  positive**, so CPU and CUDA agree; LAPACK and cuSOLVER used to choose each component's sign\n  independently, so a CUDA component and its projection could have the opposite sign to the\n  CPU one. Component and projection signs may flip compared with 0.2.5."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`wpli` and `imaginary_coherency` return NaN when either channel is constant**, all-zero\n  included: `wpli`, `wpli_debiased_sq` and every `wpli_spectrum` entry, and `icoh_mean`,\n  `icoh_abs_mean` and `coh_mag_mean`. In 0.2.5 `imaginary_coherency` returned 0.0 for an all-zero\n  channel and a rounding-residue value for other constants (0.14 at 0.3). `wpli` returned\n  0 for an all-zero channel and 0.14 to 0.18 for any other constant, from the rounding residue\n  its STFT keeps because it does not detrend. The constancy test is exact: one sample one ulp\n  away makes a channel non-constant. `zflip` applies the same rule to its adjacent wPLI: a\n  constant contact makes both of its pairs NaN, so `mean_wpli` is NaN rather than an average\n  over zeros, and the surrogate test is skipped (`p_value` NaN, with the contact named in\n  `rejection_reason`)."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The `stored_dtype_note` written by `compress_fp32` names the source dtype that was cast**\n  (`cast from int16 to float32`). It used to say `float64` whatever the source was."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The geometric depth class is `depth_class`.** `enrich_units_dataframe` and\n  `get_all_units_metadata` write it ('Deep' / 'Superficial' / 'Unknown', a threshold on\n  electrode depth) to a new column `depth_class`; laminar identity from spectra remains\n  `label_layers`. `unit_census_report` with `group_by=None` groups by\n  `['session_id', 'area', 'depth_class']`, so the census carries `depth_class` where it carried\n  `layer`. Given a frame with `layer` and no `depth_class`, it does not read `layer`; it drops\n  the depth split and emits a `FutureWarning` naming both columns."
-        },
-        {
-          "kind": "Changed",
-          "text": "**The `phase_slope_index` jackknife runs in time linear in the number of segments.** It was\n  quadratic. `value` and the spectra are unchanged; `sd`, `z` and the p-values agree with the\n  previous implementation to 1e-11 relative. At 50 000 samples with `nperseg=256` a call takes\n  12 ms instead of 800 ms."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`stream_npz_array` seeks inside an uncompressed archive.** A slice of an `np.savez` entry\n  skips the elements before it instead of reading them, so time no longer grows with the\n  slice's position (0.5 ms against 82 ms for the last 1000 of 1.6e7 float64). Output is\n  byte-identical, and compressed archives are unchanged. A slice that skips part of a stored\n  entry no longer verifies its CRC-32; read the whole array to verify the file. CPython 3.12.0\n  keeps reading the skipped elements: its `zipfile` ends a stored entry early after a seek into\n  the read buffer, which failed valid archives as corrupt. A check of `zipfile` on first use\n  picks the path."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`stream_npz_array` indexes as NumPy does.** An integer index removes its axis:\n  `slice_tuple=(slice(1, 4), 2)` on shape `(5, 6, 7)` returns shape `(3, 7)`, where it returned\n  `(3, 1, 7)`, which broadcast silently against NumPy's result; with `-1` in place of `2` it\n  returned `(3, 0, 7)`, an empty array. Code that relied on the kept\n  axis must index with a length-1 slice (`slice(k, k + 1)`) instead. Too many indices and a\n  non-integer scalar index raise `IndexError`, as in NumPy, where they raised `ValueError`; a\n  zero-dimensional array reads with `slice_tuple=()`. Ellipsis, `None`, booleans, arrays and a\n  list, which NumPy reads as other kinds of index, raise `TypeError`; a boolean used to be read\n  as an integer and a list as a tuple."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`imaginary_coherency` is signed like `phase_slope_index`: positive means `x` leads `y`.**\n  The cross-spectrum is now `E[X conj(Y)]`, the conjugate of what `scipy.signal.csd` returns,\n  on both devices. `icoh_mean` changes sign on every input; `icoh_abs_mean`, `coh_mag_mean` and\n  `n_freqs` are unchanged. With `x` leading `y` by 5 ms, `icoh_mean` was -0.6255 while the phase\n  slope index was +1.7767. Code that read a negative `icoh_mean` as `x` leading must flip its\n  test."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`aggregate_to_db(how=\"mean_of_ratios\")` refuses `TFRAccumulator.power()` output.** The\n  accumulator has already averaged over trials, so a ratio of its output is a ratio of means\n  whatever `how` names; the call used to return that under the other name. It now raises\n  `ValueError` naming the per-trial route. `how=\"ratio_of_means\"` on accumulator output, and\n  `mean_of_ratios` on per-trial power, are unchanged. The refusal covers `power()`, `mean`, any\n  array sharing memory with the mean buffer (every view, including one reached through\n  `memoryview` or `as_strided`), NumPy function results over them and `tolist()`; values are\n  unchanged. A copy NumPy makes without dispatch (`np.array`, assignment into another array)\n  and a read back from `write()` carry no mark and are not refused."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa` raises `ValueError` for an unrecognised `reduction` op or `alternative`.** Both\n  used to be accepted and echoed back as if applied, among them `reduction={'a': 'Mean'}`\n  and `alternative='GREATER'`. The error names the valid set, and an unrecognised\n  `alternative` is refused before anything is computed, with or without a permutation null.\n  The alignment step raises the same way for an unrecognised `align`, but `jrsa` requires `x1`\n  and `x2` to have the same shape, so no alignment runs and `jrsa(..., align='bogus')` is\n  still accepted."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa(alternative=)` sets the tail of the parametric p.** With `permutations=0` or\n  `stats=False`, `p` is the metric's own two-sided p, and `alternative='greater'` or `'less'`\n  was echoed in `parameters` without changing it. The one-sided p is now the two-sided p\n  halved when `value` lies on the requested side and `1 - p/2` otherwise: for a Pearson r of\n  -0.949, `'greater'` gives 1.0 where it gave 5.2e-61. `granger_ssr_ftest`, whose parametric\n  p is an upper-tail F-test, raises `ValueError` for a one-sided alternative without a\n  permutation null."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`enrich_units_dataframe` adds `is_stable` only when a `quality` column holds a usable\n  value.** A frame without one, or with only NaN, None, blank entries or the text of a missing\n  value (any string `pandas.read_csv` reads as missing by default, such as `\"nan\"`, `\"n/a\"`,\n  `\"#N/A\"` or `\"-1.#IND\"`, or `\"NaT\"`), used to receive\n  `is_stable=False` on every unit, a label with no data behind it. The column is now absent in\n  that case; the unit quality plot already treats it as optional, and\n  `get_all_units_metadata(filter_quality=True)` excludes every unit of such a file with a\n  `RuntimeWarning` instead of passing them through."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`is_stable` is a nullable boolean: `<NA>` where a unit's own quality is missing.**\n  `enrich_units_dataframe` and `get_all_units_metadata` write it with pandas' `\"boolean\"` dtype.\n  A unit whose `quality` is NaN, None, blank or the text of a missing value, or is not a number\n  in a numeric column, used to read `False`, unstable, when other units had usable values; it\n  reads `<NA>`. `filter_quality=True` still excludes it. `plot_unit_quality_distribution` counts\n  it in neither stability bar and gives the number of unknown units in the panel title. Code\n  that negates the column (`~df[\"is_stable\"]`) now keeps `<NA>` where it kept `True`; use\n  `df[\"is_stable\"].eq(False)` to select units known to be unstable."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`JRSAResult.p` and `q` are 0-d for a single-lag result, like `value`.** They were shape\n  `(1,)`, so `float(res.p)` raised `TypeError` under NumPy >= 2. A multi-lag result gives\n  `(n_lags,)`, matching `value`, where it used to give `(n_lags, 1)`."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa(sliding=True)` raises `NotImplementedError`.** It was accepted and ignored: value and\n  p were identical to `sliding=False`, with no warning, while the jRSA page presented it as\n  sliding-window analysis. The error names the alternative, one call per\n  `window=(start, stop)`, and the page shows that loop."
-        },
-        {
-          "kind": "Changed",
-          "text": "**`jrsa(metric='transfer_entropy_histogram_nats')` refuses `k`.** The metric declared a `k`\n  option and never read it: `k=1`, `2` and `5` all returned the one-sample-history answer\n  (0.040111 on one input). It now raises `TypeError` like any unknown option; the estimator\n  conditions on one past sample of each series. `jnwb.transfer_entropy` takes history lengths.\n  Every other metric-specific option `jrsa` accepts with more than one legal value changes the\n  result."
-        },
-        {
-          "kind": "Changed",
-          "text": "**INTENTIONAL BREAK: `zflip` requires `orientation`.** `directionality` named a direction in\n  depth from row order alone, and nothing required row 0 to be superficial: a tip-first\n  electrode table of a wave running superficial to deep was reported as `deep_to_superficial`\n  and accepted. `orientation='superficial_to_deep'` (row 0 is the most superficial contact) or\n  `'deep_to_superficial'` (row 0 is the deepest) is now a keyword with no default; a call\n  without it raises `TypeError` and any other value raises `ValueError`. Code that passed\n  superficial-first rows adds `orientation='superficial_to_deep'` and gets the numbers it got\n  before. `tau_per_channel_s` stays in row order (positive when the lower-index contact leads),\n  and `ZFlipResult.orientation` records the order stated."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`compress_fp32` keeps shared timestamps, and a failed verification raises.** pynwb writes a\n  series' shared `timestamps` as a soft link to another series' array. When that array was\n  regular, the conversion replaced it with `starting_time` and `rate` and deleted it, leaving\n  the link dangling and the output unreadable by pynwb (`ConstructError`); the only signal was\n  `verification[\"ok\"] == False` in the returned dict. A regular `timestamps` array that any\n  other hard or soft link opens is now kept as it is, listed in `timestamps_kept_linked`, and\n  refused by `select=` like any regular timestamps array. With `verify=True` a failed check\n  raises `RuntimeError` naming each failed check, and the written file is left in place for\n  inspection, so `ok` is True in every returned result."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`acquisition_channel` applies `channel_conversion`.** An `ElectricalSeries` may store a\n  per-channel factor, and the NWB specification computes the physical value as\n  `data * conversion * channel_conversion[ch] + offset`. The factor was ignored, so a file\n  storing `channel_conversion=[1, 2, 0.5]` returned the same voltage on all three channels where\n  pynwb returns 1e-4, 2e-4 and 5e-5 V. A `channel_conversion` whose length is not the channel\n  count raises `ValueError`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A PSTH window must be whole bins.** `raster_psth` built a last bin that ran past\n  `win_ms[1]` when the span was not a multiple of `bin_ms`, and divided its partial count by the\n  full `bin_ms`: a steady 1000 Hz train read 500 Hz in the last bin of `win_ms=(-200, 505)` at\n  10 ms. Such a window now raises `ValueError` naming the nearest valid windows\n  (`win_ms=(-200, 500)` or `(-200, 510)`); every valid call returns what it did.\n  `jnwb.vis.plot_multi_condition_raster_psth` had the same last bin and refuses the same way,\n  and its default window is `(-250, 530)` where it was `(-250, 531)`, whose last bin held 1 ms.\n  `UnitAnalyzer.psth` stretched such a window into bins that were not `bin_size_ms` wide and\n  divided each by `bin_size_ms`; it refuses the window as well."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A `bin_spikes` window must be whole bins.** `bin_spikes` made `round(span / bin)` bins.\n  Rounded up, the last bin ran past the window end and `output=\"rate\"` divided its partial\n  count by the full width: a steady 1000 Hz train read 600 Hz in the last bin of\n  `window_s=(0, 0.306)` at 10 ms. Rounded down, spikes between the last edge and the window end\n  were dropped: `(0, 0.305)` counted 300 of 305. Such a window now raises `ValueError` naming\n  the nearest valid windows (`window_s=(0, 0.3)` or `(0, 0.31)`); every valid call returns what\n  it did. `spike_mutual_information` and its two aliases refuse the same windows under\n  `time_window_s`, and now bin both trains through `bin_spikes`: their own histogram closed the\n  last bin on the right, so a spike exactly on the window end was counted.\n  `build_time_resolved_matrix` (and `compute_population_trajectory` through it) stretched such a\n  window into bins not `bin_size_ms` wide; it refuses the window as well. The whole-bin check\n  scales its floating-point tolerance with the window's endpoints, so an absolute window hours\n  into a recording is not refused for rounding."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`UnitAnalyzer.autocorrelogram` bins are `bin_size_ms` wide and centred on their lags.**\n  They were `2 * max_lag / (2n + 1)` wide, 0.99 ms at the default 1 ms, and `lag_times_ms`\n  labelled each bin one bin below where it sat: a train firing every 5 ms peaked at the label\n  4 ms. Bins are now centred on multiples of `bin_size_ms`, the histogram spans\n  `±(n + 1/2) * bin_size_ms`, and `lag_times_ms` is `bin_size_ms * (1, ..., n)`, the centres;\n  the same train peaks at 5 ms. `n`, the whole bins in `max_lag_ms`, no longer loses one to\n  rounding (9 ms at 0.1 ms made 89 bins). Its refractory test is withdrawn (Deprecated, below)."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`build_time_resolved_matrix` bins are right-open.** Its last bin was closed on the right, so\n  a spike exactly on `time_window_ms[1]` was counted there; `bin_spikes` and every other spike\n  binner exclude it. It now bins through the same rule as `bin_spikes`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A result with no estimate is NaN, not a number.** These calls returned ordinary-looking\n  values where the data held no estimate:\n  - `phase_slope_index` with no band wide enough for a slope returned `net` 0.0. `net`,\n    `x_to_y` and `y_to_x` are now NaN, with `diagnostics['ok_for_interpretation']` False. When\n    some bands have a slope, `net` still sums those.\n  - `phase_locking_index` with no spike in the LFP window returned `pli` 0.0,\n    `preferred_phase` 0.0, `rayleigh_z` 0.0 and `rayleigh_pvalue` 1.0. All four, and\n    `peak_to_mean_contrast`, are now NaN, with `n_spikes` 0.\n  - `compare_groups` and `exploratory_compare` rewrote an undefined test as `statistic` 0.0 and\n    `pval` 1.0: an empty group, one value per group, or two identical constant groups. The test\n    now reports NaN, its `df` is float NaN rather than a count such as 18 for an empty group,\n    and its `significant_*` flag is False; a defined test keeps its integer `df`. A paired\n    Wilcoxon test whose every difference is zero reported scipy's statistic 0.0 and p 1.0; it\n    is NaN. An effect size with a zero or undefined SD is NaN rather than 0.0, and a one-value\n    group against a larger one gets its Cohen's d instead of 0.0. `confirmatory_compare` gives\n    a NaN `pval` a NaN q-value; the other test's q is unchanged. Zero spread is tested by exact\n    equality: the computed SD of a constant 0.3 is about 1e-17, so two constant 0.3 groups kept\n    `statistic` 0.0 and `pval` 1.0, and constant groups at 0.3 and 0.7 read t -2.2e16 and d\n    -9.7e15. Constant groups at one value now read NaN, and at different values t -inf or\n    +inf, `pval` 0.0 and d NaN, whatever the finite values; a paired difference that is one\n    non-zero constant reads the same way, with d_z NaN. A group constant at inf or -inf, such\n    as a silent channel in decibels, has no test and reads NaN.\n  - `compare_multiple_groups` and `exploratory_multi` did the same for the ANOVA and\n    Kruskal-Wallis tests, and reported `eta_squared` 0.0 for data with no variance. Both tests\n    now report NaN with `significant_*` False, and an ANOVA with no estimate reports\n    `df_between` and `df_within` as float NaN (`group_sizes` keeps the counts). `eta_squared` is\n    NaN for data with no variance or with an empty group; with one observation per group and\n    unequal values every deviation lies between groups, so `eta_squared` is 1.0 while the ANOVA\n    itself is NaN. Both cases are decided by exact equality on finite data: constant groups at\n    0.1 of sizes 3 and 4 reported `eta_squared` 2.29, and constant groups at distinct values\n    1.0000000000000004.\n  - `correlate` and `exploratory_correlate` already reported a NaN correlation for a constant\n    input but kept `df` at `n - 2`; that block's `df` is now float NaN. A defined correlation\n    keeps its integer `df`.\n  - `shuffle_r2_ci` with a single-class label or a constant score returned `r2_observed` 0.0\n    and `p_val` 1.0. Every field but `n_shuffle` is now NaN. Constancy is tested by exact\n    equality, so a constant 0.3, whose `np.std` is 5.6e-17 rather than 0, is caught as a\n    constant 0.5 is.\n  - `cluster_permutation_test` reads a point's zero standard error from its data, compared\n    exactly. The computed spread of a constant 0.3 is rounding residue, so a paired difference\n    of 0.3 at every observation read t 1.8e16 where a constant non-zero difference is NaN, and\n    two groups of 7 and 12 equal to 0.3 read t 3.3, enough to form a cluster at the default\n    threshold, where equal constant groups read 0.0."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Standardisation takes a constant to 0.** The computed std of a constant 0.3 is rounding\n  residue rather than 0, and dividing the centred values, the same residue, by it turned the\n  constant into a column of ones. A constant column in `gpu_pca` and a unit with an unchanging\n  rate in `compute_population_trajectory` each took a whole principal component; a constant\n  row under `jrsa(standardize=True)`, a constant trial under `detrend='zscore'` (the `granger`\n  and `granger_spectral` default) and a constant signal in the deprecated `granger_causality`\n  entered the analysis as ones. Each is now exactly 0, on CPU and CUDA alike, whatever the\n  constant's value. `compute_response_metrics` with the same baseline count in every trial\n  read `response_zscore` about 1e15 in size (-2.1e15 for 7 spikes in 0.15 s over 20 trials)\n  where no across-trial variance gives NaN; it is NaN. Constant model residuals read a\n  Ljung-Box p of 0.0 and the warning `residual_autocorrelation_ljung_box_p<0.05`; the test is\n  now not run, with `residual_whiteness_not_tested`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`acquisition_channel` reads series wrapped in behavior containers.** An `EyeTracking`,\n  `PupilTracking`, `BehavioralTimeSeries`, `Position` or `CompassDirection` container in\n  `/acquisition` raised `AcquisitionNotFoundError` (\"has no readable data array\"), and its bare\n  series name was not found, although `inspect` reported the series, its path and its rate. Only\n  `LFP` was unwrapped. These containers now unwrap the way `LFP` does: by container name, bare\n  series name or `container/series`, and a container holding several series raises\n  `AmbiguousAcquisitionError`. A `FilteredEphys` container in `/acquisition`, which raised the same\n  way when named by its container, is unwrapped too. `inspect` on an `NWBFile` with no file\n  behind it unwrapped only `LFP`, so it reported these containers with no series, shape or\n  layout, and left those in processing modules out, where `inspect` of the file reported them;\n  both forms now report them alike. A series whose type carries no electrode\n  region (every `TimeSeries` subtype except `ElectricalSeries` and `SpikeEventSeries`) has\n  nothing to decide which axis holds channels, so its layout follows the NWB schema's time-first\n  rule rather than a guess from which side is longer, in `acquisition_channel` and in\n  `inspect`'s `layout`. An `ExternalLink` in `compress_fp32(select=)` that points into another\n  file is refused: it opens a dataset there, and resolving it by name cast this file's dataset at\n  the same path. One that points back into the source file is cast as an alias of its target."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`stream_npz_array` returns what NumPy returns for edge indices.** `slice_tuple=(-1,)`\n  returned an empty array; it returns the last element. A negative step on an outer axis, with\n  the fastest axis read whole, raised \"Internal streaming error\"; it returns the slice. An entry\n  shorter than its header declared returned uninitialized memory; it raises `ValueError`. An\n  out-of-range integer index returned an empty array; it raises `IndexError`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`jrsa` converts its inputs by type.** It took `.data` from any input carrying one: a\n  `scipy.sparse` matrix became its stored non-zeros (CKA 0.011 against 0.801, RSA NaN, no\n  error), a CuPy array or a torch CUDA tensor raised, and a masked array lost its mask. Sparse,\n  CuPy and torch inputs on any device now convert to dense host values, and a masked array\n  with a masked element raises `TypeError`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Skill routing rows and docstrings state what the call does.** Every routing row in\n  `skills/` was checked by calling the function. Among the corrections: `compute_response_metrics`\n  computes no peak rate or modulation index (also corrected on the spike-analysis page);\n  `compute_psd` needs `axis=-1` for the input `vflip` expects; `spectral_tilt` and\n  `aperiodic_fit` report `exponent` with opposite signs; `granger_causality` is deprecated;\n  `resample_onsets` repeats onsets when there are too few; `apply_tight_auto_axis` floors the y\n  axis at 0. The `event_onsets`, `save_and_seal`, `repair_lfp_trials` and `aperiodic_fit`\n  docstrings no longer overclaim."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`unit_census_report` warns when `group_by` names a column the frame lacks.** The column\n  was dropped silently, so the census was grouped by fewer columns than the call named. It is\n  still dropped, now with a `UserWarning` naming it."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A fixed Granger order must be an integer >= 1.** `granger`, `granger_spectral` and\n  `granger_causality` raise `ValueError` on `order=0`, a fraction, a bool or NaN. `order=0`\n  used to fit a model with no history and return zero causality in both directions, which read\n  as no coupling; `2.5` was truncated to `2` and `True` read as `1`. An integral float such as\n  `3.0` is still accepted."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A `session_description` stored as a soft or external link to a valid dataset is read\n  through** instead of raising `MissingRequiredNWBFieldError`, matching pynwb."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**An atlas layer label is one location.** `parse_probe_areas` and\n  `map_peak_channel_to_area` read every `/` as a boundary between two areas, so the label\n  `VISpm2/3` became the areas `VISpm2` and `3`, and a unit on that electrode was reported in\n  `VISpm2`. A slash followed by a field that does not start with a letter now continues the\n  label before it; `V1/V2` still names two areas."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A series inside a container can be read by name.** On an `LFP` container holding several\n  series, `acquisition_channel` told the caller to name the series and then raised\n  `AcquisitionNotFoundError` for that name. A series name now resolves, bare or as\n  `container/series`. A bare name that two containers hold raises\n  `AmbiguousAcquisitionError` listing the qualified names; in processing modules it used to\n  return whichever module came first."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Documentation figures and captions match what they draw.** Panel B of the decoding\n  figure drew a curve manufactured from the AUC value and labelled it a ROC curve; it now\n  shows the out-of-fold AUC and F1 the decoder returns. The spectral caption names the\n  1/f-squared background the generator builds, and the quickstart caption names all six\n  panels. The jRSA page no longer advertises a GPU path: `jrsa` computes on the CPU. Five\n  figures that no longer matched their generator are regenerated, and a test now fails any\n  figure that `docs/generate_figures.py` would draw differently. Every figure caption says its\n  data are synthetic."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The `jnwb.vis` PSTH ribbon is named for what it is.** `plot_multi_condition_raster_psth`\n  documented bootstrap CIs and draws mean ± 1.96 SEM across trials, clipped at 0 Hz; the\n  package docstring claimed Clopper-Pearson error bars nothing computes. Both now say that\n  every other interval is an input. A new page, \"Plotly Figures\", documents `jnwb.vis`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**One glossary.** A \"Glossary\" page defines operation and workflow, session and recording,\n  contact and channel, electrode and electrodes table, and trial and epoch; every page uses\n  those terms, and the documentation examples name a whole NWB file `session.nwb`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Every cited method names the result jnwb implements.** `docs/references.md` is one table per\n  topic, each row giving the source, the result implemented and the functions that implement\n  it; a test holds the page and the docstrings to each other in both directions, and every DOI\n  was resolved on 2026-09-23. Docstrings state where jnwb departs from a reference: `aperiodic_fit` without peak removal, the Morlet\n  cone-of-influence default, the phase-slope jackknife unit, equal-weight multitaper averaging,\n  NaN distance correlation for a constant input, and that `vflip` is not the published vFLIP.\n  The Mitra and Pesaran citation is removed from `compute_multitaper_psd`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Documentation states what it can support.** The fitted onset is described as moving with\n  `tau_ms` on a graded rise rather than as the true takeoff time; the architecture page says the\n  wheel installs the operations while documentation and tests live in the repository; the GPU\n  line of the router skill names every function that computes on or records the device."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**Figures follow the page's palette scheme.** Every documentation figure is drawn twice on a\n  transparent background, for the light and the dark scheme, and each page shows the one that\n  matches; the dark scheme's surfaces no longer paint the light scheme dark. The permutation\n  figure's title names the paired sign-flip null it draws. The agent page lists all ten skills."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The architecture page draws its structure.** Four diagrams replace two tables and add two\n  views: what defines, implements, verifies and routes to an operation; the four outcomes\n  of a task as a decision; the path from an NWB session to a verified result; and the\n  one-way dependency from a project to jnwb."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The fitted onset is not described as independent of smoothing.** The spike-analysis\n  page, the `causal_exp_smooth` docstring and the spiking skill scope that property to a\n  step response; on a graded rise the fitted `t0` moves with `tau_ms`, so onsets are\n  compared only between traces smoothed with the same `tau_ms`."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`visual_qc.plot_unit_quality_distribution` labels each stability bar by its own class.**\n  The labels followed the bar order of `value_counts()`, which sorts by count: 7 stable and 3\n  unstable units plotted as 7 unstable and 3 stable, and 5 stable units as 5 unstable. Both\n  classes are now always drawn, an absent one as zero. A units table without one of\n  `firing_rate`, `snr`, `waveform_duration` or `quality` raised `AttributeError`; that panel is\n  now left empty and titled as absent."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The transfer-entropy formula on the directed-connectivity page matches the code.** It\n  conditioned the target's past on `l` and the source's past on `k`; `transfer_entropy` uses\n  `k` for the target history and `l` for the source history, so a reader who set them from the\n  page fitted a different model."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`compute_population_trajectory`, `PopulationAnalyzer.population_trajectory` and `gpu_pca`\n  agree between CPU and CUDA when loadings tie.** The sign pin took the largest-magnitude\n  loading by `argmax`, so among loadings tied in magnitude rounding chose the pivot, and the\n  two devices round differently: with two z-scored features every loading ties, and `gpu_pca`\n  pinned opposite signs on 32 of 200 matrices while a two-unit trajectory differed by 8.5 in\n  one component on 4 of 60 sessions. Loadings within `sqrt(eps)` of the largest now count as\n  tied and the lowest-index one is the pivot, on both devices."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**The `jrsa` docstring, the jRSA page and the population skill state the direction of each\n  directed metric.** `granger_ssr_ftest` and `transfer_entropy_histogram_nats` measure x2 -> x1,\n  the reverse of `granger(X, Y).x_to_y`, while `phase_slope` is positive when x1 leads x2. No\n  public text said so. The numbers are unchanged."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A shuffle that reproduces the observed split counts as at least as extreme.**\n  `StatisticalAnalysis.permutation_test`, `shuffle_pvalue_unpaired` and\n  `shuffle_pvalue_paired` recomputed the observed statistic in shuffled order, which can land\n  an ulp below it and fail the `>=` count, so p came out too small: for 3 v 3 separated groups,\n  whose exact two-sided p is 0.1, `permutation_test` gave p < 0.05 in 16 of 200 seeds, and one\n  set of five positive paired differences gave `shuffle_pvalue_paired` its floor, 0.0002, where\n  the exact p is 0.0625. Each comparison now allows the largest rounding difference two\n  evaluations of the statistic can have, 8 eps times the sum of the absolute values. The two\n  unpaired tests take that sum over the pooled values centred on their mean, because a\n  difference of means ignores a common offset: the raw sum turned distinct splits into ties\n  and gave p 1.0 against 0.487 at an offset of 1e10 times the spread."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`exact_sign_flip` gives the same p in any units.** It counted a null mean within an\n  absolute 1e-12 of the observed one as a tie, so differences of order 1e-12, ordinary band\n  powers in V^2/Hz, made every flip a tie: one set of twelve differences gave p 0.0049 in\n  uV^2/Hz and 1.0 in V^2/Hz. The tie width is now the rounding bound above, which scales with\n  the differences."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**`TFRAccumulator` reports no estimate where no trial was valid.** `power()`, `mean`,\n  `evoked()` and `itc()` returned 0.0 in cells whose count is zero, such as the samples\n  `coi_mask` excludes in every trial, where `var()` and `sem()` already returned NaN. They are\n  now NaN there too, matching `np.nanmean` over the masked per-trial power. Cells with at least\n  one valid trial are unchanged. `mean` returns a copy, so `acc.mean[...] = x` no longer writes\n  through. Its setter stores what it is given, so a reload may set `mean` before or after `n`,\n  and `add_trial` and `merge` start a cell with no valid trial from zero, so `acc.mean =\n  acc.mean` leaves those cells fillable."
-        },
-        {
-          "kind": "Fixed",
-          "text": "**A flat trace has no spectrum, at any level.** Welch removes each segment's mean, and for a\n  constant such as 0.3 that leaves rounding residue rather than zero, which the `> 0` power\n  guards read as a spectrum: `spectral_tilt` fitted an exponent, `harmonic_analysis` reported a\n  fundamental, `band_power` against a flat 0.3 baseline returned 561 dB instead of raising, and\n  `imaginary_coherency` against a flat channel gave `icoh_abs_mean` 0.17. A constant trace is\n  now treated as the all-zero trace its detrended spectrum is, so these return what an all-zero\n  trace returns: NaN tilt and fundamental, band power 0.0, a raise for the baseline, and NaN\n  coherency, as for any constant channel."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**Calling `compress_fp32` or `convert` without `select=`.** It still casts the anchored LFP/MUAE\n  preset and writes the same bytes, but emits `FutureWarning`; `select=` becomes required in\n  0.2.7."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**Indexing a 0-d `JRSAResult.p` or `q` with `[0]`.** It still returns the scalar in 0.2.6\n  and emits `FutureWarning`; 0.2.7 removes it and `[0]` raises `IndexError`. Use\n  `float(res.p)` or `res.p[()]`."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**The `layer` column of `enrich_units_dataframe` and `get_all_units_metadata`.** It is an\n  exact copy of `depth_class` and is removed in 0.2.7. A call that writes it emits\n  `FutureWarning` (`get_all_units_metadata` once per call); pandas cannot warn when a column is\n  read, so the warning fires at the call whether or not `layer` is used. Read `depth_class`."
-        },
-        {
-          "kind": "Deprecated",
-          "text": "**The refractory test of `UnitAnalyzer.autocorrelogram`.** It was inverted: it took the\n  Poisson upper tail of the count in one bin near 6 ms against the mean of the bins near 11 to\n  15 ms, so an over-filled refractory bin read `is_single_unit=True` and a clean dip read\n  `False`. A train in which every spike has a partner 6 ms later read as a single unit; a train\n  with a 10 ms dead time did not. `refractory_period_violation`, `refr_count` and\n  `baseline_count` are now `NaN` and `is_single_unit` is `None`, each call emits\n  `FutureWarning`, and the keys are removed in 0.2.7. `acg`, `lag_times_ms` and `device_used`\n  are unchanged. The single-unit check is `UnitAnalyzer.quality_metrics`, from inter-spike\n  intervals under 2 ms."
-        }
-      ]
     }
   ],
   "ci": {
@@ -1517,7 +1587,7 @@
     ]
   },
   "api": {
-    "total": 202,
+    "total": 206,
     "groups": [
       {
         "module": "jnwb",
@@ -1546,6 +1616,7 @@
           "read_nwb",
           "nwb_read_io",
           "SqueezedAttributeWarning",
+          "ContainerTypeContradictionWarning",
           "events",
           "event_onsets",
           "EventTable",
@@ -1565,6 +1636,8 @@
           "validate_nwb",
           "NWBValidationReport",
           "epoch_continuous",
+          "TickClock",
+          "derive_tick_clock",
           "map_peak_channel_to_area",
           "classify_layer_from_depth",
           "enrich_units_dataframe",
@@ -1713,7 +1786,8 @@
           "detect_trial_cycles",
           "assign_subblock_quartiles",
           "shuffle_r2_ci",
-          "cross_modal_comparison"
+          "cross_modal_comparison",
+          "effective_sample_size"
         ]
       },
       {
@@ -1967,8 +2041,8 @@
       }
     ],
     "peak_memory": {
-      "jnwb_version": "0.2.12",
-      "commit": "6bbdcb2a66d3239dbe74f5010b1e183107bd5eeb",
+      "jnwb_version": "0.2.13",
+      "commit": "4490eaad9657012156718e5069a9bd7ad0972263",
       "working_tree_clean": true,
       "python": "3.14.3",
       "platform": "Windows AMD64",
@@ -1976,44 +2050,44 @@
       "operations": [
         {
           "name": "control_256mib",
-          "peak_mib": 409.2,
+          "peak_mib": 412.2,
           "added_mib": 256.0,
           "added_is": "exact"
         },
         {
           "name": "complex_tfr_16x4000_40freqs",
-          "peak_mib": 196.7,
-          "added_mib": 44.2,
+          "peak_mib": 198.6,
+          "added_mib": 42.3,
           "added_is": "exact"
         },
         {
           "name": "compute_multitaper_psd_64x8192",
-          "peak_mib": 176.7,
+          "peak_mib": 179.9,
           "added_mib": 20.2,
           "added_is": "exact"
         },
         {
           "name": "bandpass_filter_64x60000",
-          "peak_mib": 270.1,
+          "peak_mib": 273.4,
           "added_mib": 88.2,
           "added_is": "exact"
         },
         {
           "name": "wpli_600000",
-          "peak_mib": 203.1,
+          "peak_mib": 205.9,
           "added_mib": 41.8,
           "added_is": "exact"
         },
         {
           "name": "cluster_permutation_test_20x500_200perm",
-          "peak_mib": 152.7,
-          "added_mib": 0.2,
+          "peak_mib": 156.1,
+          "added_mib": 0.3,
           "added_is": "exact"
         },
         {
           "name": "jrsa_200x40_200perm",
-          "peak_mib": 315.5,
-          "added_mib": 162.9,
+          "peak_mib": 318.6,
+          "added_mib": 162.7,
           "added_is": "exact"
         }
       ]
@@ -2021,229 +2095,229 @@
     "import": {
       "python": "3.14.3",
       "platform": "Windows-11-10.0.26300-SP0",
-      "version": "0.2.12",
-      "symbols": 202,
+      "version": "0.2.13",
+      "symbols": 206,
       "torch_loaded": false,
       "cold": {
-        "ms": 22436.229300001287,
+        "ms": 32964.67190000112,
         "modules": 1381,
-        "version": "0.2.12",
-        "symbols": 202,
+        "version": "0.2.13",
+        "symbols": 206,
         "torch_loaded": false,
-        "peak_mb": 102.30134010314941
+        "peak_mb": 102.4352560043335
       },
-      "warm_median_ms": 2139.778100001422,
-      "warm_mean_ms": 2151.271600000473,
-      "warm_stdev_ms": 65.68441291040624,
-      "warm_min_ms": 2073.908400001528,
-      "warm_max_ms": 2280.0901000009617,
-      "warm_peak_mb": 88.95087718963623,
+      "warm_median_ms": 3180.04849999852,
+      "warm_mean_ms": 3350.274390008417,
+      "warm_stdev_ms": 400.0095101254786,
+      "warm_min_ms": 2833.5164000163786,
+      "warm_max_ms": 4029.862700001104,
+      "warm_peak_mb": 89.12002944946289,
       "modules": 1381,
       "runs": 10,
       "breakdown": {
-        "jnwb_total_ms": 2246.045,
+        "jnwb_total_ms": 3878.791,
         "top_jnwb_modules": [
           {
             "name": "jnwb",
-            "self_ms": 1.527,
-            "cum_ms": 2246.045
+            "self_ms": 2.866,
+            "cum_ms": 3878.791
           },
           {
             "name": "jnwb.rsa",
-            "self_ms": 2.574,
-            "cum_ms": 1007.563
+            "self_ms": 4.761,
+            "cum_ms": 1625.458
           },
           {
             "name": "jnwb.jrsa",
-            "self_ms": 1.068,
-            "cum_ms": 681.036
+            "self_ms": 1.929,
+            "cum_ms": 1185.62
           },
           {
             "name": "jnwb.permutation",
-            "self_ms": 1.053,
-            "cum_ms": 523.807
+            "self_ms": 1.595,
+            "cum_ms": 923.085
           },
           {
             "name": "jnwb.nwb_io",
-            "self_ms": 0.881,
-            "cum_ms": 270.772
+            "self_ms": 1.788,
+            "cum_ms": 545.761
           },
           {
             "name": "jnwb.laminar",
-            "self_ms": 1.861,
-            "cum_ms": 135.083
+            "self_ms": 4.792,
+            "cum_ms": 259.266
           },
           {
             "name": "jnwb.compression",
-            "self_ms": 1.059,
-            "cum_ms": 77.76
+            "self_ms": 1.763,
+            "cum_ms": 118.039
           },
           {
             "name": "jnwb._rng",
-            "self_ms": 0.783,
-            "cum_ms": 22.486
+            "self_ms": 1.66,
+            "cum_ms": 32.189
           },
           {
             "name": "jnwb.connectivity",
-            "self_ms": 1.063,
-            "cum_ms": 8.555
+            "self_ms": 2.311,
+            "cum_ms": 17.86
           },
           {
             "name": "jnwb.spectral",
-            "self_ms": 1.348,
-            "cum_ms": 7.33
+            "self_ms": 2.264,
+            "cum_ms": 13.494
           },
           {
             "name": "jnwb.nwb_integrity",
-            "self_ms": 4.304,
-            "cum_ms": 6.188
+            "self_ms": 7.961,
+            "cum_ms": 12.586
           },
           {
             "name": "jnwb.laminar_curation",
-            "self_ms": 2.685,
-            "cum_ms": 2.685
+            "self_ms": 5.876,
+            "cum_ms": 5.876
           },
           {
             "name": "jnwb.trajectory",
-            "self_ms": 0.877,
-            "cum_ms": 2.462
+            "self_ms": 1.953,
+            "cum_ms": 5.438
           },
           {
             "name": "jnwb.laminar._vflip",
-            "self_ms": 2.425,
-            "cum_ms": 2.425
-          },
-          {
-            "name": "jnwb.laminar._xflip",
-            "self_ms": 2.087,
-            "cum_ms": 2.087
-          },
-          {
-            "name": "jnwb.nwb_validate",
-            "self_ms": 2.047,
-            "cum_ms": 2.047
-          },
-          {
-            "name": "jnwb.laminar._zflip",
-            "self_ms": 2.011,
-            "cum_ms": 2.011
-          },
-          {
-            "name": "jnwb.laminar._vflip2",
-            "self_ms": 2.004,
-            "cum_ms": 2.004
-          },
-          {
-            "name": "jnwb.jrsa._result",
-            "self_ms": 1.911,
-            "cum_ms": 1.911
+            "self_ms": 4.861,
+            "cum_ms": 4.861
           },
           {
             "name": "jnwb.addressing",
-            "self_ms": 1.885,
-            "cum_ms": 1.885
+            "self_ms": 4.625,
+            "cum_ms": 4.625
+          },
+          {
+            "name": "jnwb.laminar._zflip",
+            "self_ms": 4.567,
+            "cum_ms": 4.567
+          },
+          {
+            "name": "jnwb.nwb_validate",
+            "self_ms": 4.441,
+            "cum_ms": 4.441
+          },
+          {
+            "name": "jnwb.laminar._xflip",
+            "self_ms": 3.929,
+            "cum_ms": 3.929
+          },
+          {
+            "name": "jnwb.nwb_events",
+            "self_ms": 3.914,
+            "cum_ms": 3.914
+          },
+          {
+            "name": "jnwb.connectivity._common",
+            "self_ms": 3.696,
+            "cum_ms": 3.696
           }
         ],
         "top_third_party": [
           {
             "name": "pandas",
-            "self_ms": 1.703,
-            "cum_ms": 521.456
+            "self_ms": 2.828,
+            "cum_ms": 919.67
           },
           {
             "name": "scipy.stats._stats_py",
-            "self_ms": 51.955,
-            "cum_ms": 442.602
+            "self_ms": 66.963,
+            "cum_ms": 712.099
           },
           {
             "name": "scipy.spatial.distance",
-            "self_ms": 0.036,
-            "cum_ms": 389.833
+            "self_ms": 0.045,
+            "cum_ms": 650.526
           },
           {
             "name": "scipy.spatial",
-            "self_ms": 1.033,
-            "cum_ms": 389.798
+            "self_ms": 1.94,
+            "cum_ms": 650.482
           },
           {
             "name": "scipy.spatial._kdtree",
-            "self_ms": 1.709,
-            "cum_ms": 345.886
+            "self_ms": 2.802,
+            "cum_ms": 571.82
           },
           {
             "name": "pynwb",
-            "self_ms": 13.184,
-            "cum_ms": 269.892
+            "self_ms": 20.697,
+            "cum_ms": 543.974
           },
           {
             "name": "pandas.core.api",
-            "self_ms": 1.11,
-            "cum_ms": 237.879
+            "self_ms": 2.823,
+            "cum_ms": 456.13
           },
           {
             "name": "scipy.spatial._ckdtree",
-            "self_ms": 1.368,
-            "cum_ms": 220.99
+            "self_ms": 1.724,
+            "cum_ms": 391.061
           },
           {
             "name": "scipy.sparse",
-            "self_ms": 1.537,
-            "cum_ms": 219.622
-          },
-          {
-            "name": "scipy.stats.distributions",
-            "self_ms": 1.04,
-            "cum_ms": 204.421
+            "self_ms": 2.93,
+            "cum_ms": 389.337
           },
           {
             "name": "scipy.sparse._csr",
-            "self_ms": 1.033,
-            "cum_ms": 191.018
+            "self_ms": 1.942,
+            "cum_ms": 331.046
           },
           {
             "name": "scipy.sparse._compressed",
-            "self_ms": 1.425,
-            "cum_ms": 189.032
+            "self_ms": 2.469,
+            "cum_ms": 327.85
           },
           {
             "name": "scipy._lib._util",
-            "self_ms": 1.575,
-            "cum_ms": 185.643
+            "self_ms": 2.089,
+            "cum_ms": 321.417
           },
           {
             "name": "scipy._lib._array_api",
-            "self_ms": 1.958,
-            "cum_ms": 184.068
+            "self_ms": 2.839,
+            "cum_ms": 319.328
           },
           {
             "name": "scipy.optimize",
-            "self_ms": 1.292,
-            "cum_ms": 158.332
+            "self_ms": 3.309,
+            "cum_ms": 315.293
+          },
+          {
+            "name": "scipy.stats.distributions",
+            "self_ms": 1.977,
+            "cum_ms": 286.354
           },
           {
             "name": "scipy._external.array_api_compat.numpy",
-            "self_ms": 2.167,
-            "cum_ms": 156.366
-          },
-          {
-            "name": "numpy",
-            "self_ms": 2.337,
-            "cum_ms": 125.179
-          },
-          {
-            "name": "scipy.spatial.distance",
-            "self_ms": 3.624,
-            "cum_ms": 123.188
-          },
-          {
-            "name": "scipy.stats._continuous_distns",
-            "self_ms": 55.439,
-            "cum_ms": 119.329
+            "self_ms": 3.363,
+            "cum_ms": 267.684
           },
           {
             "name": "pandas.core.groupby",
-            "self_ms": 0.707,
-            "cum_ms": 118.275
+            "self_ms": 1.601,
+            "cum_ms": 233.007
+          },
+          {
+            "name": "pandas.core.groupby.generic",
+            "self_ms": 4.294,
+            "cum_ms": 231.406
+          },
+          {
+            "name": "numpy",
+            "self_ms": 4.021,
+            "cum_ms": 211.589
+          },
+          {
+            "name": "pandas.core.frame",
+            "self_ms": 8.811,
+            "cum_ms": 197.175
           }
         ],
         "heavy_third_party_roots": [
@@ -2539,6 +2613,12 @@
       "order": "sub-linear",
       "evidence": "target_history_k: exponent +0.40, admissible T(N*(k+l))",
       "module": "jnwb.connectivity"
+    },
+    {
+      "export": "derive_tick_clock[n_ticks]",
+      "order": "O(n)",
+      "evidence": "n_ticks: exponent +1.16, admissible T(n log n)",
+      "module": "jnwb.continuous"
     },
     {
       "export": "epoch_continuous[n_events]",
@@ -3285,6 +3365,12 @@
       "module": "jnwb.statistics"
     },
     {
+      "export": "effective_sample_size[n_samples]",
+      "order": "O(n)",
+      "evidence": "n_samples: exponent +1.06, admissible T(C*n log n)",
+      "module": "jnwb.statistics"
+    },
+    {
       "export": "exact_sign_flip[n_mc]",
       "order": "O(n)",
       "evidence": "n_mc: exponent +1.02, admissible T(B*n)",
@@ -3655,7 +3741,7 @@
       "url": "https://doi.org/10.1103/PhysRevLett.85.461"
     },
     {
-      "text": "Marschinski, R., & Kantz, H. (2002). *The European Physical Journal B* 30(2), 275-281. [doi:10.1140/epjb/e2002-00379-2](https://doi.org/10.1140/epjb/e2002-00379-2)",
+      "text": "Marschinski, R., & Kantz, H. (2002). Analysing the information flow between financial time series. *The European Physical Journal B* 30(2), 275-281. [doi:10.1140/epjb/e2002-00379-2](https://doi.org/10.1140/epjb/e2002-00379-2)",
       "url": "https://doi.org/10.1140/epjb/e2002-00379-2"
     },
     {
@@ -3697,6 +3783,10 @@
     {
       "text": "Efron, B. (1979). Bootstrap methods: another look at the jackknife. *The Annals of Statistics* 7(1). [doi:10.1214/aos/1176344552](https://doi.org/10.1214/aos/1176344552)",
       "url": "https://doi.org/10.1214/aos/1176344552"
+    },
+    {
+      "text": "Geyer, C. J. (1992). Practical Markov chain Monte Carlo. *Statistical Science* 7(4), 473-483. [doi:10.1214/ss/1177011137](https://doi.org/10.1214/ss/1177011137)",
+      "url": "https://doi.org/10.1214/ss/1177011137"
     },
     {
       "text": "Fleiss, J. L. (1971). Measuring nominal scale agreement among many raters. *Psychological Bulletin* 76(5), 378-382. [doi:10.1037/h0031619](https://doi.org/10.1037/h0031619)",
@@ -3970,6 +4060,20 @@
       "title": "fig26_ensembles_rdm_decoding",
       "light": "assets/fig26_ensembles_rdm_decoding.png",
       "dark": "assets/fig26_ensembles_rdm_decoding.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig27_spiking_psth_onset",
+      "title": "fig27_spiking_psth_onset",
+      "light": "assets/fig27_spiking_psth_onset.png",
+      "dark": "assets/fig27_spiking_psth_onset.dark.png",
+      "docs_page": null
+    },
+    {
+      "id": "fig28_lfp_spectral_wpli",
+      "title": "fig28_lfp_spectral_wpli",
+      "light": "assets/fig28_lfp_spectral_wpli.png",
+      "dark": "assets/fig28_lfp_spectral_wpli.dark.png",
       "docs_page": null
     }
   ],
