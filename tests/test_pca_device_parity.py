@@ -32,10 +32,8 @@ import pandas as pd
 import pytest
 
 from jnwb._backend import torch_cuda_available
-from jnwb.gpu_pca import gpu_pca, pin_component_signs
+from jnwb.gpu_pca import pin_component_signs
 from jnwb.trajectory import compute_population_trajectory
-
-pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
 
 requires_cuda = pytest.mark.skipif(
     not torch_cuda_available(), reason="no CUDA device on this machine"
@@ -138,19 +136,25 @@ class TestThePinItself:
         assert np.allclose(pinned_first, pinned_second, rtol=0, atol=1e-15)
         assert pinned_first[0, 0] > 0
 
+    def test_a_loading_half_a_percent_below_the_largest_is_not_a_tie(self):
+        """Loadings 0.5 % apart are not tied, so the largest one is the pivot and its sign
+        is the convention. A tie tolerance of 1e-2 would pivot on index 0 instead."""
+        components = np.array([[0.597, -0.6]])
+        projections = np.ones((3, 1))
 
-class TestGpuPcaPinsItsSignsOnEitherDevice:
+        pinned_c, pinned_p = pin_component_signs(components, projections)
+
+        np.testing.assert_allclose(pinned_c, [[-0.597, 0.6]], rtol=0, atol=1e-15)
+        np.testing.assert_allclose(pinned_p, -np.ones((3, 1)), rtol=0, atol=1e-15)
+
+
+class TestTheSeedsExerciseTheSignPin:
     """CPU-only, so it fails on a machine with no GPU too."""
 
     @staticmethod
     def _matrix(seed=0, shape=(300, 20), dtype=np.float64):
         rng = np.random.default_rng(seed)
         return rng.standard_normal(shape).astype(dtype)
-
-    def test_the_returned_components_carry_the_convention(self):
-        _, components, _ = gpu_pca(self._matrix(), n_components=3, device="cpu")
-
-        assert np.all(_pivot_signs(components) > 0)
 
     def test_the_fixture_is_not_vacuous(self):
         """Guard against a seed set whose raw LAPACK signs are already all positive, which
@@ -175,60 +179,6 @@ class TestGpuPcaPinsItsSignsOnEitherDevice:
             f"no seed in {list(SIGN_SEEDS)} produces a negative raw pivot sign on this "
             "LAPACK, so the sign pin is never exercised and the assertions below are vacuous"
         )
-
-    @pytest.mark.parametrize("seed", SIGN_SEEDS)
-    def test_the_convention_holds_whatever_lapack_picked(self, seed):
-        _, components, _ = gpu_pca(self._matrix(seed), n_components=3, device="cpu")
-
-        assert np.all(_pivot_signs(components) > 0)
-
-    def test_the_projections_are_flipped_with_their_components(self):
-        """A pin applied to the components alone would silently change what the
-        projections mean."""
-        matrix = self._matrix(seed=4)
-        projections, components, _ = gpu_pca(matrix, n_components=3, device="cpu")
-
-        scaled = (matrix - matrix.mean(0, keepdims=True)) / matrix.std(0, keepdims=True)
-        assert np.allclose(projections, scaled @ components.T)
-
-    def test_padding_beyond_the_available_components_is_untouched(self):
-        """`n_components` larger than the rank pads with zeros, and a zero row has no
-        largest loading to pin."""
-        projections, components, _ = gpu_pca(
-            self._matrix(shape=(6, 3)), n_components=5, device="cpu")
-
-        assert components.shape == (5, 3)
-        assert np.array_equal(components[3:], np.zeros((2, 3)))
-
-
-class TestGpuPcaUsesOneDtypeForBothBranches:
-
-    def test_float64_in_float64_out(self):
-        rng = np.random.default_rng(0)
-        projections, components, _ = gpu_pca(
-            rng.standard_normal((80, 12)), n_components=3, device="cpu")
-
-        assert projections.dtype == np.float64
-        assert components.dtype == np.float64
-
-    def test_float32_stays_float32_because_that_is_what_numpy_linalg_does(self):
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((80, 12)).astype(np.float32)
-        projections, _, _ = gpu_pca(matrix, n_components=3, device="cpu")
-
-        assert projections.dtype == np.float32
-
-    def test_float16_is_promoted_rather_than_rejected(self):
-        """`np.linalg.svd` refuses float16 outright, so before the dtype was decided
-        ahead of the branch this raised on CPU and quietly succeeded in float32 on
-        CUDA -- the device deciding whether the call worked at all."""
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((80, 12)).astype(np.float16)
-
-        projections, _, _ = gpu_pca(matrix, n_components=3, device="cpu")
-
-        assert projections.dtype == np.float64
-
 
 class TestTrajectoryPinsItsSigns:
 
@@ -310,6 +260,22 @@ class TestTrajectoryPinsItsSigns:
 
         assert np.allclose(result["trajectory"], expected, atol=1e-10)
 
+    @pytest.mark.parametrize("seed", SIGN_SEEDS)
+    def test_the_trajectory_matches_the_pinned_reference_whatever_lapack_picked(self, seed):
+        """The seeded form of the test above. `compute_population_trajectory` returns no
+        components, so the pinned convention is observed through the projections it
+        produces from them."""
+        session = self._Session(seed=seed)
+        epochs = self._epochs()
+        scaled, vt, (n_trials, n_bins) = self._reference(session, epochs)
+        _, projections = pin_component_signs(vt, scaled @ vt.T)
+        expected = projections.reshape(n_trials, n_bins, 3).transpose(0, 2, 1)
+
+        result = compute_population_trajectory(
+            session, "V1", epochs, n_components=3, device="cpu")
+
+        assert np.allclose(result["trajectory"], expected, atol=1e-10)
+
     def test_explained_variance_is_untouched_by_the_pin(self):
         """A sign convention must not move the variance, which does not depend on it."""
         session = self._Session()
@@ -336,39 +302,17 @@ class TestTheTwoDevicesReturnTheSameNumbers:
             warnings.simplefilter("ignore")
             return fn("cpu"), fn("cuda")
 
-    def test_gpu_pca_projections_agree_without_any_post_hoc_alignment(self):
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((4000, 60))
-        cpu, cuda = self._both(
-            lambda d: gpu_pca(matrix, n_components=3, device=d))
+    @pytest.mark.parametrize("dtype", [np.float64, np.float32])
+    def test_the_trajectory_keeps_its_dtype_on_both_devices(self, dtype, monkeypatch):
+        import jnwb.trajectory as traj
 
-        assert np.max(np.abs(cpu[0] - cuda[0])) < 1e-9
+        X = np.random.default_rng(0).poisson(5.0, size=(4, 3, 5)).astype(dtype)
+        monkeypatch.setattr(traj, "build_time_resolved_matrix",
+                            lambda *a, **k: (X, [0, 1, 2], np.arange(5.0)))
+        cpu, cuda = self._both(lambda d: traj.compute_population_trajectory(
+            None, "A", None, n_components=2, device=d))
 
-    def test_gpu_pca_components_agree_including_their_signs(self):
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((4000, 60))
-        cpu, cuda = self._both(
-            lambda d: gpu_pca(matrix, n_components=3, device=d))
-
-        assert np.array_equal(_pivot_signs(cpu[1]), _pivot_signs(cuda[1]))
-        assert np.max(np.abs(cpu[1] - cuda[1])) < 1e-9
-
-    def test_gpu_pca_returns_the_same_dtype_on_both_devices(self):
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((4000, 60))
-        cpu, cuda = self._both(
-            lambda d: gpu_pca(matrix, n_components=3, device=d))
-
-        assert cpu[0].dtype == cuda[0].dtype == np.float64
-        assert cpu[1].dtype == cuda[1].dtype == np.float64
-
-    def test_gpu_pca_keeps_float32_on_both_devices(self):
-        rng = np.random.default_rng(0)
-        matrix = rng.standard_normal((500, 30)).astype(np.float32)
-        cpu, cuda = self._both(
-            lambda d: gpu_pca(matrix, n_components=3, device=d))
-
-        assert cpu[0].dtype == cuda[0].dtype == np.float32
+        assert cpu["trajectory"].dtype == cuda["trajectory"].dtype == dtype
 
     def test_the_trajectory_is_not_reflected_through_the_origin(self):
         session = TestTrajectoryPinsItsSigns._Session()
@@ -377,19 +321,6 @@ class TestTheTwoDevicesReturnTheSameNumbers:
             session, "V1", epochs, n_components=3, device=d))
 
         assert np.max(np.abs(cpu["trajectory"] - cuda["trajectory"])) < 1e-9
-
-    def test_two_features_agree_although_their_loadings_tie(self):
-        """Two z-scored features tie every loading in magnitude, so the pivot was chosen by
-        rounding, which differs between LAPACK and cuSOLVER: 32 of 200 disagreed."""
-        disagree = []
-        for seed in range(60):
-            matrix = np.random.default_rng(seed).normal(size=(300, 2))
-            matrix[:, 1] += 0.5 * matrix[:, 0]
-            cpu, cuda = self._both(lambda d: gpu_pca(matrix, n_components=2, device=d))
-            if not (np.allclose(cpu[1], cuda[1], atol=1e-9)
-                    and np.allclose(cpu[0], cuda[0], atol=1e-9)):
-                disagree.append(seed)
-        assert disagree == []
 
     def test_a_two_unit_trajectory_agrees(self):
         disagree = []

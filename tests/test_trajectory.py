@@ -10,8 +10,6 @@ from jnwb import (
     compute_population_trajectory,
 )
 
-pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
-
 
 class MockSession:
     """Mock matching the real OmissionSession identity convention: 'unit_id' is a per-probe
@@ -226,6 +224,31 @@ def test_compute_population_trajectory_empty():
     assert np.all(np.isfinite(res['bin_centers']))
 
 
+def test_compute_population_trajectory_with_no_trials_is_nan_with_the_requested_shape():
+    """No epochs is an empty trial axis, not an empty population: the trajectory keeps its
+    (n_trials, n_components, n_bins) shape with no trials, and every variance is NaN."""
+    session = MockSession()
+    no_trials = session.epochs_df.iloc[:0]
+    assert len(no_trials) == 0, "fixture must have no trials"
+
+    res = compute_population_trajectory(
+        session,
+        area='V1',
+        epochs_df=no_trials,
+        time_window_ms=(0.0, 100.0),
+        bin_size_ms=20.0,
+        n_components=2,
+    )
+
+    assert res['trajectory'].shape == (0, 2, 5)
+    assert res['explained_variance'].shape == (2,) and np.all(np.isnan(res['explained_variance']))
+    assert res['explained_variance_ratio'].shape == (2,)
+    assert np.all(np.isnan(res['explained_variance_ratio']))
+    assert res['unit_ids'] == []
+    assert res['device_used'] == 'cpu'
+    assert np.all(np.isfinite(res['bin_centers'])) and res['bin_centers'].shape == (5,)
+
+
 def test_components_that_could_not_be_estimated_are_not_zero():
     """Padding to `n_components` with 0.0 made a component that does not exist look like a
     component whose projection was measured to be zero. One unit supports one component.
@@ -333,9 +356,13 @@ class TestPopulationTrajectoryEstimandDivergence:
         assert res_cov['explained_variance_ratio'][0] > 0.99
         assert abs(res_cov['components'][0, 0]) > 0.99
 
-        # Standardized correlation PCA (as used in compute_population_trajectory / gpu_pca)
-        from jnwb.gpu_pca import gpu_pca
-        proj_corr, comp_corr, ev_ratio_corr = gpu_pca(X, n_components=2, device="cpu")
+        # Standardized correlation PCA, the recipe compute_population_trajectory applies to its
+        # matrix. That function takes a session, not a matrix, so the recipe is restated here.
+        from jnwb.gpu_pca import pin_component_signs
+        scaled = (X - X.mean(axis=0)) / X.std(axis=0)
+        _, S, Vt = np.linalg.svd(scaled, full_matrices=False)
+        comp_corr, proj_corr = pin_component_signs(Vt[:2], scaled @ Vt[:2].T)
+        ev_ratio_corr = float(np.sum(S[:2] ** 2) / np.sum(S ** 2))
         # Correlation PCA: features are standardized, so feature 0 does NOT dominate (>90%)
         # All 3 features have comparable variance (~33% each)
         assert ev_ratio_corr < 0.85

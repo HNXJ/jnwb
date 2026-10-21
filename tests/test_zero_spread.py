@@ -29,24 +29,6 @@ def _quiet():
 
 
 @pytest.mark.parametrize("device", DEVICES)
-def test_gpu_pca_gives_a_constant_column_no_loading(device):
-    from jnwb.gpu_pca import gpu_pca
-
-    rng = np.random.default_rng(0)
-    out = {}
-    for c in (0.5, 0.3):
-        m = rng.normal(size=(40, 5)) if c == 0.5 else out["m"]
-        m = m.copy()
-        m[:, 2] = c
-        out["m"] = m
-        out[c] = gpu_pca(m, n_components=3, device=device)
-    # A constant 0.3 column took a whole component (|loading| 1.0).
-    assert np.all(np.abs(out[0.3][1][:, 2]) < 1e-12)
-    np.testing.assert_array_equal(out[0.3][0], out[0.5][0])
-    assert out[0.3][2] == out[0.5][2]
-
-
-@pytest.mark.parametrize("device", DEVICES)
 def test_trajectory_gives_a_constant_unit_no_weight(device, monkeypatch):
     import jnwb.trajectory as traj
 

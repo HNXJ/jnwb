@@ -1,0 +1,3 @@
+- `create_aligned_dataset` removed (breaking), deprecated in 0.2.13; use `Dataset.with_alignment` (`jnwb/ontology.py`).
+- `create_result` removed (breaking), deprecated in 0.2.13; use `Result` directly (`jnwb/ontology.py`).
+- `create_figure` removed (breaking), deprecated in 0.2.13; use `Figure` directly (`jnwb/ontology.py`).

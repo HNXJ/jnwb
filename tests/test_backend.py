@@ -22,8 +22,6 @@ from jnwb._backend import (
     warn_device_fallback,
 )
 
-pytestmark = pytest.mark.filterwarnings("ignore:gpu_pca is deprecated:DeprecationWarning")
-
 
 class TestCapabilityProbes:
     def test_probes_return_booleans(self):
@@ -178,7 +176,7 @@ class TestFallbackWarning:
 class TestCallSitesAreRouted:
     """Every GPU decision must come from _backend, not a local probe."""
 
-    ROUTED_MODULES = ["spectral", "gpu_pca", "analyzers", "connectivity", "tfr", "trajectory"]
+    ROUTED_MODULES = ["spectral", "analyzers", "connectivity", "tfr", "trajectory"]
 
     def test_routed_modules_import_the_shared_resolver(self):
         import importlib
@@ -256,39 +254,6 @@ class TestCallSitesAreRouted:
             "device capability must be decided by _backend.resolve_device, not by whether "
             "an import succeeded: " + "; ".join(offenders)
         )
-
-
-class TestDeviceRequestIsHonouredOrReported:
-    def test_gpu_pca_cpu_and_cuda_return_the_same_numbers(self):
-        """This test used to read `_, _, var_cuda = gpu_pca(...)`, keeping only
-        `explained_variance_ratio`. That scalar is invariant to a sign flip and agrees
-        to 1e-7 across float32 and float64, so it stayed green on a live A4000 while
-        `max|cpu - cuda|` on the returned projections was 8.005. Compare what the
-        function actually returns. Full parity, including the dtype rule, is in
-        `tests/test_pca_device_parity.py`."""
-        from jnwb.gpu_pca import gpu_pca
-
-        rng = np.random.default_rng(0)
-        X = rng.normal(size=(200, 30))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            proj_cuda, comp_cuda, var_cuda = gpu_pca(X, n_components=3, device="cuda")
-        proj_cpu, comp_cpu, var_cpu = gpu_pca(X, n_components=3, device="cpu")
-
-        assert var_cuda == pytest.approx(var_cpu, abs=1e-5)
-        assert proj_cuda.dtype == proj_cpu.dtype
-        assert np.max(np.abs(proj_cuda - proj_cpu)) < 1e-9
-        assert np.max(np.abs(comp_cuda - comp_cpu)) < 1e-9
-
-    def test_gpu_pca_warns_when_its_default_device_is_unavailable(self, monkeypatch):
-        """gpu_pca defaults to device='cuda'; returning CPU results silently is the bug."""
-        import jnwb._backend as backend
-        from jnwb.gpu_pca import gpu_pca
-
-        monkeypatch.setattr(backend, "gpu_available", lambda prefer=None: False)
-        rng = np.random.default_rng(0)
-        with pytest.warns(RuntimeWarning, match="gpu_pca"):
-            gpu_pca(rng.normal(size=(50, 10)), n_components=2)
 
 
 class TestComplexTfrDevice:

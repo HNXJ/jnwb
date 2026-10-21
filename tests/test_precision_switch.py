@@ -30,7 +30,6 @@ from jnwb._precision import (
     PRECISION_POLICY,
     PRESERVES_INPUT,
     PrecisionNotSupportedError,
-    resolve_working_dtype,
 )
 
 SEED = 20260920
@@ -48,7 +47,7 @@ def float_dtypes(obj, depth: int = 0) -> set:
     NumPy arrays and NumPy scalars only. A plain Python ``float`` is excluded on purpose:
     it is the language's double and carries no dtype choice, so a function returning one
     has not made a precision decision that a policy could describe. Including them made
-    ``gpu_pca`` -- whose third return is ``float(explained_variance_ratio)`` -- look like it
+    a function whose third return is ``float(explained_variance_ratio)`` look like it
     violated ``preserves_input`` when it does not.
     """
     found: set = set()
@@ -105,13 +104,6 @@ def _units_frames(dtype):
         }
     )
     return units, electrodes
-
-
-def call_gpu_pca(dtype):
-    rng = np.random.default_rng(SEED)
-    return resolve("jnwb.gpu_pca.gpu_pca")(
-        rng.standard_normal((20, 5)).astype(dtype), n_components=3, device="cpu"
-    )
 
 
 def call_to_db(dtype):
@@ -214,7 +206,6 @@ def call_tfr_accumulator(dtype):
 #: dotted name -> how to invoke it at a given input dtype. Keys must match the registry
 #: exactly; ``test_every_registry_entry_has_a_live_caller`` enforces that.
 CALLERS = {
-    "jnwb.gpu_pca.gpu_pca": call_gpu_pca,
     "jnwb.spectral.to_db": call_to_db,
     "jnwb.spectral.aggregate_to_db": call_aggregate_to_db,
     "jnwb.tfr.complex_tfr": call_complex_tfr,
@@ -365,72 +356,3 @@ def test_the_default_accumulator_is_unchanged():
     assert accumulator.sum_z.dtype == np.dtype(np.complex128)
     assert accumulator.sum_unit_z.dtype == np.dtype(np.complex128)
     assert accumulator.n.dtype == np.dtype(np.int64)
-
-
-# ------------------------------------- P-137 and P-145: one rule, every return path
-
-
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize(
-    "shape,n_components,path",
-    [
-        ((20, 5), 3, "non-empty, unpadded"),
-        ((0, 5), 3, "empty by samples"),
-        ((20, 0), 3, "empty by features"),
-        ((2, 5), 4, "padded, actual < requested"),
-        ((5, 2), 4, "padded by features"),
-    ],
-)
-def test_gpu_pca_dtype_does_not_depend_on_which_path_ran(dtype, shape, n_components, path):
-    """P-137 (empty early return) and P-145 (padding), which share one cause.
-
-    Output dtype must follow the input, not the path. Before the repair an empty or padded
-    float32 matrix returned float64 while the same matrix non-empty returned float32.
-    """
-    gpu_pca = resolve("jnwb.gpu_pca.gpu_pca")
-    matrix = np.zeros(shape, dtype)
-    if matrix.size:
-        matrix = np.random.default_rng(SEED).standard_normal(shape).astype(dtype)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        projections, components, _ = gpu_pca(matrix, n_components=n_components, device="cpu")
-    expected = resolve_working_dtype(dtype)
-    assert projections.dtype == expected, (
-        f"{path}: projections came back {projections.dtype}, expected {expected}"
-    )
-    assert components.dtype == expected, (
-        f"{path}: components came back {components.dtype}, expected {expected}"
-    )
-
-
-def test_gpu_pca_agrees_across_paths_for_one_dtype():
-    """The discriminating shape: same input dtype, three paths, one output dtype."""
-    gpu_pca = resolve("jnwb.gpu_pca.gpu_pca")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        rng = np.random.default_rng(SEED)
-        dense = gpu_pca(rng.standard_normal((20, 5)).astype(np.float32),
-                        n_components=3, device="cpu")[0].dtype
-        empty = gpu_pca(np.zeros((0, 5), np.float32), n_components=3, device="cpu")[0].dtype
-        padded = gpu_pca(rng.standard_normal((2, 5)).astype(np.float32),
-                         n_components=4, device="cpu")[0].dtype
-    assert dense == empty == padded == np.dtype(np.float32), (
-        f"one float32 input, three dtypes: dense={dense}, empty={empty}, padded={padded}"
-    )
-
-
-# ------------------------------------------------------------- the shared rule
-
-
-@pytest.mark.parametrize(
-    "given,expected",
-    [
-        (np.float32, np.float32),
-        (np.float64, np.float64),
-        (np.float16, np.float64),
-        (np.int32, np.float64),
-        (np.int64, np.float64),
-    ],
-)
-def test_resolve_working_dtype_is_the_stated_rule(given, expected):
-    assert resolve_working_dtype(given) == np.dtype(expected)

@@ -672,9 +672,6 @@ ACCEPTED_HANDLER_RECOVERY = {
         "cupy -> torch -> CPU SVD. The path is recorded: the torch branch returns "
         "device_used='cuda' with its own SVD, and a CPU result is labelled 'cpu' after "
         "warn_device_fallback, so the label follows the value.",
-    ("gpu_pca.py", "gpu_pca", "Exception", ("S_np", "V_np", "proj_np"), False, 1):
-        "GPU SVD -> NumPy SVD, announced by warn_device_fallback, which is jnwb's declared "
-        "mechanism for saying that a CPU and GPU path may disagree numerically.",
     ("trajectory.py", "compute_population_trajectory", "Exception",
      ("S_np", "V_np", "proj_np"), False, 1):
         "Same GPU -> NumPy SVD fallback, same announcement.",

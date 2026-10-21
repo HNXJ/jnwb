@@ -186,18 +186,6 @@ Writes: `jnwb/nwb_inspect.py`, `jnwb/nwb_io.py`, `jnwb/nwb_events.py`, `jnwb/io.
 - 11-01: P-294, P-314, P-303, P-299, P-190 (a series with `timestamps` and no constant `rate` raises `AcquisitionNotFoundError`), P-204, P-220, P-336, P-337, P-216 (reading part), P-289 and P-291 and the MCP signal reference edges leave containers unread or checks unpinned. Check: it reads `processing/behavior/EyeTracking` of a planted file; one table covers every container `inspect` reports, and a test reads each; one unwrap rule, and a test where both agree on every container; the label is the wrapped one, asserted by a test; it raises the class of `artifacts/evidence/0.2.8/plan/decisions.md` D8, asserted by a test; a unit-scale case gives a message distinct from a type case (D8), one test each; a missingness-table row and a named error, asserted by a test; a test fails when the length check is dropped; the unit warning names both conversions and `stacklevel` puts both warnings at the caller, asserted by `warnings.catch_warnings` records; a test fails when the refusal is dropped; a test pins the axis, an out-of-schema `channel_conversion` and an infinite rate are refused, and the sweep row lists the handler; a whole-tree snapshot and a runtime check; the docstring says what the code does. Waits: P-294, P-314, P-220 and the MCP signal reference edges are loud or outside the schema, P-303's known types agree, P-299 is vocabulary only, P-190's message is true and a new class is API, P-204 errs toward caution, P-336 and P-216 behave correctly, P-337's messages are true, P-289 has no current path doing either, and P-291's value is right. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 Accept: each check passes.
 
-### 16-01 `create_aligned_dataset`, `create_result` and `create_figure` removed
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-nwb-data. Blocked by: nothing.
-- 16-01: The three forwarders still exist and warn (`jnwb/ontology.py:630`). Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-19: removed in 0.2.14; the warnings, docs/02 and CHANGELOG name 0.2.14.
-
-### 16-02 `gpu_pca` removed
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-- 16-02: `jnwb.gpu_pca.gpu_pca` is deprecated in 0.2.13 (`jnwb/gpu_pca.py:79`). Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-19 (12-13): removed in 0.2.14; `pin_component_signs` and `_svd_numpy` stay.
-
 ### 14-06 The pitfall estimators Hamm rules
 
 Release: deferred-0.2.14.

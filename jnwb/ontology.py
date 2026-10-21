@@ -21,7 +21,6 @@ Core objects:
 
 """
 
-import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Union, ClassVar, Tuple
@@ -611,56 +610,13 @@ class Figure:
         }
 
 
-# Deprecated factory functions.
-#
 # create_dataset_from_query and create_epochs are intentionally absent here: both need a real
 # NWB/trial-timing data source (an open session/recording object) that these generic ontology
 # objects do not carry, so a generic implementation would have nothing to read from. Projects
 # provide their own dataset/epoch factories once they have a concrete data source to wire in.
 #
-# The three below forward their arguments to the constructor of the same name and add nothing:
-# `create_result(q, s, p, l) == Result(q, s, p, l)` for every input. They were never in
-# `__all__`. Deprecated in 0.2.5 rather than removed, so callers have a path; call the
-# dataclass directly. `create_aligned_dataset` additionally duplicates `Dataset.with_alignment`,
-# which is the documented route and is not deprecated.
-
-
-def _deprecated_factory(old: str, new: str) -> None:
-    warnings.warn(
-        f"{old} is deprecated and will be removed in 0.2.14; it forwards to "
-        f"{new} and adds nothing. Call {new} directly.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-def create_aligned_dataset(dataset: Dataset, alignment: Alignment) -> AlignedDataset:
-    """Deprecated. Use ``Dataset.with_alignment(alignment)`` or ``AlignedDataset(...)``."""
-    _deprecated_factory("create_aligned_dataset", "Dataset.with_alignment")
-    return AlignedDataset(dataset=dataset, alignment=alignment)
-
-
-def create_result(question: Question, statistics: Dict[str, Any],
-                  provenance: Provenance, lineage: Lineage) -> Result:
-    """Deprecated. Use ``Result(...)``."""
-    _deprecated_factory("create_result", "Result")
-    return Result(
-        question=question,
-        statistics=statistics,
-        provenance=provenance,
-        lineage=lineage,
-    )
-
-
-def create_figure(result: Result, interpretation: Interpretation,
-                  title: str = "") -> Figure:
-    """Deprecated. Use ``Figure(...)``."""
-    _deprecated_factory("create_figure", "Figure")
-    return Figure(
-        result=result,
-        interpretation=interpretation,
-        title=title,
-    )
+# `create_aligned_dataset`, `create_result` and `create_figure` were deprecated and are removed
+# in 0.2.14: call `Dataset.with_alignment`, `Result` or `Figure` directly.
 
 
 __all__ = [
