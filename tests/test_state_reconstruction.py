@@ -251,7 +251,10 @@ def test_the_cli_check_runs_without_probing(generated: str):
 def test_it_reports_worktrees_branches_the_dev_run_and_open_defect_classes(generated: str):
     assert "## Awareness" in generated
     assert f"| `{REPO_ROOT.as_posix()}` |" in generated, "the main worktree must be listed"
-    assert "| `dev` |" in generated or "(detached)" in generated
+    # The checked-out branch, not `dev`: CI on `main` checks out `main`, the only local branch.
+    branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT,
+                            capture_output=True, text=True, check=True).stdout.strip()
+    assert f"| `{branch}` |" in generated or "(detached)" in generated
     assert "| Newest CI run on `dev` |" in generated
     assert "| Open defect classes |" in generated
 
