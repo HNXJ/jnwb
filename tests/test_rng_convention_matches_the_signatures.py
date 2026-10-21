@@ -354,8 +354,11 @@ def test_cross_area_coherence_draws_the_stream_its_signature_advertises():
         "is not reaching the generator at all"
     )
 
-    one = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
-    two = jnwb.cross_area_coherence(a, b, rng=None, **COHERENCE_KW)
+    # With 10 surrogates a band's p-value takes one of 11 values, and two fresh draws gave the
+    # same five values in 2 of 3000 trials; with 200 surrogates no pair agreed in 300 trials.
+    fresh = dict(COHERENCE_KW, n_surrogates=200)
+    one = jnwb.cross_area_coherence(a, b, rng=None, **fresh)
+    two = jnwb.cross_area_coherence(a, b, rng=None, **fresh)
     assert one["band_significance"] != two["band_significance"], (
         "two rng=None calls agreed exactly, so None still resolves to a fixed seed -- the "
         "05-35 defect, now in the place the 06-107 repair was supposed to clear"
