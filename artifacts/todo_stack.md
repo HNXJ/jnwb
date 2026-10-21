@@ -346,13 +346,6 @@ Role: jnwb-developer. Skill: none. Blocked by: nothing.
 Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, `tests/test_build_dashboard.py`.
 - 16-12: The dashboard, not `docs/index.md` (ruled 2026-10-21), gains real-data results (`isi_cv` against stored values on 9,056 units, branch `claude/site-overview-326890`, commit 9b52c5e7; the WaveMAP and GLO results of the cross-dataset work) only from receipts committed to this repository and computed independently of jnwb. Check: each number on the page traces to a committed receipt. Waits: the cross-dataset receipts (the omission high-pass re-extraction, about 2026-10-21; GLO after it).
 
-### 16-13 A dead anchor in common_mistakes.md
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: nothing.
-Writes: `docs/common_mistakes.md`.
-- 16-13: `docs/common_mistakes.md` links `coherence_and_tfr.md#imaginary-coherency--weighted-phase-lag-index-imaginary_coherency-wpli`, an anchor the page does not define (MkDocs INFO at 0.2.13). Check: `tests/test_docs_links.py` or the docs build fails on an undefined anchor. Waits: not stated.
-
 ### 16-14 An inline figure on every demonstration page
 
 Release: deferred-0.2.14.
