@@ -306,14 +306,6 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: jnwb-connectivity. Blocked by: nothing.
 - 12-21: No jnwb test recovers a known coupling, delay or spectrum from a jaxfne simulation (meet 204dfdaa item 8); full text: `git log -S '### 12-21' -- artifacts/todo_stack.md`. Check: a test that fails before the repair and passes after. Waits: Ruled 2026-10-14: needs jaxfne's excerpt; nothing shipped changes. Moved to 0.2.14 by the 2026-10-19 theme ruling.
 
-### 14-08 Unit-curation rows only the lab pipeline holds
-
-Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: jnwb-qc. Blocked by: nothing.
-Writes: `artifacts/evidence/0.2.9/unit_qc_inventory.md`.
-- 14-08: D1, D9 and the lab meaning of D3 are defined only in the lab pipeline (`yihan777/alpha_beta_mechanism@826e540`), which no one here can read. Check: each row cites its code once its owner gives access. Waits: Access to the lab pipeline's code; study-specific rows, jnwb's measures are unchanged.
-Accept: each check passes.
-
 ### 12-05 Process tests pruned and merged
 
 Release: deferred-0.2.14.
