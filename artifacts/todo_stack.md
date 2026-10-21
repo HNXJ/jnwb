@@ -68,6 +68,7 @@ What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (rul
 | 9 | Light docs: an inline light and dark PNG pair on every demonstration page, no linked figure, and no proof detail | the docs tests for inline figures, linked figures and evidence paths pass; `python scripts/docs_build.py` exits 0 | 16-14, 16-15, 16-17 |
 | 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section | 16-16, 16-12 |
 | 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut | 16-11 |
+| 13 | The core freeze and the surface manifest (goal F1, F2) | Gate 19 lists 28 functions; the surface-manifest test passes | 16-18, 16-19 |
 | 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass finds 0 new blockers | the checkpoint below |
 
 ## Checkpoint 0.2.14
@@ -393,3 +394,17 @@ Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: 16-16.
 Writes: `scripts/docs_form_gate.py`, `docs/documentation_form.md`, `tests/test_documentation_form.py`.
 - 16-17: Docs pages carry validation detail that belongs on the dashboard: receipt paths, calibration tables, per-version evidence. Each such passage becomes one sentence and a link to its dashboard card. Check: the docs form gate fails on an `artifacts/evidence/` or `artifacts/benchmarks/` path in `docs/` outside `references.md`, with a planted case; the word count in `docs/documentation_form.md` drops. Waits: 16-16's cards exist, so the links have targets.
+
+### 16-18 The core freeze (goal F1)
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: none. Blocked by: 14-06.
+Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutants.py`.
+- 16-18: Six functions are frozen; goal F1 (ruled 2026-10-21) freezes 22 more: `compute_psd`, `band_power`, `aggregate_to_db`, `to_db`, `relative_power`, `harmonic_analysis`, `wpli`, `imaginary_coherency`, `cross_area_coherence`, `granger`, `granger_causality`, `bipolar_reference`, `laplacian_reference`, `current_source_density_1d`, `voltage_curvature_1d`, `cluster_permutation_test`, `clopper_pearson`, `mann_whitney_p_floor`, `shuffle_r2_ci`, `fdr_correct`, `label_layers`, `bin_spikes`. Each enters `artifacts/process/frozen_validated.json` with its body hash, the commit it was verified at and the tests that kill a planted change to it; a reviewer that did not write the test runs the mutant. Frozen last in the cycle, after 14-06 adds its estimators beside `granger`. Check: Gate 19 lists 28 functions, and for each a planted body change fails its named tests.
+
+### 16-19 A manifest of the public surface (goal F2)
+
+Release: deferred-0.2.14.
+Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 14-07, 13-04, 16-01, 16-02.
+Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
+- 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
