@@ -22,6 +22,7 @@ question per message; the checkpoint is the 0.2.13 table with 0.2.14 in place of
 | A packet reproduces each bullet on its own tree first; a bullet that does not reproduce is deleted | non-reproduction is a result |
 | The integrator owns the stacks, `CHANGELOG.md`, `docs/api.md` and every commit and push | packets report the disposition and the changelog text |
 | A public signature, an estimand or a skill line goes to Hamm before code, one question per message | public API and skills are Hamm's |
+| Match skills (Hamm 2026-10-21): a packet loads `match-code-style` for code and tests, `match-writing-style` for docs, docstrings, stack text and commit messages, and `match-visual-style` for figures and the dashboard, rendered at final size in light and dark; before each commit `match-checker` (check mode) runs on the changed files and the integrator re-checks every number in its diff | numbers and claims stay fixed while the wording is cut |
 | Wave barrier: `python scripts/harness_gate.py` (count PASS lines), the full suite, commit, push, CI green on `dev` at that SHA | a local pass is not a CI pass |
 
 Item fields: `Release`, `Role`, `Skill`, `Blocked by`, `Writes`, then `Do`, `Accept`, `Stop` as
@@ -45,10 +46,29 @@ elsewhere as `python -m pytest tests/ -q`.
 | 1 | S estimators | 14-07, then 14-06 | Muse | wave-0 rulings |
 | 2 | F facts | 10-10, 11-06, 09-04, 11-07, 12-11, 16-04 to 16-10, 11-09, 12-08 | Muse for 10-10, Haiku for the rest | nothing |
 | 2 | L laminar | 16-03, 15-18, 13-04, 15-22 (a draft to Hamm) | Muse | 13-04's ruling |
-| 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; each stops and reports when neither exists |
+| 2 | X outside code | 12-21 (`E:/repos/jaxfne`), 14-08 (`yihan777/alpha_beta_mechanism`) | Haiku | an excerpt or read access; when neither exists, the item stops and goes to Hamm, never to 0.2.15 |
 | 2 | D docs and dashboard | 16-14, 16-15, 16-17, then 16-16 and 16-12 (ruled 2026-10-21: light docs with inline figures; HTML and proof of work on the dashboard) | Haiku for figures and pages, Muse for the dashboard design | nothing; 16-12 waits on its receipts |
 | 3 | H harness | 12-05 with 15-20, 11-03, 12-07, 09-07, 07-05, then 12-06 | Haiku | 07-22 and wave 2 merged |
 | 4 | Checkpoint 0.2.14 | the 0.2.13 checkpoint, for 0.2.14 | integrator | waves 0 to 3 merged |
+
+## Checklist 0.2.14
+
+What holds when 0.2.14 is released, against the goal in `artifacts/goal.md` (ruled 2026-10-21). Every row ships in 0.2.14; anything raised during the cycle goes to 0.2.15. A row passes when its check passes on `dev`; the checkpoint below starts when every row passes.
+
+| # | Holds at release | Check | Items |
+|---|---|---|---|
+| 1 | The NWB mutation API: the core five, then the execution and cache API, each signature ruled by Hamm before code | `docs/api.md`, `CHANGELOG.md` and the `skills/` routing rows name each symbol; `tests/test_skills_validation.py` passes; each function has a round-trip test on a written file | 07-21, 07-22 |
+| 2 | The four pitfall estimators, `noise_correlation` and `screen_units_against_labels`, as ruled 2026-10-20 | each has a planted-case test that recovers the planted value and one that refuses the documented bad input; each cites its source in `docs/references.md` | 14-06, 14-07, 13-04 |
+| 3 | `create_aligned_dataset`, `create_result`, `create_figure` and `gpu_pca` are gone | the names are absent from `jnwb.__all__` and `docs/api.md`; `CHANGELOG.md` records each removal | 16-01, 16-02 |
+| 4 | Every container `inspect` lists is readable, and the compression, unit-table and addressing edges hold | a test that inspects each fixture and reads every listed container passes | 11-01, 11-02 |
+| 5 | Every fact without a holder gets a scan with a planted case | the harness gate's fact line reports no UNHELD fact naming a 0.2.14 item; each scan fails on its planted case | 16-04 to 16-10, 11-07, 12-11, 10-10, 11-06, 09-04, 11-09, 12-08, 11-03, 12-07 |
+| 6 | The laminar and curation work: the curation-default calibration and fusion agreement that can say `agree` or `disagree` | the receipts are committed under `artifacts/benchmarks/calibration/`; the `jnwb-sim-benchmark` skill is a draft Hamm has ruled on | 16-03, 15-18, 15-22 |
+| 7 | Work that needs outside code lands (ruled 2026-10-21: nothing in this cycle is deferred) | each item is gone from this file | 12-21, 14-08 |
+| 8 | The verification inventory and a pruning constraint ruled by Hamm; process tests pruned under it | `artifacts/evidence/0.2.14/verification_inventory.md` is committed; the suite's runtime and test count before and after are in the commit message | 15-20, 12-05, 09-07, 07-05, 12-06 |
+| 9 | Light docs: an inline light and dark PNG pair on every demonstration page, no linked figure, and no proof detail | the docs tests for inline figures, linked figures and evidence paths pass; `python scripts/docs_build.py` exits 0 | 16-14, 16-15, 16-17 |
+| 10 | The dashboard holds the proof of work and the HTML outputs | `tests/test_build_dashboard.py` builds it from committed files with every card's receipt digest matching; the published page shows the proof-of-work section | 16-16, 16-12 |
+| 11 | Reference claims checked against full text where an abstract decides nothing | each of the 46 claim cells is confirmed, reworded, or cut | 16-11 |
+| 12 | Release form (`AGENTS.md` §11): low-verbosity docs, low-complexity code, an empty open stack, no required item | `match-checker` has run on every commit's changed files; the closure pass finds 0 new blockers | the checkpoint below |
 
 ## Checkpoint 0.2.14
 
@@ -351,14 +371,14 @@ Writes: `scripts/build_dashboard.py`, `artifacts/showcases/openscope_glo.json`, 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `docs/generate_figures.py`, `tests/test_documentation_form.py`, `docs/laminar.md`, `docs/vis.md`, `docs/reading_nwb.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md`, `docs/tutorials/00_your_own_file.md`, `docs/tutorials/01_nwb_basics.md`, `docs/tutorials/02_addressing_and_metadata.md`, `docs/tutorials/08_end_to_end_pipeline.md`, `docs/tutorials/10_wavemap.md`.
-- 16-14: Pages that describe a computation show no figure: `docs/laminar.md`, `docs/vis.md`, `docs/reading_nwb.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md` and tutorials 00, 01, 02, 08 and 10 hold no image (count of 2026-10-21). Each gains one light and dark PNG pair, generated by `docs/generate_figures.py` from synthetic data, embedded with `![alt](...png#only-light)` and its `.dark.png` twin. Reference pages (`api.md`, `glossary.md`, `references.md`, `errors.md`, `install.md`, `recipes.md`, `agents.md`, `documentation_form.md`, `10_operation_specifications.md`) are exempt by a named list. Check: a test that lists every docs page outside the exempt list and fails on one with no inline PNG pair, or on a light PNG without its dark twin; it fails on the 2026-10-21 tree. Waits: nothing.
+- 16-14: Pages that describe a computation show no figure: `docs/laminar.md`, `docs/vis.md`, `docs/reading_nwb.md`, `docs/repairing_nwb.md`, `docs/unit_quality_example.md` and tutorials 00, 01, 02, 08 and 10 hold no image (count of 2026-10-21). Each gains one light and dark PNG pair, generated by `docs/generate_figures.py` from synthetic data, embedded with `![alt](...png#only-light)` and its `.dark.png` twin. Reference pages (`api.md`, `glossary.md`, `references.md`, `errors.md`, `install.md`, `recipes.md`, `agents.md`, `documentation_form.md`, `10_operation_specifications.md`) are exempt by name. Check: a test that lists every docs page outside the exempt list and fails on one with no inline PNG pair, or on a light PNG without its dark twin; it fails on the 2026-10-21 tree. Waits: nothing.
 
 ### 16-15 Figures inline, never linked
 
 Release: deferred-0.2.14.
 Role: jnwb-developer. Skill: none. Blocked by: none.
 Writes: `tests/test_documentation_form.py`, `docs/vis.md`.
-- 16-15: A doc that links to an image or an HTML figure instead of embedding it makes the reader leave the page. Docs embed PNGs; an interactive HTML output (for example `canvas.fig.write_html`, `docs/vis.md:105`) is published on the dashboard, and the doc shows its static PNG with one link to the dashboard page. Check: a test that fails on a markdown link (not an image) whose target ends in `.png`, `.svg` or `.html`, and on any `.html` file under `docs/assets/`; a planted page holding each case. Waits: nothing.
+- 16-15: A doc that links to an image or HTML figure instead of embedding it makes the reader leave the page. Docs embed PNGs; an interactive HTML output (for example `canvas.fig.write_html`, `docs/vis.md:105`) is published on the dashboard, and the doc shows its static PNG with one link to the dashboard page. Check: a test that fails on a markdown link (not an image) whose target ends in `.png`, `.svg` or `.html`, and on any `.html` file under `docs/assets/`; a planted page holding each case. Waits: nothing.
 
 ### 16-16 The dashboard as the proof-of-work record
 

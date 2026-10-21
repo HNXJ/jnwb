@@ -24,3 +24,17 @@ Each goal has one check. A goal with no check is a preference and is recorded as
 | 10 | **Proportionate verification.** Depth follows consequence. Shipped scientific or API behaviour is reviewed by an agent that did not write it, with a mutant shown killed. Documentation and process changes pass the gates and the full suite. The apparatus does not grow: a new gate or process test lands only by replacing one. | Gate 19 and `artifacts/process/frozen_validated.json` for independently verified functions. The apparatus bound has no check yet |
 | 11 | **Execution and precision.** The precision and execution switches are condition 2 of §11. Across them, device and worker count change no number beyond a tolerance the function states, and a path no development machine exercises is declared unverified rather than claimed. | the computational-contract gate in `scripts/harness_gate.py`, which traces every device, backend and `n_jobs` argument to its deciding mechanism and every precision request to being honoured or refused |
 | 12 | **Supported interpreters.** Python 3.12, 3.13 and 3.14. Python 3.15 joins at the 0.2.11 version bump, tested on Ubuntu and excluded on Windows until h5py ships cp315 wheels (ruled 2026-10-11). Every claimed version is exercised in CI; `requires-python`, classifiers, the CI matrix, the install documentation, the README and release material converge on this set. | Gate 8, which reads `README.md` and `docs/install.md` as well (ruled 2026-09-22) |
+
+## 0.2.14
+
+Ruled by Hamm 2026-10-21 (`artifacts/rulings/2026-10-21.md`). 0.2.14 finishes the contracts jnwb already states and freezes what is settled, so later cycles add only by ruling.
+
+| # | Goal | Held by |
+|---|---|---|
+| G1 | **Finish the ruled surface.** The NWB mutation and execution APIs, the four pitfall estimators, `noise_correlation` and `screen_units_against_labels` ship as ruled; the four removals land. Nothing else enters `jnwb.__all__` in 0.2.14 | `tests/test_skills_validation.py`; the `jnwb.__all__` diff against `v0.2.13` names only these symbols |
+| G2 | **Every stated fact is checked.** Each fact in `artifacts/fact_stack.md` has a scan with a planted case | the harness gate's fact line: no UNHELD fact names a 0.2.14 item |
+| G3 | **Light docs, proven on the dashboard.** Docs demonstrate and describe, with inline figures; the dashboard holds the HTML outputs and every validation with its receipt | the inline-figure, linked-figure and evidence-path tests; the dashboard build test |
+| F1 | **Core freeze.** A named set of core functions, settled in body and signature, enters `artifacts/process/frozen_validated.json`, each independently verified with a killing test. After 0.2.14 a change to a frozen body or signature needs a ruling and a new verification | Gate 19 |
+| F2 | **Surface freeze.** After 0.2.14 a new public symbol, module or skill enters only by a ruling that names it | a test that compares `jnwb.__all__`, the module list and `skills/` with a recorded manifest and fails on an unrecorded addition |
+| F3 | **Scope freeze.** The 0.2.14 scope is the checklist in `artifacts/todo_stack.md`, and every item in it ships in 0.2.14; none is deferred. Anything raised during the cycle goes to 0.2.15 in `artifacts/roadmap.md` | `scripts/release_gate.py` STEP 0a |
+| F4 | **Apparatus freeze.** The harness keeps its 22 gates; a new gate or process test lands only by replacing one the 15-20 inventory shows weaker | the gate count in `GATES`, checked against the inventory |
