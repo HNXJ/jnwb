@@ -385,6 +385,6 @@ Writes: `artifacts/process/frozen_validated.json`, `tests/test_frozen_core_mutan
 ### 16-19 A manifest of the public surface (goal F2)
 
 Release: deferred-0.2.14.
-Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 14-07, 13-04, 16-01, 16-02.
+Role: jnwb-developer. Skill: none. Blocked by: 07-21, 07-22, 14-06, 14-07, 13-04.
 Writes: `tests/test_public_surface_manifest.py`, `artifacts/process/public_surface.json`.
 - 16-19: After 0.2.14 a public symbol, module or skill enters only by a ruling that names it (goal F2, ruled 2026-10-21), and nothing records the surface to compare against. Check: a test that compares `jnwb.__all__`, the `jnwb/` module list and `skills/` with the manifest and fails, naming the entry, on an addition or removal the manifest does not record; a planted extra symbol fails it.
